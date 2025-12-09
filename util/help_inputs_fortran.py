@@ -24,7 +24,7 @@ SNANA_DIR = os.environ['SNANA_DIR']
 def get_args():
     parser = argparse.ArgumentParser()
 
-    msg = "name of source code (snana.car snlc_fit.car  psnid.car snlc_sim.c SALT2mu.c"
+    msg = "name of source code (snana.F90 snlc_fit.F90  psnid.F90 snlc_sim.c SALT2mu.c"
     parser.add_argument("code_file", help=msg, nargs="?", default=None)
 
     #msg = "clobber everything and start over"
@@ -48,7 +48,7 @@ def get_args():
 
 def read_code_contents(code_file):
 
-    if '.car' in code_file or '.f' in code_file:
+    if '.car' in code_file or '.f' or '.F90' in code_file:
         lang = LANG_FORTRAN
         comment_char = COMMENT_CHAR_FORTRAN
     elif '.c' in code_file or '.h' in code_file:
@@ -63,6 +63,7 @@ def read_code_contents(code_file):
 
     line_list = []
     nkeep = 0
+    nmod  = 0
     with  open(code_file,"rt") as f:
         for line in f:
             line  = line.rstrip() 

@@ -1709,7 +1709,8 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
 
   // Created Feb 2021
   // read OBS-varlist elements to prepare for reading OBS later.
-
+  //
+  // Nov 25 2025: allow CCDNUM or DETNUM
 
   int  iwd    = *iwd_file;
   int  langC  = LANGFLAG_PARSE_WORDS_C ;
@@ -1758,7 +1759,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"BAND") == 0 || strcmp(varName,"FLT")==0 ) 
       { IVAROBS_SNTEXTIO.BAND = ivar; }
 
-    else if ( strcmp(varName,"DETNUM") == 0 ) 
+    else if ( strcmp(varName,"DETNUM") == 0  || strcmp(varName,"CCDNUM") == 0 ) 
       { IVAROBS_SNTEXTIO.DETNUM = ivar; }  
 
     else if ( strcmp(varName,"IMGNUM") == 0 ) 

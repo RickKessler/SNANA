@@ -1682,7 +1682,6 @@ double psnid_best_modelErr_S11(int TYPEINDX, double Trest) {
 
   if ( ISIA ) {
 
-
     if ( absT < 20.0 ) 
       {  MAGERR  =  0.08 + 0.04*absT/20.0;  }    // Eq. 6
     else 
@@ -4161,13 +4160,19 @@ int psnid_bestType_cuts(int z) {
   //   replace with loops & arrays]
   //
   // Inputs: z = zPrior index
+  //
+  // Nov 19 2025: return specific negative value based on which cut fails; see ITYPE_FAIL_XXX
+
+
+  int ITYPE_FAIL_NONE    = -9;
+  int ITYPE_FAIL_PBAYES  = -8;
+  int ITYPE_FAIL_FITPROB = -7;
+  int ITYPE_FAIL_CHI2RED = -6;
 
   int ITYPE_BEST_PBAYES=-9, ITYPE_BEST_CUTS = -9 ;
   int i, npt, LDMP=0 ;
   double chi2red, chi2, PBAYES, FITPROB, PBAYES_MAX=-1.0;
-  //  char fnam[] = "psnid_bestType_cuts" ;
-
-  // 816 895 are now IA, but were UNKNOWN before
+  char fnam[] = "psnid_bestType_cuts" ;
 
   // --------------- BEGIN -----------------
 
@@ -4187,7 +4192,7 @@ int psnid_bestType_cuts(int z) {
 	   ITYPE_BEST_PBAYES, PBAYES_MAX ); fflush(stdout);
   }
 
-  if ( ITYPE_BEST_PBAYES < 0 ) { return(ITYPE_BEST_PBAYES); }
+  if ( ITYPE_BEST_PBAYES < 0 ) { return(ITYPE_FAIL_NONE); }
 
   // Apply user cuts 
 
@@ -4207,14 +4212,16 @@ int psnid_bestType_cuts(int z) {
     fflush(stdout);
   }
 
+  // return negative value if any cut fails, which means that logical AND of cuts is applied.
+
   if ( PBAYES < PSNID_PBAYES_CUTLIST[ITYPE_BEST_PBAYES] ) 
-    { return(ITYPE_BEST_CUTS); }
+    { return(ITYPE_FAIL_PBAYES); }
 
   if ( FITPROB < PSNID_FITPROB_CUTLIST[ITYPE_BEST_PBAYES] ) 
-    { return(ITYPE_BEST_CUTS); }
+    { return(ITYPE_FAIL_FITPROB); }
 
-  if ( (ITYPE_BEST_PBAYES == PSNID_ITYPE_SNIA) && chi2red > 20.0 ) 
-    { return(ITYPE_BEST_CUTS); }
+  if ( (ITYPE_BEST_PBAYES == PSNID_ITYPE_SNIA) && chi2red > 20.0 )
+    { return(ITYPE_FAIL_CHI2RED); }
 
 
   // if we get here, all cuts pass so return best ITYPE
@@ -4378,15 +4385,16 @@ void psnid_best_store_PBayes(char *CCID, int z, double **evidence, int optdump)
  
   // get best itype with cuts using function (RK, Feb 2017)
   int itype_best = psnid_bestType_cuts(z);
-  
+  PSNID_BEST_RESULTS.FINAL_ITYPE[z] = itype_best ;
+
   if ( itype_best >= 0 ) {
     sprintf(PSNID_BEST_RESULTS.FINAL_TYPE[z],"%s", 
 	    PSNID_TYPE_NAME[itype_best]);
-    PSNID_BEST_RESULTS.FINAL_ITYPE[z] = itype_best ;
+    // xxx mark    PSNID_BEST_RESULTS.FINAL_ITYPE[z] = itype_best ;
   }
   else {
     sprintf(PSNID_BEST_RESULTS.FINAL_TYPE[z],"UNKNOWN");
-    PSNID_BEST_RESULTS.FINAL_ITYPE[z] = -9;
+    // xxx mark PSNID_BEST_RESULTS.FINAL_ITYPE[z] = -9;
   }
 
 
@@ -5683,10 +5691,10 @@ void PSNID_BEST_INIT(void) {
   PSNID_FITPROB_CUTLIST[PSNID_ITYPE_SNIBC]  = PSNID_INPUTS.FITPROB_IBC_CUT;
   PSNID_FITPROB_CUTLIST[PSNID_ITYPE_SNII]   = PSNID_INPUTS.FITPROB_II_CUT;
   PSNID_FITPROB_CUTLIST[PSNID_ITYPE_PEC1A]  = PSNID_INPUTS.FITPROB_PEC1A_CUT;
-  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL1] = PSNID_INPUTS.FITPROB_MODEL1_CUT;
-  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL2] = PSNID_INPUTS.FITPROB_MODEL2_CUT;
-  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL3] = PSNID_INPUTS.FITPROB_MODEL3_CUT;
-  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL4] = PSNID_INPUTS.FITPROB_MODEL4_CUT;
+  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL1] = PSNID_INPUTS.FITPROB_MODEL1_CUT; // spare 1
+  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL2] = PSNID_INPUTS.FITPROB_MODEL2_CUT; // spare 2
+  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL3] = PSNID_INPUTS.FITPROB_MODEL3_CUT; // spare 3
+  PSNID_FITPROB_CUTLIST[PSNID_ITYPE_MODEL4] = PSNID_INPUTS.FITPROB_MODEL4_CUT; // spare 4
 
   PSNID_PBAYES_CUTLIST[PSNID_ITYPE_SNIA]   = PSNID_INPUTS.PBAYES_IA_CUT;
   PSNID_PBAYES_CUTLIST[PSNID_ITYPE_SNIBC]  = PSNID_INPUTS.PBAYES_IBC_CUT;

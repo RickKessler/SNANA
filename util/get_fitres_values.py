@@ -33,15 +33,12 @@
 #
 # Jun 17 2025: refactor selection of CID list to avoid strange crash
 # Sep 29 2025: remove legacy code for not REFAC_SELECT_CID_LIST
+# Dec 01 2025: in print_info(), sort df by user cid list and user var list
 
 import os, sys, argparse, gzip, math
 import numpy as np
 import pandas as pd
 
-try:  
-    import plotext as plt
-except ImportError:
-    pass
 
 KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
 
@@ -82,9 +79,6 @@ def get_args():
           "(e.g, eazy*10 -> split into 10 files)"
     parser.add_argument("--reformat", help=msg, type=str, default=None)
 
-    msg = "type of plot. Options include hist (histogram of each variable), and scatter (scatter plot, must specify 2 variables)"
-    parser.add_argument("--plot", help=msg, type=str, default=None)
-
     msg = "name of output table in fitres format"
     parser.add_argument("-o", "--outfile", help=msg, type=str, default=None)
 
@@ -123,17 +117,15 @@ def parse_inputs(args):
                      (args.nrow > 0)
 
     exist_func = args.func is not None
-    exist_plot = args.plot is not None
     msgerr_cid     = "If --func or --plot are not defined, must get cid list using --cid, --nrow, or --sel arg"
 
     exist_var_list = args.varname is not None or args.reformat is not None
     msgerr_var     = "Must specify varnames using -v arg"
-
     
     assert exist_ff,       msgerr_ff
     assert exist_var_list, msgerr_var
 
-    exist_tmp = exist_cid_list or exist_func or exist_plot or args.reformat
+    exist_tmp = exist_cid_list or exist_func or args.reformat
     assert exist_tmp, msgerr_cid
 
     if exist_func:
@@ -146,15 +138,6 @@ def parse_inputs(args):
         var_list   = args.varname.split(",")
     else:
         var_list = []
-
-    if exist_plot:
-        # Check plot is hist or scatter 
-        correct_plot = args.plot in ['hist', 'scatter']
-        msgerr_plot = f"--plot must be either hist or scatter, not {args.plot}"
-        assert correct_plot, msgerr_plot
-
-        if args.plot == 'scatter':
-            assert len(var_list) == 2, f"Only 2 variables can be defined when creating a scatter plot, not {len(var_list)}"
 
     
     id_list    = []
@@ -195,7 +178,6 @@ def parse_inputs(args):
         'var_list'    : var_list,
         'keyname_id'  : keyname_id,
         'func_list'   : func_list,
-        'plot'        : args.plot,
         'sel_list'    : sel_list
     }
     return info_fitres
@@ -299,13 +281,11 @@ def print_info(info_fitres):
     var_list     = info_fitres['var_list']
     keyname_id   = info_fitres['keyname_id']
     func_list    = info_fitres['func_list']
-    plot         = info_fitres['plot']
     sel_list     = info_fitres['sel_list']
     outfile      = info_fitres['outfile']
 
     pd.set_option("display.max_columns", len(df.columns) + 1, 
                   "display.width", 1000)
-
 
     # check option to use IDs from first 'nrow' rows
     if nrow > 0 :
@@ -336,9 +316,17 @@ def print_info(info_fitres):
     
         df = df.loc[ df[keyname_id].isin(id_list) ]
 
-        print(df.to_string(index=False))        
+        # sort df by user list of cids:
+        df_copy = df.copy()
+        df_copy[keyname_id] = pd.Categorical( df_copy[keyname_id], categories=id_list, ordered=True)
+        df_sorted = df_copy.sort_values(keyname_id)
+
+        # sort variables in user order:
+        df_sorted = df_sorted[ [keyname_id] + var_list]
+
+        print(df_sorted.to_string(index=False))        
         if outfile is not None:
-            write_outfile_fitres(df, info_fitres)
+            write_outfile_fitres(df_sorted, info_fitres)
     else:
         df = df.loc[df[keyname_id].to_list(), var_list]
 
@@ -349,26 +337,6 @@ def print_info(info_fitres):
             print("\n",df.min().to_frame('Min'),"\n")
         if func == 'max':
             print("\n",df.max().to_frame('Max'),"\n")
-
-    # warning: this plotter may be obsolete later ...
-    if plot == "hist":
-        for var in var_list:
-            data = df[var]
-            q1 = data.quantile(0.25)
-            q3 = data.quantile(0.75)
-            iqr = q3 - q1
-            bin_width = (2 * iqr) / (len(data) ** (1 / 3))
-            bin_count = int(np.ceil((data.max() - data.min()) / bin_width))
-            plt.hist(df[var].to_list(), bins=bin_count, label=var)
-        plt.show()
-
-    if plot == "scatter":
-        x = df[var_list[0]].to_list()
-        y = df[var_list[1]].to_list()
-        plt.scatter(x, y)
-        plt.xlabel(var_list[0])
-        plt.ylabel(var_list[1])
-        plt.show()
 
     # end print_info
 
@@ -389,7 +357,6 @@ def write_outfile_fitres(df,info_fitres):
         f.write(f"# This table created by command \n# {user_command}\n#\n")
         f.write(f"VARNAMES: {varnames_string}\n")
 
-        #f.write(df.to_string(index=False))
         for index, row in df.iterrows():
             row_values = ""
             for i in range(0,nvar):

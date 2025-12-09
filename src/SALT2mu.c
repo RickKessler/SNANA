@@ -1692,9 +1692,6 @@ void  dump_DMUPDF_CCprior_legacy(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) ;
 double prob_CCprior_sim_legacy(int OPT, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
 			       double z, double dmu, int DUMPFLAG, char *callFun);
 
-//void    setup_MUZMAP_DMUPDF_CCPRIOR_REFAC1(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR_CUTS, MUZMAP_DEF *MUZMAP, 
-//				    PROB_CCPRIOR_DEF *PROB, bool PRINT_TABLE );
-
 void   setup_zbins_CCprior_legacy (TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) ;
 
 void   setup_MUZMAP_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
@@ -3168,7 +3165,9 @@ void applyCut_chi2max(void) {
   // Jun 08 2025; if CUTWIN NONE is specified, skip this cut;
   //              avoids need to set chi2max=1e9 for systematics
   //              For cutwin_only, restore events cut by valid bcor requirement.
-
+  //
+  // Dec 5 2025: print SURVEY and FIELD for each rejected event; and increment stats per IDSAMPLE
+  //
   int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  iflag_chi2max  = INPUTS.iflag_chi2max ;
   int  IFLAG_APPLY    = DOFLAG_SELECT_APPLY ;
@@ -3185,11 +3184,11 @@ void applyCut_chi2max(void) {
   bool DOCUT_GLOBAL  = (iflag_chi2max & IFLAG_GLOBAL ) > 0 ;
 
   double chi2max ;
-  int len, icondn, n, cutmask, idsurvey, NREJ=0 ;
+  int len, icondn, n, cutmask, idsample, idsurvey, NREJ=0, n_fail[MXNUM_SAMPLE] ;
   const int null=0 ;
   double chi2;
-  bool FAILCUT;
-  char mcom[60], *name ;
+  bool FAILCUT ;
+  char mcom[60], *name, *survey, *field ;
   char fnam[] = "applyCut_chi2max" ;
 
   // ----------- BEGIN ------------
@@ -3239,6 +3238,8 @@ void applyCut_chi2max(void) {
   } // end DO_H0marg
 
 
+  for(idsample=0; idsample < MXNUM_SAMPLE; idsample++ ) { n_fail[idsample] = 0; }
+
   // - - - - - -
   // check chi2 for each event and apply cut
   for (n=0; n< NSN_DATA; ++n)  {
@@ -3248,6 +3249,10 @@ void applyCut_chi2max(void) {
     chi2     = INFO_DATA.chi2[n];
     name     = INFO_DATA.TABLEVAR.name[n];
     idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[n];
+    idsample = INFO_DATA.TABLEVAR.IDSAMPLE[n];
+
+    field    = INFO_DATA.TABLEVAR.field[n];   
+    survey   = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
 
     if ( DOCUT_GLOBAL ) 
       { chi2max = INPUTS.chi2max ; }
@@ -3264,10 +3269,11 @@ void applyCut_chi2max(void) {
     FAILCUT = ( chi2 > chi2max );
     if ( FAILCUT ) {
       char str_chi2[40];
-      sprintf(str_chi2, "Chi2(%s) = %.2f", name, chi2);
+      sprintf(str_chi2, "Chi2(%s) = %.2f  ", name, chi2 );
+      if ( idsample >= 0 ) { n_fail[idsample]++ ; }
 
       if ( DOCUT_APPLY )  { 
-	fprintf(FP_STDOUT, "\t %s -> reject \n", str_chi2);
+	fprintf(FP_STDOUT, "\t %s -> reject   (%s/%s) \n", str_chi2, survey, field);
 	setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);
 	NREJ++ ;
       }
@@ -3280,7 +3286,21 @@ void applyCut_chi2max(void) {
     
   } // end n loop over SN
 
-  fprintf(FP_STDOUT, "\t chi2max cut rejects %d events \n", NREJ);
+
+  fprintf(FP_STDOUT, "   chi2max rejects TOTAL: %d events \n", NREJ);
+  
+  // Dec 2025: write chi2max reject by IDSAMPLE
+  char string_idsample_reject[400], string_tmp[80];  int n_f;
+  string_idsample_reject[0] = 0;
+  for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
+    n_f = n_fail[idsample];
+    name = SAMPLE_BIASCOR[idsample].NAME;
+    if ( n_f > 0 ) {
+      fprintf(FP_STDOUT, "   chi2max rejects for IDSAMPLE=%d(%s): %d events \n",
+	      idsample, name, n_f);
+    }
+  }
+  fflush(FP_STDOUT);
 
   if ( INPUTS.cutwin_only ) {
     int n_unset = 0;
@@ -3893,6 +3913,7 @@ int prepNextFit(void) {
   // check reasons to stop all fitting
 
   if ( INPUTS.fitflag_sigmb == 0 && !USE_CCPRIOR  )  { 
+    fprintf(FP_STDOUT,"\n WARNING: fitflag_sigmb =0 --> no fit iterations varying sigint\n\n");
     return(FITFLAG_DONE); 
   }   // fix sigint --> no more fits
 
@@ -5794,7 +5815,7 @@ void set_defaults(void) {
   INPUTS.zwin_vpec_check[0] = 0.01 ;  // Oct 28 2020
   INPUTS.zwin_vpec_check[1] = 0.05 ; 
 
-  INPUTS.fitflag_sigmb       = 0;     // option to repeat fit until chi2/dof=1
+  INPUTS.fitflag_sigmb       = 0;     // >0 -> option to repeat fit until chi2/dof=1
   INPUTS.redchi2_tol         = 0.02;  // tolerance on chi2.dof
   INPUTS.sigint_step1        = 0.01 ; // size of 1st sigint step 
   INPUTS.dchi2red_dsigint    = 0.0 ;
@@ -5911,9 +5932,7 @@ void init_CUTMASK(void) {
     }
   }
 
-  for(bit=0; bit < MXNUM_SAMPLE; bit++ ) {
-    NREJECT_BIASCOR_BYSAMPLE[bit] = 0;
-  }
+  for(bit=0; bit < MXNUM_SAMPLE; bit++ ) { NREJECT_BIASCOR_BYSAMPLE[bit] = 0;  }
 
 
   sprintf(CUTSTRING_LIST[CUTBIT_z],         "z"  );
@@ -19029,7 +19048,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
   }
   fflush(stdout);
 
-  SNTABLE_AUTOSTORE_RESET(); // Oct 27 2025 .xyz
+  SNTABLE_AUTOSTORE_RESET(); // Oct 27 2025 
 
   return ;
 
@@ -23247,9 +23266,9 @@ void write_NWARN(FILE *fp, int FLAG) {
   char *NAME, str_warn[40] ;
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
     NPASS = NPASS_CUTMASK_BYSAMPLE[EVENT_TYPE_DATA][idsample];
-    NREJ = NREJECT_BIASCOR_BYSAMPLE[idsample];
-    NTOT = NPASS + NREJ;
-    NAME = SAMPLE_BIASCOR[idsample].NAME ;
+    NREJ  = NREJECT_BIASCOR_BYSAMPLE[idsample];
+    NTOT  = NPASS + NREJ;
+    NAME  = SAMPLE_BIASCOR[idsample].NAME ;
     if ( NTOT > 0 ) { frac = (double)NREJ / (double)NTOT; }  else { frac = 0.0 ; }
     frac_percent = 100.0*frac;
     
@@ -24552,10 +24571,10 @@ void print_SALT2mu_HELP(void) {
     "",
     "model_lcfit=SALT2 (default) or BAYESN",
     "",
-    "nmax=100                 # fit first 100 events only",
-    "nmax=70(SDSS),200(PS1MD) # fit 70 SDSS and 200 PS1MD",
-    "nmax=300,200(PS1MD)      # fit 300 total, with 200 in PS1MD sub-sample",
-    "nmax=300,100(DEEP)       # fit 300 total, with 100 in DEEP field",
+    "nmax=100                 # select first 100 events only",
+    "nmax=70(SDSS),200(PS1MD) # select 70 SDSS and 200 PS1MD",
+    "nmax=300,200(PS1MD)      # select 300 total, with 200 in PS1MD sub-sample",
+    "nmax=300,100(DEEP)       # select 300 total, with 100 in DEEP field",
     "     # note that nmax can operate on SURVEY and/or FIELD name",
     "",
     "cid_select_file=<file with CID accept-only list>",
@@ -24893,8 +24912,12 @@ void print_SALT2mu_HELP(void) {
     { printf ("%s\n", help[i]); }
 
 
-  printf("\n Hit any key to exit: ");
-  getchar();
+  bool WAIT_TO_EXIT = false;
+
+  if ( WAIT_TO_EXIT ) {
+    printf("\n Hit any key to exit: ");
+    getchar();
+  }
 
   return;
 

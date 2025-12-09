@@ -336,7 +336,7 @@ class Simulation(Program):
         verbose          = (not merge_flag)
 
         for iver in range(0,n_genversion) :
-            GENV         = GENVERSION_LIST[iver]
+            GENV           = GENVERSION_LIST[iver]
             GENVERSION     = GENV['GENVERSION']
             n_file         = len(infile_list2d[iver])
 

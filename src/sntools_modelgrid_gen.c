@@ -35,6 +35,7 @@
 
      HISTORY
 
+ Nov 20 2025: set INPUTS.NON1ASED.MAGSMEAR[i][0] = 0.0 (disable NON1A scatter)
 
 *********************************/
 
@@ -461,6 +462,8 @@ void init1_GRIDsource(void) {
 
       sprintf(SNGRID_WRITE.NON1A_CTYPE[i], "%s", 
 	      INPUTS.NON1ASED.LIST_TYPE[i2] );
+
+      INPUTS.NON1ASED.MAGSMEAR[i][0] = 0.0 ; // disable mag smear Nov 2025
 
       SNGRID_WRITE.NON1A_WGT[i]        = INPUTS.NON1ASED.WGT[i] ;
       SNGRID_WRITE.NON1A_MAGOFF[i]     = INPUTS.NON1ASED.MAGOFF[i] ;

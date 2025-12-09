@@ -1450,8 +1450,8 @@ class cosmofit(Program):
         lines_list.append(f"#   {varnames_w.replace('FoM ','')} {varnames_om}:  " \
                           f"best fit cosmology params and uncertainties." )
         if use_wa:
-            lines_list.append(f"#   FoM:     DETF Figure of merit = 1/area(w0wa) ")
-            
+            lines_list.append(f"#   FoM:      DETF Figure of merit = 1/area(w0wa) ")
+            lines_list.append(f"#   rho_w0wa: reduced cov for w0 and wa")
         lines_list.append(f"#   chi2:    " \
                           f"chi2 for cosmolofy fit.")
         lines_list.append(f"#   ndof:    " \

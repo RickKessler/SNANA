@@ -317,16 +317,32 @@ def separate_label_from_arg(input_arg_string):
     #   arg_string = x1min=-2.0 nzbin=20
     #
     #  If there is no label, return label = None
+    #
+    # Dec 2025: fix to allow pad space between slashes
 
     # init output for no label
     label = None ;   arg_string = input_arg_string
     
     if len(input_arg_string) > 0 :
-        word_list = input_arg_string.split()
-        has_label = word_list[0][0] == '/'
+
+        # if first char is slash, replace first two '/' with padded slash ' / ' ;
+        # Be careful not to modify slashes in path argument
+        if input_arg_string[0] == '/' :
+            arg_string = input_arg_string.replace('/', ' / ', 2)
+        else:
+            arg_string = input_arg_string  # no label
+
+        word_list  = arg_string.split()
+        has_label  = '/' in arg_string
+
         if has_label :
-            label        = word_list[0].strip('/') 
-            arg_string   = " ".join(word_list[1:])
+            correct_syntax = word_list[0] == '/' and word_list[2] == '/'
+            if not correct_syntax :
+                sys.exit(f"\n SYNTAX ERROR with label for \n\t {input_arg_string}\n" \
+                         "\t Note that label must be a single string with no blank spaces.")
+
+            label        = word_list[1]
+            arg_string   = " ".join(word_list[3:])
             arg_string   = protect_parentheses(arg_string)
 
     return label, arg_string

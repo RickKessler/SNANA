@@ -114,8 +114,8 @@ class create_covmat(Program):
             version_subset = []
 
         bbc_outdir_dict = \
-            util.prep_jobopt_list(bbc_outdir_rows, KEY_BBC_OUTDIR, 0, None)
-        
+            util.prep_jobopt_list(bbc_outdir_rows, KEY_BBC_OUTDIR, 0, None)    
+
         # abort if any label is None
         util.require_jobopt_labels(bbc_outdir_dict)
 
@@ -132,7 +132,7 @@ class create_covmat(Program):
         for outdir in bbc_rawdir_list:
             outdir = os.path.expandvars(outdir)
             bbc_outdir_list.append(outdir)
-            merge_log = f"{outdir}/{MERGE_LOG_FILE}"            
+            merge_log = f"{outdir}/{MERGE_LOG_FILE}" 
             merge_yaml, comment_lines = util.read_merge_file(merge_log) 
             
             bbc_subdir_list = []

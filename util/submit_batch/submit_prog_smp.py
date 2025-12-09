@@ -27,13 +27,18 @@ COLNUM_SMP_MERGE_STATE           = 0  # STATE required in col=0
 COLNUM_SMP_MERGE_FILTER          = 1
 COLNUM_SMP_MERGE_FITOPT          = 2
 COLNUM_SMP_MERGE_ISPLIT          = 3
-COLNUM_SMP_MERGE_NDET            = 4  # number of detectors (not detections)
+COLNUM_SMP_MERGE_NSCA            = 4  # number of SCA detectors (not detections)
 COLNUM_SMP_MERGE_NLC             = 5  # number of light curves
 COLNUM_SMP_MERGE_NOBS            = 6  # number of observations for which flux is determined
 COLNUM_SMP_MERGE_CPU             = 7
 
+
+SINGLE_SNID_PER_JOB = True
+MULTI_SNID_PER_JOB  = not SINGLE_SNID_PER_JOB
+
 STRING_SUBSET_HEALPIX = "HEALPIX"
 STRING_SUBSET_SNID    = "SNID"
+
 KEY_SUBSET_LIST       = [ f'{STRING_SUBSET_HEALPIX}_LIST_FILE',
                           f'{STRING_SUBSET_SNID}_LIST_FILE' ]
 
@@ -75,9 +80,11 @@ class SceneModelPhotometry(Program):
         self.prep_cmp_copy_files()
         
         # load misc globals used by base program
-        n_filter = self.config_prep['n_filter']
-        n_fitopt = self.config_prep['fitopt_dict']['n_jobopt']
-        n_job_tot = n_fitopt * n_filter
+        n_filter    = self.config_prep['n_filter']
+        n_fitopt    = self.config_prep['fitopt_dict']['n_jobopt']
+        n_job_split = self.config_prep['n_job_split']   
+        n_job_tot = n_fitopt * n_filter * n_job_split
+        
         self.config_prep['n_job_tot']   = n_job_tot
         self.config_prep['n_done_tot']  = n_job_tot
         
@@ -181,17 +188,7 @@ class SceneModelPhotometry(Program):
         n_core_orig   = self.config_prep['n_core']
 
         logging.info('')
-        logging.info(' Compute subsets to split jobs:')
         
-        n_subset    = int(n_core_orig/(n_fitopt*n_filter))  # number of SPLIT subsets
-        if n_subset < 1: n_subset = 1
-        n_job_split   = n_subset
-        
-        # revise n_core
-        n_job_tot =  n_subset * n_fitopt * n_filter
-        n_core_final = min(n_job_tot,n_core_orig)
-        self.config_prep['n_core'] = n_core_final
-
         # - - - - - - -
         # determine if subsets are based on healpix or snid
         key_list_file = None
@@ -212,12 +209,6 @@ class SceneModelPhotometry(Program):
         self.config_prep['subset_var']    = subset_var
         self.config_prep['key_list_file'] = key_list_file
 
-        # - - - - - - - -
-        logging.info(f"   Calculated number of {subset_var} subsets: {n_subset}")
-        logging.info(f"   n_job_tot = {n_job_tot} = {n_filter }(FILTER) x {n_fitopt}(FITOPT) x " \
-                     f"{n_subset}({subset_var} SUBSETS)")
-        logging.info(f"   Final n_core =  {n_core_final}")
-
         # - - - - - - - - - - -
         # read list file
         with open(list_file,"rt") as h:
@@ -227,22 +218,54 @@ class SceneModelPhotometry(Program):
         contents         = yaml.safe_load("\n".join(lines))
         nside            = contents.setdefault('NSIDE',None) # only for healpix
         global_item_list = contents[subset_var]
-        n_global_item    = len(global_item_list)
+        n_global_item    = len(global_item_list)        
         logging.info(f"   Found {n_global_item} total {subset_var}s to process in {list_file}")
+
+        # - - - - -
         
-        # split global_item_list into n_job_split sub-lists
-        # (welcome AI overlords for figuring this out)
-        split_list = [list(arr) for arr in \
+        logging.info('')
+        logging.info(' Compute subsets to split jobs:')
+
+        if SINGLE_SNID_PER_JOB :
+            # allow one and only 1 SNID per task
+            n_subset = n_global_item
+        else:
+            # multi-SNID per job
+            n_subset    = int(n_core_orig/(n_fitopt*n_filter))  # number of SPLIT subsets
+            if n_subset < 1: n_subset = 1
+        # - - - -
+        n_job_split   = n_subset
+        
+        # revise n_core
+        n_job_tot =  n_subset * n_fitopt * n_filter
+        n_core_final = min(n_job_tot,n_core_orig)
+        self.config_prep['n_core'] = n_core_final
+
+
+        # - - - - - - - -
+        logging.info(f"   Calculated number of {subset_var} subsets: {n_subset}")
+        logging.info(f"   n_job_tot = {n_job_tot} = {n_filter}(FILTER) x {n_fitopt}(FITOPT) x " \
+                     f"{n_subset}({subset_var} SUBSETS)")
+        logging.info(f"   Final n_core =  {n_core_final}")
+        
+        #sys.exit(f"\n xxx global_item_list = \n{global_item_list}\n xxx split_list = \n{split_list}")
+        
+        # construct separate list file for each task/list
+        if MULTI_SNID_PER_JOB:
+            # split global_item_list into n_job_split sub-lists
+            # (we welcome AI overlords for figuring this out)
+            split_list = [list(arr) for arr in \
                       np.array_split(np.array(global_item_list), n_job_split)]
 
-        # construct separate healpix list file for each task/list
-        item_file_list = []
-        for i_split, item_list in enumerate(split_list):
-            item_file = self.write_item_sublist(i_split, item_list, nside )
-            item_file_list.append(item_file)
-            
+            item_file_list = []
+            for i_split, item_list in enumerate(split_list):
+                item_file = self.write_item_sublist(i_split, item_list, nside )
+                item_file_list.append(item_file)
+            self.config_prep['item_file_list']    = item_file_list
+
+        # - - - - -
         self.config_prep['n_job_split']       = n_job_split
-        self.config_prep['item_file_list']    = item_file_list
+        self.config_prep['global_item_list']  = global_item_list
         return
         # end prep_smp_subsets
 
@@ -341,7 +364,6 @@ class SceneModelPhotometry(Program):
         program             = self.config_prep['program']
         output_dir          = self.config_prep['output_dir']
         fitopt_dict         = self.config_prep['fitopt_dict']
-        item_file_list      = self.config_prep['item_file_list']
         output_dir_smp_list = self.config_prep['output_dir_smp_list']
         filt                = self.config_prep['filter_list'][ifilt]
         subset_var          = self.config_prep['subset_var']  # HEALPIX or SNID
@@ -351,7 +373,6 @@ class SceneModelPhotometry(Program):
         fitopt_arg     = fitopt_dict['jobopt_arg_list'][iopt]
         fitopt_label   = fitopt_dict['jobopt_label_list'][iopt]
         output_dir_smp = output_dir_smp_list[iopt]
-        item_file      = item_file_list[isplit]
 
         if fitopt_label is None:
             fitopt_label = 'NOLABEL'
@@ -374,16 +395,23 @@ class SceneModelPhotometry(Program):
 
         arg_list.append(f"--filter {filt}") 
 
-        # xxx restore ... arg_list.append(f"--outfile_yaml {yaml_file}")
+        arg_list.append(f"--outfile_yaml {yaml_file}")
 
         arg_list.append(f"--photometry-campari-paths-output_dir {output_dir_smp}")
         
         # specify file with healpix or snid subset
-        if subset_var == STRING_SUBSET_HEALPIX:
-            arg_list.append(f"--healpix_file {item_file}")
-        elif subset_var == STRING_SUBSET_SNID:
-            arg_list.append(f"--SNID_file {item_file}")
-            #arg_list.append(f"--snid_file {item_file}")
+        if MULTI_SNID_PER_JOB:
+            item_file_list = self.config_prep.setdefault('item_file_list',None)
+            item_file      = item_file_list[isplit]
+            if subset_var == STRING_SUBSET_HEALPIX:
+                arg_list.append(f"--healpix_file {item_file}")
+            elif subset_var == STRING_SUBSET_SNID:
+                arg_list.append(f"--SNID_file {item_file}")
+        else:
+            # single task per job -> pass SNID instead of file with list of SNIDs .xyz
+            global_item_list = self.config_prep['global_item_list']
+            snid = global_item_list[isplit]
+            arg_list.append(f"--SNID  {snid}")
 
         if args.fast:
             arg_list.append(f"--fast_debug")
@@ -400,7 +428,17 @@ class SceneModelPhotometry(Program):
 	# end prep_JOB_INFO_smp        
 
     def smp_prefix(self, filt, fitopt_num, isplit):
-        prefix = f"SMP-{filt}_{fitopt_num}_SPLIT{isplit:03d}"
+
+        global_item_list = self.config_prep['global_item_list']
+
+        if MULTI_SNID_PER_JOB :
+            prefix = f"SMP-{filt}_{fitopt_num}_SPLIT{isplit:03d}"
+        else:
+            # for single SNID per job, use SNID in prefix instead of meaningless SPLIT[nnn]
+            snid = global_item_list[isplit]
+            #prefix = f"SMP-{snid}_{filt}_{fitopt_num}_SPLIT{isplit:03d}"
+            prefix = f"SMP-{snid}_{filt}_{fitopt_num}"    
+            
         return prefix
     
     # ========== MERGE STUFF =============
@@ -425,11 +463,12 @@ class SceneModelPhotometry(Program):
         f.write("\n")
 
 
-        subset_var     = self.config_prep['subset_var']
-        item_file_list = self.config_prep['item_file_list']
-        f.write(f"\n{subset_var}_FILE_LIST: \n")
-        for item_file in item_file_list:
-            f.write(f"  - {item_file}\n")
+        if MULTI_SNID_PER_JOB:
+            subset_var     = self.config_prep['subset_var']
+            item_file_list = self.config_prep['item_file_list']
+            f.write(f"\n{subset_var}_FILE_LIST: \n")
+            for item_file in item_file_list:
+                f.write(f"  - {item_file}\n")
             
         return
     # end append_info_file
@@ -446,7 +485,7 @@ class SceneModelPhotometry(Program):
         n_fitopt          = fitopt_dict['n_jobopt']
         fitopt_num_list   = fitopt_dict['jobopt_num_list']  # e.g., "FITOPT001"    
 
-        header_line = " STATE  FILTER  FITOPT  ISPLIT  NDET  NLC  NOBS   CPU "
+        header_line = " STATE  FILTER  FITOPT  ISPLIT  NSCA  NLC  NOBS   CPU "
         MERGE_INFO = { 
             'primary_key' : TABLE_MERGE, 
             'header_line' : header_line,
@@ -475,10 +514,10 @@ class SceneModelPhotometry(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
 
-        #header_line = " STATE   FITOPT  ISPLIT  NDET  NLC  NOBS   CPU "        
+        #header_line = " STATE   FITOPT  ISPLIT  NSCA  NLC  NOBS   CPU "        
 
-        key_ndet, key_ndet_sum, key_ndet_list = \
-                self.keynames_for_job_stats('NDET')
+        key_nsca, key_nsca_sum, key_nsca_list = \
+                self.keynames_for_job_stats('NSCA')
         key_nlc, key_nlc_sum, key_nlc_list = \
                 self.keynames_for_job_stats('NLC')
         key_nobs, key_nobs_sum, key_nobs_list = \
@@ -486,7 +525,7 @@ class SceneModelPhotometry(Program):
         key_cpu, key_cpu_sum, key_cpu_list = \
                 self.keynames_for_job_stats('CPU_MINUTES')
 
-        key_list = [ key_ndet, key_nlc, key_nobs, key_cpu ]
+        key_list = [ key_nsca, key_nlc, key_nobs, key_cpu ]
         row_list_merge   = MERGE_INFO_CONTENTS[TABLE_MERGE]
 
         # init outputs of function                  
@@ -534,7 +573,7 @@ class SceneModelPhotometry(Program):
                     if nfail > 0 :  NEW_STATE = SUBMIT_STATE_FAIL
 
                     row[COLNUM_SMP_MERGE_STATE]     = NEW_STATE
-                    row[COLNUM_SMP_MERGE_NDET]      = fit_stats[key_ndet_sum]
+                    row[COLNUM_SMP_MERGE_NSCA]      = fit_stats[key_nsca_sum]
                     row[COLNUM_SMP_MERGE_NLC]       = fit_stats[key_nlc_sum]
                     row[COLNUM_SMP_MERGE_NOBS]      = fit_stats[key_nobs_sum]  
                     row[COLNUM_SMP_MERGE_CPU]       = fit_stats[key_cpu_sum]

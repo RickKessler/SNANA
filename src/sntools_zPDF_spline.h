@@ -3,7 +3,7 @@
 //    Adequate GSL version available only on Perlmutter;
 //    not on FNAL or RCC.
 
-#define GSL_INTERP_STEFFENxxx         
+#define GSL_INTERP_STEFFENxxx          
 #define METHOD_SPLINE_LINEAR "LINEAR"
 #define	METHOD_SPLINE_CUBIC "CUBIC"
 #define	METHOD_SPLINE_STEFFEN "STEFFEN"

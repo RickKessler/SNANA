@@ -22,6 +22,11 @@
 # Sep 11 2025: fix args_prep_DIFF() to capitalize args.OPT so that
 #              lower case diff_cid works same as DIFF_CID
 # Sep 18 2025: finally get @@WGTVAR working with HIST mode
+# Nov 20 2025: add p4 and p5 option for @@FIT
+# Dec 02 2025: for @@OPT CID_DIFF, print id list in comma-sep string format to cut-and-paste
+#              into quick_commands for things like FITS->TEXT translation
+#
+# Dec 08 2025: add OPT_SIG_NMAD and new @@OUTLIER_RANGE
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -75,6 +80,7 @@ OPT_NEVT      = "NEVT"      # append N={nevt} to legend
 OPT_AVG       = "AVG"       # 1D->append avg to legend; 2D->overlay avg in x-bins
 OPT_MEAN      = "MEAN"      # same as AVG
 OPT_STDDEV    = "STDDEV"    # append stddev to legend
+OPT_SIG_NMAD  = "SIG_NMAD"  # sigma(Normaized Median Absolute Deviation) = 1.4826 * sig_MAD
 OPT_OV        = "OV"        # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1;
 OPT_OVCHI2    = "OVCHI2"    # exec OPT_OV and also print CHI2/dof on plot
 OPT_CHI2      = "CHI2"      # legacy option; same as OVCHI2
@@ -92,7 +98,7 @@ OPT_DIFF_ALL  = "DIFF_ALL"   # 2 files and 2D: plot y-axis diff between means
 OPT_RATIO     = "RATIO"      # 1D: plot ratio between 2 files or 2 cuts
 
 VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
-                   OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_OV, OPT_OVCHI2, OPT_CHI2,
+                   OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_SIG_NMAD, OPT_OV, OPT_OVCHI2, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
                    OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID, OPT_LIST_ROW,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
@@ -128,7 +134,10 @@ FITFUN_P0    = [ 'P0' ]
 FITFUN_P1    = [ 'P1' ]
 FITFUN_P2    = [ 'P2' ]
 FITFUN_P3    = [ 'P3' ]
-FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, FITFUN_P0, FITFUN_P1, FITFUN_P2, FITFUN_P3 ]
+FITFUN_P4    = [ 'P4' ]
+FITFUN_P5    = [ 'P5' ]
+FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP, 
+                 FITFUN_P0, FITFUN_P1, FITFUN_P2, FITFUN_P3, FITFUN_P4, FITFUN_P5 ]
 
 
 # list possible VARNAME to identify row
@@ -154,10 +163,12 @@ HIST_LINE_ARGS = [
 ]
 
 
-STAT_NAME_N       = 'N'
-STAT_NAME_AVG     = 'avg'
-STAT_NAME_MEDIAN  = 'median'
-STAT_NAME_STDDEV  = 'stddev'
+STAT_NAME_N         = 'N'
+STAT_NAME_AVG       = 'avg'
+STAT_NAME_MEDIAN    = 'median'
+STAT_NAME_STDDEV    = 'stddev'
+STAT_NAME_SIG_NMAD  = '\sigma_{NMAD}'
+STAT_NAME_OUTLIER   = '\eta_{outlier}'
 
 # internal DEBUG flags
 DEBUG_FLAG_REFAC           =  2
@@ -294,6 +305,8 @@ and two types of command-line input delimeters
      @@FIT P1       # linear fit    (also accepts 'p1')
      @@FIT P2       # quadratic fit (also accepts 'p2')
      @@FIT P3       # cubic     fit (also accepts 'p3')
+     @@FIT P4       # quartic   fit (also accepts 'p4')
+     @@FIT P5       # 5th order
 
   The best fit curve is overlaid on plot, and fit chi2/dof is printed in legend.
   Chi2 calc assumes that variance = bin contents, so chi2 accuracy may be poor
@@ -369,6 +382,7 @@ and two types of command-line input delimeters
    {OPT_MEDIAN:<12} ==> overlay y-axis median in x-bins (2D only).
    {OPT_STDDEV:<12} ==> 1D -> append stddev on each legend;
                     2D -> mean error bar is STDDEV instead of STDDEV/sqrt(N)
+   {OPT_SIG_NMAD:<12} ==> 1D -> append SIG_NMAD on each legend
    {OPT_OV:<12} ==> overlay two 1D plots (2 files or 2 cuts); do not print chi2/dof on plot
    {OPT_OVCHI2:<12} ==> execut OPT_OV and display chi2/dof on plot
    {OPT_DIAG_LINE:<12} ==> draw line with slope=1 for 2D plot.
@@ -629,6 +643,10 @@ def get_args():
     
     msg = "options; see @@HELP"
     parser.add_argument('@@OPT', '@@opt', help=msg, nargs="+", default = [])
+
+    msg = "compute/print fraction of outliers outside @@OUTLIER_RANGE (2 floats)"
+    parser.add_argument('@@OUTLIER_RANGE', '@@outlier_range', 
+                        help=msg, type=float, nargs="+", default = None)
 
     msg = "1D fit function (G, EXP, P1, P2) and optional initial values; see @@HELP"
     parser.add_argument('@@FIT', '@@fit', help=msg, nargs="+", default = [])
@@ -2135,13 +2153,14 @@ def get_varname_dump(varname_orig):
 
 def get_info_plot1d(args, info_plot_dict):
 
-    do_hist   = OPT_HIST   in args.OPT
-    do_ov     = OPT_OV     in args.OPT
-    do_chi2   = OPT_OVCHI2 in args.OPT
-    do_nevt   = OPT_NEVT   in args.OPT
-    do_avg    = OPT_AVG    in args.OPT  or  OPT_MEAN in args.OPT
-    do_ratio  = OPT_RATIO  in args.OPT
-    do_stddev = OPT_STDDEV in args.OPT
+    do_hist     = OPT_HIST   in args.OPT
+    do_ov       = OPT_OV     in args.OPT
+    do_chi2     = OPT_OVCHI2 in args.OPT
+    do_nevt     = OPT_NEVT   in args.OPT
+    do_avg      = OPT_AVG    in args.OPT  or  OPT_MEAN in args.OPT
+    do_ratio    = OPT_RATIO  in args.OPT
+    do_stddev   = OPT_STDDEV in args.OPT
+    do_sig_nmad = OPT_SIG_NMAD in args.OPT
     
     numplot   = info_plot_dict['numplot']
     xbins     = info_plot_dict['xbins']
@@ -2298,16 +2317,13 @@ def get_info_plot1d(args, info_plot_dict):
     yerr_list =  [ (x+y)/2. for x,y in zip(errl_list,erru_list) ]
     nevt    = nevt
 
-    # xxx mark delete Sep 18 2025 xxxxxxxx
-    # avg     = np.mean(df.x_plot_val)
-    # median  = np.median(df.x_plot_val)
-    # stddev  = np.std(df.x_plot_val)  
-    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-    x_val_list = df.x_plot_val.to_numpy()
-    w_val_list = df.weights.to_numpy()
-    avg, stddev = weighted_stats(x_val_list, w_val_list)      # 9/18/2025 - works with @@WGTVAR
-    median      = weighted_median(x_val_list, w_val_list)     # idem
+    x_val_list  = df.x_plot_val.to_numpy()
+    w_val_list  = df.weights.to_numpy()
+    avg, stddev = get_weighted_stats(x_val_list, w_val_list)      # 9/18/2025 - works with @@WGTVAR
+    median      = get_weighted_median(x_val_list, w_val_list)     # idem
+    sig_nmad    = get_sig_nmad(x_val_list, w_val_list) 
+    frac_outlier= get_frac_outlier(x_val_list, args.OUTLIER_RANGE)
 
     stat_dict = {  # value        add legend    format
         STAT_NAME_N       : [ int(nevt),  do_nevt,
@@ -2317,17 +2333,34 @@ def get_info_plot1d(args, info_plot_dict):
         STAT_NAME_MEDIAN  : [ median,     False,
                               stat_format(STAT_NAME_MEDIAN,median)  ],
         STAT_NAME_STDDEV  : [ stddev,     do_stddev,
-                              stat_format(STAT_NAME_STDDEV,stddev)  ]
+                              stat_format(STAT_NAME_STDDEV,stddev)  ],
         # overflow/underflow ??
     }
+
+    if do_sig_nmad:
+        stat_dict[STAT_NAME_SIG_NMAD] = [sig_nmad, True, stat_format(STAT_NAME_SIG_NMAD, sig_nmad) ]
+
+    if frac_outlier:
+        stat_dict[STAT_NAME_OUTLIER] = [frac_outlier, True, stat_format(STAT_NAME_OUTLIER, frac_outlier) ]
+
     
+    # .xyz
     for str_stat, tmp_list in stat_dict.items():
         val           = tmp_list[0]
         add_to_legend = tmp_list[1]
-        logging.info(f"\t {str_stat:8} value for {name_legend}:  {val:.3f}")
+
+        math_chars = [ '{', '}', '\\' ]
+        str_stat_logging = str_stat
+        for ch in math_chars:
+            str_stat_logging = str_stat_logging.replace(ch,'')
+
+        logging.info(f"\t {str_stat_logging:12} value for {name_legend}:  {val:.3f}")
         if add_to_legend:
-            fmt_legend  = tmp_list[2]                
-            plt_legend += f'  {str_stat}={val:{fmt_legend}}'            
+            math_mode = '\\' in str_stat or '{' in str_stat
+            fmt_legend  = tmp_list[2]
+            cval = f"{val:{fmt_legend}}"
+            if math_mode:  str_stat = '$' + str_stat + '$'
+            plt_legend += f"  {str_stat}={cval}" 
 
     # - - - - - -
     info_plot_dict['do_plot_errorbar']  = do_plot_errorbar
@@ -2345,7 +2378,7 @@ def get_info_plot1d(args, info_plot_dict):
      
     return  # end get_info_plot1d
 
-def weighted_median(values, weights):
+def get_weighted_median(values, weights):
     """
     Compute the weighted median of an array of values.
     
@@ -2386,7 +2419,7 @@ def weighted_median(values, weights):
     return values_sorted[cumsum >= cutoff][0]
 
 
-def weighted_stats(values, weights):
+def get_weighted_stats(values, weights):
 
     """
     Created Sep 18 2025
@@ -2426,6 +2459,25 @@ def weighted_stats(values, weights):
     return weighted_mean, weighted_stdev
     # end weighted_stats 
 
+def get_sig_nmad(x_val_list, w_val_list) :
+
+    from scipy.stats  import median_abs_deviation
+    sig_nmad = median_abs_deviation(x_val_list, scale="normal")
+
+    return sig_nmad
+        
+
+def get_frac_outlier(x_val_list, RANGE_OUTLIER):
+
+    if RANGE_OUTLIER is None: return None
+    
+    xmin = RANGE_OUTLIER[0]
+    xmax = RANGE_OUTLIER[1]
+    n_outlier = len([ x for x in x_val_list if x < xmin or x > xmax ] )
+    n_tot     = len(x_val_list)
+    frac_outlier = n_outlier / n_tot
+    return frac_outlier
+
 def stat_format(stat_name, stat_value):
 
     # Created Dec 27 2024
@@ -2437,7 +2489,9 @@ def stat_format(stat_name, stat_value):
         return 'd'
 
     if abs(stat_value) > 1000:  # e.g., peakmjd
-        fmt = '.1f'        
+        fmt = '.1f'
+    elif abs(stat_value) < 0.005:   # e.g., outlier fraction
+        fmt = '.4f'        
     elif abs(stat_value) < 5:   # e.g., mean color, stretch, or resid
         fmt = '.3f'
     else:
@@ -2891,6 +2945,13 @@ def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
     elif FITFUN in FITFUN_P3:
         popt, pcov = curve_fit(func_p3, xbins_cen, ybins_contents, sigma=ybins_sigma)
         yfun_cen   = func_p3(xbins_cen, *popt)
+    elif FITFUN in FITFUN_P4:
+        popt, pcov = curve_fit(func_p4, xbins_cen, ybins_contents, sigma=ybins_sigma)
+        yfun_cen   = func_p4(xbins_cen, *popt)
+    elif FITFUN in FITFUN_P5:
+        popt, pcov = curve_fit(func_p5, xbins_cen, ybins_contents, sigma=ybins_sigma)
+        yfun_cen   = func_p5(xbins_cen, *popt)
+
     else:
         sys.exit(f"\n ERROR: unknown user fitfun = {fitfun}; \n Valid fit funs: {FITFUN_LIST}")
 
@@ -2986,6 +3047,17 @@ def func_p2(x,a,b,c):
 def func_p3(x,a,b,c,d):
     return a + b*x + c*(x*x) + d*(x*x*x)
 
+def func_p4(x,a,b,c,d,e):
+    sqx = x*x
+    func = a + b*x + c*(sqx) + d*(sqx*x) + e*(sqx*sqx)
+    return func
+
+def func_p5(x,a,b,c,d,e,f):
+    sqx = x*x    
+    func = a + b*x + c*(sqx) + d*(sqx*x) + e*(sqx*sqx) + f*(sqx*sqx*x)
+    return func
+
+
 def func_exp(x,a,b):
     return a * np.exp(b*x)
 
@@ -3020,7 +3092,10 @@ def print_cid_list(df, name_legend) :
     # print list of cids to stdout
     varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW 
     id_list = sorted(df[varname_idrow].to_numpy())[0:NMAX_CID_LIST]
-    print(f"\n {varname_idrow}s passing cuts for '{name_legend}' : \n{id_list}" )
+
+    id_string = ','.join(id_list)
+
+    print(f"\n {varname_idrow}s passing cuts for '{name_legend}' : \n{id_list}\n   or  \n{id_string}\n" )
     sys.stdout.flush()
     return
 

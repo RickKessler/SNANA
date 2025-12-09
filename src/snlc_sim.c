@@ -6713,6 +6713,7 @@ void prep_user_input(void) {
     if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  && NBIN == 1 ) { 
       INPUTS.GENGAUSS_SALT2BETA.RANGE[0] = BETA ;
       INPUTS.GENGAUSS_SALT2BETA.RANGE[1] = BETA ;
+      sprintf(INPUTS.GENMAG_SMEAR_MODELNAME,"NONE"); // Nov 2025
     }
 
     copy_GENGAUSS_ASYM( &INPUTS.GENGAUSS_SALT2x1, &INPUTS.GENGAUSS_SHAPEPAR );
@@ -18667,6 +18668,12 @@ void SIMLIB_findStart(void) {
     printf("\t SIMLIB MAXRANSTART after  %d  LIBIDs ", 
 	   NSKIP_LIBID ); 
   }
+
+  if ( NJOBTOT > 1 && NLIBID <= 0 ) {
+    sprintf(c1err,"NLIBID key in SIMLIB_FILE header is required for batch mode;");
+    sprintf(c2err,"but this key is missing.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  } 
 
   // for batch job, autom-compute NSKIP 
   if ( NJOBTOT > 0  &&  NLIBID > 100  && IDSTART <= 0 ) { 
@@ -32556,7 +32563,8 @@ void print_sim_help(void) {
     "EXCLUDE_INCLUDE_FILE <partial_string_match> # command-line only",
     "",  
     "#  - - - - - Output data - - - - - ",
-    "GENVERSION: <name>        #  name of output data folder",
+    "GENVERSION: <name>        #  name of output data folder in $SNDATA_ROOT/SIM or in ",
+    "PATH_SNDATA_SIM: <path>   #  optional output path for GENVERSION data folder",
     "NGENTOT_LC:  <ngen>       #  number of events to generate",
     "FORMAT_MASK: <mask>       #  += 2,32,16 -> TEXT, FITS, randomCID",
     "GENTYPE:     <type>       # true integer type",

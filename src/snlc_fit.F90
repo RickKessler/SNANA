@@ -3576,13 +3576,11 @@
     LOGICAL FUNCTION LTEST_ZPHFILTER(ITER,ZPH,ZPH_ERR,IFILTBAD)
 ! 
 ! Created Aug 25, 2011 by R.Kessler
-! Returns TRUE of all filters respect their photoz range
+! Returns TRUE if all filters respect their photoz range
 ! defined by PHOTOZ_DROPFILTER_MIN/MAX(ifilt_obs).
 ! This function is used to weed out fits in which the
 ! photoz changes dramatically between iterations,
 ! causing one or more filters to be undefined.
-! 
-! Dec 18, 2011: add IFILTBAD arg.
 ! 
 ! --------------
 
@@ -3597,7 +3595,7 @@
 
     INTEGER ITER            ! (I) fit-iter
     REAL*8  ZPH, ZPH_ERR    ! (I) ZPHOT and its error
-    INTEGER IFILTBAD        ! (O) absolute filter index bad filter
+    INTEGER IFILTBAD        ! (O) absolute filter index for bad filter
 
 ! local var
 
@@ -3619,17 +3617,16 @@
 
         ZMIN = PHOTOZ_DROPFILTER_MIN(ifilt_obs)
         ZMAX = PHOTOZ_DROPFILTER_MAX(ifilt_obs)
-        LZTEST = ( ZPH - ZPH_ERR .GE. ZMIN ) .and.  & 
-                   ( ZPH + ZPH_ERR .LE. ZMAX )
+        LZTEST = ( ZPH - ZPH_ERR .GE. ZMIN ) .and.  ( ZPH + ZPH_ERR .LE. ZMAX )
 
         IF ( .NOT. LZTEST ) THEN
           LTEST_ZPHFILTER = .FALSE.
-          LCID = ISNLC_LENCCID
-          CCID = SNLC_CCID
-          write(6,301) CCID(1:LCID), ZPH, cfilt1, ITER
-301         format(T2,'WARNING CID=',A,' : PHOTOZ=', F5.3,  & 
-                       ' is outside range for ',  & 
+
+          if ( STDOUT_UPDATE ) then
+             write(6,301) SNLC_CCID(1:ISNLC_LENCCID), ZPH, cfilt1, ITER
+301          format(T2,'WARNING CID=',A,' : PHOTOZ=', F5.3,  ' is outside range for ',  & 
                         A,'-band (ITER=',I1, ') => SKIP ' )
+          endif
           IFILTBAD = IFILT_OBS
           RETURN
         ENDIF
@@ -7866,7 +7863,7 @@
 ! 
 ! Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
 ! Jun 04 2021: if USESIM_REDSHIFT, set z errors to 1.0E-4
-! 
+! Dec 10 2025: open default THETA window to +_4 for BAYESN
 ! ----------------------------------------
 
 
@@ -8168,8 +8165,8 @@
        INIBND(1,IPAR_COLOR) = -3.0  ! AV
        INIBND(2,IPAR_COLOR) =  5.0
 
-       INIBND(1,IPAR_SHAPE) = -1.4  ! THETA min
-       INIBND(2,IPAR_SHAPE) = +2.7  ! THETA max
+       INIBND(1,IPAR_SHAPE) = -4.0  ! THETA min
+       INIBND(2,IPAR_SHAPE) = +4.0  ! THETA max
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -8711,7 +8708,7 @@
     REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
     INTEGER NZBIN, NSBIN, NCBIN, iz, is, ic, IFLAG, ITER, ISCALE
-    LOGICAL LZ1BIN, LEGACY_DIST
+    LOGICAL LZ1BIN
 
     REAL*8  d_tmp, dsave_tmp, tmp, chi2_tmp, chi2min_tmp  ! for DEBUG test
     INTEGER jd_tmp
@@ -8724,8 +8721,6 @@
 
   
     FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
-
-    LEGACY_DIST = DEBUG_FLAG .NE. 1209  ! DEBUG_FLAG=1209 -> refac by skippin analytic marg over distance
     
     ITER  = 1
     IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
@@ -8816,55 +8811,20 @@
 ! determine Fmodel_SCALE below.
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
-
-      IF ( LEGACY_DIST ) THEN
-         ! now compute Fmodel_SCALE to minimize chi2 as a function of
-         ! x0 or MU. This is an approximation assuming that the error-squared
-         ! is constant, but it really depends slightly on the Fmodel_SCALE value.
-
-         IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
-            Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
-         ELSE
-            Fmodel_SCALE        = 1.0  
-         ENDIF
-         
-         d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
-         INIVAL(IPAR_DLMAG)  = d
-         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
-
-         ! xxxxxxxxxxx test analytic prior on distance xxxxxxxxxx
-         if ( DEBUG_FLAG == 1210 ) then
-
-            ! Dec 2025 xxx try 2nd iter
-            Fmodel_SCALE        = Fmodel_SCALE * R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
-            d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
-            INIVAL(IPAR_DLMAG)  = d
-            CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
-
-            chi2min_tmp = 99999.
-            !print*,' xxx ------------------------------------------- '
-            !print*,' xxx z, c, s = ', sngl(z), sngl(c), sngl(s)
-            !print*,' xxx d_approx, d_cospar, Fscale = ', sngl(d), sngl(d_cospar), sngl(Fmodel_SCALE)
-            do jd_tmp = -0, 0
-               tmp    = 10**(0.4*.1*real(jd_tmp))
-               d_tmp = tmp * d_cospar
-               INIVAL(IPAR_DLMAG)  = d_tmp
-               CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2_TMP, INIVAL, IFLAG, USRFUN)
-               if ( chi2_tmp < chi2min_tmp ) then
-                  chi2min_tmp = chi2_tmp
-                  dsave_tmp = d_tmp
-               endif
-            enddo
-!            write(6,62) d, chi2, dsave_tmp, chi2min_tmp
-!62          format(' xxx d_approx = ', G8.3, ' -> chi2min=', F9.2,'  | d_loop =', G8.3, ' -> ', F9.2)
-!            call flush(6)
-            INIVAL(IPAR_DLMAG)  = d  ! restore
-         endif
-         ! xxxxxxxxxxxxxxxxxxxx
-
+      ! now compute Fmodel_SCALE to minimize chi2 as a function of
+      ! x0 or MU. This is an approximation assuming that the error-squared
+      ! is constant, but it really depends slightly on the Fmodel_SCALE value.
+      
+      IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
+         Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
+      ELSE
+         Fmodel_SCALE        = 1.0  
       ENDIF
+         
+      d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
+      INIVAL(IPAR_DLMAG)  = d
+      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
 
-!      STOP ! xxx REMOVE
 ! ------------
       if ( chi2 < -1300.  ) then
         write(6,667) z, PARNAME_STORE(IPAR_COLOR)(1:3),  c,s,d,chi2, Fmodel_SCALE
@@ -11211,7 +11171,7 @@
   SUBROUTINE FITINI_PRIOR_MUERR()
     ! Created DEC 5 2025 by Jonah Medoff
     ! If using cosmology prior for photo-z fit, compute muerr on redshift grid for faster computation during fit
-    ! .xyz
+    ! 
     USE SNLCINP_NML
     USE FITINP_NML
     ! PHOTOZ_BOUND(2)

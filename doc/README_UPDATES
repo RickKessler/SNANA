@@ -23389,6 +23389,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         Also remove SIMEFF_FILE from LCFIT inputs.
       + new &FITINP inputs ISCALE_COURSEcBIN_PHOTOZ and ISCALE_COURSEsBIN_PHOTOZ
         to scale default number of color and stretch bins for course-grid init
+      + default THETA range of -1.4 to +2.7 was too strict; relax to +- 4 
 
     get_fitres_values.py: 
       + sort output so that CIDs and VARIABLES appear in user-defined order

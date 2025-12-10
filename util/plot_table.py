@@ -103,7 +103,7 @@ VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
                    OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID, OPT_LIST_ROW,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
 
-NMAX_CID_LIST = 20  # max number of CIDs to print for @@OPT CID_LIST
+NMAX_CID_LIST = 50  # max number of CIDs to print for @@OPT CID_LIST
 
 
 # define dictuionay of user-defined functions (key)

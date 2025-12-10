@@ -2340,7 +2340,7 @@ def get_info_plot1d(args, info_plot_dict):
     if do_sig_nmad:
         stat_dict[STAT_NAME_SIG_NMAD] = [sig_nmad, True, stat_format(STAT_NAME_SIG_NMAD, sig_nmad) ]
 
-    if frac_outlier:
+    if frac_outlier is not None:
         stat_dict[STAT_NAME_OUTLIER] = [frac_outlier, True, stat_format(STAT_NAME_OUTLIER, frac_outlier) ]
 
     
@@ -2488,7 +2488,7 @@ def stat_format(stat_name, stat_value):
     if stat_name == STAT_NAME_N :
         return 'd'
 
-    if abs(stat_value) > 1000:  # e.g., peakmjd
+    if abs(stat_value) > 1000 or stat_value == 0 :  # e.g., peakmjd
         fmt = '.1f'
     elif abs(stat_value) < 0.005:   # e.g., outlier fraction
         fmt = '.4f'        

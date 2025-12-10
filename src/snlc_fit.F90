@@ -4499,7 +4499,14 @@
 
            ! sums used for initializing photoz x0/MU
            if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. ISCALE_COURSEBIN_PHOTOZ > 0 ) then
-              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2)*inv_sqsig
+
+! xxxxxxxxxxxxxxxxxxxxxx
+!              write(6,668) zsn, Trest, flux_data, flux_model
+!668           format(' xxx FCN: z=',F5.3,'  Trest=', F6.1,'  F(data,model) = ', 2F10.1 )
+!              call flush(6)  ! xxx REMOVE
+! xxxxxxxxxxxxxxxxxxxxx
+
+              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig
               R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig
               R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig
            endif
@@ -6081,7 +6088,6 @@
 ! => MUREF - 2.5log10(SCALE) (distance modulus) for mlcs, stretch ...
 ! => X0*SCALE for SALT2
 ! 
-! Mar 24, 2012: add SCALE argument
 ! -------------------------------------
 
     USE SNDATCOM
@@ -6097,7 +6103,7 @@
 
     DOUBLE PRECISION  & 
          Z, SHAPE, COLOR   &  ! (I) z, DELTA/x1,   c/AV
-        ,SCALE            ! (I) include this multiplicative scale
+        ,SCALE                ! (I) include this multiplicative scale
 
 ! local var
     DOUBLE PRECISION  S2a, S2b, x0, MUREF
@@ -8701,11 +8707,14 @@
     REAL*8 Z_SAVE, ZMIN, ZMAX, ZBIN, z,  ZBND_MIN, ZBND_MAX
     REAL*8 S_SAVE, SMIN, SMAX, SBIN, s
     REAL*8 C_SAVE, CMIN, CMAX, CBIN, c
-    REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE
+    REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE, d_cospar
     REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
     INTEGER NZBIN, NSBIN, NCBIN, iz, is, ic, IFLAG, ITER, ISCALE
-    LOGICAL LZ1BIN
+    LOGICAL LZ1BIN, LEGACY_DIST
+
+    REAL*8  d_tmp, dsave_tmp, tmp, chi2_tmp, chi2min_tmp  ! for DEBUG test
+    INTEGER jd_tmp
 
     CHARACTER FNAM*28, NAME_ZVAR*12
     REAL*8 GET_DIST8, USRFUN
@@ -8713,8 +8722,11 @@
 
 ! ------------- BEGIN ------------
 
+  
     FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
 
+    LEGACY_DIST = DEBUG_FLAG .NE. 1209  ! DEBUG_FLAG=1209 -> refac by skippin analytic marg over distance
+    
     ITER  = 1
     IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
     ISCALE = ISCALE_COURSEBIN_PHOTOZ
@@ -8782,9 +8794,9 @@
     DO 55 iz  = 1, NZBIN
 
       zvar  = ZVAR_MIN + dble(iz-1)*ZVAR_BIN
-	if ( LZ1BIN ) then
+      if ( LZ1BIN ) then
          z = ZVAR / ( 1 - ZVAR )   ! new
-	else
+      else
          z = ZVAR  ! legacy
       endif
       INIVAL(IPAR_zPHOT)  = z
@@ -8797,31 +8809,65 @@
       c       = CMIN + dble(ic-1)*CBIN
       INIVAL(IPAR_COLOR)  = c
 
-      d       = GET_DIST8(Z,s,c,ONE8)
-      INIVAL(IPAR_DLMAG)  = d
+      d_cospar            = GET_DIST8(Z,s,c,ONE8)
+      INIVAL(IPAR_DLMAG)  = d_cospar
 
 ! call function to evaluate R4SN_XXX variables needed to
 ! determine Fmodel_SCALE below.
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
 
-! now compute Fmodel_SCALE to minimize chi2 as a function of
-! x0 or MU. This is an approximation assuming that the error-squared
-! is constant, but it really depends slightly on the Fmodel_SCALE value.
 
-      IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
-         Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
-      ELSE
-         Fmodel_SCALE        = 1.0  ! June 30 2013
+      IF ( LEGACY_DIST ) THEN
+         ! now compute Fmodel_SCALE to minimize chi2 as a function of
+         ! x0 or MU. This is an approximation assuming that the error-squared
+         ! is constant, but it really depends slightly on the Fmodel_SCALE value.
+
+         IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
+            Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
+         ELSE
+            Fmodel_SCALE        = 1.0  
+         ENDIF
+         
+         d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
+         INIVAL(IPAR_DLMAG)  = d
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
+
+         ! xxxxxxxxxxx test analytic prior on distance xxxxxxxxxx
+         if ( DEBUG_FLAG == 1210 ) then
+
+            ! Dec 2025 xxx try 2nd iter
+            Fmodel_SCALE        = Fmodel_SCALE * R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
+            d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
+            INIVAL(IPAR_DLMAG)  = d
+            CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
+
+            chi2min_tmp = 99999.
+            !print*,' xxx ------------------------------------------- '
+            !print*,' xxx z, c, s = ', sngl(z), sngl(c), sngl(s)
+            !print*,' xxx d_approx, d_cospar, Fscale = ', sngl(d), sngl(d_cospar), sngl(Fmodel_SCALE)
+            do jd_tmp = -0, 0
+               tmp    = 10**(0.4*.1*real(jd_tmp))
+               d_tmp = tmp * d_cospar
+               INIVAL(IPAR_DLMAG)  = d_tmp
+               CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2_TMP, INIVAL, IFLAG, USRFUN)
+               if ( chi2_tmp < chi2min_tmp ) then
+                  chi2min_tmp = chi2_tmp
+                  dsave_tmp = d_tmp
+               endif
+            enddo
+!            write(6,62) d, chi2, dsave_tmp, chi2min_tmp
+!62          format(' xxx d_approx = ', G8.3, ' -> chi2min=', F9.2,'  | d_loop =', G8.3, ' -> ', F9.2)
+!            call flush(6)
+            INIVAL(IPAR_DLMAG)  = d  ! restore
+         endif
+         ! xxxxxxxxxxxxxxxxxxxx
+
       ENDIF
 
-      d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
-      INIVAL(IPAR_DLMAG)  = d
-      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
-
+!      STOP ! xxx REMOVE
 ! ------------
       if ( chi2 < -1300.  ) then
-        write(6,667) z, PARNAME_STORE(IPAR_COLOR)(1:3),  & 
-                       c,s,d,chi2, Fmodel_SCALE
+        write(6,667) z, PARNAME_STORE(IPAR_COLOR)(1:3),  c,s,d,chi2, Fmodel_SCALE
 667       format(' xxxx Z=',F5.3, 2x, A,'=',F6.3, 2x,  & 
                  's=',F6.3, 2x, 'DIST=',G8.3, 2x, 'CHI2=',E10.3,  & 
                  2x, 'Fscale=',G8.3 )

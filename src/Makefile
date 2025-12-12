@@ -44,6 +44,7 @@
 # Oct 06 2025: few minors fixes to work without $ROOT_DIR
 # Nov 25 2025: remove obsolete fcasplit & SIMSED_fudge.c
 # Nov 29 2025: set "USE_F90 1" for permanent switch to F90
+# Dec 12 2025: remove USE_F90
 # -------------------------------------------------------------------------------------------
 
 SHELL = /bin/sh
@@ -89,17 +90,12 @@ endif
 # ------------------------
 # compile default storage options for both ROOT and BAYESN.
 USE_ROOT   = 1
-USE_F90    = 1
+
 
 ifndef ROOT_DIR
    USE_ROOT = 0
 endif
 
-ifeq ($(USE_F90),0)
-	ff = f
-else
-	ff = F90
-endif
 
 # ------------------------------------------
 # define libraries
@@ -447,18 +443,8 @@ $(BIN)/SALT2mu.exe : $(OBJ)/SALT2mu.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o 
 # -------------------------------------------------
 # SN analysis shell (reads DATA Files, makes cuts ...)
 
-$(OBJ)/snana.o :  snana.$(ff)  
-	(cd $(OBJ); $(FFC) $(SNFFLAGS) -DSNANA -DMINUIT $(SRC)/snana.$(ff) )
-
-ifeq ($(USE_F90),0)
-snana.f : snana.cra  snana.cra snana.car  
-	for item in snana ; do \
-	    rm -f $$item.lnk; \
-	    ln -s $(SRC)/$$item.car $$item.lnk; \
-	done
-	$(UTIL)/ypatchy.pl - $@ snana.cra .go
-	rm snana.lnk
-endif
+$(OBJ)/snana.o :  snana.F90
+	(cd $(OBJ); $(FFC) $(SNFFLAGS) -DSNANA -DMINUIT $(SRC)/snana.F90 )
 
 $(BIN)/snana.exe :  $(OBJ_SNANA)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
@@ -470,18 +456,8 @@ $(BIN)/snana.exe :  $(OBJ_SNANA)
 # -------------------------------------------------
 # SN light curve fitter 
 
-$(OBJ)/snlc_fit.o :  snlc_fit.$(ff)
-	(cd $(OBJ); $(FFC) $(SNFFLAGS) -DSNFIT -DMINUIT $(SRC)/snlc_fit.$(ff) )
-
-ifeq ($(USE_F90),0)
-snlc_fit.f : snlc_fit.cra  snlc_fit.cra  snlc_fit.car snana.car 
-	for item in  snana snlc_fit; do \
-	    rm -f $$item.lnk; \
-	    ln -s $(SRC)/$$item.car $$item.lnk; \
-	done
-	$(UTIL)/ypatchy.pl - $@ snlc_fit.cra .go
-	rm snana.lnk  snlc_fit.lnk 
-endif
+$(OBJ)/snlc_fit.o :  snlc_fit.F90
+	(cd $(OBJ); $(FFC) $(SNFFLAGS) -DSNFIT -DMINUIT $(SRC)/snlc_fit.F90 )
 
 $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 	$(FFC) -o $@ $(SNLDFLAGS)  \
@@ -510,18 +486,8 @@ $(OBJ)/psnid_BEST2.o : $(SRC)/psnid_BEST2.c $(SRC)/sntools.h \
 	$(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/psnid_BEST2.c )
 
 
-$(OBJ)/psnid.o :  psnid.$(ff)
-	(cd $(OBJ); $(FFC) $(SNFFLAGS) -DPSNID $(SRC)/psnid.$(ff) )
-
-ifeq ($(USE_F90),0)
-psnid.f : psnid.cra  psnid.cra  psnid.car  snana.car  snlc_fit.cra snlc_fit.car
-	for item in  snana  snlc_fit psnid ; do \
-	    rm -f $$item.lnk; \
-	    ln -s $(SRC)/$$item.car $$item.lnk; \
-	done
-	$(UTIL)/ypatchy.pl - $@ psnid.cra .go
-	rm snana.lnk snlc_fit.lnk psnid.lnk
-endif
+$(OBJ)/psnid.o :  psnid.F90
+	(cd $(OBJ); $(FFC) $(SNFFLAGS) -DPSNID $(SRC)/psnid.F90 )
 
 $(BIN)/psnid.exe : $(OBJ_PSNID) 
 	$(FFC) -o $@ $(SNLDFLAGS) \

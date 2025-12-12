@@ -3,8 +3,6 @@
 
 
 
-
-
 ! =====================================================================
   MODULE SNPAR
     IMPLICIT NONE
@@ -1548,6 +1546,7 @@
         ,ABORT_ON_DUPLCID     &  ! I: T=> abort on duplicate CID
         ,ABORT_ON_DUPLMJD     &  ! I: T=> abort on repeat MJD+band (Jun 2017)
         ,ABORT_ON_NOPKMJD     &  ! I: T=> abort if no PKMJDINI (see OPT_SETPKMJD)
+        ,ABORT_ON_BADQZPHOT   &  ! I: T=> abort if redshift quantiles are NOT monotonically increasing
         ,USE_MINOS            &  ! I: T=> use MINOS instead of MINIMIZE
         ,LDMP_SNFAIL          &  ! I: T => dump reason for each SN failure
         ,LDMP_SNANA_VERSION   &  ! I: T => dump SNANA version and SNANA_DIR
@@ -1656,9 +1655,9 @@
           , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD  & 
           , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY  & 
           , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT  & 
-          , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD, ABORT_ON_BADFILTER  & 
+          , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD, ABORT_ON_BADFILTER, ABORT_ON_BADQZPHOT  & 
           , H0_REF, OLAM_REF, OMAT_REF, W0_REF, WA_REF  & 
-          , USE_MWCOR  & 
+          , USE_MWCOR  &
           , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT  & 
           , MJDPERIOD_PLOT, MJDSHIFT_PLOT  & 
           , DTOBS_MODEL_PLOT  & 
@@ -5737,6 +5736,7 @@
     ABORT_ON_DUPLCID   = .TRUE.
     ABORT_ON_DUPLMJD   = .FALSE.  ! Jun 2017
     ABORT_ON_NOPKMJD   = .TRUE.
+    ABORT_ON_BADQZPHOT = .TRUE.   ! Dec 2025
 
     SNTABLE_LIST          = 'DEFAULT'  ! Sep 08 2014
     SNTABLE_FILTER_REMAP  = ''
@@ -7921,6 +7921,10 @@
       else if ( MATCH_NMLKEY('ABORT_ON_BADSURVEY',  & 
                   1, iArg, ARGLIST) ) then
         READ(ARGLIST(1),*) ABORT_ON_BADSURVEY
+
+      else if ( MATCH_NMLKEY('ABORT_ON_BADQZPHOT',  & 
+                  1, iArg, ARGLIST) ) then
+        READ(ARGLIST(1),*) ABORT_ON_BADQZPHOT
 
       else if ( MATCH_NMLKEY('ABORT_ON_BADFILTER',  & 
                   1, iArg, ARGLIST) ) then
@@ -17619,10 +17623,16 @@
              write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
 61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I8 )
              C2ERR = 'ZPHOT_Q must be monotonically increasing'
-             CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
-          endif
-       endif
-    enddo
+             if ( ABORT_ON_BADQZPHOT ) then
+                CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
+             else
+                print*,' WARNING: ', C1ERR
+                call flush(6)
+             endif
+
+          endif  ! end NOT BIGGER_Z
+       endif     ! end check on monotonic
+    enddo        ! end loop over q
     
     LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
     IPRINT    = 0   ! set to 1 for dump

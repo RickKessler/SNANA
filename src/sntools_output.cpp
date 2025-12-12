@@ -786,10 +786,12 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
   // store original [unparsed] VARLiST
   sprintf(ADDCOL_VARDEF->VARLIST_ORIG,"%s", VARLIST);
 
+  /* xxxxxxxxxxxxx mark delete Dec 11 2025  xxxxxxxxxxx
   if ( strchr(VARLIST,',') != NULL ) {
     printf(" %s TABLE WARNING; comma in %s\n", fnam, VARLIST);
     fflush(stdout);
   }
+  xxxxxxxxxxxxx */
 
   NVAR = ICAST_FIRST = 0;
   sprintf(local_VARLIST,"%s", VARLIST);

@@ -13,16 +13,15 @@
    where each command-line argument is the name of a
    fitres file to combine into the ntuple.
    Output files are
-      combine_fitres.hbook  (hbook column-wise ntuple)
-      combine_fitres.root   (root tree)
-      combine_fitres.txt    (combined fitres text-file)
+      combine_fitres.text    (combined fitres text-file)
+      combine_fitres.root    (optional root tree)
 
  Options below accept python like args, but with no dashs, 1 dash
  or 2 dashes. I.e., outprefix, -outprefix, --outprefix are all 
  accepted.
 
   >  combine_fitres.exe <fitres1> <fitres2> --outprefix <outprefix>
-    produces output files <outprefix>.hbook and  <outprefix>.text
+    produces  <outprefix>.text
 
   >  combine_fitres.exe <fitres1> <fitres2> --outfile_text <outfile>
        (text outpout name is <outfile>)
@@ -36,15 +35,7 @@
   >  combine_fitres.exe <fitres1>   R      ! .ROOT extension 
   >  combine_fitres.exe <fitres1>  -R      ! same with python syntax
   >  combine_fitres.exe <fitres1>   r      ! .root extension
-       (create root file instead of hbook file)
-
-  >  combine_fitres.exe <fitres1>  H      ! .HBOOK extension
-  >  combine_fitres.exe <fitres1>  h      ! .hbook extension
-       (create default hbook file ; same as with no H or h arg)
-
-  >  combine_fitres.exe <fitres1>  R H 
-  >  combine_fitres.exe <fitres1>  H R
-      (create both hbook and root files)
+       (create root file)
 
   >  combine_fitres.exe <fitres1>  --mxrow 50000
 
@@ -57,7 +48,6 @@
   >  combine_fitres.exe <fitres1> <fitres2> ..  T   ! [outPrefix].TEXT
   >  combine_fitres.exe <fitres1> <fitres2> .. -T   ! same in python syntax
   >  combine_fitres.exe <fitres1> <fitres2> ..  t   ! [outPrefix].text
-      (create only text output; disable default hbook output)
 
   >  combine_fitres.exe  <fitres1> <fitres2> ... --nullval_float -12345
          (override default nullval_float = -888)
@@ -94,6 +84,9 @@
  Jun 13 2025: allow .csv (.CSV) file as 2nd, 3rd ... appended file. 
               Inernally translate to temp-keyed file. Original motivation is for
               integration into submit_batch_jobs to replace 4_AGG and 5_MERGE in pippin.
+
+ Dec 12 2025: remove anything related to hbook; default now produces only text outpout 
+               no longer produces root file unless specific -R or -r argument is given.
 
 ******************************/
 
@@ -171,7 +164,7 @@ int IVARSTR_SURVEY ;      // optinal match to CCID_SURVEY
 int IVARSTR_FIELD  ;      // optional match to CCID_SURVEY_FIELD
 
 // logicals to control which output files to create
-int CREATEFILE_HBOOK, CREATEFILE_ROOT, CREATEFILE_TEXT ;
+int CREATEFILE_ROOT, CREATEFILE_TEXT ;
 
 int NVARALL_FILE[MXFFILE]; // Number of variables per file
 int NVARSTR_FILE[MXFFILE]; // number of variables that are string
@@ -219,14 +212,11 @@ char VARNAME_1ONLY[NVARNAME_1ONLY][20] =
   { "FIELD", "CIDint", "VERSION", "IDSURVEY" } ;
 int IFILE_FIRST_SNANA; // first SNANA input file
 
-char  SUFFIX_HBOOK[8] =   "HBOOK" ;
-char  suffix_hbook[8] =   "hbook" ;
 char  SUFFIX_ROOT[8]  =   "ROOT"  ;
 char  suffix_root[8]  =   "root"  ;
 char  SUFFIX_TEXT[8]  =   "TEXT"  ;
 char  suffix_text[8]  =   "text" ;
 
-char *ptrSuffix_hbook = suffix_hbook ; // default is lower case, unless H
 char *ptrSuffix_root  = suffix_root ;
 char *ptrSuffix_text  = suffix_text ;
 bool USEDCID[MXSN];
@@ -381,10 +371,9 @@ void  print_combine_fitres_help(void) {
     "(or arg of --nullval_float; see below)",
     "",
     "# - - - - - - Output files - - - - - -",  
-    "# The default output files are",
-    "      combine_fitres.text    ",
-    "      combine_fitres.root   (root tree) ",
-    "      combine_fitres.hbook  (hbook column-wise ntuple)",
+    "# The output files are",
+    "      combine_fitres.text   (default) ",
+    "      combine_fitres.root   (optional; see -R and -r args below) ",
     "",
     "# - - - - - - Misc options - - - - - -",
     " --outprefix   <prefix>       # replace default combine_fitres prefix",
@@ -392,12 +381,10 @@ void  print_combine_fitres_help(void) {
     " --outfile_text <outfile.gz>  # produce gzipped output",
     "",
     "# output table file extensions:",
-    " -T or T  # .TEXT extension, and suppress ROOT and HBOOK output",
-    " -t or t  # .text extension, and suppress ROOT and HBOOK output",
-    " -R or R  # .ROOT extension ",
-    " -r or r  # .root extension ",
-    " -H or H  # .HBOK extension ",
-    " -h or h  # .hbook extension ",
+    " -T or T  # .TEXT extension " ,
+    " -t or t  # .text extension " ,
+    " -R or R  # .ROOT extension " ,
+    " -r or r  # .root extension " ,
     " ",
     " --mxrow <mxrow>        # output this number of rows (default=all)",
     " --zcut <zmin> <zmax>   # zHD cut window",
@@ -423,15 +410,11 @@ void  print_combine_fitres_help(void) {
 void  init_misc(void) {
 
   int i;
-  // set default output to hbook if both root and hbook are compiled
-  // (specified by order of inits below)
+
 #ifdef USE_ROOT  
-  CREATEFILE_ROOT = 1 ;  CREATEFILE_HBOOK = 0 ;
+  CREATEFILE_ROOT = 0  ;
 #endif
 
-#ifdef USE_HBOOK
-  CREATEFILE_ROOT = 0 ;  CREATEFILE_HBOOK = 1 ;
-#endif
 
 #ifdef USE_TEXT
   CREATEFILE_TEXT = 1;
@@ -521,19 +504,12 @@ void  PARSE_ARGV(int argc, char **argv) {
 
     if ( keyarg_match(argv[i],"r") )  {
       CREATEFILE_ROOT = 1;
-      if (CREATEFILE_HBOOK==1) {CREATEFILE_HBOOK=0;}  // root on, hbook off
       if ( strstr(argv[i],"R")!=NULL ) { ptrSuffix_root = SUFFIX_ROOT ; }
       continue ;
     }
 
-    if ( keyarg_match(argv[i],"h") )  {
-      CREATEFILE_HBOOK = 2 ;  // turn hbook back on and leave it on
-      if ( strstr(argv[i],"H") !=NULL ) { ptrSuffix_hbook = SUFFIX_HBOOK ; }
-      continue ;
-    }
 
     if ( keyarg_match(argv[i],"t") )  {
-      CREATEFILE_HBOOK = 0 ; 
       CREATEFILE_ROOT  = 0 ; 
       if ( strstr(argv[i],"T") !=NULL ) { ptrSuffix_text = SUFFIX_TEXT ; }
       continue ;
@@ -578,14 +554,6 @@ void  PARSE_ARGV(int argc, char **argv) {
   }
 #endif
 
-
-#ifndef USE_HBOOK
-  if ( CREATEFILE_HBOOK ) {
-    sprintf(c1err, "Cannot create output HBOOK file because");
-    sprintf(c2err, "'#define HBOOK' is not set in sntools_output.h");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-#endif
 
   return;
 
@@ -845,8 +813,13 @@ void ADD_FITRES(int ifile) {
     NTAG_DEJA = NMATCH_VARNAME(ptr_CTAG, NVAR) ;
     if ( NTAG_DEJA > 0 ) {
       iappend = ifile+1; // first iappend is 2
+
+      /* xxx mark delete 
       printf("\t ADD_FITRES WARNING: VARNAME=%s already exists: ", ptr_CTAG);
       printf("append %d \n", iappend );
+      xxxx */
+
+      printf("\t   VARNAME=%s already exists: rename to %s_%d\n", ptr_CTAG, ptr_CTAG, iappend);
       sprintf( VARNAME_COMBINE[NVAR], "%s_%d", ptr_CTAG, iappend );
     }
 
@@ -969,7 +942,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
 
   int  NVARALL      = NVARALL_FILE[ifile];
   int  LTMP = 0 ;
-  int  MXUPDATE = 50;
+  int  MXUPDATE = 10;
   int  ivarstr, IVARSTR, IVARTOT, ivar, ICAST, TMPMOD ;
   char ccid2[MXSTRLEN_CID];
   char fnam[] = "ADD_FITRES_VARLIST" ;
@@ -986,7 +959,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
 
   if ( ifile <= 1 && LTMP  ) {
     sprintf(ccid2, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2] ); 
-    printf("\t %s = '%12s'  ->  isn = %6d   \n", 
+    printf("\t %s = %12s  ->  isn = %6d   \n", 
 	   VARNAME_COMBINE[0], ccid2, isn2 );  fflush(stdout);
   }
     
@@ -1283,8 +1256,6 @@ void WRITE_SNTABLE(void) {
   // by pre-processor flag.
   // This routine replaces NTUP_SHELL and WR_CWNT().
   //
-  // Jan  7, 2014: for hbook, call remove_string_termination(...)
-  // Apr 26, 2014: return gracefully if neither hbook & root are defined.
   // Feb 26, 2017: if CIDint already exists, don't write out another one.
 
   char 
@@ -1306,17 +1277,6 @@ void WRITE_SNTABLE(void) {
   NOUT = 0 ;
   OUTFILE[NOUT][0] = 0 ;
   NWRITE_SNTABLE = 0 ;
-
-
-#ifdef USE_HBOOK
-  if (CREATEFILE_HBOOK)  { 
-    sprintf(OUTFILE[NOUT], "%s.%s", 
-	    INPUTS.OUTPREFIX_COMBINE, ptrSuffix_hbook );  
-    sprintf(openOpt,"%s new", ptrSuffix_hbook);
-    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);
-    NOUT++ ;
-  }
-#endif
 
 
 #ifdef USE_ROOT
@@ -1434,8 +1394,6 @@ void WRITE_SNTABLE(void) {
 	  }
 	}
 
-	if ( CREATEFILE_HBOOK ) 
-	  { remove_string_termination(ptrSTR, MXSTRLEN); }
 
       }
       else

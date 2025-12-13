@@ -1534,6 +1534,7 @@
         ,USE_LINE_ARGS(MXLINE_ARGS)  & 
         ,USE_SNHOST_ZPHOT     &  ! I: T=> replace SNLC_REDSHIFT -> SNHOST_ZPHOT
         ,USE_HOSTGAL_PHOTOZ   &  ! I: idem, but matches keyName in data files
+        ,USE_SNHOST_QZPHOT    &  ! I: T=> replace SNLC_REDSHIFT -> mean of QZPHOT;
 ! 
         ,ABORT_ON_NOEPOCHS    &  ! I: T=> abort if there are no epochs to fit
         ,ABORT_ON_BADAVWARP   &  ! I: T=> abort if AVwarp cannot be determined
@@ -1647,7 +1648,7 @@
           , LDMP_SNFAIL, LDMP_SNANA_VERSION, LDMP_SATURATE  & 
           , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND  & 
           , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX, USESIM_REDSHIFT  & 
-          , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ  & 
+          , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ, USE_SNHOST_QZPHOT  & 
           , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG  & 
           , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR  & 
           , REQUIRE_DOCANA, FORCE_STDOUT_BATCH  & 
@@ -5678,6 +5679,7 @@
 
     USE_HOSTGAL_PHOTOZ = .FALSE.
     USE_SNHOST_ZPHOT   = .FALSE.
+    USE_SNHOST_QZPHOT  = .FALSE.
     USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
 
 ! by default do NOT check for multiseason activity (Oct 2014)
@@ -7309,6 +7311,10 @@
        else if ( MATCH_NMLKEY('USE_HOSTGAL_PHOTOZ',  & 
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) USE_HOSTGAL_PHOTOZ
+
+       else if ( MATCH_NMLKEY('USE_SNHOST_QZPHOT',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) USE_SNHOST_QZPHOT
 
        else if ( MATCH_NMLKEY('USESIM_TRUEFLUX',  & 
                    1, iArg, ARGLIST) ) then
@@ -17656,7 +17662,7 @@
 
 ! if USE_SNHOST_ZPHOT=T then set redshift variables to host zphot.
 ! This ignores accurate specz to enable using photo-z.
-
+! Dec 2025: same for USE_SNHOST_QZPHOT
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -17665,12 +17671,25 @@
 
     INTEGER OPT
     CHARACTER EQ*4
-    REAL*8  ZCMB8, ZHEL8
-
+    LOGICAL   LZPH, LQZPH
+    REAL*8  ZCMB8, ZHEL8, ZPH
     REAL*8 zhelio_zcmb_translator ! function
 ! -------------- BEGIN ----------------
 
-    IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
+    LZPH  = (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ)
+    LQZPH = (USE_SNHOST_QZPHOT)  ! quantiles
+
+    IF ( LZPH ) then
+       ZPH = DBLE( SNHOST_ZPHOT(1) )
+    else if ( LQZPH ) then
+       ZPH = DBLE( SNHOST_QZPHOT_MEAN(1) )
+    else
+       return
+    endif
+
+
+    ! xxx mark IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
+    ! .xyz
 
     if ( .not. EXIST_SNHOST_ZPHOT ) then
         C1ERR = 'Cannot USE_HOSTGAL_PHOTOZ for CID='//SNLC_CCID
@@ -17678,9 +17697,10 @@
         CALL MADABORT("SNRECON", c1err, c2err )
     endif
 
+
     OPT    = 1     ! --> convert ZHEL to ZCMB
     EQ     = 'eq' // char(0)
-    ZHEL8  = DBLE( SNHOST_ZPHOT(1) )
+    ZHEL8  = ZPH
     ZCMB8  = zhelio_zcmb_translator(ZHEL8, SNLC8_RA, SNLC8_DEC, EQ, OPT, 4)
 
     SNLC_ZCMB         = SNGL(ZCMB8)

@@ -9239,15 +9239,7 @@ important to provide initial parameter estimates before the
 \minuit\ stage. 
 After using the recommended {\tt OPT\_SETPKMJD=20} (Fmax-clump)
 to estimate {\tt PEAKMJD},
-there are two user-options for estimating initial parameters:
-\begin{verbatim}
-   &FITINP
-     ISCALE_COURSEBIN_PHOTOZ = 1   # multi-dim grid search (default)
-        ! or
-     NEVAL_MCMC_PHOTOZ       = 300 # MCMC burn-in with 300 evaluations (not ready)
-\end{verbatim} 
-%
-The default opton performs a 3D grid-search over 
+the default opton performs a 3D grid-search over 
 redshift (0.04 bin-width), color (4 bins) and stretch/shape (3 bins).
 The distance parameter is estimated analytically as follows.
 For each grid point (photoZ, color, shape) the model fluxes
@@ -9279,9 +9271,23 @@ A correction to the $\fluxScale$ formula (Eq.~\ref{eq:fluxScale})
 is needed when there is a cosmology prior
 (Eq.~\ref{eq:chi2_muprior} in \S~\ref{sss:zphot_cosmology_prior})
 but this has not yet been implemented.
-The last step  is a 1D {\tt PEAKMJD} searched in 0.5~day bins ($-2$ to $+2$ days).
+After the course-grid search, a 1D {\tt PEAKMJD} grid is searched in 0.5~day bins ($-2$ to $+2$ days).
 
-NOT READY: The second option (MCMC) processes all 5 parameters simultaneously.
+The number of bins per variable can be scaled with 
+\begin{verbatim}
+   &FITINP
+      ISCALE_NBINc_COURSE_PHOTOZ = [ISCALE]  ! scale default number of color bins
+      ISCALE_NBINs_COURSE_PHOTOZ = [ISCALE]  ! scale default number of stretch bins
+      ISCALE_NBINt_COURSE_PHOTOZ = [ISCALE]  ! scale default number of PEAKMJD bins
+      ISCALE_NBINz_COURSE_PHOTOZ = [ISCALE]  ! scale default number of zphot bins
+      ISCALE_NBIN_COURSE_PHOTOZ  = [ISCALE]  ! scale number of bins for each parameter
+\end{verbatim}
+and each default ISCALE=1.  The default number of {\tt PEAKMJD} bins is 1 since it is fixed,
+and setting {\tt ISCALE\_NBINt\_COURSE\_PHOTOZ>1} results in a grid between $-15$ and $+15$ days.
+Beware that setting {\tt ISCALE\_XXX > 1} can result in significantly longer fit times, 
+so run a CPU benchmark before running long jobs.
+
+UNDER DEVELOPMENT: The second option (MCMC) processes all 5 parameters simultaneously.
 Initial {\tt STEP} sizes are 1/3 of the range, and every 20 evaluations
 the {\tt STEP} size is multiplied by 0.90. For each evaluation, the
 parameters are shifted by {\tt STEP}$\times(R_{01}-0.5)$,

@@ -597,12 +597,15 @@
     INTEGER  & 
          OPT_PHOTOZ   &  ! I: bit 0 (1 ) => use host-galaxy ZPRIOR;
                    ! I: bit 1 (2 ) => use spectro Z-prior
-                   ! I: bit 2 (4 ) => use zPhot quantiles
-                   ! I: bit 4 (16) => cheat: start with Zspec and correct filt
-        ,ISCALE_COURSEBIN_PHOTOZ   &  ! I: scale number of course-grid bins for init; z,c,s
-        ,ISCALE_COURSEcBIN_PHOTOZ  &  ! I: if > 0, scale only number of color bins
-        ,ISCALE_COURSEsBIN_PHOTOZ  &  ! I: if > 0, scale only number of stretch bins
-        ,NEVAL_MCMC_PHOTOZ
+                   ! I: bit 2 (4 ) => use zPhot quantiles, cubic spline
+                   ! I: bit 3 (8 ) => use zPhot quantiles, Steffan spline
+                   ! I: bit 4 (16) => cheat: start with Zspec and correct filters
+         ,ISCALE_NBINc_COURSE_PHOTOZ   &  ! I: scale number of color bins for course PHOTOZ search
+         ,ISCALE_NBINs_COURSE_PHOTOZ   &  ! I: scale number of stretch bins for course PHOTOZ search
+         ,ISCALE_NBINt_COURSE_PHOTOZ   &  ! I: scale number of PEAKMJD bins for course PHOTOZ search
+         ,ISCALE_NBINz_COURSE_PHOTOZ   &  ! I: scale number of zphot bins for course PHOTOZ search
+         ,ISCALE_NBIN_COURSE_PHOTOZ    &  ! I: scale all NBIN values
+         ,NEVAL_MCMC_PHOTOZ               ! I: MCMC option for approx global search (not ready?)
 
     REAL  & 
          PHOTOZ_ITER1_LAMRANGE(2)   &  ! I: cut on obs-filter, ITER=1 only
@@ -696,7 +699,9 @@
          ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR  & 
          ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT  & 
          ,OPT_LANDOLT, UCOR_BXB  & 
-         ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, ISCALE_COURSEcBIN_PHOTOZ, ISCALE_COURSEsBIN_PHOTOZ  & 
+         ,OPT_PHOTOZ, ISCALE_NBIN_COURSE_PHOTOZ &
+         ,ISCALE_NBINc_COURSE_PHOTOZ, ISCALE_NBINs_COURSE_PHOTOZ &
+         ,ISCALE_NBINt_COURSE_PHOTOZ, ISCALE_NBINz_COURSE_PHOTOZ &
          ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ  & 
          ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT  & 
          ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF  & 
@@ -4494,7 +4499,7 @@
            if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = MJD
 
            ! sums used for initializing photoz x0/MU
-           if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. ISCALE_COURSEBIN_PHOTOZ > 0 ) then
+           if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. ISCALE_NBIN_COURSE_PHOTOZ > 0 ) then
 
 ! xxxxxxxxxxxxxxxxxxxxxx
 !              write(6,668) zsn, Trest, flux_data, flux_model
@@ -6869,10 +6874,13 @@
     PHOTOZ_BOUND(2)  = 1.4
     PHOTOZ_ITER1_LAMRANGE(1) =  4000.  ! default => skip UV region;
     PHOTOZ_ITER1_LAMRANGE(2) = 26000.  ! note this is obs-frame !
+    
+    ISCALE_NBIN_COURSE_PHOTOZ   = 1
+    ISCALE_NBINc_COURSE_PHOTOZ  = 1
+    ISCALE_NBINs_COURSE_PHOTOZ  = 1
+    ISCALE_NBINt_COURSE_PHOTOZ  = 1 
+    ISCALE_NBINz_COURSE_PHOTOZ  = 1 
 
-    ISCALE_COURSEBIN_PHOTOZ  = 1
-    ISCALE_COURSEcBIN_PHOTOZ = 1 
-    ISCALE_COURSEsBIN_PHOTOZ = 1 
     NEVAL_MCMC_PHOTOZ      =  0
     PARLIST_MCMC_PHOTOZ(1) =  float(NEVAL_MCMC_PHOTOZ)
     PARLIST_MCMC_PHOTOZ(2) =  20.0  ! NEVAL before reducing step size
@@ -7142,7 +7150,7 @@
        endif
 
        NEVAL_MCMC_PHOTOZ = int(PARLIST_MCMC_PHOTOZ(1))
-       if ( NEVAL_MCMC_PHOTOZ > 0 )  ISCALE_COURSEBIN_PHOTOZ = 0
+       if ( NEVAL_MCMC_PHOTOZ > 0 )  ISCALE_NBIN_COURSE_PHOTOZ = 0
     endif
 
 ! dump namelist to std out
@@ -7524,14 +7532,20 @@
           READ(ARGLIST(1),*) PHOTOZ_BOUND(1)
           READ(ARGLIST(2),*) PHOTOZ_BOUND(2)
 
-      else if (MATCH_NMLKEY('ISCALE_COURSEBIN_PHOTOZ',  1, i, ARGLIST) ) then
-          READ(ARGLIST(1),*) ISCALE_COURSEBIN_PHOTOZ
+! - - - -
+      else if (MATCH_NMLKEY('ISCALE_NBIN_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) ISCALE_NBIN_COURSE_PHOTOZ
 
-      else if (MATCH_NMLKEY('ISCALE_COURSEcBIN_PHOTOZ',  1, i, ARGLIST) ) then
-          READ(ARGLIST(1),*) ISCALE_COURSEcBIN_PHOTOZ
-      else if (MATCH_NMLKEY('ISCALE_COURSEsBIN_PHOTOZ',  1, i, ARGLIST) ) then
-          READ(ARGLIST(1),*) ISCALE_COURSEsBIN_PHOTOZ
+      else if (MATCH_NMLKEY('ISCALE_NBINc_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) ISCALE_NBINc_COURSE_PHOTOZ
+      else if (MATCH_NMLKEY('ISCALE_NBINs_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) ISCALE_NBINs_COURSE_PHOTOZ
+      else if (MATCH_NMLKEY('ISCALE_NBINt_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) ISCALE_NBINt_COURSE_PHOTOZ
+      else if (MATCH_NMLKEY('ISCALE_NBINz_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) ISCALE_NBINz_COURSE_PHOTOZ
 
+! - - - - 
       else if (MATCH_NMLKEY('PARLIST_MCMC_PHOTOZ',5,i,ARGLIST)) then
           READ(ARGLIST(1),*) PARLIST_MCMC_PHOTOZ(1)
           READ(ARGLIST(2),*) PARLIST_MCMC_PHOTOZ(2)
@@ -8452,24 +8466,6 @@
           CALL MADABORT(FNAM, c1err, c2err)
       endif
 
-#ifdef MARK_DELETE
-      do q = 1, SNHOST_NZPHOT_Q
-          ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))/100.
-          ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
-          if ( LDMP_Q ) THEN
-            print*,' xxx   PROB=', sngl(ZPHOT_PROB(q)),  & 
-                      ' for ZPHOT=', sngl(ZPHOT_Q(q))
-            call flush(6)
-          endif
-      enddo
-      LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
-      CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,  & 
-           CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0),      & 
-           IPRINT, MEAN, STD, IERR_ZPDF, ISNLC_LENCCID, 20)
-      SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
-      SNHOST_QZPHOT_STD(1)  = STD
-#endif
-
       CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
       MEAN = SNHOST_QZPHOT_MEAN(1) 
       STD  = SNHOST_QZPHOT_STD(1)  
@@ -8710,7 +8706,8 @@
     REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE, d_cospar
     REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
-    INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER, ISCALE
+    INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER
+    INTEGER ISCALE_ALL, ISCALE_z
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
 
@@ -8728,11 +8725,10 @@
     
     ITER  = 1
     IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
-    ISCALE = ISCALE_COURSEBIN_PHOTOZ
-
-    IF ( ISCALE .LE. 0 ) THEN
-       write(c1err,661) ISCALE
-661      format('Invalid ISCALE_COURSEBIN_PHOTOZ = ', I6)
+    ISCALE_ALL = ISCALE_NBIN_COURSE_PHOTOZ
+    IF ( ISCALE_ALL .LE. 0 ) THEN
+       write(c1err,661) ISCALE_ALL
+661    format('Invalid ISCALE_NBIN_COURSE_PHOTOZ = ', I6)
        c2err = 'Check  &FITINP namelist'
        CALL MADABORT(FNAM, c1err, c2err)
     ENDIF
@@ -8775,7 +8771,8 @@
 
      ZVAR_MIN = ZMIN / (1.0+ZMIN)
      ZVAR_MAX = ZMAX / (1.0+ZMAX)
-     NZBIN = ISCALE * int(40.*(ZVAR_MAX-ZVAR_MIN)) + 1 ! 40 is new guess
+     NZBIN = int(40.*(ZVAR_MAX-ZVAR_MIN)) + 1 ! 40 is a guess
+     NZBIN = NZBIN * ( ISCALE_NBIN_COURSE_PHOTOZ * ISCALE_NBINz_COURSE_PHOTOZ)
      NAME_ZVAR = 'zPH/(1+zPH)'
 
     ZVAR_BIN = (ZVAR_MAX - ZVAR_MIN) / DBLE(NZBIN)
@@ -9221,27 +9218,24 @@
       PARMIN  = BND_LOCAL(1)
       PARMAX  = BND_LOCAL(2)
       IF ( DO_COLOR ) THEN
-         NBIN    = int(6.*(PARMAX-PARMIN) ) + 1     ! hard-wire
-         NBIN    = NBIN * ISCALE_COURSEcBIN_PHOTOZ
+         NBIN    = int(6.*(PARMAX-PARMIN) ) + 1        ! hard-wire NBIN
+         NBIN    = NBIN * ISCALE_NBINc_COURSE_PHOTOZ   ! optional user-scale
 
       ELSE IF ( DO_SHAPE ) THEN
-         NBIN    = 3 * ISCALE_COURSEsBIN_PHOTOZ    ! stretch/lumi bins
-
+         NBIN    = 3 * ISCALE_NBINs_COURSE_PHOTOZ    ! stretch/lumi bins * user scale
+ 
       ELSE IF ( DO_PEAKMJD ) THEN
-         if ( DEBUG_FLAG == 1211 ) then
-            NBIN   = 8
-            PARMIN = INIVAL(IPAR_PEAKMJD) - 16
-            PARMAX = INIVAL(IPAR_PEAKMJD) + 16
-         else
-            ! legacy
-            NBIN = 1
-            PARMIN = INIVAL(IPAR_PEAKMJD) 
-            PARMAX = INIVAL(IPAR_PEAKMJD)
+         NBIN   = 1 * ISCALE_NBINt_COURSE_PHOTOZ   ! PEAKMJD bins * user scale
+         PARMIN = INIVAL(IPAR_PEAKMJD)   ! default is delta function
+         PARMAX = INIVAL(IPAR_PEAKMJD)   
+         if ( NBIN > 1 ) then
+            PARMIN = PARMIN - 15 
+            PARMAX = PARMAX + 15 
          endif
       ENDIF
 
-      NBIN = NBIN * ISCALE_COURSEBIN_PHOTOZ
-
+! optional global scale for all NBIN
+      NBIN = NBIN * ISCALE_NBIN_COURSE_PHOTOZ
       PARBIN  = (PARMAX - PARMIN) / DBLE(NBIN)
     ENDIF
 

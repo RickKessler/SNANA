@@ -9239,15 +9239,17 @@ important to provide initial parameter estimates before the
 \minuit\ stage. 
 After using the recommended {\tt OPT\_SETPKMJD=20} (Fmax-clump)
 to estimate {\tt PEAKMJD},
-the default opton performs a 3D grid-search over 
+the default opton performs a 3D course grid-search over 
 redshift (0.04 bin-width), color (4 bins) and stretch/shape (3 bins).
+If {\tt NBINt\_COURSE\_PHOTOZ>1} (see below), 
+the 3D grid is expanded to a 4D grid search that includes t0={\tt PEAKMJD}.
 The distance parameter is estimated analytically as follows.
 For each grid point (photoZ, color, shape) the model fluxes
 are first evaluated using the distance
 (SALT2-$\bar{x_0}$ or distance modulus $\bar\mu$) 
 calculated from a reference set of cosmological parameters. 
 Next we define a flux-scale,
-$\fluxScale = x_0/\bar{x_0} = 10^{0.4(\mu-\bar{\mu})}$.
+  $\fluxScale = x_0/\bar{x_0} = 10^{0.4(\mu-\bar{\mu})}$.
 %
 The chi-squared is
  $\chi^2 = \sum_i [\Fdata - \fluxScale\Fmodel]^2/\sigma_i^2$,
@@ -9276,30 +9278,37 @@ After the course-grid search, a 1D {\tt PEAKMJD} grid is searched in 0.5~day bin
 The number of bins and range per variable have default values,
 and the default values can be altered with these inputs:
 \begin{verbatim}
-   &FITINP
-      NBINc_COURSE_PHOTOZ = nnn  ! default is 4  what about BAYESN ???
-      NBINs_COURSE_PHOTOZ = nnn  ! default is 3  
-      NBINt_COURSE_PHOTOZ = nnn  ! default is 1 (fixed at PEAKMJD from OPT_SETPKMJD)
-      NBINz_COURSE_PHOTOZ = nnn  ! default is 43*(zph_max/(1+zph_max) - zph_min/(1_zph_min)
-      SCALE_NBIN_COURSE_PHOTOZ  = nnn  ! scale number of bins for each param (default=1)
+  &FITINP
+    NBINc_COURSE_PHOTOZ = nnn ! default=4  
+    NBINs_COURSE_PHOTOZ = nnn ! default=3  
+    NBINt_COURSE_PHOTOZ = nnn ! default=1 (fixed at PEAKMJD from OPT_SETPKMJD)
+    NBINz_COURSE_PHOTOZ = nnn ! default=43*[zph_max/(1+zph_max) - zph_min/(1_zph_min)]
+    SCALE_NBIN_COURSE_PHOTOZ = nnn  ! scale number of bins for each param (default=1)
 
-      RANGEc_COURSE_PHOTOZ = x, y  ! default is -0.2, 0.25
-      RANGEs_COURSE_PHOTOZ = x, y  ! default is -3.0, 1.0
-      RANGEt_COURSE_PHOTOZ = x, y  ! default is -15, 15 (used only if NBINt_COURSE_PHOTOZ>1)
-      RANGEz_COURSE_PHOTOZ = x, y  ! default is -9, -9 (auto-computed based on prior)
+    RANGEc_COURSE_PHOTOZ = x,y ! default = -0.2, 0.25
+    RANGEs_COURSE_PHOTOZ = x,y ! default = -3.0, 1.0
+    RANGEt_COURSE_PHOTOZ = x,y ! default = -15, 15 (only if NBINt_COURSE_PHOTOZ>1)
+    RANGEz_COURSE_PHOTOZ = x,y ! default = -9,-9 -> computed each event using prior
 \end{verbatim}
 Beware that increasinging the number of bins can result in significantly longer fit times, 
 expecially if {\tt NBIN[par]\_COURSE\_PHOTOZ}
 is increased for multiple parameters;
 it is therefore good practice to run a CPU benchmark before submitting long jobs.
-If there is no host prior, then it is ok to modify 
+
+It is best to let the code internally compute {\tt NBINz} and {\tt RANGEz} for each event,
+and manual overrides should be done only for testing. Also note that the redshift
+grid increments in bins of $\Zphot/(1+\Zphot)$ instead of $\Zphot$, in order to 
+search finer $\Zphot$ bins at lower redshifts.
+If there is no host prior, then it is sensible to modify 
 {\tt NBINz\_COURSE\_PHOTOZ} and {\tt RANGEz\_COURSE\_PHOTOZ}
-and re-process a large sample. However, a host prior internally alters
+and re-process a large sample. However, a host prior results in internally altering
 these parameters for each event, and therefore overriding the defaults should
 be done only for testing individual events and not for a large sample.
 To see the actual bins used, grep (or search) ``binsize'' from stdout and 
 visually examine output that looks like
-\begin{verbatim}                                                                                                          7      peakmjd  bins from 56972.31 to 57002.31   (binsize=   5.00)
+%
+\begin{verbatim}
+         7      peakmjd  bins from 56972.31 to 57002.31   (binsize=   5.00)
         23  zPH/(1+zPH)  bins from    0.010 to    0.545   (binsize=  0.024)
          4      color    bins from   -0.200 to    0.250   (binsize=  0.150)
          3      shape    bins from   -3.000 to    1.000   (binsize=  2.000) 

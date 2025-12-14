@@ -3610,10 +3610,19 @@
     IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
     IS_BAYESN  = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
 
+    ! - - - - - - -
+    ! PEAKMJD range and bins should not depend on fit model
+    if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1
+    if ( RANGEt_COURSE_PHOTOZ(1) < 0.0 ) then
+       RANGEt_COURSE_PHOTOZ(1) = -15.0;   RANGEt_COURSE_PHOTOZ(2) = +15.0  ! PEAKMJD
+    endif
+
+    ! - - - - - - -
+    ! color and stretch binning depends on fit model
+
     IF ( IS_SALT2 ) THEN
        if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
        if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
-       if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1
        ! NBINz determined later for each event based on prior
        
        if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
@@ -3622,11 +3631,7 @@
        
        if ( RANGEs_COURSE_PHOTOZ(1) < 0.0 ) then
           RANGEs_COURSE_PHOTOZ(1) =  -3.0;   RANGEs_COURSE_PHOTOZ(2) = +1.0  ! x1
-       endif
-       
-       if ( RANGEt_COURSE_PHOTOZ(1) < 0.0 ) then
-          RANGEt_COURSE_PHOTOZ(1) = -15.0;   RANGEt_COURSE_PHOTOZ(2) = +15.0  ! PEAKMJD
-       endif
+       endif      
 
        ! RANGEz is determined later for each event.
 
@@ -3634,7 +3639,6 @@
 
        if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
        if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
-       if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1 
        ! NBINz determined later for each event based on prior
        
        if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
@@ -3645,13 +3649,9 @@
           RANGEs_COURSE_PHOTOZ(1) =  -2.0;   RANGEs_COURSE_PHOTOZ(2) = +2.0  ! THETA
        endif
        
-       if ( RANGEt_COURSE_PHOTOZ(1) < 0.0 ) then
-          RANGEt_COURSE_PHOTOZ(1) = -15.0;   RANGEt_COURSE_PHOTOZ(2) = +15.0  ! PEAKMJD
-       endif
-
        print*,' '
        print*,' @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ '
-       print*,' '
+       print*,'   Dec 2025: ' 
        print*,'   STOP in SUBROUTINE SET_COURSE_PHOTOZ_DEFAULTS()  on BAYESN model '
        print*,'   Check defaults for BAYESN. '
        print*,'           STOP'

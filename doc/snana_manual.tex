@@ -9273,19 +9273,38 @@ is needed when there is a cosmology prior
 but this has not yet been implemented.
 After the course-grid search, a 1D {\tt PEAKMJD} grid is searched in 0.5~day bins ($-2$ to $+2$ days).
 
-The number of bins per variable can be scaled with 
+The number of bins and range per variable have default values,
+and the default values can be altered with these inputs:
 \begin{verbatim}
    &FITINP
-      ISCALE_NBINc_COURSE_PHOTOZ = [ISCALE]  ! scale default number of color bins
-      ISCALE_NBINs_COURSE_PHOTOZ = [ISCALE]  ! scale default number of stretch bins
-      ISCALE_NBINt_COURSE_PHOTOZ = [ISCALE]  ! scale default number of PEAKMJD bins
-      ISCALE_NBINz_COURSE_PHOTOZ = [ISCALE]  ! scale default number of zphot bins
-      ISCALE_NBIN_COURSE_PHOTOZ  = [ISCALE]  ! scale number of bins for each parameter
+      NBINc_COURSE_PHOTOZ = nnn  ! default is 4  what about BAYESN ???
+      NBINs_COURSE_PHOTOZ = nnn  ! default is 3  
+      NBINt_COURSE_PHOTOZ = nnn  ! default is 1 (fixed at PEAKMJD from OPT_SETPKMJD)
+      NBINz_COURSE_PHOTOZ = nnn  ! default is 43*(zph_max/(1+zph_max) - zph_min/(1_zph_min)
+      SCALE_NBIN_COURSE_PHOTOZ  = nnn  ! scale number of bins for each param (default=1)
+
+      RANGEc_COURSE_PHOTOZ = x, y  ! default is -0.2, 0.25
+      RANGEs_COURSE_PHOTOZ = x, y  ! default is -3.0, 1.0
+      RANGEt_COURSE_PHOTOZ = x, y  ! default is -15, 15 (used only if NBINt_COURSE_PHOTOZ>1)
+      RANGEz_COURSE_PHOTOZ = x, y  ! default is -9, -9 (auto-computed based on prior)
 \end{verbatim}
-and each default ISCALE=1.  The default number of {\tt PEAKMJD} bins is 1 since it is fixed,
-and setting {\tt ISCALE\_NBINt\_COURSE\_PHOTOZ>1} results in a grid between $-15$ and $+15$ days.
-Beware that setting {\tt ISCALE\_XXX > 1} can result in significantly longer fit times, 
-so run a CPU benchmark before running long jobs.
+Beware that increasinging the number of bins can result in significantly longer fit times, 
+expecially if {\tt NBIN[par]\_COURSE\_PHOTOZ}
+is increased for multiple parameters;
+it is therefore good practice to run a CPU benchmark before submitting long jobs.
+If there is no host prior, then it is ok to modify 
+{\tt NBINz\_COURSE\_PHOTOZ} and {\tt RANGEz\_COURSE\_PHOTOZ}
+and re-process a large sample. However, a host prior internally alters
+these parameters for each event, and therefore overriding the defaults should
+be done only for testing individual events and not for a large sample.
+To see the actual bins used, grep (or search) ``binsize'' from stdout and 
+visually examine output that looks like
+\begin{verbatim}                                                                                                          7      peakmjd  bins from 56972.31 to 57002.31   (binsize=   5.00)
+        23  zPH/(1+zPH)  bins from    0.010 to    0.545   (binsize=  0.024)
+         4      color    bins from   -0.200 to    0.250   (binsize=  0.150)
+         3      shape    bins from   -3.000 to    1.000   (binsize=  2.000) 
+\end{verbatim}
+
 
 UNDER DEVELOPMENT: The second option (MCMC) processes all 5 parameters simultaneously.
 Initial {\tt STEP} sizes are 1/3 of the range, and every 20 evaluations

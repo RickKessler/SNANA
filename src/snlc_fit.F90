@@ -6898,10 +6898,10 @@
     NBINt_COURSE_PHOTOZ  =  -9
     NBINz_COURSE_PHOTOZ  =  -9 
 
-    RANGEc_COURSE_PHOTOZ(1) =  -9.0;   RANGEc_COURSE_PHOTOZ(2) = -9.0
-    RANGEs_COURSE_PHOTOZ(1) =  -9.0;   RANGEs_COURSE_PHOTOZ(2) = -9.0
-    RANGEt_COURSE_PHOTOZ(1) =  -9.0;   RANGEt_COURSE_PHOTOZ(2) = -9.0
-    RANGEz_COURSE_PHOTOZ(1) =  -9.0;   RANGEz_COURSE_PHOTOZ(2) = -9.0
+    RANGEc_COURSE_PHOTOZ(1) =  -99.0;   RANGEc_COURSE_PHOTOZ(2) = -99.0
+    RANGEs_COURSE_PHOTOZ(1) =  -99.0;   RANGEs_COURSE_PHOTOZ(2) = -99.0
+    RANGEt_COURSE_PHOTOZ(1) =  -99.0;   RANGEt_COURSE_PHOTOZ(2) = -99.0
+    RANGEz_COURSE_PHOTOZ(1) =  -99.0;   RANGEz_COURSE_PHOTOZ(2) = -99.0
 
     NEVAL_MCMC_PHOTOZ      =  0
     PARLIST_MCMC_PHOTOZ(1) =  float(NEVAL_MCMC_PHOTOZ)
@@ -9195,11 +9195,12 @@
     USE SNANAFIT
     USE SNFITVAR
     USE FITINP_NML
+    USE SNFILECOM
 
     IMPLICIT NONE
 
     CHARACTER NAME_COLOR*12, NAME_STRETCH*12
-    LOGICAL IS_SALT2, IS_BAYESN
+    LOGICAL IS_SALT2, IS_BAYESN, IS_MLCS2k2, USER_c, USER_s, USER_t
 
     ! ---------- BEGIN ---------
 
@@ -9207,43 +9208,46 @@
 
     IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2  )
     IS_BAYESN  = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
+    IS_MLCS2k2 = ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 ) 
+
+    USER_c  = ( RANGEc_COURSE_PHOTOZ(1) >  -98.0  )
+    USER_s  = ( RANGEs_COURSE_PHOTOZ(1) >  -98.0  )
+    USER_t  = ( RANGEt_COURSE_PHOTOZ(2) >    0.0  ) 
 
     ! - - - - - - -
-    ! PEAKMJD range and bins should not depend on fit model
-    if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1
-    if ( RANGEt_COURSE_PHOTOZ(1) < 0.0 ) then
+    if ( .NOT. USER_t ) then
        RANGEt_COURSE_PHOTOZ(1) = -15.0;   RANGEt_COURSE_PHOTOZ(2) = +15.0  ! PEAKMJD
     endif
+
+    ! default NBINc/NBINs/NBINt is the same for all models
+    if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
+    if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
+    if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1
 
     ! - - - - - - -
     ! color and stretch binning depends on fit model
 
     IF ( IS_SALT2 ) THEN
-       if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
-       if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
+
        ! NBINz determined later for each event based on prior
        
-       if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
+       if ( .NOT. USER_c ) then
           RANGEc_COURSE_PHOTOZ(1) =  -0.2;   RANGEc_COURSE_PHOTOZ(2) = +0.25  ! c
        endif
        
-       if ( RANGEs_COURSE_PHOTOZ(1) < 0.0 ) then
+       if ( .NOT. USER_s ) then
           RANGEs_COURSE_PHOTOZ(1) =  -3.0;   RANGEs_COURSE_PHOTOZ(2) = +1.0  ! x1
        endif      
 
        ! RANGEz is determined later for each event.
 
     ELSE IF ( IS_BAYESN ) THEN
-
-       if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
-       if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
-       ! NBINz determined later for each event based on prior
        
-       if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
+       if ( .NOT. USER_c ) then
           RANGEc_COURSE_PHOTOZ(1) =  0.0;   RANGEc_COURSE_PHOTOZ(2) = +0.6  ! AV
        endif
        
-       if ( RANGEs_COURSE_PHOTOZ(1) < 0.0 ) then
+       if ( .NOT. USER_s ) then
           RANGEs_COURSE_PHOTOZ(1) =  -2.0;   RANGEs_COURSE_PHOTOZ(2) = +2.0  ! THETA
        endif
        
@@ -9255,6 +9259,20 @@
        print*,'           STOP'
        STOP
 
+    ELSE IF ( IS_MLCS2k2 ) THEN
+       
+       if ( .NOT. USER_c ) then
+          RANGEc_COURSE_PHOTOZ(1) =  0.0;   RANGEc_COURSE_PHOTOZ(2) = +1.0  ! AV
+       endif
+       
+       if ( .NOT. USER_s ) then
+          RANGEs_COURSE_PHOTOZ(1) =  -0.2;   RANGEs_COURSE_PHOTOZ(2) = +1.5  ! DELTA
+       endif
+
+    ELSE
+       c1err = 'Course bins not defined for FITMODEL_NAME = '
+       c2err =  FITMODEL_NAME 
+       CALL MADABORT ('INIT_COURSEBIN_PHOTOZ', c1err, c2err )
     ENDIF
 
     write(6,41)  NBINc_COURSE_PHOTOZ, PARNAME_STORE(IPAR_COLOR),   RANGEc_COURSE_PHOTOZ

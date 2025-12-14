@@ -3239,8 +3239,8 @@
       endif
 
 
-      ! set course-grid ranges and bins for fitted parameters .xyz
-      CALL SET_COURSE_PHOTOZ_DEFAULTS()      
+      ! Dec 2025: set course-grid for each fitted parameter
+      CALL INIT_COURSEBIN_PHOTOZ() 
         
     ENDIF  ! end IFLAG==0
 
@@ -3591,76 +3591,6 @@
   END SUBROUTINE PHOTOZ_ANA 
 
 
-  SUBROUTINE SET_COURSE_PHOTOZ_DEFAULTS()
-
-    ! Created Dec 2025
-    ! for COURSE_PHOTOZ params NOT specified in &FITINP (i.e. ,still have -9 values),
-    ! set default values. Also check SALT2 and BAYESN.
-    ! This is a one-time init.
-
-    USE SNFITVAR
-    USE FITINP_NML
-
-    IMPLICIT NONE
-
-    LOGICAL IS_SALT2, IS_BAYESN
-
-    ! ---------- BEGIN ---------
-
-    IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
-    IS_BAYESN  = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
-
-    ! - - - - - - -
-    ! PEAKMJD range and bins should not depend on fit model
-    if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1
-    if ( RANGEt_COURSE_PHOTOZ(1) < 0.0 ) then
-       RANGEt_COURSE_PHOTOZ(1) = -15.0;   RANGEt_COURSE_PHOTOZ(2) = +15.0  ! PEAKMJD
-    endif
-
-    ! - - - - - - -
-    ! color and stretch binning depends on fit model
-
-    IF ( IS_SALT2 ) THEN
-       if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
-       if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
-       ! NBINz determined later for each event based on prior
-       
-       if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
-          RANGEc_COURSE_PHOTOZ(1) =  -0.2;   RANGEc_COURSE_PHOTOZ(2) = +0.25  ! c
-       endif
-       
-       if ( RANGEs_COURSE_PHOTOZ(1) < 0.0 ) then
-          RANGEs_COURSE_PHOTOZ(1) =  -3.0;   RANGEs_COURSE_PHOTOZ(2) = +1.0  ! x1
-       endif      
-
-       ! RANGEz is determined later for each event.
-
-    ELSE IF ( IS_BAYESN ) THEN
-
-       if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
-       if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
-       ! NBINz determined later for each event based on prior
-       
-       if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
-          RANGEc_COURSE_PHOTOZ(1) =  0.0;   RANGEc_COURSE_PHOTOZ(2) = +0.6  ! AV
-       endif
-       
-       if ( RANGEs_COURSE_PHOTOZ(1) < 0.0 ) then
-          RANGEs_COURSE_PHOTOZ(1) =  -2.0;   RANGEs_COURSE_PHOTOZ(2) = +2.0  ! THETA
-       endif
-       
-       print*,' '
-       print*,' @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ '
-       print*,'   Dec 2025: ' 
-       print*,'   STOP in SUBROUTINE SET_COURSE_PHOTOZ_DEFAULTS()  on BAYESN model '
-       print*,'   Check defaults for BAYESN. '
-       print*,'           STOP'
-       STOP
-
-    ENDIF
-
-    RETURN
-  END SUBROUTINE SET_COURSE_PHOTOZ_DEFAULTS
 
 ! =================
     LOGICAL FUNCTION LTEST_ZPHFILTER(ITER,ZPH,ZPH_ERR,IFILTBAD)
@@ -8817,7 +8747,7 @@
     REAL*8  d_tmp, dsave_tmp, tmp, chi2_tmp, chi2min_tmp  ! for DEBUG test
     INTEGER jd_tmp
 
-    CHARACTER FNAM*28, NAME_ZVAR*12
+    CHARACTER FNAM*28
     REAL*8 GET_DIST8, USRFUN
     EXTERNAL USRFUN
 
@@ -8873,44 +8803,33 @@
     ENDIF
 
 
-!  Dec 20 2024: prepare bining in z/(1+z) instead of z
-!    so that fewer bins are needed and hence faster init.
+    ! - - - - -  - -
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_COLOR, ITER,  & 
+         NCBIN, CBIN, CMIN, CMAX)  ! output
 
-    ! xxxxxxx mark delete Dec 2025 xxxxxx
-    !ZVAR_MIN = ZMIN / (1.0+ZMIN)
-    !ZVAR_MAX = ZMAX / (1.0+ZMAX)
-    !NZBIN = int(40.*(ZVAR_MAX-ZVAR_MIN)) + 1 ! 40 is a guess
-    !NZBIN = INT(NZBIN * ( SCALE_NBIN_COURSE_PHOTOZ * SCALE_NBINz_COURSE_PHOTOZ))
-    !ZVAR_BIN = (ZVAR_MAX - ZVAR_MIN) / DBLE(NZBIN)
-    ! xxxxxxxxxxx
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_SHAPE, ITER,  & 
+         NSBIN, SBIN, SMIN, SMAX)  ! output
 
-    CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR, ITER,  & 
-                       NCBIN, CBIN, CMIN, CMAX)  ! output
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_PEAKMJD, ITER,  & 
+         NTBIN, TBIN, TMIN, TMAX)  ! output
 
-    CALL SETBINS_FITINI_PHOTOZ(IPAR_SHAPE, ITER,  & 
-                       NSBIN, SBIN, SMIN, SMAX)  ! output
-
-    CALL SETBINS_FITINI_PHOTOZ(IPAR_PEAKMJD, ITER,  & 
-                       NTBIN, TBIN, TMIN, TMAX)  ! output
-
-    NAME_ZVAR = 'zPH/(1+zPH)'
     ZVAR_MIN = ZMIN; ZVAR_MAX = ZMAX
-    CALL SETBINS_FITINI_PHOTOZ(IPAR_ZPHOT, ITER,  & 
-                       NZBIN, ZVAR_BIN, ZVAR_MIN, ZVAR_MAX)  ! inputs ZVAR_MIN[MAX] are modified
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_ZPHOT, ITER,  & 
+         NZBIN, ZVAR_BIN, ZVAR_MIN, ZVAR_MAX)  ! inputs ZVAR_MIN[MAX] are modified
 
     
     IF ( STDOUT_UPDATE ) THEN
-       print*,'    Course-grid minimization for initial values: '
+       print*,'    COURSE-GRID minimization for initial values: '
 
-       write(6,431) NTBIN, 'peakmjd ',   TMIN, TMAX, TBIN
-       write(6,432) NZBIN, NAME_ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN       
-       write(6,432) NCBIN, 'color   ',   CMIN, CMAX, CBIN
-       write(6,432) NSBIN, 'shape   ',   SMIN, SMAX, SBIN
- 431     format(T8,I3, 2x, A12,' bins from ', F8.2,' to ', F8.2,  & 
-              3x,'(binsize=',F7.2,')'  )
+       write(6,431) NTBIN, 'peakmjd     ',    TMIN, TMAX, TBIN
+       write(6,432) NZBIN, 'zph/(1+zph) ', ZVAR_MIN, ZVAR_MAX, ZVAR_BIN       
+       write(6,432) NCBIN, 'color       ',    CMIN, CMAX, CBIN
+       write(6,432) NSBIN, 'shape       ',    SMIN, SMAX, SBIN
 
- 432     format(T8,I3, 2x, A12,' bins from ', F8.3,' to ', F8.3,  & 
-              3x,'(binsize=',F7.3,')'  )
+431    format(T8,I3, 2x, A12,' bins from ', F8.2,' to ', F8.2,  & 
+            3x,'(binsize=',F7.2,')'  )
+432    format(T8,I3, 2x, A12,' bins from ', F8.3,' to ', F8.3,  & 
+            3x,'(binsize=',F7.3,')'  )
 
        NBIN_TOT = NTBIN * NZBIN * NCBIN * NSBIN
        print*,'    Total number of COURSE bins: ', NBIN_TOT
@@ -9264,8 +9183,92 @@
     RETURN
   END SUBROUTINE INIPAR_PHOTOZ_MCMC
 
+
+  SUBROUTINE INIT_COURSEBIN_PHOTOZ()
+
+    ! Created Dec 2025
+    ! for XXX_COURSE_PHOTOZ params NOT specified in &FITINP (i.e. ,still have -9 values),
+    ! set default values. Also check SALT2 or BAYESN.
+    ! This is a one-time init done after FITMODEL_INDEX is set, 
+    ! and thus cannot be done prior to reading &FITINP from namelist file.
+
+    USE SNANAFIT
+    USE SNFITVAR
+    USE FITINP_NML
+
+    IMPLICIT NONE
+
+    CHARACTER NAME_COLOR*12, NAME_STRETCH*12
+    LOGICAL IS_SALT2, IS_BAYESN
+
+    ! ---------- BEGIN ---------
+
+    CALL PRBANNER ( 'INIT_COURSEBIN_PHOTOZ' )
+
+    IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2  )
+    IS_BAYESN  = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
+
+    ! - - - - - - -
+    ! PEAKMJD range and bins should not depend on fit model
+    if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1
+    if ( RANGEt_COURSE_PHOTOZ(1) < 0.0 ) then
+       RANGEt_COURSE_PHOTOZ(1) = -15.0;   RANGEt_COURSE_PHOTOZ(2) = +15.0  ! PEAKMJD
+    endif
+
+    ! - - - - - - -
+    ! color and stretch binning depends on fit model
+
+    IF ( IS_SALT2 ) THEN
+       if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
+       if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
+       ! NBINz determined later for each event based on prior
+       
+       if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
+          RANGEc_COURSE_PHOTOZ(1) =  -0.2;   RANGEc_COURSE_PHOTOZ(2) = +0.25  ! c
+       endif
+       
+       if ( RANGEs_COURSE_PHOTOZ(1) < 0.0 ) then
+          RANGEs_COURSE_PHOTOZ(1) =  -3.0;   RANGEs_COURSE_PHOTOZ(2) = +1.0  ! x1
+       endif      
+
+       ! RANGEz is determined later for each event.
+
+    ELSE IF ( IS_BAYESN ) THEN
+
+       if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
+       if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
+       ! NBINz determined later for each event based on prior
+       
+       if ( RANGEc_COURSE_PHOTOZ(1) < 0.0 ) then
+          RANGEc_COURSE_PHOTOZ(1) =  0.0;   RANGEc_COURSE_PHOTOZ(2) = +0.6  ! AV
+       endif
+       
+       if ( RANGEs_COURSE_PHOTOZ(1) < 0.0 ) then
+          RANGEs_COURSE_PHOTOZ(1) =  -2.0;   RANGEs_COURSE_PHOTOZ(2) = +2.0  ! THETA
+       endif
+       
+       print*,' '
+       print*,' @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ '
+       print*,'   Dec 2025: ' 
+       print*,'   STOP in SUBROUTINE INIT_COURSEBIN_PHOTOZ()  on BAYESN model '
+       print*,'   Check defaults for BAYESN. '
+       print*,'           STOP'
+       STOP
+
+    ENDIF
+
+    write(6,41)  NBINc_COURSE_PHOTOZ, PARNAME_STORE(IPAR_COLOR),   RANGEc_COURSE_PHOTOZ
+    write(6,41)  NBINs_COURSE_PHOTOZ, PARNAME_STORE(IPAR_SHAPE),   RANGEs_COURSE_PHOTOZ
+    write(6,41)  NBINt_COURSE_PHOTOZ, 't0-t0_estimate  ',          RANGEt_COURSE_PHOTOZ
+41  format(T8, 'Define', I3,2x, A16,' bins from ', F9.3,' to ', F9.3 )
+ 
+    call flush(6)
+
+    RETURN
+  END SUBROUTINE INIT_COURSEBIN_PHOTOZ
+
 ! ====================================================
-    SUBROUTINE SETBINS_FITINI_PHOTOZ(IPAR,ITER,  & 
+  SUBROUTINE SET_COURSEBIN_PHOTOZ(IPAR,ITER,  & 
          NBIN, PARBIN, PARMIN, PARMAX)
 ! 
 ! Created March 25, 2012 by R.Kessler
@@ -9278,7 +9281,6 @@
 ! Dec 11 2025: check for IPAR_PEAKMJD
 ! Dec 13 2025: refactor to use all user &FITINP inputs 
 ! ---------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
@@ -9374,7 +9376,7 @@
     endif
 
     RETURN
-  END SUBROUTINE SETBINS_FITINI_PHOTOZ
+  END SUBROUTINE SET_COURSEBIN_PHOTOZ
 
 ! ==========================================
     SUBROUTINE FITINI_ADJUST ( iter, IERR )
@@ -9483,7 +9485,7 @@
     IF ( LPRINT ) THEN
        LCHAR = ISNLC_LENCCID
        write(BANNER,10) cid, SNLC_CCID(1:LCHAR)
-10       format('FITINI_ADJUST for CID=',I8, 3x, '(',A,')'   )
+10     format('FITINI_ADJUST for CID=',I8, 3x, '(',A,')'   )
        CALL PRBANNER ( BANNER )
     endif
 
@@ -18281,13 +18283,6 @@
 
     CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VFLUXOBS, VFLUXOBS_ERR,  & 
            VFILTOBS, SNLCPAK_EPFLAG_FLUXDATA, LENCCID)
-
-! xxxxxxxx mark delete Mar 2025 xxxxxx
-!  don't do this because model-flux has separate DATAFLAG
-!      CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS,
-!     &     VMODELFLUX, VMODELFLUX_ERR,
-!     &     VFILTOBS, SNLCPAK_EPFLAG_FLUXMODEL, LENCCID)   ! Mar 2025
-! xxxxxxxx
 
 ! store REJECT flags
     CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VREJECT, VDUMERR,  & 

@@ -9222,7 +9222,7 @@ often in the defined region versus using that filter
 more often in the undefined region.
 
 % ---------------------------------------
-%   \clearpage
+   \clearpage
    \subsubsection{Initial Parameter Estimate}
    \label{sss:photoz_ini}
 % --------------------------------------
@@ -9290,20 +9290,27 @@ and the default values can be altered with these inputs:
     RANGEt_COURSE_PHOTOZ = x,y ! default = -15, 15 (only if NBINt_COURSE_PHOTOZ>1)
     RANGEz_COURSE_PHOTOZ = x,y ! default = -9,-9 -> computed each event using prior
 \end{verbatim}
-Beware that increasinging the number of bins can result in significantly longer fit times, 
+Beware that increasing the number of bins can result in significantly longer fit times, 
 expecially if {\tt NBIN[par]\_COURSE\_PHOTOZ}
 is increased for multiple parameters;
 it is therefore good practice to run a CPU benchmark before submitting long jobs.
-
-It is best to let the code internally compute {\tt NBINz} and {\tt RANGEz} for each event,
-and manual overrides should be done only for testing. Also note that the redshift
-grid increments in bins of $\Zphot/(1+\Zphot)$ instead of $\Zphot$, in order to 
+The ranges for color ({\tt RANGEc\_}) and stretch ({\tt RANGEs\_}) have literal definitions
+for SALT2 (c,x1) or BAYESN (AV,theta). 
+{\tt RANGEt\_} is w.r.t. the rough estimate determined by {\tt \&SNLCINP} input 
+{\tt OPT\_SETPKMJD} in \S~\ref{subsec:SETPKMJD}.
+{\tt RANGEz\_} defines a grid over $\Zphot/(1+\Zphot)$ instead of $\Zphot$, in order to 
 search finer $\Zphot$ bins at lower redshifts.
-If there is no host prior, then it is sensible to modify 
-{\tt NBINz\_COURSE\_PHOTOZ} and {\tt RANGEz\_COURSE\_PHOTOZ}
-and re-process a large sample. However, a host prior results in internally altering
-these parameters for each event, and therefore overriding the defaults should
-be done only for testing individual events and not for a large sample.
+
+While optimizaing $\Zphot$ performance with different {\tt NBIN} and {\tt RANGE} parameters 
+is encouraged,
+it is best to let the code internally compute {\tt NBINz\_} and {\tt RANGEz\_} for each event
+when a host redshift prior is used.
+If there is no host prior, {\tt NBINz\_COURSE\_PHOTOZ} and {\tt RANGEz\_COURSE\_PHOTOZ}
+are the same for each event and a manual override is applicable to all events.
+With a host prior, however, each event has a custom {\tt NBINz\_} and {\tt RANGEz\_}
+based on the event-specific host prior value;
+therefore a manual override that is fixed for each event makes no sense and
+should be done only for testing individual events.
 To see the actual bins used, grep (or search) ``binsize'' from stdout and 
 visually examine output that looks like
 %

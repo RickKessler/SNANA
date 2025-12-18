@@ -1545,7 +1545,7 @@
         ,ABORT_ON_MARGPDF0    &  ! I: T=> abort if marginalized pdf=0 everywhere
         ,ABORT_ON_TRESTCUT    &  ! I: T=> abort if any Trest cut is set (for photoz)
         ,ABORT_ON_DUPLCID     &  ! I: T=> abort on duplicate CID
-        ,ABORT_ON_DUPLMJD     &  ! I: T=> abort on repeat MJD+band (Jun 2017)
+        ,ABORT_ON_DUPLMJD     &  ! I: T=> abort on repeat MJD+band (default=F)
         ,ABORT_ON_NOPKMJD     &  ! I: T=> abort if no PKMJDINI (see OPT_SETPKMJD)
         ,ABORT_ON_BADQZPHOT   &  ! I: T=> abort if redshift quantiles are NOT monotonically increasing
         ,USE_MINOS            &  ! I: T=> use MINOS instead of MINIMIZE
@@ -9745,6 +9745,10 @@
        write(LUNIGNORE2,420)     ! write header
  420     format(T10,'CID      MJD     FILTER')
        NEPOCH_IGNORE_WRFITS = 0
+
+       ABORT_ON_BADQZPHOT = .FALSE.  ! Dec 17 2025
+       ABORT_ON_DUPLMJD   = .FALSE.
+
     ENDIF
 
     REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0  & 
@@ -17627,7 +17631,7 @@
              CCID   = SNLC_CCID
              GALID = SNHOST_OBJID(1)
              write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
-61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I8 )
+61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I12 )
              C2ERR = 'ZPHOT_Q must be monotonically increasing'
              if ( ABORT_ON_BADQZPHOT ) then
                 CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )

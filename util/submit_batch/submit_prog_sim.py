@@ -2613,8 +2613,7 @@ class Simulation(Program):
             tmp_readme_file = f"{path_sim}/{v}/{v}.README"
             with open(tmp_readme_file, "r") as r : 
                 readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
-                print(f"\n xxx {v}.README -> \n{readme_docana}")
-                ngenlc_wr   = readme_docana['OUTPUT_SUMMARY']['NGENLC_WRITE']
+                ngenlc_wr     = readme_docana['OUTPUT_SUMMARY']['NGENLC_WRITE']
                 if ngenlc_wr > 0:  return tmp_readme_file, readme_docana
             
         # - - - - 

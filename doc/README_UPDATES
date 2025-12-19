@@ -23387,8 +23387,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_fit.F90:
       + remove obsolete SIMEFF code (OPT_SIMEFF, SIMEFF_FILE, etc ...)
         Also remove SIMEFF_FILE from LCFIT inputs.
-      + new &FITINP inputs ISCALE_COURSEcBIN_PHOTOZ and ISCALE_COURSEsBIN_PHOTOZ
-        to scale default number of color and stretch bins for course-grid init
+      + new &FITINP inputs RANGE[x]_COURSE_PHOTOZ and NBIN[x]_COURSE_PHOTOZ
+        to allow full user control to change defaults. See more details in manual.
       + default THETA range of -1.4 to +2.7 was too strict; relax to +- 4 
 
     get_fitres_values.py: 
@@ -23397,7 +23397,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     *.F90: update PARAMETER statements to F90 syntax.
 
     SALT2mu.c
-      + write chi2max rejects by IDSAMPLE
+      + for stdout dump of chi2max rejects, include SURVEY & IDSAMPLE for visual examination.
 
     submit_batch_jobs:
       + fix parsing logic to allow pad spaces between slashes and label; e.g.
@@ -23406,5 +23406,23 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          - /label2 /   CUTWIN_REDSHITT 0 .6  # fix allows pad space between slashes
          - / label3 /  CUTWIN_REDSHITT 0 .7  # fix allows two pad spaces between slashes
          - / label4 /CUTWIN_REDSHITT 0 .8    # fix allows no pad spaces between last slash and arg
+
+     + submit_prog_sim.py
+         https://github.com/RickKessler/SNANA/issues/1597
+
+    snlc_sim.c
+      + set GENTYPE_TO_NAME information at end of GENMAG_DRIVER(),
+        instead of after trigger passes. This help getting  the right info
+        in the README even if zero events pass trigger  ... but this
+        fix is not fully robust, so there is a more robust fix in submit_prog_sim.py
+        (git issue 1597)
+
+    SNANA_code_tests.py TO-DO list for SCONE:
+      - read and implement optional TESTENV:  <setup env> in task files
+      - modify train task to include Ia and CC
+      - add SCONE_DES_PREDICT test
+
+   SNANA_code_tests.py:
+     - refactoring and updates to enable SCONE tests with separate env
 
 END: 

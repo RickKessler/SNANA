@@ -41,9 +41,15 @@
 #
 # Feb 01 2024: print CMD_JOB to slurm log
 # Apr 29 2024: increase WALLTIME_MAX to 2 hr
+# Dec 19 2025: 
+#   + refactor to read and parse proper YAML format
+#   + check optional TESTENV to setup special env for task (e.g.. scone)
+#   + allow list of DEPENDENCIES
+#
+# ===================================
 
 import os, sys, datetime, shutil, time, glob
-import subprocess, argparse
+import subprocess, argparse, yaml
 
 
 # ===============================================
@@ -66,6 +72,74 @@ SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = f"{LOG_TOPDIR}/STOP"
 MEMORY                  = "2GB"  
 WALLTIME_MAX            = "02:00:00"    # 2 hr to allow queue delay
+
+# - - - - - -  - - - - - 
+# define keys for task files and for main list file
+
+TASKKEY_TESTENV        = 'TESTENV'
+TASKKEY_TESTINPUT      = 'TESTINPUT'
+TASKKEY_TESTJOB        = 'TESTJOB'
+TASKKEY_TESTJOB_ARGS   = 'TESTJOB_ARGS'
+TASKKEY_TESTNAME       = 'TESTNAME'
+TASKKEY_TESTRESULT     = 'TESTRESULT'
+TASKKEY_WORDNUM        = 'WORDNUM'
+TASKKEY_DEPENDENCY     = 'DEPENDENCY'
+
+TASKKEY_DEFAULT_DICT = {    # default values if not in task file
+    TASKKEY_TESTENV       : None ,
+    TASKKEY_TESTINPUT     : '' ,
+    TASKKEY_TESTJOB       : '' ,
+    TASKKEY_TESTJOB_ARGS  : '' ,
+    TASKKEY_TESTNAME      : '' ,
+    TASKKEY_TESTRESULT    : '' ,
+    TASKKEY_WORDNUM       : '' ,
+    TASKKEY_DEPENDENCY    : ''
+}
+
+TASKKEY_LIST = list( TASKKEY_DEFAULT_DICT.keys() )
+
+
+# define keys to split arg into a list
+TASKKEY_SPLIT_DICT = {
+    TASKKEY_TESTINPUT :  ''  ,
+    TASKKEY_WORDNUM   :  '-' ,
+    TASKKEY_DEPENDENCY : ''
+}
+
+
+# - - - - -
+
+LISTKEY_FILE             = 'LIST_FILE'
+LISTKEY_REFTEST          = 'REFTEST'
+LISTKEY_REF_SNANA_SETUP  = 'REF_SNANA_SETUP'
+LISTKEY_TEST_SNANA_SETUP = 'TEST_SNANA_SETUP'
+LISTKEY_SNANA_SETUP      = 'SNANA_SETUP'
+LISTKEY_SSH_NODES        = 'SSH_NODES'
+LISTKEY_BATCH_INFO       = 'BATCH_INFO'
+LISTKEY_RUN_SSH          = 'RUN_SSH'
+LISTKEY_RUN_BATCH        = 'RUN_BATCH'
+LISTKEY_NTASK            = 'NTASK'
+LISTKEY_NCPU             = 'NCPU'
+LISTKEY_TASKNAME_LIST    = 'TASKNAME_LIST'
+LISTKEY_TASKNUM_LIST     = 'TASKNUM_LIST'
+LISTKEY_TASKNUM_ORDER_LIST  = 'TASKNUM_ORDER_LIST'
+
+LISTKEY_DEFAULT_DICT = {    # default values if not specified
+    LISTKEY_REF_SNANA_SETUP  : '' ,
+    LISTKEY_TEST_SNANA_SETUP : '' ,
+    LISTKEY_SNANA_SETUP      : '' ,
+    LISTKEY_SSH_NODES        : None ,
+    LISTKEY_BATCH_INFO       : None ,
+    LISTKEY_RUN_SSH          : False,
+    LISTKEY_RUN_BATCH        : False,
+    LISTKEY_NTASK            : 0,
+    LISTKEY_NCPU             : 0,
+    LISTKEY_TASKNAME_LIST    : [],
+    LISTKEY_TASKNUM_LIST     : [],
+}
+
+LISTKEY_LIST = list( LISTKEY_DEFAULT_DICT.keys() )
+
 
 # ========================================================
 def parse_args():
@@ -182,7 +256,8 @@ def read_SNANA_INFO(LOGDIR):
         elif words[0] == "SNANA_DIR:" :
             SNANA_DIR     = words[1]
 
-    return(SNANA_VERSION,SNANA_DIR)
+    return SNANA_VERSION, SNANA_DIR
+    # end read_SNANA_INFO
 
 # ========================================
 def get_RESULTS_TASKS(LOGDIR):
@@ -204,12 +279,15 @@ def get_RESULTS_TASKS(LOGDIR):
     with open(result_file, 'rt') as f:
         lineList = f.readlines()    
 
+    # do manual parse (not yaml) because of non-yaml comments at the end of file
+
     for line in lineList:          
         line  = line.rstrip()  # remove trailing space and linefeed
         words = line.split()
         if len(words) == 0 :   continue
         wd0   = words[0]
         if wd0[0:4] != 'TASK' : continue
+
         TASKNUM    = int(wd0[4:7])  # strip NUM from TASK[NUM]
         TASKNAME   = wd0[8:]        # strip name from TASKnnn-[TASKNAME]
         TASKRESULT = ' '.join(words[2:])  # skip colon
@@ -227,7 +305,7 @@ def get_RESULTS_TASKS(LOGDIR):
 
     # - - - - - - - - - - - - - - -
     # read SNANA info
-    (SNANA_VERSION,SNANA_DIR) = read_SNANA_INFO(LOGDIR)
+    SNANA_VERSION, SNANA_DIR  = read_SNANA_INFO(LOGDIR)
 
     # - - - - - - - - - - - - - - -
     RESULTS_INFO = {
@@ -245,17 +323,17 @@ def get_RESULTS_TASKS(LOGDIR):
 
 
 # ===================================
-def set_task_order(TASKNAME_LIST):
+def set_tasknum_order(TASKNAME_LIST):
 
-    # return TASKORDER_LIST to priortize SIMGEN jobs to run first.
+    # return TASKNUM_ORDER_LIST to priortize SIMGEN jobs to run first.
 
-    NTASK          = len(TASKNAME_LIST)
-    TASKORDER_LIST = [-9]*NTASK
-    nuse           = [0]*NTASK
+    NTASK              = len(TASKNAME_LIST)
+    TASKNUM_ORDER_LIST = [-9]*NTASK
+    nuse               = [0]*NTASK
     order = 0; itask=0
     for TASKNAME in TASKNAME_LIST :
-        if TASKNAME.startswith("SIMGEN") is True:
-            TASKORDER_LIST[order] = itask
+        if TASKNAME.startswith("SIMGEN") :
+            TASKNUM_ORDER_LIST[order] = itask
             order += 1
             nuse[itask] += 1
         itask += 1
@@ -264,19 +342,19 @@ def set_task_order(TASKNAME_LIST):
     itask = 0
     for TASKNAME in TASKNAME_LIST :
         if  nuse[itask] == 0 :
-            TASKORDER_LIST[order] = itask
+            TASKNUM_ORDER_LIST[order] = itask
             order += 1
             nuse[itask] += 1
         itask += 1
 
-    # sanity check that every task got flaged once
+    # - - - -  ERROR CHECKS BELOW - - - - 
+
+    # sanity check that every task got flagged once
     for order in range(0,NTASK):
-        itask = TASKORDER_LIST[order]
+        itask = TASKNUM_ORDER_LIST[order]
         if itask < 0 or itask >= NTASK :
             msg = f" ABORT: invalid itask={itask} for order={order}"
             sys.exit(msg)     
-#        TASKNAME = TASKNAME_LIST[itask]
-#        print(' xxx itask=%3d -> order=%3d (%s) ' % (itask,order,TASKNAME) )
 
     for itask in range(0,NTASK) :
         n = nuse[itask]
@@ -287,175 +365,139 @@ def set_task_order(TASKNAME_LIST):
                   f" Something is really messed up."
             sys.exit(msg) 
 
-    return TASKORDER_LIST
+    return TASKNUM_ORDER_LIST  
+    # end set_tasknum_order
 
-# ===================================
-def parse_listfile(INPUTS, RESULTS_INFO_REF):
+
+# ============================================================
+def parse_list_file(INPUTS, RESULTS_INFO_REF):
+
+    # Dec 2025: refactor using pure yaml input format
 
     LIST_FILE = INPUTS.list_file
-    if os.path.isfile(LIST_FILE) is False  :
+
+    if not os.path.isfile(LIST_FILE) :
         msg = f"ERROR: Cannot find list file of tests: \n  {LIST_FILE}"
         sys.exit(msg)
 
-    REF_SNANA_SETUP   = ''
-    TEST_SNANA_SETUP  = ''
-    SNANA_SETUP       = ''
-    SSH_NODES         = []
-    BATCH_INFO        = []
-    RUN_SSH           = False
-    RUN_BATCH         = False
-    NTASK             = 0 
-    TASKNAME_LIST     = []
-    TASKNUM_LIST      = []
-    
+    # - - - - 
     DOREF   = INPUTS.ref
     DOTEST  = INPUTS.test
     REFTEST = INPUTS.REFTEST
 
-    NERR_TASKNUM = 0  # used only for TEST mode
 
-    # if this is test mode, get REF info, mainlly list of TASKS
-    # to compare
-    if DOTEST is True :
+    # if this is test mode, get REF info, mainlly list of TASK to compare
+    if DOTEST  :
         LOGDIR_REF        = RESULTS_INFO_REF["LOGDIR"]
         REF_TASKNAME_LIST = RESULTS_INFO_REF["TASKNAME_LIST"]
         REF_TASKNUM_LIST  = RESULTS_INFO_REF["TASKNUM_LIST"]
         print(f" Select REF logdir: {LOGDIR_REF} " )
+        KEY_SNANA_SETUP = LISTKEY_TEST_SNANA_SETUP
+    else:
+        KEY_SNANA_SETUP = LISTKEY_REF_SNANA_SETUP        
 
-
+    # read task-list file
     with open(LIST_FILE, 'rt') as f:
-        lineList = f.readlines()
+        CONTENTS = yaml.load(f, Loader=yaml.FullLoader)
 
-    for line in lineList:          
-        line = line.rstrip()  # remove trailing space and linefeed
-        words = line.split()
-        lw    = len(words)
-        if lw == 0 :
-            continue
-        if  words[0][0:1] == '#' :
-            continue   # skip comment lines
-        elif  words[0] == 'REF_SNANA_SETUP:' :
-            REF_SNANA_SETUP = ' '.join(words[1:])
-        elif words[0] == 'TEST_SNANA_SETUP:' :
-            TEST_SNANA_SETUP = ' '.join(words[1:])
-        elif  words[0] == 'SSH_NODES:' :
-            SSH_NODES = words[1:]
-            NCPU      = len(SSH_NODES)
-            RUN_SSH   = True
-        elif words[0] == 'BATCH_INFO:' :
-            BATCH_INFO = words[1:]
-            if INPUTS.ncpu > 0 :
-                NCPU = INPUTS.ncpu  # command line override (Aug 17, 2021
+    # - - - - - - - - - 
+    # start loading extra goodies into CONTENTS
+
+    CONTENTS[LISTKEY_FILE]    = LIST_FILE
+    CONTENTS[LISTKEY_REFTEST] = REFTEST
+
+    # set missing key args to default value
+    for key in LISTKEY_LIST:
+        if key not in CONTENTS:
+            CONTENTS[key] = LISTKEY_DEFAULT_DICT[key]
+
+    # add keys based on user input
+    SSH_NODES = CONTENTS[LISTKEY_SSH_NODES]
+    if SSH_NODES:
+        NCPU = len(SSH_NODES)
+        CONTENTS[LISTKEY_NCPU]     = NCPU
+        CONTENTS[LISTKEY_RUN_SSH]  = True
+
+    BATCH_INFO = CONTENTS[LISTKEY_BATCH_INFO]
+    if BATCH_INFO:
+        BATCH_INFO = BATCH_INFO.split()
+        CONTENTS[LISTKEY_BATCH_INFO] = BATCH_INFO # store word list instead of string
+        NCPU  = int(BATCH_INFO[2])
+        if INPUTS.ncpu > 0 :  NCPU = INPUTS.ncpu  # command line override (Aug 17, 2021
+        CONTENTS[LISTKEY_NCPU]       = NCPU
+        CONTENTS[LISTKEY_RUN_BATCH]  = True
+
+    # - - - - -
+    # check tasks 
+
+    TASKNAME_LIST = CONTENTS[LISTKEY_TASKNAME_LIST]
+    NTASK         = len(TASKNAME_LIST)
+    CONTENTS[LISTKEY_NTASK] = NTASK
+
+    if DOREF  :
+        TASKNUM = 0
+        for TASKNAME in TASKNAME_LIST:
+            TASKNUM += 1
+            CONTENTS[LISTKEY_TASKNUM_LIST].append(TASKNUM)
+    else:
+        # for TEST, fetch TASKNUM from REF job
+        NERR_TASKNUM  = 0  # used only for TEST mode
+        for TASKNAME in TASKNAME_LIST:
+            if TASKNAME in REF_TASKNAME_LIST :
+                itask_ref = REF_TASKNAME_LIST.index(TASKNAME)
+                TASKNUM   = REF_TASKNUM_LIST[itask_ref]
             else:
-                NCPU       = int(BATCH_INFO[2])
-            RUN_BATCH  = True 
-        elif words[0] == 'TEST:' :
-            NTASK += 1
-            TASKNAME = words[1]
-            TASKNAME_LIST.append(TASKNAME)
-            if DOREF  :
-                TASKNUM = NTASK
-            else:
-                # for TEST, fetch TASKNUM from REF job
-                if TASKNAME in REF_TASKNAME_LIST :
-                    itask_ref = REF_TASKNAME_LIST.index(TASKNAME)
-                    TASKNUM   = REF_TASKNUM_LIST[itask_ref]
-                else:
-                    print(' ERROR: TASK %s not found in REF' % TASKNAME)
-                    NERR_TASKNUM += 1
-                    TASKNUM = -9
+                print(f' ERROR: TASK {TASKNAME} not found in REF')
+                NERR_TASKNUM += 1 ;   TASKNUM = -9            
 
-            TASKNUM_LIST.append(TASKNUM)
+            CONTENTS[LISTKEY_TASKNUM_LIST].append(TASKNUM)
 
-        elif words[0] == 'END:':
-            break
+        if ( NERR_TASKNUM > 0 ) :
+            msg = f" ABORT: {NERR_TASKNUM} TASKS in TEST are not in REF"
+            sys.exit(msg)
 
 
-    if ( NERR_TASKNUM > 0 ) :
-        msg = f" ABORT: {NERR_TASKNUM} TASKS not in REF"
-        sys.exit(msg)
-
-
+    # - - - -
     # ----------------------------------
     # determine process order so that SIMGEN_XXX jobs go first
-    TASKORDER_LIST = set_task_order(TASKNAME_LIST)
+    TASKNUM_ORDER_LIST = set_tasknum_order(TASKNAME_LIST)
+    CONTENTS[LISTKEY_TASKNUM_ORDER_LIST] = TASKNUM_ORDER_LIST
 
-    # pick which snana-setup to use
-    if DOTEST is True :
-        SNANA_SETUP = TEST_SNANA_SETUP
-    else:
-        SNANA_SETUP = REF_SNANA_SETUP
+    # pick which snana-setup to use (TEST or REF)
+    CONTENTS[LISTKEY_SNANA_SETUP] = CONTENTS[KEY_SNANA_SETUP]
+    
 
-    # parse contents of LIST_FILE and return contents in dictionary
-    CONTENTS = {
-        "LIST_FILE"        :   LIST_FILE,
-        "REFTEST"          :   REFTEST,
-        "REF_SNANA_SETUP"  :   REF_SNANA_SETUP,
-        "TEST_SNANA_SETUP" :   TEST_SNANA_SETUP,
-        "SNANA_SETUP"      :   SNANA_SETUP,
-        "SSH_NODES"        :   SSH_NODES,
-        "BATCH_INFO"       :   BATCH_INFO, 
-        "RUN_SSH"          :   RUN_SSH,
-        "RUN_BATCH"        :   RUN_BATCH,
-        "NCPU"             :   NCPU,
-        "NTASK"            :   NTASK,
-        "TASKNAME_LIST"    :   TASKNAME_LIST,
-        "TASKNUM_LIST"     :   TASKNUM_LIST,
-        "TASKORDER_LIST"   :   TASKORDER_LIST,
-        }
-
+    #sys.exit(f"\n xxx DEBUG STOP at end of parse_list_file CONTENTS = \n{CONTENTS} ")
     return CONTENTS
-    # end parse_listfile
+
+    # end parse_list_file
 
 # ============================================
 def parse_taskfile(TASKFILE):
+
     # parse user TASKFILE (read from listFile) and 
     # return dictionary of contents
-    CONTENTS     = []
-    TESTINPUT    = ''    # name of input file(s)
-    TESTJOB      = ''    # job name; e..g, snlc_sim.exe
-    TESTJOB_ARGS = ''    # optional arguments to TESTJOB
-    TESTNAME     = ''    # name of test quantite; e.g., 'Efficiency'
-    TESTRESULT   = ''    # grep command for log file  
-    WORDNUM      = ''    # word range to extract from grep string
-    DEPENDENCY   = None  # must wait for this other task to finish
+    # Dec 2025: refactor/simplify 
 
     with open(TASKFILE, 'rt') as f:
-        lineList = f.readlines()
+        CONTENTS = yaml.load(f, Loader=yaml.FullLoader)
 
-    for line in lineList:          
-        line = line.rstrip()  # remove trailing space and linefeed
-        words = line.split()
-        lw    = len(words)
-        if lw == 0 :
-            continue
-        if words[0][0:1] == '#' :
-            continue   # skip comment lines
-        elif words[0] == 'TESTINPUT:' :
-            TESTINPUT = words[1:]
-        elif words[0] == 'TESTJOB:' :
-            TESTJOB = words[1]
-        elif words[0] == 'TESTJOB_ARGS:' :
-            TESTJOB_ARGS = ' '.join(words[1:])
-        elif words[0] == 'TESTNAME:' :
-            TESTNAME = words[1]
-        elif words[0] == 'TESTRESULT:' :
-            TESTRESULT = ' '.join(words[1:])
-        elif words[0] == 'WORDNUM:' :
-            WORDNUM = words[1].split('-')
-        elif words[0] == 'DEPENDENCY:' :
-            DEPENDENCY = words[1]
+    # set missing key args to default value
+    for key in TASKKEY_LIST:
+        if key not in CONTENTS:
+            CONTENTS[key] = TASKKEY_DEFAULT_DICT[key]
 
-    CONTENTS = {
-        "TESTINPUT"     : TESTINPUT,
-        "TESTJOB"       : TESTJOB,
-        "TESTJOB_ARGS"  : TESTJOB_ARGS,
-        "TESTNAME"      : TESTNAME,
-        "TESTRESULT"    : TESTRESULT,
-        "WORDNUM"       : WORDNUM,
-        "DEPENDENCY"    : DEPENDENCY,
-        }
+    # convert a few arg strings into lists
+    for key, split_char in TASKKEY_SPLIT_DICT.items():
+        arg_string    = CONTENTS[key] 
+        if len(split_char) == 0:
+            CONTENTS[key] = arg_string.split()
+        else:
+            CONTENTS[key] = arg_string.split(split_char)
+
     return CONTENTS
+    # end parse_taskfile
+
 
 # =======================================
 def check_listfile_contents(LIST_FILE_INFO):
@@ -501,8 +543,8 @@ def check_listfile_contents(LIST_FILE_INFO):
         # parse TASKFILE contents, and make sure things exist.
         CONTENTS_TASK = parse_taskfile(TASKFILE)
 
-        TESTINPUT       = CONTENTS_TASK["TESTINPUT"]
-        TASKNAME_DEPEND = CONTENTS_TASK["DEPENDENCY"]
+        TESTINPUT            = CONTENTS_TASK[TASKKEY_TESTINPUT]
+        TASKNAME_DEPEND_LIST = CONTENTS_TASK[TASKKEY_DEPENDENCY]
 
         for infile in TESTINPUT :
             INFILE = f"{INPUT_DIR}/{infile}"
@@ -513,12 +555,19 @@ def check_listfile_contents(LIST_FILE_INFO):
                 ABORT_FLAG = True
     
         # check DEPENDENCY
-        if TASKNAME_DEPEND is not None :
-            if TASKNAME_DEPEND not in TASKNAME_LIST :
+        for task_depend in TASKNAME_DEPEND_LIST:
+            if task_depend not in TASKNAME_LIST:
                 NOTFOUND_DEPEND += 1 ; ABORT_FLAG = True
                 print(f"\t--> ERROR: DEPENDENCY-Task {TASKNAME_DEPEND} "\
                       f"not defined. ")   
 
+        # xxx mark dele
+        #if TASKNAME_DEPEND is not None :
+        #    if TASKNAME_DEPEND not in TASKNAME_LIST :
+        #        NOTFOUND_DEPEND += 1 ; ABORT_FLAG = True
+        #        print(f"\t--> ERROR: DEPENDENCY-Task {TASKNAME_DEPEND} "\
+        #              f"not defined. ")   
+        # xxxxx
 
         # check for duplicates 
         NFIND = TASKNAME_LIST.count(TASKNAME)
@@ -553,8 +602,10 @@ def check_listfile_contents(LIST_FILE_INFO):
 # =====================================
 def parse_cpufile(INPUTS,CPUNUM_REQ):
 
+    # Dec 2025: refactor to read yaml format
+
     LOGDIR    = INPUTS.logdir
-    CPU_FILE  = f"{LOGDIR}/{CPU_FILE_DEFAULT}"
+    CPU_FILE  = f"{LOGDIR}/{CPU_FILE_DEFAULT}"  # CPU_ASSIGN.DAT
 
     TASK      = []
     TASKNUM   = []
@@ -568,34 +619,31 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
     NTASK_REQ = 0    # number of requested tasks for CPUNUM
 
     with open(CPU_FILE, 'rt') as f:
-        lineList = f.readlines()
+        CONTENTS = yaml.load(f, Loader=yaml.FullLoader)
 
-    for line in lineList:          
-        line  = line.rstrip()  # remove trailing space and linefeed
-        words = line.split()
-        lw    = len(words)
-        if lw == 0 :
-            continue        
-        if words[0] == 'TASK:' :
-            tmp_numcpu   = int(words[1])
-            tmp_numtask  = int(words[2])
-            tmp_task     = words[3]
-            tmp_prefix   = f"TASK{tmp_numtask:03d}"
-            tmp_taskfile = f"{TASK_DIR}/{tmp_task}"
-            tmp_logfile  = f"{LOGDIR}/{tmp_prefix}_{tmp_task}.LOG"
-            tmp_donefile = f"{LOGDIR}/{tmp_prefix}_{tmp_task}.DONE"
+    for row in CONTENTS['TASKNUM_LIST']:
+        words        = row.split()
+        tmp_numcpu   = int(words[0])
+        tmp_numtask  = int(words[1])
+        tmp_task     = words[2]
 
-            TASK.append(tmp_task)
-            TASKNUM.append(tmp_numtask)
-            CPUNUM.append(tmp_numcpu)
-            PREFIX.append(tmp_prefix)
-            TASKFILE.append(tmp_taskfile)
-            DONEFILE.append(tmp_donefile)
-            LOGFILE.append(tmp_logfile)
+        tmp_prefix   = f"TASK{tmp_numtask:03d}"
+        tmp_taskfile = f"{TASK_DIR}/{tmp_task}"
+        tmp_logfile  = f"{LOGDIR}/{tmp_prefix}_{tmp_task}.LOG"
+        tmp_donefile = f"{LOGDIR}/{tmp_prefix}_{tmp_task}.DONE"
 
-            NTASK_TOT += 1
-            if CPUNUM_REQ == tmp_numcpu :   NTASK_REQ += 1
+        TASK.append(tmp_task)
+        TASKNUM.append(tmp_numtask)
+        CPUNUM.append(tmp_numcpu)
+        PREFIX.append(tmp_prefix)
+        TASKFILE.append(tmp_taskfile)
+        DONEFILE.append(tmp_donefile)
+        LOGFILE.append(tmp_logfile)
 
+        NTASK_TOT += 1
+        if CPUNUM_REQ == tmp_numcpu :   NTASK_REQ += 1
+
+    # - - - - - - - 
     CPU_TASKLIST = {
         "NTASK_TOT"    :  NTASK_TOT,
         "NTASK_REQ"    :  NTASK_REQ,
@@ -605,11 +653,11 @@ def parse_cpufile(INPUTS,CPUNUM_REQ):
         "PREFIX"       :  PREFIX,
         "TASKFILE"     :  TASKFILE,
         "DONEFILE"     :  DONEFILE,
-        "LOGFILE"      :  LOGFILE,
+        "LOGFILE"      :  LOGFILE
         }
     
     return CPU_TASKLIST
-
+    # end parse_cpufile 
 
 # ==============================================
 def copy_input_files(INPUTS, PREFIX, *TESTINPUT):
@@ -682,43 +730,53 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
     CONTENTS_TASK = parse_taskfile(TASKFILE)
 
     # check dependency 
-    TASK_DEPEND = CONTENTS_TASK["DEPENDENCY"]
-    if TASK_DEPEND is not None  :  
-        itask_depend    = CPU_TASKLIST["TASK"].index(TASK_DEPEND)
+    TASK_DEPEND_LIST = CONTENTS_TASK[TASKKEY_DEPENDENCY]
+    # xxx mark if TASK_DEPEND is not None  :  
+    for task_depend in TASK_DEPEND_LIST:
+        itask_depend    = CPU_TASKLIST["TASK"].index(task_depend)
         DONEFILE_DEPEND = CPU_TASKLIST["DONEFILE"][itask_depend]
         PREFIX_DEPEND   = CPU_TASKLIST["PREFIX"][itask_depend]
-        if os.path.isfile(DONEFILE_DEPEND) is False : 
-            print(' Delay   %s_%s (waiting for %s_%s) ' %
-                  (PREFIX,TASK, PREFIX_DEPEND,TASK_DEPEND) )
+        if not os.path.isfile(DONEFILE_DEPEND) : 
+            print(f' Delay   {PREFIX}_{TASK} (waiting for {PREFIX_DEPEND}_{task_depend} %s_%s) ')
             sys.stdout.flush()
             return 0
 
     # run the job using os.system    
     print(' Process %s_%s ' % (PREFIX,TASK) )
     sys.stdout.flush()
-#    sys.stdout.flush()
-    TESTJOB       = CONTENTS_TASK["TESTJOB"]
-    TESTJOB_ARGS  = CONTENTS_TASK["TESTJOB_ARGS"]
-    TESTINPUT     = CONTENTS_TASK["TESTINPUT"]
-    TESTRESULT    = CONTENTS_TASK["TESTRESULT"]
-    TESTNAME      = CONTENTS_TASK["TESTNAME"]
-    GREP_WD0      = int(CONTENTS_TASK["WORDNUM"][0])
-    GREP_WD1      = int(CONTENTS_TASK["WORDNUM"][1]) + 1
+    
+    TESTENV       = CONTENTS_TASK[TASKKEY_TESTENV]
+    TESTJOB       = CONTENTS_TASK[TASKKEY_TESTJOB]
+    TESTJOB_ARGS  = CONTENTS_TASK[TASKKEY_TESTJOB_ARGS]
+    TESTINPUT     = CONTENTS_TASK[TASKKEY_TESTINPUT]
+    TESTRESULT    = CONTENTS_TASK[TASKKEY_TESTRESULT]
+    TESTNAME      = CONTENTS_TASK[TASKKEY_TESTNAME]
+    WORDNUM       = CONTENTS_TASK[TASKKEY_WORDNUM]
+    GREP_WD0      = int( WORDNUM[0] )
+    GREP_WD1      = int( WORDNUM[1] ) + 1
 
     # copy input file(s) to output log dir, and append PREFIX to input name
     # return arg 'input_copy' includes TASK[nnn] PREFIX.
     infile_copy = copy_input_files(INPUTS,PREFIX,*TESTINPUT)
 
+    job_plus_args = ''
+
+    # Dec 19 2025: check for special env
+    if TESTENV:
+        print(f" xxx yo TESTENV = {TESTENV}")
+        job_plus_args = f"{TESTENV} ; "
+
     # construct job name with arguments
     if len(TESTJOB_ARGS) > 1 :
         # if TESTJOB_ARGS contains "TESTINPUT" string, substitute
         # the actual input file name that includes TASKnnn prefix
-        if "TESTINPUT" in TESTJOB_ARGS:
-            TESTJOB_ARGS = TESTJOB_ARGS.replace("TESTINPUT", infile_copy)
+        if TASKKEY_TESTINPUT in TESTJOB_ARGS:
+            TESTJOB_ARGS = TESTJOB_ARGS.replace(TASKKEY_TESTINPUT, infile_copy)
 
-        job_plus_args = f"{TESTJOB} {TESTJOB_ARGS}"
+        job_plus_args += f"{TESTJOB} {TESTJOB_ARGS}"
     else:
-        job_plus_args = f"{TESTJOB} {infile_copy}"
+        job_plus_args += f"{TESTJOB} {infile_copy}"
+
 
 
     # run full job, include 'cd' and pipe to LOGFILE
@@ -821,26 +879,32 @@ def make_logdir(INPUTS):
     os.mkdir(LOGDIR)
 
     return LOGDIR
+    # end make_logdir
 
 # ===================================
 def  make_cpufile(CPU_FILE,LIST_FILE_INFO):
 
+    # Dec 2025: refactor to write proper YAML file
+
     f = open(CPU_FILE, 'wt')
-    f.write('VARNAMES: CPUNUM TASKNUM  TASK \n')
+    f.write('#    CPUNUM TASKNUM  TASK \n')
+    f.write('TASKNUM_LIST: \n')
     
     NCPU           = LIST_FILE_INFO["NCPU"]
     NTASK          = LIST_FILE_INFO["NTASK"]
     TASKNAME_LIST  = LIST_FILE_INFO["TASKNAME_LIST"]
     TASKNUM_LIST   = LIST_FILE_INFO["TASKNUM_LIST"]
-    TASKORDER_LIST = LIST_FILE_INFO["TASKORDER_LIST"]
+    TASKNUM_ORDER_LIST = LIST_FILE_INFO["TASKNUM_ORDER_LIST"]
 
     cpunum         = 0  # CPU number
     for order in range (0,NTASK):
-        itask    = TASKORDER_LIST[order]
+        itask    = TASKNUM_ORDER_LIST[order]
         TASK     = TASKNAME_LIST[itask]
         TASKNUM  = TASKNUM_LIST[itask]
-        f.write(f"TASK: {cpunum:3d} {TASKNUM:3d}   {TASK} \n")
-        cpunum  += 1
+
+        f.write(f"- {cpunum:3d}  {TASKNUM:3d}    {TASK} \n")  
+
+        cpunum  += 1   # convert odert(0 to N-1) to index 1 to N
         if cpunum == NCPU :  cpunum = 0
         
     f.close()
@@ -892,12 +956,13 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 # =========================================
 def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     # launch batch jobs
+
     SCRIPTNAME     = INPUTS.SCRIPTNAME
     REFTEST        = INPUTS.REFTEST
     reftest        = INPUTS.reftest   # --ref or --test
-    SNANA_SETUP    = LIST_FILE_INFO["SNANA_SETUP"]
-    BATCH_INFO     = LIST_FILE_INFO["BATCH_INFO"]
-    NCPU           = LIST_FILE_INFO["NCPU"]
+    SNANA_SETUP    = LIST_FILE_INFO[LISTKEY_SNANA_SETUP]
+    BATCH_INFO     = LIST_FILE_INFO[LISTKEY_BATCH_INFO]
+    NCPU           = LIST_FILE_INFO[LISTKEY_NCPU]
     LOGDIR         = SUBMIT_INFO["LOGDIR"]
 
     BATCH_SUBMIT_COMMAND = BATCH_INFO[0]
@@ -999,7 +1064,7 @@ def submitTasks_driver(INPUTS, LIST_FILE_INFO):
         "CPU_FILE" : CPU_FILE
         }
 
-    if DOCOMPARE_ONLY is True :
+    if DOCOMPARE_ONLY  :
         return SUBMIT_INFO
 
     # - - - - - - - - - - - - - - - - - - - 
@@ -1178,16 +1243,25 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
             NBLANK += 1
 
     # get SNANA info
-    (SNANA_VER,SNANA_DIR) = read_SNANA_INFO(LOGDIR)
+    SNANA_VER, SNANA_DIR = read_SNANA_INFO(LOGDIR)
 
     # append NABORT and NBLANK to results file.
     f = open(result_file, 'at')
     f.write(f"\n")
-    f.write(f" SNANA_VERSION: {SNANA_VER}\n")
-    f.write(f" SNANA_DIR:     {INPUTS.snana_dir}\n")
-    f.write(f" Total process time for {NTASK} tasks: {t_proc:0.1f} minutes\n")
-    f.write(f" Number of jobs with ABORT output: {NABORT} \n")
-    f.write(f" Number of jobs with BLANK output: {NBLANK} \n")
+    f.write(f"SNANA_VERSION: {SNANA_VER}\n")
+    f.write(f"SNANA_DIR:     {INPUTS.snana_dir}\n")
+    f.write(f"NTASK_TOT:     {NTASK:3d}    \n")
+    f.write(f"NTASK_ABORT:   {NABORT:3d}   # ABORT found in output \n")
+    f.write(f"NTASK_BLANK:   {NBLANK:3d}   # no recongnizable output; likely a crash\n")
+    f.write(f"WALL_TIME:     {t_proc:0.1f} minutes  \n")
+    f.write(f"  \n")
+
+    # xxxxxxx mark delete Dec 19 2025 xxxxxx
+    #f.write(f" Total process time for {NTASK} tasks: {t_proc:0.1f} minutes\n")
+    #f.write(f" Number of jobs with ABORT output: {NABORT} \n")
+    #f.write(f" Number of jobs with BLANK output: {NBLANK} \n")
+    # xxxxxxxxx
+
     f.close()
 
     if DOTEST is True :
@@ -1231,7 +1305,7 @@ if __name__ == "__main__":
         else:
             RESULTS_INFO_REF = []
 
-        LIST_FILE_INFO = parse_listfile(INPUTS, RESULTS_INFO_REF)
+        LIST_FILE_INFO = parse_list_file(INPUTS, RESULTS_INFO_REF)
         check_listfile_contents(LIST_FILE_INFO)
 
         #sys.exit("\n xxx DEBUG STOP xxx \n")

@@ -27,6 +27,7 @@
 #              into quick_commands for things like FITS->TEXT translation
 #
 # Dec 08 2025: add OPT_SIG_NMAD and new @@OUTLIER_RANGE
+# Dec 19 2025: allow ID column to be anywhwere; no longer has to be first column
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -141,7 +142,7 @@ FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP,
 
 
 # list possible VARNAME to identify row
-VARNAME_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID' ]
+VALID_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID' ]
 
 # internal strings to identify type of string in @V or @@CUT
 STRTYPE_VAR   = "VARIABLE"
@@ -1867,7 +1868,18 @@ def check_table_varnames(tfile, var_list):
 
     # - - - - - - -
     # extract info from list of variables
-    varname_idrow = table_var_list[0]
+    varname_idrow = []      # xxx table_var_list[0]  
+    for idrow in VALID_IDROW_LIST:
+        if idrow in table_var_list:
+            varname_idrow.append(idrow)
+
+    n_idrow = len(varname_idrow)
+    if n_idrow != 1 :
+        sys.exit(f"\n ERROR: found {n_idrow} ID columns: {varname_idrow}\n\t One and only one is allowed. ")
+
+    varname_idrow = varname_idrow[0]  # switch from list back to scaler
+
+    # - - - - - -
     n_missing = 0
 
     for var in var_list:

@@ -24670,7 +24670,7 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   // flux in central pixel
   fluxtot_pe = (flux_pe*areaFrac) + sky_pe ;
   
-  // Oct 30 2025: need to include host contribution ... .xyz
+  // Oct 30 2025: need to include host contribution 
   if ( INPUTS.HOSTLIB_USE ) {
     double r = INPUTS.HOSTLIB_SBRADIUS ;
     areaFrac_SB = AREAPIX / ( PI * r*r );
@@ -24903,10 +24903,12 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_GENTYPE   = GENLC.SIM_GENTYPE ;
   sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); 
   
+  /* xxx mark delete Dec 18 2025 xxxxxx
   // store map[GENTYPE] = name to print in readme
   char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[SNDATA.SIM_GENTYPE];
   if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL ) 
     { catVarList_with_sep(ctype,GENLC.SNTYPE_NAME,PLUS) ;  }
+  xxxxxx */
 
   if ( WRFLAG_BLINDTEST ) 
     { SNDATA.FAKE  = FAKEFLAG_LCSIM_BLINDTEST ; }
@@ -27026,6 +27028,7 @@ void GENMAG_DRIVER(void) {
   char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
+
   genran_modelSmear(); // randoms for intrinsic scatter
 
   // this loop is to generate ideal mag in each filter.
@@ -27063,6 +27066,12 @@ void GENMAG_DRIVER(void) {
 
   // estimate light-curve Width in each band (Aug 17 2017)
   compute_lightCurveWidths();
+
+  // Dec 18 2025: store map[GENTYPE] = name to print in readme 
+  //   do this here (not in snlc_to_SNDATA) in case zero events pass trigger
+  char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[GENLC.SIM_GENTYPE];
+  if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL ) 
+    { catVarList_with_sep(ctype,GENLC.SNTYPE_NAME,PLUS) ;  }
 
   return ;
 

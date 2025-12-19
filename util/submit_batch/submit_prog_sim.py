@@ -80,6 +80,8 @@
 # Feb 20 2025: add TAKE_SPECTRUM to GENOPT_GLOBAL_IGNORE_SIMnorm
 # May 20 2025: fix JOBNAME arg udner GENOPT to work nicely with other GENOPTS
 # Nov 14 2025: add MWCL and RATE to list of SIMGEN_DUMP options 
+# Dec 18 2025: rather than reading GENTYPE_TO_NAME from first README file,
+#              pick_valid_readme retursn first README with NGENLC_WRITE>0.
 #
 # ==========================================
 
@@ -2560,20 +2562,26 @@ class Simulation(Program):
                 # search sim folders with time stamp to avoid using older sim versions
                 wildcard    = f"{TMP_GENV}*{Nsec_time_stamp}" 
                 tmp_genv_list  = sorted(glob.glob1(path_sndata_sim,wildcard))    
-                v0          = tmp_genv_list[0]  # pick first one from list
-                tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
+
+                # pick 1st readme with NGENLC_WR > 0 (Dec 2025) and return yaml contents
+                tmp_readme_file, readme_docana = self.pick_valid_readme(path_sndata_sim, tmp_genv_list)  
+
+                # xxxxxx mark delete Dec 18 2025 xxxxxxx
+                #v0          = tmp_genv_list[0]  # pick first one from list
+                #tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
+                # xxxxxxxx
 
                 tmp_list_model_string.append(model_string)
-                tmp_list_readme.append(tmp_readme)
+                tmp_list_readme.append(tmp_readme_file)
 
                 # increment GENTYPE_TO_NAMES from all versions
-                with open(tmp_readme, "r") as r :
-                    readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
-                    gentype_to_name_dict = readme_docana.setdefault('GENTYPE_TO_NAME', {})
-                    if not isinstance(gentype_to_name_dict,dict) : break
-                    for gentype, names in gentype_to_name_dict.items():
-                        ALL_GENTYPE_TO_NAME[gentype] = f"{names:<30} {model_string}"
-                        #print(f" xxx gentype = {gentype} | names = {names} ")
+                # xxx  with open(tmp_readme, "r") as r :
+                # xxx   readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
+                gentype_to_name_dict = readme_docana.setdefault('GENTYPE_TO_NAME', {})
+                if not isinstance(gentype_to_name_dict,dict) : break
+                for gentype, names in gentype_to_name_dict.items():
+                    ALL_GENTYPE_TO_NAME[gentype] = f"{names:<30} {model_string}"
+                    #print(f" xxx gentype = {gentype} | names = {names} ")
         
         # - - - - -  -
         # write GENTYPE_TO_NAME mapping (Mar 2024)
@@ -2594,6 +2602,26 @@ class Simulation(Program):
         return
         # end merge_write_readme
 
+    def pick_valid_readme(self, path_sim, version_list):
+
+        # path_sim is directory where sim data are written
+        # version_list = list of versions (folders) to check 
+        # if [VERSION].README has NGENLC_WRITE > 0
+        # Return first README satisfying condition.
+
+        for v in version_list:
+            tmp_readme_file = f"{path_sim}/{v}/{v}.README"
+            with open(tmp_readme_file, "r") as r : 
+                readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
+                print(f"\n xxx {v}.README -> \n{readme_docana}")
+                ngenlc_wr   = readme_docana['OUTPUT_SUMMARY']['NGENLC_WRITE']
+                if ngenlc_wr > 0:  return tmp_readme_file, readme_docana
+            
+        # - - - - 
+        # if we get here, none of the jobs had events written, 
+        # so just return last readme on list
+        
+        return tmp_readme_file, readme_docana
 
     def merge_write_input_keys(self, f, model_string, tmp_readme):
 

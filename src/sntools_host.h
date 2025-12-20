@@ -114,12 +114,6 @@
 #define HOSTLIB_VARNAME_VPEC         "VPEC"         
 #define HOSTLIB_VARNAME_VPEC_ERR     "VPEC_ERR"
 
-/* xxx mark delete Aug 28 2024 xxxxs
-#define HOSTLIB_VARNAME_LOGMASS_TRUE "LOGMASS_TRUE"  // log10(Mgal/Msolar)
-#define HOSTLIB_VARNAME_LOGMASS_ERR  "LOGMASS_ERR" 
-#define HOSTLIB_VARNAME_LOGMASS_OBS  "LOGMASS_OBS"
-xxxx end mark xxx */
-
 #define HOSTLIB_VARNAME_RA           "RA"  
 #define HOSTLIB_VARNAME_DEC          "DEC" 
 #define HOSTLIB_VARNAME_RA_HOST      "RA_HOST"  

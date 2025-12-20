@@ -27,8 +27,9 @@
 #              into quick_commands for things like FITS->TEXT translation
 #
 # Dec 08 2025: add OPT_SIG_NMAD and new @@OUTLIER_RANGE
-# Dec 19 2025: allow ID column to be anywhwere; no longer has to be first column
-#
+# Dec 19 2025:
+#   +  allow ID column to be anywhwere; no longer has to be first column
+#   +  allow plotting x:stddev(y) to plot stddev(y) vs x
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -80,7 +81,7 @@ OPT_HISTFILL  = "HISTFILL"  # same, but stepfilled 1Dhist
 OPT_NEVT      = "NEVT"      # append N={nevt} to legend
 OPT_AVG       = "AVG"       # 1D->append avg to legend; 2D->overlay avg in x-bins
 OPT_MEAN      = "MEAN"      # same as AVG
-OPT_STDDEV    = "STDDEV"    # append stddev to legend
+OPT_STDDEV    = "STDDEV"    # append stddev to legend (1D), or add STDDEV error bar per bin (2D)
 OPT_SIG_NMAD  = "SIG_NMAD"  # sigma(Normaized Median Absolute Deviation) = 1.4826 * sig_MAD
 OPT_OV        = "OV"        # show tfile1/tfile2 chi2/dof and scale tfile2 to match tfile1;
 OPT_OVCHI2    = "OVCHI2"    # exec OPT_OV and also print CHI2/dof on plot
@@ -99,7 +100,8 @@ OPT_DIFF_ALL  = "DIFF_ALL"   # 2 files and 2D: plot y-axis diff between means
 OPT_RATIO     = "RATIO"      # 1D: plot ratio between 2 files or 2 cuts
 
 VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
-                   OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_SIG_NMAD, OPT_OV, OPT_OVCHI2, OPT_CHI2,
+                   OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_SIG_NMAD, 
+                   OPT_OV, OPT_OVCHI2, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
                    OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID, OPT_LIST_ROW,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
@@ -145,11 +147,12 @@ FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP,
 VALID_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID' ]
 
 # internal strings to identify type of string in @V or @@CUT
-STRTYPE_VAR   = "VARIABLE"
-STRTYPE_NUM   = "NUMBER"
-STRTYPE_DELIM = "DELIMETER"   # e.g., + - : / *
-STRTYPE_FUNC  = "FUNCTION"    # e.g., log10, sqrt 
-STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_FUNC ]
+STRTYPE_VAR       = "VARIABLE"
+STRTYPE_NUM       = "NUMBER"
+STRTYPE_DELIM     = "DELIMETER"    # e.g., + - : / *
+STRTYPE_NPFUNC    = "NP_FUNC"      # numpy function e.g., log10, sqrt 
+STRTYPE_STDDEV    = "STDDEV"       # stddev(y-axis)
+STRTYPE_LIST = [ STRTYPE_VAR, STRTYPE_NUM, STRTYPE_DELIM, STRTYPE_NPFUNC ]
 
 FIGSIZE = [ 6.4, 4.8 ]  # default figure size, inches
 
@@ -257,6 +260,11 @@ and two types of command-line input delimeters
      @V SNRMAX1  SNRMAX2  SNRMAX3
   If using math symbols or pad spaces, use single quotes, e.g.
      @V  'PEAKMAG_r - PEAKMAG_i'  'PEAKMAG_i - PEAKMAG_z'  'PEAKMAG_Y - PEAKMAG_z'
+
+
+  Plot stddev(y) in  x bins with 
+     @V x:stddev(y)
+     @V x:STDDEV(y)
 
 
 @@ERROR @E
@@ -1074,15 +1082,17 @@ def arg_prep_axis(ndim,name_arg, arg_axis):
     return arg_axis
 
 
-def numpy_fun_replace(var)  :
+# xxxxxxxxx mark delete Dec 19 2025 xxxxxxx
+#def numpy_fun_replace(var)  :
     # replace user functions (e.g., exp or sqrt) with numpy
     # functions (e.g. np.exp or np.sqrt). If np.xxx is already
     # defined, then avoid replacement.
+#    for fun, np_fun in NUMPY_FUNC_DICT.items():            
+#        if fun in var and np_fun not in var:
+#            var = var.replace(fun,np_fun)
+#    return var
+# xxxxxxxx end mark 
 
-    for fun, np_fun in NUMPY_FUNC_DICT.items():            
-        if fun in var and np_fun not in var:
-            var = var.replace(fun,np_fun)
-    return var
 
 def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
@@ -1090,8 +1100,9 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
     # This is a custom split that splits input string into list of
     #  * variables names
     #  * numbers
-    #  * delimeters (from input DELIM_LIST)
-    #  * functions  (from input FUNC_LIST)
+    #  * delimeters   (from input DELIM_LIST)
+    #  * functions    (from input FUNC_LIST)
+    #  * stddev(var)  (don't confuse this with numpy fun)
     #
     # Example:
     #  STRING = 'log10(zcmb):SNRMAX'
@@ -1099,7 +1110,8 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
     #   and     ['FUNC' , 'DELIM', 'VAR',  'DELIM', 'DELIM', 'VAR' ]
     #
     #  STRING = 'zcmb:z-zcmb + .003'
-    #    return ['zcmb', ':', 'z', '-', 'zcmb', '+', '.003']
+    #    returns ['zcmb', ':',     'z',   '-',      'zcmb', '+',     '.003'    ]
+    #    and     ['VAR' , 'DELIM', 'VAR', 'DELIM',  'VAR',  'DELIM', 'NUMBERR' ]
     #
     # Jun 25 2025: fix to work if delim symbol is inside quotes; see inside_quote logical
 
@@ -1107,7 +1119,8 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
     strtype_list = [] 
 
     STRING_local = STRING
-    
+    DO_STDDEV_Y = False
+
     # remove 'np.' that isn't needed because later code adds it.
     if STR_np in STRING:        STRING_local = STRING.replace(STR_np,'')
     len_str = len(STRING_local)
@@ -1149,12 +1162,20 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
             
         valid_str_last = (str_last is not None and len(str_last)>0)
 
+
         if valid_str_last:
+
             split_list.append(str_last)
+
             if is_number(str_last) or "'" in str_last or '"' in str_last :
                 strtype_list.append(STRTYPE_NUM)
             elif str_last in FUNC_LIST:
-                strtype_list.append(STRTYPE_FUNC)
+                strtype_list.append(STRTYPE_NPFUNC)
+
+            #elif str_last.upper() == STRTYPE_STDDEV:
+                #strtype_list.append(STRTYPE_STDDEV) # Dec 19 2025
+                #split_list.remove(str_last)         # remove stddev string                
+                #DO_STDDEV_Y = True
             else:
                 strtype_list.append(STRTYPE_VAR)
 
@@ -1188,7 +1209,14 @@ def translate_driver(args):
 
     # add df. as needed to args.VARIABLE
     args.raw_var_list = []
+    args.stddev_yaxis = []
+
     for ivar, var in enumerate(args.var_list):
+
+        var_orig = var 
+        var, do_stddev_yaxis = check_stddev_yaxis(var)
+        args.stddev_yaxis.append(do_stddev_yaxis)
+
         df_var, raw_plotvar_list = translate_VARIABLE(var)
         args.var_list[ivar]      = df_var
         args.raw_var_list       += raw_plotvar_list  # used to check existence of vars
@@ -1234,7 +1262,7 @@ def translate_VARIABLE(VARIABLE):
         for tmp_str, tmp_type in zip(split_list,strtype_list):
             tmp = f"'{tmp_str}'"
             print(f"\t xxx var sub-string = {tmp:<14} is {tmp_type}")
-
+            #sys.exit(" xxx BYE xxx" ) 
         
     # next, put df. in front of each variable, and np. in front of functions
     VARIABLE_df = ''
@@ -1245,7 +1273,7 @@ def translate_VARIABLE(VARIABLE):
         if tmp_type == STRTYPE_VAR:
             tmp_append = STR_df + tmp_str
             table_var_list.append(tmp_str)
-        elif tmp_type == STRTYPE_FUNC :
+        elif tmp_type == STRTYPE_NPFUNC :
             tmp_append = STR_np + tmp_str
         else:
             pass
@@ -1317,7 +1345,7 @@ def translate_CUT(CUT):
                 tmp_append = STR_df + tmp_str
                 if tmp_str not in raw_var_list: 
                     raw_var_list.append(tmp_str)
-            elif tmp_type == STRTYPE_FUNC:
+            elif tmp_type == STRTYPE_NPFUNC:
                 tmp_append = tmp_str
                 #sys.exit(f"\n ERROR: cannot use numpy functons in @@CUT; " \
                 #         f"remove '{tmp_str}' from @@CUT arg")
@@ -1411,6 +1439,28 @@ def set_axis_dict(args, plot_info, var):
     #sys.exit(f"\n xxx set_axis_dict: axis_dict = {axis_dict}")
     
     return  # end set_axis_dict
+
+def check_stddev_yaxis(var):
+
+    # if the y-axis variable is of the form x:stddev(y),
+    # remove the stddev( and ')';   return x:y, True.
+    # 
+    do_stddev_yaxis = False
+    tmp_split = var.split(':')
+
+    var_orig = var
+    str_stddev_list = [ STRTYPE_STDDEV, STRTYPE_STDDEV.lower() ]
+    if len(tmp_split) > 1:
+        var_y = tmp_split[1]
+        for s in str_stddev_list:
+            if s in var_y:
+                do_stddev_yaxis = True
+                var = var.replace(s+'(' , '')
+                var = var.rstrip(')')
+                #sys.exit(f" xxx check_stddev_yaxis: {var_orig} -> {var}")
+
+    # - - -  
+    return var, do_stddev_yaxis
 
 def set_axis_labels(args, plot_info):
 
@@ -1686,13 +1736,12 @@ def read_tables(args, plot_info):
 
         # increment MASTER_DF_DICT dictionary; note that filename index is dict key.
         key = f"tf{nf}"
-        nf += 1        
-
+        nf += 1    
         MASTER_DF_DICT[key] = df
-        nrow = len(df)
+        nrow        = len(df)
         nrow_tot   += nrow
         name_legend = legend
-            
+
         logging.info(f"\t Read nrow={nrow}  for {name_legend}")
 
         if nrow == 0: 
@@ -1726,7 +1775,6 @@ def read_tables(args, plot_info):
                 ymax = np.amax(df['y_plot_val'])
                 logging.info(f"\t y-axis({varname_nodf_y}) range : {ymin} to {ymax}")  
                 if varname_yerr is not None:
-                    # xxx MASTER_DF_DICT[key]['df']['y_plot_err'] = eval(varname_yerr)
                     MASTER_DF_DICT[key]['df'].loc[:,'y_plot_err'] = eval(varname_yerr)
             else:
                 ymin = None
@@ -1734,7 +1782,6 @@ def read_tables(args, plot_info):
             
         except AttributeError:
             sys.exit(f"\n ERROR: Couldn't set bounds for axis_dict={axis_dict} and {tfile}")
-
 
         # store min and max for each variable to plot
         table_bounds_key_list = [ 'xmin', 'xmax', 'ymin', 'ymax' ]
@@ -1988,8 +2035,6 @@ def plotter_func_driver(args, plot_info):
         lsty = HIST_LINES[numplot][1]          
         # - - - - -        
 
-
-
         if do_plot_errorbar :
             # default
             if plt_alpha > 0 :
@@ -2196,10 +2241,6 @@ def get_info_plot1d(args, info_plot_dict):
     else:
         yval_list = binned_statistic(df.x_plot_val, df.weights,
                                      bins=xbins, statistic='sum')[0]
-        # xxxxxxxx mark delete 9.19/2025 xxxxxx
-        #yval_list = binned_statistic(df.x_plot_val, df.x_plot_val,
-        #                             bins=xbins, statistic='count')[0]
-        # xxxxxxxxxxxxxxxxxxxxxxx
 
     plt_histtype = 'step'  # default for HIST
     
@@ -2355,8 +2396,7 @@ def get_info_plot1d(args, info_plot_dict):
     if frac_outlier is not None:
         stat_dict[STAT_NAME_OUTLIER] = [frac_outlier, True, stat_format(STAT_NAME_OUTLIER, frac_outlier) ]
 
-    
-    # .xyz
+
     for str_stat, tmp_list in stat_dict.items():
         val           = tmp_list[0]
         add_to_legend = tmp_list[1]
@@ -2600,13 +2640,14 @@ def get_info_plot2d(args, info_plot_dict):
     nevt         = len(df)
     plt_size     = 5 / math.log10(max(10,nevt))  # dot size gets smaller with nevt 
 
-    # xxx if 'UDF' in name_legend:    plt_size *= 4 # xxx REMOVE
     if do_nevt: plt_legend += f'  N={nevt}'
     
     xval_list    = df.x_plot_val
     yval_list    = df.y_plot_val
     xerr_list    = None
     yerr_list    = None
+
+    do_stddev_yaxis = args.stddev_yaxis[numplot]  # Dec 19 2025
 
     if 'x_plot_err' in df:  xerr_list = df.x_plot_err
     if 'y_plot_err' in df:  yerr_list = df.y_plot_err    
@@ -2622,10 +2663,10 @@ def get_info_plot2d(args, info_plot_dict):
     info_plot_dict['do_plot_hist_ov1d']   = False
     info_plot_dict['do_ov2d_binned_stat'] = True
     info_plot_dict['wgt_ov']              = None
-    info_plot_dict['plt_size']      = plt_size
-    info_plot_dict['plt_legend']    = plt_legend
-    info_plot_dict['plt_text_dict'] = None
-    info_plot_dict['plt_histtype']  = None    
+    info_plot_dict['plt_size']            = plt_size
+    info_plot_dict['plt_legend']          = plt_legend
+    info_plot_dict['plt_text_dict']       = None
+    info_plot_dict['plt_histtype']        = None    
 
     info_plot_dict['xval_list']     = xval_list
     info_plot_dict['yval_list']     = yval_list
@@ -2647,7 +2688,23 @@ def get_info_plot2d(args, info_plot_dict):
                 info_plot_dict['plt_legend'] = name_legend_ref + ' - ' + name_legend 
                 
     # - - - - - - - - - - - - -
+    if do_stddev_yaxis:
+        # plot stddev(yaxis) in xbins (Dec 19 2025)
 
+        xbins     = info_plot_dict['xbins']
+        xbins_cen = info_plot_dict['xbins_cen']
+        y_std  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic='std')[0] 
+
+        # error on stddev is roughly stddev/sqrt(2n)
+        y_cnt  = binned_statistic(df.x_plot_val, df.y_plot_val,
+                                  bins=xbins, statistic='count')[0]
+        y_std_err = y_std / np.sqrt(2.*y_cnt+.001)
+
+        info_plot_dict['xval_list'] = xbins_cen
+        info_plot_dict['yval_list'] = y_std
+        info_plot_dict['yerr_list'] = y_std_err
+        
     # - - - - - - - - - - - - -         
     if do_diff_cid:
         #need to do an inner join with each entry in dic, then plot the diff

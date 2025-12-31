@@ -26,7 +26,6 @@ KEY_CUTWIN               = "CUTWIN"
 KEY_MAG_5SIG             = "MAG_5SIG"
 KEY_HOSTLIB_GALID        = "GALID"
 
-N_UPDATE_STDOUT = 10000  # stdout update after this many rows written
 
 RANSEED = 234237905   # used to ensure same random subsets for smaller HOSTLIBs
 
@@ -39,6 +38,11 @@ REF_DICT = {
 # hard-wire sersic indices for each galaxy component
 SERSIC_INDEX_DICT = {  'n_disk': 1.0,    'n_bulge': 4.0 }
 
+
+VARNAME_VPEC     = "VPEC"
+VARLIST_FOR_VPEC = [ 'vx', 'vy', 'vz', 'ra', 'dec' ] # needed to compute VPEC
+VARNAME_RA       = 'ra'
+VARNAME_DEC      = 'dec'
 
 # ============================
 def setup_logging():
@@ -78,21 +82,23 @@ def print_help_menu():
 
 CAT_DIR: [catalog_dir]
 
-# Define 1 more HOSTLIBs with different numbers of galaxies so that
-# smaller HOSTLIBs can be used in the sim for testing with much
-# shorter read/init time.
-# The largest HOSTLIB defines the nominal sample, and the
-# smaller HOSTLIBs are random subsets of nominal.
+# Define 1 more HOSTLIBs with different area_frac so that smaller HOSTLIBs can 
+# be used in the sim for testing with much shorter read/init time. 
+# The largest HOSTLIB (with area_frac=1) defines the nominal sample, and the
+# smaller HOSTLIBs are based on smaller areas to that the galaxy density
+# is consisent regardless of the HOSTLIB size.
+# "Area_frac < 1" is used to compute ra and dec range centered on full area.
 
-HOSTLIB_FILE:
-- TEST_DIFFSKY_LSST_LARGE.HOSTLIB   100000
-- TEST_DIFFSKY_LSST_MEDIUM.HOSTLIB   10000  # this smaller hostlib is a random subset
-- TEST_DIFFSKY_LSST_SMALL.HOSTLIB     1000  # another evern smaller hostlib is a random subset
+HOSTLIB_FILE:  # output_hostlib    area_frac
+- TEST_DIFFSKY_LSST_LARGE.HOSTLIB   1.0
+- TEST_DIFFSKY_LSST_MEDIUM.HOSTLIB  0.1   # this smaller hostlib uses 10% of area
+- TEST_DIFFSKY_LSST_SMALL.HOSTLIB   0.01  # another even smaller hostlib uses 1% of area
 
 
+HOSTLIB_VARNAMES_MAP:
 #   diffsky       HOSTLIB        HOSTLIB
 #   varname       varname        format
-HOSTLIB_VARNAMES_MAP:
+#  - - - - - - - - - - - - - - - - - - - - - - -
 -  galaxy_id       GALID           15d
 -  redshift_true   ZTRUE_CMB       6.4f
 -  ra              RA_GAL          11.6f
@@ -126,6 +132,7 @@ MAG_5SIG:
 
 # define selection cuts using diffsky-catalog column names
 CUTWIN:
+- dec             52   58  # degrees
 - logsm_obs        8   13  # logmass cut
 - redshift_true    0  1.8
 - lsst_r           0   28
@@ -144,12 +151,55 @@ def read_yaml(path):
     # end read_yaml
 
 
+def addcol_vpec(cat_inp, config):
+
+    cat_out = cat_inp
+
+    # if there is no VPEC request, then bail
+    HOSTLIB_VARNAMES_LIST = config['HOSTLIB_VARNAMES_LIST']
+    if VARNAME_VPEC not in HOSTLIB_VARNAMES_LIST: return cat_out
+
+    t0 = time.time()
+
+    tmp  = cat_out.select(VARLIST_FOR_VPEC).get_data()
+    vx       = np.array( tmp['vx'] )
+    vy       = np.array( tmp['vy'] )
+    vz       = np.array( tmp['vz'] )
+    ra_deg       = np.array( tmp['ra'] )
+    dec_deg      = np.array( tmp['dec'] )  # -90 to +90
+    theta_deg    = 90 - dec_deg            # 0 to 180
+    
+    ra_rad     = np.radians(ra_deg)
+    theta_rad  = np.radians(theta_deg)
+    
+    # convert ra,dec to cartesion coords on unit sphere
+    x = np.sin(theta_rad) * np.cos(ra_rad)  # ra_rad or ra_rad - PI ?
+    y = np.sin(theta_rad) * np.sin(ra_rad)
+    z = np.cos(theta_rad)
+    
+    vpec      = x*vx + y*vy + z*vz
+    vpec_dict = { 'vpec' : vpec }
+
+    logging.info('')
+    logging.info(f"Append vpec = x*vx + y*vy + z*vz")
+    cat_out = cat_out.with_new_columns(**vpec_dict)
+    
+    print_proc_time(t0, "ADDCOL_VPEC", None)
+
+    del tmp;
+    del vx;  del vy;  del vz
+    del x ;  del y ;  del z
+
+    return cat_out
+    # end addcol_vpec
+    
 def addcol_sersic_indices(cat_inp, config):
 
     n_row   = len(cat_inp)
     cat_out = cat_inp
     HOSTLIB_VARNAMES_MAP = config[KEY_HOSTLIB_VARNAMES_MAP]
 
+    logging.info('')
     addcol_dict = {}
     string_sersic_list = list( SERSIC_INDEX_DICT.keys() )
     for row in HOSTLIB_VARNAMES_MAP:
@@ -157,7 +207,7 @@ def addcol_sersic_indices(cat_inp, config):
         if colname in string_sersic_list:
             s_index = SERSIC_INDEX_DICT[colname] 
             addcol_dict[f"{colname}"] = np.array([ s_index ] * n_row)
-            logging.info(f"\t append  {colname} = {s_index} ")
+            logging.info(f"Append  {colname} = {s_index} ")
     # - - - -
     
     if len(addcol_dict) > 0 :
@@ -166,8 +216,10 @@ def addcol_sersic_indices(cat_inp, config):
     #sys.exit(f"\n xxx addcol_dict = \n{addcol_dict} ")
 
     return cat_out
+    # end addcol_sersic_indices
 
-def check_Sersic_columns(config):
+    
+def check_Sersic_definitions(config):
 
     # sanity check to make sure that a,b,n are defined for each sersic component,
     # and that number of weights is n_profile - 1.
@@ -192,7 +244,7 @@ def check_Sersic_columns(config):
     if num_a-1 != num_w :
         sys.exit(f"\n ERROR: expected {num_a-1} Sersic weights (w#_Sersic), but found {num_w}\n")
         
-    return
+    return  # end check_Sersic_definitions
 
 def get_Sersic_list(config):
 
@@ -224,7 +276,7 @@ def addcol_mag_errors(cat_inp, config):
     cat_out = cat_inp
     MAG_5SIG = config.setdefault(KEY_MAG_5SIG,None)
 
-    if not MAG_5SIG:  return galaxy_cat_append
+    if not MAG_5SIG:  return cat_out
 
     logging.info('')
     logging.info('Append mag error columns:')
@@ -247,7 +299,10 @@ def addcol_mag_errors(cat_inp, config):
     # append the mag err columns
     cat_out = cat_out.with_new_columns(**mag_err_dict)    
 
-    print_proc_time(t0, "ADD_MAGERR", None)
+    del m5sig; del powm5
+    del mag_np; del mag_err_np; del mag_err_dict
+    
+    print_proc_time(t0, "ADDCOL_MAGERR", None)
     
     return cat_out
 
@@ -337,6 +392,7 @@ def parse_varname_map(config):
     hostlib_format_dict  = {}
 
     HOSTLIB_VARNAMES_STRING = ''
+    HOSTLIB_VARNAMES_LIST   = []
     FOUND_GALID = False
     
     for row in HOSTLIB_VARNAMES_MAP:
@@ -348,7 +404,8 @@ def parse_varname_map(config):
         hostlib_varname_dict[varname_diffsky] = varname_hostlib
         hostlib_format_dict[varname_diffsky]  = format_hostlib
         HOSTLIB_VARNAMES_STRING += f"{varname_hostlib} "
-
+        HOSTLIB_VARNAMES_LIST.append(varname_hostlib)
+        
         if varname_hostlib == KEY_HOSTLIB_GALID:  FOUND_GALID = True
             
     logging.info('')
@@ -356,6 +413,7 @@ def parse_varname_map(config):
     config['hostlib_varname_dict']    = hostlib_varname_dict
     config['hostlib_format_dict']     = hostlib_format_dict
     config['HOSTLIB_VARNAMES_STRING'] = HOSTLIB_VARNAMES_STRING
+    config['HOSTLIB_VARNAMES_LIST']   = HOSTLIB_VARNAMES_LIST    
     config['FOUND_GALID']             = FOUND_GALID
     
     #sys.exit(f"\n xxx hostlib_varname_dict = \n{hostlib_varname_dict} \n\n xxx hostlib_format_dict =\n{hostlib_format_dict}")
@@ -364,35 +422,42 @@ def parse_varname_map(config):
 
 def open_hostlib_files(config):
 
+    # parse list of HOSTLIBs;
+    # open each output HOSTLIB file and store area fraction to include.
+    
     HOSTLIB_VARNAMES_STRING = config['HOSTLIB_VARNAMES_STRING'] 
     hostlib_dict = {}
 
-    ngal_list = []
+    area_frac_list = []
     HOSTLIB_FILE_LIST = config[KEY_HOSTLIB_FILE]
     for row in HOSTLIB_FILE_LIST:
         hostlib_file = row.split()[0]
-        ngal         = int(row.split()[1])
+        area_frac    = float(row.split()[1])
+        
         fp = open(hostlib_file,"wt")
-        write_hostlib_header(fp, ngal, config)
-        hostlib_dict[hostlib_file] = [ ngal, fp ]
-        ngal_list.append(ngal)
+        hostlib_dict[hostlib_file] = {
+            'area_frac'  : area_frac ,
+            'fp'         : fp ,
+            'ra_range'   : [] ,
+            'dec_range'  : []
+        }
+        area_frac_list.append(area_frac)
 
-    nmax_gal  = max(ngal_list)
+    area_frac_max  = max(area_frac_list)
     n_hostlib = len(HOSTLIB_FILE_LIST)
-    
-    config['hostlib_dict'] = hostlib_dict
-    config['nmax_gal']     = nmax_gal
-    config['n_hostlib']    = n_hostlib
 
-    if nmax_gal > 500000 :
-        global N_UPDATE_STDOUT; N_UPDATE_STDOUT = 100000
+    # store more goodies on config blocl
+    config['n_hostlib']      = n_hostlib
+    config['hostlib_dict']   = hostlib_dict
+    config['area_frac_max']  = area_frac_max
         
     return config
 
-def write_hostlib_header(fp, ngal, config):
+def write_hostlib_header(fp, hlib_file, ngal, config):
 
     # write DOCUMENTATION block and VARNAMES
 
+    hostlib_dict            = config['hostlib_dict']
     HOSTLIB_VARNAMES_STRING =  config['HOSTLIB_VARNAMES_STRING'] 
     HOSTLIB_VARNAMES_MAP    =  config[KEY_HOSTLIB_VARNAMES_MAP]
     CUTWIN                  =  config.setdefault(KEY_CUTWIN,None)
@@ -407,7 +472,13 @@ def write_hostlib_header(fp, ngal, config):
     tnow        = datetime.datetime.now()
     TSTAMP      = f"{tnow.year:04d}-{tnow.month:02d}-{tnow.day:02d}"
     CODE        = os.path.basename(sys.argv[0])
-                           
+
+    # prepare strings for hostlib's DOCANA
+    ra_range  = hostlib_dict[hlib_file]['ra_range']
+    dec_range = hostlib_dict[hlib_file]['dec_range']
+    str_ra    = f"{ra_range[0]:6.1f}   {ra_range[1]:6.1f}"
+    str_dec   = f"{dec_range[0]:6.1f}   {dec_range[1]:6.1f}"
+    
     fp.write(f"DOCUMENTATION: \n")
     fp.write(f"  PURPOSE: host galaxy library for SNANA simulation \n")
 
@@ -422,7 +493,9 @@ def write_hostlib_header(fp, ngal, config):
     fp.write(f"  USAGE_CODE: snlc_sim.exe \n")
     fp.write(f"  NOTES: \n")
     fp.write(f"  - extracted from diffsky catalog {cat_dir_base} \n")
-    fp.write(f"  - ngal = {ngal} \n")
+    fp.write(f"  - ngal      = {ngal} \n")
+    fp.write(f"  - ra_range  = {str_ra}      # degrees \n")
+    fp.write(f"  - dec_range = {str_dec}     # degrees \n")    
 
     fp.write(f"\n")
     fp.write(f"  HOSTLIB_VARNAMES_MAP: \n")
@@ -459,6 +532,20 @@ def write_hostlib_header(fp, ngal, config):
     
     return  # end write_hostlib_header
 
+def convert_galaxy_cat_to_pandas(galaxy_cat, config):
+
+    logging.info(f"Convert galaxy catalog to pandas: ")
+    
+    hostlib_varname_dict = config['hostlib_varname_dict']
+    cat_var_list         = list(hostlib_varname_dict.keys())
+
+    t0 = time.time()
+    df_cat = galaxy_cat.select(cat_var_list).get_data().to_pandas()
+    print_proc_time(t0, "CONVERT_TO_PANDAS", None )
+    logging.info(f"")
+    
+    return df_cat
+
 def get_random_subset(args, config, galaxy_cat):
 
     t0 = time.time()
@@ -491,11 +578,7 @@ def get_random_subset(args, config, galaxy_cat):
         ntake_gal = int(1.1 * ntake_gal * nmax_gal / n_row)
         
     # - - - -
-        
-    #.filter(oc.col("redshift_true")<.2) and oc.col("redshift_true")>.1)) \
-    #.filter(oc.col("fof_halo_mass") > 1e13)
-    
-    # convert to data frame
+            # convert to data frame
     df = galaxy_subset.to_pandas()
 
     print_proc_time(t0, "RANDOM_SUBSET", None)
@@ -535,6 +618,76 @@ def print_proc_time(t0, comment, N):
     
     return
 
+def translate_dec_costh(opt, x):
+
+    # opt > 0 -> x=dec (deg), return cos(theta)
+    # opt < 0 -> x=cos(th),   return dec in degrees
+
+    if opt > 0 :
+        th   = 90 - x
+        y    = math.cos(np.radians(th))
+    else:
+        y    = 90 - np.degrees(math.acos(x)) 
+        #sys.exit(f" xxx x=cos(th)={x}  y=dec={y}")
+    return y
+
+def get_coord_ranges(df_cat, config):
+
+    # if there is a user cut on ra, dec, use each area_frac to compute
+    # inner ra/dec range. If no user cuts, determine full ra/dec range from df_cat.
+
+    logging.info(f" ======================================================= ")
+    logging.info(f"Get RA,DEC coord range for each HOSTLIB")
+    
+    hostlib_dict         = config['hostlib_dict'] 
+    hostlib_varname_dict = config['hostlib_varname_dict']
+    cat_var_list = list(hostlib_varname_dict.keys())
+
+    epsilon  = 1.0e-5
+    ra_min         = df_cat[VARNAME_RA].min() - epsilon
+    ra_max         = df_cat[VARNAME_RA].max() + epsilon
+    dec_min        = df_cat[VARNAME_DEC].min() - epsilon
+    dec_max        = df_cat[VARNAME_DEC].max() + epsilon
+    
+    ra_cen         = 0.5*(ra_max+ra_min)
+    ra_half_range  = 0.5*(ra_max - ra_min)
+     
+    x_min          = translate_dec_costh(+1, dec_min)    
+    x_max          = translate_dec_costh(+1, dec_max)
+    x_cen          = 0.5 * ( x_max + x_min )
+    x_half_range   = 0.5 * ( x_max - x_min )    
+    
+    #print(f" xxx full coord range: {ra_min:.4f} < ra {ra_max:.4f} " \
+    #      f"| {dec_min:.4f} < dec < {dec_max:.4f}")
+        
+    for hlib_file, hlib_dict in hostlib_dict.items():
+        area_frac     = hlib_dict['area_frac']
+        tmp           = math.sqrt(area_frac)
+        ra_tmp_min    = ra_cen - tmp * ra_half_range
+        ra_tmp_max    = ra_cen + tmp * ra_half_range
+        x_tmp_min     = x_cen  - tmp * x_half_range
+        x_tmp_max     = x_cen  + tmp * x_half_range
+        dec_tmp_min   = translate_dec_costh(-1, x_tmp_min)
+        dec_tmp_max   = translate_dec_costh(-1, x_tmp_max)   
+        hostlib_dict[hlib_file]['ra_range']  = [ ra_tmp_min,  ra_tmp_max ]
+        hostlib_dict[hlib_file]['dec_range'] = [ dec_tmp_min, dec_tmp_max ]        
+
+        str_ra  = f"{ra_tmp_min:.1f} <= ra <= {ra_tmp_max:.1f}"
+        str_dec = f"{dec_tmp_min:.1f} <= dec <= {dec_tmp_max:.1f}" 
+        logging.info(f"    {hlib_file:<36} : {str_ra} & {str_dec}   ")
+        #print(f"\t\t xxx area_frac = {area_frac:.3f}  tmp={tmp:.4f}")
+        #print(f"\t\t xxx x range: {x_tmp_min:.4f}  to {x_tmp_max:.4f}  | halfrange = {x_half_range:.4f} ")
+    # - - - - - -     
+    return hostlib_dict
+
+def get_n_update_stdout(nrow_cat):
+
+    n_update_stdout = 10000
+    if nrow_cat >  500000:  n_update_stdout *= 10
+    if nrow_cat > 5000000:  n_update_stdout *= 10
+    
+    return n_update_stdout
+
 def write_hostlib_files(args, config, df_cat):
 
     t0 = time.time()
@@ -542,32 +695,46 @@ def write_hostlib_files(args, config, df_cat):
     hostlib_format_dict = config['hostlib_format_dict']
     hostlib_dict = config['hostlib_dict']
     FOUND_GALID  = config['FOUND_GALID']
-    nmax_gal     = config['nmax_gal']
     n_hostlib    = config['n_hostlib']
     var_list  = list(hostlib_format_dict.keys() )
     row_list  = df_cat[var_list].values.tolist()
     nrow_tot  = len(df_cat)
 
     logging.info("")
-    logging.info(f"Prepare writing {n_hostlib} HOSTLIB files with nmax_gal={nmax_gal:,}... ")
+    logging.info(f"Prepare writing {n_hostlib} HOSTLIB files ")
+
+    nrow_cat = len(df_cat)
+    n_update_stdout = get_n_update_stdout(nrow_cat)
     
     # check for random subsets
-    ngal_write_dict = {}
-    random_row_mask = {}
-    random.seed(RANSEED)   # ensure reproducible random rows
-    for key, tmp in hostlib_dict.items():
+    ngal_write_dict  = {}
+    ngal_expect_dict = {}    
+    ngal_write_list = []
+    row_mask        = {}
 
-        logging.info(f"\t prepare row mask for {key} ...")
-        
-        ngal = tmp[0]
-        ngal_write_dict[key] = [ ngal, 0 ]  # n_write_expect   and n_write_actual
+    for hlib_file, hlib_dict in hostlib_dict.items():
 
-        frac_select = float(ngal / nrow_tot)
-        random_row_mask[key] = np.random.choice([True, False], nrow_tot,
-                                                p = [ frac_select, 1-frac_select] )
+        logging.info(f"\t prepare row mask and DOCANA header for {hlib_file} ...")
+
+        fp      = hlib_dict['fp']
+        ra_min  = hlib_dict['ra_range'][0]
+        ra_max  = hlib_dict['ra_range'][1]
+        dec_min = hlib_dict['dec_range'][0]
+        dec_max = hlib_dict['dec_range'][1]                
+
+        row_mask[hlib_file] = \
+            (df_cat[VARNAME_RA]>=ra_min)   & (df_cat[VARNAME_RA]<=ra_max) & \
+            (df_cat[VARNAME_DEC]>=dec_min) & (df_cat[VARNAME_DEC]<=dec_max)
+
+        ngal                        = int(row_mask[hlib_file].sum())
+        ngal_expect_dict[hlib_file] = ngal
+        ngal_write_dict[hlib_file]  = 0
+
+        write_hostlib_header(fp, hlib_file, ngal, config)
     # - - - -
 
-    logging.info(f"  Start writing GAL rows ... ")
+    
+    logging.info(f"  Start writing GAL rows to HOSTLIB(s) ... ")
     nrow = -1
     nrow_wr = 0
     for item_list in row_list :  # each element of row_list is a list of items
@@ -580,32 +747,38 @@ def write_hostlib_files(args, config, df_cat):
             row_hostlib  = f"{GALID}  {row_hostlib}"
 
         WROTE_ROW = False
-        for key, tmp in hostlib_dict.items():
-            ngal = tmp[0]
-            fp   = tmp[1]
-            if random_row_mask[key][nrow] :
+        for hlib_file, hlib_dict in hostlib_dict.items():
+            fp   = hlib_dict['fp']
+            if row_mask[hlib_file][nrow] :
                 fp.write(f"GAL:  {row_hostlib} \n")
-                ngal_write_dict[key][1] += 1  # increment actual number of rows written
+                ngal_write_dict[hlib_file] += 1  # increment actual number of rows written
                 WROTE_ROW = True
                 
         if WROTE_ROW :
             nrow_wr += 1
-            update = (nrow_wr % N_UPDATE_STDOUT == 0 or nrow_wr == nmax_gal) and nrow_wr > 0
+            update = (nrow_wr % n_update_stdout == 0  and nrow_wr > 0)
             if update:
                 logging.info(f"\t Finished writing {nrow_wr:12,} HOSTLIB rows")
 
-    # summary expected and actual number of rows per output HOSTLIB
-    logging.info('' )
-    logging.info('Summary:' )
-    for key in list ( hostlib_dict.keys() ):
-        ngal_expect = ngal_write_dict[key][0]
-        ngal_actual = ngal_write_dict[key][1]
-        logging.info(f"  {key:32} : ngal[expect, actual] = {ngal_expect:10,}  {ngal_actual:10,}  ")
+    # use unix sed utility to update DOCANA values now that we have ngal per hostlib
 
+    logging.info('' )
+    logging.info('Summary' )
+        
+    for hlib_file, hlib_dict in hostlib_dict.items():
+        ngal      = ngal_write_dict[hlib_file]
+        # print ngal to stdout
+        logging.info(f"  {hlib_file:40}   ngal = {ngal:10,}  ")
+        ngal_write_list.append(ngal)
+        
+        
     # - - - -
+    nmax_gal = max(ngal_write_list)
     print_proc_time(t0, "WRITE_HOSTLIB", nmax_gal )
         
     return  # end write_hostlib_files
+
+
 
 
 # ===================================================
@@ -619,7 +792,7 @@ if __name__ == "__main__":
     config = read_yaml(args.config_file)
 
     # make sure Sersic column definitinos are consistent to avoid crash later
-    check_Sersic_columns(config)
+    check_Sersic_definitions(config)
     
     # parse varname mapping between diffsky and hostlib
     config     = parse_varname_map(config)
@@ -632,20 +805,39 @@ if __name__ == "__main__":
 
     # apply cuts
     galaxy_cat  = apply_cuts(galaxy_cat, config)
-        
-    # check option to add and compute mag_error for each band
-    galaxy_cat = addcol_mag_errors(galaxy_cat, config)
+
+    # - - - - - - - - - - - - - - - - - - - - - - - - 
+    # add columns computed from other columns
+
+    logging.info('')
+    logging.info('========== COMPUTE/APPEND COLUMNS ===============')
+    
+    # add vpec
+    galaxy_cat = addcol_vpec(galaxy_cat, config)    
 
     # add sersic indices
     galaxy_cat = addcol_sersic_indices(galaxy_cat, config)
-    
-    # fetch data frame table for largest hostlib
-    df_cat = get_random_subset(args, config, galaxy_cat)
 
+    # check option to add and compute mag_error for each band
+    galaxy_cat = addcol_mag_errors(galaxy_cat, config)
+
+    logging.info('==================================================')
+    logging.info('')
+    
+    # - - - - - - - - - - - - - - - - - - - - -  -
+    # xxx mark delete df_cat = get_random_subset(args, config, galaxy_cat)
+
+    df_cat = convert_galaxy_cat_to_pandas(galaxy_cat, config)
+
+    # figure out coordinate range for each hostlib
+    config['hostlib_dict'] = get_coord_ranges(df_cat, config)
+
+    # x x x x x
     write_hostlib_files(args, config, df_cat)
 
     print_proc_time(t_start, "TOTAL", None)
     
     logging.info("Done.")
+    
     # === END: ===
     

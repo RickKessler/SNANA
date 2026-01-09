@@ -179,7 +179,13 @@
         ,MXMASK_zSOURCE        = 128    ! max mask value for MASK_zSOURCE
             
 
-   REAL*8, PARAMETER ::           &
+    INTEGER, PARAMETER ::         &  ! Jan 2026
+          OPT_MNFIT_MINIMIZE = 0  &  ! default
+         ,OPT_MNFIT_MIGRAD   = 1  &  ! same as MINIMIZE, but no fall back to SIMPLEX
+         ,OPT_MNFIT_MINOS    = 2  &
+         ,OPT_MNFIT_SIMPLEX  = 3
+
+    REAL*8, PARAMETER ::           &
          XTMW_FRACERR   = 0.16    &  ! default error on MW Xtinc is 16% of XTMW
         ,ZERO8          = 0.0     & 
         ,ONE8           = 1.0     & 
@@ -193,7 +199,7 @@
         ,RV_MWCOLORLAW_DEFAULT  = 3.1    &  ! A_V/E(B-V)
         ,CUTVAL_OPEN  = 1.0E12              ! cutwin value to accept everything.
 
-   REAL, PARAMETER ::           &
+    REAL, PARAMETER ::           &
         NULLVAL          = -99999.  &      
        ,MAG_SATURATE     = -7.0     &  ! for sim only
        ,LEGACY_INIT_VAL  = 1.0E8    
@@ -1548,7 +1554,9 @@
         ,ABORT_ON_DUPLMJD     &  ! I: T=> abort on repeat MJD+band (default=F)
         ,ABORT_ON_NOPKMJD     &  ! I: T=> abort if no PKMJDINI (see OPT_SETPKMJD)
         ,ABORT_ON_BADQZPHOT   &  ! I: T=> abort if redshift quantiles are NOT monotonically increasing
+        ,USE_MIGRAD           &  ! I: T=> use MIGRAD instead of MINIMIZE (no fallback to SIMPLEX)
         ,USE_MINOS            &  ! I: T=> use MINOS instead of MINIMIZE
+        ,USE_SIMPLEX          &  ! I: T=> use SIMPLEX instead of MINIMIZE
         ,LDMP_SNFAIL          &  ! I: T => dump reason for each SN failure
         ,LDMP_SNANA_VERSION   &  ! I: T => dump SNANA version and SNANA_DIR
         ,LDMP_AVWARP          &  ! I: dump GET_AVWARP8 (debug only)
@@ -1641,7 +1649,7 @@
           , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR  & 
           , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST  & 
           , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX  & 
-          , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS  & 
+          , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MIGRAD, USE_MINOS, USE_SIMPLEX  & 
           , OPT_SETPKMJD, QUANTILE_ZERRMIN  & 
           , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG  & 
           , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST  & 
@@ -5642,7 +5650,10 @@
     NFIT_ITERATION     = 0
     MINUIT_PRINT_LEVEL = -1  ! default is no MINUIT printing
     INTERP_OPT     = INTERP_LINEAR
-    USE_MINOS      = .FALSE.  ! change from T to F, Jan 27 2017
+
+    USE_MIGRAD     = .FALSE.
+    USE_MINOS      = .FALSE.   
+    USE_SIMPLEX    = .FALSE.   ! Jan 2026
 
     MXLC_FIT         = 999888777
     MXLC_PLOT        = 5    ! 100->5  (Apr 19 2022)
@@ -7205,9 +7216,20 @@
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) NFIT_ITERATION
 
+! - - - - 
+       else if ( MATCH_NMLKEY('USE_MIGRAD',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) USE_MIGRAD
+
        else if ( MATCH_NMLKEY('USE_MINOS',  & 
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) USE_MINOS
+
+       else if ( MATCH_NMLKEY('USE_SIMPLEX',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) USE_SIMPLEX
+
+! - - - -
 
        else if ( MATCH_NMLKEY('MINUIT_PRINT_LEVEL',  & 
                    1, iArg, ARGLIST) ) then
@@ -9117,6 +9139,7 @@
 !   See REJECT_FIT logical.
 ! 
 ! Dec 19 2024: print CPU time per event in stdout update
+! Jan 08 2026: replace USE_MINOS arg with OPT_MNFIT arg
 ! ----------------------
 
 
@@ -9133,10 +9156,10 @@
     LOGICAL LAST_ITER, REJECT_FIT
 #endif
 
-    INTEGER IERR, i
+    INTEGER IERR, i, OPT_MNFIT
     REAL*8  PS8
     REAL t_start, t_end  ! Dec 2024
-    LOGICAL REJECT_PRESCALE, USE_MINOS_LOCAL
+    LOGICAL REJECT_PRESCALE
     CHARACTER FNAM*14
 
 ! ----------------- BEGIN -------------
@@ -9243,10 +9266,17 @@
         ITER = ITER + 1
         LAST_ITER = ( ITER .EQ. NFIT_ITERATION )
 
-        IF ( ITER==1 ) THEN
-            USE_MINOS_LOCAL = .FALSE.
+        ! xxx mark IF ( ITER == 1 ) THEN
+        ! xxx mark   OPT_MNFIT = OPT_MNFIT_MINIMIZE 
+
+        IF ( USE_MIGRAD ) THEN
+           OPT_MNFIT = OPT_MNFIT_MIGRAD 
+        ELSE if ( USE_MINOS .or. LREPEAT_MINOS ) THEN
+           OPT_MNFIT = OPT_MNFIT_MINOS
+        ELSE if ( USE_SIMPLEX ) THEN
+           OPT_MNFIT = OPT_MNFIT_SIMPLEX
         ELSE
-            USE_MINOS_LOCAL = (USE_MINOS .or. LREPEAT_MINOS)
+           OPT_MNFIT = OPT_MNFIT_MINIMIZE  ! default if not MINOS or SIMPLEX
         ENDIF
 
         CALL FITPAR_PREP ( iter, IERR )  ! init fit params
@@ -9274,7 +9304,7 @@
              SNLC_CCID, NFITPAR_MN                 &  ! (I)
             ,INIVAL, INISTP, INIBND                &  ! (I)
             ,PARNAME_STORE                         &  ! (I)
-            ,USE_MINOS_LOCAL                       &  ! (I)
+            ,OPT_MNFIT                             &  ! (I)
             ,MINUIT_PRINT_LEVEL                    &  ! (I)
             ,FITVAL(1,iter)                        &  ! (O)
             ,FITERR_PLUS(1,iter)                   &  ! (O)
@@ -17691,9 +17721,7 @@
        return
     endif
 
-
     ! xxx mark IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
-    ! .xyz
 
     if ( .not. EXIST_SNHOST_ZPHOT ) then
         C1ERR = 'Cannot USE_HOSTGAL_PHOTOZ for CID='//SNLC_CCID
@@ -27324,7 +27352,7 @@
         ,INISTP       &  ! (I) initial step sizes (0=> fixed parameter)
         ,INIBND       &  ! (I) parameter bounds (0,0 => no bound)
         ,PARNAME      &  ! (I) list of parmater names
-        ,USE_MINOS    &  ! (I) T=> use minos
+        ,OPT_MNFIT    &  ! (I) 0-MINIMIZE, 1=MINOS, 2=SIMPLEX  
         ,PRINT_LEVEL  &  ! (I) integer print level (-1=none)
         ,FITVAL        &  ! (O) final fit values
         ,FITERR_PLUS   &  ! (O) final fit errors, positive
@@ -27347,14 +27375,9 @@
 ! the URL with cern in it.
 ! 
 ! 
-! Aug 31,  2009: Add USE_MINOS argument.
-! 
-! May 21, 2012: set print level using SNLCINP namelist MINUIT_PRINT_LEVEL
-! 
-! Jan 03 2016: pass new output arg MNSTAT_COV
 ! Apr 19 2022: set DO_PRINT for printing to suppress STDOUT for batch jobs
 ! May 08 2024: return IERR !=0  on NaN for any fit par value
-! 
+! Jan 08 2026: replace USE_MINOS arg with OPT_MNFIT to alllow for MIGRAD or MIONS or SIMPLEX 
 ! -------------------------------------------------
 
 
@@ -27366,9 +27389,7 @@
 ! arguments
 
     CHARACTER CCID*(*)
-    INTEGER   NFITPAR, NFIXPAR, PRINT_LEVEL
-
-    LOGICAL USE_MINOS  ! (I)
+    INTEGER   NFITPAR, NFIXPAR, PRINT_LEVEL, OPT_MNFIT
 
     DOUBLE PRECISION  & 
          INIVAL(NFITPAR)  & 
@@ -27405,6 +27426,7 @@
         ,FEDM, ERRDEF  & 
         ,ERRSYM      ! local SYMMMETRIC fiterr
 
+    CHARACTER MN_METHOD*12
     LOGICAL LFIX, DO_PRINT
 
 ! Unit numbers for input and output
@@ -27502,16 +27524,19 @@
       PRINT *,' ------------------------------------------------ '
     ENDIF
 
-    IF ( USE_MINOS ) THEN
-      CALL MNEXCM(FCNSNLC, 'MINOS', MAXCALLS, NARG, IERR, USRFUN)
-      IF ( DO_PRINT ) THEN
-        PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
-      ENDIF
-    ELSE
-      CALL MNEXCM(FCNSNLC, 'MINIMIZE', MAXCALLS, 0, IERR, USRFUN)
-      IF ( DO_PRINT ) THEN
-        PRINT *,'  MNFIT_DRIVER: MIGRAD returns IERR = ', IERR
-      ENDIF
+    IF ( OPT_MNFIT == OPT_MNFIT_MINIMIZE ) THEN
+       MN_METHOD = 'MINIMIZE'
+    ELSE IF ( OPT_MNFIT == OPT_MNFIT_MIGRAD ) THEN
+       MN_METHOD = 'MIGRAD'
+    ELSE IF ( OPT_MNFIT == OPT_MNFIT_MINOS ) THEN  
+       MN_METHOD = 'MINOS'
+    ELSE IF ( OPT_MNFIT == OPT_MNFIT_SIMPLEX ) THEN  
+       MN_METHOD = 'SIMPLEX'
+    ENDIF
+
+    CALL MNEXCM(FCNSNLC, MN_METHOD, MAXCALLS, NARG, IERR, USRFUN)
+    IF ( DO_PRINT ) THEN
+       PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
     ENDIF
 
     IF ( DO_PRINT ) THEN

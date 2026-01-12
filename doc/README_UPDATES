@@ -23383,6 +23383,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + if there are quantiles, call init_zpdf_spline so that MEAN and STD
         are available even if there is no LC fit (init_zpdf_spline no
         longer called from snlc_fit)
+     + add &SNLCINP options USE_SIMPLEX and USE_MIGRAD 
+         (note that default is MINIMIZE = MIGRAD with fallback to SIMPLEX)
 
     snlc_fit.F90:
       + remove obsolete SIMEFF code (OPT_SIMEFF, SIMEFF_FILE, etc ...)

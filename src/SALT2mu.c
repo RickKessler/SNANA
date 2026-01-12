@@ -558,7 +558,7 @@ double  M0_DEFAULT;
 #define CUTBIT_SIMPS     11    //  SIM event from pre-scale 
 #define CUTBIT_BIASCOR   12    //  valid biasCor (data only)
 #define CUTBIT_zBIASCOR  13    //  BIASCOR z cut
-#define CUTBIT_sBIASCOR 14    //  BIASCOR x1 cut
+#define CUTBIT_sBIASCOR  14    //  BIASCOR x1 cut
 #define CUTBIT_cBIASCOR  15    //  BIASCOR c cut
 #define CUTBIT_TRUESNIa  16    //  true SNIa 
 #define CUTBIT_TRUESNCC  17    //  true !SNIa (i.e., SNCC,SNIax, etc ...)
@@ -570,6 +570,8 @@ double  M0_DEFAULT;
 #define CUTBIT_CID       23    //  for specifying a list of cids to process
 #define CUTBIT_FIELD     24    //  see fieldlist= input
 #define MXCUTBIT         26  
+
+#define CUTVAL_NONE   -9999.88  // initialize CUTVAL to this value
 
 #define DOFLAG_SELECT_IGNORE  0 // do not apply CUTWIN
 #define DOFLAG_SELECT_APPLY   1 // apply CUTWIN
@@ -1582,7 +1584,7 @@ int  set_DOFLAG_SELECT_VAR(int ivar_table, int ivar_select, int isData,
 void parse_PARSHIFT(char *item);
 void parse_FIELDLIST_SELECT(char *item);
 int  reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
-		   int *DOFLAG_CUTWIN, double *CUTVAL_LIST);
+		   int *DOFLAG_CUTWIN, double *CUTVAL_LIST, bool DUMPFLAG);
 int  usesim_CUTWIN(char *varName) ;
 int  icut_CUTWIN(char *varName) ;
 bool APPLY_CUTWIN_IDSAMPLE(int ID, int icut);
@@ -6010,7 +6012,7 @@ void read_data(void) {
     dataFile     = INPUTS.dataFile[ifile];
     NEVT[ifile]  = SNTABLE_NEVT(dataFile,TABLENAME_FITRES);  
     NEVT_TOT    += NEVT[ifile];
-    fprintf(FP_STDOUT, "\t Found %d events in %s. \n", NEVT[ifile], dataFile);
+    fprintf(FP_STDOUT, "\t Found %d events in %s \n", NEVT[ifile], dataFile);
     fflush(FP_STDOUT);
   }  
    
@@ -6795,7 +6797,7 @@ void read_data_override(void) {
   free(VARNAMES_STRING_DATA);
   free(VARNAMES_STRING_OVER);
 
-  SNTABLE_AUTOSTORE_RESET(); // Oct 27 2025 .xyz
+  SNTABLE_AUTOSTORE_RESET(); // Oct 27 2025
   return ;
 
 } // end  read_data_override
@@ -7335,6 +7337,7 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 			     TABLEVAR_DEF *TABLEVAR ) {
 
   // Oct 29 2020: make substitution if CUTNAME = "varname_pIa"
+  // Jan 12 2026: init CUTVAL[icut][i] = CUTVAL_NONE after malloc
 
   int MEMTOT = 0;
   int MEMF   = LEN_MALLOC * sizeof(float);
@@ -7348,7 +7351,6 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
 
   CUTNAME = INPUTS.SELECT_CUTWIN.NAME_LIST[icut] ;
   
-
   if ( strcmp(CUTNAME,"x0") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->x0; }
 
@@ -7387,11 +7389,13 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
     RDFLAG = true;
     TABLEVAR->CUTVAL[icut] = (float*)malloc(MEMF);  MEMTOT += MEMF ; 
 
+    int i;
+    for(i=0; i < LEN_MALLOC; i++ ) { TABLEVAR->CUTVAL[icut][i] = CUTVAL_NONE; }
+
     if ( strcmp(CUTNAME,INPUTS.varname_gamma) == 0 ) 
-      { TABLEVAR->ICUTWIN_GAMMA = icut;       }
+      { TABLEVAR->ICUTWIN_GAMMA = icut;  }
 
   }
-
 
   INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] = RDFLAG ;
  
@@ -7506,6 +7510,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   bool CHECK_DUPL     = ( INPUTS.iflag_duplicate > 0 ) ;
   int  icut, ivar, ivar2, irow, id, NVAR_REQ_MISS=0, NCUTWIN=0, NPARSHIFT=0 ;
   bool L_RDFLAG, L_BCORONLY, L_CCONLY ;
+  bool L_SURVEY, L_IDSAMPLE, REQUIRE;
   char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
   char str_zerr[MXCHAR_VARNAME]; 
 
@@ -7767,7 +7772,6 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     sprintf(vartmp,"%s:F", varname_pIa);
     ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->pIa[ISTART], 
 				   LEN, OPTMASK_WARN );
-    // xxx mark delete Sep 3 2025:  if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
     if ( ivar < 0 && !IS_BIASCOR ) { NVAR_REQ_MISS++ ; }
     
     TABLEVAR->IVAR_pIa[IFILE] = ivar; // map valid ivar with each file
@@ -7794,9 +7798,12 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   for(icut=0; icut < NCUTWIN; icut++ ) {
 
     cutname    = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
-    L_RDFLAG   = INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] ;
+    L_RDFLAG   = INPUTS.SELECT_CUTWIN.L_RDFLAG_LIST[icut] ;     // read column (not already read)
     L_BCORONLY = INPUTS.SELECT_CUTWIN.L_BIASCORONLY_LIST[icut] ;
     L_CCONLY   = INPUTS.SELECT_CUTWIN.L_CCPRIORONLY_LIST[icut] ;
+
+    L_SURVEY   = INPUTS.SELECT_CUTWIN.NIDSURVEY[icut] > 0; // survey-dependent cut
+    L_IDSAMPLE = INPUTS.SELECT_CUTWIN.NIDSAMPLE[icut] > 0; // idsample-dependent cut
 
     // June 2 2025: if reading SIM_XXX variable for biasCor cut (e.g. SIM_ZFLAG), skip for data
     if ( IS_DATA && L_BCORONLY && strstr(cutname,"SIM_")!= NULL )  {  
@@ -7815,12 +7822,15 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     sprintf(vartmp, "%s:F", cutname );
     if ( strcmp(cutname,"IDSURVEY")==0 ) {sprintf(vartmp,"%s:S",cutname );}
 
+    // skip SIM_XXX variables
     if ( !usesim_CUTWIN(vartmp)  ) { continue ; }
 
     if ( L_RDFLAG ) {
       ivar = SNTABLE_READPREP_VARDEF(vartmp, &TABLEVAR->CUTVAL[icut][ISTART], 
 				     LEN, OPTMASK_WARN );
-      if ( ivar < 0 ) { NVAR_REQ_MISS++ ; }
+
+      REQUIRE = !(L_SURVEY || L_IDSAMPLE);          // Jan 12 2026
+      if ( REQUIRE && ivar < 0 ) { NVAR_REQ_MISS++ ; }
     }
     else {
       ivar = IVAR_READTABLE_POINTER(cutname) ;   // May 8 2020 
@@ -17491,6 +17501,7 @@ void print_eventStats(int event_type) {
 } // end  print_eventStats
 
 
+int TEMPFLAG_COUNT[4] = { 0, 0, 0, 0} ; // xxx mark delete Jan 12 2026
 
 // ==================================================
 void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
@@ -17521,7 +17532,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   int  DOFLAG_CUTWIN[MXSELECT_VAR], icut, outside ;
   int  CUTMASK, REJECT, ACCEPT, NCUTWIN ;
   int  sntype, SIM_TEMPLATE_INDEX, idsample, idsurvey, IZBIN ;
-  bool BADERR=false, BADCOV=false, sel ;
+  bool BADERR=false, BADCOV=false, sel, DUMPFLAG=false ;
   double cutvar_local[MXSELECT_VAR];
   double z, s, c, logmass, x0err, serr, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
@@ -17585,8 +17596,14 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // check CUTWIN options; reject_CUTWIN returns 
   // 0->accepted, 1->rejected, 2->dweight with large MUERR
 
+  /* xxxxxxx mark delete Jan 12 2026 xxxxxxx
+  bool TEMPFLAG = TEMPFLAG_COUNT[event_type] < 5;
+  DUMPFLAG = (idsurvey== 15) && TEMPFLAG; // .xyz for PS1
+  if ( DUMPFLAG ) { TEMPFLAG_COUNT[event_type]++ ; }
+  xxxxxxxxxxxxxxxxxx */
+
   REJECT = reject_CUTWIN(event_type, idsample, idsurvey, 
-			 DOFLAG_CUTWIN, cutvar_local);
+			 DOFLAG_CUTWIN, cutvar_local, DUMPFLAG );
 
   if ( REJECT == DOFLAG_SELECT_APPLY ) 
     { setbit_CUTMASK(isn, CUTBIT_CUTWIN, TABLEVAR); }
@@ -17628,14 +17645,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
 
   if ( ISMODEL_LCFIT_SALT2 ) {
-
-    /* xxx mark delete Nov 7 2025 xxx
-    if ( (s < INPUTS.x1min) || (s > INPUTS.x1max)) 
-      { setbit_CUTMASK(isn, CUTBIT_s, TABLEVAR); }
-
-    if ( (c < INPUTS.cmin) || ( c > INPUTS.cmax) ) 
-      { setbit_CUTMASK(isn, CUTBIT_c, TABLEVAR); }
-    xxxxxxxx */
 
     if ( x0err <= INPUTS.maxerr_abort_x0 ) { BADERR = true ; }
     if (  serr <= INPUTS.maxerr_abort_x1 ) { BADERR = true ; }
@@ -19949,7 +19958,7 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
 
 // **************************************************
 int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY, 
-		  int *DOFLAG_CUTWIN, double *CUTVAL_LIST) {
+		  int *DOFLAG_CUTWIN, double *CUTVAL_LIST, bool DUMPFLAG) {
 
   // Created Jan 2016 [major refactor Jan 2021]
   //
@@ -19966,34 +19975,43 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
   //
   // CUTVAL_LIST is array of values to apply CUTWIN
   //
+  // DUMFLAG = bool logical for stdout dump
   // Jan 22 2021: 
   //   rename apply_CUTWIN -> reject_CUTWIN, and return reject flag
   //   with similar meaning as DOFLAG_CUTWIN.
   //
   // Dec 13 2022: check dependence on IDSAMPLE/IDSURVEY.
   //
+  // Jan 12 2026: 
+  //  + abort if CUTVAL == CUTVAL_NONE -> was never read
+  //  + add DUMPFLAG arg
 
   int IS_DATA    = ( EVENT_TYPE == EVENT_TYPE_DATA );
   int IS_BIASCOR = ( EVENT_TYPE == EVENT_TYPE_BIASCOR );
   int IS_CCPRIOR = ( EVENT_TYPE == EVENT_TYPE_CCPRIOR );
+  char *SURVEYDEF = SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY] ;
 
-  int LDMP = 0 ; // (OPT==666);
+  int LDMP = DUMPFLAG ; // (OPT==666);
   int icut, reject, DOFLAG, NCUTWIN ; 
   bool  APPLY_IDSURVEY, APPLY_IDSAMPLE, PASS_CUTWIN ;
   double CUTVAL, *CUTWIN ;
-  char *NAME;
+  char *NAME, STR_EVENT_TYPE[20];
   char fnam[] = "reject_CUTWIN" ;
 
   
   // ------------- BEGIN -----------
 
-  if ( LDMP ) { printf(" xxx --------------------------- \n"); }
-
   reject = 0 ;    // init to pass cuts
-
   NCUTWIN = INPUTS.SELECT_CUTWIN.NVAR;
+  sprintf(STR_EVENT_TYPE, "%s", STRING_EVENT_TYPE[EVENT_TYPE]);
 
-  
+ 
+  if ( LDMP ) { 
+    printf(" xxx --------------------------------------------------- \n"); 
+    printf(" xxx %s: IDSAMPLE=%d   IDSURVEY=%d (%s)   EVENT_TYPE=%s\n",
+	   fnam, IDSAMPLE, IDSURVEY, SURVEYDEF, STR_EVENT_TYPE ); fflush(stdout);
+  }
+
   for(icut=0; icut < NCUTWIN; icut++ ) {
    
     DOFLAG = DOFLAG_CUTWIN[icut] ;
@@ -20015,10 +20033,17 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
     
     
     if ( LDMP ) {
-      printf(" xxx cut on %s = %f  (cutwin=%.3f to %.3f, EVENT_TYPE=%d)\n",
-	     NAME, CUTVAL, CUTWIN[0], CUTWIN[1], EVENT_TYPE ); 
+      printf(" xxx cut on %14s = %.3f  (cutwin=%.3f to %.3f)\n",
+	     NAME, CUTVAL, CUTWIN[0], CUTWIN[1] );       fflush(stdout);
     }
 
+    if ( fabs(CUTVAL - CUTVAL_NONE) < 0.001 ) { //.xyz
+      sprintf(c1err,"Undefined CUTWIN %s (icut=%d) for %s-%s (IDSAMPLE=%d)",
+	      NAME, icut, SURVEYDEF, STR_EVENT_TYPE, IDSAMPLE );
+      sprintf(c2err,"Check for bad CUTWIN arg or missing %s in input FITRES table.", NAME);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+    }
+    
     // check SIM-option to skip SIM_TYPE_INDEX
     if( (IS_BIASCOR || IS_CCPRIOR) && !usesim_CUTWIN(NAME)  ) 
       { continue ; }
@@ -20035,7 +20060,7 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
   // - - - - 
   if (LDMP ) { 
     printf(" xxx ---> reject = %d\n", reject ); 
-    fflush(stdout); debugexit(fnam);
+    fflush(stdout); // debugexit(fnam);
   } 
 
   return(reject);

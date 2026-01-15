@@ -23400,6 +23400,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     SALT2mu.c
       + for stdout dump of chi2max rejects, include SURVEY & IDSAMPLE for visual examination.
+      + fix CUTWIN_SURVEY to avoid abort when column is missing from surveys not requested for cut;
+          see  https://github.com/RickKessler/SNANA/issues/1598
 
     submit_batch_jobs:
       + fix parsing logic to allow pad spaces between slashes and label; e.g.

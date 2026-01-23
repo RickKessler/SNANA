@@ -1430,7 +1430,7 @@ def log_assert(condition, message):
             f"\n   <| o\\ /o |>   "
             f"\n    | ' ; ' |     "
             f"\n    |  ___  |     ABORT submit_batch_jobs"
-            f"\n    | |' '| |     on Fatal Error."    
+            f"\n    | |' '| |     on Fatal Error."
             f"\n    | `---' |     "
             f"\n    \\_______/    " 
             f"\n"

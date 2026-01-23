@@ -626,7 +626,8 @@ class Program:
                 batch_file = f"{prefix}.BATCH"
                 BATCH_FILE = f"{script_dir}/{batch_file}"
                 new_batch_file = True
-                if batch_single_node and icpu > 0: new_batch_file = False
+                if batch_single_node and icpu > 0: 
+                    new_batch_file = False
 
                 if new_batch_file :
                     batch_file_list.append(batch_file)

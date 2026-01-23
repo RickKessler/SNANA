@@ -23429,4 +23429,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SNANA_code_tests.py:
      - refactoring and updates to enable SCONE tests with separate env
 
+
+# =============================================================
+         v12_01b (Jan 15 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01b) *****
+
+         *****  USEFUL(v12_01b) *****
+
+         *****  MISCELLANEOUS(v12_01b) *****
+
+
 END: 

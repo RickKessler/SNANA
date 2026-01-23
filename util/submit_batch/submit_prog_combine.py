@@ -237,6 +237,7 @@ class combine_fitres(Program):
         return
 
     def write_command_file(self, icpu, f):
+
         # For this icpu, write full set of sim commands to 
         # already-opened command file with pointer f.
         # Function returns number of jobs for this cpu

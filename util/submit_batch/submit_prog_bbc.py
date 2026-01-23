@@ -1654,7 +1654,8 @@ class BBC(Program):
 
             EXIST_FF = os.path.isfile(FF) or os.path.isfile(FFgz)
             if not EXIST_FF:
-                logging.info(f" ERROR: missing {FF}")
+                t   = datetime.datetime.now()
+                logging.info(f" ERROR at {t} : missing {FF}")
                 nmissing += 1
 
         cat_list = cat_list.rstrip(",")  # remove trailing comma

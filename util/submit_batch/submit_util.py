@@ -1417,19 +1417,24 @@ def setup_logging(args):
 
 
 def log_assert(condition, message):
+
+    # Jan 23 2026: include current time in abort message to help
+    #              trace timing problems (e.g., creation of file and reading file)
+    #
     if not condition:
 
+        t   = datetime.datetime.now()
         msg_abort_face = (
             f"\n\n"
             f"\n   `|```````|`    "
             f"\n   <| o\\ /o |>   "
             f"\n    | ' ; ' |     "
-            f"\n    |  ___  |     ABORT submit on Fatal Error. "
-            f"\n    | |' '| |     "         
+            f"\n    |  ___  |     ABORT submit_batch_jobs"
+            f"\n    | |' '| |     on Fatal Error."    
             f"\n    | `---' |     "
             f"\n    \\_______/    " 
             f"\n"
-            f"\n{SNANA_ABORT_STRING} : "
+            f"\n{SNANA_ABORT_STRING}  at  {t}: "
         )
 
         for item in message :

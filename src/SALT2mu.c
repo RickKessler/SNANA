@@ -13044,9 +13044,6 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
 
   double SIGINT_AVG, SIGINT_ABGRID[MXa][MXb][MXg] ; 
 
-  bool DUM_DEBUG  = (INPUTS.debug_flag == 407 );
-  bool DUM_DEBUG2 = (INPUTS.debug_flag == 408 );
-
   char *NAME, callFun[60], str_IDSAMPLE[60];
   char fnam[]   = "init_sigInt_biasCor_SNRCUT" ;
 
@@ -13142,8 +13139,6 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
     cutmask -= (cutmask & CUTMASK_LIST[CUTBIT_zBIASCOR]);
 
     if ( cutmask ) { continue; }
-
-    if ( DUM_DEBUG && ptr_IDSAMPLE[i] != 2 ) { continue; } // force ROMAN; 
 
     // check option for IDSAMPLE-dependent sigint (Oct 2018)
     if ( DO_SIGINT_SAMPLE && (IDSAMPLE != ptr_IDSAMPLE[i]) ) 

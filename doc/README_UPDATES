@@ -23439,5 +23439,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_01b) *****
 
+   snlc_sim.c
+     + for SIMGEN_DUMP[ALL], automatically append FLAG_ACCEPT for events
+       passing trigger. Needed by classifiers when processing sims that
+       write all events to DUMP file that includes events written (FLAG_ACCEPT=1)
+       and events failing trigger that are discarded (FLAG_ACCEPT=0).
 
 END: 

@@ -402,10 +402,12 @@ int main(int argc, char **argv) {
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("13", ilc) ; }
 
+    GENLC.FLAG_ACCEPT = 1 ;  
+
     // update SNDATA files & auxiliary files
     update_simFiles(&GENLC.SIMFILE_AUX);
 
-    GENLC.FLAG_ACCEPT = 1 ;  // Added Dec 2015
+    // xxxx mark delete GENLC.FLAG_ACCEPT = 1 ;  
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("14", ilc) ; }
 
@@ -4795,6 +4797,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // - - - - - - - 
 
+
   // check option to add a few variables via command line override
   if ( LRD_ADD ) {
     // be careful to ADD variables, not clobber existing variables.
@@ -4818,7 +4821,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
     INPUTS.IS_SIMSED_SIMGEN_DUMP[ivar]  = false ;
   }
 
-  // check of comma sep or space-sep format.
+  // check if comma sep or space-sep format.
   if ( strstr(WORDS[N+1],COMMA) != NULL ) 
     { LRD_COMMA_SEP = true;  }
   else 
@@ -4852,6 +4855,11 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   } // end LRD_COMMA_SEP
 
+
+  // Jan 26 2026: 
+  // force adding FLAG_ACCEPT that may be required in downstream codes (e.g.. classifiers)
+  sprintf(INPUTS.VARNAME_SIMGEN_DUMP[NVAR],"FLAG_ACCEPT");
+  NVAR++ ;
 
   // - - - - -
 
@@ -14475,6 +14483,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+
   // check for alternate varNames, but never change
   // name of SIMSED variable.
   NVAR = INPUTS.NVAR_SIMGEN_DUMP ; 
@@ -14535,9 +14544,9 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     fprintf(fp, "#  SELECTION: " );
     if  ( INPUTS.IFLAG_SIMGEN_DUMPALL )
-      { fprintf(fp,"NONE (write every generated event)\n");  }
+      { fprintf(fp,"NONE    (write every generated event)\n");  }
     else
-      { fprintf(fp,"Pass Trigger + Cuts\n");  }
+      { fprintf(fp,"PASS_TRIGGER+CUTS  (write accepted events passing these criteria)\n");  }
 
     fprintf(fp, "\n") ;
 
@@ -15603,7 +15612,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"CID");
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.CID_FINAL ;
+  NVAR_SIMGEN_DUMP++ ;
 
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"FLAG_ACCEPT");  // added Jan 26 2026
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.FLAG_ACCEPT ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;

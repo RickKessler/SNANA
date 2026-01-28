@@ -42,6 +42,7 @@
 \newcommand{\snfitter}{{\tt snlc\_fit.exe}}
 \newcommand{\simexe}{{\tt snlc\_sim.exe}}
 \newcommand{\psnid}{{\tt psnid.exe}}
+\newcommand{\crcov}{{\tt create\_covariance.py}}
 
 \newcommand{\mlcs}{{\tt MLCS2k2}}
 \newcommand{\SALTII}{{\sc salt-ii}}
@@ -13076,7 +13077,7 @@ is not nearly as sohopisticated as CosmoSIS, but is useful for
 systematics tests and forecasts. 
 \wfit\ models $w$CDM ($w$, $\OM$) and CPL $w_0w_a$CDM model,
 both assuming a flat universe. 
-The CMB prior is based the $R$ parametrization using simulated cosmology parameters
+The CMB prior is based on the $R$ parametrization using simulated cosmology parameters
 and $\sigma_R=0.007$ to reproduce the DES3YR uncertainties. 
 The BAO prior is based on Alam 2020.
 Table \ref{tab:wfit} compares \wfit\ results to published DES3YR and Pantheon values using
@@ -13085,8 +13086,13 @@ Table \ref{tab:wfit} compares \wfit\ results to published DES3YR and Pantheon va
    wfit.exe  [HubbleDiagram] -cmb_sim -sigma_Rcmb 0.007   -wsteps 101 -omsteps 101 \
              -mucov_file [mucov_file]  \
              -bao_sim               # only for DES w0waCDM only
+
+   for full list of options, type program name with no arguments:
+   wfit.exe
 \end{verbatim}
-where {\tt HubbleDiagram} and {\tt mucov\_file} are from public data releases.
+where {\tt HubbleDiagram} and {\tt mucov\_file} are created from 
+the {\crcov} program (\S~\ref{subsec:create_cov}).
+
 
 \begin{table}[h!]
 \centering
@@ -13121,6 +13127,29 @@ where {\tt HubbleDiagram} and {\tt mucov\_file} are from public data releases.
 
 % -----------------------------------------------
    \clearpage
+   \subsection{Statistical+Systematic Covariance Matrix}
+   \label{subsec:create_cov}
+% -----------------------------------------------
+
+The program {\crcov} reads {\tt SALT2mu/BBC} output directories that include
+systematics, and computes a stat+syst covariance matrix, a Hubble diagram file,
+and an {\tt INFO.YAML} file with lots of meta data such as which biasCor sim was used,
+flag to indicate real/sim data, etc. The input config file is defined by command
+\begin{verbatim}
+   create_covariance.py -H   # config file options
+   create_covariance.py -h   # command line options
+\end{verbatim}
+%
+Since the cosmology fitting codes need the inverted matrix, the default
+behavior is to write only the inverted matrix. To reduce disk space,
+the output format is npz, and only the upper-triangular part. 
+For special tests or debugging, the total and syst-only cov matrices
+can also be written with command-line option ``{\tt --write\_mask\_cov 7};''
+the default npz format can be replaced with text using
+``{\tt write\_format\_cov text}.''
+
+
+% -----------------------------------------------
    \subsection{Interpreting Redshift Variables in SNANA Tables}
    \label{subsec:zdefine}
 % -----------------------------------------------

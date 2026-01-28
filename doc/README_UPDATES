@@ -23445,4 +23445,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        write all events to DUMP file that includes events written (FLAG_ACCEPT=1)
        and events failing trigger that are discarded (FLAG_ACCEPT=0).
 
+   submit_batch_jobs (BBC task):
+     + see https://github.com/RickKessler/SNANA/issues/1603
+
 END: 

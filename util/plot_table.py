@@ -171,8 +171,8 @@ STAT_NAME_N         = 'N'
 STAT_NAME_AVG       = 'avg'
 STAT_NAME_MEDIAN    = 'median'
 STAT_NAME_STDDEV    = 'stddev'
-STAT_NAME_SIG_NMAD  = '\sigma_{NMAD}'
-STAT_NAME_OUTLIER   = '\eta_{outlier}'
+STAT_NAME_SIG_NMAD  = r'\sigma_{NMAD}'
+STAT_NAME_OUTLIER   = r'\eta_{outlier}'
 
 # internal DEBUG flags
 DEBUG_FLAG_REFAC           =  2

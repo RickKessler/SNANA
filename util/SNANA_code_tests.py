@@ -763,7 +763,7 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
 
     # Dec 19 2025: check for special env
     if TESTENV:
-        print(f" xxx yo TESTENV = {TESTENV}")
+        # xxx print(f" xxx yo TESTENV = {TESTENV}")
         job_plus_args = f"{TESTENV} ; "
 
     # construct job name with arguments

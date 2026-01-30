@@ -2849,7 +2849,7 @@ void SNLCPAK_CLEAR_PLOT(void) {
   // clear SNLCPAK counters to prepare for next SUBDIR.
   
   int  iflag, ifilt, NOBS, i ;
-  //  char fnam[] = "SNLCPAK_CLEAR_PLOT" ;
+  char fnam[] = "SNLCPAK_CLEAR_PLOT" ;
 
   // init counters
   SNLCPAK_OUTPUT.MXTEXT   = MXTEXT_SNLCPAK ;
@@ -2957,6 +2957,7 @@ void SNLCPAK_DATA(char *CCID, int NOBS, double *MJD, double *TOBS,
   // in very fine TOBS-bins to show a smooth best-fit model function.
   //
   // May 20 2016: new FLAG for simulated flux
+  // Jan 28 2026: new FLAG for fit flux at each MJD
 
   int i, NFILT, IFILT, ifiltobs, flag, MEMD, MEMI ;
   char cfilt[2], comment[80];
@@ -2987,11 +2988,10 @@ void SNLCPAK_DATA(char *CCID, int NOBS, double *MJD, double *TOBS,
 
   // keep track of max NOBS among all FLAG values
   if ( NOBS >  SNLCPAK_OUTPUT.NOBS_MAX ) 
-    {  SNLCPAK_OUTPUT.NOBS_MAX = NOBS ; }
+    { SNLCPAK_OUTPUT.NOBS_MAX = NOBS ; }
 
 
   if ( FLAG < MXFLAG_SNLCPAK_EPOCH ) {
-
     // allocate memory
     MEMD = (NOBS+10) * sizeof(double);
     MEMI = (NOBS+10) * sizeof(int) ;  

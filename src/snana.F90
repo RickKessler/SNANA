@@ -153,16 +153,16 @@
         ,FLAG_DOCANA_END    =  2   &  ! flags DOCUMENTATION_END
         ,FLAG_DOCANA_ERROR  = -1   &  ! flags missing DOCANA keys
         ,SNLCPAK_EPFLAG_FLUXDATA    = 1     &  ! epoch-dependent
-        ,SNLCPAK_EPFLAG_FLUXMODEL   = 11  & 
+! xxx mark delete        ,SNLCPAK_EPFLAG_FLUXMODEL   = 11    & 
         ,SNLCPAK_EPFLAG_REJECT      = 2  & 
         ,SNLCPAK_EPFLAG_CHI2        = 3  & 
-        ,SNLCPAK_EPFLAG_FITFUN      = 4  & 
-        ,SNLCPAK_EPFLAG_FLUXSIM     = 5     &  ! epoch-dependent
+        ,SNLCPAK_EPFLAG_FITFUN      = 4  &   ! fit function on MJD grid to see smooth function
+        ,SNLCPAK_EPFLAG_FLUXSIM     = 5  &   ! sim flux at each obs
         ,SNLCPAK_EPFLAG_FLUXREST    = 6  & 
         ,SNLCPAK_EPFLAG_KCOR        = 7  & 
         ,SNLCPAK_EPFLAG_AVWARP      = 8  & 
         ,SNLCPAK_EPFLAG_SIMFLUXREST = 9  & 
-        ,SNLCPAK_EPFLAG_ERRCALC     = 10  & 
+! xxx mark delete        ,SNLCPAK_EPFLAG_ERRCALC     = 10  & 
         ,SNLCPAK_BANDFLAG_NDOF    = 100  & 
         ,SNLCPAK_BANDFLAG_PKFLUX  = 101   &  ! filter-dependent
         ,SNLCPAK_BANDFLAG_PKMJD   = 102  & 
@@ -21908,7 +21908,7 @@
 
     CHARACTER  CCID*(MXCHAR_CCID), TEXT_forC*80
 
-    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS)
+    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS), REJECT
     INTEGER  & 
          LENCCID, LENTEXT, NEWMJD, EPMIN, EPMAX, EP  & 
         ,IFILT_OBS, IFILT, ipar, NBT, i, NFILT
@@ -21925,14 +21925,14 @@
 
     REAL*8  & 
          VMJD(MXEP_SNLCPAK)  & 
-        ,VTOBS(MXEP_SNLCPAK)  & 
-        ,VFLUX(MXEP_SNLCPAK)  & 
-        ,VFLUX_ERR(MXEP_SNLCPAK)  & 
-        ,VSIMFLUX(MXEP_SNLCPAK)  & 
-        ,VCHI2(MXEP_SNLCPAK)  & 
-        ,VREJECT(MXEP_SNLCPAK)  & 
-        ,VERRCALC(MXEP_SNLCPAK)  & 
-        ,VDUMERR(MXEP_SNLCPAK)   &  ! all zeros
+        ,VTOBS(MXEP_SNLCPAK)        & 
+        ,VFLUX(MXEP_SNLCPAK)        & 
+        ,VFLUX_ERR(MXEP_SNLCPAK)    & 
+        ,VSIMFLUX(MXEP_SNLCPAK)     & 
+        ,VCHI2(MXEP_SNLCPAK)        & 
+        ,VREJECT(MXEP_SNLCPAK)      & 
+        ,VERRCALC(MXEP_SNLCPAK)     & 
+        ,VDUMERR(MXEP_SNLCPAK)      &  ! all zeros
 ! 
         ,VBAND_NDOF(MXFILT_OBS)  & 
         ,VBAND_CHI2(MXFILT_OBS)  & 
@@ -21955,8 +21955,6 @@
 
 ! check if we should make the plot
     IF ( .NOT. DOPLOT_SNLC() ) RETURN
-
-! xxx mark dele      CALL SNLCPAK_NFIT(1)      ! May 11 2014
 
     LENCCID = ISNLC_LENCCID
     CCID = SNLC_CCID(1:LENCCID) // char(0)
@@ -22047,6 +22045,14 @@
         VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
         VSIMFLUX(NOBS)  = SIM_EPFLUXCAL(ep)   ! Jan 2020
 
+! xxxxxxxx mark delete Jan 28 2026 xxxxxxxxx
+!        VFITFLUX(NOBS)     =  0.0
+!        VFITFLUX_ERR(NOBS) = -9.0
+!#if defined(SNFIT)
+!        CALL GET_FITFLUX(ep, VFITFLUX(NOBS), VFITFLUX_ERR(NOBS), REJECT)
+!#endif
+! xxxxxxxxxxxxxx
+
 ! Sep 7 2022: check options to fold LC within a single cylce.
         if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then
            DT = MJD - VMJD(1) - MJDSHIFT_PLOT
@@ -22113,6 +22119,7 @@
            VFILTOBS, SNLCPAK_EPFLAG_FLUXSIM, LENCCID)
     ENDIF
 
+
 ! ------------------------------------------
     IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
 ! ------------------------------------------
@@ -22166,7 +22173,7 @@
 
 ! -------------------------------------------------
 
-! store best-fit ANYLCFUN
+! store best-fit function on MJD grid
 
     CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR,  & 
            VFILTOBS, SNLCPAK_EPFLAG_FITFUN, LENCCID)
@@ -22175,15 +22182,20 @@
     VMJD(1)  = -9999.0
     VTOBS(1) = -9999.0  ! dummy for unused TOBS arg
 
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS, VBAND_NDOF, VDUMERR,  & 
-           IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_NDOF, LENCCID)
+    ! .xyz add FLUXCAL_FIT[ERR] here ??
 
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD,VTOBS, VBAND_CHI2, VDUMERR,  & 
-           IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_CHI2, LENCCID)
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS, &
+         VBAND_NDOF, VDUMERR,  & 
+         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_NDOF, LENCCID)
 
-    CALL SNLCPAK_DATA(CCID, NFILT, VTOBS, VMJD,  & 
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD,VTOBS,   &
+         VBAND_CHI2, VDUMERR,  & 
+         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_CHI2, LENCCID)
+
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,   & 
          VBAND_PKFLUX, VBAND_PKFLUX_ERR,  & 
          IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKFLUX, LENCCID)
+
 
 ! --------------------------------------------------
 ! fill output structure with above; here iy goes to a disk file.
@@ -22193,7 +22205,7 @@
     CALL SNLCPAK_NFIT(1)      ! move from abvove, Oct 23 2025
 
     CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,  & 
-          VBAND_PKMJD,VBAND_PKMJD_ERR,  & 
+          VBAND_PKMJD ,VBAND_PKMJD_ERR,  & 
           IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKMJD, LENCCID)
 
     CALL SNLCPAK_FILL(CCID, LENCCID)

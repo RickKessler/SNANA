@@ -46,6 +46,8 @@
 #   + check optional TESTENV to setup special env for task (e.g.. scone)
 #   + allow list of DEPENDENCIES
 #
+# Jan 30 2026: To prepare for python 3.12, 
+#              replace a few .replace('/', '\/')   with  .replace(r'/', r'\/')
 # ===================================
 
 import os, sys, datetime, shutil, time, glob
@@ -968,7 +970,9 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     BATCH_SUBMIT_COMMAND = BATCH_INFO[0]
     BATCH_TEMPLATE_FILE  = BATCH_INFO[1]
 
-    SNANA_SETUP_forSed = SNANA_SETUP.replace('/','\/')
+    # xxx mark delete SNANA_SETUP_forSed = SNANA_SETUP.replace('/','\/')
+    SNANA_SETUP_forSed = SNANA_SETUP.replace(r'/', r'\/')
+
     if len(SNANA_SETUP_forSed) == 0:
         SNANA_SETUP_forSed = 'echo "No setup"'
 
@@ -978,7 +982,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         path_list = f"{snana_dir}/bin:{snana_dir}/util:\$PATH"
         SNANA_SETUP_forSed = f"export SNANA_DIR={snana_dir} ; " \
                              f"export PATH={path_list}"
-        SNANA_SETUP_forSed  = SNANA_SETUP_forSed.replace('/','\/')
+        SNANA_SETUP_forSed  = SNANA_SETUP_forSed.replace(r'/',r'\/')
         #print(f" xxx SNANA_SETUP_forSed = {SNANA_SETUP_forSed}")
 
     for cpunum in range(0,NCPU) :
@@ -988,7 +992,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
         cmd_job  = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  " \
                    f"--logdir {LOGDIR}"
-        cmd_job  = cmd_job.replace('/','\/')
+        cmd_job  = cmd_job.replace(r'/',r'\/')
 
         # on first job, run snana.exe to leave version info
         if cpunum == 0 :

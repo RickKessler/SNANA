@@ -979,7 +979,9 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     # Jun 2021: check user snana_dir
     snana_dir = os.path.expandvars(INPUTS.snana_dir)
     if snana_dir != SNANA_DIR :
-        path_list = f"{snana_dir}/bin:{snana_dir}/util:\$PATH"
+        # xxx mark path_list = f"{snana_dir}/bin:{snana_dir}/util:\$PATH"
+        path_list = f"{snana_dir}/bin:{snana_dir}/util:\\$PATH"
+
         SNANA_SETUP_forSed = f"export SNANA_DIR={snana_dir} ; " \
                              f"export PATH={path_list}"
         SNANA_SETUP_forSed  = SNANA_SETUP_forSed.replace(r'/',r'\/')

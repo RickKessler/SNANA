@@ -23448,4 +23448,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_batch_jobs (BBC task):
      + see https://github.com/RickKessler/SNANA/issues/1603
 
+   snlc_fit.F90;
+     + in init_zPDF_spline(), set LZDONE=True when  BTEST(MASK,BIT_BESTZ_GAUSS)  is set
+       (i.e., precise bestz). Could be nasty bug fix when quantiles are mixed
+       with zSPEC, but not clear yet.
+
+
 END: 

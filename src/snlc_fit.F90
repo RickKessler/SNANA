@@ -8362,7 +8362,7 @@
 ! Aug 06 2024: implement BIT_PHOTOZ_AUTO_INISTP bit in OPT_PHOTOZ
 ! Nov 07 2024: fix bug setting PHOTODZ_REJECT for zSPEC
 ! Dec 19 2024: print time to process this function
-! 
+! Feb 02 2026: set LZDONE=T inside BTEST(MASK,BIT_BESTZ_GAUSS) if-block
 ! --------------------------------------------
 
     USE SNDATCOM
@@ -8397,9 +8397,12 @@
          ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
     CHARACTER FNAM*14
     REAL*8 GET_DIST8, USRFUN
+    LOGICAL LEGACY
     EXTERNAL USRFUN, init_zPDF_spline
 
 ! --------------- BEGIN -----------------
+
+    LEGACY = (DEBUG_FLAG == -202)  ! undo Feb 2 2026 fix below
 
     IERR = 0
     FNAM = 'FITINI_PHOTOZ'
@@ -8470,12 +8473,17 @@
       STD          = SNLC_REDSHIFT_ERR
       CZTMP        = 'zBEST-Gauss'
 
+      if ( .NOT. LEGACY) THEN
+          LZDONE       = .TRUE.  ! Feb 2 2026 fix
+      endif
+
 ! Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
       if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
 
       if ( SNLC_REDSHIFT_ERR < 0.05 ) then ! avoid crazy zSpec err
          PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
       endif
+
 
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
@@ -8813,10 +8821,10 @@
     CALL SET_COURSEBIN_PHOTOZ(IPAR_PEAKMJD, ITER,  & 
          NTBIN, TBIN, TMIN, TMAX)  ! output
 
+  
     ZVAR_MIN = ZMIN; ZVAR_MAX = ZMAX
     CALL SET_COURSEBIN_PHOTOZ(IPAR_ZPHOT, ITER,  & 
          NZBIN, ZVAR_BIN, ZVAR_MIN, ZVAR_MAX)  ! inputs ZVAR_MIN[MAX] are modified
-
     
     IF ( STDOUT_UPDATE ) THEN
        print*,'    COURSE-GRID minimization for initial values: '

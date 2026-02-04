@@ -23435,6 +23435,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v12_01b) *****
 
+   Feb 4: Slight tinkering with flat-prior and photo-z parameters in snlc_fit.F90 
+    (see below) results in many regression test errors from very tiny changes. 
+    The changes are in MLCS fits and ZPHOT fits, both of which use prior(s).
+    Need to start a new tag.
+    Last regression test with this tag is in 
+       $SNDATA_ROOT/SNANA_TESTS/logs/TEST_20260204-1542_rkes_23changes
+
          *****  USEFUL(v12_01b) *****
 
          *****  MISCELLANEOUS(v12_01b) *****
@@ -23468,5 +23475,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      Perlmutter with recent update to python v3.12 flagged lots of warnings
      for delim_whitespace=True in read_csv command, so these have been
      replaced with recommended sep=r'\s+'
+
 
 END: 

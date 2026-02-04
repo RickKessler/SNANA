@@ -750,7 +750,7 @@ void OPEN_TEXTFILE(char *FILENAME, char *mode) {
 
   char msg[MXCHAR_FILENAME+20];
   sprintf(msg,"%s: %s", fnam, FILENAME);
-  printf("   %s \n", msg);
+  printf("\n   %s \n", msg);
 
 
 } // end of OPEN_TEXTFILE

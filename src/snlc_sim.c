@@ -402,10 +402,12 @@ int main(int argc, char **argv) {
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("13", ilc) ; }
 
+    GENLC.FLAG_ACCEPT = 1 ;  
+
     // update SNDATA files & auxiliary files
     update_simFiles(&GENLC.SIMFILE_AUX);
 
-    GENLC.FLAG_ACCEPT = 1 ;  // Added Dec 2015
+    // xxxx mark delete GENLC.FLAG_ACCEPT = 1 ;  
 
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("14", ilc) ; }
 
@@ -4795,6 +4797,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // - - - - - - - 
 
+
   // check option to add a few variables via command line override
   if ( LRD_ADD ) {
     // be careful to ADD variables, not clobber existing variables.
@@ -4818,7 +4821,7 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
     INPUTS.IS_SIMSED_SIMGEN_DUMP[ivar]  = false ;
   }
 
-  // check of comma sep or space-sep format.
+  // check if comma sep or space-sep format.
   if ( strstr(WORDS[N+1],COMMA) != NULL ) 
     { LRD_COMMA_SEP = true;  }
   else 
@@ -4852,6 +4855,11 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   } // end LRD_COMMA_SEP
 
+
+  // Jan 26 2026: 
+  // force adding FLAG_ACCEPT that may be required in downstream codes (e.g.. classifiers)
+  sprintf(INPUTS.VARNAME_SIMGEN_DUMP[NVAR],"FLAG_ACCEPT");
+  NVAR++ ;
 
   // - - - - -
 
@@ -14475,6 +14483,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+
   // check for alternate varNames, but never change
   // name of SIMSED variable.
   NVAR = INPUTS.NVAR_SIMGEN_DUMP ; 
@@ -14535,9 +14544,9 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     fprintf(fp, "#  SELECTION: " );
     if  ( INPUTS.IFLAG_SIMGEN_DUMPALL )
-      { fprintf(fp,"NONE (write every generated event)\n");  }
+      { fprintf(fp,"NONE    (write every generated event)\n");  }
     else
-      { fprintf(fp,"Pass Trigger + Cuts\n");  }
+      { fprintf(fp,"PASS_TRIGGER+CUTS  (write accepted events passing these criteria)\n");  }
 
     fprintf(fp, "\n") ;
 
@@ -15603,7 +15612,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"CID");
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.CID_FINAL ;
+  NVAR_SIMGEN_DUMP++ ;
 
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"FLAG_ACCEPT");  // added Jan 26 2026
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.FLAG_ACCEPT ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -24670,7 +24683,7 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   // flux in central pixel
   fluxtot_pe = (flux_pe*areaFrac) + sky_pe ;
   
-  // Oct 30 2025: need to include host contribution ... .xyz
+  // Oct 30 2025: need to include host contribution 
   if ( INPUTS.HOSTLIB_USE ) {
     double r = INPUTS.HOSTLIB_SBRADIUS ;
     areaFrac_SB = AREAPIX / ( PI * r*r );
@@ -24903,10 +24916,12 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_GENTYPE   = GENLC.SIM_GENTYPE ;
   sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); 
   
+  /* xxx mark delete Dec 18 2025 xxxxxx
   // store map[GENTYPE] = name to print in readme
   char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[SNDATA.SIM_GENTYPE];
   if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL ) 
     { catVarList_with_sep(ctype,GENLC.SNTYPE_NAME,PLUS) ;  }
+  xxxxxx */
 
   if ( WRFLAG_BLINDTEST ) 
     { SNDATA.FAKE  = FAKEFLAG_LCSIM_BLINDTEST ; }
@@ -27026,6 +27041,7 @@ void GENMAG_DRIVER(void) {
   char fnam[] = "GENMAG_DRIVER" ;
 
   // -------------- BEGIN ---------------
+
   genran_modelSmear(); // randoms for intrinsic scatter
 
   // this loop is to generate ideal mag in each filter.
@@ -27063,6 +27079,12 @@ void GENMAG_DRIVER(void) {
 
   // estimate light-curve Width in each band (Aug 17 2017)
   compute_lightCurveWidths();
+
+  // Dec 18 2025: store map[GENTYPE] = name to print in readme 
+  //   do this here (not in snlc_to_SNDATA) in case zero events pass trigger
+  char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[GENLC.SIM_GENTYPE];
+  if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL ) 
+    { catVarList_with_sep(ctype,GENLC.SNTYPE_NAME,PLUS) ;  }
 
   return ;
 

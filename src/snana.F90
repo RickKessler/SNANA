@@ -3,8 +3,6 @@
 
 
 
-
-
 ! =====================================================================
   MODULE SNPAR
     IMPLICIT NONE
@@ -155,16 +153,16 @@
         ,FLAG_DOCANA_END    =  2   &  ! flags DOCUMENTATION_END
         ,FLAG_DOCANA_ERROR  = -1   &  ! flags missing DOCANA keys
         ,SNLCPAK_EPFLAG_FLUXDATA    = 1     &  ! epoch-dependent
-        ,SNLCPAK_EPFLAG_FLUXMODEL   = 11  & 
+! xxx mark delete        ,SNLCPAK_EPFLAG_FLUXMODEL   = 11    & 
         ,SNLCPAK_EPFLAG_REJECT      = 2  & 
         ,SNLCPAK_EPFLAG_CHI2        = 3  & 
-        ,SNLCPAK_EPFLAG_FITFUN      = 4  & 
-        ,SNLCPAK_EPFLAG_FLUXSIM     = 5     &  ! epoch-dependent
+        ,SNLCPAK_EPFLAG_FITFUN      = 4  &   ! fit function on MJD grid to see smooth function
+        ,SNLCPAK_EPFLAG_FLUXSIM     = 5  &   ! sim flux at each obs
         ,SNLCPAK_EPFLAG_FLUXREST    = 6  & 
         ,SNLCPAK_EPFLAG_KCOR        = 7  & 
         ,SNLCPAK_EPFLAG_AVWARP      = 8  & 
         ,SNLCPAK_EPFLAG_SIMFLUXREST = 9  & 
-        ,SNLCPAK_EPFLAG_ERRCALC     = 10  & 
+! xxx mark delete        ,SNLCPAK_EPFLAG_ERRCALC     = 10  & 
         ,SNLCPAK_BANDFLAG_NDOF    = 100  & 
         ,SNLCPAK_BANDFLAG_PKFLUX  = 101   &  ! filter-dependent
         ,SNLCPAK_BANDFLAG_PKMJD   = 102  & 
@@ -181,7 +179,13 @@
         ,MXMASK_zSOURCE        = 128    ! max mask value for MASK_zSOURCE
             
 
-   REAL*8, PARAMETER ::           &
+    INTEGER, PARAMETER ::         &  ! Jan 2026
+          OPT_MNFIT_MINIMIZE = 0  &  ! default
+         ,OPT_MNFIT_MIGRAD   = 1  &  ! same as MINIMIZE, but no fall back to SIMPLEX
+         ,OPT_MNFIT_MINOS    = 2  &
+         ,OPT_MNFIT_SIMPLEX  = 3
+
+    REAL*8, PARAMETER ::           &
          XTMW_FRACERR   = 0.16    &  ! default error on MW Xtinc is 16% of XTMW
         ,ZERO8          = 0.0     & 
         ,ONE8           = 1.0     & 
@@ -195,7 +199,7 @@
         ,RV_MWCOLORLAW_DEFAULT  = 3.1    &  ! A_V/E(B-V)
         ,CUTVAL_OPEN  = 1.0E12              ! cutwin value to accept everything.
 
-   REAL, PARAMETER ::           &
+    REAL, PARAMETER ::           &
         NULLVAL          = -99999.  &      
        ,MAG_SATURATE     = -7.0     &  ! for sim only
        ,LEGACY_INIT_VAL  = 1.0E8    
@@ -1536,6 +1540,7 @@
         ,USE_LINE_ARGS(MXLINE_ARGS)  & 
         ,USE_SNHOST_ZPHOT     &  ! I: T=> replace SNLC_REDSHIFT -> SNHOST_ZPHOT
         ,USE_HOSTGAL_PHOTOZ   &  ! I: idem, but matches keyName in data files
+        ,USE_SNHOST_QZPHOT    &  ! I: T=> replace SNLC_REDSHIFT -> mean of QZPHOT;
 ! 
         ,ABORT_ON_NOEPOCHS    &  ! I: T=> abort if there are no epochs to fit
         ,ABORT_ON_BADAVWARP   &  ! I: T=> abort if AVwarp cannot be determined
@@ -1546,9 +1551,12 @@
         ,ABORT_ON_MARGPDF0    &  ! I: T=> abort if marginalized pdf=0 everywhere
         ,ABORT_ON_TRESTCUT    &  ! I: T=> abort if any Trest cut is set (for photoz)
         ,ABORT_ON_DUPLCID     &  ! I: T=> abort on duplicate CID
-        ,ABORT_ON_DUPLMJD     &  ! I: T=> abort on repeat MJD+band (Jun 2017)
+        ,ABORT_ON_DUPLMJD     &  ! I: T=> abort on repeat MJD+band (default=F)
         ,ABORT_ON_NOPKMJD     &  ! I: T=> abort if no PKMJDINI (see OPT_SETPKMJD)
+        ,ABORT_ON_BADQZPHOT   &  ! I: T=> abort if redshift quantiles are NOT monotonically increasing
+        ,USE_MIGRAD           &  ! I: T=> use MIGRAD instead of MINIMIZE (no fallback to SIMPLEX)
         ,USE_MINOS            &  ! I: T=> use MINOS instead of MINIMIZE
+        ,USE_SIMPLEX          &  ! I: T=> use SIMPLEX instead of MINIMIZE
         ,LDMP_SNFAIL          &  ! I: T => dump reason for each SN failure
         ,LDMP_SNANA_VERSION   &  ! I: T => dump SNANA version and SNANA_DIR
         ,LDMP_AVWARP          &  ! I: dump GET_AVWARP8 (debug only)
@@ -1641,14 +1649,14 @@
           , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR  & 
           , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST  & 
           , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX  & 
-          , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MINOS  & 
+          , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MIGRAD, USE_MINOS, USE_SIMPLEX  & 
           , OPT_SETPKMJD, QUANTILE_ZERRMIN  & 
           , SNRCUT_SETPKMJD, MJDWIN_SETPKMJD, SHIFT_SETPKMJD, DEBUG_FLAG  & 
           , LSIM_SEARCH_SPEC, LSIM_SEARCH_ZHOST  & 
           , LDMP_SNFAIL, LDMP_SNANA_VERSION, LDMP_SATURATE  & 
           , LTEST_KCOR, LTEST_INTERP, LTEST_MAG, LTEST_U3BAND  & 
           , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX, USESIM_REDSHIFT  & 
-          , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ  & 
+          , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ, USE_SNHOST_QZPHOT  & 
           , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG  & 
           , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR  & 
           , REQUIRE_DOCANA, FORCE_STDOUT_BATCH  & 
@@ -1656,9 +1664,9 @@
           , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD  & 
           , ABORT_ON_BADZ, ABORT_ON_BADKCOR, ABORT_ON_BADSURVEY  & 
           , ABORT_ON_MARGPDF0, ABORT_ON_TRESTCUT  & 
-          , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD, ABORT_ON_BADFILTER  & 
+          , ABORT_ON_DUPLCID, ABORT_ON_DUPLMJD, ABORT_ON_BADFILTER, ABORT_ON_BADQZPHOT  & 
           , H0_REF, OLAM_REF, OMAT_REF, W0_REF, WA_REF  & 
-          , USE_MWCOR  & 
+          , USE_MWCOR  &
           , MXLC_PLOT, NCCID_PLOT, SNCCID_PLOT  & 
           , MJDPERIOD_PLOT, MJDSHIFT_PLOT  & 
           , DTOBS_MODEL_PLOT  & 
@@ -5642,7 +5650,10 @@
     NFIT_ITERATION     = 0
     MINUIT_PRINT_LEVEL = -1  ! default is no MINUIT printing
     INTERP_OPT     = INTERP_LINEAR
-    USE_MINOS      = .FALSE.  ! change from T to F, Jan 27 2017
+
+    USE_MIGRAD     = .FALSE.
+    USE_MINOS      = .FALSE.   
+    USE_SIMPLEX    = .FALSE.   ! Jan 2026
 
     MXLC_FIT         = 999888777
     MXLC_PLOT        = 5    ! 100->5  (Apr 19 2022)
@@ -5679,6 +5690,7 @@
 
     USE_HOSTGAL_PHOTOZ = .FALSE.
     USE_SNHOST_ZPHOT   = .FALSE.
+    USE_SNHOST_QZPHOT  = .FALSE.
     USE_MWCOR          = .FALSE.  ! apply MWCOR to fit-model
 
 ! by default do NOT check for multiseason activity (Oct 2014)
@@ -5737,6 +5749,7 @@
     ABORT_ON_DUPLCID   = .TRUE.
     ABORT_ON_DUPLMJD   = .FALSE.  ! Jun 2017
     ABORT_ON_NOPKMJD   = .TRUE.
+    ABORT_ON_BADQZPHOT = .TRUE.   ! Dec 2025
 
     SNTABLE_LIST          = 'DEFAULT'  ! Sep 08 2014
     SNTABLE_FILTER_REMAP  = ''
@@ -7203,9 +7216,20 @@
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) NFIT_ITERATION
 
+! - - - - 
+       else if ( MATCH_NMLKEY('USE_MIGRAD',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) USE_MIGRAD
+
        else if ( MATCH_NMLKEY('USE_MINOS',  & 
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) USE_MINOS
+
+       else if ( MATCH_NMLKEY('USE_SIMPLEX',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) USE_SIMPLEX
+
+! - - - -
 
        else if ( MATCH_NMLKEY('MINUIT_PRINT_LEVEL',  & 
                    1, iArg, ARGLIST) ) then
@@ -7309,6 +7333,10 @@
        else if ( MATCH_NMLKEY('USE_HOSTGAL_PHOTOZ',  & 
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) USE_HOSTGAL_PHOTOZ
+
+       else if ( MATCH_NMLKEY('USE_SNHOST_QZPHOT',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) USE_SNHOST_QZPHOT
 
        else if ( MATCH_NMLKEY('USESIM_TRUEFLUX',  & 
                    1, iArg, ARGLIST) ) then
@@ -7921,6 +7949,10 @@
       else if ( MATCH_NMLKEY('ABORT_ON_BADSURVEY',  & 
                   1, iArg, ARGLIST) ) then
         READ(ARGLIST(1),*) ABORT_ON_BADSURVEY
+
+      else if ( MATCH_NMLKEY('ABORT_ON_BADQZPHOT',  & 
+                  1, iArg, ARGLIST) ) then
+        READ(ARGLIST(1),*) ABORT_ON_BADQZPHOT
 
       else if ( MATCH_NMLKEY('ABORT_ON_BADFILTER',  & 
                   1, iArg, ARGLIST) ) then
@@ -9107,6 +9139,7 @@
 !   See REJECT_FIT logical.
 ! 
 ! Dec 19 2024: print CPU time per event in stdout update
+! Jan 08 2026: replace USE_MINOS arg with OPT_MNFIT arg
 ! ----------------------
 
 
@@ -9123,10 +9156,10 @@
     LOGICAL LAST_ITER, REJECT_FIT
 #endif
 
-    INTEGER IERR, i
+    INTEGER IERR, i, OPT_MNFIT
     REAL*8  PS8
     REAL t_start, t_end  ! Dec 2024
-    LOGICAL REJECT_PRESCALE, USE_MINOS_LOCAL
+    LOGICAL REJECT_PRESCALE
     CHARACTER FNAM*14
 
 ! ----------------- BEGIN -------------
@@ -9233,10 +9266,17 @@
         ITER = ITER + 1
         LAST_ITER = ( ITER .EQ. NFIT_ITERATION )
 
-        IF ( ITER==1 ) THEN
-            USE_MINOS_LOCAL = .FALSE.
+        ! xxx mark IF ( ITER == 1 ) THEN
+        ! xxx mark   OPT_MNFIT = OPT_MNFIT_MINIMIZE 
+
+        IF ( USE_MIGRAD ) THEN
+           OPT_MNFIT = OPT_MNFIT_MIGRAD 
+        ELSE if ( USE_MINOS .or. LREPEAT_MINOS ) THEN
+           OPT_MNFIT = OPT_MNFIT_MINOS
+        ELSE if ( USE_SIMPLEX ) THEN
+           OPT_MNFIT = OPT_MNFIT_SIMPLEX
         ELSE
-            USE_MINOS_LOCAL = (USE_MINOS .or. LREPEAT_MINOS)
+           OPT_MNFIT = OPT_MNFIT_MINIMIZE  ! default if not MINOS or SIMPLEX
         ENDIF
 
         CALL FITPAR_PREP ( iter, IERR )  ! init fit params
@@ -9264,7 +9304,7 @@
              SNLC_CCID, NFITPAR_MN                 &  ! (I)
             ,INIVAL, INISTP, INIBND                &  ! (I)
             ,PARNAME_STORE                         &  ! (I)
-            ,USE_MINOS_LOCAL                       &  ! (I)
+            ,OPT_MNFIT                             &  ! (I)
             ,MINUIT_PRINT_LEVEL                    &  ! (I)
             ,FITVAL(1,iter)                        &  ! (O)
             ,FITERR_PLUS(1,iter)                   &  ! (O)
@@ -9327,8 +9367,8 @@
 #endif
 
 
-42    format(T8,'Analyze ISN_PROC=',I8, 2x,  & 
-          'for ',A14,'  NMJD(stored,cuts)=', I4, '->', I4 )
+42    format(T8,'Analyze ISN=',I8, 2x,  & 
+          'for CID=',A14,' NOBS(store,cuts)=', I4, '->', I4 )
     CALL FLUSH(6)
 
 
@@ -9735,6 +9775,10 @@
        write(LUNIGNORE2,420)     ! write header
  420     format(T10,'CID      MJD     FILTER')
        NEPOCH_IGNORE_WRFITS = 0
+
+       ABORT_ON_BADQZPHOT = .FALSE.  ! Dec 17 2025
+       ABORT_ON_DUPLMJD   = .FALSE.
+
     ENDIF
 
     REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0  & 
@@ -17617,12 +17661,18 @@
              CCID   = SNLC_CCID
              GALID = SNHOST_OBJID(1)
              write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
-61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I8 )
+61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I12 )
              C2ERR = 'ZPHOT_Q must be monotonically increasing'
-             CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
-          endif
-       endif
-    enddo
+             if ( ABORT_ON_BADQZPHOT ) then
+                CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
+             else
+                print*,' WARNING: ', C1ERR
+                call flush(6)
+             endif
+
+          endif  ! end NOT BIGGER_Z
+       endif     ! end check on monotonic
+    enddo        ! end loop over q
     
     LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
     IPRINT    = 0   ! set to 1 for dump
@@ -17646,7 +17696,7 @@
 
 ! if USE_SNHOST_ZPHOT=T then set redshift variables to host zphot.
 ! This ignores accurate specz to enable using photo-z.
-
+! Dec 2025: same for USE_SNHOST_QZPHOT
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -17655,12 +17705,23 @@
 
     INTEGER OPT
     CHARACTER EQ*4
-    REAL*8  ZCMB8, ZHEL8
-
+    LOGICAL   LZPH, LQZPH
+    REAL*8  ZCMB8, ZHEL8, ZPH
     REAL*8 zhelio_zcmb_translator ! function
 ! -------------- BEGIN ----------------
 
-    IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
+    LZPH  = (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ)
+    LQZPH = (USE_SNHOST_QZPHOT)  ! quantiles
+
+    IF ( LZPH ) then
+       ZPH = DBLE( SNHOST_ZPHOT(1) )
+    else if ( LQZPH ) then
+       ZPH = DBLE( SNHOST_QZPHOT_MEAN(1) )
+    else
+       return
+    endif
+
+    ! xxx mark IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
 
     if ( .not. EXIST_SNHOST_ZPHOT ) then
         C1ERR = 'Cannot USE_HOSTGAL_PHOTOZ for CID='//SNLC_CCID
@@ -17668,9 +17729,10 @@
         CALL MADABORT("SNRECON", c1err, c2err )
     endif
 
+
     OPT    = 1     ! --> convert ZHEL to ZCMB
     EQ     = 'eq' // char(0)
-    ZHEL8  = DBLE( SNHOST_ZPHOT(1) )
+    ZHEL8  = ZPH
     ZCMB8  = zhelio_zcmb_translator(ZHEL8, SNLC8_RA, SNLC8_DEC, EQ, OPT, 4)
 
     SNLC_ZCMB         = SNGL(ZCMB8)
@@ -21846,7 +21908,7 @@
 
     CHARACTER  CCID*(MXCHAR_CCID), TEXT_forC*80
 
-    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS)
+    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS), REJECT
     INTEGER  & 
          LENCCID, LENTEXT, NEWMJD, EPMIN, EPMAX, EP  & 
         ,IFILT_OBS, IFILT, ipar, NBT, i, NFILT
@@ -21863,14 +21925,14 @@
 
     REAL*8  & 
          VMJD(MXEP_SNLCPAK)  & 
-        ,VTOBS(MXEP_SNLCPAK)  & 
-        ,VFLUX(MXEP_SNLCPAK)  & 
-        ,VFLUX_ERR(MXEP_SNLCPAK)  & 
-        ,VSIMFLUX(MXEP_SNLCPAK)  & 
-        ,VCHI2(MXEP_SNLCPAK)  & 
-        ,VREJECT(MXEP_SNLCPAK)  & 
-        ,VERRCALC(MXEP_SNLCPAK)  & 
-        ,VDUMERR(MXEP_SNLCPAK)   &  ! all zeros
+        ,VTOBS(MXEP_SNLCPAK)        & 
+        ,VFLUX(MXEP_SNLCPAK)        & 
+        ,VFLUX_ERR(MXEP_SNLCPAK)    & 
+        ,VSIMFLUX(MXEP_SNLCPAK)     & 
+        ,VCHI2(MXEP_SNLCPAK)        & 
+        ,VREJECT(MXEP_SNLCPAK)      & 
+        ,VERRCALC(MXEP_SNLCPAK)     & 
+        ,VDUMERR(MXEP_SNLCPAK)      &  ! all zeros
 ! 
         ,VBAND_NDOF(MXFILT_OBS)  & 
         ,VBAND_CHI2(MXFILT_OBS)  & 
@@ -21893,8 +21955,6 @@
 
 ! check if we should make the plot
     IF ( .NOT. DOPLOT_SNLC() ) RETURN
-
-! xxx mark dele      CALL SNLCPAK_NFIT(1)      ! May 11 2014
 
     LENCCID = ISNLC_LENCCID
     CCID = SNLC_CCID(1:LENCCID) // char(0)
@@ -21985,6 +22045,14 @@
         VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
         VSIMFLUX(NOBS)  = SIM_EPFLUXCAL(ep)   ! Jan 2020
 
+! xxxxxxxx mark delete Jan 28 2026 xxxxxxxxx
+!        VFITFLUX(NOBS)     =  0.0
+!        VFITFLUX_ERR(NOBS) = -9.0
+!#if defined(SNFIT)
+!        CALL GET_FITFLUX(ep, VFITFLUX(NOBS), VFITFLUX_ERR(NOBS), REJECT)
+!#endif
+! xxxxxxxxxxxxxx
+
 ! Sep 7 2022: check options to fold LC within a single cylce.
         if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then
            DT = MJD - VMJD(1) - MJDSHIFT_PLOT
@@ -22051,6 +22119,7 @@
            VFILTOBS, SNLCPAK_EPFLAG_FLUXSIM, LENCCID)
     ENDIF
 
+
 ! ------------------------------------------
     IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
 ! ------------------------------------------
@@ -22104,7 +22173,7 @@
 
 ! -------------------------------------------------
 
-! store best-fit ANYLCFUN
+! store best-fit function on MJD grid
 
     CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR,  & 
            VFILTOBS, SNLCPAK_EPFLAG_FITFUN, LENCCID)
@@ -22113,15 +22182,20 @@
     VMJD(1)  = -9999.0
     VTOBS(1) = -9999.0  ! dummy for unused TOBS arg
 
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS, VBAND_NDOF, VDUMERR,  & 
-           IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_NDOF, LENCCID)
+    ! .xyz add FLUXCAL_FIT[ERR] here ??
 
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD,VTOBS, VBAND_CHI2, VDUMERR,  & 
-           IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_CHI2, LENCCID)
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS, &
+         VBAND_NDOF, VDUMERR,  & 
+         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_NDOF, LENCCID)
 
-    CALL SNLCPAK_DATA(CCID, NFILT, VTOBS, VMJD,  & 
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD,VTOBS,   &
+         VBAND_CHI2, VDUMERR,  & 
+         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_CHI2, LENCCID)
+
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,   & 
          VBAND_PKFLUX, VBAND_PKFLUX_ERR,  & 
          IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKFLUX, LENCCID)
+
 
 ! --------------------------------------------------
 ! fill output structure with above; here iy goes to a disk file.
@@ -22131,7 +22205,7 @@
     CALL SNLCPAK_NFIT(1)      ! move from abvove, Oct 23 2025
 
     CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,  & 
-          VBAND_PKMJD,VBAND_PKMJD_ERR,  & 
+          VBAND_PKMJD ,VBAND_PKMJD_ERR,  & 
           IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKMJD, LENCCID)
 
     CALL SNLCPAK_FILL(CCID, LENCCID)
@@ -27290,7 +27364,7 @@
         ,INISTP       &  ! (I) initial step sizes (0=> fixed parameter)
         ,INIBND       &  ! (I) parameter bounds (0,0 => no bound)
         ,PARNAME      &  ! (I) list of parmater names
-        ,USE_MINOS    &  ! (I) T=> use minos
+        ,OPT_MNFIT    &  ! (I) 0-MINIMIZE, 1=MINOS, 2=SIMPLEX  
         ,PRINT_LEVEL  &  ! (I) integer print level (-1=none)
         ,FITVAL        &  ! (O) final fit values
         ,FITERR_PLUS   &  ! (O) final fit errors, positive
@@ -27313,14 +27387,9 @@
 ! the URL with cern in it.
 ! 
 ! 
-! Aug 31,  2009: Add USE_MINOS argument.
-! 
-! May 21, 2012: set print level using SNLCINP namelist MINUIT_PRINT_LEVEL
-! 
-! Jan 03 2016: pass new output arg MNSTAT_COV
 ! Apr 19 2022: set DO_PRINT for printing to suppress STDOUT for batch jobs
 ! May 08 2024: return IERR !=0  on NaN for any fit par value
-! 
+! Jan 08 2026: replace USE_MINOS arg with OPT_MNFIT to alllow for MIGRAD or MIONS or SIMPLEX 
 ! -------------------------------------------------
 
 
@@ -27332,9 +27401,7 @@
 ! arguments
 
     CHARACTER CCID*(*)
-    INTEGER   NFITPAR, NFIXPAR, PRINT_LEVEL
-
-    LOGICAL USE_MINOS  ! (I)
+    INTEGER   NFITPAR, NFIXPAR, PRINT_LEVEL, OPT_MNFIT
 
     DOUBLE PRECISION  & 
          INIVAL(NFITPAR)  & 
@@ -27371,6 +27438,7 @@
         ,FEDM, ERRDEF  & 
         ,ERRSYM      ! local SYMMMETRIC fiterr
 
+    CHARACTER MN_METHOD*12
     LOGICAL LFIX, DO_PRINT
 
 ! Unit numbers for input and output
@@ -27468,16 +27536,19 @@
       PRINT *,' ------------------------------------------------ '
     ENDIF
 
-    IF ( USE_MINOS ) THEN
-      CALL MNEXCM(FCNSNLC, 'MINOS', MAXCALLS, NARG, IERR, USRFUN)
-      IF ( DO_PRINT ) THEN
-        PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
-      ENDIF
-    ELSE
-      CALL MNEXCM(FCNSNLC, 'MINIMIZE', MAXCALLS, 0, IERR, USRFUN)
-      IF ( DO_PRINT ) THEN
-        PRINT *,'  MNFIT_DRIVER: MIGRAD returns IERR = ', IERR
-      ENDIF
+    IF ( OPT_MNFIT == OPT_MNFIT_MINIMIZE ) THEN
+       MN_METHOD = 'MINIMIZE'
+    ELSE IF ( OPT_MNFIT == OPT_MNFIT_MIGRAD ) THEN
+       MN_METHOD = 'MIGRAD'
+    ELSE IF ( OPT_MNFIT == OPT_MNFIT_MINOS ) THEN  
+       MN_METHOD = 'MINOS'
+    ELSE IF ( OPT_MNFIT == OPT_MNFIT_SIMPLEX ) THEN  
+       MN_METHOD = 'SIMPLEX'
+    ENDIF
+
+    CALL MNEXCM(FCNSNLC, MN_METHOD, MAXCALLS, NARG, IERR, USRFUN)
+    IF ( DO_PRINT ) THEN
+       PRINT *,'  MNFIT_DRIVER: MINOS returns IERR = ', IERR
     ENDIF
 
     IF ( DO_PRINT ) THEN

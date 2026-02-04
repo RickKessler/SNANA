@@ -22,12 +22,13 @@ from   submit_params import *
 
 # =================================================
 
-def grep(path_list, key_list, verbose):
+def grep(path_list, key_list, key_veto_list, verbose):
 
     # Created Sep 5 2025 
     # loop over all files in path_list;
     # grep each key in key_list;
     # Return number of keys found per file and total in all files.
+    # If element of key_veto_list is on file, do NOT count this.
     #
     # oct 78 2025: fix to avoid re-grepping grep message by checking for unique_symbol
 
@@ -47,6 +48,13 @@ def grep(path_list, key_list, verbose):
                     line_list.append(line)
 
         for line in line_list:
+
+            VETO = False
+            for veto in key_veto_list:
+                if veto in line: VETO = True
+            
+            if VETO: continue
+
             for k, key in enumerate(key_list):
                 if re.search(key, line):
                     n_tot += 1
@@ -1417,19 +1425,24 @@ def setup_logging(args):
 
 
 def log_assert(condition, message):
+
+    # Jan 23 2026: include current time in abort message to help
+    #              trace timing problems (e.g., creation of file and reading file)
+    #
     if not condition:
 
+        t   = datetime.datetime.now()
         msg_abort_face = (
             f"\n\n"
             f"\n   `|```````|`    "
             f"\n   <| o\\ /o |>   "
             f"\n    | ' ; ' |     "
-            f"\n    |  ___  |     ABORT submit on Fatal Error. "
-            f"\n    | |' '| |     "         
+            f"\n    |  ___  |     ABORT submit_batch_jobs"
+            f"\n    | |' '| |     on Fatal Error."
             f"\n    | `---' |     "
             f"\n    \\_______/    " 
             f"\n"
-            f"\n{SNANA_ABORT_STRING} : "
+            f"\n{SNANA_ABORT_STRING}  at  {t}: "
         )
 
         for item in message :

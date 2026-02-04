@@ -626,7 +626,8 @@ class Program:
                 batch_file = f"{prefix}.BATCH"
                 BATCH_FILE = f"{script_dir}/{batch_file}"
                 new_batch_file = True
-                if batch_single_node and icpu > 0: new_batch_file = False
+                if batch_single_node and icpu > 0: 
+                    new_batch_file = False
 
                 if new_batch_file :
                     batch_file_list.append(batch_file)
@@ -1614,6 +1615,8 @@ class Program:
         KEY_FATAL_LIST = [ 'FAIL', 'KILL', 'ERROR', 'CANCEL', 
                            'fail', 'kill', 'error' ]      # leave out cancel to avoid conflict with scancel
 
+        KEY_VETO_FATAL_LIST = [ 'TMPDIR' ]  # wacky hack, Jan 26 2026
+
 
         # add this TEST0 key for debugging on regression test with
         #   cd $SNANA_TESTS/inputs_submit_batch
@@ -1627,7 +1630,7 @@ class Program:
         # n_tot is the total number of matches (scalar);
         # n_list = number of matches for each KEY_FATAL_LIST (vector).
         verbose = True
-        n_tot, n_list = util.grep(cpu_log_list, KEY_FATAL_LIST, verbose )
+        n_tot, n_list = util.grep(cpu_log_list, KEY_FATAL_LIST, KEY_VETO_FATAL_LIST, verbose )
 
         if n_tot > 0:            
             # Terminate all pids.

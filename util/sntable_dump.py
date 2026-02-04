@@ -4,7 +4,7 @@
 #   [re-write of perl script sntable_dump.pl]
 #
 # Utility to examine and dump analysis info from any SNTABLE
-# in hbook (ntuple) or root (tree) format.
+# root (tree) format.
 # The basic functions here are
 #  - print list of all available variables in SNTABLE
 #  - dump subset of variables for each event into text file.
@@ -146,9 +146,6 @@ def get_file_format(input_table_file):
     for suffix in [ 'ROOT', 'root' ]:
         if suffix in input_table_file: Format = FORMAT_ROOT
 
-    for suffix in [ 'HBOOK', 'hbook' ]:
-        if suffix in input_table_file: Format = FORMAT_HBOOK
-
     if Format is None :
         sys.exit(f"\n ERROR: unknown format for " \
                  f"input_table_file = {input_table_file}\n")
@@ -160,9 +157,6 @@ def check_table_name(table_name_orig,Format):
 
     table_name_new  = table_name_orig
 
-    if Format == FORMAT_HBOOK:
-        if table_name_orig in TABLE_NAME_MAP_HBOOK:
-            table_name_new = TABLE_NAME_MAP_HBOOK[table_name_orig]
 
     if Format == FORMAT_ROOT:
         if table_name_orig in TABLE_NAME_MAP_ROOT:
@@ -281,7 +275,7 @@ def append_fitres(input_args,config):
     outfile_dump     = config.outfile
     table_name       = config.table_name
     Format           = config.Format
-    combine_arg      = Format[0]  # H or R to make HBOOK or ROOT file
+    combine_arg      = Format[0]  # R for ROOT file
 
     tmp = append_file.split('.')
     outfile_prefix = f"sntable_append_{tmp[0]}"
@@ -289,7 +283,7 @@ def append_fitres(input_args,config):
 
     cmd = f"{Cprogram_combine} {append_file} {outfile_dump} {combine_arg} " \
           f"-outprefix {outfile_prefix} " \
-          f"t"   # <== write only text output; no ROOT or hbook
+          f"t"   # <== write only text output; no ROOT 
 
     # .xyz check that Cprogram_combine exists ...
     program_exists(Cprogram_combine, T_WAIT_MAX, True)
@@ -350,7 +344,7 @@ if __name__ == "__main__":
     # insert CCID as first variable
     config.varlist = insert_ccid_varlist(input_args)
 
-    # check file format: root, hbook, ...
+    # check file format: root ...
     config.Format = get_file_format(input_args.input_table_file)
 
     if input_args.VERBOSE :

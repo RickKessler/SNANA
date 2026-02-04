@@ -23383,12 +23383,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + if there are quantiles, call init_zpdf_spline so that MEAN and STD
         are available even if there is no LC fit (init_zpdf_spline no
         longer called from snlc_fit)
+     + add &SNLCINP options USE_SIMPLEX and USE_MIGRAD 
+         (note that default is MINIMIZE = MIGRAD with fallback to SIMPLEX)
 
     snlc_fit.F90:
       + remove obsolete SIMEFF code (OPT_SIMEFF, SIMEFF_FILE, etc ...)
         Also remove SIMEFF_FILE from LCFIT inputs.
-      + new &FITINP inputs ISCALE_COURSEcBIN_PHOTOZ and ISCALE_COURSEsBIN_PHOTOZ
-        to scale default number of color and stretch bins for course-grid init
+      + new &FITINP inputs RANGE[x]_COURSE_PHOTOZ and NBIN[x]_COURSE_PHOTOZ
+        to allow full user control to change defaults. See more details in manual.
+      + default THETA range of -1.4 to +2.7 was too strict; relax to +- 4 
 
     get_fitres_values.py: 
       + sort output so that CIDs and VARIABLES appear in user-defined order
@@ -23396,7 +23399,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     *.F90: update PARAMETER statements to F90 syntax.
 
     SALT2mu.c
-      + write chi2max rejects by IDSAMPLE
+      + for stdout dump of chi2max rejects, include SURVEY & IDSAMPLE for visual examination.
+      + fix CUTWIN_SURVEY to avoid abort when column is missing from surveys not requested for cut;
+          see  https://github.com/RickKessler/SNANA/issues/1598
 
     submit_batch_jobs:
       + fix parsing logic to allow pad spaces between slashes and label; e.g.
@@ -23405,5 +23410,71 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          - /label2 /   CUTWIN_REDSHITT 0 .6  # fix allows pad space between slashes
          - / label3 /  CUTWIN_REDSHITT 0 .7  # fix allows two pad spaces between slashes
          - / label4 /CUTWIN_REDSHITT 0 .8    # fix allows no pad spaces between last slash and arg
+
+     + submit_prog_sim.py
+         https://github.com/RickKessler/SNANA/issues/1597
+
+    snlc_sim.c
+      + set GENTYPE_TO_NAME information at end of GENMAG_DRIVER(),
+        instead of after trigger passes. This help getting  the right info
+        in the README even if zero events pass trigger  ... but this
+        fix is not fully robust, so there is a more robust fix in submit_prog_sim.py
+        (git issue 1597)
+
+    SNANA_code_tests.py TO-DO list for SCONE:
+      - read and implement optional TESTENV:  <setup env> in task files
+      - modify train task to include Ia and CC
+      - add SCONE_DES_PREDICT test
+
+   SNANA_code_tests.py:
+     - refactoring and updates to enable SCONE tests with separate env
+
+
+# =============================================================
+         v12_01b (Jan 15 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01b) *****
+
+   Feb 4: Slight tinkering with flat-prior and photo-z parameters in snlc_fit.F90 
+    (see below) results in many regression test errors from very tiny changes. 
+    The changes are in MLCS fits and ZPHOT fits, both of which use prior(s).
+    Need to start a new tag.
+    Last regression test with this tag is in 
+       $SNDATA_ROOT/SNANA_TESTS/logs/TEST_20260204-1542_rkes_23changes
+
+         *****  USEFUL(v12_01b) *****
+
+         *****  MISCELLANEOUS(v12_01b) *****
+
+   snlc_sim.c
+     + for SIMGEN_DUMP[ALL], automatically append FLAG_ACCEPT for events
+       passing trigger. Needed by classifiers when processing sims that
+       write all events to DUMP file that includes events written (FLAG_ACCEPT=1)
+       and events failing trigger that are discarded (FLAG_ACCEPT=0).
+
+   submit_batch_jobs (BBC task):
+     + see https://github.com/RickKessler/SNANA/issues/1603
+
+   snlc_fit.F90;
+     + in FITINI_PHOTOZ(), set LZDONE=True when  BTEST(MASK,BIT_BESTZ_GAUSS)  is set
+       (i.e., precise bestz). Could be nasty bug fix when quantiles are mixed
+       with zSPEC, but not clear yet.
+
+     + FITINI_PHOTOZ():
+        if zphot +_ 10*std is smaller than PHOTOZ_BOUND, make this BOUND more strict.  
+        This is for zPHOT fits with very precise zSPEC, in which MINUIT can settle 
+        in a region with PROB ~ 0 and not converge. 
+  
+     + for flat prior with Gauss roll off (shape and color), change CHI2 to CHI2*CHI2
+       to better suppress boundaries and avoid MINUIT falling into trap at boundary.
+       Hopefully avoids bad fits wasting ~1/2 minute.
+
+     + NBIN_PRIOR = 1000 -> 5000 for better resolution on fall-off at boundary.
+
+   python scripts:
+     Perlmutter with recent update to python v3.12 flagged lots of warnings
+     for delim_whitespace=True in read_csv command, so these have been
+     replaced with recommended sep=r'\s+'
+
 
 END: 

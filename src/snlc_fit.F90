@@ -383,7 +383,7 @@
 ! define variables for prior on each fit variable.
 ! CHI2GRID_PRIOR is a grid storing chi2-values to add.
 
-    INTEGER, PARAMETER :: NBIN_PRIOR = 1000
+    INTEGER, PARAMETER :: NBIN_PRIOR = 5000   ! Feb 2026: 1000 -> 5000
 
     REAL*8  & 
          PRIOR_CHI2GRID(NBIN_PRIOR,IPAR_MAX)  & 
@@ -595,14 +595,27 @@
         ,LDMP_PHOTOZ_DROPFILTER  ! I: T=> dump reason for dropped filter
 
     INTEGER  & 
-         OPT_PHOTOZ   &  ! I: bit 0 (1 ) => use host-galaxy ZPRIOR;
-                   ! I: bit 1 (2 ) => use spectro Z-prior
-                   ! I: bit 2 (4 ) => use zPhot quantiles
-                   ! I: bit 4 (16) => cheat: start with Zspec and correct filt
-        ,ISCALE_COURSEBIN_PHOTOZ   &  ! I: scale number of course-grid bins for init; z,c,s
-        ,ISCALE_COURSEcBIN_PHOTOZ  &  ! I: if > 0, scale only number of color bins
-        ,ISCALE_COURSEsBIN_PHOTOZ  &  ! I: if > 0, scale only number of stretch bins
-        ,NEVAL_MCMC_PHOTOZ
+         OPT_PHOTOZ   ! I: bit 0 (1 ) => use host-galaxy ZPRIOR;
+                      ! I: bit 1 (2 ) => use spectro Z-prior
+                      ! I: bit 2 (4 ) => use zPhot quantiles, cubic spline
+                      ! I: bit 3 (8 ) => use zPhot quantiles, Steffan spline
+                      ! I: bit 4 (16) => cheat: start with Zspec and correct filters
+
+    INTEGER  &                      ! I: COURSE_PHOTOZ params below have default values
+          NBINc_COURSE_PHOTOZ   &   ! I: number of color bins for course PHOTOZ search
+         ,NBINs_COURSE_PHOTOZ   &   ! I: number of stretch bins for course PHOTOZ search
+         ,NBINt_COURSE_PHOTOZ   &   ! I: number of PEAKMJD bins for course PHOTOZ search
+         ,NBINz_COURSE_PHOTOZ   &   ! I: number of 1/(1+zphot) for course PHOTOZ 
+         ,SCALE_NBIN_COURSE_PHOTOZ  ! I: scale all NBIN values
+
+    REAL  &
+          RANGEc_COURSE_PHOTOZ(2)     &  ! I: color range for course PHOTOZ search
+         ,RANGEs_COURSE_PHOTOZ(2)     &  ! I: stretch range for course PHOTOZ search
+         ,RANGEt_COURSE_PHOTOZ(2)     &  ! I: delta-PEAKMJD range for course PHOTOZ search
+         ,RANGEz_COURSE_PHOTOZ(2)        ! I: photoz range for course PHOTOZ search
+
+    INTEGER  &
+          NEVAL_MCMC_PHOTOZ               ! I: MCMC option for approx global search (not ready?)
 
     REAL  & 
          PHOTOZ_ITER1_LAMRANGE(2)   &  ! I: cut on obs-filter, ITER=1 only
@@ -696,7 +709,11 @@
          ,OPT_COVAR, OPT_COVAR_FLUX, OPT_COVAR_MWXTERR, OPT_XTMW_ERR  & 
          ,OPT_COVAR_LCFIT, OPT_SNXT, OPT_KCORERR, OPT_NEARFILT  & 
          ,OPT_LANDOLT, UCOR_BXB  & 
-         ,OPT_PHOTOZ, ISCALE_COURSEBIN_PHOTOZ, ISCALE_COURSEcBIN_PHOTOZ, ISCALE_COURSEsBIN_PHOTOZ  & 
+         ,OPT_PHOTOZ, SCALE_NBIN_COURSE_PHOTOZ &
+         ,NBINc_COURSE_PHOTOZ,  NBINs_COURSE_PHOTOZ &
+         ,NBINt_COURSE_PHOTOZ,  NBINz_COURSE_PHOTOZ &
+         ,RANGEc_COURSE_PHOTOZ, RANGEs_COURSE_PHOTOZ &
+         ,RANGEt_COURSE_PHOTOZ, RANGEz_COURSE_PHOTOZ &
          ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ  & 
          ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT  & 
          ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF  & 
@@ -961,8 +978,7 @@
 ! =====================================================================
     SUBROUTINE FITPAR_INI(IERR)
 ! 
-! User init: (read input, open files, etc ...)
-! 
+! One-time user init: (read input, open files, etc ...)
 ! 
 ! 
 ! Jul 19 2019: overhaul arguments to INIT_GENMAG_SNOOPY
@@ -1678,9 +1694,6 @@
     LOGICAL LFITFUN_FILT, FIRST_ITERATION, IS_ZSPEC
     INTEGER NEAREST_IFILTDEF_WRAPPER
 
-    REAL*8   USRFUN
-    EXTERNAL USRFUN
-
 ! ---------- BEGIN -------------
 
     IERR = 0  ! init to OK
@@ -2163,9 +2176,11 @@
            (.not. LREPEAT_ITER)      ! not already repeating
 
     IF ( DO_REFIT ) THEN
-       write(6,46) MNSTAT_COV, CCID
-46       format(T5,'Bad COV matrix (MNSTAT_COV=',I2,') '  & 
-                    '-> repeat fit for CID=',A12 )
+       if ( STDOUT_UPDATE ) then
+          write(6,46) MNSTAT_COV, CCID
+46        format(T5,'Bad COV matrix (MNSTAT_COV=',I2,') '  & 
+               '-> repeat fit for CID=',A12 )
+       endif
        ERRFLAG = ERRFLAG_REPEAT_ITER  ! -1
        RETURN
     ENDIF
@@ -2955,7 +2970,6 @@
 ! pass ifilt_obs; everything else is returned.
 ! VALa = transSN, VALb = transREF8
 
-           ! refactored C code
        OPT_FRAME = OPT_FILTOBS - 1 ! fortran -> C
        CALL GET_CALIB_FILTERTRANS(OPT_FRAME, ifilt_obs,      &  ! (I)
                  SURVEY_NAME_FILTER, CFILT, MAGPRIM,             &  ! (O)
@@ -3129,7 +3143,7 @@
   END SUBROUTINE GET_SIMCHI2_CHEAT
 
 ! ===================================================
-    SUBROUTINE PHOTOZ_ANA ( IFLAG, iter, ERRFLAG )
+    SUBROUTINE PHOTOZ_ANA(IFLAG, iter, ERRFLAG )
 ! 
 ! Created Aug 2009 by R.Kessler
 ! Analyze PHOTOZ fit.
@@ -3218,12 +3232,16 @@
 
       PHOTOZ_RANGE_KCOR(1) = CUTWIN_REDSHIFT(1)
       PHOTOZ_RANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
-        if ( LREST_FITMODEL ) then
-           CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
-           PHOTOZ_RANGE_KCOR(1) = ZMIN_KCOR
-           PHOTOZ_RANGE_KCOR(2) = ZMAX_KCOR + 4.0*ZBIN_KCOR
-        endif
+      if ( LREST_FITMODEL ) then
+         CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
+         PHOTOZ_RANGE_KCOR(1) = ZMIN_KCOR
+         PHOTOZ_RANGE_KCOR(2) = ZMAX_KCOR + 4.0*ZBIN_KCOR
+      endif
 
+
+      ! Dec 2025: set course-grid for each fitted parameter
+      CALL INIT_COURSEBIN_PHOTOZ() 
+        
     ENDIF  ! end IFLAG==0
 
 ! - - - - - - - -
@@ -3572,17 +3590,17 @@
     RETURN
   END SUBROUTINE PHOTOZ_ANA 
 
+
+
 ! =================
     LOGICAL FUNCTION LTEST_ZPHFILTER(ITER,ZPH,ZPH_ERR,IFILTBAD)
 ! 
 ! Created Aug 25, 2011 by R.Kessler
-! Returns TRUE of all filters respect their photoz range
+! Returns TRUE if all filters respect their photoz range
 ! defined by PHOTOZ_DROPFILTER_MIN/MAX(ifilt_obs).
 ! This function is used to weed out fits in which the
 ! photoz changes dramatically between iterations,
 ! causing one or more filters to be undefined.
-! 
-! Dec 18, 2011: add IFILTBAD arg.
 ! 
 ! --------------
 
@@ -3597,7 +3615,7 @@
 
     INTEGER ITER            ! (I) fit-iter
     REAL*8  ZPH, ZPH_ERR    ! (I) ZPHOT and its error
-    INTEGER IFILTBAD        ! (O) absolute filter index bad filter
+    INTEGER IFILTBAD        ! (O) absolute filter index for bad filter
 
 ! local var
 
@@ -3619,17 +3637,16 @@
 
         ZMIN = PHOTOZ_DROPFILTER_MIN(ifilt_obs)
         ZMAX = PHOTOZ_DROPFILTER_MAX(ifilt_obs)
-        LZTEST = ( ZPH - ZPH_ERR .GE. ZMIN ) .and.  & 
-                   ( ZPH + ZPH_ERR .LE. ZMAX )
+        LZTEST = ( ZPH - ZPH_ERR .GE. ZMIN ) .and.  ( ZPH + ZPH_ERR .LE. ZMAX )
 
         IF ( .NOT. LZTEST ) THEN
           LTEST_ZPHFILTER = .FALSE.
-          LCID = ISNLC_LENCCID
-          CCID = SNLC_CCID
-          write(6,301) CCID(1:LCID), ZPH, cfilt1, ITER
-301         format(T2,'WARNING CID=',A,' : PHOTOZ=', F5.3,  & 
-                       ' is outside range for ',  & 
+
+          if ( STDOUT_UPDATE ) then
+             write(6,301) SNLC_CCID(1:ISNLC_LENCCID), ZPH, cfilt1, ITER
+301          format(T2,'WARNING CID=',A,' : PHOTOZ=', F5.3,  ' is outside range for ',  & 
                         A,'-band (ITER=',I1, ') => SKIP ' )
+          endif
           IFILTBAD = IFILT_OBS
           RETURN
         ENDIF
@@ -4325,11 +4342,13 @@
       delchi2_sigma=0.0
       IF (IAND(OPT_CHI2_SIGMA, MASK_CHI2_SIGMA_ERRTOT) >0 ) THEN
          delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_errtot)
+
       ELSE IF (IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_ERRDATA) >0 ) THEN
          delchi2_sigma = FCNCHI2_SIGMA(iter,epoch,flux_data_errtot)
       ENDIF
+
       IF (IAND(OPT_CHI2_SIGMA,MASK_CHI2_SIGMA_IGNORE) > 0 ) THEN
-          delchi2_sigma=0.0 ! D.Kenworthy April 26 2024
+          delchi2_sigma = 0.0 ! D.Kenworthy April 26 2024
       ENDIF
 
       IF ( LFITDATA ) then
@@ -4498,8 +4517,15 @@
            if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = MJD
 
            ! sums used for initializing photoz x0/MU
-           if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. ISCALE_COURSEBIN_PHOTOZ > 0 ) then
-              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2)*inv_sqsig
+           if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. SCALE_NBIN_COURSE_PHOTOZ > 0 ) then
+
+! xxxxxxxxxxxxxxxxxxxxxx
+!              write(6,668) zsn, Trest, flux_data, flux_model
+!668           format(' xxx FCN: z=',F5.3,'  Trest=', F6.1,'  F(data,model) = ', 2F10.1 )
+!              call flush(6)  ! xxx REMOVE
+! xxxxxxxxxxxxxxxxxxxxx
+
+              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig
               R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig
               R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig
            endif
@@ -4633,6 +4659,13 @@
        TBLDMPFCN_CHI2TOT = sngl(chi2tot)
        CALL TABLE_DMPFCN(isn)
     ENDIF
+
+! xxxxxxxxxxxxxxxxxxxxxx
+!    print*,' xxx XVAL(t0,x1,c,d,z) = ', &
+!         SNGL(XVAL(3)), SNGL(XVAL(4)), SNGL(XVAL(6)), SNGL(XVAL(9)), SNGL(XVAL(8)), '  &
+!         CHI2=', SNGL(CHI2TOT)
+!    call flush(6)
+! xxxxxxxxxxxxxxxxxxxxx
 
     RETURN
   END SUBROUTINE FCNSNLC
@@ -4786,7 +4819,7 @@
 
 ! check for NANs
        LTMP = XVAL(ipar) .GE. INIBND(1,ipar)  & 
-          .and. XVAL(ipar) .LE. INIBND(2,ipar)
+        .and. XVAL(ipar) .LE. INIBND(2,ipar)
 
        if ( .NOT. LTMP ) then
           CHI2PRIOR(ipar) = 1.111E9
@@ -4880,8 +4913,9 @@
         endif
 
       else
-        pull   = PRIOR_ZPULL(ZSN)
-        CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+         ! Gauss prior
+         pull   = PRIOR_ZPULL(ZSN)
+         CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
       endif
 
 
@@ -4897,13 +4931,11 @@
 
 ! -------------------------
 ! prior on shape
-    CHI2PRIOR(IPAR_SHAPE)  & 
-                = CHI2_PRIOR(IPAR_SHAPE,SHAPE(1))
+    CHI2PRIOR(IPAR_SHAPE) = CHI2_PRIOR(IPAR_SHAPE,SHAPE(1))
 
 ! prior on 2nd shape par
     IF ( NSHAPEPAR > 1 ) THEN
-      CHI2PRIOR(IPAR_SHAPE2)  & 
-                = CHI2_PRIOR(IPAR_SHAPE2,SHAPE(2))
+      CHI2PRIOR(IPAR_SHAPE2)  = CHI2_PRIOR(IPAR_SHAPE2,SHAPE(2))
     ENDIF
 
 
@@ -4911,9 +4943,14 @@
 ! prior on SALT2 color (Apr 2018)
 
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
-      CHI2PRIOR(IPAR_COLOR)  & 
-                = CHI2_PRIOR(IPAR_COLOR,COLOR)
+      CHI2PRIOR(IPAR_COLOR)  = CHI2_PRIOR(IPAR_COLOR,COLOR)
     ENDIF
+
+    ! xxxxxxxxxx mark delete
+    !print*,' xxx x1,c=', sngl(SHAPE(1)), sngl(color), &
+    !       '  chi2_prior=', sngl(CHI2PRIOR(IPAR_SHAPE)), sngl(CHI2PRIOR(IPAR_COLOR))
+    !call flush(6)
+    ! xxxxxxxxxx 
 
 ! =================================================
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) GOTO 888 ! restore 6/19/23
@@ -4921,11 +4958,8 @@
 
 ! Prior on AV
     IF ( INISTP_AV .NE. 0.0 ) then
-      CHI2PRIOR(IPAR_AV)  & 
-                = CHI2_PRIOR(ipar_av,COLOR)
-
-      CHI2PRIOR(IPAR_RV)  & 
-                = CHI2_PRIOR(ipar_rv,XVAL(IPAR_RV) )
+      CHI2PRIOR(IPAR_AV)  = CHI2_PRIOR(ipar_av,COLOR)
+      CHI2PRIOR(IPAR_RV)  = CHI2_PRIOR(ipar_rv,XVAL(IPAR_RV) )
     ENDIF
 
 
@@ -5733,7 +5767,6 @@
       AVwarp                 = AVwarp_KCORFUN(2)
       AVwarp_tmp(ifilt2_obs) = AVwarp  ! save in case of dump
 
-        ! refactored C code
       KCORERR_TMP(ifilt2_obs) =  & 
             GET_KCORERR ( OPT_KCORERR, ifilt2_obs, ZSN )
 
@@ -6081,7 +6114,6 @@
 ! => MUREF - 2.5log10(SCALE) (distance modulus) for mlcs, stretch ...
 ! => X0*SCALE for SALT2
 ! 
-! Mar 24, 2012: add SCALE argument
 ! -------------------------------------
 
     USE SNDATCOM
@@ -6097,7 +6129,7 @@
 
     DOUBLE PRECISION  & 
          Z, SHAPE, COLOR   &  ! (I) z, DELTA/x1,   c/AV
-        ,SCALE            ! (I) include this multiplicative scale
+        ,SCALE                ! (I) include this multiplicative scale
 
 ! local var
     DOUBLE PRECISION  S2a, S2b, x0, MUREF
@@ -6867,10 +6899,18 @@
     PHOTOZ_BOUND(2)  = 1.4
     PHOTOZ_ITER1_LAMRANGE(1) =  4000.  ! default => skip UV region;
     PHOTOZ_ITER1_LAMRANGE(2) = 26000.  ! note this is obs-frame !
+    
+    SCALE_NBIN_COURSE_PHOTOZ  = 1
+    NBINc_COURSE_PHOTOZ  =  -9
+    NBINs_COURSE_PHOTOZ  =  -9
+    NBINt_COURSE_PHOTOZ  =  -9
+    NBINz_COURSE_PHOTOZ  =  -9 
 
-    ISCALE_COURSEBIN_PHOTOZ  = 1
-    ISCALE_COURSEcBIN_PHOTOZ = 1 
-    ISCALE_COURSEsBIN_PHOTOZ = 1 
+    RANGEc_COURSE_PHOTOZ(1) =  -99.0;   RANGEc_COURSE_PHOTOZ(2) = -99.0
+    RANGEs_COURSE_PHOTOZ(1) =  -99.0;   RANGEs_COURSE_PHOTOZ(2) = -99.0
+    RANGEt_COURSE_PHOTOZ(1) =  -99.0;   RANGEt_COURSE_PHOTOZ(2) = -99.0
+    RANGEz_COURSE_PHOTOZ(1) =  -99.0;   RANGEz_COURSE_PHOTOZ(2) = -99.0
+
     NEVAL_MCMC_PHOTOZ      =  0
     PARLIST_MCMC_PHOTOZ(1) =  float(NEVAL_MCMC_PHOTOZ)
     PARLIST_MCMC_PHOTOZ(2) =  20.0  ! NEVAL before reducing step size
@@ -6980,11 +7020,9 @@
     PRIOR_SHAPE2_RANGE(2) = +9.0
     PRIOR_SHAPE2_SIGMA    =  0.1  ! Gauss roll-off at edges of flat prior
 
-
-
     PRIOR_COLOR_RANGE(1) = -9.0
     PRIOR_COLOR_RANGE(2) = +9.0
-    PRIOR_COLOR_SIGMA    =  0.01  ! Gauss roll-off at edges of flat prior
+    PRIOR_COLOR_SIGMA    =  0.01  ! Gauss roll-off at edges of flat prior 
 
 ! Aug 17 2015: from snlc_sim.defaults since this is no longer read
     PRIOR_DELTA_PROFILE(1) =  0.23  ! sigma(low)
@@ -7140,7 +7178,7 @@
        endif
 
        NEVAL_MCMC_PHOTOZ = int(PARLIST_MCMC_PHOTOZ(1))
-       if ( NEVAL_MCMC_PHOTOZ > 0 )  ISCALE_COURSEBIN_PHOTOZ = 0
+       if ( NEVAL_MCMC_PHOTOZ > 0 )  SCALE_NBIN_COURSE_PHOTOZ = 0
     endif
 
 ! dump namelist to std out
@@ -7522,13 +7560,32 @@
           READ(ARGLIST(1),*) PHOTOZ_BOUND(1)
           READ(ARGLIST(2),*) PHOTOZ_BOUND(2)
 
-      else if (MATCH_NMLKEY('ISCALE_COURSEBIN_PHOTOZ',  1, i, ARGLIST) ) then
-          READ(ARGLIST(1),*) ISCALE_COURSEBIN_PHOTOZ
+! - - - -
+      else if (MATCH_NMLKEY('SCALE_NBIN_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) SCALE_NBIN_COURSE_PHOTOZ
 
-      else if (MATCH_NMLKEY('ISCALE_COURSEcBIN_PHOTOZ',  1, i, ARGLIST) ) then
-          READ(ARGLIST(1),*) ISCALE_COURSEcBIN_PHOTOZ
-      else if (MATCH_NMLKEY('ISCALE_COURSEsBIN_PHOTOZ',  1, i, ARGLIST) ) then
-          READ(ARGLIST(1),*) ISCALE_COURSEsBIN_PHOTOZ
+      else if (MATCH_NMLKEY('NBINc_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) NBINc_COURSE_PHOTOZ
+      else if (MATCH_NMLKEY('NBINs_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) NBINs_COURSE_PHOTOZ
+      else if (MATCH_NMLKEY('NBINt_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) NBINt_COURSE_PHOTOZ
+      else if (MATCH_NMLKEY('NBINz_COURSE_PHOTOZ',  1, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) NBINz_COURSE_PHOTOZ
+
+      else if (MATCH_NMLKEY('RANGEc_COURSE_PHOTOZ',  2, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) RANGEc_COURSE_PHOTOZ(1)
+          READ(ARGLIST(2),*) RANGEc_COURSE_PHOTOZ(2)
+      else if (MATCH_NMLKEY('RANGEs_COURSE_PHOTOZ',  2, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) RANGEs_COURSE_PHOTOZ(1)
+          READ(ARGLIST(2),*) RANGEs_COURSE_PHOTOZ(2)
+      else if (MATCH_NMLKEY('RANGEt_COURSE_PHOTOZ',  2, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) RANGEt_COURSE_PHOTOZ(1)
+          READ(ARGLIST(2),*) RANGEt_COURSE_PHOTOZ(2)
+      else if (MATCH_NMLKEY('RANGEz_COURSE_PHOTOZ',  2, i, ARGLIST) ) then
+          READ(ARGLIST(1),*) RANGEz_COURSE_PHOTOZ(1)
+          READ(ARGLIST(2),*) RANGEz_COURSE_PHOTOZ(2)
+! - - - - 
 
       else if (MATCH_NMLKEY('PARLIST_MCMC_PHOTOZ',5,i,ARGLIST)) then
           READ(ARGLIST(1),*) PARLIST_MCMC_PHOTOZ(1)
@@ -7860,7 +7917,7 @@
 ! 
 ! Apr 13 2020: fix INISTP[VAL]_SHAPE logic for MLCS2k2 and SNOOPY
 ! Jun 04 2021: if USESIM_REDSHIFT, set z errors to 1.0E-4
-! 
+! Dec 10 2025: open default THETA window to +_4 for BAYESN
 ! ----------------------------------------
 
 
@@ -8162,8 +8219,8 @@
        INIBND(1,IPAR_COLOR) = -3.0  ! AV
        INIBND(2,IPAR_COLOR) =  5.0
 
-       INIBND(1,IPAR_SHAPE) = -1.4  ! THETA min
-       INIBND(2,IPAR_SHAPE) = +2.7  ! THETA max
+       INIBND(1,IPAR_SHAPE) = -4.0  ! THETA min
+       INIBND(2,IPAR_SHAPE) = +4.0  ! THETA max
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -8313,7 +8370,7 @@
 ! Aug 06 2024: implement BIT_PHOTOZ_AUTO_INISTP bit in OPT_PHOTOZ
 ! Nov 07 2024: fix bug setting PHOTODZ_REJECT for zSPEC
 ! Dec 19 2024: print time to process this function
-! 
+! Feb 02 2026: set LZDONE=T inside BTEST(MASK,BIT_BESTZ_GAUSS) if-block
 ! --------------------------------------------
 
     USE SNDATCOM
@@ -8333,6 +8390,7 @@
     INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
     LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
     REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
+    REAL*8 ztmp_min, ztmp_max
     REAL   t_start, t_end
     LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC,  LDMP_REFAC
     CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
@@ -8348,9 +8406,12 @@
          ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
     CHARACTER FNAM*14
     REAL*8 GET_DIST8, USRFUN
+    LOGICAL LEGACY
     EXTERNAL USRFUN, init_zPDF_spline
 
 ! --------------- BEGIN -----------------
+
+    LEGACY = (DEBUG_FLAG == -202)  ! undo Feb 2 2026 fix below 
 
     IERR = 0
     FNAM = 'FITINI_PHOTOZ'
@@ -8388,7 +8449,6 @@
     INIBND(1,ipar)  =  ZMIN
     INIBND(2,ipar)  =  ZMAX
 
-
 ! continue processing only on 1st fit iteration,
     IF ( LREPEAT_ITER  ) RETURN
     IF ( ITER > 1      ) RETURN
@@ -8421,12 +8481,18 @@
       STD          = SNLC_REDSHIFT_ERR
       CZTMP        = 'zBEST-Gauss'
 
+
+      if ( .NOT. LEGACY) THEN
+          LZDONE       = .TRUE.  ! Feb 2 2026 fix
+      endif
+
 ! Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
       if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
 
       if ( SNLC_REDSHIFT_ERR < 0.05 ) then ! avoid crazy zSpec err
          PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
       endif
+
 
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_GAUSS) ) THEN  ! Zhost prior (1)
 
@@ -8449,24 +8515,6 @@
           c2err = 'but there are no zPDF quantiles in the data.'
           CALL MADABORT(FNAM, c1err, c2err)
       endif
-
-#ifdef MARK_DELETE
-      do q = 1, SNHOST_NZPHOT_Q
-          ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q))/100.
-          ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
-          if ( LDMP_Q ) THEN
-            print*,' xxx   PROB=', sngl(ZPHOT_PROB(q)),  & 
-                      ' for ZPHOT=', sngl(ZPHOT_Q(q))
-            call flush(6)
-          endif
-      enddo
-      LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
-      CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,  & 
-           CCID_forC, METHOD_SPLINE_QUANTILES(1:LM)//char(0),      & 
-           IPRINT, MEAN, STD, IERR_ZPDF, ISNLC_LENCCID, 20)
-      SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
-      SNHOST_QZPHOT_STD(1)  = STD
-#endif
 
       CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
       MEAN = SNHOST_QZPHOT_MEAN(1) 
@@ -8593,6 +8641,16 @@
 	 if(LPRINT) CALL PRINT_ITERINFO(SNLC_CCID,ITER,BANNER)
     endif
 
+! - - - - - - - - - 
+! Feb 2 2026: if zphot +_ 10*std is smaller than INIBID, make INIBND more strict.
+!   This is for zPHOT fits with very precise zSPEC, in which MINUIT can settle
+!   in a region with PROB ~ 0 and not converge.
+
+    ZTMP_MIN = INIVAL(IPAR_ZPHOT) - 10*STD
+    ZTMP_MAX = INIVAL(IPAR_ZPHOT) + 10*STD
+    if ( ZTMP_MIN > INIBND(1,IPAR_ZPHOT) )  INIBND(1,IPAR_ZPHOT) = ZTMP_MIN
+    if ( ZTMP_MAX < INIBND(2,IPAR_ZPHOT) )  INIBND(2,IPAR_ZPHOT) = ZTMP_MAX
+
 ! - - - -
     if(LPRINT) CALL PRINT_INIPAR_ZPHOT('eval', INIVAL, chi2)
 
@@ -8683,7 +8741,10 @@
 ! Created July 12 2019
 ! Estimate initial photo-z parameters using course grid.
 ! [Code moved from FITINI_PHOTOZ]
-
+!
+! Dec 11 2025; 
+!   + set OPT_CHI2_SIGMA=0 and restore value after completion
+!   + add optional PKMJD loop
 
     USE SNDATCOM
     USE SNANAFIT
@@ -8701,92 +8762,119 @@
     REAL*8 Z_SAVE, ZMIN, ZMAX, ZBIN, z,  ZBND_MIN, ZBND_MAX
     REAL*8 S_SAVE, SMIN, SMAX, SBIN, s
     REAL*8 C_SAVE, CMIN, CMAX, CBIN, c
-    REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE
+    REAL*8 T_SAVE, TMIN, TMAX, TBIN, t  ! Dec 11 2025 PKMJD
+    REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE, d_cospar
     REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
-    INTEGER NZBIN, NSBIN, NCBIN, iz, is, ic, IFLAG, ITER, ISCALE
-    LOGICAL LZ1BIN
+    INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER
+    REAL SCALE_ALL, SCALE_z
+    INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
-    CHARACTER FNAM*28, NAME_ZVAR*12
+
+    REAL*8  d_tmp, dsave_tmp, tmp, chi2_tmp, chi2min_tmp  ! for DEBUG test
+    INTEGER jd_tmp
+
+    CHARACTER FNAM*28
     REAL*8 GET_DIST8, USRFUN
     EXTERNAL USRFUN
 
 ! ------------- BEGIN ------------
 
+  
     FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
-
+    
     ITER  = 1
     IFLAG = FCNFLAG_USER  ! to fill EP_XXX arrays in FCNSNLC
-    ISCALE = ISCALE_COURSEBIN_PHOTOZ
-
-    IF ( ISCALE .LE. 0 ) THEN
-       write(c1err,661) ISCALE
-661      format('Invalid ISCALE_COURSEBIN_PHOTOZ = ', I6)
+    SCALE_ALL = SCALE_NBIN_COURSE_PHOTOZ
+    IF ( SCALE_ALL .LE. 0. ) THEN
+       write(c1err,661) SCALE_ALL
+661    format('Invalid SCALE_NBIN_COURSE_PHOTOZ = ', F8.1)
        c2err = 'Check  &FITINP namelist'
        CALL MADABORT(FNAM, c1err, c2err)
     ENDIF
 
 
     CHI2MIN = CHI2INI
+    T_SAVE  = INIVAL(IPAR_PEAKMJD)
     Z_SAVE  = INIVAL(IPAR_zPHOT)
     D_SAVE  = INIVAL(IPAR_DLMAG)  ! mu or x0 (distance par)
     C_SAVE  = INIVAL(IPAR_COLOR)  ! AV or c
     S_SAVE  = INIVAL(IPAR_SHAPE)   ! stretch (x1, delta...)
+    OPT_CHI2_SIGMA_SAVE = OPT_CHI2_SIGMA  ! Dec 11 2025
+    OPT_CHI2_SIGMA      = 0
+
+
+! check option to print test chi2 for special hard-coded cases
+    if ( DEBUG_FLAG == 1210 )   CALL PRINT_TEST_CHI2()
 
     ZBND_MIN = INIBND(1,IPAR_zPHOT)
     ZBND_MAX = INIBND(2,IPAR_zPHOT)
 ! loop over redshift, color, stretch to estimate INIVAL
 
-
     IF ( LZFIX ) THEN
-      ! delta function for precise zPrior
-      ZMIN = Z_SAVE
-      ZMAX = Z_SAVE
+       ! delta function for precise zPrior
+       ZMIN = Z_SAVE
+       ZMAX = Z_SAVE
+    ELSE IF ( RANGEz_COURSE_PHOTOZ(1) > 0 ) then
+       ! Dec 2025; check for &FITINP user override
+       ZMIN = RANGEz_COURSE_PHOTOZ(1)
+       ZMAX = RANGEz_COURSE_PHOTOZ(2)
     ELSE IF ( DOFIT_PHOTOZ_HOST ) THEN
-      ! zprior that is not super precise  -> +_ 2 sigma window
-        ZMIN = MAX(ZBND_MIN, PRIOR_PHOTOZ - 2.0*PRIOR_PHOTOZ_ERR)
-        ZMAX = MIN(ZBND_MAX, PRIOR_PHOTOZ + 2.0*PRIOR_PHOTOZ_ERR)
+       ! zprior that is not super precise  -> +_ 2 sigma window
+       ZMIN = MAX(ZBND_MIN, PRIOR_PHOTOZ - 2.0*PRIOR_PHOTOZ_ERR)
+       ZMAX = MIN(ZBND_MAX, PRIOR_PHOTOZ + 2.0*PRIOR_PHOTOZ_ERR)
     ELSE
-      ! no zprior -> use entire z-range
-      ZMIN  = ZBND_MIN
-      ZMAX  = ZBND_MAX
+       ! no zprior -> use entire z-range
+       ZMIN  = ZBND_MIN
+       ZMAX  = ZBND_MAX
     ENDIF
 
-!  Dec 20 2204: prepare bining in z/(1+z) instead of z
-!    so that fewer bins are needed and hence faster init.
 
+    ! - - - - -  - -
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_COLOR, ITER,  & 
+         NCBIN, CBIN, CMIN, CMAX)  ! output
 
-     LZ1BIN   = .TRUE.
-     ZVAR_MIN = ZMIN / (1.0+ZMIN)
-     ZVAR_MAX = ZMAX / (1.0+ZMAX)
-     NZBIN = ISCALE * int(40.*(ZVAR_MAX-ZVAR_MIN)) + 1 ! 40 is new guess
-     NAME_ZVAR = 'zPH/(1+zPH)'
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_SHAPE, ITER,  & 
+         NSBIN, SBIN, SMIN, SMAX)  ! output
 
-    ZVAR_BIN = (ZVAR_MAX - ZVAR_MIN) / DBLE(NZBIN)
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_PEAKMJD, ITER,  & 
+         NTBIN, TBIN, TMIN, TMAX)  ! output
 
-    CALL SETBINS_FITINI_PHOTOZ(IPAR_COLOR, ITER,  & 
-                       NCBIN,CBIN,CMIN,CMAX)  ! output
-    CALL SETBINS_FITINI_PHOTOZ(IPAR_SHAPE, ITER,  & 
-                       NSBIN,SBIN,SMIN,SMAX)  ! output
-
+  
+    ZVAR_MIN = ZMIN; ZVAR_MAX = ZMAX
+    CALL SET_COURSEBIN_PHOTOZ(IPAR_ZPHOT, ITER,  & 
+         NZBIN, ZVAR_BIN, ZVAR_MIN, ZVAR_MAX)  ! inputs ZVAR_MIN[MAX] are modified
+    
     IF ( STDOUT_UPDATE ) THEN
-       print*,'    Course-grid minimization for initial values: '
-       write(6,432) NZBIN, NAME_ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
-       write(6,432) NCBIN, 'color   ',   CMIN, CMAX, CBIN
-       write(6,432) NSBIN, 'shape   ',   SMIN, SMAX, SBIN
+       print*,'    COURSE-GRID minimization for initial values: '
+
+       write(6,431) NTBIN, 'peakmjd     ',    TMIN, TMAX, TBIN
+       write(6,432) NZBIN, 'zph/(1+zph) ', ZVAR_MIN, ZVAR_MAX, ZVAR_BIN       
+       write(6,432) NCBIN, 'color       ',    CMIN, CMAX, CBIN
+       write(6,432) NSBIN, 'shape       ',    SMIN, SMAX, SBIN
+
+431    format(T8,I3, 2x, A12,' bins from ', F8.2,' to ', F8.2,  & 
+            3x,'(binsize=',F7.2,')'  )
+432    format(T8,I3, 2x, A12,' bins from ', F8.3,' to ', F8.3,  & 
+            3x,'(binsize=',F7.3,')'  )
+
+       NBIN_TOT = NTBIN * NZBIN * NCBIN * NSBIN
+       print*,'    Total number of COURSE bins: ', NBIN_TOT
        call flush(6)
- 432     format(T8,I3, 2x, A12,' bins from ', F8.3,' to ', F8.3,  & 
-              3x,'(binsize=',F7.3,')'  )
     ENDIF
+
+
+! ------------------------------------------------------
+! start t, z,c,s course-grid loop
+
+    DO 53 it  = 1, NTBIN
+       t = TMIN + dble(it-1) * TBIN
+       INIVAL(IPAR_PEAKMJD) = t
 
     DO 55 iz  = 1, NZBIN
 
-      zvar  = ZVAR_MIN + dble(iz-1)*ZVAR_BIN
-	if ( LZ1BIN ) then
-         z = ZVAR / ( 1 - ZVAR )   ! new
-	else
-         z = ZVAR  ! legacy
-      endif
+      zvar  = ZVAR_MIN + dble(iz-1)*ZVAR_BIN  ! 1/(1+z) (not z)
+      z = ZVAR / ( 1 - ZVAR )                 ! translate back to z
       INIVAL(IPAR_zPHOT)  = z
 
     DO 57 is = 1, NSBIN
@@ -8797,31 +8885,30 @@
       c       = CMIN + dble(ic-1)*CBIN
       INIVAL(IPAR_COLOR)  = c
 
-      d       = GET_DIST8(Z,s,c,ONE8)
-      INIVAL(IPAR_DLMAG)  = d
+      d_cospar            = GET_DIST8(Z,s,c,ONE8)
+      INIVAL(IPAR_DLMAG)  = d_cospar
 
 ! call function to evaluate R4SN_XXX variables needed to
 ! determine Fmodel_SCALE below.
-      CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
+      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG, USRFUN)
 
-! now compute Fmodel_SCALE to minimize chi2 as a function of
-! x0 or MU. This is an approximation assuming that the error-squared
-! is constant, but it really depends slightly on the Fmodel_SCALE value.
-
+      ! now compute Fmodel_SCALE to minimize chi2 as a function of
+      ! x0 or MU. This is an approximation assuming that the error-squared
+      ! is constant, but it really depends slightly on the Fmodel_SCALE value.
+      
       IF ( R4SN_FFSUM_CROSS > 0 .and. R4SN_FFSUM_MODEL > 0 ) then
          Fmodel_SCALE        = R4SN_FFSUM_CROSS/R4SN_FFSUM_MODEL
       ELSE
-         Fmodel_SCALE        = 1.0  ! June 30 2013
+         Fmodel_SCALE        = 1.0  
       ENDIF
-
+         
       d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
       INIVAL(IPAR_DLMAG)  = d
       CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
 
 ! ------------
       if ( chi2 < -1300.  ) then
-        write(6,667) z, PARNAME_STORE(IPAR_COLOR)(1:3),  & 
-                       c,s,d,chi2, Fmodel_SCALE
+        write(6,667) z, PARNAME_STORE(IPAR_COLOR)(1:3),  c,s,d,chi2, Fmodel_SCALE
 667       format(' xxxx Z=',F5.3, 2x, A,'=',F6.3, 2x,  & 
                  's=',F6.3, 2x, 'DIST=',G8.3, 2x, 'CHI2=',E10.3,  & 
                  2x, 'Fscale=',G8.3 )
@@ -8841,18 +8928,86 @@
 59    CONTINUE  ! color
 57    CONTINUE  ! lumipar
 55    CONTINUE  ! photoz
+53    CONTINUE  ! peakmjd (Dec 2025)
 
-! load inital redshift and re-run FCNSNLC to update EP_FLUX_MODEL
-
+! update INIVAL
+      
     INIVAL(IPAR_zPHOT)   = Z_SAVE  ! save redshift
     INIVAL(IPAR_COLOR)   = C_SAVE  ! save color
     INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
     INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
     INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
+    OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
 
     RETURN
   END SUBROUTINE INIPAR_PHOTOZ_COURSEGRID
 
+
+  SUBROUTINE PRINT_TEST_CHI2()
+
+    ! Created Dec 2025
+    ! print chi2 for hard-wired CIDs and INIPAR
+    ! This routine has no impact on nominal fits;
+    ! this is only for diagnostics.
+    ! First example: compute chi2 with INIVAL based on zSPEC fit,
+    ! to compare chi2 for zPHOT
+
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNFITCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+    
+    INTEGER IFLAG, ipar
+    REAL*8  GRAD(MXFITPAR), CHI2, INIVAL_SAVE(MXFITPAR)
+    EXTERNAL USRFUN
+    REAL*8   USRFUN  
+
+    ! ---------------- BEGIN --------------
+
+    DO ipar = 1, MXFITPAR   
+       INIVAL_SAVE(ipar) = INIVAL(ipar)
+    enddo
+
+    if ( SNLC_CID == 1310964 ) then
+       INIVAL(IPAR_PEAKMJD) = 56995.934
+       INIVAL(IPAR_SHAPE)   = -.70827
+       INIVAL(IPAR_COLOR)   = -.13776  
+       INIVAL(IPAR_X0)      = 0.58604E-05
+       INIVAL(IPAR_ZPHOT)   = 0.75
+
+    else if ( SNLC_CID == 1301933 ) then
+       INIVAL(IPAR_PEAKMJD) = 56952.937 
+       INIVAL(IPAR_SHAPE)   = -.21461
+       INIVAL(IPAR_COLOR)   = -.14087 
+       INIVAL(IPAR_X0)      = 0.42247E-04
+       INIVAL(IPAR_ZPHOT)   = 0.33
+
+    else if ( SNLC_CID == 1257605 ) then
+       INIVAL(IPAR_PEAKMJD) = 56615.839
+       INIVAL(IPAR_SHAPE)   = 1.4418 
+       INIVAL(IPAR_COLOR)   = 0.28930E-01
+       INIVAL(IPAR_X0)      = 0.58724E-05
+       INIVAL(IPAR_ZPHOT)   = 0.74
+
+    endif
+
+    IFLAG = FCNFLAG_USER 
+    CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG, USRFUN)
+
+    write(6,20) SNLC_CCID(1:ISNLC_LENCCID), CHI2
+20  format(T5,' xxx TEST CHI2(',A,') = ', 2x F9.2 )
+    call flush(6)
+    
+    ! restore INIVAL
+    DO ipar = 1, MXFITPAR   
+       INIVAL(ipar) = INIVAL_SAVE(ipar)
+    enddo
+
+    RETURN
+
+  END SUBROUTINE PRINT_TEST_CHI2
 
 ! ====================================================
     SUBROUTINE INIPAR_PHOTOZ_MCMC(CHI2INI)
@@ -9055,9 +9210,111 @@
     RETURN
   END SUBROUTINE INIPAR_PHOTOZ_MCMC
 
+
+  SUBROUTINE INIT_COURSEBIN_PHOTOZ()
+
+    ! Created Dec 2025
+    ! for XXX_COURSE_PHOTOZ params NOT specified in &FITINP (i.e. ,still have -9 values),
+    ! set default values. Also check SALT2 or BAYESN.
+    ! This is a one-time init done after FITMODEL_INDEX is set, 
+    ! and thus cannot be done prior to reading &FITINP from namelist file.
+
+    USE SNANAFIT
+    USE SNFITVAR
+    USE FITINP_NML
+    USE SNFILECOM
+
+    IMPLICIT NONE
+
+    CHARACTER NAME_COLOR*12, NAME_STRETCH*12
+    LOGICAL IS_SALT2, IS_BAYESN, IS_MLCS2k2, USER_c, USER_s, USER_t
+
+    ! ---------- BEGIN ---------
+
+    CALL PRBANNER ( 'INIT_COURSEBIN_PHOTOZ' )
+
+    IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2  )
+    IS_BAYESN  = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
+    IS_MLCS2k2 = ( FITMODEL_INDEX .EQ. MODEL_MLCS2k2 ) 
+
+    USER_c  = ( RANGEc_COURSE_PHOTOZ(1) >  -98.0  )
+    USER_s  = ( RANGEs_COURSE_PHOTOZ(1) >  -98.0  )
+    USER_t  = ( RANGEt_COURSE_PHOTOZ(2) >    0.0  ) 
+
+    ! - - - - - - -
+    if ( .NOT. USER_t ) then
+       RANGEt_COURSE_PHOTOZ(1) = -15.0;   RANGEt_COURSE_PHOTOZ(2) = +15.0  ! PEAKMJD
+    endif
+
+    ! default NBINc/NBINs/NBINt is the same for all models
+    if ( NBINc_COURSE_PHOTOZ < 0 ) NBINc_COURSE_PHOTOZ  =  4
+    if ( NBINs_COURSE_PHOTOZ < 0 ) NBINs_COURSE_PHOTOZ  =  3
+    if ( NBINt_COURSE_PHOTOZ < 0 ) NBINt_COURSE_PHOTOZ  =  1
+
+    ! - - - - - - -
+    ! color and stretch binning depends on fit model
+
+    IF ( IS_SALT2 ) THEN
+
+       ! NBINz determined later for each event based on prior
+       
+       if ( .NOT. USER_c ) then
+          RANGEc_COURSE_PHOTOZ(1) =  -0.2;   RANGEc_COURSE_PHOTOZ(2) = +0.25  ! c
+       endif
+       
+       if ( .NOT. USER_s ) then
+          RANGEs_COURSE_PHOTOZ(1) =  -3.0;   RANGEs_COURSE_PHOTOZ(2) = +1.0  ! x1
+       endif      
+
+       ! RANGEz is determined later for each event.
+
+    ELSE IF ( IS_BAYESN ) THEN
+       
+       if ( .NOT. USER_c ) then
+          RANGEc_COURSE_PHOTOZ(1) =  0.0;   RANGEc_COURSE_PHOTOZ(2) = +0.6  ! AV
+       endif
+       
+       if ( .NOT. USER_s ) then
+          RANGEs_COURSE_PHOTOZ(1) =  -2.0;   RANGEs_COURSE_PHOTOZ(2) = +2.0  ! THETA
+       endif
+       
+       print*,' '
+       print*,' @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ '
+       print*,'   Dec 2025: ' 
+       print*,'   STOP in SUBROUTINE INIT_COURSEBIN_PHOTOZ()  on BAYESN model '
+       print*,'   Check defaults for BAYESN. '
+       print*,'           STOP'
+       STOP
+
+    ELSE IF ( IS_MLCS2k2 ) THEN
+       
+       if ( .NOT. USER_c ) then
+          RANGEc_COURSE_PHOTOZ(1) =  0.0;   RANGEc_COURSE_PHOTOZ(2) = +1.0  ! AV
+       endif
+       
+       if ( .NOT. USER_s ) then
+          RANGEs_COURSE_PHOTOZ(1) =  -0.2;   RANGEs_COURSE_PHOTOZ(2) = +1.5  ! DELTA
+       endif
+
+    ELSE
+       c1err = 'Course bins not defined for FITMODEL_NAME = '
+       c2err =  FITMODEL_NAME 
+       CALL MADABORT ('INIT_COURSEBIN_PHOTOZ', c1err, c2err )
+    ENDIF
+
+    write(6,41)  NBINc_COURSE_PHOTOZ, PARNAME_STORE(IPAR_COLOR),   RANGEc_COURSE_PHOTOZ
+    write(6,41)  NBINs_COURSE_PHOTOZ, PARNAME_STORE(IPAR_SHAPE),   RANGEs_COURSE_PHOTOZ
+    write(6,41)  NBINt_COURSE_PHOTOZ, 't0-t0_estimate  ',          RANGEt_COURSE_PHOTOZ
+41  format(T8, 'Define', I3,2x, A16,' bins from ', F9.3,' to ', F9.3 )
+ 
+    call flush(6)
+
+    RETURN
+  END SUBROUTINE INIT_COURSEBIN_PHOTOZ
+
 ! ====================================================
-    SUBROUTINE SETBINS_FITINI_PHOTOZ(IPAR,ITER,  & 
-                                       NBIN,PARBIN,PARMIN,PARMAX)
+  SUBROUTINE SET_COURSEBIN_PHOTOZ(IPAR,ITER,  & 
+         NBIN, PARBIN, PARMIN, PARMAX)
 ! 
 ! Created March 25, 2012 by R.Kessler
 ! 
@@ -9066,9 +9323,9 @@
 ! to loop over a course grid to find an approx. global min.
 ! 
 ! July 5 2019: min color bound -> -0.2 (was -0.3)
-! 
+! Dec 11 2025: check for IPAR_PEAKMJD
+! Dec 13 2025: refactor to use all user &FITINP inputs 
 ! ---------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
@@ -9082,31 +9339,20 @@
     INTEGER ITER                  ! (I) fit-iteration to prepare
     INTEGER NBIN                  ! (O) Number of bins
     REAL*8  PARBIN,PARMIN,PARMAX  ! (O) binsize, min and max
-
 ! local args
 
-    LOGICAL DO_SALT2, DO_COLOR, DO_SHAPE
-    REAL*8 PARLAST, DIF, BND_LOCAL(2)
+    REAL*8 PEAKMJD_ESTIMATE, ZMIN, ZMAX, ZVAR_MIN, ZVAR_MAX
+    LOGICAL IS_SALT2, IS_BAYESN, DO_COLOR, DO_SHAPE, DO_PEAKMJD, DO_ZPHOT
 
 ! --------------- BEGIN ---------------
 
-! define local bound to be tighter than INIBND since
-! INIBND is larger than we need.
-
-    DIF = INIBND(2,IPAR) - INIBND(1,IPAR)
-    BND_LOCAL(1) = INIBND(1,IPAR) + 0.2*DIF
-    BND_LOCAL(2) = INIBND(2,IPAR) - 0.2*DIF
-
 ! hard-code color range for SALT2 model (Dec 2014)
-    DO_SALT2 = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
-    DO_COLOR = ( IPAR == IPAR_COLOR )
-    DO_SHAPE = ( IPAR == IPAR_SHAPE )
-
-    IF ( DO_SALT2 .and. DO_COLOR ) THEN
-      BND_LOCAL(1) = -0.2    ! -0.3 -> -0.2 (July 3 2019)
-      BND_LOCAL(2) = +0.4
-    ENDIF
-
+    IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
+    IS_BAYESN  = ( FITMODEL_INDEX .EQ. MODEL_BAYESN )
+    DO_COLOR   = ( IPAR == IPAR_COLOR   )
+    DO_SHAPE   = ( IPAR == IPAR_SHAPE   )
+    DO_PEAKMJD = ( IPAR == IPAR_PEAKMJD )
+    DO_ZPHOT   = ( IPAR == IPAR_ZPHOT   )
 ! --------------------------------------------
 
     IF ( INISTP(IPAR) .EQ. 0.0 ) THEN ! fixed parameter
@@ -9114,25 +9360,68 @@
       PARMIN  = INIVAL(IPAR)
       PARMAX  = INIVAL(IPAR)
       PARBIN  = 0.0
+      RETURN
+    ENDIF
+  
+! ----- nominal behavior ----
 
-    ELSE
-      PARMIN  = BND_LOCAL(1)
-      PARMAX  = BND_LOCAL(2)
-      IF ( DO_COLOR ) THEN
-         NBIN    = int(6.*(PARMAX-PARMIN) ) + 1     ! hard-wire
-         NBIN    = NBIN * ISCALE_COURSEcBIN_PHOTOZ
-      ELSE
-         NBIN    = 3 * ISCALE_COURSEsBIN_PHOTOZ    ! stretch/lumi bins
-      ENDIF
+    IF ( DO_COLOR ) THEN
+       PARMIN  = RANGEc_COURSE_PHOTOZ(1)
+       PARMAX  = RANGEc_COURSE_PHOTOZ(2)
+       NBIN    = NBINc_COURSE_PHOTOZ      ! optional user-scale
 
-      NBIN = NBIN * ISCALE_COURSEBIN_PHOTOZ
+    ELSE IF ( DO_SHAPE ) THEN
+       PARMIN  = RANGEs_COURSE_PHOTOZ(1)
+       PARMAX  = RANGEs_COURSE_PHOTOZ(2)
+       NBIN    = NBINs_COURSE_PHOTOZ    ! stretch/lumi bins * user scale
+ 
+    ELSE IF ( DO_PEAKMJD ) THEN
 
-      PARBIN  = (PARMAX - PARMIN) / DBLE(NBIN)
+       ! Stick with legacy default  1 t-bin, or a fixed PEAKMJD.
+       PEAKMJD_ESTIMATE = INIVAL(IPAR_PEAKMJD)
+       NBIN   = NBINt_COURSE_PHOTOZ   ! PEAKMJD bins * user scale
+       PARMIN = PEAKMJD_ESTIMATE
+       PARMAX = PEAKMJD_ESTIMATE
+
+       ! If user specifies more than 1 course bin, set the range
+       if ( NBIN > 1 ) then
+          PARMIN = PEAKMJD_ESTIMATE + RANGEt_COURSE_PHOTOZ(1)
+          PARMAX = PEAKMJD_ESTIMATE + RANGEt_COURSE_PHOTOZ(2)
+       endif
+    ELSE IF ( DO_ZPHOT ) THEN
+
+       ! be careful here to set bins for zph/(1+zphot) [not zph]
+
+       ZMIN  = PARMIN  ! strip off input zphot range
+       ZMAX  = PARMAX  ! idem
+
+       ! modify input PARMIN & PARMAX to altered definition
+       PARMIN = ZMIN / (1.0 + ZMIN)
+       PARMAX = ZMAX / (1.0 + ZMAX)
+      
+       if ( NBINz_COURSE_PHOTOZ > 0 ) then
+          ! user-defined NBIN via &FITINP
+          NBIN = NBINz_COURSE_PHOTOZ
+       else
+          ! default here is to auto-compute NBIN because
+          ! the range of z/(1+z) depends on prior
+          NBIN = int(42.*(PARMAX-PARMIN)) + 1
+       endif
+
     ENDIF
 
+! optional global scale for all NBIN
+    NBIN    = NBIN * SCALE_NBIN_COURSE_PHOTOZ
+
+! compute bin size 
+    if ( NBIN > 1 ) then
+       PARBIN  = (PARMAX - PARMIN) / DBLE(NBIN-1)
+    else
+       PARBIN = 0.0
+    endif
 
     RETURN
-  END SUBROUTINE SETBINS_FITINI_PHOTOZ
+  END SUBROUTINE SET_COURSEBIN_PHOTOZ
 
 ! ==========================================
     SUBROUTINE FITINI_ADJUST ( iter, IERR )
@@ -9241,7 +9530,7 @@
     IF ( LPRINT ) THEN
        LCHAR = ISNLC_LENCCID
        write(BANNER,10) cid, SNLC_CCID(1:LCHAR)
-10       format('FITINI_ADJUST for CID=',I8, 3x, '(',A,')'   )
+10     format('FITINI_ADJUST for CID=',I8, 3x, '(',A,')'   )
        CALL PRBANNER ( BANNER )
     endif
 
@@ -11165,7 +11454,7 @@
   SUBROUTINE FITINI_PRIOR_MUERR()
     ! Created DEC 5 2025 by Jonah Medoff
     ! If using cosmology prior for photo-z fit, compute muerr on redshift grid for faster computation during fit
-    ! .xyz
+    ! 
     USE SNLCINP_NML
     USE FITINP_NML
     ! PHOTOZ_BOUND(2)
@@ -11491,7 +11780,10 @@
 ! Oct 21 2021: allow PRIOR_COLOR_RANGE to apply to SNooPy model
 ! Jun 19 2023: check BAYESN model
 ! Jan 19 2024: check IPAR_SHAPE2
-! 
+! Feb 03 2026: 
+!      + protect |arg| of DEXP to be < 700
+!      + CHI2 -> CHI2*CHI2 to further surpress boundaries
+!
 ! ------------------------
 
 
@@ -11609,9 +11901,10 @@
 ! define range as defined range +- 10 sigmas.
 
     tmp = 10. * SIGMA
-
+    if ( tmp < 2.0 ) tmp = 2.0   ! Feb 2026 : avoid prior truncation for c,x1
     PRIOR_RANGE(1,IPAR) = RANGE(1) - tmp
     PRIOR_RANGE(2,IPAR) = RANGE(2) + tmp
+
 
     IF ( LFLAT ) THEN
       FLATPRIOR_RANGE(1,IPAR) = RANGE(1)
@@ -11625,7 +11918,6 @@
     PRIOR_BINSIZE(ipar) = VAR_binsize
 
     SQSIG   = SIGMA * SIGMA
-    PROBMIN = DEXP(DBLE(-700.0))  ! ~ 10^{-305}
 
     DO 50 IVAR   = 1, NBIN_PRIOR
        XVAR   = float(IVAR)
@@ -11637,15 +11929,18 @@
        IF ( LLO ) THEN
          DIF   = VAR - RANGE(1)
          SQDIF = DIF * DIF
-         ARG   = 0.5 * SQDIF / SQSIG
+         CHI2  = SQDIF / SQSIG
+         ARG   = MIN(700.0, 0.5 * CHI2)  ! protect NaN for DEXP
          PROB  = DEXP(-arg)
-         CHI2  = -2.0 * DLOG(prob)
+         !xxx mark CHI2  = -2.0 * DLOG(prob)
        ELSE IF ( LHI ) THEN
          DIF   = VAR - RANGE(2)
          SQDIF = DIF * DIF
-         ARG   = 0.5 * SQDIF / SQSIG
+         CHI2  = SQDIF / SQSIG
+         ARG   = MIN(700.0, 0.5 * CHI2)  ! protect NaN for DEXP
          PROB  = DEXP(-arg)
-         CHI2  = -2.0 * DLOG(prob)
+         !xxx mark CHI2  = -2.0 * DLOG(prob)
+
        ELSE
          CHI2  = DBLE(0.0)
          PROB  = DBLE(1.0)
@@ -11654,10 +11949,8 @@
 ! needed in CHI2_PRIOR to avoid discontinuity
 
          if ( LFLAT ) then
-           FLATPRIOR_BINRANGE(1,IPAR) =  & 
-               MIN ( IVAR, FLATPRIOR_BINRANGE(1,IPAR) )
-           FLATPRIOR_BINRANGE(2,IPAR) =  & 
-               MAX ( IVAR, FLATPRIOR_BINRANGE(2,IPAR) )
+           FLATPRIOR_BINRANGE(1,IPAR) =  MIN ( IVAR, FLATPRIOR_BINRANGE(1,IPAR) )
+           FLATPRIOR_BINRANGE(2,IPAR) =  MAX ( IVAR, FLATPRIOR_BINRANGE(2,IPAR) )
          endif
 
        ENDIF
@@ -11681,10 +11974,8 @@
          CHI2 = CHI2 - 2.0 * DLOG(PTMP)
        ENDIF
 
-       PROB = MAX( PROB, PROBMIN )
-
        PRIOR_VALGRID(IVAR,ipar)  = VAR
-       PRIOR_CHI2GRID(IVAR,IPAR) = CHI2
+       PRIOR_CHI2GRID(IVAR,IPAR) = CHI2 * CHI2 
        PRIOR_PROBGRID(IVAR,IPAR) = PROB
 50    CONTINUE
 
@@ -11985,7 +12276,6 @@
 !       and get rid of very old/obscure interpolcation code.
 ! 
 ! ------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
@@ -18039,13 +18329,6 @@
 
     CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VFLUXOBS, VFLUXOBS_ERR,  & 
            VFILTOBS, SNLCPAK_EPFLAG_FLUXDATA, LENCCID)
-
-! xxxxxxxx mark delete Mar 2025 xxxxxx
-!  don't do this because model-flux has separate DATAFLAG
-!      CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS,
-!     &     VMODELFLUX, VMODELFLUX_ERR,
-!     &     VFILTOBS, SNLCPAK_EPFLAG_FLUXMODEL, LENCCID)   ! Mar 2025
-! xxxxxxxx
 
 ! store REJECT flags
     CALL SNLCPAK_DATA(CCID, NOBS, VMJD,VTOBS, VREJECT, VDUMERR,  & 

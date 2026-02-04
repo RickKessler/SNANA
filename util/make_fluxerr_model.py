@@ -1347,7 +1347,7 @@ def write_map_row(f, config, BIN1D, cor, n_fake, n_sim ):
 
 def store_flux_table(flux_table, map_bin_dict):
 
-    df = pd.read_csv(flux_table, comment="#", delim_whitespace=True)
+    df = pd.read_csv(flux_table, comment="#", sep=r'\s+')
     nrow = len(df)
     print(f"    Read/store {flux_table} with {nrow} rows.")
 
@@ -1660,8 +1660,8 @@ def compute_chi2red(config, ifield, table_file_data, table_file_sim):
 
     TABLE_FILE_DATA = f"{OUTDIR}/{table_file_data}"
     TABLE_FILE_SIM  = f"{OUTDIR}/{table_file_sim}"
-    df_data = pd.read_csv(TABLE_FILE_DATA, comment="#", delim_whitespace=True)
-    df_sim  = pd.read_csv(TABLE_FILE_SIM,  comment="#", delim_whitespace=True)
+    df_data = pd.read_csv(TABLE_FILE_DATA, comment="#", sep=r'\s+')
+    df_sim  = pd.read_csv(TABLE_FILE_SIM,  comment="#", sep=r'\s+')
 
     # - - - - -
     # add ifield column and apply ifield cut (Nov 2022)

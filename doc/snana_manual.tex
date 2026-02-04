@@ -42,6 +42,7 @@
 \newcommand{\snfitter}{{\tt snlc\_fit.exe}}
 \newcommand{\simexe}{{\tt snlc\_sim.exe}}
 \newcommand{\psnid}{{\tt psnid.exe}}
+\newcommand{\crcov}{{\tt create\_covariance.py}}
 
 \newcommand{\mlcs}{{\tt MLCS2k2}}
 \newcommand{\SALTII}{{\sc salt-ii}}
@@ -9222,7 +9223,7 @@ often in the defined region versus using that filter
 more often in the undefined region.
 
 % ---------------------------------------
-%   \clearpage
+   \clearpage
    \subsubsection{Initial Parameter Estimate}
    \label{sss:photoz_ini}
 % --------------------------------------
@@ -9230,45 +9231,99 @@ more often in the undefined region.
 \newcommand{\dSCALE}{d_{\rm scale}}
 \newcommand{\Fdata}{F_{\rm data}^i}
 \newcommand{\Fmodel}{F_{\rm model}^i}
+\newcommand{\fluxScale}{S_{F}}
+
 
 For SN-only photo-$z$ fits, \minuit\ is likely to find a
 local minimum, rather than the global minimum. It is therefore
 important to provide initial parameter estimates before the
 \minuit\ stage. 
-After using the recommended {\tt OPT\_SETPKMJD=21} (Fmax-clump+BazinFit)
+After using the recommended {\tt OPT\_SETPKMJD=20} (Fmax-clump)
 to estimate {\tt PEAKMJD},
-there are two user-options for estimating initial parameters:
-\begin{verbatim}
-   &FITINP
-     ISCALE_COURSEBIN_PHOTOZ = 1   # multi-dim grid search (default)
-        ! or
-     NEVAL_MCMC_PHOTOZ       = 300 # MCMC burn-in with 300 evaluations
-\end{verbatim} 
-%
-The default opton performs a multi-dimensional grid-search over 
+the default opton performs a 3D course grid-search over 
 redshift (0.04 bin-width), color (4 bins) and stretch/shape (3 bins).
+If {\tt NBINt\_COURSE\_PHOTOZ>1} (see below), 
+the 3D grid is expanded to a 4D grid search that includes t0={\tt PEAKMJD}.
 The distance parameter is estimated analytically as follows.
 For each grid point (photoZ, color, shape) the model fluxes
 are first evaluated using the distance
 (SALT2-$\bar{x_0}$ or distance modulus $\bar\mu$) 
 calculated from a reference set of cosmological parameters. 
-To minimize the $\chi^2$ w.r.t. the
-distance parameter, a distance-scale 
-is determined as
-\begin{equation}
-  \dSCALE = x_0/\bar{x_0} {\rm ~~~ or~~~} 10^{0.4(\mu-\bar{\mu})}
-    = \sum_i( \Fdata\Fmodel/\sigma_i^2) / \sum_i(\Fmodel/\sigma_i)^2
-\end{equation}
+Next we define a flux-scale,
+  $\fluxScale = x_0/\bar{x_0} = 10^{0.4(\mu-\bar{\mu})}$.
+%
+The chi-squared is
+ $\chi^2 = \sum_i [\Fdata - \fluxScale\Fmodel]^2/\sigma_i^2$,
 where $\sigma_i$ is the quadrature sum of data and model errors
-and '$i$' is the epoch index.\footnote{See {\tt R4SN\_FFSUM\_XXX} 
+and '$i$' is the epoch index.\footnote{See {\tt R4SN\_FFSUM\_XXX}
    variables in {\tt snlc\_fit.F90}.}
+Analytical minimization is from setting $\partial \chi^2/\partial\fluxScale = 0$, 
+which results in
+%
+\begin{equation}
+  \fluxScale
+    = \sum_i( \Fdata\Fmodel/\sigma_i^2) / \sum_i(\Fmodel/\sigma_i)^2
+    \label{eq:fluxScale}
+\end{equation}
+%
 The resulting $x_0$ or $\mu$ value is used to re-evaluate
 the $\chi^2$ at this grid-point. 
-After finding these four parameter estimates, 
-{\tt PEAKMJD} is searched in 0.5~day bins ($-2$ to $+2$ days).
+The four initial values ($\Zphot$, color, stretch, distance)
+are set based on the minimum $\chi^2$ from the 3D loop over \{redshift,color,stretch\}. 
+A correction to the $\fluxScale$ formula (Eq.~\ref{eq:fluxScale})
+is needed when there is a cosmology prior
+(Eq.~\ref{eq:chi2_muprior} in \S~\ref{sss:zphot_cosmology_prior})
+but this has not yet been implemented.
+After the course-grid search, a 1D {\tt PEAKMJD} grid is searched in 0.5~day bins ($-2$ to $+2$ days).
+
+The number of bins and range per variable have default values,
+and the default values can be altered with these inputs:
+\begin{verbatim}
+  &FITINP
+    NBINc_COURSE_PHOTOZ = nnn ! default=4  
+    NBINs_COURSE_PHOTOZ = nnn ! default=3  
+    NBINt_COURSE_PHOTOZ = nnn ! default=1 (fixed at PEAKMJD from OPT_SETPKMJD)
+    NBINz_COURSE_PHOTOZ = nnn ! default=43*[zph_max/(1+zph_max) - zph_min/(1_zph_min)]
+    SCALE_NBIN_COURSE_PHOTOZ = nnn  ! scale number of bins for each param (default=1)
+
+    RANGEc_COURSE_PHOTOZ = x,y ! default = -0.2, 0.25
+    RANGEs_COURSE_PHOTOZ = x,y ! default = -3.0, 1.0
+    RANGEt_COURSE_PHOTOZ = x,y ! default = -15, 15 (only if NBINt_COURSE_PHOTOZ>1)
+    RANGEz_COURSE_PHOTOZ = x,y ! default = -9,-9 -> computed each event using prior
+\end{verbatim}
+Beware that increasing the number of bins can result in significantly longer fit times, 
+expecially if {\tt NBIN[par]\_COURSE\_PHOTOZ}
+is increased for multiple parameters;
+it is therefore good practice to run a CPU benchmark before submitting long jobs.
+The ranges for color ({\tt RANGEc\_}) and stretch ({\tt RANGEs\_}) have literal definitions
+for SALT2 (c,x1) or BAYESN (AV,theta). 
+{\tt RANGEt\_} is w.r.t. the rough estimate determined by {\tt \&SNLCINP} input 
+{\tt OPT\_SETPKMJD} in \S~\ref{subsec:SETPKMJD}.
+{\tt RANGEz\_} defines a grid over $\Zphot/(1+\Zphot)$ instead of $\Zphot$, in order to 
+search finer $\Zphot$ bins at lower redshifts.
+
+While optimizaing $\Zphot$ performance with different {\tt NBIN} and {\tt RANGE} parameters 
+is encouraged,
+it is best to let the code internally compute {\tt NBINz\_} and {\tt RANGEz\_} for each event
+when a host redshift prior is used.
+If there is no host prior, {\tt NBINz\_COURSE\_PHOTOZ} and {\tt RANGEz\_COURSE\_PHOTOZ}
+are the same for each event and a manual override is applicable to all events.
+With a host prior, however, each event has a custom {\tt NBINz\_} and {\tt RANGEz\_}
+based on the event-specific host prior value;
+therefore a manual override that is fixed for each event makes no sense and
+should be done only for testing individual events.
+To see the actual bins used, grep (or search) ``binsize'' from stdout and 
+visually examine output that looks like
+%
+\begin{verbatim}
+         7      peakmjd  bins from 56972.31 to 57002.31   (binsize=   5.00)
+        23  zPH/(1+zPH)  bins from    0.010 to    0.545   (binsize=  0.024)
+         4      color    bins from   -0.200 to    0.250   (binsize=  0.150)
+         3      shape    bins from   -3.000 to    1.000   (binsize=  2.000) 
+\end{verbatim}
 
 
-The second option (MCMC) processes all 5 parameters simultaneously.
+UNDER DEVELOPMENT: The second option (MCMC) processes all 5 parameters simultaneously.
 Initial {\tt STEP} sizes are 1/3 of the range, and every 20 evaluations
 the {\tt STEP} size is multiplied by 0.90. For each evaluation, the
 parameters are shifted by {\tt STEP}$\times(R_{01}-0.5)$,
@@ -9458,6 +9513,7 @@ the $\mu$-error for the photoZ at each fit-iteration.
 The $\chi^2$ prior term is
 \begin{equation}
    \chi_{\mu{\rm -prior}}^2 = \left[ \frac{ \Delta\mu  }{ \sigma_{\mu} \times {\rm\tt PRIOR\_MUERRSCALE} } \right]^2
+   \label{eq:chi2_muprior}
 \end{equation}
 %
 where 
@@ -13021,7 +13077,7 @@ is not nearly as sohopisticated as CosmoSIS, but is useful for
 systematics tests and forecasts. 
 \wfit\ models $w$CDM ($w$, $\OM$) and CPL $w_0w_a$CDM model,
 both assuming a flat universe. 
-The CMB prior is based the $R$ parametrization using simulated cosmology parameters
+The CMB prior is based on the $R$ parametrization using simulated cosmology parameters
 and $\sigma_R=0.007$ to reproduce the DES3YR uncertainties. 
 The BAO prior is based on Alam 2020.
 Table \ref{tab:wfit} compares \wfit\ results to published DES3YR and Pantheon values using
@@ -13030,8 +13086,13 @@ Table \ref{tab:wfit} compares \wfit\ results to published DES3YR and Pantheon va
    wfit.exe  [HubbleDiagram] -cmb_sim -sigma_Rcmb 0.007   -wsteps 101 -omsteps 101 \
              -mucov_file [mucov_file]  \
              -bao_sim               # only for DES w0waCDM only
+
+   for full list of options, type program name with no arguments:
+   wfit.exe
 \end{verbatim}
-where {\tt HubbleDiagram} and {\tt mucov\_file} are from public data releases.
+where {\tt HubbleDiagram} and {\tt mucov\_file} are created from 
+the {\crcov} program (\S~\ref{subsec:create_cov}).
+
 
 \begin{table}[h!]
 \centering
@@ -13066,6 +13127,29 @@ where {\tt HubbleDiagram} and {\tt mucov\_file} are from public data releases.
 
 % -----------------------------------------------
    \clearpage
+   \subsection{Statistical+Systematic Covariance Matrix}
+   \label{subsec:create_cov}
+% -----------------------------------------------
+
+The program {\crcov} reads {\tt SALT2mu/BBC} output directories that include
+systematics, and computes a stat+syst covariance matrix, a Hubble diagram file,
+and an {\tt INFO.YAML} file with lots of meta data such as which biasCor sim was used,
+flag to indicate real/sim data, etc. The input config file is defined by command
+\begin{verbatim}
+   create_covariance.py -H   # config file options
+   create_covariance.py -h   # command line options
+\end{verbatim}
+%
+Since the cosmology fitting codes need the inverted matrix, the default
+behavior is to write only the inverted matrix. To reduce disk space,
+the output format is npz, and only the upper-triangular part. 
+For special tests or debugging, the total and syst-only cov matrices
+can also be written with command-line option ``{\tt --write\_mask\_cov 7};''
+the default npz format can be replaced with text using
+``{\tt write\_format\_cov text}.''
+
+
+% -----------------------------------------------
    \subsection{Interpreting Redshift Variables in SNANA Tables}
    \label{subsec:zdefine}
 % -----------------------------------------------

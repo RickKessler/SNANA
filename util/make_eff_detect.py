@@ -317,7 +317,7 @@ def read_table(ISTAGE, config):
     sys.stdout.flush()
 
     table_file_path = f"{OUTDIR}/{table_file}.gz"
-    df = pd.read_csv(table_file_path, comment="#", delim_whitespace=True)
+    df = pd.read_csv(table_file_path, comment="#", sep=r'\s+')
 
     # assign integer IDFIELD = 0, 1, 2, ... NFIELD_GROUP-1 to each row         
     NFIELD_GROUP = input_yaml['NFIELD_GROUP']

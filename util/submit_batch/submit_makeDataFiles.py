@@ -216,8 +216,7 @@ class MakeDataFiles(Program):
             dump_file  = f"{genversion}.DUMP"
             simgen_truth_file = os.path.expandvars(f"{inp}/{dump_file}")
             logging.info(f"\t Append {dump_file}")
-            df  = pd.read_csv(simgen_truth_file, 
-                              comment="#", delim_whitespace=True)
+            df  = pd.read_csv(simgen_truth_file, comment="#", sep=r'\s+')
             if len(df_all) == 0:
                 df_all = df
             else:

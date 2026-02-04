@@ -2442,7 +2442,7 @@ class LightCurveFit(Program):
             NOREJECT    = FITOPT_STRING_NOREJECT in label
             if NOREJECT : continue
 
-            df = pd.read_csv(FITRES_FILE, delim_whitespace=True, comment="#")
+            df = pd.read_csv(FITRES_FILE, comment="#", sep=r'\s+' )
             if combined is None:
                 combined = df.index
             else:

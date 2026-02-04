@@ -178,7 +178,7 @@ def read_single_flux_table(flux_table, wave_scale ):
     colname_fluxerr = 'fluxerr'
     colname_snr     = 'snr'
 
-    df = pd.read_csv(flux_table, comment="#", delim_whitespace=True)
+    df = pd.read_csv(flux_table, comment="#", sep=r'\s+')
     key_list = df.keys().to_list()
     
     found_wave    = colname_wave in key_list[0].lower()

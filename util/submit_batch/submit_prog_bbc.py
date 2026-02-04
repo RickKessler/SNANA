@@ -2462,8 +2462,7 @@ class BBC(Program):
         # multiple sims (e.g., LOWZ + HIGHZ) with random overlap CIDs
         # If there are duplicate CIDs, write out SURVEY and FIELD in
         # accept/reject file to break degeneracy
-        df_first  = pd.read_csv(first_fitres_file, 
-                                comment="#", delim_whitespace=True)
+        df_first  = pd.read_csv(first_fitres_file, comment="#", sep=r'\s+')
         first_cids  = df_first[TABLE_VARNAME_CID]
         first_cids_unique, counts = np.unique(first_cids,return_counts=True)
         n_dupl   = len(counts[counts>1])
@@ -2541,7 +2540,7 @@ class BBC(Program):
 
         for ff in fitres_list:
             FF       = f"{VOUT}/{ff}"
-            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
+            df       = pd.read_csv(FF, comment="#", sep=r'\s+')
             cid_list = np.concatenate((cid_list, df.CID.astype(str)))
 
             if not found_first_file: 
@@ -2607,7 +2606,7 @@ class BBC(Program):
 
         for ff in fitres_list:
             FF       = f"{VOUT}/{ff}"
-            df       = pd.read_csv(FF, comment="#", delim_whitespace=True)
+            df       = pd.read_csv(FF, comment="#", sep=r'\s+')
 
             if TABLE_VARNAME_IZBIN not in df: df[TABLE_VARNAME_IZBIN] = -9
 
@@ -2829,7 +2828,7 @@ class BBC(Program):
         SAMPLE_LIST   = [x.strip() for x in tmp_sample.split(',')]   # string list such as CSP or DES(X3)
         IDSAMPLE_LIST = [int(x) for x in tmp_idsample.split(',')]    # integer IDSAMPLE list
 
-        df  = pd.read_csv(reject_file, comment="#", delim_whitespace=True)
+        df  = pd.read_csv(reject_file, comment="#", sep=r'\s+')
         ntot = len(df)
         logging.info(f" Summarize reject stats for {version}") 
 

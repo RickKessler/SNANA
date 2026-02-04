@@ -68,9 +68,9 @@ def read_input_tables(args):
 
     for tf in tfile_local_list: 
         if '.gz' in tf:
-            df = pd.read_csv(tf, compression='gzip',sep='\s+',comment="#")
+            df = pd.read_csv(tf, compression='gzip',sep=r'\s+',comment="#")
         else:
-            df = pd.read_csv(tf, comment='#', delim_whitespace=True)
+            df = pd.read_csv(tf, comment='#', sep=r'\s+')
 
         # define unique cid (ucid) base on CID, IDSURVYE, FIELD
         df[COLNAME_UCID] = df.CID.astype(str) + "__" + df.IDSURVEY.astype(str) + "__" + \

@@ -97,7 +97,7 @@ def retrieve_values_from_dump(dump_row, dump_key):
     #if verbose == True:
     #    logging.info('Getting fitres values using command: %s ', command)
     #os.system(command) 
-    #df = pd.read_csv('out_simgen_resim.dump', comment='#', delim_whitespace=True)
+    #df = pd.read_csv('out_simgen_resim.dump', comment='#', sep=r'\s+')
     value = str(dump_row[dump_key].values[0])
     return(value)
 
@@ -298,7 +298,7 @@ def process_cid(cid,mjds,config_dic):
         logging.info('hostlib file: %s', hostlib_file)
 
     dump_file_path = find_dump_file(cid, simfolder)
-    dump_df = pd.read_csv(dump_file_path, comment='#', delim_whitespace=True)
+    dump_df = pd.read_csv(dump_file_path, comment='#', sep=r'\s+')
     dump_cid_row = dump_df.loc[dump_df['CID'] == int(cid)]
     #store z and peak_mjd
     zcmb = retrieve_values_from_dump(dump_cid_row,'ZCMB')

@@ -183,7 +183,7 @@ def compute_scaled_covpair(args, covinfo):
         sys.exit("\n ERROR: No FITOPT000 file found! Cannot obtain reference MU values.")
 
     # Load the reference file and extract MU for each CID/IDSURVEY pair (using the first matching row)
-    df_ref = pd.read_csv(ref_file, comment='#', sep='\s+')
+    df_ref = pd.read_csv(ref_file, comment='#', sep=r'\s+')
     df_ref[VARNAME_IDROW]  = df_ref[VARNAME_IDROW].astype(str)
 
     if has_idsurvey:    
@@ -233,7 +233,7 @@ def compute_scaled_covpair(args, covinfo):
         #print(f" xxx {fitres_base}  str={fitopt_str}  num={fitopt_num:2d}  scale={sys_scale}")  # .xyz
 
         # Load the current FITRES file into a DataFrame
-        df = pd.read_csv(fitres, comment='#', sep='\s+')
+        df = pd.read_csv(fitres, comment='#', sep=r'\s+')
         df[VARNAME_IDROW]    = df[VARNAME_IDROW].astype(str)
         if has_idsurvey:
             df[VARNAME_IDSURVEY] = df[VARNAME_IDSURVEY].astype(int)
@@ -359,7 +359,7 @@ def get_cov_from_create_covariance(args, covinfo):
     print(f"\n Find hubble diagram rows in \n {hd_file}")
     sys.stdout.flush()
 
-    df_hd = pd.read_csv(hd_file, comment='#', delim_whitespace=True)    
+    df_hd = pd.read_csv(hd_file, comment='#', sep=r'\s+')    
     df_hd[VARNAME_IDROW]    = df_hd[VARNAME_IDROW].astype(str).str.strip()
     if is_unbin:
         df_hd[VARNAME_IDSURVEY] = df_hd[VARNAME_IDSURVEY].astype(int)

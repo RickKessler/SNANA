@@ -384,7 +384,7 @@ def read_combined_table(table_file_string, stringid, clean):
     os.system(cmd)
 
     # read combined table into pandas data frame
-    df = pd.read_csv(combined_file, comment="#", delim_whitespace=True)
+    df = pd.read_csv(combined_file, comment="#", sep=r'\s+')
 
     # remove TEMP table file
     if clean:

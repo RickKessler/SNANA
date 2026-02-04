@@ -596,7 +596,7 @@ def load_hubble_diagram(hd_file, args, config):
         raise ValueError(f"Cannot load Hubble diagram data from {hd_file}" \
                          f" - it doesnt exist")
 
-    df = pd.read_csv(hd_file, delim_whitespace=True, comment="#")
+    df = pd.read_csv(hd_file, sep=r'\s+', comment="#")
     logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {hd_file}")
 
     
@@ -1246,7 +1246,7 @@ def get_covsys_from_covfile(data, covfile, scale):
         if ',' in line:
             covsep = ','    # allow reading older style with commas
         else:
-            covsep = '\s+'  # spaces are default delimeter as of 6/2025
+            covsep = r'\s+'  # spaces are default delimeter as of 6/2025
 
         break
     c.close()

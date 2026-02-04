@@ -23449,9 +23449,24 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + see https://github.com/RickKessler/SNANA/issues/1603
 
    snlc_fit.F90;
-     + in init_zPDF_spline(), set LZDONE=True when  BTEST(MASK,BIT_BESTZ_GAUSS)  is set
+     + in FITINI_PHOTOZ(), set LZDONE=True when  BTEST(MASK,BIT_BESTZ_GAUSS)  is set
        (i.e., precise bestz). Could be nasty bug fix when quantiles are mixed
        with zSPEC, but not clear yet.
 
+     + FITINI_PHOTOZ():
+        if zphot +_ 10*std is smaller than PHOTOZ_BOUND, make this BOUND more strict.  
+        This is for zPHOT fits with very precise zSPEC, in which MINUIT can settle 
+        in a region with PROB ~ 0 and not converge. 
+  
+     + for flat prior with Gauss roll off (shape and color), change CHI2 to CHI2*CHI2
+       to better suppress boundaries and avoid MINUIT falling into trap at boundary.
+       Hopefully avoids bad fits wasting ~1/2 minute.
+
+     + NBIN_PRIOR = 1000 -> 5000 for better resolution on fall-off at boundary.
+
+   python scripts:
+     Perlmutter with recent update to python v3.12 flagged lots of warnings
+     for delim_whitespace=True in read_csv command, so these have been
+     replaced with recommended sep=r'\s+'
 
 END: 

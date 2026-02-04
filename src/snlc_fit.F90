@@ -383,7 +383,7 @@
 ! define variables for prior on each fit variable.
 ! CHI2GRID_PRIOR is a grid storing chi2-values to add.
 
-    INTEGER, PARAMETER :: NBIN_PRIOR = 1000
+    INTEGER, PARAMETER :: NBIN_PRIOR = 5000   ! Feb 2026: 1000 -> 5000
 
     REAL*8  & 
          PRIOR_CHI2GRID(NBIN_PRIOR,IPAR_MAX)  & 
@@ -4660,6 +4660,13 @@
        CALL TABLE_DMPFCN(isn)
     ENDIF
 
+! xxxxxxxxxxxxxxxxxxxxxx
+!    print*,' xxx XVAL(t0,x1,c,d,z) = ', &
+!         SNGL(XVAL(3)), SNGL(XVAL(4)), SNGL(XVAL(6)), SNGL(XVAL(9)), SNGL(XVAL(8)), '  &
+!         CHI2=', SNGL(CHI2TOT)
+!    call flush(6)
+! xxxxxxxxxxxxxxxxxxxxx
+
     RETURN
   END SUBROUTINE FCNSNLC
 
@@ -4812,7 +4819,7 @@
 
 ! check for NANs
        LTMP = XVAL(ipar) .GE. INIBND(1,ipar)  & 
-          .and. XVAL(ipar) .LE. INIBND(2,ipar)
+        .and. XVAL(ipar) .LE. INIBND(2,ipar)
 
        if ( .NOT. LTMP ) then
           CHI2PRIOR(ipar) = 1.111E9
@@ -4906,8 +4913,9 @@
         endif
 
       else
-        pull   = PRIOR_ZPULL(ZSN)
-        CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
+         ! Gauss prior
+         pull   = PRIOR_ZPULL(ZSN)
+         CHI2PRIOR(IPAR_zPHOT) = CHI2_PRIOR(ipar_zPHOT,pull)
       endif
 
 
@@ -4923,13 +4931,11 @@
 
 ! -------------------------
 ! prior on shape
-    CHI2PRIOR(IPAR_SHAPE)  & 
-                = CHI2_PRIOR(IPAR_SHAPE,SHAPE(1))
+    CHI2PRIOR(IPAR_SHAPE) = CHI2_PRIOR(IPAR_SHAPE,SHAPE(1))
 
 ! prior on 2nd shape par
     IF ( NSHAPEPAR > 1 ) THEN
-      CHI2PRIOR(IPAR_SHAPE2)  & 
-                = CHI2_PRIOR(IPAR_SHAPE2,SHAPE(2))
+      CHI2PRIOR(IPAR_SHAPE2)  = CHI2_PRIOR(IPAR_SHAPE2,SHAPE(2))
     ENDIF
 
 
@@ -4937,9 +4943,14 @@
 ! prior on SALT2 color (Apr 2018)
 
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
-      CHI2PRIOR(IPAR_COLOR)  & 
-                = CHI2_PRIOR(IPAR_COLOR,COLOR)
+      CHI2PRIOR(IPAR_COLOR)  = CHI2_PRIOR(IPAR_COLOR,COLOR)
     ENDIF
+
+    ! xxxxxxxxxx mark delete
+    !print*,' xxx x1,c=', sngl(SHAPE(1)), sngl(color), &
+    !       '  chi2_prior=', sngl(CHI2PRIOR(IPAR_SHAPE)), sngl(CHI2PRIOR(IPAR_COLOR))
+    !call flush(6)
+    ! xxxxxxxxxx 
 
 ! =================================================
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) GOTO 888 ! restore 6/19/23
@@ -4947,11 +4958,8 @@
 
 ! Prior on AV
     IF ( INISTP_AV .NE. 0.0 ) then
-      CHI2PRIOR(IPAR_AV)  & 
-                = CHI2_PRIOR(ipar_av,COLOR)
-
-      CHI2PRIOR(IPAR_RV)  & 
-                = CHI2_PRIOR(ipar_rv,XVAL(IPAR_RV) )
+      CHI2PRIOR(IPAR_AV)  = CHI2_PRIOR(ipar_av,COLOR)
+      CHI2PRIOR(IPAR_RV)  = CHI2_PRIOR(ipar_rv,XVAL(IPAR_RV) )
     ENDIF
 
 
@@ -7014,7 +7022,7 @@
 
     PRIOR_COLOR_RANGE(1) = -9.0
     PRIOR_COLOR_RANGE(2) = +9.0
-    PRIOR_COLOR_SIGMA    =  0.01  ! Gauss roll-off at edges of flat prior
+    PRIOR_COLOR_SIGMA    =  0.01  ! Gauss roll-off at edges of flat prior 
 
 ! Aug 17 2015: from snlc_sim.defaults since this is no longer read
     PRIOR_DELTA_PROFILE(1) =  0.23  ! sigma(low)
@@ -8382,6 +8390,7 @@
     INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
     LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
     REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
+    REAL*8 ztmp_min, ztmp_max
     REAL   t_start, t_end
     LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC,  LDMP_REFAC
     CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
@@ -8402,7 +8411,7 @@
 
 ! --------------- BEGIN -----------------
 
-    LEGACY = (DEBUG_FLAG == -202)  ! undo Feb 2 2026 fix below
+    LEGACY = (DEBUG_FLAG == -202)  ! undo Feb 2 2026 fix below 
 
     IERR = 0
     FNAM = 'FITINI_PHOTOZ'
@@ -8440,7 +8449,6 @@
     INIBND(1,ipar)  =  ZMIN
     INIBND(2,ipar)  =  ZMAX
 
-
 ! continue processing only on 1st fit iteration,
     IF ( LREPEAT_ITER  ) RETURN
     IF ( ITER > 1      ) RETURN
@@ -8472,6 +8480,7 @@
       INIVAL(ipar) = SNLC_REDSHIFT
       STD          = SNLC_REDSHIFT_ERR
       CZTMP        = 'zBEST-Gauss'
+
 
       if ( .NOT. LEGACY) THEN
           LZDONE       = .TRUE.  ! Feb 2 2026 fix
@@ -8631,6 +8640,16 @@
 550      format('Fixed INISTP_PHOTOZ = ', F6.4)
 	 if(LPRINT) CALL PRINT_ITERINFO(SNLC_CCID,ITER,BANNER)
     endif
+
+! - - - - - - - - - 
+! Feb 2 2026: if zphot +_ 10*std is smaller than INIBID, make INIBND more strict.
+!   This is for zPHOT fits with very precise zSPEC, in which MINUIT can settle
+!   in a region with PROB ~ 0 and not converge.
+
+    ZTMP_MIN = INIVAL(IPAR_ZPHOT) - 10*STD
+    ZTMP_MAX = INIVAL(IPAR_ZPHOT) + 10*STD
+    if ( ZTMP_MIN > INIBND(1,IPAR_ZPHOT) )  INIBND(1,IPAR_ZPHOT) = ZTMP_MIN
+    if ( ZTMP_MAX < INIBND(2,IPAR_ZPHOT) )  INIBND(2,IPAR_ZPHOT) = ZTMP_MAX
 
 ! - - - -
     if(LPRINT) CALL PRINT_INIPAR_ZPHOT('eval', INIVAL, chi2)
@@ -11761,7 +11780,10 @@
 ! Oct 21 2021: allow PRIOR_COLOR_RANGE to apply to SNooPy model
 ! Jun 19 2023: check BAYESN model
 ! Jan 19 2024: check IPAR_SHAPE2
-! 
+! Feb 03 2026: 
+!      + protect |arg| of DEXP to be < 700
+!      + CHI2 -> CHI2*CHI2 to further surpress boundaries
+!
 ! ------------------------
 
 
@@ -11879,9 +11901,10 @@
 ! define range as defined range +- 10 sigmas.
 
     tmp = 10. * SIGMA
-
+    if ( tmp < 2.0 ) tmp = 2.0   ! Feb 2026 : avoid prior truncation for c,x1
     PRIOR_RANGE(1,IPAR) = RANGE(1) - tmp
     PRIOR_RANGE(2,IPAR) = RANGE(2) + tmp
+
 
     IF ( LFLAT ) THEN
       FLATPRIOR_RANGE(1,IPAR) = RANGE(1)
@@ -11895,7 +11918,6 @@
     PRIOR_BINSIZE(ipar) = VAR_binsize
 
     SQSIG   = SIGMA * SIGMA
-    PROBMIN = DEXP(DBLE(-700.0))  ! ~ 10^{-305}
 
     DO 50 IVAR   = 1, NBIN_PRIOR
        XVAR   = float(IVAR)
@@ -11907,15 +11929,18 @@
        IF ( LLO ) THEN
          DIF   = VAR - RANGE(1)
          SQDIF = DIF * DIF
-         ARG   = 0.5 * SQDIF / SQSIG
+         CHI2  = SQDIF / SQSIG
+         ARG   = MIN(700.0, 0.5 * CHI2)  ! protect NaN for DEXP
          PROB  = DEXP(-arg)
-         CHI2  = -2.0 * DLOG(prob)
+         !xxx mark CHI2  = -2.0 * DLOG(prob)
        ELSE IF ( LHI ) THEN
          DIF   = VAR - RANGE(2)
          SQDIF = DIF * DIF
-         ARG   = 0.5 * SQDIF / SQSIG
+         CHI2  = SQDIF / SQSIG
+         ARG   = MIN(700.0, 0.5 * CHI2)  ! protect NaN for DEXP
          PROB  = DEXP(-arg)
-         CHI2  = -2.0 * DLOG(prob)
+         !xxx mark CHI2  = -2.0 * DLOG(prob)
+
        ELSE
          CHI2  = DBLE(0.0)
          PROB  = DBLE(1.0)
@@ -11924,10 +11949,8 @@
 ! needed in CHI2_PRIOR to avoid discontinuity
 
          if ( LFLAT ) then
-           FLATPRIOR_BINRANGE(1,IPAR) =  & 
-               MIN ( IVAR, FLATPRIOR_BINRANGE(1,IPAR) )
-           FLATPRIOR_BINRANGE(2,IPAR) =  & 
-               MAX ( IVAR, FLATPRIOR_BINRANGE(2,IPAR) )
+           FLATPRIOR_BINRANGE(1,IPAR) =  MIN ( IVAR, FLATPRIOR_BINRANGE(1,IPAR) )
+           FLATPRIOR_BINRANGE(2,IPAR) =  MAX ( IVAR, FLATPRIOR_BINRANGE(2,IPAR) )
          endif
 
        ENDIF
@@ -11951,10 +11974,8 @@
          CHI2 = CHI2 - 2.0 * DLOG(PTMP)
        ENDIF
 
-       PROB = MAX( PROB, PROBMIN )
-
        PRIOR_VALGRID(IVAR,ipar)  = VAR
-       PRIOR_CHI2GRID(IVAR,IPAR) = CHI2
+       PRIOR_CHI2GRID(IVAR,IPAR) = CHI2 * CHI2 
        PRIOR_PROBGRID(IVAR,IPAR) = PROB
 50    CONTINUE
 
@@ -12255,7 +12276,6 @@
 !       and get rid of very old/obscure interpolcation code.
 ! 
 ! ------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT

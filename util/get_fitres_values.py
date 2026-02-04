@@ -251,13 +251,13 @@ def read_fitres_file(info_fitres, reformat_option):
     var_list_local =  [ keyname_id ] + var_list
     # - - - - 
     if info_fitres['nrow'] > 0:
-        df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
+        df  = pd.read_csv(ff, comment="#", sep=r'\s+', 
                           skiprows=nrow_skip, dtype=str,
                           usecols=var_list_local,                          
                           nrows = info_fitres['nrow'])
 
     else:
-        df  = pd.read_csv(ff, comment="#", delim_whitespace=True, 
+        df  = pd.read_csv(ff, comment="#", sep=r'\s+', 
                           skiprows = nrow_skip, dtype=str,
                           usecols  = var_list_local)
     # - - - - - -

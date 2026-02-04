@@ -399,7 +399,7 @@ def translate_simgen_dump_file(args):
     x1ERR  = 0.0001/0.14
     IDSURVEY = 1  # anything in SURVEY.DEF file
 
-    df  = pd.read_csv(simgen_dump_file, comment="#", delim_whitespace=True)
+    df  = pd.read_csv(simgen_dump_file, comment="#", sep=r'\s+')
     df["CID"] = df["CID"].astype(str)
 
     FOUND_SIM_mB       = ("SIM_mB" in df)
@@ -673,7 +673,7 @@ def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional, args)
         msgerr = f"Could not find combined fitres file: {combine_fitres_file}"
         assert False, msgerr
 
-    df  = pd.read_csv(combine_fitres_file, comment="#", delim_whitespace=True)
+    df  = pd.read_csv(combine_fitres_file, comment="#", sep=r'\s+')
     df["CID"] = df["CID"].astype(str)
 
     if args.idsurvey :
@@ -891,7 +891,7 @@ def rewrite_cov_file(args):
     print(f"Input cov matrix file: {cov_file}")
     print(f"rewrite cov matrix to: {out_cov_file}")
 
-    c     = pd.read_csv(data,compression='gzip',sep='\s+',comment="#")
+    c     = pd.read_csv(data,compression='gzip',sep=r'\s+',comment="#")
     c0    = np.array(c); 
     shape = int(np.sqrt(np.shape(c)[0]))
     c1    = np.reshape(c0,(-1,shape));
@@ -928,7 +928,7 @@ def rewrite_cov_file(args):
     cov_m = pd.concat([cov_m,comments],    axis=1)
     #print(cov_m)
 
-    cov_m.to_csv(out_cov_file, sep='\t', encoding='utf-8',
+    cov_m.to_csv(out_cov_file, sep=r'\t', encoding='utf-8',
                  header=True, index=False, compression='gzip')
 
     return 
@@ -941,7 +941,7 @@ def find_duplicates(args) :
     # define possible ID keys for table
     COLNAME_ID_LIST = [ 'ROW', 'CID', 'GAL' ]
 
-    df  = pd.read_csv(table_file, comment="#", delim_whitespace=True)
+    df  = pd.read_csv(table_file, comment="#", sep=r'\s+')
     column_names = df.columns.tolist()
     colname_id   = None
 

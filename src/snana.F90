@@ -9367,8 +9367,8 @@
 #endif
 
 
-42    format(T8,'Analyze ISN_PROC=',I8, 2x,  & 
-          'for ',A14,'  NMJD(stored,cuts)=', I4, '->', I4 )
+42    format(T8,'Analyze ISN=',I8, 2x,  & 
+          'for CID=',A14,' NOBS(store,cuts)=', I4, '->', I4 )
     CALL FLUSH(6)
 
 

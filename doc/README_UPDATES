@@ -23477,4 +23477,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      replaced with recommended sep=r'\s+'
 
 
+# =============================================================
+         v12_01c (Feb 04 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01c) *****
+
+    create_covariance.py: for writing npz files, use savez instread of savez_compressed
+      See https://github.com/RickKessler/SNANA/issues/1607 and
+          https://github.com/RickKessler/SNANA/issues/1605
+
+         *****  USEFUL(v12_01c) *****
+
+         *****  MISCELLANEOUS(v12_01c) *****
+
+
 END: 

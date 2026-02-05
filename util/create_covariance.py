@@ -2229,11 +2229,23 @@ def write_covariance_npz(path, cov):
 
     detcov_test(path,cov)
 
-    np.savez_compressed(
-        path_no_ext,
-        nsn = [len(cov)],
-        cov = cov[np.triu_indices_from(cov)].astype(np.float32),
-        allow_pickle = False)
+    cov_triu = cov[np.triu_indices_from(cov)].astype(np.float32)
+    npz_arg_dict = {
+        'nsn' :  [len(cov)],
+        'cov' :  cov_triu,
+        'allow_pickle' : False
+    }
+
+    # Feb 4 2026: no longer compress npz output because wfit C code can't read it
+    np.savez(path_no_ext, **npz_arg_dict) 
+
+    # xxxxxxx mark delete: wfit C code can no longer read compressed npz xxxxxxx
+    #np.savez_compressed(
+    #    path_no_ext,
+    #    nsn = [len(cov)],
+    #    cov = cov[np.triu_indices_from(cov)].astype(np.float32),
+    #    allow_pickle = False )
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
     t_write = time.time() - t0
     return t_write

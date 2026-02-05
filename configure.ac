@@ -14,9 +14,11 @@ AC_SUBST([UTIL_DIR])
 
 dnl setting up gfortran and gcc
 AC_PROG_CC([gcc])
-AC_PROG_FC([gfortran])
 AC_PROG_F77([gfortran])
-AC_F77_LIBRARY_LDFLAGS
+AC_PROG_FC([gfortran])
+
+AC_FC_LIBRARY_LDFLAGS
+
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
 

@@ -7811,6 +7811,8 @@ void  prep_GENPDF_FLAT(void) {
   //   -> x1 PDF is flat from -4 to +4
   //   -> c PDF is flat from -0.4 to +0.6
   //   -> RV PDF is flat from 1 to 5
+  //
+  // Feb 5 2026: fix bug where only ptrRange[0] was allocated
 
   int  NVAR, NDUM, ivar;
   char *ptrStringVar[MXVAR_GENPDF], stringVar[40], stringOpt[40] ;
@@ -7831,7 +7833,8 @@ void  prep_GENPDF_FLAT(void) {
   for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) 
     { ptrStringVar[ivar] = (char*) malloc( MEMC ); }
 
-  ptrRange[0] = (char*) malloc(MEMC);
+  ptrRange[0] = (char*) malloc(MEMC) ;
+  ptrRange[1] = (char*) malloc(MEMC) ; // bug fix, Feb 5 2026
 
   splitString(GENPDF->VARLIST_FLAT, COMMA, fnam, MXVAR_GENPDF, 
 	      &NVAR, ptrStringVar);  // <== output

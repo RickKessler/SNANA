@@ -14,12 +14,14 @@ clean-local:
 
 
 if BIT64
-MYFFLAGS = -c -static -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS) 
+#MYFCFLAGS = -c -static -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS) 
+# HMK -static is an option in Makefile.legacy
+MYFCFLAGS = -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS) 
 MYLDFLAGS = -m64 $(PROFILEFLAG)
 MYCFLAGS = -m64 $(EXTRA_FLAGS) -fcommon
 else
 # doubt we'll ever need 32 bit, but just in case will likely need to hack this
-MYFFLAGS = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS)
+MYFCLAGS = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS)
 MYCFLAGS = -static -m64 $(EXTRA_FLAGS) 
 MYLDFLAGS = -m64 -lgfortran -lpthread $(PROFILEFLAG)
 endif
@@ -32,14 +34,15 @@ ROOTLIBS =
 IROOT = 
 endif
 
-AM_FFLAGS = $(MYFFLAGS)
+#AM_FFLAGS = $(MYFFLAGS)
+AM_FCFLAGS = $(MYFCFLAGS)
 AM_CFLAGS = $(MYCFLAGS)
 AM_LDFLAGS = $(MYLDFLAGS)
 
 # tack on flag to provide git version to C/fortran codes
 AM_CFLAGS += -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
 
-bin_PROGRAMS = snana.exe sntable_dump.exe sntable_combine.exe combine_fitres.exe SALT2mu.exe wfit.exe kcor.exe snlc_sim.exe SIMSED_fudge.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe unfold_snpar.exe snlc_fit.exe psnid.exe
+bin_PROGRAMS = snana.exe sntable_dump.exe sntable_combine.exe combine_fitres.exe SALT2mu.exe wfit.exe kcor.exe snlc_sim.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe unfold_snpar.exe snlc_fit.exe psnid.exe
 
 sntable_dump_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
@@ -57,10 +60,10 @@ snlc_sim_exe_CFLAGS = $(AM_CFLAGS) @PYTHON_INCLUDES@
 
 snlc_fit_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS) $(FCLIBS)
 
+snlc_fit_exe_FCFLAGS = -DSNFIT -DMINUIT $(AM_FCFLAGS)
+
 snlc_fit_exe_LINK = $(FC) -o snlc_fit.exe
 
-
-SIMSED_fudge_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
 SIMSED_extractSpec_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
@@ -77,12 +80,17 @@ snana_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lstdc++ $(ROOTLIB
 
 psnid_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lstdc++ $(ROOTLIBS) $(FCLIBS)
 
+psnid_exe_FCFLAGS = -DPSNID $(AM_FCFLAGS)
+
 SALT2mu_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS) $(FCLIBS)
 
 # Need to force automake to use gfortran as the linker
 SALT2mu_LINK = $(FC) -o SALT2mu.exe
 
-snana_exe_LINK = $(FC) -o snana.exe
+#snana_exe_LINK = $(FC) -o snana.exe
+snana_exe_LINK = $(FCLINK) 
+
+snana_exe_FCFLAGS = -DSNANA -DMINUIT $(AM_FCFLAGS)
 
 psnid_exe_LINK = $(FC) -o psnid.exe
 
@@ -114,7 +122,6 @@ SALT2mu_exe_SOURCES = SALT2mu.c sntools.c sntools_output.cpp sntools_gridmap.c s
 
 sntools_data_SRC = sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_output.cpp sntools_cosmology.c
 
-SIMSED_fudge_exe_SOURCES = SIMSED_fudge.c genmag_SIMSED.c sntools.c sntools_genSmear.c genmag_SEDtools.c genmag_SALT2.c genmag_extrap.c sntools_devel.c sntools_wgtmap.c sntools_gridmap.c MWgaldust.c $(sntools_data_SRC)
 
 SIMSED_extractSpec_exe_SOURCES = SIMSED_extractSpec.c genmag_SEDtools.c sntools.c sntools_output.cpp sntools_cosmology.c MWgaldust.c sntools_wgtmap.c sntools_gridmap.c
 
@@ -126,7 +133,7 @@ simlib_coadd_exe_SOURCES = simlib_coadd.c MWgaldust.c sntools.c sntools_output.c
 
 unfold_snpar_exe_SOURCES = unfold_snpar.c sntools.c sntools_output.cpp 
 
-SNTOOLS_SNANA_SRC = sntools.c sntools_gridmap.c sntools_nonlinearity.c sntools_fluxErrModels.c sntools_fluxErrModels_legacy.c sntools_simeff_obsolete.c sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_modelgrid_read.c sntools_calib.c sntools_output.cpp yaml.c MWgaldust.c sntools_cosmology.c multiseason.c
+SNTOOLS_SNANA_SRC = sntools.c sntools_gridmap.c sntools_nonlinearity.c sntools_fluxErrModels.c sntools_fluxErrModels_legacy.c sntools_simeff_obsolete.c sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_zPDF_spline.c sntools_modelgrid_read.c sntools_calib.c sntools_output.cpp yaml.c MWgaldust.c sntools_cosmology.c multiseason.c
 
 
 snlc_fit_exe_SOURCES = snlc_fit.F90 $(sntools_snana_SRC) sntools_genSmear.c sntools_devel.c sntools_zPDF_spline.c minuit.F $(genmag_fit_SRC)

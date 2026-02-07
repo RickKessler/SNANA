@@ -20,8 +20,11 @@ If 'git pull' results in  "detected dubious ownership" error on a compute cluste
 Using Autotools to build:
 autoreconf -fi   # -f=force -i = install
 ./configure
+
+cd src
 make             # builds all
 make install     # installs all *.exe in bin directory
+make build-install # builds and installs all in bin directory in one command
 
 to build one executable:
 cd src

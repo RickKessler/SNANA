@@ -34,7 +34,6 @@ ROOTLIBS =
 IROOT = 
 endif
 
-#AM_FFLAGS = $(MYFFLAGS)
 AM_FCFLAGS = $(MYFCFLAGS)
 AM_CFLAGS = $(MYCFLAGS)
 AM_LDFLAGS = $(MYLDFLAGS)
@@ -87,7 +86,6 @@ SALT2mu_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -l
 # Need to force automake to use gfortran as the linker
 SALT2mu_LINK = $(FC) -o SALT2mu.exe
 
-#snana_exe_LINK = $(FC) -o snana.exe
 snana_exe_LINK = $(FCLINK) 
 
 snana_exe_FCFLAGS = -DSNANA -DMINUIT $(AM_FCFLAGS)
@@ -116,8 +114,6 @@ genmag_sim_SRC = genmag_NON1ASED.c genmag_NON1AGRID.c genmag_LCLIB.c genmag_PySE
 
 snlc_sim_exe_SOURCES = snlc_sim.c $(sntools_snana_SRC) sntools_host.c sntools_wgtmap.c sntools_weaklens.c sntools_stronglens.c sntools_wronghost.c sntools_genSmear.c sntools_devel.c sntools_sim_readme.c sntools_sim_atmosphere.c sntools_trigger.c sntools_modelgrid_gen.c sntools_spectrograph.c sntools_genPDF.c sntools_genGauss_asym.c sntools_genExpHalfGauss.c inoue_igm.c $(genmag_sim_SRC)
 
-#snlc_fit_exe_SOURCES = snlc_fit.$(ff) $(sntools_snana_SRC) sntools_genSmear.c sntools_devel.c sntools_zPDF_spline.c minuit.F $(genmag_fit_SRC)
-
 SALT2mu_exe_SOURCES = SALT2mu.c sntools.c sntools_output.cpp sntools_gridmap.c sntools_genGauss_asym.c minuit.F sntools_genExpHalfGauss.c
 
 sntools_data_SRC = sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_output.cpp sntools_cosmology.c
@@ -145,4 +141,7 @@ psnid_exe_SOURCES = psnid.F90 $(SNTOOLS_SNANA_SRC) psnid_tools.c psnid_BEST.c ps
 BUILT_SOURCES =
 EXTRA_DIST =
 CLEANFILES =
+
+.PHONY: build-install
+build-install: all install
 

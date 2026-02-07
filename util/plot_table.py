@@ -30,10 +30,14 @@
 # Dec 19 2025:
 #   +  allow ID column to be anywhwere; no longer has to be first column
 #   +  allow plotting x:stddev(y) to plot stddev(y) vs x
+#
+# Feb 06 2026: enable plotting strings by replacing with integers; see object_labels
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from   matplotlib import colors
 
@@ -1521,9 +1525,10 @@ def set_axis_labels(args, plot_info):
 
     # - - - - - - 
     axis_dict['xaxis_label']  = xlabel
-    axis_dict['yaxis_label']  = ylabel            
+    axis_dict['yaxis_label']  = ylabel  
+
     plot_info.axis_dict_list[0]    = axis_dict
-    
+
     return  # end set_axis_labels
 
 def more_human_readable(label_orig):
@@ -1601,7 +1606,6 @@ def set_custom_bounds_dict(args,plot_info):
         if abin > 0.0:
             epsilon   = (amax-amin) * 1.0e-8
             nbin_float = (amax-amin+epsilon)/abin        # axis nbin
-            # xxx mark nbin_float = (amax-amin+1.0e-8)/abin        # axis nbin BUG
         else:
             nbin_float = 0.0
             nbin = 0  # allowed for y-axis if not used
@@ -1741,6 +1745,7 @@ def read_tables(args, plot_info):
         nrow        = len(df)
         nrow_tot   += nrow
         name_legend = legend
+        axis_list = []
 
         logging.info(f"\t Read nrow={nrow}  for {name_legend}")
 
@@ -1765,30 +1770,46 @@ def read_tables(args, plot_info):
 
             xmin = np.amin(df['x_plot_val'])
             xmax = np.amax(df['x_plot_val'])
+            dtype_x = str(df['x_plot_val'].dtype) 
+            axis_list.append('x')
+
             logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}") 
             if varname_xerr is not None:
                 MASTER_DF_DICT[key]['df'].loc[:,'x_plot_err'] = eval(varname_xerr)
-            
+
             if args.NDIM == 2:
                 MASTER_DF_DICT[key]['df'].loc[:,'y_plot_val'] = eval(varname_y)
                 ymin = np.amin(df['y_plot_val'])
                 ymax = np.amax(df['y_plot_val'])
+                dtype_y = str(df['y_plot_val'].dtype)  # Feb 6 2026
+                axis_list.append('y')
                 logging.info(f"\t y-axis({varname_nodf_y}) range : {ymin} to {ymax}")  
                 if varname_yerr is not None:
                     MASTER_DF_DICT[key]['df'].loc[:,'y_plot_err'] = eval(varname_yerr)
             else:
                 ymin = None
                 ymax = None
-            
+                dtype_y = None
+
         except AttributeError:
             sys.exit(f"\n ERROR: Couldn't set bounds for axis_dict={axis_dict} and {tfile}")
 
         # store min and max for each variable to plot
-        table_bounds_key_list = [ 'xmin', 'xmax', 'ymin', 'ymax' ]
-        table_bounds_val_list = [  xmin,   xmax,   ymin,   ymax  ]
+        table_bounds_key_list = [ 'xmin', 'xmax', 'ymin', 'ymax', 'dtype_x', 'dtype_y' ]
+        table_bounds_val_list = [  xmin,   xmax,   ymin,   ymax,   dtype_x,   dtype_y  ]
         for tmp_key, tmp_val in zip(table_bounds_key_list, table_bounds_val_list):
             MASTER_DF_DICT[key][tmp_key] = tmp_val
-    
+
+    # - - - - - - - - -
+    # Feb 2026: for strings (dtype=object, manually convert to integers and update xmin, xmax)
+    #  This prep must be done after ALL tables are read because later tables may contain
+    #  strings not in the earlier tables. E.g., if first table contains 'A' and 'Q' strings,
+    #  it cannot be converted to integer list if later table has 'A', 'B', 'C'. 
+    object_labels_dict = {}
+    for i, which_axis in enumerate(axis_list) :
+        object_labels, args.BOUNDS = prep_object_axis(which_axis, MASTER_DF_DICT, args.BOUNDS )
+        object_labels_dict[which_axis] = object_labels
+
     # - - - - - - - -
     logging.info("Finished loading all table files.")
     logging.info("# - - - - - - - - - - ")
@@ -1798,10 +1819,92 @@ def read_tables(args, plot_info):
         sys.exit('\n\t ABORT')
             
     # load output namespace
-    plot_info.MASTER_DF_DICT = MASTER_DF_DICT
-    
+    plot_info.MASTER_DF_DICT     = MASTER_DF_DICT
+    plot_info.object_labels_dict = object_labels_dict  # pass info for plotting strings (None for float)
+
     return
     # end read_tables
+
+
+def prep_object_axis(which_axis, MASTER_DF_DICT, BOUNDS ):
+
+    # Created Feb 6 2026 by R.Kessler
+    # which_axis = 'x' or 'y'
+    # Replace string values with integers 0 to N_unique_strings,
+    # and update min/max ranges accordingly.
+    # Input MASTER_DF_DICT is modified !!!
+
+    varname = which_axis + '_plot_val'  # col name to modify in table(s)
+
+    unique_values = []
+    for key_tf  in MASTER_DF_DICT:
+        dtype = MASTER_DF_DICT[key_tf]['dtype_' + which_axis]
+        if dtype == 'object' :
+            df    = MASTER_DF_DICT[key_tf]['df']
+            unique_values += df[varname].unique().tolist()
+           
+    if len(unique_values) == 0 : return None, BOUNDS
+
+    logging.info('')
+    logging.info(f"Prepare {which_axis}-axis for strings")
+
+    # - - - - - - -
+    # get unique string list among all of the tables
+    unique_values = sorted(list(set(unique_values)))
+    n_unique      = len(unique_values)
+    axis_values   = [ i+0.5 for i in range(0,n_unique) ]
+
+    object_to_int_dict = {}
+    for i, u in enumerate(unique_values):
+        object_to_int_dict[u] = i
+
+    logging.info(f"\t object_to_int replacement:  {object_to_int_dict}")
+
+    # for each row in each table, replace string with corresponding integer value
+    for key_tf  in MASTER_DF_DICT:
+        df = MASTER_DF_DICT[key_tf]['df']
+        df[varname] = df[varname].replace(object_to_int_dict)
+
+        # update main dictionary for plotting as if original table has int values
+        MASTER_DF_DICT[key_tf]['df'] = df
+        MASTER_DF_DICT[key_tf][which_axis + 'min'] = 0
+        MASTER_DF_DICT[key_tf][which_axis + 'max'] = n_unique
+
+        # add new dictionary element with labels for plotting 
+        MASTER_DF_DICT[key_tf][which_axis + '_object_labels' ] = unique_values
+
+
+    # - - - - - -
+    # force args.BOUNDS to match number of strings, but be careful in 2D plots to preserve
+    # user bounds for float axis and only modify the string axis.
+    # Also beware that y-axis change can only be done if user specifies x-axis bounds;
+    # passing only y-axis bounds is not allowed
+    # Logic here is a bit nasty
+
+    BOUNDS_orig = BOUNDS
+    
+    new_bounds  = f'0 {n_unique} 1'  
+    ndim  = 1  # dimention of user bounds, not dimension of plot
+    if BOUNDS: ndim = len(BOUNDS.split(COLON))
+
+    if ndim == 1 and which_axis == 'x' :
+        BOUNDS  = new_bounds  # trivial case of replacing None with  new bounds
+
+    if ndim == 1 and which_axis == 'y' :
+        pass   # can't do anything here, otherwise code crashed later
+
+    if ndim == 2 :
+        B_SPLIT = BOUNDS.split(COLON)
+        new_bounds_dict = { 'x': new_bounds + COLON + B_SPLIT[1], 'y': B_SPLIT[0] + COLON + new_bounds }
+        BOUNDS = new_bounds_dict[which_axis]
+
+    if BOUNDS != BOUNDS_orig:
+        logging.info(f"\t update BOUNDS = {BOUNDS_orig}  -->  {BOUNDS}")
+ 
+    logging.info('')
+    return (unique_values, axis_values), BOUNDS  # list of strings,  list of integers
+
+    # end of prep_object_axis
 
 def set_xbins(args, plot_info):
 
@@ -1820,7 +1923,7 @@ def set_xbins(args, plot_info):
 
     else:
         # fetch xmin/maxfrom the data that was read in read_tables()
-        # Make sure get min/max among all variables plotted
+        # Make sure get min/max among all tables
         xmin =  1.0E20
         xmax = -1.0e20
         for key_tf  in MASTER_DF_DICT:
@@ -2378,6 +2481,8 @@ def get_info_plot1d(args, info_plot_dict):
     sig_nmad    = get_sig_nmad(x_val_list, w_val_list) 
     frac_outlier= get_frac_outlier(x_val_list, args.OUTLIER_RANGE)
 
+    #sys.exit(f"\n xxx x_val_list = \n{x_val_list}") # xxx REMOVE
+
     stat_dict = {  # value        add legend    format
         STAT_NAME_N       : [ int(nevt),  do_nevt,
                               stat_format(STAT_NAME_N,nevt)         ],
@@ -2880,7 +2985,8 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
     # Created July 21 2024 by R.Kessler
     # wrapper for lots of plt. calls that are repeated several times.
-    
+    # Feb 6 2026; check for strings to plot; show object_values
+
     OPT          = args.OPT    
     do_logy      = OPT_LOGY      in OPT
     do_grid      = OPT_GRID      in OPT
@@ -2888,11 +2994,15 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     
     bounds_dict   = plot_info.bounds_dict
     axis_dict     = plot_info.axis_dict_list[0] # ?? fragile?
+
+    object_labels_dict = plot_info.object_labels_dict  # for strings only (Feb 2026)
     
     custom_bounds = bounds_dict['custom']
     xmin          = bounds_dict['xmin']
     xmax          = bounds_dict['xmax']
     set_ylim      = axis_dict['set_ylim']
+
+
     
     if do_logy:
         plt.yscale("log")
@@ -2935,6 +3045,17 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
         plt.xticks(np.arange(xmin, xmax, step=0.05)) 
         plt.yticks(np.arange(ymin, ymax, step=0.10)) 
     
+    
+    if object_labels_dict['x'] is not None:
+        object_values = object_labels_dict['x'][0]  # string label per x-axis value
+        axis_values   = object_labels_dict['x'][1]  # integer list of axis values
+        plt.xticks( axis_values , object_values, rotation=55 )
+
+    if object_labels_dict.setdefault('y',None) :
+        object_values = object_labels_dict['y'][0]  # string label per x-axis value
+        axis_values   = object_labels_dict['y'][1]  # integer list of axis values
+        plt.yticks( axis_values , object_values )
+
     # - - - - -
     fsize_legend   = 10 * args.FONTSIZE_SCALE
     fsize_legend   = hack_value('fsize_legend', fsize_legend, args)
@@ -3177,8 +3298,11 @@ if __name__ == "__main__":
 
     setup_logging()
     logging.info("# ========== BEGIN plot_table.py  ===============")
+    logging.info(f"matliblib version: {matplotlib.__version__}")
+    logging.info('')
     logging.info(f"Full command: {' '.join(sys.argv)}")
-    
+    logging.info('')
+
     args = get_args()
                               
     # prepare input args
@@ -3194,13 +3318,15 @@ if __name__ == "__main__":
     for var in  args.var_list: 
         set_axis_dict(args, plot_info, var)
 
+    read_tables(args, plot_info)  # read each input file and store data frames (before custom bounds)
+
     # set custom bounds if user passes @@BOUNDS
     set_custom_bounds_dict(args,plot_info)
 
     # set args for hist2d if 2d histogram is requested
     set_hist2d_args(args, plot_info)
 
-    read_tables(args, plot_info)  # read each input file and store data frames
+    # xxx mark read_tables(args, plot_info)  # read each input file and store data frames
 
     # set x bins based on custom bounds or auto bounds
     set_xbins(args, plot_info)

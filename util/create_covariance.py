@@ -2637,16 +2637,6 @@ def create_covariance(config, args):
         muopt_scales[n_scale_last+0] = ( label, scale )
         extracovdict[label]          = ( n_scale_last, sys_file )
 
-    # xxxxxxxxx mark delete Nov 21 2025 xxxxxxxxx
-    #for extra in extra_covs:
-    #    label = extra.split()[0]
-    #    scale = float(extra.split()[1])
-    #    muopt_scales[len(muopt_scales)e] = ( label, scale )
-    #    extracovdict[label] = sys_file
-    #    # xxx mark delete muopt_scales[extra.split()[0]] = extra.split()[1] 
-    # xxxxxxxxx end mark xxxxxxxxxxxx
-
-
     if debug_dump:
         sys.exit(f"\n 1 xxx muopt_scales = \n{muopt_scales}\n")
 

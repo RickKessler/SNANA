@@ -23494,4 +23494,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + fix malloc bug in function prep_GENPDF_FLAT(); 
            see https://github.com/RickKessler/SNANA/issues/1606
 
+     plot_table.py
+       + enable plotting strings (e.g., FIELD or SURVEY) and print string
+         label under each tick mark. Works for 1D or 2D plots.
+
 END: 

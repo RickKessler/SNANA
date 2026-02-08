@@ -1007,7 +1007,7 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 22; // Sep 12 2022 write SCALE_HOST_CONTAM
   //  SNFITSIO_CODE_IVERSION = 23; // Jul 14 2023: include dRA,dDEC,dMAG for DCR
   //  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
-  //   SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
+  //  SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
   //  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
 
   SNFITSIO_CODE_IVERSION = 27; // Jul 23 2025  write/read ZP_FLUXCAL
@@ -4548,6 +4548,11 @@ void rd_snfitsio_simkeys(void) {
   istat = 0 ;
   sprintf(keyname,"SIM_BIASCOR_MASK");
   fits_read_key(fp, TINT, keyname, &SNDATA.SIM_BIASCOR_MASK, comment, &istat );
+
+  // check  WRITE_MASK_HEAD (Feb 2026)
+  istat = 0 ;
+  sprintf(keyname,"WRITE_MASK_HEAD");
+  fits_read_key(fp, TINT, keyname, &SNDATA.SIM_WRITE_MASK, comment, &istat );
 
   if ( SNFITSIO_CODE_IVERSION >= 24 ) {
     // read WRITE_MASK flags about how information was written; e.g. COMPACT

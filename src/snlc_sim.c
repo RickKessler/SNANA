@@ -25583,7 +25583,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   NMATCH  = SNHOSTGAL.NNBR_DDLRCUT ;
   NMATCH2 = SNHOSTGAL.NNBR_DDLRCUT2 ;
-  if ( NMATCH  > MXHOSTGAL ) { NMATCH  = MXHOSTGAL; }
+  if ( NMATCH  > MXHOSTGAL ) { NMATCH  = MXHOSTGAL; } // .xyz ???
   if ( NMATCH2 > MXHOSTGAL ) { NMATCH2 = MXHOSTGAL; }
 
   if ( ifilt_obs == 0 ) {

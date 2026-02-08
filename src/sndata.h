@@ -511,6 +511,7 @@ struct SNDATA {
   // designed to inform analysis codes
   // +1=alphaGrid, +2=betaGrid ...
   int  SIM_BIASCOR_MASK; 
+  int  SIM_WRITE_MASK ;  // = WRITE_MASK_HEAD[PHOT]
 
 } SNDATA ;
 

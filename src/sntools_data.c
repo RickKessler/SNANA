@@ -234,6 +234,9 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
     else if ( strcmp(key,"SIM_BIASCOR_MASK") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_BIASCOR_MASK ); }
 
+    else if ( strcmp(key,"SIM_WRITE_MASK") == 0 ) 
+      { copy_int(copyFlag, parVal, &SNDATA.SIM_WRITE_MASK ); }  // Feb 2026
+
     else if ( strcmp(key,"SIM_MODEL_INDEX") == 0 ) 
       { copy_int(copyFlag, parVal, &SNDATA.SIM_MODEL_INDEX );  }
 

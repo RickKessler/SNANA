@@ -23488,6 +23488,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v12_01c) *****
 
+    snana.F90:  Read WRITE_MASK_HEAD into SIM_WRITE_MASK and set logical for
+                SIM_COMPACT_noFLUXCAL to identify (roman-desc) sim in which
+                only MJD, BAND, SIM_MAGOBS appear in PHOT file and there is 
+                no FLUXCAL[ERR]
+
          *****  MISCELLANEOUS(v12_01c) *****
 
      snlc_sim.c:
@@ -23498,4 +23503,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + enable plotting strings (e.g., FIELD or SURVEY) and print string
          label under each tick mark. Works for 1D or 2D plots.
 
+   
 END: 

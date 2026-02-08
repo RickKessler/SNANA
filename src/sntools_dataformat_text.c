@@ -639,9 +639,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
   sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
 
-  NGAL = SNDATA.HOSTGAL_NMATCH[1];
-  if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }
-
   fprintf(fp, "%s_NMATCH:      %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
   fprintf(fp, "%s_NMATCH2:     %d  \n",  
@@ -653,6 +650,8 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   }
 
   // - - - - - -
+  NGAL = SNDATA.HOSTGAL_NMATCH[1];
+  if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }  // for storage
 
   for(igal=0; igal < NGAL; igal++ ) {
 

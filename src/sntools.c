@@ -8438,7 +8438,8 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.APPLYFLAG_MWEBV = 0 ;
 
   SNDATA.SIM_BIASCOR_MASK = 0 ;
-  
+  SNDATA.SIM_WRITE_MASK   = 0 ;
+
   SNDATA.PHOTFLAG_DETECT  = 0 ; // July 2022
 
   for(ep=0; ep < MXEPOCH; ep++ ) {

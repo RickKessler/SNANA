@@ -314,6 +314,7 @@
         ,USE_INIVAL_SNCID_FILE   &  ! bit1 of OPT_SNCID_LIST
         ,USE_PRIOR_SNCID_FILE   ! bit2 of OPT_SNCID_LIST
 
+
     CHARACTER  & 
           SNANA_VERSION*60         &  ! e.g., v11_04h-[commit-id]
          ,SNANA_VERSION_DATA*60    &  ! SNANA version used create FITS data
@@ -371,15 +372,11 @@
          ,EXIST_FILT(MXFILT_OBS)   &  ! T => at least one point per filt
          ,FOUND_SURVEY  & 
          ,FORMAT_TEXT     &  ! ascii/txt for input data
-         ,FORMAT_FITS    ! snfitsio for input data.
+         ,FORMAT_FITS     &  ! snfitsio for input data.
+         ,SIM_COMPACT_noFLUXCAL  ! if SIM_WRITE_MASK & 4096 (Feb 2026)
 
     INTEGER N_SNLC_PLOT
     LOGICAL MADE_LCPLOT  ! SAVE:  T if LC plot was made
-
-
-
-
-! logical *1 stuff
 
 
 ! SNTABLE control variables (May 2014)
@@ -886,9 +883,9 @@
         ,SIMLIB_MSKOPT         &  ! SIMLIB option mask (Dec 2015)
         ,SIM_BIASCOR_MASK      &  ! non-zero -> it's a biasCor sim
         ,NEP_SIM_MODELGRID  & 
-        ,NEP_SIM_MAGOBS          ! number of sim epochs with MAGOBS < 99
-
-
+        ,NEP_SIM_MAGOBS     &    ! number of sim epochs with MAGOBS < 99
+        ,SIM_WRITE_MASK          ! WRITE_MASK_HEAD[PHOT] Feb 2026 
+       
     INTEGER*8  SIM_HOSTLIB_GALID
     REAL*8    DSIM_HOSTLIB_GALID  ! for table only
 
@@ -1121,7 +1118,7 @@
         ,CUTBIT_REDSHIFT_ERR   = 4  & 
         ,CUTBIT_RA             = 5  & 
         ,CUTBIT_DEC            = 6  & 
-        ,CUTBIT_HOSTSEP        = 7  & 
+        ,CUTBIT_HOST_SEP       = 7  & 
         ,CUTBIT_TrestMIN       = 8  & 
         ,CUTBIT_TrestMAX       = 9  & 
         ,CUTBIT_TrestRange     = 10   &  ! Dec 2017 (TrestMax-TrestMin)
@@ -1134,7 +1131,7 @@
         ,CUTBIT_NOBS_PREDETECT = 17   &  ! Mar 2025
         ,CUTBIT_NSEASON_ACTIVE = 18   &  ! May 2019
         ,CUTBIT_NEPOCH         = 19   &  ! total # of measurements
-        ,CUTBIT_SEARCH         = 20   &  ! found by search (SIM only)
+        ,CUTBIT_HOST_NMATCH    = 20   &  ! Feb 2026 (replace obsolete CUTBIT_SEARCH)
         ,CUTBIT_NFILT_SNRMAX   = 21  & 
         ,CUTBIT_NFILT_SNRMAX2  = 22  & 
         ,CUTBIT_NFILT_TRESTMIN = 23  & 
@@ -1239,7 +1236,8 @@
         ,cutwin_redshift_err(2)   &  ! I: cut on redshift uncertainty
         ,cutwin_ra(2)             &  ! I: cut on RA
         ,cutwin_dec(2)            &  ! I: cut on DEC
-        ,cutwin_hostsep(2)        &  ! I: cut on host-SN sep, arcsec
+        ,cutwin_host_sep(2)       &  ! I: cut on host-SN sep, arcsec
+        ,cutwin_host_nmatch(2)    &  ! I: cut on HOST_NMATCH (Feb 2026)
         ,cutwin_sbflux_filt(2,MXFILT_SNRMAX)  & 
         ,cutwin_Nepoch(2)         &  ! I: cut on Nepoch
         ,cutwin_snrmax_filt(2,MXFILT_SNRMAX)    &  ! filled from SNCUT_SNRMAX
@@ -1393,7 +1391,8 @@
          ,( cutwin_var(1,cutbit_redshift_err),cutwin_redshift_err )  & 
          ,( cutwin_var(1,cutbit_ra),        cutwin_ra )  & 
          ,( cutwin_var(1,cutbit_dec),       cutwin_dec )  & 
-         ,( cutwin_var(1,cutbit_hostsep),   cutwin_hostsep )  & 
+         ,( cutwin_var(1,cutbit_host_sep),  cutwin_host_sep )  & 
+         ,( cutwin_var(1,cutbit_host_nmatch),cutwin_host_nmatch )  & 
          ,( cutwin_var(1,cutbit_Nepoch),    cutwin_Nepoch )  & 
          ,( cutwin_var(1,cutbit_psf),       cutwin_psf )  & 
          ,( cutwin_var(1,cutbit_zp),        cutwin_zp  )  & 
@@ -1422,7 +1421,7 @@
          ,( cutwin_var(1,cutbit_peakmjd),   cutwin_peakmjd )  & 
          ,( cutwin_var(1,cutbit_nobs_predetect),cutwin_nobs_predetect)  & 
          ,( cutwin_var(1,cutbit_nseason_active),cutwin_nseason_active)  & 
-         ,( cutwin_var(1,cutbit_search),        cutwin_searcheff_mask)  & 
+! xxx mark         ,( cutwin_var(1,cutbit_search),        cutwin_searcheff_mask)  & 
          ,( cutwin_var(1,cutbit_snrmax),        cutwin_snrmax  )  & 
          ,( cutwin_var(1,cutbit_snrmax2),       cutwin_snrmax2  )  & 
          ,( cutwin_var(1,cutbit_snrsum),        cutwin_snrsum  )  & 
@@ -1685,7 +1684,7 @@
          ,cutwin_cid, cutwin_sntype  & 
          ,cutwin_redshift, cutwin_redshift_err  & 
          ,cutwin_ra, cutwin_dec  & 
-         ,cutwin_hostsep,   cutwin_Nepoch  & 
+         ,cutwin_host_sep, cutwin_host_nmatch,  cutwin_Nepoch  & 
          ,cutwin_snrmax,    cutwin_snrmax2, cutwin_snrsum, cutwin_nfield  & 
          ,cutwin_mwebv,     cutwin_nseason_active  & 
          ,cutwin_Trestmin,   cutwin_Trestmax  & 
@@ -3202,6 +3201,12 @@
        CALL FETCH_SNDATA_WRAPPER("SIM_BIASCOR_MASK", ONE, STRING, DARRAY, OPT)
        SIM_BIASCOR_MASK = int(DARRAY(1))
 
+       ! read WRITE_MASK_HEAD ; it doesn't have SIM_ prefix, but it exists only for sim
+       ! Needed to identify COMPACT options
+       CALL FETCH_SNDATA_WRAPPER("SIM_WRITE_MASK", ONE, STRING, DARRAY, OPT) ! Feb 2026
+       SIM_WRITE_MASK = int(DARRAY(1))
+       SIM_COMPACT_noFLUXCAL = (IAND(SIM_WRITE_MASK,4096) > 0)  ! only SIM_MAGOBS in PHOT file; no FLUXCAL
+
        CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  ONE, STRING, DARRAY, OPT)
        SIM_MODEL_INDEX = INT(DARRAY(1))
 
@@ -3737,13 +3742,6 @@
 
 ! store cosmo params in globals
 
-! xxxxxxx mark delete May 19 2025 xxxxxxx
-!      SIM_OM = SIM_COSPAR(1)
-!      SIM_OL = SIM_COSPAR(2)
-!      SIM_w0 = SIM_COSPAR(3)
-!      SIM_wa = SIM_COSPAR(4)
-!      SIM_MUSHIFT = SIM_COSPAR(5)
-! xxxxxxxxxxxxx end mark xxxxxxx
 
     RETURN
   END SUBROUTINE RDGLOBAL_SIM_COSPAR
@@ -7631,10 +7629,16 @@
         READ(ARGLIST(1),*) CUTWIN_REDSHIFT_ERR(1)
         READ(ARGLIST(2),*) CUTWIN_REDSHIFT_ERR(2)
 
-      else if ( MATCH_NMLKEY('CUTWIN_HOSTSEP',  & 
+! - - - 
+      else if ( MATCH_NMLKEY('CUTWIN_HOST_SEP',  & 
                   2, iArg, ARGLIST) ) then
-        READ(ARGLIST(1),*) CUTWIN_HOSTSEP(1)
-        READ(ARGLIST(2),*) CUTWIN_HOSTSEP(2)
+        READ(ARGLIST(1),*) CUTWIN_HOST_SEP(1)
+        READ(ARGLIST(2),*) CUTWIN_HOST_SEP(2)
+
+      else if ( MATCH_NMLKEY('CUTWIN_HOST_NMATCH',  & 
+                  2, iArg, ARGLIST) ) then
+        READ(ARGLIST(1),*) CUTWIN_HOST_NMATCH(1)
+        READ(ARGLIST(2),*) CUTWIN_HOST_NMATCH(2)
 
       else if ( MATCH_NMLKEY('CUTWIN_NFILT_TRESTMIN',  & 
                   2, iArg, ARGLIST) ) then
@@ -8853,7 +8857,7 @@
 
       DO 888 ICUT = 1, NCUTBIT_SNLC
 
-         if(.NOT.LSIM_SNANA .and. icut.EQ.CUTBIT_SEARCH ) goto 888
+! xxx mark delete Feb 8 2026    if(.NOT.LSIM_SNANA .and. icut.EQ.CUTBIT_SEARCH ) goto 888
 
 ! print line if any entry has a change in NPASSCUT
          LPRIN = .FALSE.
@@ -15326,9 +15330,6 @@
 ! Creatd Jan 31, 2006 by R.Kessler
 ! Initialize CUTMASK_ALL and CUTWIN_XXX
 ! 
-! Jan 4 2021:
-!  + remove obsolete logic with !LSIM_SNANA && ibit==CUTBIT_SEARCH
-!  + check OPT_SNCID_LIST
 ! 
 
     USE SNDATCOM
@@ -15518,7 +15519,8 @@
     cutvar_name(CUTBIT_SNTYPE)       = 'TYPE:'
     cutvar_name(CUTBIT_RA)           = 'RA:'
     cutvar_name(CUTBIT_DEC)          = 'DEC:'
-    cutvar_name(CUTBIT_HOSTSEP)      = 'HOST-SN sep:'
+    cutvar_name(CUTBIT_HOST_SEP)     = 'HOST_SNSEP:'
+    cutvar_name(CUTBIT_HOST_NMATCH)  = 'HOST_NMATCH:'
     cutvar_name(CUTBIT_TRESTMIN)     = 'Trestmin:'
     cutvar_name(CUTBIT_TRESTMAX)     = 'Trestmax:'
     cutvar_name(CUTBIT_TRESTRANGE)   = 'TrestRange:'
@@ -15554,7 +15556,7 @@
     cutvar_name(CUTBIT_NFILT_TRESTMAX) = 'NFILT_Trestmax:'
     cutvar_name(CUTBIT_NFILT_TREST2)   = 'NFILT_Trest2:'
     cutvar_name(CUTBIT_NFIELD)         = 'NFIELD:'
-    cutvar_name(CUTBIT_SEARCH)         = 'SEARCHEFF_MASK:'
+! xxx mark    cutvar_name(CUTBIT_SEARCH)         = 'SEARCHEFF_MASK:'
 
     DO ifilt      = 1, NFILT_SNRMAX
         ifilt_obs = IFILT_SNRMAX(ifilt)
@@ -21150,7 +21152,8 @@
        SNLC_CUTVAR(CUTBIT_DEC)  =  & 
              SNGL( SNLC8_DEC )
 
-       SNLC_CUTVAR(CUTBIT_HOSTSEP)  = SNHOST_ANGSEP(1)
+       SNLC_CUTVAR(CUTBIT_HOST_SEP)     = SNHOST_ANGSEP(1)
+       SNLC_CUTVAR(CUTBIT_HOST_NMATCH)  = SNHOST_NMATCH
 
        SNLC_CUTVAR(CUTBIT_PEAKMJD)  =  & 
              SNLC_SEARCH_PEAKMJD
@@ -21166,8 +21169,10 @@
        SNLC_CUTVAR(CUTBIT_NEPOCH)  =  & 
              float ( ISNLC_NEPOCH_STORE )
 
-       SNLC_CUTVAR(CUTBIT_SEARCH)  =  & 
-             SIM_SEARCHEFF_MASK
+! xxxxxxx mark delete Feb 8 2026 xxxxxxxxxx
+!       SNLC_CUTVAR(CUTBIT_SEARCH)  =  & 
+!             SIM_SEARCHEFF_MASK
+! xxxxxxxxxxxxxxxxx
 
        SNLC_CUTVAR(CUTBIT_NFIELD)  =  & 
              float ( ISNLC_NFIELD_OVP )
@@ -21896,7 +21901,8 @@
 ! 
 ! Apr 11 2019:  MXEP_SNLCPAK -> 4*MXEPOCH (was 10*MXEPOCH)
 ! Jan 16 2020:  pass sim fluxes (see VSIMFLUX)
-! -----------------------------------------------------------
+! Feb 08 2026:  if SIM_COMPACT_noFLUXCAL, do not skip FLUXCAL<0
+! ---------------------------------------------------------------------
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -22021,7 +22027,7 @@
 
         FLUX_DATA     = SNLC_FLUXCAL(ep)
         FLUXERR_DATA  = SNLC_FLUXCAL_ERRTOT(ep)
-        if ( FLUXERR_DATA .LE. 0.0 ) GOTO 201
+        if ( .NOT. SIM_COMPACT_noFLUXCAL .and. FLUXERR_DATA .LE. 0.0 ) GOTO 201
 
         IFILT_OBS = ISNLC_IFILT_OBS(ep)
         IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
@@ -22044,14 +22050,6 @@
         VFLUX_ERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
         VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
         VSIMFLUX(NOBS)  = SIM_EPFLUXCAL(ep)   ! Jan 2020
-
-! xxxxxxxx mark delete Jan 28 2026 xxxxxxxxx
-!        VFITFLUX(NOBS)     =  0.0
-!        VFITFLUX_ERR(NOBS) = -9.0
-!#if defined(SNFIT)
-!        CALL GET_FITFLUX(ep, VFITFLUX(NOBS), VFITFLUX_ERR(NOBS), REJECT)
-!#endif
-! xxxxxxxxxxxxxx
 
 ! Sep 7 2022: check options to fold LC within a single cylce.
         if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then

@@ -1807,7 +1807,7 @@ def read_tables(args, plot_info):
     #  it cannot be converted to integer list if later table has 'A', 'B', 'C'. 
     object_labels_dict = {}
     for i, which_axis in enumerate(axis_list) :
-        object_labels, args.BOUNDS = prep_object_axis(which_axis, MASTER_DF_DICT, args.BOUNDS )
+        object_labels, args.BOUNDS = prep_object_axis(which_axis, MASTER_DF_DICT, args )
         object_labels_dict[which_axis] = object_labels
 
     # - - - - - - - -
@@ -1826,7 +1826,7 @@ def read_tables(args, plot_info):
     # end read_tables
 
 
-def prep_object_axis(which_axis, MASTER_DF_DICT, BOUNDS ):
+def prep_object_axis(which_axis, MASTER_DF_DICT, args ):
 
     # Created Feb 6 2026 by R.Kessler
     # which_axis = 'x' or 'y'
@@ -1843,7 +1843,7 @@ def prep_object_axis(which_axis, MASTER_DF_DICT, BOUNDS ):
             df    = MASTER_DF_DICT[key_tf]['df']
             unique_values += df[varname].unique().tolist()
            
-    if len(unique_values) == 0 : return None, BOUNDS
+    if len(unique_values) == 0 : return None, args.BOUNDS
 
     logging.info('')
     logging.info(f"Prepare {which_axis}-axis for strings")
@@ -1881,19 +1881,23 @@ def prep_object_axis(which_axis, MASTER_DF_DICT, BOUNDS ):
     # passing only y-axis bounds is not allowed
     # Logic here is a bit nasty
 
-    BOUNDS_orig = BOUNDS
     
-    new_bounds  = f'0 {n_unique} 1'  
-    ndim  = 1  # dimention of user bounds, not dimension of plot
-    if BOUNDS: ndim = len(BOUNDS.split(COLON))
+    NDIM_PLOT   = args.NDIM
+    BOUNDS_orig = args.BOUNDS
+    BOUNDS      = BOUNDS_orig
 
-    if ndim == 1 and which_axis == 'x' :
+    new_bounds   = f'0 {n_unique} 1'  
+    ndim_bounds  = 0  # dimention of user bounds, not dimension of plot
+    if BOUNDS_orig: 
+        ndim_bounds = len(BOUNDS_orig.split(COLON))
+
+    if NDIM_PLOT == 1 and ndim_bounds <= 1 and which_axis == 'x' :
         BOUNDS  = new_bounds  # trivial case of replacing None with  new bounds
 
-    if ndim == 1 and which_axis == 'y' :
+    if ndim_bounds <= 1 and which_axis == 'y' :
         pass   # can't do anything here, otherwise code crashed later
 
-    if ndim == 2 :
+    if ndim_bounds == 2 :
         B_SPLIT = BOUNDS.split(COLON)
         new_bounds_dict = { 'x': new_bounds + COLON + B_SPLIT[1], 'y': B_SPLIT[0] + COLON + new_bounds }
         BOUNDS = new_bounds_dict[which_axis]

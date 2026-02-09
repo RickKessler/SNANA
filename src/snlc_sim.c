@@ -25587,10 +25587,13 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   if ( NMATCH2 > MXHOSTGAL ) { NMATCH2 = MXHOSTGAL; }
 
   if ( ifilt_obs == 0 ) {
-
+    
     // Nov 2019: test multiple host matches with NBR_LIST in HOSTLIB
-    SNDATA.HOSTGAL_NMATCH[0] = NMATCH;
-    SNDATA.HOSTGAL_NMATCH[1] = NMATCH2 ;
+    // xxx mark 2/2026    SNDATA.HOSTGAL_NMATCH[0] = NMATCH;
+    // xxx mark SNDATA.HOSTGAL_NMATCH[1] = NMATCH2 ;
+
+    SNDATA.HOSTGAL_NMATCH[0] = SNHOSTGAL.NNBR_DDLRCUT; // bug fix, Feb 9 2026
+    SNDATA.HOSTGAL_NMATCH[1] = SNHOSTGAL.NNBR_DDLRCUT2 ;
 
     // if there are no DDLR matches, then for each true property set the
     // associated OBS and ERR to it's "HOSTLESS" value (e.g., -9) rather

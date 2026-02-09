@@ -41,6 +41,7 @@ char FILEPREFIX_TEXT[100];
 #define SUFFIX_TEXT           "TEXT"   
 #define SUFFIX_LCPLOT_TEXT    "LCPLOT.TEXT" 
 #define SUFFIX_LCLIST_TEXT    "LCLIST.TEXT" 
+#define SUFFIX_LCPHOT_TEXT    "LCPHOT.TEXT"    // Feb 8 2026: altername name for LCPLOT table
 #define SUFFIX_SPECPLOT_TEXT  "SPECPLOT.TEXT" 
 #define SUFFIX_SPECLIST_TEXT  "SPECLIST.TEXT" 
 #define TEXTMODE_rt           "rt"

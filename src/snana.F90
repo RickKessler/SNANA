@@ -205,7 +205,7 @@
        ,LEGACY_INIT_VAL  = 1.0E8    
 
     CHARACTER, PARAMETER ::        &
-       SNTABLE_LIST_DEFAULT*60           = 'SNANA  FITRES  LCPLOT'  &
+       SNTABLE_LIST_DEFAULT*60           = 'SNANA  FITRES'  &
       ,METHOD_SPLINE_QUANTILES_DEFAULT*8 = 'CUBIC'  ! default; may change in LC fit
 
 ! - - - - - - - - - - - - - - 
@@ -1121,7 +1121,7 @@
         ,CUTBIT_HOST_SEP       = 7  & 
         ,CUTBIT_TrestMIN       = 8  & 
         ,CUTBIT_TrestMAX       = 9  & 
-        ,CUTBIT_TrestRange     = 10   &  ! Dec 2017 (TrestMax-TrestMin)
+        ,CUTBIT_TrestRange     = 10  &  ! Dec 2017 (TrestMax-TrestMin)
         ,CUTBIT_Trest2         = 11  & 
         ,CUTBIT_Tgapmax        = 12  & 
         ,CUTBIT_T0gapMAX       = 13  & 
@@ -6573,14 +6573,15 @@
             FTRUECUT_OUTLIER  = 0.01  ! default requires Ftrue > 0
             SBMAGCUT_OUTLIER  = 999.  ! default is no SBMAG cut (Aug 2021)
           endif
-       else if ( TBname(1:6) .EQ. 'lcplot' ) then
+       else if ( TBname(1:6) .EQ. 'lcplot' .or. TBname(1:6) .EQ. 'lcphot' ) then
           ITAB = ITABLE_SNLCPAK
           DISABLE = ( ISJOB_BATCH .and. ISJOB_SIM )
-	    if ( TBname(1:12) .EQ. 'lcplot_batch' ) DISABLE = .FALSE.  ! Oct 27 2025; special key to allow
+          if ( TBname(1:12) .EQ. 'lcplot_batch' ) DISABLE = .FALSE.  ! Oct 27 2025; special key to allow
+          if ( TBname(1:12) .EQ. 'lcphot_batch' ) DISABLE = .FALSE. 
           IF ( DISABLE ) THEN
              NOPT = 0
              print*,  & 
-                 '  WARNING: disable LCPLOT table for sim-data in batch'
+                 '  WARNING: disable LCPLOT/LCPHOT table for sim-data in batch'
              call flush(6)
           ELSE
              OPT_TABLE(ITAB) = 1
@@ -6623,7 +6624,7 @@
              else if( cTMPOPT(1:4) .EQ. 'host' ) then
                 WRTABLEFILE_HOST_TEXT = .TRUE.  ! for SNANA table
              else if ( cTMPOPT(1:7) .EQ. 'errcalc' ) then
-                WRTABLEFILE_ERRCALC_TEXT = .TRUE.  ! for LCPLOT table
+                WRTABLEFILE_ERRCALC_TEXT = .TRUE.  ! for LCPLOT/LCPHOT table
              else
                 TEXTFORMAT_TABLE(itab) = cTMPOPT(1:8) ! format
              endif
@@ -6683,9 +6684,10 @@
  100  CONTINUE  ! end loop over table names
 
 ! ------------
-! if LCPLOT is not specified, set MXLC_PLOT to zero.
-    IF  ( OPT_TABLE(ITABLE_SNLCPAK) == 0 .and.  & 
-            OPT_TABLE(ITABLE_SPECPAK) == 0  )    MXLC_PLOT = 0
+! if LCPLOT/LCPHOT is not specified, set MXLC_PLOT to zero.
+    IF  ( OPT_TABLE(ITABLE_SNLCPAK) == 0 .and. OPT_TABLE(ITABLE_SPECPAK) == 0 ) then
+       MXLC_PLOT = 0
+    endif
 
 ! -------------
 ! summarize
@@ -9379,7 +9381,7 @@
 #if defined(SNANA)
 ! pack the meta data
     IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0  ) THEN
-      CALL SNLCPLOT()       ! prepare light curves for plotting
+      CALL SNLCPAK_PHOT()       ! prepare light curves for csv table/plotting
     ENDIF
 #endif
 
@@ -21887,21 +21889,16 @@
 
 ! ==============================
 #if defined(SNANA)
-    SUBROUTINE SNLCPLOT()
+    SUBROUTINE SNLCPAK_PHOT()
 
 ! Created Feb 2013 by R.Kessler
-! Called only by snana.exe to
-!  * create sub dir
-!  * pack light curves and PKMJD fit-curve
-!  * cdtopdir
-! 
-! Call wrappers in sntools_output.c to that there
-! no native calls to CERNLIB or ROOT.
-! 
+! Prepare SNLC PHOT table in csv format (e.g., for plotting)
+!
 ! 
 ! Apr 11 2019:  MXEP_SNLCPAK -> 4*MXEPOCH (was 10*MXEPOCH)
 ! Jan 16 2020:  pass sim fluxes (see VSIMFLUX)
 ! Feb 08 2026:  if SIM_COMPACT_noFLUXCAL, do not skip FLUXCAL<0
+!               Rename subroutine SNLCPLOT --> SNLCPAK_PHOT
 ! ---------------------------------------------------------------------
 
     USE SNDATCOM
@@ -21969,7 +21966,7 @@
     NFILT   = NFILTDEF_SURVEY
 
     write(6,10) SNLC_CCID(1:LENCCID)
- 10   format(T8,'SNLCPLOT: pack CID=',A,' for plotting.')
+ 10   format(T8,'SNLCPAK_PHOT: pack CID=',A,' for plotting.')
     call flush(6)
 
 ! create subdir
@@ -22041,7 +22038,7 @@
           write(C1ERR,661) NOBS, MXEP_SNLCPAK
  661        format('NOBS=',I5,' exceeds bound of MXEP_SNLCMAX=',I5)
           c2err = 'Increase bound for data array.'
-          CALL MADABORT('SNLCPLOT(SNANA)', C1ERR, C2ERR)
+          CALL MADABORT('SNLCPAK_PHOT(SNANA)', C1ERR, C2ERR)
         ENDIF
 
         VMJD(NOBS)      = MJD
@@ -22150,7 +22147,7 @@
           IF ( NOBS .GT. MXEP_SNLCPAK ) THEN
              write(C1ERR,661) NOBS, MXEP_SNLCPAK
              c2err = 'Increase bound for best-fit (ANYFUN) array.'
-             CALL MADABORT('SNLCPLOT(SNANA)', C1ERR, C2ERR)
+             CALL MADABORT('SNLCPAK_PHOT(SNANA)', C1ERR, C2ERR)
           ENDIF
 
           FLUX_MODEL       = ANYLCFUN(MJD,XVAL8)
@@ -22215,7 +22212,7 @@
     MADE_LCPLOT = .TRUE.
 
     RETURN
-  END SUBROUTINE SNLCPLOT
+  END SUBROUTINE SNLCPAK_PHOT
 #endif
 
 
@@ -23100,6 +23097,7 @@
 ! Sep 09 2023: update to write 2nd HOST match.
 ! Jul 23 2024: add FITPROB_ITER1, FITCHI2RED_INI[2]
 ! Feb 05 2025: add LENSDMU[ERR]
+! Feb 08 2026: add RA,DEC to TEXT file by default
 ! -------------------------------------------------------------
 
 
@@ -23230,9 +23228,9 @@
     endif
 
     VARLIST = 'RA:D' // char(0)
-    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_RA, VARLIST,0,  LENBLOCK, 20 )
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_RA, VARLIST,1,  LENBLOCK, 20 )
     VARLIST = 'DEC:D' // char(0)
-    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_DEC, VARLIST,0,  LENBLOCK, 20 )
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_DEC, VARLIST,1,  LENBLOCK, 20 )
 
     VARLIST = 'AREAFRAC_AVG:F' // char(0)
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_AREAFRAC_AVG, VARLIST,0,  LENBLOCK, 20 )

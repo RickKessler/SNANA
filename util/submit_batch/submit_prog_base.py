@@ -1133,10 +1133,19 @@ class Program:
         check_abort = args.check_abort
 
         # submit all the jobs; either batch or ssh
+        n_job_tot      = self.config_prep['n_job_tot']
         submit_mode    = self.config_prep['submit_mode']
         script_dir     = self.config_prep['script_dir']
         cddir          = f"cd {script_dir}"
         
+        # Feb 11 2026: for combine_fitres. some tasks are just sym links with no jobs
+        #   so bail out here.
+        if n_job_tot == 0 :
+            program = self.config_prep['program']
+            sys.exit(f"\n\t NO {program} JOBS SUBMITTED;" \
+                     f"\n\t ALL TASKS COMPLETED IN PREP STAGE;" \
+                     f"\n\t DONE.\n")
+            
         if check_abort :
             command_file_list = self.config_prep['command_file_list']
             command_file      = './' + command_file_list[0]

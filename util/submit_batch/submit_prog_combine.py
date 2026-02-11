@@ -5,7 +5,9 @@
 # Pippin did this task interactively, and for DES-SN5YR it takes
 # about 4-5 hr of wall time ... dividing this task among cores
 # should greatly reduce the wall time.
-
+#
+# Feb 2 2026: fix bug; copy ALL.DONE when all is finished at end of merge_cleanup_final
+#          ( not during prep stage)
 
 import os, sys, shutil, yaml, glob
 import logging
@@ -23,7 +25,13 @@ COLNUM_COMBINE_MERGE_CPU      = 5
 
 # define files produced by submit_batch_jobs that are needed
 # to mimic another output dir from submit_batch_jobs
-MIMIC_FILE_LIST = [MERGE_LOG_FILE, SUBMIT_INFO_FILE, DEFAULT_DONE_FILE ]
+# Make it look like real job by copying SUBMIT.INFO first,
+# then copy other files when all is finished.
+
+STAGE_PREP = "PREP"
+STAGE_DONE = "DONE"
+MIMIC_FILE_LIST      = [SUBMIT_INFO_FILE, MERGE_LOG_FILE, DEFAULT_DONE_FILE ]
+MIMIC_STAGE_LIST     = [STAGE_PREP,       STAGE_DONE,     STAGE_DONE        ]
 
 # =============================================================
 class combine_fitres(Program):
@@ -53,7 +61,7 @@ class combine_fitres(Program):
 
         self.prep_combine_inputs()
         self.prep_combine_outdirs()
-        self.prep_combine_mimic_outdirs()
+        self.prep_combine_mimic_outdirs(STAGE_PREP)
         self.prep_combine_symlinks()
         return
 
@@ -190,19 +198,20 @@ class combine_fitres(Program):
         return
         # end prep_combine_outdirs
 
-    def prep_combine_mimic_outdirs(self):
+    def prep_combine_mimic_outdirs(self, stage):
 
         mimic_outdir_inp_list = self.config_prep['mimic_outdir_inp_list']
         mimic_outdir_out_list = self.config_prep['mimic_outdir_out_list']
         use_mimic_list = []
 
         logging.info(f"") 
-        logging.info(f" Mimic submit_batch outdirs with {MIMIC_FILE_LIST} for: ")
+        logging.info(f" Mimic submit_batch outdirs at {stage}-STAGE for {MIMIC_FILE_LIST}: ")
 
         for mimic_outdir_inp, mimic_outdir_out in zip(mimic_outdir_inp_list, mimic_outdir_out_list):
-            if mimic_outdir_inp and mimic_outdir_inp not in use_mimic_list:
+            USE_INP   = mimic_outdir_inp and mimic_outdir_inp not in use_mimic_list
+            if USE_INP:
                 logging.info(f"   + {mimic_outdir_out}")
-                self.mimic_outdir_submit_batch(mimic_outdir_inp, mimic_outdir_out)
+                self.mimic_outdir_submit_batch(stage, mimic_outdir_inp, mimic_outdir_out)
                 use_mimic_list.append(mimic_outdir_inp)
                                            
         return
@@ -221,18 +230,24 @@ class combine_fitres(Program):
 
         return
 
-    def mimic_outdir_submit_batch(self, mimic_outdir_inp, mimic_outdir_out):
+    def mimic_outdir_submit_batch(self, stage, mimic_outdir_inp, mimic_outdir_out):
         
         #logging.info(f" Copy {MIMIC_FILE_LIST} to {mimic_outdir_out}")
 
-        for mimic_file in MIMIC_FILE_LIST:
+        for mimic_stage, mimic_file in zip(MIMIC_STAGE_LIST, MIMIC_FILE_LIST):
+
+            if mimic_stage != stage: continue
+
             source_file = f"{mimic_outdir_inp}/{mimic_file}"
             dest_file   = f"{mimic_outdir_out}/{mimic_file}"
             if not os.path.exists(source_file):
                 msgerr = [ f"Cound not find {source_file} to copy" ]
                 util.log_assert(False, msgerr)
             
-            shutil.copy2(source_file, dest_file)
+            if 'DONE' in source_file:
+                shutil.copy(source_file, dest_file)  # current time stamp for ALL.DONE
+            else:
+                shutil.copy2(source_file, dest_file) # preserve original time stamp
 
         return
 
@@ -457,8 +472,12 @@ class combine_fitres(Program):
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         util.compress_files(+1, script_dir, "CPU*", "CPU", "" )
-
+        
         logging.info("")
+
+        # do final MIMIC copy here so that ALL.DONE appears after all is merged
+        self.prep_combine_mimic_outdirs(STAGE_DONE)
+
         # end merge_cleanup_final                        
 
     def merge_config_prep(self,output_dir):

@@ -360,7 +360,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
       match_cid_hash(CCID, ILIST, iwd);
     }
     goto DONE ;
-    // xxx mark delete Jun 17 2025   return NCID ;
   }
 
   if ( LDMP ) {
@@ -385,8 +384,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
   // if unformatted, do brute-force read of each CID
   if ( FORMAT_NONE ) {
-
-    // xxx mark int MXCHAR_LINE = 400; // xxx MXCHARLINE_PARSE_WORDS;
     int MXCHAR_LINE = MXCHARLINE_PARSE_WORDS; // expand for SN-unite and filter-dependent entries
     char *tmpLine = (char*) malloc( MXCHAR_LINE * sizeof(char)) ;
     int len_tmp ;
@@ -423,17 +420,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
 	  }
 	}
-
-	/* xxxx mark delete Jun 26 2025 xxxxxxx
-        if ( strstr(CCID,COMMA) != NULL || 
-	     strstr(CCID,COLON) != NULL ||
-             strstr(CCID,"=")   != NULL )   {
-          sprintf(c1err,"Invalid cid string = '%s'", CCID);
-          sprintf(c2err,"Check cid_select_file %s",fileName);
-          errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-        }
-	xxxxxxxxxx end mark xxxxxxx */
-
 
       } // end loop over CIDs on line
     } // end loop over lines in file
@@ -2370,7 +2356,6 @@ double get_lightCurveWidth(int OPTMASK_LCWIDTH, int NOBS,
       LCWIDTH.TLIST_SORTED[obs]   = T; 
       LCWIDTH.MAGLIST_SORTED[obs] = MAG ;
 
-      // xxx mark delete ARG = 0.4*(ZEROPOINT_FLUXCAL_DEFAULT - MAG);
       ARG = 0.4*(ZEROPOINT_FLUXCAL_nJy - MAG); // any ZP works here since only flux-vs-MJD shape matters
       FLUX = pow(TEN,ARG);
       LCWIDTH.FLUXLIST_SORTED[obs] = FLUX ;
@@ -2784,7 +2769,6 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
     while( fgets(LINE, MXCHARLINE_PARSE_WORDS, fp)  != NULL ) {
       if ( strlen(LINE) == 0 ) { continue; }
       nline++ ;
-      // xxx mark delete malloc_PARSE_WORDS(MXWORDLINE_PARSE_WORDS);
       malloc_PARSE_WORDS(PARSE_WORDS.NWD);
 
       if ( (pos=strchr(LINE,'\n') ) != NULL )  { *pos = '\0' ; }
@@ -2861,7 +2845,6 @@ int store_parse_words__(int *OPT, char *FILENAME, char *callFun)
 void malloc_PARSE_WORDS(int NWD) {
   int ADDBUF    = ADDBUF_PARSE_WORDS ;  // number of words to store or add
   int MXCHARWD  = MXCHARWORD_PARSE_WORDS ;
-  // xxx mark  int NWD       = PARSE_WORDS.NWD ;
   int iwd, WD0, WD1, BUFSIZE, IFLAG=0 ;
   char fnam[] = "malloc_PARSE_WORDS" ;
 
@@ -4382,8 +4365,7 @@ double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
   X2 = cos(RA2*RAD) * cos(DEC2*RAD);
   Y2 = sin(RA2*RAD) * cos(DEC2*RAD);
   Z2 = sin(DEC2*RAD);
-  
-  // xxx mark  DOTPROD = (1.0-1.0E-35)*(X1*X2 + Y1*Y2 + Z1*Z2);
+ 
 
   DOTPROD = (X1*X2 + Y1*Y2 + Z1*Z2);
   if ( DOTPROD > +1.0 ) { DOTPROD = +1.0 - tiny; }
@@ -4729,7 +4711,6 @@ int ENVreplace(char *fileName, char *callFun, int ABORTFLAG) {
 	{ strcat(suffix,c1); }
       else
 	{ strcat(ENVname,c1) ; }
-      // xxx mark delete Nov 10 2025 { sprintf(ENVname, "%s%s", ENVname, c1) ; }
     }
 
     
@@ -4798,7 +4779,6 @@ void warn_oldInputs(char *varName_old, char *varName_new) {
   if ( strcmp(varName_old,"list") == 0 ) {
     if ( NWARN == 0 ) { return ; }
 
-    // xxx mark Dec 29 2024    return ; // remove this when new system goes live
     printf("\n");
     for(i=0; i < NWARN; i++ ) {
       printf("  WARNING: REPLACE OLD INPUT  %s  with %s \n"
@@ -5597,24 +5577,6 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
       printf(" xxx check PATHLIST[%d] = '%s' \n", ipath, PATHLIST[ipath] );
       fflush(stdout); 
     }
-
-    /* xxx mark delete Jul 19 2023 xxxxxx
-    // Sep 12 2019: abort if DATADIR corresponds to any SIM path
-    if ( strcmp(DATADIR,PATHLIST[ipath])== 0 ) {
-      print_preAbort_banner(fnam);    
-      printf("\t PRIVATE_DATA_PATH = '%s' \n", DATADIR);
-      
-      if ( ipath == IPATH_SIM_DEFAULT ) {
-	sprintf(c1err,"PRIVATE_DATA_PATH cannot be the same as");
-	sprintf(c2err,"$SNDATA_ROOT/SIM");
-      }
-      else {
-	sprintf(c1err,"PRIVATE_DATA_PATH cannot match any path in");
-	sprintf(c2err,"$SNDATA_ROOT/SIM/%s", PATH_SNDATA_SIM_LIST );
-      }
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-    }
-    xxxxxxx end mark xxxxx */
     
     idir++ ;
   } // end ipath loop
@@ -7622,7 +7584,6 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
 
   int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
   double    MINVAL, MAXVAL, VAL1, VAL2 ;
-  // xxx mark  char fnam[] = "quickBinSearch" ;  //.xyz
 
   char fnam[200] ;  
   concat_callfun_plus_fnam(callFun, "quickBinSearch", fnam); // return fnam
@@ -8958,7 +8919,6 @@ int  fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) {
 
   if ( strcmp(magfun,"log10") == 0 ) {
     VALID_MAGFUN = 1 ;
-    // xxx mark delete Jul 17 2025      arg   = -0.4 * (ZP - ZEROPOINT_FLUXCAL_DEFAULT) ;
     arg      = -0.4 * (ZP - zp_fluxcal) ;
     ZP_scale = pow(TEN,arg) ;
  
@@ -9018,7 +8978,6 @@ double asinhinv(double mag, double zp_fluxcal, int ifilt) {
   b       = bb[ifilt];
   arg     = mag/magoff - log(b);
 
-  // xxx mark delete July 2025  fluxScale = pow(TEN,0.4*ZEROPOINT_FLUXCAL_DEFAULT);
   fluxScale = pow(TEN,0.4*zp_fluxcal);
   fluxCal   = fluxScale * (2*b) * sinh(arg);
 
@@ -10279,10 +10238,13 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   //#define MXPATH_CHECK 4
   int NPATH, ipath;
   char *PATH[MXPATH_CHECK], sepKey[] = " " ;
-  char fnam[] = "abort_openTextFile" ;
+  // xxx mark   char fnam[] = "abort_openTextFile" ; 
+
+  char fnam[200];
+  concat_callfun_plus_fnam(funCall, "abort_openTextFile", fnam);
 
   // -------------- BEGIN ----------------
-  print_preAbort_banner(funCall);
+  print_preAbort_banner(fnam);
 
   // append path(s) from PATH_LIST
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
@@ -10302,7 +10264,7 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
 
   sprintf(c1err,"Could not find '%s' input file:", keyName );
   sprintf(c2err,"%s  (see preAbort info above)", fileName);
-  errmsg(SEV_FATAL, 0, funCall, c1err, c2err );
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   
   return ;
 

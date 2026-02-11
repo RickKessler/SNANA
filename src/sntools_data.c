@@ -1318,11 +1318,11 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 		     &NFILE, &file_list ); // <== returned
   
 
-
   SNTABLE_AUTOSTORE_RESET(); // May 2022
   for(ifile=0; ifile < NFILE; ifile++ ) {
-    ptrFile = file_list[ifile] ;
-
+    ptrFile = file_list[ifile] ; 
+    ENVreplace(ptrFile, fnam, 1);
+ 
     if ( REQUIRE_DOCANA ) {
       int OPTMASK_OPEN = OPENMASK_REQUIRE_DOCANA ;
       int gzipFlag ;
@@ -1334,7 +1334,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
       fclose(fp);
     }
 
-    ENVreplace(ptrFile, fnam, 1);
+    // xxx mark delete Feb 10 2026:  ENVreplace(ptrFile, fnam, 1);
+
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST,
 				  OPTMASK_SNTABLE );
 

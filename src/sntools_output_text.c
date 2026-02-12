@@ -1626,6 +1626,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   //
   // Dec 19 2019: write SIM_FLUXCAL for sim
   // Jan 23 2020: write KCOR and AVWARP (for rest-frame model only)
+  // Feb 11 2026: write MJD as %.4f instead of %.3f
   //
   int ISFIT       = ( FLAG == SNLCPAK_EPFLAG_FITFUN    ) ;
   int ISDATA      = ( FLAG == SNLCPAK_EPFLAG_FLUXDATA  ) ;
@@ -1663,7 +1664,7 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
   strcat(LINE,SNLCPAK_OUTPUT.CCID);
 
   
-  sprintf(CVAL,"%s %.3f",  sep, SNLCPAK_OUTPUT.MJD[FLAG][obs] );
+  sprintf(CVAL,"%s %.4f",  sep, SNLCPAK_OUTPUT.MJD[FLAG][obs] );
   strcat(LINE,CVAL);
 
   sprintf(CVAL,"%s %7.2f", sep, SNLCPAK_OUTPUT.TOBS[FLAG][obs] );

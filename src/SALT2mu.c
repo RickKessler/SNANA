@@ -215,7 +215,7 @@ For help, run code with no arguments
  Nov 24 2021: new input key prescale_simIa
  Dec 28 2021: few tweaks so that prescale works with HOSTLIB
 
- Jan 22 2022
+ Jan 22 2022int REFAC_CCPRIOR;   
     + fix SUBPROCESS bug reading ref sim-input file
     + integrate REFAC_SUBPROC_STD to be default (no more debug_flag=930) 
     + increase DROPLIST array size to avoid overwrite bug
@@ -985,8 +985,9 @@ struct {
 
 
 int  ONE_SAMPLE_BIASCOR ;  // flag to lump all samples into one biasCor
-int  NSAMPLE_BIASCOR ;
+int  NSAMPLE_BIASCOR;
 SAMPLE_INFO_DEF SAMPLE_BIASCOR[MXNUM_SAMPLE];
+SAMPLE_INFO_DEF SAMPLE_BIASCOR_TEMP[MXNUM_SAMPLE]; // for sorting (Feb 11 2026)
 
 struct {
   // info translated directory from user input strings
@@ -1197,7 +1198,6 @@ struct INPUTS {
   double chi2max ;         // global HR chi2-outlier cut (uses PROB_BEAMS)
   double *chi2max_list;    // list vs. IDSURVEY
   int    iflag_chi2max;    // 1->cut, 2->fitwgt0; 4->global, 8-> vs. IDSURVEY
-
   
   SELECT_VAR_DEF SELECT_CUTWIN ;
   SELECT_VAR_DEF SELECT_PARSHIFT;
@@ -1328,8 +1328,10 @@ struct INPUTS {
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
 
-  // xxx temp refactor flags July 2025 xxxxxxxx
-  int REFAC_CCPRIOR;  
+
+  // xxx 
+  int  REFAC_CCPRIOR;  // temp refactor flags July 2025 xxxxxxxx
+  int  REFAC_SORT_IDSAMPLE;
   // xxxxxxxxxxxxxxxxxxxx
 
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
@@ -1651,7 +1653,10 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE);
 int    get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ, 
 		    char *FIELDGROUP, char *SURVEYGROUP, int DUMPFLAG );
 int    get_IDFIELD(char *FIELD);
-void   sort_IDSAMPLE_biasCor(void) ;
+
+int    sort_IDSAMPLE_biasCor(int NSORT_START, char *SAMPLE_SUBSTR) ;
+void   sort_IDSAMPLE_biasCor_legacy(void);
+
 void   copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) ;
 void   dump_SAMPLE_INFO(int EVENT_TYPE) ;
 void   match_fieldGroup(char *SNID, char *FIELD, 
@@ -3177,9 +3182,7 @@ void applyCut_chi2max(void) {
   int  IFLAG_GLOBAL   = 4 ;
 
   bool   DO_H0marg   = true ;
-  // xxx mark Nov 2025 double M0_ORIG     = INPUTS.M0;
   double M0_ORIG     = M0_DEFAULT;
-  //   int  IFLAG_SURVEY   = 8 ;
 
   bool DOCUT_APPLY   = (iflag_chi2max & IFLAG_APPLY)   > 0 ;
   bool DOCUT_FITWGT0 = (iflag_chi2max & IFLAG_FITWGT0) > 0 ;
@@ -5869,7 +5872,9 @@ void set_defaults(void) {
   INPUTS.debug_flag        = 0 ;
   //  INPUTS.debug_flag        = 31 ; // xxx REMOVE
 
-  INPUTS.REFAC_CCPRIOR     = 1;
+  INPUTS.REFAC_CCPRIOR        = 1;
+  INPUTS.REFAC_SORT_IDSAMPLE  = 0; // Feb 11 2026
+
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
   INPUTS.check_duplicates_biasCor = 0 ;
@@ -8918,7 +8923,7 @@ void prepare_IDSAMPLE_biasCor(void) {
   int   opt_biasCor   = INPUTS.opt_biasCor ;
   bool  cutwin_only   = INPUTS.cutwin_only ;
 
-  int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY] ;
+  int isn, IDSURVEY, OPT_PHOTOZ, N, IDSAMPLE, i, NIDSURVEY[MXIDSURVEY], NSORT ;
   int  DUMPFLAG=0, NDMP = 0, NSN_DATA, CUTMASK  ; 
   bool IS_SPECZ, IS_PHOTOZ, SELECT_FIELD, SELECT_SURVEY ;
   double zhd ;
@@ -9063,12 +9068,13 @@ void prepare_IDSAMPLE_biasCor(void) {
     IS_SPECZ  = IS_SPECZ_TABLEVAR(isn,&INFO_DATA.TABLEVAR);
     IS_PHOTOZ = !IS_SPECZ ;
 
-    if ( IS_SPECZ ) 
-      { sprintf(zGROUP,"-zSPEC"); }
-    else
-      { sprintf(zGROUP,"-zPHOT"); }
+    zGROUP[0] = 0 ;
+    if ( IVAR_OPT_PHOTOZ > 0 )  {
+      if ( IS_SPECZ ) 	{ sprintf(zGROUP,"-zSPEC"); }
+      else              { sprintf(zGROUP,"-zPHOT"); }
+    }
 
-    if ( IVAR_OPT_PHOTOZ < 0 ) { zGROUP[0] = 0 ; }
+    // xxx mark del Feb 11 2026  if ( IVAR_OPT_PHOTOZ < 0 ) { zGROUP[0] = 0 ; }
 
     DUMPFLAG = 0 ;
     IDSAMPLE = get_IDSAMPLE(IDSURVEY, IS_PHOTOZ, 
@@ -9142,7 +9148,33 @@ void prepare_IDSAMPLE_biasCor(void) {
 
   // resort IDSAMPLE list to always have the same order
   // regardless of the data order.
-  sort_IDSAMPLE_biasCor();
+  
+
+  if ( INPUTS.REFAC_SORT_IDSAMPLE ) {
+    // refactor debug_flag==211  to sort first by zSPEC and then by zPHOT 
+    int ID=0, ID2=0;
+    for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+      if ( SAMPLE_BIASCOR[ID].IFLAG_ORIGIN == USERFLAG_IGNORE_SAMPLE ) { continue; }  
+      copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_TEMP[ID2]);
+      ID2++ ;
+    }
+    NSAMPLE_BIASCOR      = ID2; // udpate to account for user exclusion
+    
+
+    if ( IVAR_OPT_PHOTOZ < 0 || INPUTS.REFAC_SORT_IDSAMPLE==1 ) {
+      // original sorting ignoring zSPEC/zPHOT 
+      NSORT = sort_IDSAMPLE_biasCor(0, "");
+    }
+    else  {
+      NSORT = sort_IDSAMPLE_biasCor(0,     "zSPEC"); // zSPEC subsets first
+      NSORT = sort_IDSAMPLE_biasCor(NSORT, "zPHOT"); // ... then zPHOT
+    }
+  }
+  else {
+    // legacy default Feb 11 2026
+    sort_IDSAMPLE_biasCor_legacy();
+  }
+
 
   // check for user-specified IDSAMPLEs to select ...AFTER sorting.
   prep_IDSAMPLE_SELECT(&INPUTS.IDSAMPLE_SELECT);
@@ -9154,13 +9186,14 @@ void prepare_IDSAMPLE_biasCor(void) {
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE; IDSAMPLE++ ) 
     { set_BINSIZE_SAMPLE_biasCor(IDSAMPLE);  }
  
-
   // ---------------
   dump_SAMPLE_INFO(EVENT_TYPE_DATA);
 
   // check option to fix sigint for each IDSAMPLE
   parse_sigint_fix(INPUTS.sigint_fix);
    
+  // xxx  if ( INPUTS.REFAC_SORT_IDSAMPLE ) {  debugexit(fnam); } // xxx REMOVE
+
   return ;
 
 } // end prepare_IDSAMPLE_biasCor
@@ -9503,8 +9536,9 @@ void  set_SURVEYGROUP_biasCor(void) {
 } // end set_SURVEYGROUP_biasCor
 
 
+
 // ======================================================
-void sort_IDSAMPLE_biasCor(void) {
+int sort_IDSAMPLE_biasCor(int NSORT_START, char *SAMPLE_SUBSTR ) {
 
   // Aug 26 2016
   // Sort IDSAMPLE list in the following order:
@@ -9520,26 +9554,245 @@ void sort_IDSAMPLE_biasCor(void) {
   // Feb 9 2022: fix bug to allow [SURVEY] fieldgroups and also allow
   //             [SURVEY] in surveygroup_biascor. See new DO_COPY bool.
 
+  int debug_malloc = INPUTS.debug_malloc ;
+  int ID, ID2, IDSURVEY, NSAMPLE_LOCAL=0,  NSORT=NSORT_START  ;
+  int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
+  int igrp, NGRP_USR,  FLAG ; 
+  char *s0, *s1, *s2, *f0, *f2, *NAME ;
+  bool ISGRP0, ISGRP2, SMATCH, NOGRP, DO_COPY ;
+  int LDMP = 0 ;
+  char fnam[] = "sort_IDSAMPLE_biasCor" ;
+
+  // ---------------- BEGIN ---------------
+
+  printf("  %s with NSORT_START=%d and SAMPLE_SUBSTR='%s' \n", 
+	 fnam, NSORT_START, SAMPLE_SUBSTR );
+
+  print_debug_malloc(+1*debug_malloc,fnam);
+
+
+  for ( ID=0; ID < MXNUM_SAMPLE; ID++ ) { IDMAP_SORT[ID] = -9; }
+
+  // xxx need to move this into a separate sanity-check function xxxxxxx
+  // Jan 2020: abort if some SURVEY events are part of a FIELDGROUP,
+  //           and some events are not.
+  //   e..g, if DES and DES(C3+X3) are defined, ABORT.
+  // Thus this double for-loop is just a sanity check.
+  for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+    for(ID2=0; ID2<NSAMPLE_BIASCOR; ID2++ ) {
+      if ( ID == ID2 ) { continue ; } 
+      f0     = SAMPLE_BIASCOR[ID].NAME_FIELDGROUP ;
+      f2     = SAMPLE_BIASCOR[ID2].NAME_FIELDGROUP ;
+      s0     = SAMPLE_BIASCOR[ID].NAME_SURVEYGROUP ;  
+      s2     = SAMPLE_BIASCOR[ID2].NAME_SURVEYGROUP ;  
+      SMATCH = strcmp(s0,s2) == 0 ;
+      ISGRP0 = !IGNOREFILE(f0);      ISGRP2 = !IGNOREFILE(f2);
+
+      if ( !ISGRP0 && ISGRP2 && SMATCH ) {
+	print_preAbort_banner(fnam);
+	printf("  ID[0,2] = %d %d \n", ID, ID2);
+	printf("  NAME_FIELDGROUP[0,2]  = %s  %s \n", f0, f2);
+	printf("  NAME_SURVEYGROUP[0,2] = %s  %s \n", s0, s2);
+	printf("  ISGRP0=%d  ISGRP2=%d SMATCH=%d \n",
+	       ISGRP0, ISGRP2, SMATCH);
+
+	sprintf(c1err,"Found %s events NOT in FIELDGROUP", s0);
+        sprintf(c2err,"Define all fields in fieldgroup_biascor key.");
+        errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+
+      }
+    }
+  }
+  // xxxxxxx end request to move xxxxxxx*/
+
+
+
+  // copy pre-sorted struct into SAMPLE_BIASCOR_TEMP
+  ID2 = 0;
+  bool SELECT_SUBSTR = (strlen(SAMPLE_SUBSTR) > 0 ) ; // select IDSAMPLEs with this subtring
+
+  for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+
+    NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+    if ( SELECT_SUBSTR && strstr(NAME,SAMPLE_SUBSTR) == NULL  ) 
+      { NCOPY[ID2] = -9; } // flag to ignore this ID
+    else 
+      { NCOPY[ID2] =  0; } // flag to use this ID
+    ID2++ ;
+  }
+  NSAMPLE_LOCAL   = ID2;
+
+
+  if ( LDMP ) {
+    printf("\n xxx ---------- Start DUMP for %s ---------------- \n", fnam);
+    dump_SAMPLE_INFO(EVENT_TYPE_DATA);
+  }
+
+
+  // start with user-defined survey groups, in the order
+  // given by the user
+
+  NGRP_USR = INPUTS_SAMPLE_BIASCOR.NSURVEYGROUP_USR ;
+  for(igrp=0; igrp < NGRP_USR; igrp++ ) {
+    s1 = INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[igrp];
+    for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+      if ( NCOPY[ID] < 0 ) { continue; }
+      s2      = SAMPLE_BIASCOR_TEMP[ID].NAME_SURVEYGROUP ;
+      NAME    = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+      f0      = SAMPLE_BIASCOR_TEMP[ID].NAME_FIELDGROUP;  
+      SMATCH  = strcmp(s1,s2)==0;  // matches survey group
+      NOGRP   = IGNOREFILE(f0);    // not a field group
+      DO_COPY = SMATCH && NOGRP;   
+      if ( DO_COPY ) {
+	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
+			      &SAMPLE_BIASCOR[NSORT]);
+	
+	if ( LDMP ) {
+	  printf(" 0. xxx copy USER-SURVEYGROUP ID=%d --> %d (%s)\n", 
+		 ID, NSORT, NAME );
+	}
+
+	IDMAP_SORT[ID]=NSORT;  NSORT++ ;  NCOPY[ID]++ ;  
+      }
+    }
+  }  // end i loop over user-define survey groups
+
+
+  // check user-defined field groups
+  NGRP_USR = INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR ;
+  for(igrp=0; igrp < NGRP_USR; igrp++ ) {
+    s1 = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igrp];
+    for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+      if ( NCOPY[ID] < 0 ) { continue; }
+      s2   = SAMPLE_BIASCOR_TEMP[ID].NAME_FIELDGROUP ;
+      NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+      if ( strcmp(s1,s2)==0 ) {
+	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
+			      &SAMPLE_BIASCOR[NSORT]);
+
+	if ( LDMP ) {
+	  printf(" 1. xxx copy USER-FIELDGROUP  ID=%d --> %d (%s) \n", 
+		 ID, NSORT, NAME);
+	}
+	IDMAP_SORT[ID]=NSORT;  NSORT++ ;  NCOPY[ID]++ ;
+      }
+    }
+  }  // end i loop over user-define field groups
+
+
+  // add auto-generated survey groups, 
+  //  in order given in SURVEY.DEF file
+
+  for(IDSURVEY=0; IDSURVEY < MXIDSURVEY; IDSURVEY++ ) {
+
+    // check only those surveys which are auto-generated
+    FLAG = SURVEY_INFO.SURVEYFLAG[IDSURVEY] ;
+    if ( FLAG != AUTOFLAG_SURVEYGROUP_SAMPLE ) { continue ; }
+
+    s1 = SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY];
+    for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+
+      if ( NCOPY[ID] < 0 ) { continue; }
+      // skip surveys that are part of FIELDGROUP
+      FLAG = SAMPLE_BIASCOR_TEMP[ID].IFLAG_ORIGIN ;
+      if ( FLAG == USERFLAG_FIELDGROUP_SAMPLE)	{ continue ; }
+
+      s2   = SAMPLE_BIASCOR_TEMP[ID].NAME_SURVEYGROUP ;
+      NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+
+      if ( strcmp(s1,s2) == 0 ) {
+	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
+			      &SAMPLE_BIASCOR[NSORT]);
+	if ( LDMP ) {
+	  printf(" 2. xxx copy AUTO-SURVEYGROUP ID=%d --> %d (%s) \n", 
+		 ID, NSORT, NAME ); fflush(stdout);
+	}
+	IDMAP_SORT[ID]=NSORT;  NSORT++ ;  NCOPY[ID]++ ;
+      }
+    } // end IDSAMPLE loop
+
+  }   // end IDSURVEY
+
+
+  // ------- check that each sample was copied once and only once.
+  for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+    if ( NCOPY[ID] < 0 ) { continue; }
+    if ( NCOPY[ID] != 1 ) {
+      sprintf(c1err,"IDSAMPLE=%d(%s) copied %d times.",
+	      ID, SAMPLE_BIASCOR_TEMP[ID].NAME, NCOPY[ID] );
+      sprintf(c2err,"but should be copied once (NSAMPLE_BIASCOR=%d, NSORT=%d)",
+	      NSAMPLE_BIASCOR, NSORT );
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+    }
+  }
+
+
+  // ---------------------------------------------
+  // remap all of the IDSAMPLE tags for the data
+  int isn  ;
+
+  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL ; isn++ ) {
+    ID = INFO_DATA.TABLEVAR.IDSAMPLE[isn] ;
+    if ( ID             < 0 ) { continue ; }
+    if ( NCOPY[ID]      < 0 ) { continue; }
+    INFO_DATA.TABLEVAR.IDSAMPLE[isn] = IDMAP_SORT[ID]; //sorted sample
+  }
+
+  if ( LDMP  ) 
+    { printf(" xxx ----- END DUMP for %s --------- \n\n", fnam); }
+
+
+  print_debug_malloc(-1*debug_malloc,fnam);
+  return NSORT ;
+
+} // end sort_IDSAMPLE_biasCor
+
+
+// ======================================================
+void sort_IDSAMPLE_biasCor_legacy(void) {
+  
+  // Aug 26 2016
+  // Sort IDSAMPLE list in the following order:
+  // * user-defined surveygroup_biascor
+  // * user-defined fieldgroup_biascor
+  // * auto-defined surveys groups, in same order as in SURVEY.DEF
+  //
+  //  This sorting ensures that IDSAMPLE has the same meaning
+  //  for any random simulation and any random subset of data.
+  //  Reason is that order of data determines order of IDSAMPLE,
+  //  and it is thus random.
+  //
+  // Feb 9 2022: fix bug to allow [SURVEY] fieldgroups and also allow
+  //             [SURVEY] in surveygroup_biascor. See new DO_COPY bool.
+
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
+
   int NSAMPLE = NSAMPLE_BIASCOR ;
   int debug_malloc = INPUTS.debug_malloc ;
   int ID, ID2, IDSURVEY, NSORT=0  ;
   int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
   int igrp, NGRP_USR,  FLAG ; 
   char *s0, *s1, *s2, *f0, *f2, *NAME ;
-  SAMPLE_INFO_DEF *SAMPLE_BIASCOR_TEMP ;
+  SAMPLE_INFO_DEF *SAMPLE_BIASCOR_LOCAL ;
   bool ISGRP0, ISGRP2, SMATCH, NOGRP, DO_COPY ;
   bool LOGIC_FIX_FEB09 = true;
   int LDMP = 0 ;
-  char fnam[] = "sort_IDSAMPLE_biasCor" ;
+  char fnam[] = "sort_IDSAMPLE_biasCor_legacy" ;
   // ---------------- BEGIN ---------------
 
+  printf("  %s: \n", fnam);
+
   print_debug_malloc(+1*debug_malloc,fnam);
-  SAMPLE_BIASCOR_TEMP = 
+  SAMPLE_BIASCOR_LOCAL  = 
     (SAMPLE_INFO_DEF*) malloc ( NSAMPLE * sizeof(SAMPLE_INFO_DEF));
   
   // Jan 2020: abort if some SURVEY events are part of a FIELDGROUP,
   //           and some events are not.
   //   e..g, if DES and DES(C3+X3) are defined, ABORT.
+
+
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
+
   for(ID=0; ID < NSAMPLE; ID++ ) {
     for(ID2=0; ID2<NSAMPLE; ID2++ ) {
       if ( ID == ID2 ) { continue ; } 
@@ -9569,25 +9822,28 @@ void sort_IDSAMPLE_biasCor(void) {
       printf(" xxx %s: %d,%d\n", fnam, ID, ID2 );
       printf(" xxx    SURVEYGROUP = '%s' and %s' \n",  s0, s2);
       printf(" xxx    FIELDGROUP  = %s(%d) and %s(%d) \n", 
-	     f0,ISGRP0, f2,ISGRP2 );
+           f0,ISGRP0, f2,ISGRP2 );
       printf(" xxx    IFLAG_ORIGIN -> %d \n", 
       SAMPLE_BIASCOR[ID].IFLAG_ORIGIN ); */
 
     }
   }
 
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
 
   // copy pre-sorted struct into temp struct
   ID2 = 0;
   for(ID=0; ID < NSAMPLE; ID++ ) {
     if ( SAMPLE_BIASCOR[ID].IFLAG_ORIGIN == USERFLAG_IGNORE_SAMPLE ) 
       { continue; }       
-    copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_TEMP[ID2]);
+    copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_LOCAL[ID2]);
     NCOPY[ID2] = 0; 
     ID2++ ;
   }
   NSAMPLE_BIASCOR = NSAMPLE = ID2;
 
+
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
 
   if ( LDMP ) {
     printf("\n xxx ---------- Start DUMP for %s ---------------- \n", fnam);
@@ -9600,16 +9856,16 @@ void sort_IDSAMPLE_biasCor(void) {
   for(igrp=0; igrp < NGRP_USR; igrp++ ) {
     s1 = INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[igrp];
     for(ID=0; ID < NSAMPLE; ID++ ) {
-      s2      = SAMPLE_BIASCOR_TEMP[ID].NAME_SURVEYGROUP ;
-      NAME    = SAMPLE_BIASCOR_TEMP[ID].NAME ;
-      f0      = SAMPLE_BIASCOR_TEMP[ID].NAME_FIELDGROUP;  
+      s2      = SAMPLE_BIASCOR_LOCAL[ID].NAME_SURVEYGROUP ;
+      NAME    = SAMPLE_BIASCOR_LOCAL[ID].NAME ;
+      f0      = SAMPLE_BIASCOR_LOCAL[ID].NAME_FIELDGROUP;  
       SMATCH  = strcmp(s1,s2)==0;
       NOGRP   = IGNOREFILE(f0);
       DO_COPY = SMATCH && NOGRP;
       if ( !LOGIC_FIX_FEB09 ) { DO_COPY = SMATCH; } // only for emergency
 
       if ( DO_COPY ) {
-	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
+	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_LOCAL[ID], 
 			      &SAMPLE_BIASCOR[NSORT]);
 	
 	if ( LDMP ) {
@@ -9622,16 +9878,17 @@ void sort_IDSAMPLE_biasCor(void) {
     }
   }  // end i loop over user-define survey groups
 
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
 
   // check user-defined field groups
   NGRP_USR = INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR ;
   for(igrp=0; igrp < NGRP_USR; igrp++ ) {
     s1 = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igrp];
     for(ID=0; ID < NSAMPLE; ID++ ) {
-      s2   = SAMPLE_BIASCOR_TEMP[ID].NAME_FIELDGROUP ;
-      NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+      s2   = SAMPLE_BIASCOR_LOCAL[ID].NAME_FIELDGROUP ;
+      NAME = SAMPLE_BIASCOR_LOCAL[ID].NAME ;
       if ( strcmp(s1,s2)==0 ) {
-	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
+	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_LOCAL[ID], 
 			      &SAMPLE_BIASCOR[NSORT]);
 
 	if ( LDMP ) {
@@ -9647,6 +9904,8 @@ void sort_IDSAMPLE_biasCor(void) {
   // add auto-generated survey groups, 
   //  in order given in SURVEY.DEF file
 
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
+
   for(IDSURVEY=0; IDSURVEY < MXIDSURVEY; IDSURVEY++ ) {
 
     // check only those surveys which are auto-generated
@@ -9657,14 +9916,14 @@ void sort_IDSAMPLE_biasCor(void) {
     for(ID=0; ID < NSAMPLE; ID++ ) {
 
       // skip surveys that are part of FIELDGROUP
-      FLAG = SAMPLE_BIASCOR_TEMP[ID].IFLAG_ORIGIN ;
-      if ( FLAG == USERFLAG_FIELDGROUP_SAMPLE)	{ continue ; }
+      FLAG = SAMPLE_BIASCOR_LOCAL[ID].IFLAG_ORIGIN ;
+      if ( FLAG == USERFLAG_FIELDGROUP_SAMPLE){ continue ; }
 
-      s2   = SAMPLE_BIASCOR_TEMP[ID].NAME_SURVEYGROUP ;
-      NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
+      s2   = SAMPLE_BIASCOR_LOCAL[ID].NAME_SURVEYGROUP ;
+      NAME = SAMPLE_BIASCOR_LOCAL[ID].NAME ;
 
       if ( strcmp(s1,s2) == 0 ) {
-	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_TEMP[ID], 
+	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_LOCAL[ID], 
 			      &SAMPLE_BIASCOR[NSORT]);
 	if ( LDMP ) {
 	  printf(" 2. xxx copy AUTO-SURVEYGROUP ID=%d --> %d (%s) \n", 
@@ -9676,18 +9935,20 @@ void sort_IDSAMPLE_biasCor(void) {
 
   }   // end IDSURVEY
 
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
 
   // ------- check that each sample was copied once and only once.
   for(ID=0; ID < NSAMPLE; ID++ ) {
     if( NCOPY[ID] != 1 ) {
       sprintf(c1err,"IDSAMPLE=%d(%s) copied %d times.",
-	      ID, SAMPLE_BIASCOR_TEMP[ID].NAME, NCOPY[ID] );
+	      ID, SAMPLE_BIASCOR_LOCAL[ID].NAME, NCOPY[ID] );
       sprintf(c2err,"but should be copied once (NSAMPLE=%d, NSORT=%d)",
 	      NSAMPLE, NSORT );
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
   }
 
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
 
   // ---------------------------------------------
   // remap all of the IDSAMPLE tags for the data
@@ -9702,12 +9963,13 @@ void sort_IDSAMPLE_biasCor(void) {
   if ( LDMP  ) 
     { printf(" xxx ----- END DUMP for %s --------- \n\n", fnam); }
 
+  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
 
   print_debug_malloc(-1*debug_malloc,fnam);
-  free(SAMPLE_BIASCOR_TEMP);
+  free(SAMPLE_BIASCOR_LOCAL);
   return ;
 
-} // end sort_IDSAMPLE_biasCor
+} // end sort_IDSAMPLE_biasCor_legacy
 
 
 // ======================================================
@@ -9716,7 +9978,7 @@ void copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) {
   // Copy contents of struct S1 into struct S2.
 
   int  ipar ;
-  //  char fnam[] = "copy_IDSAMPLE_biasCor" ;
+  char fnam[] = "copy_IDSAMPLE_biasCor" ;
 
   // -------------- BEGIN -------------
   
@@ -9724,7 +9986,6 @@ void copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) {
   sprintf(S2->NAME_SURVEYGROUP, "%s", S1->NAME_SURVEYGROUP ) ;
   sprintf(S2->STRINGOPT,        "%s", S1->STRINGOPT ) ;
   sprintf(S2->NAME,             "%s", S1->NAME ) ;
-// xxx  S2->OPT_PHOTOZ = S1->OPT_PHOTOZ ;
   S2->IS_PHOTOZ = S1->IS_PHOTOZ ;
 
 
@@ -20032,7 +20293,7 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
 	     NAME, CUTVAL, CUTWIN[0], CUTWIN[1] );       fflush(stdout);
     }
 
-    if ( fabs(CUTVAL - CUTVAL_NONE) < 0.001 ) { //.xyz
+    if ( fabs(CUTVAL - CUTVAL_NONE) < 0.001 ) { 
       sprintf(c1err,"Undefined CUTWIN %s (icut=%d) for %s-%s (IDSAMPLE=%d)",
 	      NAME, icut, SURVEYDEF, STR_EVENT_TYPE, IDSAMPLE );
       sprintf(c2err,"Check for bad CUTWIN arg or missing %s in input FITRES table.", NAME);
@@ -21337,6 +21598,17 @@ void prep_debug_flag(void) {
 	   INPUTS.debug_flag);
   }
   
+  if ( INPUTS.debug_flag == 211 ) {
+    INPUTS.REFAC_SORT_IDSAMPLE = 1;
+    printf("\n debug flag set to %d : used refactored sort_IDSAMPLE in legacy mode\n", 
+	   INPUTS.debug_flag);
+  }
+  if ( INPUTS.debug_flag == 212 ) {
+    INPUTS.REFAC_SORT_IDSAMPLE = 2;
+    printf("\n debug flag set to %d : used refactored sort_IDSAMPLE with zSPEC/zPHOT separation\n", 
+	   INPUTS.debug_flag);
+  }
+
   
   fflush(FP_STDOUT);
   

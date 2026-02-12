@@ -21691,7 +21691,7 @@ void prep_debug_flag(void) {
   }
 
   if ( INPUTS.debug_flag!=0) {
-    printf("\n debug flag set to %d\n", INPUTS.debug_flag);
+    printf("\n debug flag set to %d\n", INPUTS.debug_flag );
     fflush(FP_STDOUT);
   }
 
@@ -21704,7 +21704,7 @@ void prep_debug_flag(void) {
   
   if ( INPUTS.debug_flag == -211 ) {
     INPUTS.REFAC_SORT_IDSAMPLE = 0;
-    printf("\n debug flag set to %d : revert back to legacy sort_IDSAMPLE \n");
+    printf("\n debug flag set to %d : revert back to legacy sort_IDSAMPLE \n",
 	   INPUTS.debug_flag);
   }
 

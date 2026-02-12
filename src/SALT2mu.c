@@ -544,10 +544,10 @@ double  M0_DEFAULT;
 
 // define CUTBIT for each type of cut (lsb=0)
 // (bit0->1, bit4->16, bit6->64, bit8->256, bit10->1024,  bit12 --> 4096
-#define CUTBIT_z          0    //  zmin - zmax cut
-#define CUTBIT_s         1    //   x1min-x1max cut (or cut on BAYESN theta)
-#define CUTBIT_c          2    //  cmin - cmax cut (or cut on BAYESN AV)
-#define CUTBIT_logmass    3    //  logmass cut
+#define CUTBIT_z          0    //  CUTMASK=1: zmin - zmax cut
+#define CUTBIT_s         1    //   CUTMASK=2: x1min-x1max cut (or cut on BAYESN theta)
+#define CUTBIT_c          2    //  CUTMASK=4: cmin - cmax cut (or cut on BAYESN AV)
+#define CUTBIT_logmass    3    //  CUTMASK=8: logmass cut
 #define CUTBIT_sntype     4    //  sntype cut 
 #define CUTBIT_HOST       5    //  required host info
 #define CUTBIT_CUTWIN     6    //  user-CUTWIN 
@@ -556,7 +556,7 @@ double  M0_DEFAULT;
 #define CUTBIT_MINBIN     9    //  z-bin with too few to fit 
 #define CUTBIT_SPLITRAN  10    //  random subsample for NSPLITRAN
 #define CUTBIT_SIMPS     11    //  SIM event from pre-scale 
-#define CUTBIT_BIASCOR   12    //  valid biasCor (data only)
+#define CUTBIT_BIASCOR   12    //  CUTMASK=4096:  valid biasCor (data only)
 #define CUTBIT_zBIASCOR  13    //  BIASCOR z cut
 #define CUTBIT_sBIASCOR  14    //  BIASCOR x1 cut
 #define CUTBIT_cBIASCOR  15    //  BIASCOR c cut
@@ -698,7 +698,8 @@ typedef struct {
   // quantities determined from table var
   float     *CUTVAL[MXSELECT_VAR];  // used only to make cuts.
 
-  short int *IZBIN, *IDSAMPLE;
+  short int *IZBIN, *IDSAMPLE, *IDSAMPLE_TEMP ;
+  short int *NUPD_SORT_IDSAMPLE ;
   int       *CUTMASK, *IMUCOV ;
   float     *mumodel;
 
@@ -1654,8 +1655,12 @@ int    get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ,
 		    char *FIELDGROUP, char *SURVEYGROUP, int DUMPFLAG );
 int    get_IDFIELD(char *FIELD);
 
-int    sort_IDSAMPLE_biasCor(int NSORT_START, char *SAMPLE_SUBSTR) ;
-void   sort_IDSAMPLE_biasCor_legacy(void);
+void  sort_IDSAMPLE_biasCor_driver(void);
+void  sort_IDSAMPLE_biasCor_init(void);
+int   sort_IDSAMPLE_biasCor_exec(int NSORT_START, char *SAMPLE_SUBSTR) ;
+void  sort_IDSAMPLE_biasCor_check(void);
+
+void  sort_IDSAMPLE_biasCor_legacy(void); // to be removed when refac sort_IDSAMPLE is working
 
 void   copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) ;
 void   dump_SAMPLE_INFO(int EVENT_TYPE) ;
@@ -2639,11 +2644,11 @@ void setup_BININFO_redshift(void) {
       sprintf(c2err,"Reduce size or increase array bound.");
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
-    setup_BININFO_userz(); 
+    setup_BININFO_userz();  // explicit z-bin map
   }
 
   else if ( INPUTS.nlogzbin > 0 ) 
-    { setup_BININFO_logz(); }
+    { setup_BININFO_logz(); } 
 
   else if ( INPUTS.nzbin > 0 )
     { setup_BININFO_powz(); }
@@ -2875,6 +2880,7 @@ void setup_zbins_fit(void) {
   for (n=0; n < NSN_DATA; ++n) {
 
     CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[n];
+
     if ( CUTMASK ) { continue; }
 
     NSN_CUTS++ ;
@@ -2892,7 +2898,6 @@ void setup_zbins_fit(void) {
 
     INFO_DATA.TABLEVAR.IZBIN[n] = izbin;
 
-      
     if (izbin<0 || izbin >= nzbin)  
       {  setbit_CUTMASK(n, CUTBIT_z, &INFO_DATA.TABLEVAR);  }
 
@@ -3174,6 +3179,7 @@ void applyCut_chi2max(void) {
   //              For cutwin_only, restore events cut by valid bcor requirement.
   //
   // Dec 5 2025: print SURVEY and FIELD for each rejected event; and increment stats per IDSAMPLE
+  // Feb 12 2206: suppress printing each failure for SUBPROCESS.USE =True
   //
   int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  iflag_chi2max  = INPUTS.iflag_chi2max ;
@@ -3193,7 +3199,7 @@ void applyCut_chi2max(void) {
   const int null=0 ;
   double chi2;
   bool FAILCUT ;
-  char mcom[60], *name, *survey, *field ;
+  char mcom[60], *name, *survey, *field, msg_fail[100] ;
   char fnam[] = "applyCut_chi2max" ;
 
   // ----------- BEGIN ------------
@@ -3278,14 +3284,19 @@ void applyCut_chi2max(void) {
       if ( idsample >= 0 ) { n_fail[idsample]++ ; }
 
       if ( DOCUT_APPLY )  { 
-	fprintf(FP_STDOUT, "\t %s -> reject   (%s/%s) \n", str_chi2, survey, field);
+	sprintf(msg_fail, "%s -> reject   (%s/%s)", str_chi2, survey, field);
 	setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);
 	NREJ++ ;
       }
       else {
 	// do NOT cut; instead, set fit wgt = 0 via MUERR -> huge number
-	fprintf(FP_STDOUT, "\t %s -> fit wgt = 0 \n", str_chi2);
+	sprintf(msg_fail, "%s -> fit wgt = 0", str_chi2);
 	INFO_DATA.set_fitwgt0[n] = true;
+      }
+
+      // print one-line fail summary, EXCEPT for subprocess/Dust2dust
+      if ( !SUBPROCESS.USE ) {
+	fprintf(FP_STDOUT, "\t %s \n", msg_fail); 
       }
     } // end FAILCUT
     
@@ -5873,7 +5884,7 @@ void set_defaults(void) {
   //  INPUTS.debug_flag        = 31 ; // xxx REMOVE
 
   INPUTS.REFAC_CCPRIOR        = 1;
-  INPUTS.REFAC_SORT_IDSAMPLE  = 0; // Feb 11 2026
+  INPUTS.REFAC_SORT_IDSAMPLE  = 2; // Feb 11 2026
 
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
@@ -7134,6 +7145,7 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     TABLEVAR->IDSURVEY      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->IDFIELD       = (short int *) malloc(MEMS); MEMTOT+=MEMS;    
     TABLEVAR->IDSAMPLE      = (short int *) malloc(MEMS); MEMTOT+=MEMS;
+    TABLEVAR->NUPD_SORT_IDSAMPLE = (short int*) malloc(MEMS); MEMTOT+=MEMS; // Feb 2026
     TABLEVAR->SNTYPE        = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->OPT_PHOTOZ    = (short int *) malloc(MEMS); MEMTOT+=MEMS;
     TABLEVAR->IS_PHOTOZ     = (bool      *) malloc(MEMB); MEMTOT+=MEMB;
@@ -7566,6 +7578,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     TABLEVAR->IDSURVEY[irow]   = -9 ;
     TABLEVAR->IDFIELD[irow]    = -9 ;
     TABLEVAR->IDSAMPLE[irow]   = -9 ;
+    TABLEVAR->NUPD_SORT_IDSAMPLE[irow] = 0 ;
     TABLEVAR->CUTMASK[irow]    =  0 ;
     TABLEVAR->OPT_PHOTOZ[irow] =  0 ;
     TABLEVAR->IS_PHOTOZ[irow]          =  false ;
@@ -8873,7 +8886,7 @@ void get_zString(char *str_z, char *str_zerr, char *cast) {
 void prepare_IDSAMPLE_biasCor(void) {
 
   // Created July 18 2016
-  // Examine data to determine IDSAMPLE for each data event.
+  // Examine real data to determine IDSAMPLE for each data event.
   // Set internal map index for each SURVEYGROUP & FIELDGROUP.
   // Called after reading data, but before reading biasCor and CCprior.
   // Used later to determine biasCor and CCprior for sub-samples.
@@ -9150,25 +9163,8 @@ void prepare_IDSAMPLE_biasCor(void) {
   // regardless of the data order.
   
 
-  if ( INPUTS.REFAC_SORT_IDSAMPLE ) {
-    // refactor debug_flag==211  to sort first by zSPEC and then by zPHOT 
-    int ID=0, ID2=0;
-    for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
-      if ( SAMPLE_BIASCOR[ID].IFLAG_ORIGIN == USERFLAG_IGNORE_SAMPLE ) { continue; }  
-      copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_TEMP[ID2]);
-      ID2++ ;
-    }
-    NSAMPLE_BIASCOR      = ID2; // udpate to account for user exclusion
-    
-
-    if ( IVAR_OPT_PHOTOZ < 0 || INPUTS.REFAC_SORT_IDSAMPLE==1 ) {
-      // original sorting ignoring zSPEC/zPHOT 
-      NSORT = sort_IDSAMPLE_biasCor(0, "");
-    }
-    else  {
-      NSORT = sort_IDSAMPLE_biasCor(0,     "zSPEC"); // zSPEC subsets first
-      NSORT = sort_IDSAMPLE_biasCor(NSORT, "zPHOT"); // ... then zPHOT
-    }
+  if ( INPUTS.REFAC_SORT_IDSAMPLE > 0 ) {
+    sort_IDSAMPLE_biasCor_driver();
   }
   else {
     // legacy default Feb 11 2026
@@ -9191,8 +9187,6 @@ void prepare_IDSAMPLE_biasCor(void) {
 
   // check option to fix sigint for each IDSAMPLE
   parse_sigint_fix(INPUTS.sigint_fix);
-   
-  // xxx  if ( INPUTS.REFAC_SORT_IDSAMPLE ) {  debugexit(fnam); } // xxx REMOVE
 
   return ;
 
@@ -9536,44 +9530,76 @@ void  set_SURVEYGROUP_biasCor(void) {
 } // end set_SURVEYGROUP_biasCor
 
 
+// ====================================================
+void sort_IDSAMPLE_biasCor_driver(void) {
 
-// ======================================================
-int sort_IDSAMPLE_biasCor(int NSORT_START, char *SAMPLE_SUBSTR ) {
-
-  // Aug 26 2016
+  // Created Feb 2026
+  //
   // Sort IDSAMPLE list in the following order:
   // * user-defined surveygroup_biascor
   // * user-defined fieldgroup_biascor
+  // * zSPEC/zPHOT
   // * auto-defined surveys groups, in same order as in SURVEY.DEF
   //
   //  This sorting ensures that IDSAMPLE has the same meaning
   //  for any random simulation and any random subset of data.
   //  Reason is that order of data determines order of IDSAMPLE,
   //  and it is thus random.
-  //
-  // Feb 9 2022: fix bug to allow [SURVEY] fieldgroups and also allow
-  //             [SURVEY] in surveygroup_biascor. See new DO_COPY bool.
 
-  int debug_malloc = INPUTS.debug_malloc ;
-  int ID, ID2, IDSURVEY, NSAMPLE_LOCAL=0,  NSORT=NSORT_START  ;
-  int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
-  int igrp, NGRP_USR,  FLAG ; 
+  int IVAR_OPT_PHOTOZ = INFO_DATA.TABLEVAR.IVAR_OPT_PHOTOZ ;
+  int NSORT;
+  char fnam[] = "sort_IDSAMPLE_biasCor_driver" ;
+
+  // ------------ BEGIN ----------------
+
+  sort_IDSAMPLE_biasCor_init();
+
+  if ( IVAR_OPT_PHOTOZ < 0 ) {
+      //  sort ignoring zSPEC/zPHOT 
+      NSORT = sort_IDSAMPLE_biasCor_exec(0, "");
+  }
+  else  {
+    // sort including zSPEC/zPHOT
+    NSORT = sort_IDSAMPLE_biasCor_exec(0,     "zSPEC"); // zSPEC subsets first
+    NSORT = sort_IDSAMPLE_biasCor_exec(NSORT, "zPHOT"); // ... then zPHOT
+  }
+
+  sort_IDSAMPLE_biasCor_check();
+  return ;
+
+} // end sort_IDSAMPLE_biasCor_driver
+
+
+void sort_IDSAMPLE_biasCor_init(void) {
+
+  // Created Feb 2026: prepare for sorting IDSAMPLEs
+
+  int NSN_ALL = INFO_DATA.TABLEVAR.NSN_ALL;
+  int ID=0, ID2=0, isn;
+  bool ISGRP0, ISGRP2, SMATCH ;
   char *s0, *s1, *s2, *f0, *f2, *NAME ;
-  bool ISGRP0, ISGRP2, SMATCH, NOGRP, DO_COPY ;
-  int LDMP = 0 ;
-  char fnam[] = "sort_IDSAMPLE_biasCor" ;
+  char fnam[] = "sort_IDSAMPLE_biasCor_init" ;
 
-  // ---------------- BEGIN ---------------
+  // ---------- BEGIN -----------
 
-  printf("  %s with NSORT_START=%d and SAMPLE_SUBSTR='%s' \n", 
-	 fnam, NSORT_START, SAMPLE_SUBSTR );
+  // load SAMPLE_BIASCOR_TEMP that will be stable during 'exec' process of sorting SAMPLE_BIASCOR
 
-  print_debug_malloc(+1*debug_malloc,fnam);
+  for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
+    if ( SAMPLE_BIASCOR[ID].IFLAG_ORIGIN == USERFLAG_IGNORE_SAMPLE ) { continue; }  
+    copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_TEMP[ID2]);
+    ID2++ ;
+  }
+  NSAMPLE_BIASCOR      = ID2; // udpate to account for user exclusion
+    
+
+  // store pre-sorted IDSAMPLE per SN in temp list to avoid confusion
+  // during sorting
+  int MEMS = NSN_ALL * sizeof(short int);
+  INFO_DATA.TABLEVAR.IDSAMPLE_TEMP      = (short int *) malloc(MEMS);
+  for ( isn=0; isn < NSN_ALL; isn++ )
+    { INFO_DATA.TABLEVAR.IDSAMPLE_TEMP[isn] = INFO_DATA.TABLEVAR.IDSAMPLE[isn] ; }
 
 
-  for ( ID=0; ID < MXNUM_SAMPLE; ID++ ) { IDMAP_SORT[ID] = -9; }
-
-  // xxx need to move this into a separate sanity-check function xxxxxxx
   // Jan 2020: abort if some SURVEY events are part of a FIELDGROUP,
   //           and some events are not.
   //   e..g, if DES and DES(C3+X3) are defined, ABORT.
@@ -9603,9 +9629,81 @@ int sort_IDSAMPLE_biasCor(int NSORT_START, char *SAMPLE_SUBSTR ) {
       }
     }
   }
-  // xxxxxxx end request to move xxxxxxx*/
+
+  return;
+} // end sort_IDSAMPLE_biasCor_init 
 
 
+void sort_IDSAMPLE_biasCor_check(void) {
+
+  // Created Feb 2026: called after sorting to check for problems and free memory
+
+  int NSN_ALL = INFO_DATA.TABLEVAR.NSN_ALL;
+  int isn, ID, NERR=0, NUPD_SORT, NERR_PER_IDSAMPLE[MXNUM_SAMPLE] ;
+  int NPRINT_MAX = 50 ;
+  char fnam[] = "sort_IDSAMPLE_biasCor_check" ;
+
+  // ---------- BEGIN -----------
+
+  for(ID=0; ID < MXNUM_SAMPLE; ID++ ) { NERR_PER_IDSAMPLE[ID] = 0; }
+
+  for(isn=0; isn < NSN_ALL ; isn++ ) {
+    ID = INFO_DATA.TABLEVAR.IDSAMPLE[isn] ;    
+    NUPD_SORT = INFO_DATA.TABLEVAR.NUPD_SORT_IDSAMPLE[isn] ;
+    if ( ID >= 0 && NUPD_SORT !=1 )  { 
+      NERR++ ; 
+      NERR_PER_IDSAMPLE[ID]++ ;
+      if ( NERR < NPRINT_MAX ) {
+	printf(" xxx %s: NUPD_SORT=%d for SNID=%s  IDSAMPLE=%d  \n",
+	       fnam, NUPD_SORT, INFO_DATA.TABLEVAR.name[isn], ID);
+	fflush(stdout);
+      }
+    }
+  }
+
+  if ( NERR > 0 ) {
+    print_preAbort_banner(fnam);
+    for(ID=0; ID < MXNUM_SAMPLE; ID++ ) {
+      if ( NERR_PER_IDSAMPLE[ID] > 0 ) {
+	printf("\t NERR[IDSAMPLE=%2d] = %d \n", ID, NERR_PER_IDSAMPLE[ID] );
+      }
+    }
+    sprintf(c1err,"Found %d (of %d) events with sort_IDSAMPLE problem; ", NERR, NSN_ALL);
+    sprintf(c2err,"Something is wrong with sort_IDSAMPLE code.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  // free temp allocation of IDSAMPLE vs. SN
+  free(INFO_DATA.TABLEVAR.IDSAMPLE_TEMP);
+
+
+  return;
+
+} // end sort_IDSAMPLE_biasCor_check
+
+
+// ======================================================
+int sort_IDSAMPLE_biasCor_exec(int NSORT_START, char *SAMPLE_SUBSTR ) {
+
+  // Aug 26 2016 [and refactored Feb 2026]
+  // execute the sorting for IDSAMPLE names containing string *SAMPLE_SUBSTR
+  //
+  //
+
+  int ID, ID2, IDSURVEY, NSAMPLE_LOCAL=0,  NSORT=NSORT_START  ;
+  int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
+  int igrp, NGRP_USR,  FLAG ; 
+  char *s0, *s1, *s2, *f0, *f2, *NAME ;
+  bool SMATCH, NOGRP, DO_COPY, MATCH_SUBSTR ;
+  int LDMP = 0 ;
+  char fnam[] = "sort_IDSAMPLE_biasCor_exec" ;
+
+  // ---------------- BEGIN ---------------
+
+  fprintf(FP_STDOUT, "  %s with NSORT_START=%d and SAMPLE_SUBSTR='%s' \n", 
+	 fnam, NSORT_START, SAMPLE_SUBSTR );
+
+  for ( ID=0; ID < MXNUM_SAMPLE; ID++ ) { IDMAP_SORT[ID] = -9; }
 
   // copy pre-sorted struct into SAMPLE_BIASCOR_TEMP
   ID2 = 0;
@@ -9614,10 +9712,13 @@ int sort_IDSAMPLE_biasCor(int NSORT_START, char *SAMPLE_SUBSTR ) {
   for(ID=0; ID < NSAMPLE_BIASCOR; ID++ ) {
 
     NAME = SAMPLE_BIASCOR_TEMP[ID].NAME ;
-    if ( SELECT_SUBSTR && strstr(NAME,SAMPLE_SUBSTR) == NULL  ) 
-      { NCOPY[ID2] = -9; } // flag to ignore this ID
-    else 
-      { NCOPY[ID2] =  0; } // flag to use this ID
+    MATCH_SUBSTR = strstr(NAME,SAMPLE_SUBSTR) != NULL ; // substring match
+
+    NCOPY[ID] = 0; // default is to use all IDsamples
+
+    if ( SELECT_SUBSTR && !MATCH_SUBSTR ) { 
+      NCOPY[ID] = -9;  // flag to ignore this ID because it does not match substring
+    }
     ID2++ ;
   }
   NSAMPLE_LOCAL   = ID2;
@@ -9732,20 +9833,21 @@ int sort_IDSAMPLE_biasCor(int NSORT_START, char *SAMPLE_SUBSTR ) {
   int isn  ;
 
   for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL ; isn++ ) {
-    ID = INFO_DATA.TABLEVAR.IDSAMPLE[isn] ;
+    ID = INFO_DATA.TABLEVAR.IDSAMPLE_TEMP[isn] ; // pre-sorted IDSAMPLE
     if ( ID             < 0 ) { continue ; }
     if ( NCOPY[ID]      < 0 ) { continue; }
-    INFO_DATA.TABLEVAR.IDSAMPLE[isn] = IDMAP_SORT[ID]; //sorted sample
+
+    INFO_DATA.TABLEVAR.IDSAMPLE[isn] = IDMAP_SORT[ID]; // update with sorted sample
+    INFO_DATA.TABLEVAR.NUPD_SORT_IDSAMPLE[isn]++ ;     // flag that this event is sorted
   }
 
   if ( LDMP  ) 
     { printf(" xxx ----- END DUMP for %s --------- \n\n", fnam); }
 
 
-  print_debug_malloc(-1*debug_malloc,fnam);
   return NSORT ;
 
-} // end sort_IDSAMPLE_biasCor
+} // end sort_IDSAMPLE_biasCor_exec
 
 
 // ======================================================
@@ -13650,8 +13752,10 @@ void  makeSparseList_biasCor(void) {
 
   // - - - - -
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
-    printf("\t NBIASCOR_CUTS = %7d for IDSAMPLE=%d \n",
-           SAMPLE_BIASCOR[idsample].NBIASCOR_CUTS, idsample);
+    printf("\t NBIASCOR_CUTS = %7d for IDSAMPLE=%d  %s \n",
+           SAMPLE_BIASCOR[idsample].NBIASCOR_CUTS, 
+	   idsample,
+           SAMPLE_BIASCOR[idsample].NAME );
   }
   fflush(stdout);
 
@@ -21598,18 +21702,12 @@ void prep_debug_flag(void) {
 	   INPUTS.debug_flag);
   }
   
-  if ( INPUTS.debug_flag == 211 ) {
-    INPUTS.REFAC_SORT_IDSAMPLE = 1;
-    printf("\n debug flag set to %d : used refactored sort_IDSAMPLE in legacy mode\n", 
-	   INPUTS.debug_flag);
-  }
-  if ( INPUTS.debug_flag == 212 ) {
-    INPUTS.REFAC_SORT_IDSAMPLE = 2;
-    printf("\n debug flag set to %d : used refactored sort_IDSAMPLE with zSPEC/zPHOT separation\n", 
+  if ( INPUTS.debug_flag == -211 ) {
+    INPUTS.REFAC_SORT_IDSAMPLE = 0;
+    printf("\n debug flag set to %d : revert back to legacy sort_IDSAMPLE \n");
 	   INPUTS.debug_flag);
   }
 
-  
   fflush(FP_STDOUT);
   
 
@@ -26139,6 +26237,8 @@ void SUBPROCESS_SIM_PRESCALE(void) {
 
   print_eventStats(EVENT_TYPE_DATA);
 
+  // beware that "DATA" here is really a sub-sampled selection of a giant sim for D2D;
+  // Thus NEVT_SIM_PRESCALE  operates on the sim-data used by D2D.
   int  NSN_PASS   = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
   if ( NEVT_SIM > NSN_PASS ) { return; }
 

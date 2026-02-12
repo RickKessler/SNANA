@@ -23501,7 +23501,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
        + fix subtle bug truncating HOST_NMATCH <= MXHOSTGAL (=2)
      
-
      plot_table.py
        + enable plotting strings (e.g., FIELD or SURVEY) and print string
          label under each tick mark. Works for 1D or 2D plots.
@@ -23513,5 +23512,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          in list gets resolved by command line parser, but not the 2nd file.
          ENVreplace was called after REQUIRE_DOCANA check, so moved 
          this call to before REQUIRE_DOCANA check.
+
+     SALT2mu.c:
+       - fix sort_IDSAMPLE_biasCor to properly account for zSPEC/zPHOT;
+          see https://github.com/RickKessler/SNANA/issues/1610
+
 
 END: 

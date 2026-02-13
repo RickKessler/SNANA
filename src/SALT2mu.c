@@ -23816,9 +23816,10 @@ void write_fitres_misc(FILE *fout) {
   char comment[80];
   if ( MASK > 0 ) {
 
+    comment[0] = 0;
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) 
-      { sprintf(comment, "(N_alpha x N_beta = %d x %d)", (*BININFO_SIM_ALPHA).nbin, (*BININFO_SIM_BETA).nbin ); }
-    else if ( INPUTS.ISMODEL_LCFIT_SALT2 ) 
+      { sprintf(comment, "(N_alpha x N_beta = %d x %d)", (*BININFO_SIM_ALPHA).nbin,(*BININFO_SIM_BETA).nbin ); }
+    else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) 
       { comment[0] = 0; }
 	
     fprintf(fout,"#  NSIM(%dD-BIASCOR)   = %d   %s\n",

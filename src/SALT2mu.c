@@ -3242,6 +3242,7 @@ void applyCut_chi2max(void) {
     fprintf(FP_STDOUT, "\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
     fflush(FP_STDOUT);
 
+    // call chi2 fun 2nd time, here with updated M0_DEFAULT
     exec_mnparm(); 
     mncomd_(fcn, mcom, &icondn, &null, len); 
     fflush(FP_STDOUT);
@@ -4354,8 +4355,8 @@ void *MNCHI2FUN(void *thread) {
   double   MUCOVADD_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVadd at each a,b
   double   *fitParBias;
 
-  bool REFAC  = (INPUTS.REFAC_CCPRIOR > 0) ; 
-  bool LDMP   = ISMODEL_LCFIT_SALT2 ;
+  bool REFA_CCPRIOR  = (INPUTS.REFAC_CCPRIOR > 0) ; 
+  bool LDMP          = ISMODEL_LCFIT_SALT2 ;
   
   // -------------- BEGIN ------------
 
@@ -4732,7 +4733,7 @@ void *MNCHI2FUN(void *thread) {
 
 	//	DUMPFLAG = ( strcmp(name,"1257419") == 0 ) ; // CCPRIOR IZBIN=3  
 
-	if ( REFAC ) {
+	if ( REFAC_CCPRIOR ) {
 	  // pre-computed during init with user-input alpha,beta
 	  if ( INPUTS.DO_CCPRIOR_UPDATE ) {
 	    // re-compute prior with updated alpha, beta
@@ -4760,6 +4761,7 @@ void *MNCHI2FUN(void *thread) {
         xxxxxxxxxxxxxxx*/
 
       }
+
       Prob_CC   = PTOT_CC * dPdmu_CC ;
 
       Prob_SUM  = Prob_Ia + Prob_CC ; // BEAMS prob in Eq. 6 of BBC paper
@@ -4802,7 +4804,7 @@ void *MNCHI2FUN(void *thread) {
 	chi2evt      = 1.0E8 ;
       }
 
-    } // end CCprios.USE if block
+    } // end USE_CCPRIOR if block
 
     chi2sum_tot      += chi2evt;
     INFO_DATA.chi2[n] = chi2evt; // store each chi2 to allow for outlier cut

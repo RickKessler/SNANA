@@ -106,10 +106,11 @@
         ,OPT_FILTOBS          = 2  & 
         ,ISTAT_READAGAIN      = 7  & 
         ,ISTAT_SKIP           = -1  & 
-        ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_OUTLIER=3  & 
-        ,ITABLE_SNLCPAK=4, ITABLE_SPECPAK=5  & 
-        ,ITABLE_MODELSPEC=6, ITABLE_MARZ=7, ITABLE_DMPFCN=8  & 
-        ,MXTABLE = 10  & 
+        ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_OUTLIER=3   & 
+        ,ITABLE_SNLCPAK=4, ITABLE_SPECPAK=5                  & 
+        ,ITABLE_MODELSPEC=6, ITABLE_MARZ=7, ITABLE_DMPFCN=8  &
+        ,ITABLE_PRIOR=9  &
+        ,MXTABLE = 10    & 
         ,IDTABLE_SNANA     = 7100   &  ! anaysis variables, every event
         ,IDTABLE_FITRES    = 7788   &  ! SNANA table + fit results, passing cuts
         ,IDTABLE_OUTLIER   = 7800   &  ! outlier fluxes (Mar 2021)
@@ -117,6 +118,7 @@
         ,IDTABLE_MARZ      = 8100   &  ! MARZ table for spectra
         ,IDTABLE_DMPFCN    = 8200   &  ! for DMPFCN (jan 2025)
         ,IDTABLE_MCMC      = 7711   &  ! obsolete ?
+        ,IDTABLE_PRIOR     = 8300   &  ! priors in snlc_fit
         ,OPT_PARSTORE_TEXTTABLE = 1   &  ! tag subset for TEXT table.
         ,MSKOPT_PARSE_WORDS_FILE    = 1    &  ! parse file
         ,MSKOPT_PARSE_WORDS_STRING  = 2    &  ! for store_PARSE_WORDS: string
@@ -6465,10 +6467,11 @@
     TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'key'  ! Mar 2025
     TEXTFORMAT_TABLE(ITABLE_FITRES)    = 'key'
     TEXTFORMAT_TABLE(ITABLE_OUTLIER)   = 'key'
-    TEXTFORMAT_TABLE(ITABLE_SNLCPAK)   = 'key'  ! xxx 'none'
+    TEXTFORMAT_TABLE(ITABLE_SNLCPAK)   = 'key'  !
     TEXTFORMAT_TABLE(ITABLE_SPECPAK)   = 'none' ! Apr 2019
     TEXTFORMAT_TABLE(ITABLE_MODELSPEC) = 'none'
     TEXTFORMAT_TABLE(ITABLE_MARZ)      = 'none'
+    TEXTFORMAT_TABLE(ITABLE_PRIOR)     = 'key'  ! Feb 2026
 
 
 #if defined(SNANA)
@@ -6564,11 +6567,15 @@
              OPT_TABLE(ITAB) = 2     ! include epoch fit resids
           endif
 
+       else if ( TBname(1:5) .EQ. 'prior' ) then
+          ITAB = ITABLE_PRIOR
+          OPT_TABLE(ITAB) = 1
+
        else if ( TBname(1:7) .EQ. 'outlier' ) then
 !           OUTLIER table is automatically disabled for large BIASCOR sim
           if ( SIM_BIASCOR_MASK == 0 ) then
             ITAB = ITABLE_OUTLIER
-            OPT_TABLE(ITAB) = 1
+            OPT_TABLE(ITAB)   = 1
             NSIGCUT_OUTLIER   = 3.0   ! default outlier def is 3sigma
             FTRUECUT_OUTLIER  = 0.01  ! default requires Ftrue > 0
             SBMAGCUT_OUTLIER  = 999.  ! default is no SBMAG cut (Aug 2021)
@@ -6708,6 +6715,9 @@
 
     ITAB = ITABLE_MARZ
     write(6,40) 'MARZ', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
+
+    ITAB = ITABLE_PRIOR
+    write(6,40) 'PRIOR', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
 
  40   format(T5,A9,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
  41   format(T5,A9,'-table: MXLC_PLOT=',I8, 3x, 'TEXTFORMAT=',A4 )

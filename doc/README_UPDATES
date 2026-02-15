@@ -23486,6 +23486,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       See https://github.com/RickKessler/SNANA/issues/1607 and
           https://github.com/RickKessler/SNANA/issues/1605
 
+    snlc_fit.F90
+       Default PRIOR_AVEXP  = 0.334 -> 1E9 (flat)
+       Default PRIOR_MJDSIG = 20.0  -> 1E9 (flat)
+       Beware for fitting BayeSN, MLCS, SNOOPY
+
+      + new option to make table of priors for plotting;        
+          see https://github.com/RickKessler/SNANA/issues/1612
+
          *****  USEFUL(v12_01c) *****
 
     snana.F90:  Read WRITE_MASK_HEAD into SIM_WRITE_MASK and set logical for

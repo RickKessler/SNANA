@@ -6988,13 +6988,13 @@
     NSIGMA_PDF     = 4
     MAX_INTEGPDF   = 3
 
-    PRIOR_AVEXP(1)   = 0.334   ! prior = exp(-AV/PRIOR_AVEXP)
+    PRIOR_AVEXP(1)   = 1.0E9   ! prior = exp(-AV/PRIOR_AVEXP)
     PRIOR_AVEXP(2)   = 1.0E9   ! prior = exp(-AV/PRIOR_AVEXP)
     PRIOR_AVWGT(1)   = 1.0     ! relative wgt of 1st expon
     PRIOR_AVWGT(2)   = 0.0     ! relative wgt of 2nd expon
 
     PRIOR_AVRES      = 0.0     ! smear AV prior by this resolution
-    PRIOR_MJDSIG     = 20.0    ! sigma for gauss prior on PEAKMJD (days)
+    PRIOR_MJDSIG     = 1.04    ! sigma for gauss prior on PEAKMJD (days)
     PRIOR_ZERRSCALE  = 1000.01   ! default is no prior
     PRIOR_MUERRSCALE = 1000.01   ! default is no prior
     DOPRIOR_DLMAG    = .FALSE.
@@ -11249,12 +11249,13 @@
 ! 
 ! Apr 7 2020: init AV prior for SNOOPY as well as MLCS2k2
 ! 
+! Feb 15 2026: call MAKE_TABLE_PRIORS
 ! ------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
+    USE CTRLCOM
 
     IMPLICIT NONE
 
@@ -11325,7 +11326,6 @@
 ! check OPT_PRIOR after MJD prior is set.
 
     IF ( OPT_PRIOR .EQ. 0  ) GOTO 900
-
 ! - - - - - - -  -
 ! Set PhotoZ PRIOR for SN-photoZ fit.
 ! 
@@ -11397,59 +11397,110 @@
       CALL PRBANNER("FITINI_PRIOR: NO PRIORS DEFINED" )
     ENDIF
 
-! -----------------------------------------
-! plot chi2 from prior in monitor plot
-! use CHI2_PRIOR function
 
-900   CONTINUE
-    if ( .NOT. USE_TABLEFILE ) RETURN
+! check opton to make table to monitor propr (debug/diagnostic)
+    CALL MAKE_TABLE_PRIORS()
 
-    NDIM = 1  ; WGT = 1.0 ! 1D histos
-    HOFF = 980
-    DO 50 ipar = 1, IPAR_MAX
-
-       if ( .not. USE_PRIOR(ipar) ) goto 50
-
-59       format( A,' from ',A,'-prior vs. ', A )
-
-! make plot with very fine binning to check interpolation
-       xbin    = 0.2*PRIOR_BINSIZE(ipar)
-       xmin(1) = PRIOR_RANGE(1,IPAR) - xbin/2.0
-       xmax(1) = PRIOR_RANGE(2,IPAR) + xbin/2.0
-       nb(1)   = int( (xmax(1) - xmin(1) + 0.1*xbin)/xbin )
-
-       LL = INDEX ( PARNAME_STORE(ipar), ' ' ) - 1
-       LCHIS = 25+2*LL
-
-       hid = HOFF + ipar
-       write(chis,59) 'prob',  & 
-               PARNAME_STORE(ipar)(1:LL), PARNAME_STORE(ipar)(1:LL)
-       chis = chis(1:LCHIS) // char(0)
-       CALL SNHIST_INIT(NDIM, HID, CHIS, NB, xmin, xmax, 80)
-
-       hid = HOFF + 10 + ipar
-       write(chis,59) 'chi2',  & 
-               PARNAME_STORE(ipar)(1:LL), PARNAME_STORE(ipar)(1:LL)
-       chis = chis(1:LCHIS) // char(0)
-       CALL SNHIST_INIT(NDIM, HID, CHIS, NB, xmin, xmax, 80)
-
-    DO 51 ibin = 1, NB(1)
-         tmp(1)  = PRIOR_RANGE(1,IPAR) + xbin * float(ibin-1)
-         chi2    = CHI2_PRIOR(ipar,tmp(1))
-         arg     = min(40.0,chi2/2.0)
-         prob    = dexp(-arg)
-
-         HID = HOFF +  0 + ipar
-         CALL SNHIST_FILL ( NDIM, HID, tmp, prob)
-
-         HID = HOFF + 10 + ipar
-         CALL SNHIST_FILL ( NDIM, HID, tmp, chi2 )
-
-51    CONTINUE
-50    CONTINUE
 
     RETURN
   END SUBROUTINE FITINI_PRIORS
+
+
+  SUBROUTINE MAKE_TABLE_PRIORS()
+
+    ! Created Feb 2026
+    ! make single diagnostic table with
+    !  ROW  VARNAME  VALUE  CHI2
+    !
+    ! All priors are lumped into a single table and VARNAME defines which variable.
+    ! Here the table is defined and loaded.
+
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNFITCOM
+    USE CTRLCOM
+
+    IMPLICIT NONE
+    
+    CHARACTER VARLIST*40, CBLOCK*20, TEXTFMT*20, TEXTFMT_forC*20
+    INTEGER   ID, LENBL, LENVAR, LENFMT, IPAR, ibin
+
+    ! define variables for plot table
+    CHARACTER VARNAME*20
+    REAL*8    DVAL, DCHI2, dmin, dbin
+    INTEGER   ROWNUM
+
+    ! functions
+
+    REAL*8 CHI2_PRIOR
+    EXTERNAL  & 
+          SNTABLE_ADDCOL  & 
+         ,SNTABLE_ADDCOL_int  & 
+         ,SNTABLE_ADDCOL_flt  & 
+         ,SNTABLE_ADDCOL_dbl  & 
+         ,SNTABLE_ADDCOL_str
+
+! ---------------- BEGIN ------------
+
+    IF ( OPT_TABLE(ITABLE_PRIOR) == 0 ) RETURN
+
+    ID       = IDTABLE_PRIOR
+    CBLOCK   = 'PRIOR' // char(0)
+    LENBL    = 5
+
+    TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_PRIOR)
+    LENFMT   = INDEX(TEXTFMT,' ') - 1
+    TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+    CALL SNTABLE_CREATE(ID, CBLOCK, TEXTFMT_forC,  LENBL, LENFMT)  ! C fun
+
+    ! - - - - 
+
+    write(6,10) CBLOCK, ID
+ 10   format(T6,'Create BLOCK(1:LENBL) = ',A,'  for TABLE ID = ', I5)
+    call flush(6)
+
+    ! init table
+
+    VARLIST = 'ROW:I' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ROWNUM,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'VARNAME:C*20' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, VARNAME,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'VALUE:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DVAL,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'CHI2:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DCHI2,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    ! load table
+    ROWNUM = 0   
+    DO 50 ipar = 1, IPAR_MAX
+       if ( .not. USE_PRIOR(ipar) ) goto 50
+       dmin = PRIOR_RANGE(1,IPAR)
+       dbin = PRIOR_BINSIZE(ipar)
+       VARNAME = PARNAME_STORE(ipar)
+    DO 51 ibin = 1, NBIN_PRIOR
+       ROWNUM = ROWNUM + 1
+       DVAL  = dmin +   dbin * DBLE(ibin-1)
+       DCHI2 = CHI2_PRIOR(ipar,DVAL)
+       CALL SNTABLE_FILL(ID)  ! generic C function
+51    CONTINUE
+50    CONTINUE
+
+    ! .xyz
+
+  END SUBROUTINE MAKE_TABLE_PRIORS
+
+
 
   SUBROUTINE FITINI_PRIOR_MUERR()
     ! Created DEC 5 2025 by Jonah Medoff

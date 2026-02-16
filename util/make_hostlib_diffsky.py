@@ -16,6 +16,7 @@ import pandas as pd
 
 import opencosmo as oc
 import numpy as np
+from pathlib import Path
 
 # =======
 
@@ -26,8 +27,6 @@ KEY_CUTWIN               = "CUTWIN"
 KEY_MAG_5SIG             = "MAG_5SIG"
 KEY_HOSTLIB_GALID        = "GALID"
 
-
-RANSEED = 234237905   # used to ensure same random subsets for smaller HOSTLIBs
 
 REF_DICT = {
     'REF1': [ 'Heitmann+ 2021 (N-body sim)',
@@ -99,7 +98,7 @@ HOSTLIB_VARNAMES_MAP:
 #   diffsky       HOSTLIB        HOSTLIB
 #   varname       varname        format
 #  - - - - - - - - - - - - - - - - - - - - - - -
--  galaxy_id       GALID           15d
+-  core_tag        GALID           15d
 -  redshift_true   ZTRUE_CMB       6.4f
 -  ra              RA_GAL          11.6f
 -  dec             DEC_GAL         11.6f
@@ -292,7 +291,7 @@ def addcol_mag_errors(cat_inp, config):
 
         logging.info(f"\t append {str_band_err} using m5sig = {m5sig}")
 
-        mag_np = cat_out.select([str_band]).get_data().value
+        mag_np = cat_out.select([str_band]).get_data().value  # value or values ???
         mag_err_np     = powm5*np.power(10.0,+0.2*mag_np)
         mag_err_dict[f"{str_band_err}"] = mag_err_np
 
@@ -308,12 +307,26 @@ def addcol_mag_errors(cat_inp, config):
 
 def read_galaxy_cat(args, config):
 
+    logging.info('')
     t0 = time.time()
     cat_dir  = config[KEY_CAT_DIR]
     
     if not os.path.exists(cat_dir):
         sys.exit(f"\n ERROR: cannot find galaxy catalog dir:\n\t{cat_dir}")
 
+    # if symbolic link, then print resolved file
+    cat_path = Path(cat_dir)
+    if cat_path.is_symlink():
+        cat_dir_symlink = cat_dir
+        cat_path_resolved = cat_path.resolve()
+        cat_dir           = str(cat_path_resolved)
+        logging.info(f"Resolve catalog dir symlink:")
+        logging.info(f"\t {cat_dir_symlink}")
+        logging.info(f"\t  --->")
+        logging.info(f"\t {cat_dir}")
+        logging.info('')
+        config[KEY_CAT_DIR] = cat_dir
+        
     # fragile-alert reading catalog files with specific prefix
     wildcard = f"{cat_dir}/lc_cores-*.hdf5"  # fragile alert; should read standard list file
     catalog_files = sorted( glob.glob(wildcard) )
@@ -325,7 +338,7 @@ def read_galaxy_cat(args, config):
     
     logging.info(f"Read {n_file} galaxy catalog files from {cat_dir}")
 
-    ds = oc.open(*catalog_files)
+    ds = oc.open(*catalog_files, synth_cores=True)
     n_row = len(ds)
     logging.info(f"Done reading dataset with {n_row:,} rows")
     print_proc_time(t0,"READ_CATALOG", n_row)
@@ -491,12 +504,12 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
         
     fp.write(f"  USAGE_KEY:  HOSTLIB_FILE \n")
     fp.write(f"  USAGE_CODE: snlc_sim.exe \n")
-    fp.write(f"  NOTES: \n")
-    fp.write(f"  - extracted from diffsky catalog {cat_dir_base} \n")
-    fp.write(f"  - ngal      = {ngal} \n")
-    fp.write(f"  - ra_range  = {str_ra}      # degrees \n")
-    fp.write(f"  - dec_range = {str_dec}     # degrees \n")    
-
+    fp.write(f"  \n")
+    fp.write(f"  DIFFSKY_NOTES: \n")
+    fp.write(f"    CATALOG:    {cat_dir_base} \n")
+    fp.write(f"    NGAL:       {ngal} \n")
+    fp.write(f"    RA_RANGE:   {str_ra}      # degrees \n")
+    fp.write(f"    DEC_RANGE:  {str_dec}     # degrees \n")    
     fp.write(f"\n")
     fp.write(f"  HOSTLIB_VARNAMES_MAP: \n")
     for row in HOSTLIB_VARNAMES_MAP:
@@ -787,6 +800,8 @@ if __name__ == "__main__":
     setup_logging()
     logging.info("# ========== BEGIN make_simsed_binaries ===============")
 
+    logging.info(f"opencosmo version: {oc.__version__}")
+    
     t_start = time.time()
     args   = get_args() 
     config = read_yaml(args.config_file)
@@ -813,7 +828,7 @@ if __name__ == "__main__":
     logging.info('========== COMPUTE/APPEND COLUMNS ===============')
     
     # add vpec
-    galaxy_cat = addcol_vpec(galaxy_cat, config)    
+    # xxx no longer needed ? galaxy_cat = addcol_vpec(galaxy_cat, config)    
 
     # add sersic indices
     galaxy_cat = addcol_sersic_indices(galaxy_cat, config)

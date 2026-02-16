@@ -4355,7 +4355,7 @@ void *MNCHI2FUN(void *thread) {
   double   MUCOVADD_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVadd at each a,b
   double   *fitParBias;
 
-  bool REFA_CCPRIOR  = (INPUTS.REFAC_CCPRIOR > 0) ; 
+  bool REFAC_CCPRIOR = (INPUTS.REFAC_CCPRIOR > 0) ; 
   bool LDMP          = ISMODEL_LCFIT_SALT2 ;
   
   // -------------- BEGIN ------------

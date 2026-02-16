@@ -11399,8 +11399,9 @@
 
 
 ! check opton to make table to monitor propr (debug/diagnostic)
-    CALL MAKE_TABLE_PRIORS()
+900 CONTINUE
 
+    CALL MAKE_TABLE_PRIORS()
 
     RETURN
   END SUBROUTINE FITINI_PRIORS
@@ -11496,7 +11497,6 @@
 51    CONTINUE
 50    CONTINUE
 
-    ! .xyz
 
   END SUBROUTINE MAKE_TABLE_PRIORS
 

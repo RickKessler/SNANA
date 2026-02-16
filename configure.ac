@@ -57,10 +57,27 @@ AC_SUBST([PYTHON_LIBS])
 #AC_SUBST(USE_PYTHON)
 
 AC_CHECK_LIB([m],[cos])
-AC_CHECK_LIB([gslcblas],[cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [], [$LIBS])
+
+#AC_CHECK_LIB([gslcblas],[cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [], [$LIBS])
+#AC_SUBST([GSLCBLASLIB])
+#AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [GSLLIB="-lgsl"], [], [$LIBS])
+#AC_SUBST([GSLLIB])
+
+
+# Check for GSL
+AC_CHECK_LIB([gslcblas], [cblas_dgemm], [], [
+    AC_MSG_ERROR([GSL CBLAS library not found])
+])
+
+AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [], [
+    AC_MSG_ERROR([GSL library not found])
+], [-lgslcblas])
+
+
 AC_SUBST([GSLCBLASLIB])
-AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [GSLLIB="-lgsl"], [], [$LIBS])
 AC_SUBST([GSLLIB])
+  
+
 
 
 AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [AC_MSG_ERROR([cfitsio library not found. Please install CFITSIO.])], [$LIBS])

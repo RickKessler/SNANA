@@ -11259,20 +11259,8 @@
 
     IMPLICIT NONE
 
-    INTEGER  ibin, ipar, NPRIOR
-
-    REAL*8 tmp(2), prob, chi2, arg, xmin(2), xmax(2), xbin, x , wgt
-
-    LOGICAL LSTAT
-
-! histogram args
-
-    INTEGER NB(2), LL, NDIM, LCHIS, HOFF, hid, ifilt
-    CHARACTER chis*80
-
-! function
-
-    REAL*8 CHI2_PRIOR
+    INTEGER  ibin, ipar, NPRIOR, ifilt
+    LOGICAL  LSTAT
 
 ! -------------- BEGIN ----------
 
@@ -11420,15 +11408,16 @@
     USE SNANAFIT
     USE SNFITCOM
     USE CTRLCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
     
-    CHARACTER VARLIST*40, CBLOCK*20, TEXTFMT*20, TEXTFMT_forC*20
-    INTEGER   ID, LENBL, LENVAR, LENFMT, IPAR, ibin
+    CHARACTER VARLIST*80, CBLOCK*20, TEXTFMT*20, TEXTFMT_forC*20
+    INTEGER   ID, LENBL, LENVAR, LENFMT, LENTOT, IPAR, ibin, NVAR_PRIOR
 
     ! define variables for plot table
-    CHARACTER VARNAME*20
-    REAL*8    DVAL, DCHI2, dmin, dbin
+    CHARACTER VARNAME*20, COMMENT_forC*100, plot_example*100
+    REAL*8    DVALGRID, DPROBGRID, DCHI2GRID, DCHI2FUN, dmin, dbin
     INTEGER   ROWNUM
 
     ! functions
@@ -11444,6 +11433,7 @@
 ! ---------------- BEGIN ------------
 
     IF ( OPT_TABLE(ITABLE_PRIOR) == 0 ) RETURN
+    if ( JOBSPLIT(1) > 1 ) RETURN   ! only ISPLIT=1 for batch mode
 
     ID       = IDTABLE_PRIOR
     CBLOCK   = 'PRIOR' // char(0)
@@ -11454,6 +11444,52 @@
     TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
     CALL SNTABLE_CREATE(ID, CBLOCK, TEXTFMT_forC,  LENBL, LENFMT)  ! C fun
 
+    ! make list of fit variables with prior, for comments below
+    VARLIST = ' '
+    LENTOT  = 1
+    NVAR_PRIOR = 0
+    DO 40 ipar = 1, IPAR_MAX
+       if (  USE_PRIOR(ipar) ) then
+          VARNAME = PARNAME_STORE(ipar)
+          LENVAR  = INDEX(VARNAME,' ') - 1
+          VARLIST = VARLIST(1:LENTOT) // " " // VARNAME(1:LENVAR)
+          LENTOT  = LENTOT + LENVAR + 1
+          NVAR_PRIOR = NVAR_PRIOR + 1
+          if ( NVAR_PRIOR == 1 ) then
+             plot_example = &
+                  '  plot_table.py @@tfile <tfile> ' // &
+                  '@V VALGRID:PROBGRID @@CUT "VARNAME=''' // &
+                  VARNAME(1:LENVAR) // '''" ' // char(0)
+          endif
+       endif
+40  continue
+
+    ! store comments      ! .xyz
+    CALL STORE_TABLEFILE_COMMENT(' '//char(0), 2)
+
+    COMMENT_forC = 'Columns:' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 20)
+
+    COMMENT_forC = '  VARNAME:   name of LC-fitted param with prior: ' &
+         // VARLIST(1:LENTOT) // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 80)
+
+    COMMENT_forC = '  VALGRID:   param value on stored grid' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    COMMENT_forC = '  PROBGRID:  prior-PROB value on grid' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    COMMENT_forC = '  CHI2GRID:  prior-chi2 value on grid [-2ln(PROBGRID)]' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    COMMENT_forC = '  CHI2FUN:   CHI2_PRIOR FUNCTION value (expect CHI2FUN=CHI2GRID)' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    CALL STORE_TABLEFILE_COMMENT("Plot_example:"//char(0), 20)
+    CALL STORE_TABLEFILE_COMMENT(plot_example, 90)
+
+    CALL STORE_TABLEFILE_COMMENT(' '//char(0), 2)
     ! - - - - 
 
     write(6,10) CBLOCK, ID
@@ -11472,15 +11508,26 @@
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, VARNAME,  & 
               VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
 
-    VARLIST = 'VALUE:D' // char(0)
+    VARLIST = 'VALGRID:D' // char(0)
     LENVAR  = INDEX(VARLIST, ' ') - 1
-    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DVAL,  & 
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DVALGRID,  & 
               VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
 
-    VARLIST = 'CHI2:D' // char(0)
+    VARLIST = 'PROBGRID:D' // char(0)
     LENVAR  = INDEX(VARLIST, ' ') - 1
-    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DCHI2,  & 
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DPROBGRID,  & 
               VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'CHI2GRID:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DCHI2GRID,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'CHI2FUN:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DCHI2FUN,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
 
     ! load table
     ROWNUM = 0   
@@ -11490,10 +11537,12 @@
        dbin = PRIOR_BINSIZE(ipar)
        VARNAME = PARNAME_STORE(ipar)
     DO 51 ibin = 1, NBIN_PRIOR
-       ROWNUM = ROWNUM + 1
-       DVAL  = dmin +   dbin * DBLE(ibin-1)
-       DCHI2 = CHI2_PRIOR(ipar,DVAL)
-       CALL SNTABLE_FILL(ID)  ! generic C function
+       ROWNUM   = ROWNUM + 1
+       DVALGRID     = dmin + dbin * DBLE(ibin)
+       DPROBGRID    = PRIOR_PROBGRID(ibin,ipar)
+       DCHI2GRID    = PRIOR_CHI2GRID(ibin,ipar)
+       DCHI2FUN     = CHI2_PRIOR(ipar,DVALGRID)
+       CALL SNTABLE_FILL(ID)  ! C function
 51    CONTINUE
 50    CONTINUE
 

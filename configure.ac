@@ -35,7 +35,8 @@ fi
 AC_SUBST([GIT_VERSION])
 
 
-AM_PATH_PYTHON([3.10])
+dnl allow python >= 3.7
+AM_PATH_PYTHON([3.7])
 
 AC_PATH_PROGS([PYTHON_CONFIG], [python3-config python-config], [no])
 AS_IF([test "x$PYTHON_CONFIG" = xno], [AC_MSG_ERROR([cannot find python-config])])

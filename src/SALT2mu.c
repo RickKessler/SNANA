@@ -26253,11 +26253,18 @@ void SUBPROCESS_SIM_PRESCALE(void) {
 	  fnam, PS, NEVT_SIM) ;
   fflush(FP_STDOUT);
 
+  int NSN_PS = 0; // Feb 17 2026
   for(isn=0; isn < NSN_TOT; isn++) {
     RANFLAT = SUBPROCESS.RANFLAT_PRESCALE[isn];
-    if ( RANFLAT > PSinv ) 
-      { setbit_CUTMASK(isn, CUTBIT_SIMPS, &INFO_DATA.TABLEVAR ); }
+    if ( RANFLAT > PSinv )  { 
+      setbit_CUTMASK(isn, CUTBIT_SIMPS, &INFO_DATA.TABLEVAR ); 
+      NSN_PS++ ;
+    }
   }
+
+  fprintf(FP_STDOUT,"%s: NSN_TOT = %d --> %d after prescale\n", 
+	  fnam, NSN_TOT, NSN_PS);
+  fflush(FP_STDOUT);
 
   return;
 

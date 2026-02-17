@@ -23300,7 +23300,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu.c
      + in function exec_mnparm(), always set REPEAT flag to false so that
        all init is redone -> fixed bug in dust2dust using SUBPROCESS.
-     + few SUBPROCESS fixes for revining dust2dust
+     + few SUBPROCESS fixes for reviving dust2dust
+
      + add SNTABLE_AUTOSTORE_RESET() commands in read_data_override() and in
        parse_cidFile_data() so that cid_select_file and datafile_override
        do not interfere with each other. Caught by R.Camillaro doing Unite analysis.

@@ -28379,7 +28379,7 @@
         ,PDFMAX(MXPAR)              &  ! max over grid for each ipar
         ,TMP_RANGE(2,MXPAR)  & 
         ,PDF1D_MARG(MXGRID,MXPAR)  &    ! marginalized pdf for each param
-        ,PDF1D_NAIVE(MXGRID,MXPAR)  &   ! pdf at minimized value of other params
+        ,PDF1D_NOMARG(MXGRID,MXPAR)  &   ! pdf at minimized value of other params
         ,SUM0, SUM1, SUM2, XN, XTMP, SQERR, E12, E1xE2, PDFTMP  & 
         ,PDF_NBR1, PDF_NBR2, XVAL
 
@@ -28388,7 +28388,7 @@
 ! plot variables
     INTEGER ID
     CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, COMMENT_forC*80
-    REAL*8    PDF_MARG, PDF_NAIVE
+    REAL*8    PDF_MARG, PDF_NOMARG
 
 ! function
 
@@ -28533,14 +28533,12 @@
           NN    = NGRID**(NDIM-idim)
           ibin_dim(idim) = (ibin - 1 - ibin_off)/NN + 1
           ibin_off       = ibin_off + (ibin_dim(idim) - 1) * NN
-
           ipar     = ipar_dim(idim)  ! fetch fit par index
           igrid    = ibin_dim(idim)
           TMP      = float( igrid ) - 0.5
           XTMP     = PARVAL_MIN(ipar)  + PARVAL_BINSIZE(ipar) * TMP
           PARVAL(ipar)            = XTMP
           PARVAL_GRID(igrid,ipar) = XTMP
-
        enddo  ! end loop of NDIM
 
 ! get X8 array that contains only parameters to integrate
@@ -28579,15 +28577,6 @@
             PDFMAX(ipar) = PDFSUM_GRID(igrid,ipar)
           endif
        enddo  ! end of idim loop
-
-! xxxxxxxxxxxxxxxx mark Feb 16 2026 xxxxxxxxxxxx
-!        if ( PDF > 0.0 .and. HOFF > 0 ) then
-!          xpdf(1)   = DLOG10(PDF)
-!          xpdf(1)   = max ( -19.999, xpdf(1) )
-!          wgt       = 1.0
-!          CALL SNHIST_FILL(NHDIM, HOFF, XPDF, WGT )
-!        endif
-! xxxxxxxxxxxxxxxxx end mark xxxxxxxx
 
 771       continue
         if ( MOD(IBIN,10000)  .EQ. 0 ) then
@@ -28713,6 +28702,8 @@
 400   CONTINUE
 
 
+! -------------------------------------------
+
 ! ------------------------
      IF ( LDMP_DEBUG ) THEN
 
@@ -28778,22 +28769,22 @@
           VARLIST = 'PDF_MARG:D' // char(0)
           CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_MARG, VARLIST,1,  3,20)
 
-          VARLIST = 'PDF_NAIVE:D' // char(0)
-          CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_NAIVE, VARLIST,1,  3,20)
+          VARLIST = 'PDF_NOMARG:D' // char(0)
+          CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_NOMARG, VARLIST,1,  3,20)
 
           ! - - - - -
           CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
 
-          COMMENT_forC = '  VARNAME:   name of fitted parameter' // char(0)
+          COMMENT_forC = '  VARNAME:    name of fitted parameter' // char(0)
           CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
 
-          COMMENT_forC = '  VALUE:     marginalization-grid value of fitted parameter' // char(0)
+          COMMENT_forC = '  VALUE:      marginalization-grid value of fitted parameter' // char(0)
           CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
 
-          COMMENT_forC = '  PDF_MARG:  1D marginalized PDF ' // char(0)
+          COMMENT_forC = '  PDF_MARG:   1D marginalized PDF ' // char(0)
           CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
 
-          COMMENT_forC = '  PDF_NAIVE: 1D naive PDF around best fit of other params' // char(0)
+          COMMENT_forC = '  PDF_NOMARG: 1D naive PDF around best fit of other params' // char(0)
           CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
 
           ! - - - -
@@ -28810,6 +28801,30 @@
 
        endif
 
+       ! compute PDF_NOMAR for comparison to PDF_MARG
+       DO 461 idim    = 1, NDIM
+             ipar           = ipar_dim(idim)
+             PDFMAX(ipar)   = 0.0 
+          DO idim2          = 1, NDIM
+             ipar2          = ipar_dim(idim2)
+             PARVAL(ipar2)  = FITVAL(ipar2,iter)
+          ENDDO
+          ! .xyz
+       DO  igrid   = 1, NGRID
+          PARVAL(ipar)  = PARVAL_GRID(igrid,ipar)
+          CALL FITVAL_FLOAT(PARVAL, NDIM, X8) ! returns NDIM and X8
+          PDF_NOMARG   = FCNPDF(NDIM,X8)   ! evaluate normalized PDF
+          PDF1D_NOMARG(igrid,ipar)  = PDF_NOMARG
+          if ( PDF_NOMARG > PDFMAX(ipar) ) PDFMAX(ipar) = PDF_NOMARG
+       ENDDO
+
+       DO  igrid   = 1, NGRID
+          PDF_NOMARG = PDF1D_NOMARG(igrid,ipar) / PDFMAX(ipar)
+          PDF1D_NOMARG(igrid,ipar) = MAX( 1.0E-20, PDF_NOMARG)
+       ENDDO
+461    CONTINUE
+
+
        ! load variables for table
        DO 700 idim  = 1, NDIM
           ipar  = ipar_dim(idim)  ! fetch fit par index
@@ -28817,8 +28832,9 @@
           VARNAME = PARNAME_STORE(ipar)(1:LL)
 
           DO 799 igrid = 1, NGRID
-             XTMP      = PARVAL_GRID(igrid,ipar)
-             PDF_MARG  = PDF1D_MARG(igrid,ipar)
+             XTMP        = PARVAL_GRID(igrid,ipar)
+             PDF_MARG    = PDF1D_MARG(igrid,ipar)
+             PDF_NOMARG  = PDF1D_NOMARG(igrid,ipar) 
              CALL SNTABLE_FILL(ID)
 799       CONTINUE
 700    CONTINUE

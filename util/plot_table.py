@@ -32,8 +32,10 @@
 #   +  allow plotting x:stddev(y) to plot stddev(y) vs x
 #
 # Feb 06 2026: enable plotting strings by replacing with integers; see object_labels
-# Feb 17 2026: fix stdev calculation in get_weighted_stats, when @W option is used
+# Feb 17 2026: 
+#     + fix stdev calculation in get_weighted_stats, when @W option is used
 #                 (original AI-pasted code was wrong)
+#     + fix to work with multiple @@WGTVAR values, same as with multuple @@CUT or @@V or @@TFILE.
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -572,7 +574,7 @@ def get_args():
     parser.add_argument('@e', '@@error', default=None, help=msg, nargs="+" )
 
     msg = 'variable to reweight 1D plot'
-    parser.add_argument('@W', '@@WGTVAR', '@w', default=None, help=msg)
+    parser.add_argument('@W', '@@WGTVAR', '@w', default=[None], help=msg, nargs="+" )
     
     msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
     parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
@@ -719,14 +721,16 @@ def arg_prep_driver(args):
     n_var_orig      = len(args.VARIABLE)
     n_cut_orig      = len(args.CUT)
     n_wgtfun_orig   = len(args.WGTFUN)
+    n_wgtvar_orig   = len(args.WGTVAR)
     tfile_list      = copy.copy(args.TFILE)
     var_list        = copy.copy(args.VARIABLE)
     cut_list        = copy.copy(args.CUT)
     wgtfun_list     = copy.copy(args.WGTFUN)
+    wgtvar_list     = copy.copy(args.WGTVAR)
 
-    name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WGTFUN' ]
-    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_wgtfun_orig ]
-    arg_list_list  = [ tfile_list,   var_list,   cut_list,   wgtfun_list   ]
+    name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WGTFUN', '@@WGTVAR'  ]
+    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_wgtfun_orig, n_wgtvar_orig ]
+    arg_list_list  = [ tfile_list,   var_list,   cut_list,   wgtfun_list,   wgtvar_list   ]
 
     # abort if more than 1 table file and more than 1 cut are requested.
     # However, allow 2 table files and 2 WGTFUNs
@@ -746,6 +750,7 @@ def arg_prep_driver(args):
     var_list     = arg_list_list[1]
     cut_list     = arg_list_list[2]
     wgtfun_list  = arg_list_list[3]    
+    wgtvar_list  = arg_list_list[4]    
         
     # - - - -
 
@@ -767,7 +772,7 @@ def arg_prep_driver(args):
     args.var_list        = var_list
     args.cut_list        = cut_list
     args.wgtfun_list     = wgtfun_list
-    
+    args.wgtvar_list     = wgtvar_list
     # - - - - -
 
     args.use_err_list = True  # default
@@ -1660,6 +1665,7 @@ def read_tables(args, plot_info):
     ps_list         = args.prescale_list
     frac_list       = args.fraction_list
     wgtfun_list     = args.wgtfun_list
+    wgtvar_list     = args.wgtvar_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
     marker_list     = args.marker_list
@@ -1674,9 +1680,9 @@ def read_tables(args, plot_info):
     same_tfiles = (len(set(tfile_list)) == 1)
     nrow_tot = 0
     
-    for tfile, var, axis_dict, cut, prescale, fraction, wgtfun, legend, alpha, marker in \
+    for tfile, var, axis_dict, cut, prescale, fraction, wgtfun, wgtvar, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
-            cut_list, ps_list, frac_list, wgtfun_list, legend_list, alpha_list, marker_list):
+            cut_list, ps_list, frac_list, wgtfun_list, wgtvar_list, legend_list, alpha_list, marker_list):
 
         varname_x      = axis_dict['x']
         varname_nodf_x = varname_x.replace(STR_df,'')  # for diagnostic print 
@@ -1706,10 +1712,10 @@ def read_tables(args, plot_info):
             varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
             plot_info.varname_idrow  = varname_idrow            
             usecol_list = [ varname_idrow ] + args.raw_var_list
-            if args.WGTVAR and args.WGTVAR not in usecol_list: 
-                usecol_list += [ args.WGTVAR ]  # 9.18.2025
-                if OPT_HIST not  in args.OPT:
-                    sys.exit(f"\n ERROR: must use HIST option with @@WGTVAR")
+
+            if wgtvar:
+                if wgtvar_list[0] not in usecol_list:
+                    usecol_list += wgtvar_list
 
             # read table and store in data frame.
             # only read needed columms to reduce memory consumption.
@@ -1764,8 +1770,9 @@ def read_tables(args, plot_info):
 
         try:
             MASTER_DF_DICT[key]['df'].loc[:,'x_plot_val'] = eval(varname_x)
-            if args.WGTVAR :
-                varname_wgt = f"df.{args.WGTVAR}"
+
+            if wgtvar :
+                varname_wgt = f"df.{wgtvar}"
                 MASTER_DF_DICT[key]['df'].loc[:,'weights']     = eval(varname_wgt)
             else:
                 MASTER_DF_DICT[key]['df'].loc[:,'weights']     = 1.0 # default weight

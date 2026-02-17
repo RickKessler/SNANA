@@ -28752,17 +28752,19 @@
 ! ==================================================
 ! Check option to plot PDF for each floated parameter
 
-800   CONTINUE
-    CALL FLUSH(6)
+800  CONTINUE
+     CALL FLUSH(6)
 
 
-    ! ------------------ .xyz
+    ! load plots here after "goto 2" statement to avoid duplicate
+    ! table-fills for iterating marginalization.
 
-    IF ( OPT_TABLE(ITABLE_PDF) > 0 .and.  OPT == 2 ) THEN
+    IF ( OPT_TABLE(ITABLE_PDF) > 0 .and. OPT == 2 ) THEN
        ID = IDTABLE_PDF
-       CBLOCK = 'PDF' // char(0)
        if ( NCALL_INTEGPDF == 1 ) then ! create table
-          CALL SNTABLE_CREATE(ID, CBLOCK, 'key'//char(0),  3, 3)
+
+          CBLOCK = 'PDF' // char(0)
+          CALL SNTABLE_CREATE(ID, CBLOCK, 'key'//char(0),  3, 3)  ! create table
 
           VARLIST = 'CID:C*20' // char(0)
           CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST, 1,  3,20)
@@ -28780,10 +28782,12 @@
           CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_NAIVE, VARLIST,1,  3,20)
 
           ! - - - - -
-          COMMENT_forC = '  VARNAME:   fitted parameter' // char(0)
+          CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
+
+          COMMENT_forC = '  VARNAME:   name of fitted parameter' // char(0)
           CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
 
-          COMMENT_forC = '  VALUE:     value of fitted parameter' // char(0)
+          COMMENT_forC = '  VALUE:     marginalization-grid value of fitted parameter' // char(0)
           CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
 
           COMMENT_forC = '  PDF_MARG:  1D marginalized PDF ' // char(0)
@@ -28791,6 +28795,18 @@
 
           COMMENT_forC = '  PDF_NAIVE: 1D naive PDF around best fit of other params' // char(0)
           CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+          ! - - - -
+          COMMENT_forC = 'Example plot command; '  // char(0)
+          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+          COMMENT_forC = '  plot_table.py @@tfile <tfile> @V VALUE @W PDF_MARG  \\'
+          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 80)
+
+          COMMENT_forC = '       @@CUT "VARNAME=zPHOT" & CID="72" ' // char(0)
+          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+          CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
 
        endif
 
@@ -28808,41 +28824,6 @@
 700    CONTINUE
 
     ENDIF  ! end plotting
-
-
-#if defined(DELETE)
-    DO idim  = 1, NDIM
-       ipar  = ipar_dim(idim)  ! fetch fit par index
-       !hid   = HOFF + ipar
-       hid   = 1000 + ipar
-
-       LL = index ( PARNAME_STORE(ipar), ' ' ) - 1
-       write(chis,21)  & 
-                PARNAME_STORE(IPAR)(1:LL)  & 
-              , PARNAME_STORE(IPAR)(1:LL)  & 
-              , SNLC_CCID(1:ISNLC_LENCCID), char(0)
-
-21       format(' margin. PDF( ',A,'-',A,'(fit) ) for CID=',A, A)
-
-
-       TMPVAL    = FITVAL(ipar,NFIT_ITERATION)
-       xmin(1)   = PARVAL_MIN(ipar) - TMPVAL
-       xmax(1)   = PARVAL_MAX(ipar) - TMPVAL
-       NB(1)     = NGRID
-
-       CALL SNHIST_INIT(NHDIM, HID, CHIS//char(0),  & 
-            NB, XMIN, XMAX, LEN(chis) )
-
-       DO igrid = 1, NGRID
-         TMP      = DBLE(igrid) - 0.5
-         XVAL(1)  = XMIN(1) + PARVAL_BINSIZE(ipar) * TMP
-         WGT      = PDF1D_MARG(igrid,ipar)
-         CALL SNHIST_FILL( NHDIM, HID, XVAL, WGT )
-       ENDDO
-
-    ENDDO
-#endif
-
 
     RETURN
   END SUBROUTINE INTEGPDF

@@ -23491,15 +23491,19 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        Default PRIOR_MJDSIG = 20.0  -> 1E9 (flat)
        Beware for fitting BayeSN, MLCS, SNOOPY
 
-      + new option to make table of priors for plotting;        
-          see https://github.com/RickKessler/SNANA/issues/1612
-
          *****  USEFUL(v12_01c) *****
 
-    snana.F90:  Read WRITE_MASK_HEAD into SIM_WRITE_MASK and set logical for
-                SIM_COMPACT_noFLUXCAL to identify (roman-desc) sim in which
-                only MJD, BAND, SIM_MAGOBS appear in PHOT file and there is 
-                no FLUXCAL[ERR]
+    snana.F90: 
+      + Read WRITE_MASK_HEAD into SIM_WRITE_MASK and set logical for
+        SIM_COMPACT_noFLUXCAL to identify (roman-desc) sim in which
+        only MJD, BAND, SIM_MAGOBS appear in PHOT file and there is 
+        no FLUXCAL[ERR]
+
+     snlc_fit.F90
+      + new option to make table of priors for plotting;        
+          see https://github.com/RickKessler/SNANA/issues/1612
+      + new option to make table of MARGPDF ;
+           see ... ??
 
          *****  MISCELLANEOUS(v12_01c) *****
 
@@ -23513,7 +23517,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + enable plotting strings (e.g., FIELD or SURVEY) and print string
          label under each tick mark. Works for 1D or 2D plots.
    
-     snana.F90;  add &SNLCINP input CUTWIN_HOST_NMATCH
+     snana.F90;  
+       + add &SNLCINP input CUTWIN_HOST_NMATCH
 
      sntools_data.c / RD_OVERRIDE_INIT():
        + fix bug with resolving ENV in path for HEADER override. First file
@@ -23526,4 +23531,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           see https://github.com/RickKessler/SNANA/issues/1610
 
 
+    ITABLE_PDF_MARG NOTES:
+        CID  IBIN_PDF  PKMJD x0 x1 AV zPHOT  MINMASK   PDF
+    
 END: 

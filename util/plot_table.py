@@ -32,6 +32,8 @@
 #   +  allow plotting x:stddev(y) to plot stddev(y) vs x
 #
 # Feb 06 2026: enable plotting strings by replacing with integers; see object_labels
+# Feb 17 2026: fix stdev calculation in get_weighted_stats, when @W option is used
+#                 (original AI-pasted code was wrong)
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -2604,13 +2606,17 @@ def get_weighted_stats(values, weights):
 
     # Calculate the normalization factor for an unbiased estimate
     sum_of_weights         = np.sum(weights)
-    sum_of_squared_weights = np.sum(weights**2)
     
-    if sum_of_weights == 0 or (sum_of_weights**2 - sum_of_squared_weights) == 0:
-        return 0.0 # Handle cases where weighted variance is undefined
+    # xxxxxxxxxxxxxxx this snippet from AI seems to be wrong xxxxxxxxxxx
+    # sum_of_squared_weights = np.sum(weights**2)
+    # if sum_of_weights == 0 or (sum_of_weights**2 - sum_of_squared_weights) == 0:
+    #    return 0.0 # Handle cases where weighted variance is undefined
+    #
+    # denominator = sum_of_weights - (sum_of_squared_weights / sum_of_weights)
+    # xxxxxxxxxxxxxxxx
 
-    denominator = sum_of_weights - (sum_of_squared_weights / sum_of_weights)
-    
+    denominator = sum_of_weights # RK fix, Feb 17 2026
+
     if denominator <= 0: # Avoid division by zero or negative values for the variance
         return 0.0
 

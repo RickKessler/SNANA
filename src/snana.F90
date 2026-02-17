@@ -109,7 +109,7 @@
         ,ITABLE_SNANA=1, ITABLE_FITRES=2, ITABLE_OUTLIER=3   & 
         ,ITABLE_SNLCPAK=4, ITABLE_SPECPAK=5                  & 
         ,ITABLE_MODELSPEC=6, ITABLE_MARZ=7, ITABLE_DMPFCN=8  &
-        ,ITABLE_PRIOR=9  &
+        ,ITABLE_PRIOR=9, ITABLE_PDF=10  &
         ,MXTABLE = 10    & 
         ,IDTABLE_SNANA     = 7100   &  ! anaysis variables, every event
         ,IDTABLE_FITRES    = 7788   &  ! SNANA table + fit results, passing cuts
@@ -119,6 +119,7 @@
         ,IDTABLE_DMPFCN    = 8200   &  ! for DMPFCN (jan 2025)
         ,IDTABLE_MCMC      = 7711   &  ! obsolete ?
         ,IDTABLE_PRIOR     = 8300   &  ! priors in snlc_fit
+        ,IDTABLE_PDF       = 8400   &  ! marg & naive pdf1d
         ,OPT_PARSTORE_TEXTTABLE = 1   &  ! tag subset for TEXT table.
         ,MSKOPT_PARSE_WORDS_FILE    = 1    &  ! parse file
         ,MSKOPT_PARSE_WORDS_STRING  = 2    &  ! for store_PARSE_WORDS: string
@@ -6471,6 +6472,7 @@
     TEXTFORMAT_TABLE(ITABLE_MODELSPEC) = 'none'
     TEXTFORMAT_TABLE(ITABLE_MARZ)      = 'none'
     TEXTFORMAT_TABLE(ITABLE_PRIOR)     = 'key'  ! Feb 2026
+    TEXTFORMAT_TABLE(ITABLE_PDF)       = 'key'  ! Feb 2026
 
 
 #if defined(SNANA)
@@ -6568,6 +6570,10 @@
 
        else if ( TBname(1:5) .EQ. 'prior' ) then
           ITAB = ITABLE_PRIOR
+          OPT_TABLE(ITAB) = 1
+
+       else if ( TBname(1:3) .EQ. 'pdf' ) then  ! only if NGRID > 0 for marginalized pdf
+          ITAB = ITABLE_PDF
           OPT_TABLE(ITAB) = 1
 
        else if ( TBname(1:7) .EQ. 'outlier' ) then
@@ -11453,7 +11459,7 @@
 
     IDSURVEY = -9 ;  IDSUBSURVEY=-9
     NCALL_SNANA_DRIVER  = 0
-
+    NCALL_INTEGPDF      = 0
     CALL PRBANNER ( " INIT_SNVAR: Init variables." )
 
     FORMAT_TEXT    = .FALSE.
@@ -22186,8 +22192,6 @@
     VMJD(1)  = -9999.0
     VTOBS(1) = -9999.0  ! dummy for unused TOBS arg
 
-    ! .xyz add FLUXCAL_FIT[ERR] here ??
-
     CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS, &
          VBAND_NDOF, VDUMERR,  & 
          IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_NDOF, LENCCID)
@@ -22640,7 +22644,7 @@
 
     VARLIST = 'FIELD:C*12' // char(0)
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, OUTLIER_FIELD, VARLIST,1,  & 
-                         LENBLOCK, 20 )
+                         LENBLOCK, 20)
 
     VARLIST = 'MJD:D' // char(0)
     CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, OUTLIER_MJD, VARLIST,1,  & 
@@ -23175,7 +23179,7 @@
 !  termination so that parsing CCID with C code is easier.
 
     VARLIST = 'CCID:C*20' // char(0)
-    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1, LENBLOCK, 20 )
+    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1, LENBLOCK, 20)
 
     if ( WRTABLEFILE_IAUC ) then
       VARLIST = 'IAUC:C*20' // char(0)
@@ -23200,7 +23204,7 @@
     CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_NFIELD_OVP, VARLIST, 0, LENBLOCK, 20 )
 
     VARLIST = 'FIELD:C*20' // char(0)
-    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_FIELDLIST, VARLIST,1, LENBLOCK, 20 )
+    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_FIELDLIST, VARLIST,1, LENBLOCK, 20)
 
 ! Feb 15 2018: remove condition on DETNUM
     ITEXT = ITEXT_NO
@@ -27929,7 +27933,7 @@
     INTEGER  ITER, IPAR  ! (I) SN cand id and IPAR to print
     CHARACTER  & 
           CCID*(*)    &  ! (I) char string cand id
-         ,type*(*)   ! (I) 'fit' or 'pdf' type of result
+         ,type*(*)       ! (I) 'fit' or 'pdf' type of result
 
 ! local var
 
@@ -28124,8 +28128,7 @@
 
 
 ! =======================================
-    SUBROUTINE MARG_DRIVER( HOFF_MARG, OPT,  & 
-                 MAX_INTEGPDF, NGRID_FINAL, NSIGMA)
+    SUBROUTINE MARG_DRIVER(OPT, MAX_INTEGPDF, NGRID_FINAL, NSIGMA)
 ! 
 ! Created Aug 3, 2006 by R.Kessler
 ! 
@@ -28135,24 +28138,11 @@
 ! this routine uses current FITVAL and FITERR,
 ! and fills PDFVAL(ipar) and PDFERR(ipar).
 ! 
-! Histograms book/filled:
-!   HOFF:         PDF value for each FCNPDF function call
-!   HOFF + ipar : 1-dim PDF distribution for each fitted ipar
 ! 
-! 
-!  May 5, 2007: fix dumb bug. Need to init PDVAL(ipar) = FITVAL(ipar)
-!               before integration to make sure that fixed parameters
-!               are set in PDFVAL
-! 
-! Oct 16, 2009: call INTEGPDF twice. First time set NGRID=7 to get
-!               better estimate of errors. Second time set
-!               NGRID = NGRID_FINAL. Change should run faster
-!               if there are fewer iterations needed with NGRID_FINAL.
-! 
-! Nov 24, 2009: call PDF_INIT() to init PDFXXX arrays
-! 
+! OPT = OPT_INTEGPDF_QUITCHI2 = 2     abort FCNSNLC if chi2 > quitchi2 
+! OPT = OPT_INTEGPDF_FULL     = 1      do full FCNSNLC evaluation 
+!
 ! -------------------------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
@@ -28163,10 +28153,9 @@
 ! input args
 
     INTEGER  & 
-          HOFF_MARG       &  ! (I) fill plots with hbook offset = HOFF
-         ,OPT             &  ! (I) options
+          OPT             &  ! (I) options
          ,MAX_INTEGPDF    &  ! (I) max number of iterations
-         ,NGRID_FINAL    ! (I) # bins for each integrated dimension
+         ,NGRID_FINAL        ! (I) # bins for each integrated dimension
 
     REAL  NSIGMA     ! (I) integrate +_ NSIGMA for exact pdf.
 
@@ -28176,14 +28165,12 @@
          ipar, ipar2  & 
         ,JTIME1, JTIME2, JDIFTIME  & 
         ,NEVAL         &  ! number of function evaluations
-        ,LL, NDOF  & 
-        ,i, IERR  & 
-        ,NGRID, HOFF, NHDIM, HID_PDF, NBPDF(2)
+        ,LL, NDOF, NGRID  & 
+        ,i, IERR  
 
-    character chis*80, copt*6
+    character  copt*6
 
-    REAL*8 XMIN(2), XMAX(2), TMP
-    LOGICAL LSYMERR
+    REAL*8 TMP
 
 ! functions
     CHARACTER ERRTYPE_STR*1
@@ -28204,10 +28191,14 @@
 
     if ( NGRID_FINAL .LE. 0 ) RETURN
 
+! keep track of integration times.
+    NCALL_INTEGPDF     = NCALL_INTEGPDF + 1
+    TIME_INTEGPDF      = JDIFTIME
+    TIMESUM_INTEGPDF   = TIMESUM_INTEGPDF + JDIFTIME
+
 ! set chi2 value for FCN function to quit
 
-    IF ( PDFMIN .GT. 0.0 .and.  & 
-              OPT .EQ. OPT_INTEGPDF_QUITCHI2 ) THEN
+    IF ( PDFMIN > 0.0 .and. OPT .EQ. OPT_INTEGPDF_QUITCHI2 ) THEN
       FITCHI2_QUIT = -2.0*DLOG(PDFMIN) + FITCHI2_MIN
     ELSE
       FITCHI2_QUIT = 1.0E20
@@ -28221,9 +28212,8 @@
 19    format(/,T5,'MARG_DRIVER(CID ',A6,'): ',  & 
             'compute P.D.F(+- ',F3.1,' sigma)', 2x, 'method=',A)
 
-    IF ( FITCHI2_QUIT .LT. 1.0E19 ) then
-      print*,'   CPU-saver ON  => FCNSNLC quits when CHI2 > ',  & 
-               FITCHI2_QUIT
+    IF ( FITCHI2_QUIT  < 1.0E19 ) then
+      print*,'   CPU-saver ON  => FCNSNLC quits when CHI2 > ', FITCHI2_QUIT
     ELSE
       print*,'   CPU-saver OFF => FCNSNLC always computes full CHI2.'
     ENDIF
@@ -28234,8 +28224,6 @@
     ISTAGE_SNANA = ISTAGE_TEST
 
 ! --------------------------------------
-
-
 ! init PDFVAL = FITVAL so that fixed parameters get transfered.
 
     CALL PDF_INIT()
@@ -28248,18 +28236,15 @@
 ! First marginalize with just 7 grid-points per variable.
 
     OPT   = 1   ! 1st round estimate
-    NGRID = 7
-    HOFF  = 0   ! skip histograms
-    CALL INTEGPDF( OPT, HOFF,  & 
-              MAX_INTEGPDF, NGRID, DBLE(NSIGMA), NEVAL, IERR )
+    NGRID = 7   ! small number of bins for quick & rough estimate
+    CALL INTEGPDF( OPT, MAX_INTEGPDF, NGRID, DBLE(NSIGMA), NEVAL, IERR )
 
 ! final marginalization; use previous PDF for grid size estimate
 
     OPT   = 2
     NGRID = NGRID_FINAL
-    HOFF  = HOFF_MARG
-    CALL INTEGPDF( OPT, HOFF,  & 
-              MAX_INTEGPDF, NGRID, DBLE(NSIGMA), NEVAL, IERR )
+    ! xxx mark HOFF  = HOFF_MARG
+    CALL INTEGPDF( OPT, MAX_INTEGPDF, NGRID, DBLE(NSIGMA), NEVAL, IERR )
 
 ! compute integration time.
 
@@ -28272,18 +28257,12 @@
                I4,' seconds  (SN ', A,')'   )
     print*,' '
 
-! keep track of integration times.
-
-    NCALL_INTEGPDF     = NCALL_INTEGPDF + 1
-    TIME_INTEGPDF      = JDIFTIME
-    TIMESUM_INTEGPDF   = TIMESUM_INTEGPDF + JDIFTIME
+    ! - - - - -
     tmp                = DBLE(TIMESUM_INTEGPDF)/DBLE(NCALL_INTEGPDF)
     TIMEAVG_INTEGPDF   = INT(TMP+0.5)
-
     if ( mod(NCALL_INTEGPDF,5) .EQ. 0 ) then
        print*,' '
-       print*,'   (AVERAGE INTEGPDF TIME: ',  & 
-                    TIMEAVG_INTEGPDF,'  seconds)'
+       print*,'   (AVERAGE INTEGPDF TIME: ',  TIMEAVG_INTEGPDF,'  seconds)'
        print*,' '
     endif
 
@@ -28295,8 +28274,7 @@
 
 
 ! =======================================
-    SUBROUTINE INTEGPDF(OPT, HOFF,  & 
-                 MAX_INTEGPDF, NGRID, NSIGMA, NEVAL, IERR )
+    SUBROUTINE INTEGPDF(OPT, MAX_INTEGPDF, NGRID, NSIGMA, NEVAL, IERR )
 ! ---------------------
 !  Retruns p.d.f(DLMAG) integratged over other parameters;
 !  integration is from +-NSIGMA * FITERR over each
@@ -28365,12 +28343,11 @@
 ! function aarguments
 
     INTEGER  & 
-         OPT       &  ! (I) option
+         OPT            &  ! (I) option
         ,MAX_INTEGPDF   &  ! (I) max # times to integrate
-        ,NGRID     &  ! (I) # grid-bins for each dimension
-        ,HOFF      &  ! (I) hbook offset
-        ,NEVAL     &  ! (O) number of function calls.
-        ,IERR     ! (O) 0=>OK
+        ,NGRID          &  ! (I) # grid-bins for each dimension
+        ,NEVAL          &  ! (O) number of function calls.
+        ,IERR         ! (O) 0=>OK
 
     REAL*8  NSIGMA   ! (I) integrate +- NSIGMA in each dimension
 
@@ -28380,19 +28357,9 @@
          ,MXGRID  = 30  
 
     INTEGER  & 
-         IPAR, IPAR2  & 
-        ,NBINTOT  & 
-        ,IBIN  & 
-        ,IBIN_OFF  & 
-        ,IGRID  & 
-        ,NDIM, IDIM, IDIM2  & 
-        ,IPAR_DIM(MXPAR)   &  ! IPAR for each dimension to integrate
-        ,IBIN_DIM(MXPAR)   &  ! local grid-bin for each dimension
-        ,NN, i  & 
-        ,NPASS  & 
-        ,HID, NHDIM, LL, NUM  & 
-        ,ITER  & 
-        ,NPDF, IBIN_PLOT, NB(2)
+         IPAR, IPAR2, NBINTOT, IBIN, IBIN_OFF, IGRID, NDIM, IDIM, IDIM2  & 
+        ,IPAR_DIM(MXPAR), IBIN_DIM(MXPAR)   &
+        ,NN, i, NPASS, NHDIM, LL, NUM, ITER, NPDF
 
     REAL*8  & 
          PARVAL_MIN(MXPAR)  & 
@@ -28402,9 +28369,7 @@
         ,PARDIF_MAX(MXPAR)  & 
         ,PARVAL(MXPAR)  & 
         ,PARVAL_GRID(MXGRID,MXPAR)  & 
-        ,TMP, TMPVAL  & 
-        ,DVOL  & 
-        ,X8(MXPAR)  & 
+        ,TMP, TMPVAL, DVOL, X8(MXPAR)  & 
         ,PDF, XPDF(2), WGT  & 
         ,PDFWSUMCOR(0:MXPAR,0:MXPAR)    &  ! wgted sum for correlations
         ,PDFSUMCOR  & 
@@ -28413,28 +28378,25 @@
         ,PDFSUM_GRID(MXGRID,MXPAR)   &  ! PDF vs. par to plot 1-d pdf
         ,PDFMAX(MXPAR)              &  ! max over grid for each ipar
         ,TMP_RANGE(2,MXPAR)  & 
-        ,PDF1D(MXGRID,MXPAR)  & 
-        ,SUM0, SUM1, SUM2, XN, XTMP  & 
-        ,SQERR, E12, E1xE2, PDFTMP  & 
-        ,PDF_NBR1, PDF_NBR2  & 
-        ,XMIN(2), XMAX(2), XVAL(2)
+        ,PDF1D_MARG(MXGRID,MXPAR)  &    ! marginalized pdf for each param
+        ,PDF1D_NAIVE(MXGRID,MXPAR)  &   ! pdf at minimized value of other params
+        ,SUM0, SUM1, SUM2, XN, XTMP, SQERR, E12, E1xE2, PDFTMP  & 
+        ,PDF_NBR1, PDF_NBR2, XVAL
 
+    LOGICAL  LTMP, LPDFZERO, LREDO, LREDO_ALL, LDMP_DEBUG
 
-    LOGICAL  & 
-         LTMP  & 
-        ,LPDFZERO  & 
-        ,LREDO  & 
-        ,LREDO_ALL  & 
-        ,LDMP_DEBUG
-
-    CHARACTER chis*80, choice*12
+! plot variables
+    INTEGER ID
+    CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, COMMENT_forC*80
+    REAL*8    PDF_MARG, PDF_NAIVE
 
 ! function
 
     REAL*8   FCNPDF
     EXTERNAL FCNPDF
+    EXTERNAL SNTABLE_CREATE, SNTABLE_FILL 
 
-! ----------------- BEGIN ------------
+! ----------------- BEGIN INTEGPDF------------
 
     NEVAL    = 0  ! init output arg
     IERR     = 0
@@ -28494,8 +28456,8 @@
        TMP_RANGE(1,ipar) = PARVAL_MIN(ipar)
        TMP_RANGE(2,ipar) = PARVAL_MAX(ipar)
 
-       CALL INTEGRANGE(IPAR,NGRID,NSIGMA,PDF1D(1,ipar),   &  ! inputs
-                LREDO, TMP_RANGE(1,ipar) ) ! outputs are LREDO   RANGE(1:2)
+       CALL INTEGRANGE(IPAR, NGRID, NSIGMA, PDF1D_MARG(1,ipar),   &  ! inputs
+            LREDO, TMP_RANGE(1,ipar) ) ! outputs are LREDO   RANGE(1:2)
 
 ! set global REDO flag if any parameter-range is adjusted.
 
@@ -28514,20 +28476,15 @@
          LL = INDEX(SNLC_CCID,' ') - 1
 
          if ( NPASS .LE. MAX_INTEGPDF ) then
-            print*,'  ==> Integrate ',SNLC_CCID(1:LL),  & 
-                  ' again with NGRID=', NGRID
+            print*,'  ==> Integrate ',SNLC_CCID(1:LL), ' again with NGRID=', NGRID
             CALL FLUSH(6)
          else if ( OPT .EQ. 1 ) then
             goto 800
 
          else if ( OPT .EQ. 2 ) then  ! warn on final NGRID only
 
-            print*,'  ==> Store ',SNLC_CCID(1:LL),  & 
-                ' result, but BEWARE !!!'
+            print*,'  ==> Store ',SNLC_CCID(1:LL), ' result, but BEWARE !!!'
             CALL FLUSH(6)
-!              print*,'  ==> Cannot converge for ',SNLC_CCID(1:LL)
-!              IERR = -9  ! Dec 16, 2011
-
             GOTO 800  ! skip integration
          endif
 
@@ -28566,10 +28523,10 @@
 
     LPDFZERO = .TRUE.
 
-    DO 770 IBIN = 1, NBINTOT
+    DO 770 IBIN = 1, NBINTOT  ! total number of bins in  NDIM dimentions
 
 ! determine local grid-bin for each dimension to integrate;
-! the load local PARVAL with value at each grid-point.
+! load local PARVAL with value at each grid-point.
 
        ibin_off = 0
        do idim  = 1, NDIM
@@ -28580,10 +28537,7 @@
           ipar     = ipar_dim(idim)  ! fetch fit par index
           igrid    = ibin_dim(idim)
           TMP      = float( igrid ) - 0.5
-
-          XTMP     = PARVAL_MIN(ipar)  & 
-                     + PARVAL_BINSIZE(ipar) * TMP
-
+          XTMP     = PARVAL_MIN(ipar)  + PARVAL_BINSIZE(ipar) * TMP
           PARVAL(ipar)            = XTMP
           PARVAL_GRID(igrid,ipar) = XTMP
 
@@ -28598,7 +28552,7 @@
 
        NEVAL = NEVAL + 1         ! increment # function calls
 
-       IF ( PDF .EQ. 0.0 ) goto 771
+       IF ( PDF == 0.0 ) goto 771
 
        LPDFZERO = .FALSE.
 
@@ -28607,7 +28561,7 @@
        do idim  = 1, NDIM
           ipar  = ipar_dim(idim)  ! fetch fit par index
 
-          PDFWSUM(ipar) = PDFWSUM(ipar) + PDF * PARVAL(ipar)
+          PDFWSUM(ipar) = PDFWSUM(ipar) + (PDF * PARVAL(ipar) )
 
           do idim2 = 1, NDIM
              ipar2 = ipar_dim(idim2)
@@ -28619,25 +28573,25 @@
 ! so that 1-dim PDF can be plotted for each IPAR.
 
           igrid = ibin_dim(idim)
-          PDFSUM_GRID(igrid,ipar) =  & 
-            PDFSUM_GRID(igrid,ipar) + PDF
+          PDFSUM_GRID(igrid,ipar) = PDFSUM_GRID(igrid,ipar) + PDF
 
           if ( PDFSUM_GRID(igrid,ipar) .GT. PDFMAX(ipar) ) then
             PDFMAX(ipar) = PDFSUM_GRID(igrid,ipar)
           endif
        enddo  ! end of idim loop
 
-        if ( PDF > 0.0 .and. HOFF > 0 ) then
-          xpdf(1)   = DLOG10(PDF)
-          xpdf(1)   = max ( -19.999, xpdf(1) )
-          wgt       = 1.0
-          CALL SNHIST_FILL(NHDIM, HOFF, XPDF, WGT )
-        endif
+! xxxxxxxxxxxxxxxx mark Feb 16 2026 xxxxxxxxxxxx
+!        if ( PDF > 0.0 .and. HOFF > 0 ) then
+!          xpdf(1)   = DLOG10(PDF)
+!          xpdf(1)   = max ( -19.999, xpdf(1) )
+!          wgt       = 1.0
+!          CALL SNHIST_FILL(NHDIM, HOFF, XPDF, WGT )
+!        endif
+! xxxxxxxxxxxxxxxxx end mark xxxxxxxx
 
 771       continue
         if ( MOD(IBIN,10000)  .EQ. 0 ) then
-           print*,'      Processing grid-bin ',  & 
-                 ibin,'/', NBINTOT
+           print*,'      Processing grid-bin ', ibin,'/', NBINTOT
            CALL FLUSH(6)
         endif
 
@@ -28646,7 +28600,7 @@
     IF ( LPDFZERO ) THEN
       print*,' '
       print*,'  WARNING: INTEGPDF ERROR for CID=', SNLC_CCID
-      print*,'  pdf function is zero everywhere with NGRID=',NGRID
+      print*,'       pdf function is zero everywhere with NGRID=',NGRID
       print*,' '
       IERR = -9
 
@@ -28671,9 +28625,9 @@
           PDF = PDFSUM_GRID(igrid,ipar) / PDFMAX(ipar)
 
           if ( PDF .LT. 1.0E-30 ) THEN
-            PDF1D(igrid,ipar) = 1.0E-20  ! avoid hbook bit problems
+            PDF1D_MARG(igrid,ipar) = 1.0E-20  ! avoid hbook bit problems
           else
-            PDF1D(igrid,ipar) = PDF
+            PDF1D_MARG(igrid,ipar) = PDF
           endif
 
        ENDDO  ! end of igrid loop
@@ -28685,16 +28639,16 @@
 
     DO idim  = 1, NDIM
        ipar  = ipar_dim(idim)  ! fetch fit par index
-       SUM0 = 0.0
-       SUM1 = 0.0
-       SUM2 = 0.0
-       NPDF = 0
+       SUM0  = 0.0
+       SUM1  = 0.0
+       SUM2  = 0.0
+       NPDF  = 0
        PDFPROB2(ipar) = 0.0
 
     DO igrid = 1, NGRID
 
        XTMP   = PARVAL_GRID(igrid,ipar)
-       PDFTMP = PDF1D(igrid,ipar)
+       PDFTMP = PDF1D_MARG(igrid,ipar)
        if ( PDFTMP .GT. 1.0E-6 ) NPDF = NPDF + 1
 
        SUM0   = SUM0 + PDFTMP
@@ -28703,8 +28657,8 @@
 
        PDF_NBR1 = 0.0
        PDF_NBR2 = 0.0
-       if ( igrid .GT. 1     )  PDF_NBR1 = PDF1D(igrid-1,ipar)
-       if ( igrid .LT. NGRID )  PDF_NBR2 = PDF1D(igrid+1,ipar)
+       if ( igrid > 1     )  PDF_NBR1 = PDF1D_MARG(igrid-1,ipar)
+       if ( igrid < NGRID )  PDF_NBR2 = PDF1D_MARG(igrid+1,ipar)
 
 ! check for 2nd local maximum
        if (    PDFTMP .LT. .99  & 
@@ -28730,7 +28684,7 @@
 ! to compute error from RMS, require more than 1 PDF bin to be non-zero
 ! (to avoid pathologies from PDFERR -> 0)
 
-       if ( SQERR .GT. 0.0 .and. NPDF .GT. 1 ) then
+       if ( SQERR > 0.0 .and. NPDF > 1 ) then
           PDFERR(ipar) = SQRT( SQERR )
        else
           PDFERR(ipar) = FITERR(ipar,iter)  ! PDF err = fit err for now
@@ -28778,7 +28732,7 @@
           write(6,667) 'PARVAL',  & 
                  ( PARVAL_GRID(igrid,ipar), igrid=1,11)
           write(6,667) 'PDFVAL',  & 
-                 ( PDF1D(igrid,ipar), igrid=1,11)
+                 ( PDF1D_MARG(igrid,ipar), igrid=1,11)
 
 665        format(T3, 'xxx ',A6, 2x, 'PDFVAL = ',  & 
                 G10.3,' +- ', G10.3, 3x, 'PROB2=',F5.3 )
@@ -28801,11 +28755,66 @@
 800   CONTINUE
     CALL FLUSH(6)
 
-    IF ( HOFF .LE. 0 ) RETURN
 
+    ! ------------------ .xyz
+
+    IF ( OPT_TABLE(ITABLE_PDF) > 0 .and.  OPT == 2 ) THEN
+       ID = IDTABLE_PDF
+       CBLOCK = 'PDF' // char(0)
+       if ( NCALL_INTEGPDF == 1 ) then ! create table
+          CALL SNTABLE_CREATE(ID, CBLOCK, 'key'//char(0),  3, 3)
+
+          VARLIST = 'CID:C*20' // char(0)
+          CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST, 1,  3,20)
+
+          VARLIST = 'VARNAME:C*20' // char(0)
+          CALL SNTABLE_ADDCOL_str(ID, CBLOCK, VARNAME,   VARLIST, 1,  3,20)
+
+          VARLIST = 'VALUE:D' // char(0)
+          CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, XTMP, VARLIST,1,  3,20)
+
+          VARLIST = 'PDF_MARG:D' // char(0)
+          CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_MARG, VARLIST,1,  3,20)
+
+          VARLIST = 'PDF_NAIVE:D' // char(0)
+          CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_NAIVE, VARLIST,1,  3,20)
+
+          ! - - - - -
+          COMMENT_forC = '  VARNAME:   fitted parameter' // char(0)
+          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+          COMMENT_forC = '  VALUE:     value of fitted parameter' // char(0)
+          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+          COMMENT_forC = '  PDF_MARG:  1D marginalized PDF ' // char(0)
+          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+          COMMENT_forC = '  PDF_NAIVE: 1D naive PDF around best fit of other params' // char(0)
+          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+       endif
+
+       ! load variables for table
+       DO 700 idim  = 1, NDIM
+          ipar  = ipar_dim(idim)  ! fetch fit par index
+          LL = index ( PARNAME_STORE(ipar), ' ' ) - 1
+          VARNAME = PARNAME_STORE(ipar)(1:LL)
+
+          DO 799 igrid = 1, NGRID
+             XTMP      = PARVAL_GRID(igrid,ipar)
+             PDF_MARG  = PDF1D_MARG(igrid,ipar)
+             CALL SNTABLE_FILL(ID)
+799       CONTINUE
+700    CONTINUE
+
+    ENDIF  ! end plotting
+
+
+#if defined(DELETE)
     DO idim  = 1, NDIM
        ipar  = ipar_dim(idim)  ! fetch fit par index
-       hid   = HOFF + ipar
+       !hid   = HOFF + ipar
+       hid   = 1000 + ipar
 
        LL = index ( PARNAME_STORE(ipar), ' ' ) - 1
        write(chis,21)  & 
@@ -28822,16 +28831,18 @@
        NB(1)     = NGRID
 
        CALL SNHIST_INIT(NHDIM, HID, CHIS//char(0),  & 
-                 NB, XMIN, XMAX, LEN(chis) )
+            NB, XMIN, XMAX, LEN(chis) )
 
        DO igrid = 1, NGRID
          TMP      = DBLE(igrid) - 0.5
          XVAL(1)  = XMIN(1) + PARVAL_BINSIZE(ipar) * TMP
-         WGT      = PDF1D(igrid,ipar)
+         WGT      = PDF1D_MARG(igrid,ipar)
          CALL SNHIST_FILL( NHDIM, HID, XVAL, WGT )
        ENDDO
 
     ENDDO
+#endif
+
 
     RETURN
   END SUBROUTINE INTEGPDF
@@ -28885,7 +28896,7 @@
     REAL*8  & 
          NSIGMA           &  ! (I)
         ,PDFLAST(NGRID)   &  ! (I) 1-dim PDF at grid points of last integration
-        ,RANGE(2)        ! (I,O) integration limits: old -> new
+        ,RANGE(2)            ! (I,O) integration limits: old -> new
 
     LOGICAL LREDO      ! (I) flag to redo integration
 
@@ -28929,7 +28940,7 @@
 
     CHARACTER PDFPROBLEM(40)*48
 
-! -------------- BEGIN -------------
+! -------------- BEGIN INTEGRANGE -------------
 
     ITER = NFIT_ITERATION
 
@@ -29106,7 +29117,7 @@
 
 441        format('PROB=',F6.4, ' at ',A,' edge of 1 dim PDF')
 1441       format('RANGE=(', F6.2, ',', F6.2, ')' , ' -> ',  & 
-                        '(', F6.2, ',', F6.2, ')'   )  ! Dec 2011
+                        '(', F6.2, ',', F6.2, ')'   )
 
     IF ( NPDF_GOOD .LT. 3  ) then
          NREDO = NREDO + 1
@@ -29117,8 +29128,7 @@
     IF ( N1D_PROB0 .GT. 3 ) THEN
          NREDO = NREDO + 1
          write(pdfproblem(NREDO),443) N1D_PROB0, N1D_TOT
-443        format('PROB=0 for ', I3, '/' , I3, 2x,  & 
-                 'PDF bins' )
+443        format('PROB=0 for ', I3, '/' , I3, 2x, 'PDF bins' )
     ENDIF
 
 ! ----------------------------------------------
@@ -29184,10 +29194,7 @@
 
 ! local args
 
-    INTEGER  & 
-         ipar_all  & 
-        ,ipar_float  & 
-        ,ipar
+    INTEGER  ipar_all, ipar_float, ipar
 
 ! FCNSNLC args
 
@@ -29248,7 +29255,6 @@
 ! i.e, the fixed paramters are ignored.
 ! 
 ! -----------------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT

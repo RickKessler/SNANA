@@ -3900,14 +3900,11 @@
       OPT    = OPT_INTEGPDF_FULL  ! default is full chi2 evaluation
 
 ! now check for reasons to quit FCNSNLC early (to save CPU time)
-
       IF ( OPT_COVAR_FLUX .LE. 0 .or. COVMAT_MIN .GE. 0.0 ) then
         OPT = OPT_INTEGPDF_QUITCHI2
       ENDIF
 
-      HOFF = 0
-      CALL MARG_DRIVER(HOFF, OPT,  & 
-                      MAX_INTEGPDF, NGRID_PDF, NSIGMA )
+      CALL MARG_DRIVER(OPT,  MAX_INTEGPDF, NGRID_PDF, NSIGMA )
 
 !   for PHOTOZ fit, check if filters were added/dropped which
 !   can happen if photoZ_marg - photoZ_fit is  large enough.
@@ -11464,7 +11461,7 @@
        endif
 40  continue
 
-    ! store comments      ! .xyz
+    ! store comments   
     CALL STORE_TABLEFILE_COMMENT(' '//char(0), 2)
 
     COMMENT_forC = 'Columns:' // char(0)

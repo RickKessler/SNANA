@@ -23516,7 +23516,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      plot_table.py
        + enable plotting strings (e.g., FIELD or SURVEY) and print string
          label under each tick mark. Works for 1D or 2D plots.
-   
+       + fix STDEV calculation using WGTVAR  (fix AI bug that I missed last Sep 2025)
+       + allow multipe @@WGTVAR values to overlay with different weights
+
      snana.F90;  
        + add &SNLCINP input CUTWIN_HOST_NMATCH
 

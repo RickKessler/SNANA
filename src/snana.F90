@@ -28612,12 +28612,7 @@
 
        DO igrid = 1, NGRID
           PDF = PDFSUM_GRID(igrid,ipar) / PDFMAX(ipar)
-
-          if ( PDF .LT. 1.0E-30 ) THEN
-            PDF1D_MARG(igrid,ipar) = 1.0E-20  ! avoid hbook bit problems
-          else
-            PDF1D_MARG(igrid,ipar) = PDF
-          endif
+          PDF1D_MARG(igrid,ipar) = MAX(PDFMIN,PDF)
 
        ENDDO  ! end of igrid loop
 
@@ -28820,7 +28815,7 @@
 
        DO  igrid   = 1, NGRID
           PDF_NOMARG = PDF1D_NOMARG(igrid,ipar) / PDFMAX(ipar)
-          PDF1D_NOMARG(igrid,ipar) = MAX( 1.0E-20, PDF_NOMARG)
+          PDF1D_NOMARG(igrid,ipar) = MAX(PDFMIN, PDF_NOMARG)
        ENDDO
 461    CONTINUE
 

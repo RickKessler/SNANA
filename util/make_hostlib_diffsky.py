@@ -43,6 +43,9 @@ VARLIST_FOR_VPEC = [ 'vx', 'vy', 'vz', 'ra', 'dec' ] # needed to compute VPEC
 VARNAME_RA       = 'ra'
 VARNAME_DEC      = 'dec'
 
+DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
+DIFFSKY_ANGLE_PREFIX = "psi"
+
 # ============================
 def setup_logging():
     #logging.basicConfig(level=logging.DEBUG,
@@ -62,6 +65,8 @@ def get_args():
     msg = "print data columns containing substring (or all to list all columns), then quit"
     parser.add_argument("-p", "--print_column_substring", help=msg, type=str, default=None)
 
+    msg = "lc-core wildcard (e.g., 14) to select subset of lc-core*{wildcard}* files"
+    parser.add_argument("-l", "--lc_wildcard", help=msg, type=str, default=None)
 
     # parse it
     args = parser.parse_args()
@@ -191,7 +196,8 @@ def addcol_vpec(cat_inp, config):
 
     return cat_out
     # end addcol_vpec
-    
+
+
 def addcol_sersic_indices(cat_inp, config):
 
     n_row   = len(cat_inp)
@@ -328,29 +334,63 @@ def read_galaxy_cat(args, config):
         config[KEY_CAT_DIR] = cat_dir
         
     # fragile-alert reading catalog files with specific prefix
-    wildcard = f"{cat_dir}/lc_cores-*.hdf5"  # fragile alert; should read standard list file
+
+    if args.lc_wildcard:
+        wildcard = f"{cat_dir}/lc_cores-*{args.lc_wildcard}*.hdf5"  
+    else:
+        wildcard = f"{cat_dir}/lc_cores-*.hdf5"  
+
+    #args.lc_wildcard
+
     catalog_files = sorted( glob.glob(wildcard) )
 
+    # - - - -
+    # check columns in first file
+    ds0 = oc.open( *[ catalog_files[0] ] )
     if args.print_column_substring:
-        catalog_files = [ catalog_files[0] ]  # keep only first file for listing columns
+        print_columns(args.print_column_substring, ds0.columns, ds0.descriptions)        
+    
+    check_diffsky_columns(config, ds0)
+    del ds0
+    # - - - -
         
     n_file = len(catalog_files)
     
     logging.info(f"Read {n_file} galaxy catalog files from {cat_dir}")
 
     ds = oc.open(*catalog_files, synth_cores=True)
+    
     n_row = len(ds)
     logging.info(f"Done reading dataset with {n_row:,} rows")
     print_proc_time(t0,"READ_CATALOG", n_row)
-        
-    if args.print_column_substring:
-        print_columns(args.print_column_substring, ds.columns)        
-
         
     # - - - - - - 
     return ds
 
     # end read_galaxy_cat
+
+def check_diffsky_columns(config, ds):
+    
+    # abort if user-requested diffksy column is not available
+    hostlib_varname_dict = config['hostlib_varname_dict'] 
+
+    exception_list = [ 'err', 'n_' ]  # these are computed and hence don't exist in catalog
+    
+    nerr = 0 
+    for varname in list(hostlib_varname_dict):
+
+        SKIPIT = False
+        for e in exception_list:
+            if e in varname:
+                SKIPIT = True
+
+        VALID = varname in ds.columns or SKIPIT
+        if not VALID:
+            print(f" ERROR: column {varname} is not available in catalog")
+            nerr+=1
+    if nerr > 0:
+        sys.exit(f"\n FATAL ERROR: {nerr} missing columns.")
+    return
 
 def apply_cuts(cat_inp, config):
 
@@ -367,17 +407,20 @@ def apply_cuts(cat_inp, config):
         cutvar = row.split()[0]
         cutmin = float(row.split()[1])
         cutmax = float(row.split()[2])
-        logging.info(f"\t Apply cut {cutmin} < {cutvar} < {cutmax} ")
+        logging.info(f"   Apply cut {cutmin} < {cutvar} < {cutmax} ")
         cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
-
+        n_row_out = len(cat_out)
+        logging.info(f"\t n_row after {cutvar} cut: {n_row_out} ")
+        
     n_row_out = len(cat_out)
+    logging.info('')
     logging.info(f" Cuts reduce {n_row_inp:,} rows to {n_row_out:,} rows")
 
     print_proc_time(t0, "APPLY_CUTS", None)
     
     return cat_out   # end apply_cuts
 
-def print_columns(substring, column_list):
+def print_columns(substring, column_list, descript_list):
 
     # inputs:
     #   substring      : print columns containing this substring
@@ -388,7 +431,12 @@ def print_columns(substring, column_list):
     else:
         filtered_list = [x for x in column_list if substring in x]
                
-    print(f"\n DIFFSKY Columns: \n{filtered_list}")
+    print(f"\n DIFFSKY Columns:")
+
+    for col in filtered_list:
+        descript = descript_list[col]
+        print(f"   {col:20s}:  {descript}")
+        
     sys.exit("\nDone listing columns")
     
     return   # end print_columns
@@ -429,14 +477,13 @@ def parse_varname_map(config):
     config['HOSTLIB_VARNAMES_LIST']   = HOSTLIB_VARNAMES_LIST    
     config['FOUND_GALID']             = FOUND_GALID
     
-    #sys.exit(f"\n xxx hostlib_varname_dict = \n{hostlib_varname_dict} \n\n xxx hostlib_format_dict =\n{hostlib_format_dict}")
     return config
 
 
-def open_hostlib_files(config):
+def parse_hostlib_info(config):
 
     # parse list of HOSTLIBs;
-    # open each output HOSTLIB file and store area fraction to include.
+    # for each output HOSTLIB file, store area fraction to include.
     
     HOSTLIB_VARNAMES_STRING = config['HOSTLIB_VARNAMES_STRING'] 
     hostlib_dict = {}
@@ -445,19 +492,16 @@ def open_hostlib_files(config):
     HOSTLIB_FILE_LIST = config[KEY_HOSTLIB_FILE]
     for row in HOSTLIB_FILE_LIST:
         hostlib_file = row.split()[0]
-        area_frac    = float(row.split()[1])
-        
-        fp = open(hostlib_file,"wt")
+        area_frac    = float(row.split()[1])            
         hostlib_dict[hostlib_file] = {
             'area_frac'  : area_frac ,
-            'fp'         : fp ,
-            'ra_range'   : [] ,
+            'ra_range'   : [] ,  # to be computed and filled later ..
             'dec_range'  : []
         }
         area_frac_list.append(area_frac)
 
     area_frac_max  = max(area_frac_list)
-    n_hostlib = len(HOSTLIB_FILE_LIST)
+    n_hostlib      = len(HOSTLIB_FILE_LIST)
 
     # store more goodies on config blocl
     config['n_hostlib']      = n_hostlib
@@ -465,6 +509,7 @@ def open_hostlib_files(config):
     config['area_frac_max']  = area_frac_max
         
     return config
+
 
 def write_hostlib_header(fp, hlib_file, ngal, config):
 
@@ -556,59 +601,37 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     df_cat = galaxy_cat.select(cat_var_list).get_data().to_pandas()
     print_proc_time(t0, "CONVERT_TO_PANDAS", None )
     logging.info(f"")
-    
+
+    # convert radians to degrees
+    if 'RAD' in DIFFSKY_ANGLE_UNIT:
+        convert_angle_unit_degrees(df_cat)
+
     return df_cat
 
-def get_random_subset(args, config, galaxy_cat):
+def convert_angle_unit_degrees(df_cat):
 
-    t0 = time.time()
-    nmax_gal             = config['nmax_gal']
-    hostlib_varname_dict = config['hostlib_varname_dict']
-    CUTWIN               = config[KEY_CUTWIN]
-    
-    cat_var_list = list(hostlib_varname_dict.keys())
+    # convert angle units from rad to degree; keep same column name
+    substr             = DIFFSKY_ANGLE_PREFIX
+    colname_angle_list = df_cat.columns[df_cat.columns.str.contains(substr)].tolist()
+    colname_angle      = colname_angle_list[0]
+    n_col              = len(colname_angle_list)
 
-    logging.info(f"")
-    
-    # fetch astropy table
-    n_row     = 0
-    ntake_gal = nmax_gal   # start with guess
-    while n_row < nmax_gal:
-        logging.info(f"Select random subset of {ntake_gal:,} rows ...")
-
-        galaxy_subset = galaxy_cat \
-            .take(ntake_gal, at="random") \
-            .select(cat_var_list) \
-            .get_data() 
-            
-        n_row = len(galaxy_subset)
-        if n_row < nmax_gal:
-            comment = f"too few; try again"
-        else:
-            comment = f">= {nmax_gal:,}; stop selecting rows"
-            
-        logging.info(f"\t --> {n_row:,} rows selected  ({comment})")
-        ntake_gal = int(1.1 * ntake_gal * nmax_gal / n_row)
+    if n_col > 1:
+        sys.exit(f"\n ERROR: ambiguous angle column: \n" \
+                 f"\t {colname_angle_list} all contain '{substr}'\n")
         
-    # - - - -
-            # convert to data frame
-    df = galaxy_subset.to_pandas()
-
-    print_proc_time(t0, "RANDOM_SUBSET", None)
+    df_cat[colname_angle] = np.degrees(df_cat[colname_angle])
+    return
     
-    return df
-
 def get_hostlib_row_format(row_val_list , config):
 
-    # for input row, return row for HOSTLIB with user-specified format per item
+    # for input row, return row for HOSTLIB with user-specified format per item        
+    hostlib_format_dict  = config['hostlib_format_dict']
+    var_hlib_list  = list(hostlib_format_dict.keys() )
+    fmt_hlib_list  = list(hostlib_format_dict.values() )
 
-    hostlib_format_dict = config['hostlib_format_dict']
-    var_list  = list(hostlib_format_dict.keys() )
-    fmt_list  = list(hostlib_format_dict.values() )
-
-    #sys.exit(f"\n xxx val_list = \n{row_val_list} \n xxx var_list = \n{var_list}  \n xxx fmt_list = \n {fmt_list}")
     row_hostlib = ''   
-    for val, fmt in zip(row_val_list, fmt_list) :
+    for val, fmt in zip(row_val_list, fmt_hlib_list) :
         row_hostlib += f"{val:{fmt}} "
 
     #sys.exit(f"\n xxx row = \n{row_val_list} \n\t --> \n {row_hostlib} ")
@@ -702,7 +725,7 @@ def get_n_update_stdout(nrow_cat):
     return n_update_stdout
 
 def write_hostlib_files(args, config, df_cat):
-
+    
     t0 = time.time()
     
     hostlib_format_dict = config['hostlib_format_dict']
@@ -729,7 +752,8 @@ def write_hostlib_files(args, config, df_cat):
 
         logging.info(f"\t prepare row mask and DOCANA header for {hlib_file} ...")
 
-        fp      = hlib_dict['fp']
+        fp      = open(hlib_file,"wt")
+        hlib_dict['fp'] = fp  # store for GAL keys below
         ra_min  = hlib_dict['ra_range'][0]
         ra_max  = hlib_dict['ra_range'][1]
         dec_min = hlib_dict['dec_range'][0]
@@ -806,15 +830,15 @@ if __name__ == "__main__":
     args   = get_args() 
     config = read_yaml(args.config_file)
 
-    # make sure Sersic column definitinos are consistent to avoid crash later
+    # make sure Sersic column definitions are consistent to avoid crash later
     check_Sersic_definitions(config)
     
     # parse varname mapping between diffsky and hostlib
-    config     = parse_varname_map(config)
+    config   = parse_varname_map(config)
 
-    # open each hostlib file
-    config       = open_hostlib_files(config)
-
+    # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
+    config  = parse_hostlib_info(config)
+        
     # fetch entire galaxy catalog
     galaxy_cat  = read_galaxy_cat(args, config)
 
@@ -836,18 +860,17 @@ if __name__ == "__main__":
     # check option to add and compute mag_error for each band
     galaxy_cat = addcol_mag_errors(galaxy_cat, config)
 
+
     logging.info('==================================================')
     logging.info('')
     
     # - - - - - - - - - - - - - - - - - - - - -  -
-    # xxx mark delete df_cat = get_random_subset(args, config, galaxy_cat)
-
     df_cat = convert_galaxy_cat_to_pandas(galaxy_cat, config)
 
     # figure out coordinate range for each hostlib
     config['hostlib_dict'] = get_coord_ranges(df_cat, config)
 
-    # x x x x x
+    # write hostlib file(s)
     write_hostlib_files(args, config, df_cat)
 
     print_proc_time(t_start, "TOTAL", None)

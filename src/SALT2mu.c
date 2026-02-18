@@ -464,7 +464,6 @@ char PATH_SNDATA_ROOT[MXPATHLEN];
 #define VARNAME_SALT2_x1       "x1"
 #define VARNAME_SALT2_c        "c"
 #define VARNAME_BAYESN_theta  "theta"
-// xxx mark delete Nov 7 2025 #define VARNAME_BAYESN_theta1  "theta1"
 #define VARNAME_BAYESN_AV      "AV"
 #define VARNAME_BAYESN_mu      "mu"
 
@@ -1288,7 +1287,6 @@ struct INPUTS {
   int    uave;       // flag to use avg mag from cosmology (not nommag0)
   int    uM0 ;       // flag to float the M0 (default=true)
   int    uzsim ;     // flag to cheat and use simulated zCMB (default=F)
-  // xxx mark delete Nov 10 2025   double M0 ;        // nominal SN magnitude without offset (-30)
   double H0 ;
 
   int    FLOAT_COSPAR ;    // internal: TRUE if any COSPAR is floated
@@ -2495,7 +2493,6 @@ void exec_mnparm(void) {
     ISFLOAT = FITINP.ISFLOAT_z[iz] ;
       
     //               val            step   min  max     boolean
-    // xxx mark delet Nov 10 2025   set_fitPar( i, INPUTS.M0, 0.1,   M0min,M0max,  ISFLOAT );
     set_fitPar( i, M0_DEFAULT, 0.1,   M0min,M0max,  ISFLOAT ); 
     INPUTS.izpar[i] = iz ; 
       
@@ -3237,7 +3234,6 @@ void applyCut_chi2max(void) {
     }
     
     muoff        = sum_mures / sum_wgt;
-    // xxx mark Nov 10 2025 INPUTS.M0   += muoff;  // adjust M0 to account for unknown H0
     M0_DEFAULT  += muoff;  // adjust M0 to account for unknown H0
     fprintf(FP_STDOUT, "\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
     fflush(FP_STDOUT);
@@ -4662,7 +4658,6 @@ void *MNCHI2FUN(void *thread) {
 
     
     mu      -= muBias ;      // bias correction 
-    // xxx mark delete Nov 10 2025    mures    = mu - mumodel ;
     mures    = mu - M0 - mumodel ;
     sqmures  = mures*mures ;
 
@@ -4952,7 +4947,6 @@ double fcn_M0(int n, double *M0LIST) {
 
   // ----------- BEGIN ----------
 
-  // xxx mark Nov 10 2025   M0      = INPUTS.M0 ;
   M0      = M0_DEFAULT ;
 
   iz0     = INFO_DATA.TABLEVAR.IZBIN[n];
@@ -5470,7 +5464,6 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
   TABLEVAR_DEF* TABLEVAR_CUTS      = &INFO_CCPRIOR.TABLEVAR_CUTS; // should be passed as arg?
   PROB_CCPRIOR_DEF *PROB_CCPRIOR   = &INFO_CCPRIOR.PROB_CCPRIOR ;
 
-  // xxx mark delete Nov 10 2025  double  ABGM[4]  = { xval[IPAR_ALPHA0], xval[IPAR_BETA0], 0.0, INPUTS.M0 } ;
   double  ABGM[4]  = { xval[IPAR_ALPHA0], xval[IPAR_BETA0], 0.0, M0_DEFAULT } ;
   
   int i, idsample ;
@@ -5483,27 +5476,7 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
 
   MUZMAP->alpha = xval[IPAR_ALPHA0];
   MUZMAP->beta  = xval[IPAR_BETA0];
-  // xxx mark delete MUZMAP->M0    = INPUTS.M0;
   MUZMAP->M0    = M0_DEFAULT;
-
-
-  /* xxxx mark delete 9.11. 2025 xxxxxxx
-  // strip off cos pars that were used for mumodel in MNCHI2FUN
-  cosPar[0] = xval[IPAR_OL] ; 
-  cosPar[1] = xval[IPAR_Ok] ;
-  cosPar[2] = xval[IPAR_w0] ;
-  cosPar[3] = xval[IPAR_wa] ;
-
-  // avoid using blinded cosmology params for CC prior (July 20 2023)  
-  if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) { // Dec 2023
-    cosPar[0] = OMEGA_LAMBDA_DEFAULT ;
-    cosPar[1] = 0.0;
-    cosPar[2] = w0_DEFAULT ;
-    cosPar[3] = wa_DEFAULT ;
-  }
-  for(i=0; i < NCOSPAR ; i++ ) { MUZMAP->cosPar[i] = cosPar[i] ; } 
-  xxxxxxxxxx end mark xxxxx*/
-
 
   // 9.11.2025 : load user cospar before blinding with random offset
   for(i=0; i < NCOSPAR ; i++ ) { MUZMAP->cosPar[i] = INPUTS.COSPAR_UNBLIND[i] ; } 
@@ -5849,7 +5822,6 @@ void set_defaults(void) {
   INPUTS.zpolyflag = 0;
   //Default distance modulus parameters
   INPUTS.H0         = 70.0;
-  // xxx mark delete Nov 10 2025  INPUTS.M0         = M0_DEFAULT ;
   INPUTS.uave       = 1;
 
   // Default parameters 
@@ -6154,7 +6126,6 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
     { cmin=INPUTS.avmin; cmax=INPUTS.avmax; }
 
   NBINc=INPUTS.nbinc_mucovscale; // user input instead of hard-wired (March 2022 MVincenzi)
-  // xxx mark delete Nov 7 2025   cmin=INPUTS.cmin; cmax=INPUTS.cmax;
   cbin=(cmax-cmin)/(double)NBINc;
 
 
@@ -12800,7 +12771,6 @@ double muresid_biasCor(int ievt ) {
 
   // ----------------- BEGIN ----------------
 
-  // xxx mark  M0     = INPUTS.M0 ;
   M0     = M0_DEFAULT ;
 
   //  g        = (double)INFO_BIASCOR.TABLEVAR.SIM_GAMMADM[ievt] ;
@@ -16100,7 +16070,6 @@ void store_INFO_CCPRIOR_CUTS(void) {
   bool DOCOR_MU          = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU ) ;
   int  NFITPAR_LOCAL     = NLCPAR;  
   if ( DOCOR_MU && !INPUTS.restore_des5yr ) { NFITPAR_LOCAL+=1; }
-  // xxx mark 9.12.2025  if ( INPUTS.restore_des5yr ) { NFITPAR_LOCAL = NLCPAR; }  // restore bug forcing mubias=0
 
   int LDMP ;
   int  isn, icc, ia, ib, ig, ipar, cutmask;
@@ -16131,13 +16100,6 @@ void store_INFO_CCPRIOR_CUTS(void) {
 
     INFO_CCPRIOR.TABLEVAR_CUTS.zhd[icc] = 
       INFO_CCPRIOR.TABLEVAR.zhd[isn];
-
-    /* xxxxxxx mark delete Nov 6 2025: don't seem to need this, and it causes BAYESN to crash
-    if ( ISMODEL_SALT2 )  { 
-       INFO_CCPRIOR.TABLEVAR_CUTS.x0[icc]  = INFO_CCPRIOR.TABLEVAR.x0[isn]; 
-    }
-    xxxxxxxx end mark xxxxxx */
-
 
     for(ipar=0; ipar < NFITPAR_LOCAL; ipar++ ) { 
       INFO_CCPRIOR.TABLEVAR_CUTS.fitpar[ipar][icc] = 
@@ -16307,7 +16269,6 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
 
 
   for ( j=0; j < 4; j++ ) { 
-    //  xxx mark MUZMAP->cosPar[j] = INPUTS.COSPAR[j] ;  
     MUZMAP->cosPar[j] = INPUTS.COSPAR_UNBLIND[j] ;  
   }
 
@@ -16316,7 +16277,6 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   MUZMAP->alpha   = INPUTS.parval[IPAR_ALPHA0] ;
   MUZMAP->beta    = INPUTS.parval[IPAR_BETA0] ;
   MUZMAP->gammadm = 0.0  ;
-  // xxx mark delerte   MUZMAP->M0      = INPUTS.M0 ; 
   MUZMAP->M0      = M0_DEFAULT ;
   
   // if there is a biasCor map, set alpha,beta to the average
@@ -16601,11 +16561,6 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
 
       AVG   = S1TMP/XCC_SUM ;
       STD   = STD_from_SUMS(NTMP, S1TMP, S2TMP);
-
-      /* xxx mark delete
-      printf("\t xxx %s: i3d=%2d NCC=%4d IDSAMP=%d   load AVG=%.3f  STD=%.3f \n", 
-	     fnam, i3d, NTMP, IDSAMPLE, AVG, STD ); fflush(stdout);
-      xxxx */
 
       MUZMAP->DMUAVG[IDSAMPLE][i3d] = AVG ;
       MUZMAP->DMURMS[IDSAMPLE][i3d] = STD ;
@@ -16939,16 +16894,6 @@ void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRI
 
   for(icc=0; icc < NSN_ALL ; icc++ ) {  
 
-    /* xxxxxx mark delete 9.23.2025 xxxxxxx
-    z  = TABLEVAR->zhd[icc];
-    c  = TABLEVAR->fitpar[INDEX_c][icc];
-    s  = TABLEVAR->fitpar[INDEX_s][icc];
-    i3list[0]  = IBINFUN(z,  &MUZMAP->ZBIN, ABORT_IBINFUN, fnam); // redshift
-    i3list[1]  = IBINFUN(c,  &MUZMAP->CBIN, ABORT_IBINFUN, fnam); // colour
-    i3list[2]  = IBINFUN(s,  &MUZMAP->SBIN, ABORT_IBINFUN, fnam); // stretch
-    i3d        = get_1DINDEX(MUZMAP->IDMAP3D, 3, i3list);
-    xxxxxxxxxx end mark xxxxxxx */
-
     get_FITPAR_INDICES_CCprior(icc, TABLEVAR, MUZMAP, i3list, &i3d, &i3d_nn);
 
     // load the goodies into PROB struct
@@ -16960,7 +16905,6 @@ void malloc_PROB_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP,  PROB_CCPRI
 
     z  = TABLEVAR->zhd[icc];
     dl = cosmodl_forFit(z, z, INPUTS.COSPAR_UNBLIND) ; // zhel approx ok here for CC
-    // xxx mark del 9.11.2025 dl   = cosmodl_forFit(z, z, MUZMAP->cosPar) ; // zhel approx ok here for CC
     mumodel  = 5.0*log10(dl) + 25.0 ;
     PROB_CCPRIOR->MUMODEL[icc] = mumodel; 
   }
@@ -17019,11 +16963,6 @@ void load_PROBDMU_CCprior(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP, PROB_CCPRI
     if ( TABLEVAR->CUTMASK[isn] ) { continue; }
 
     z          = TABLEVAR->zhd[isn];
-    /* xxxxxxx mark delete 
-    c          = TABLEVAR->fitpar[INDEX_c][isn];
-    s          = TABLEVAR->fitpar[INDEX_s][isn];
-    xxxxxxx end mark */
-
     i3d        = PROB_CCPRIOR->I3D[isn] ;
     dmu        = DMU[isn] ;
     IDSAMPLE   = TABLEVAR->IDSAMPLE[isn];
@@ -17863,8 +17802,6 @@ void print_eventStats(int event_type) {
 } // end  print_eventStats
 
 
-int TEMPFLAG_COUNT[4] = { 0, 0, 0, 0} ; // xxx mark delete Jan 12 2026
-
 // ==================================================
 void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
 
@@ -18337,7 +18274,6 @@ int prescale_reject_biasCor(int isn, TABLEVAR_DEF *TABLEVAR ) {
     Xisn =  (double)isn ;
     XPS1 =  (double)PS1 ;
     if ( fmod(Xisn,XPS1) != PS0 ) { REJECT = 1 ; } 
-    // xxx mark delete Aug 13 2025  if ( fmod(Xisn,XPS1) != PS0 ) { return(1); } 
   }
 
   
@@ -19116,13 +19052,6 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"h0=")) 
     { sscanf(&item[3],"%lf",&INPUTS.H0); return(1); }
-
-  /* xxx mark delete Nov 10 2025 xxxxxxx
-  if ( uniqueOverlap(item,"m0=")) 
-    { sscanf(&item[3],"%lf",&INPUTS.M0); return(1); }
-  if ( uniqueOverlap(item,"mag0="))  // legacy name
-    { sscanf(&item[5],"%lf",&INPUTS.M0); return(1); }
-  xxxxxxx end mark xxx*/
   
   if ( uniqueOverlap(item,"uave="))  
     { sscanf(&item[5],"%i", &INPUTS.uave); return(1); }
@@ -20849,7 +20778,6 @@ void parse_ZPOLY_COVMAT(char *item) {
     sprintf(c1, "%c",  KEY[i]);
     strcat(key,c1);  
   }
-  // xxx mark delete Nov 14 2025  { sprintf(key,"%s%c", key, KEY[i] );  }
 
   if ( strcmp(key,"sigmB") == 0 ) 
     { ptr_ZPOLY = INPUTS_ZPOLY_COVMAT.sigmB[ISP_SURVEY] ; }
@@ -20872,8 +20800,6 @@ void parse_ZPOLY_COVMAT(char *item) {
   // load polynomial parameters
   for ( i=0; i <= ORDER_ZPOLY_COVMAT; i++ ) 
     {  ptr_ZPOLY[i] = tmp[i] ; }
-
-  // xxx mark delete Nov 14 2025 {  *(ptr_ZPOLY+i) = tmp[i] ; }
 
   /*
   printf("\t xxx KEY = %s(%s)   |  IDSURVEY=%d  ISP_SURVEY=%d\n", 
@@ -23105,7 +23031,6 @@ void write_fitres_driver(char* fileName) {
     if ( INPUTS.blindFlag > 0 && ISDATA_REAL ) 
       { write_blindFlag_message(fout); }      
 
-    // xxx mark Nov 10 2025fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-(MUMODEL+M0DIF) \n");
     fprintf(fout,"# MU-RESIDUAL NOTE: MURES = MU-MUMODEL \n"); // redefinition, Nov 10 2025
 
     write_MUERR_INCLUDE(fout);
@@ -23251,7 +23176,6 @@ void write_fitres_driver(char* fileName) {
     { FITRESULT.SNMAG0 = FITRESULT.AVEMAG0; }
   else 
     { FITRESULT.SNMAG0 = M0_DEFAULT; }
-  // xxx mark delete   { FITRESULT.SNMAG0 = INPUTS.M0; }
 
 
   fprintf(fout," \n");
@@ -27342,7 +27266,6 @@ void setup_MUZMAP_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   // print DMU distribution for first redshift bin
   MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
   MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
-  // xxx mark delete Nov 10 2025   MUZMAP->M0    = INPUTS.M0 ;
   MUZMAP->M0    = M0_DEFAULT ;
 
   MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL

@@ -216,6 +216,7 @@ This plot unility works on
   * M0DIF files from BBC
   * HOSTLIB files used in simulation
   * any file with same format that has VARNAMES key
+  * csv file
 
 BEWARE that conventional dashes for command-line input keys are replaced 
 with @@ ; e.g., --VARIABLE in any other python code is @@VARIABLE here ...
@@ -237,7 +238,10 @@ and two types of command-line input delimeters
       INPUTS FOR PLOT CONTENT 
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-@@VARIABLE or @V:
+@@TFILE or @T (or @@tfile or @t)
+  Specify one or more table files. More than 1 table results in overlay.
+
+@@VARIABLE or @V or @v:
   Input table files are loaded with pandas dataframes, and therefore input variables
   are internally converted to pandas notation. For instance, to plot redshift 
   distribution requires user input
@@ -536,6 +540,10 @@ plot_table.py @@TFILE File1.FITRES File2.FITRES \\
    @@VARIABLE zHD:mB - 3.1*c + 0.16*x1 - MU \\
    @@CUT "IDSURVEY < 15 & zHD>0.1" 
 
+plot_table.py @@t File1.FITRES File2.FITRES \\  # same as prevous, but use @t and @v
+   @v zHD:mB - 3.1*c + 0.16*x1 - MU \\
+   @@CUT "IDSURVEY < 15 & zHD>0.1" 
+
 plot_table.py @@TFILE scone_predict_diff.text \\
    @@VARIABLE PROB_SCONE_2:PROB_SCONE_1 \\
    @@CUT "PROB_SCONE_2 > 0"
@@ -561,7 +569,7 @@ def get_args():
 
     msg = "required: Name of TABLE file or space delineated list of " \
           "different TABLE files. If >1 TFILE, plots are overlaid"
-    parser.add_argument('@@TFILE', '@@tfile', help=msg, nargs="+")
+    parser.add_argument('@T', '@@TFILE', '@t', '@@tfile', help=msg, nargs="+")
     
     msg = "required: Variable(s) to plot from table file, or function of variables." \
           "For the histogram, counts are normalised to the first table file."

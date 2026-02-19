@@ -1986,7 +1986,8 @@ void SUBPROCESS_OUT_TABLE_HEADER(int itable);
 #include "sntools_genPDF.h" 
 #include "sntools_genPDF.c"
 
-#define KEYNAME_SUBPROCESS_STDOUT          "SALT2mu_SUBPROCESS:"
+char KEYNAME_SUBPROCESS_STDOUT[40];
+// xxx mark #define KEYNAME_SUBPROCESS_STDOUT          "SALT2mu_SUBPROCESS:"
 #define KEYNAME_SUBPROCESS_ITERATION_BEGIN "ITERATION_BEGIN:"
 #define KEYNAME_SUBPROCESS_ITERATION_END   "ITERATION_END:"
 #define MXTABLE_SUBPROCESS        6  // max number of output tables
@@ -2258,6 +2259,7 @@ void SALT2mu_DRIVER_EXEC(void) {
   }
 
   if ( INPUTS.NSPLITRAN > 1 || NCALL_SALT2mu_DRIVER_EXEC > 1 ) {  
+    fprintf(FP_STDOUT," xxx %s: call prep_input_repeat ... \n", fnam); fflush(FP_STDOUT);
     prep_input_repeat();  
   }
 
@@ -20606,9 +20608,11 @@ void prep_input_repeat(void) {
       if ( CUTMASK == 0 ) { N_PASSCUTS++ ; } // diagnostic
 
     } // end isn
-    fprintf(FP_STDOUT," Reset CUTBITS: %d of %d pass cuts\n", N_PASSCUTS, NSN_DATA);
+    fprintf(FP_STDOUT," Reset CUTBITS at ITER=%d: %d of %d pass cuts\n", 
+	    SUBPROCESS.ITER, N_PASSCUTS, NSN_DATA);
     fflush(FP_STDOUT);
   }
+
 #endif
 
   return;
@@ -25860,12 +25864,17 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   // request expected iteration number to be entered as std input
   // or q to quit
 
+  sprintf(KEYNAME_SUBPROCESS_STDOUT, "SALT2mu_SUBPROCESS:");
+
   printf("\n%s Enter expected ITERATION number (-1 to quit) => \n",
 	 KEYNAME_SUBPROCESS_STDOUT );   fflush(stdout);
   scanf( "%d", &ITER_EXPECT); // read response
   if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
   SUBPROCESS.ITER = ITER_EXPECT ; 
 
+  sprintf(KEYNAME_SUBPROCESS_STDOUT, "SALT2mu_SUBPROCESS-%3.3d:", ITER_EXPECT);
+
+  fprintf(FP_STDOUT," xxx %s: call prep_input_repeat ... \n", fnam); fflush(FP_STDOUT);
   prep_input_repeat();
 
   // rewind all SUBPROCESS files
@@ -25877,7 +25886,6 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   
   SUBPROCESS_SIM_REWGT(ITER_EXPECT);
 
-  //  debugexit(fnam);
 
   return ;
 
@@ -26153,6 +26161,7 @@ void SUBPROCESS_SIM_PRESCALE(void) {
   bool IS_SIM     = INFO_DATA.TABLEVAR.IS_SIM ;
   int  NEVT_SIM   = SUBPROCESS.NEVT_SIM_PRESCALE ;
   int  NSN_TOT    = INFO_DATA.TABLEVAR.NSN_ALL ;
+
   int  isn;
   int  LDMP = 1;
   double RANFLAT ;
@@ -26186,9 +26195,11 @@ void SUBPROCESS_SIM_PRESCALE(void) {
     }
   }
 
+  /* xxx mark delete xxxxxxx
   fprintf(FP_STDOUT,"%s: NSN_TOT = %d --> %d after prescale\n", 
 	  fnam, NSN_TOT, NSN_PS);
   fflush(FP_STDOUT);
+  xxxxxxxxxx */
 
   return;
 

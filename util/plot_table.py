@@ -62,7 +62,7 @@ from collections import Counter
 NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
 NXYBIN_AUTO = 20        # auto nbin for hist2d (if @@BOUNDS is not given)
 
-DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
+DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')', ',' ]  # for @@VARIABLE 
 DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',      # for @@CUT
                         '==', '!=', '=', '*', '+', '-', '/',
                         '~' , '.str.contains' ] 
@@ -132,8 +132,11 @@ NUMPY_FUNC_DICT = {
     'sin'         :  'np.sin'  ,
     'tan'         :  'np.tan'  ,        
     'heaviside'   :  'np.heaviside',
-    'min'         :  'np.min',
-    'max'         :  'np.max'
+    'minimum'     :  'np.minimum',
+    'min'         :  'np.minimum',
+    'maximum'     :  'np.maximum',
+    'max'         :  'np.maximum',
+    'dummy'       :  'np.dummy'
 }
 NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
 
@@ -559,7 +562,6 @@ def setup_logging():
     #logging.basicConfig(level=logging.DEBUG,
     logging.basicConfig(level=logging.INFO,
         format="[%(levelname)8s | %(message)s")
-    # xxx mark format="[%(levelname)8s |%(filename)21s:%(lineno)3d]   %(message)s")
     logging.getLogger("matplotlib").setLevel(logging.ERROR)
     logging.getLogger("seaborn").setLevel(logging.ERROR)
     return
@@ -1101,18 +1103,6 @@ def arg_prep_axis(ndim,name_arg, arg_axis):
     return arg_axis
 
 
-# xxxxxxxxx mark delete Dec 19 2025 xxxxxxx
-#def numpy_fun_replace(var)  :
-    # replace user functions (e.g., exp or sqrt) with numpy
-    # functions (e.g. np.exp or np.sqrt). If np.xxx is already
-    # defined, then avoid replacement.
-#    for fun, np_fun in NUMPY_FUNC_DICT.items():            
-#        if fun in var and np_fun not in var:
-#            var = var.replace(fun,np_fun)
-#    return var
-# xxxxxxxx end mark 
-
-
 def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
     # Created Aug 21 2024
@@ -1184,6 +1174,7 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
         if valid_str_last:
 
+            # append list
             split_list.append(str_last)
 
             if is_number(str_last) or "'" in str_last or '"' in str_last :
@@ -1293,7 +1284,8 @@ def translate_VARIABLE(VARIABLE):
             tmp_append = STR_df + tmp_str
             table_var_list.append(tmp_str)
         elif tmp_type == STRTYPE_NPFUNC :
-            tmp_append = STR_np + tmp_str
+            # xxx mark delete Feb 18 2026  tmp_append = STR_np + tmp_str
+            tmp_append = NUMPY_FUNC_DICT[tmp_str]  
         else:
             pass
         
@@ -1856,7 +1848,7 @@ def prep_object_axis(which_axis, MASTER_DF_DICT, args ):
     unique_values = []
     for key_tf  in MASTER_DF_DICT:
         dtype = MASTER_DF_DICT[key_tf]['dtype_' + which_axis]
-        if dtype == 'object' :
+        if dtype == 'object' or dtype == 'str' :
             df    = MASTER_DF_DICT[key_tf]['df']
             unique_values += df[varname].unique().tolist()
            
@@ -2056,7 +2048,7 @@ def check_table_varnames(tfile, var_list):
     for var in var_list:
         if var not in table_var_list:
             n_missing += 1
-            logging.error(f"Missing {var} in {tfile}")
+            logging.error(f"Missing '{var}' in {tfile}")
         if n_missing > 0:
             logging.fatal(f"Missing {n_missing} variables; check @V and @@ERROR args.")
             sys.exit(f"\n\t ABORT")
@@ -2730,7 +2722,6 @@ def compute_ratio(yval0_list, errl0_list, erru0_list,
         # when y0=0 or y0=y1, which messes up polynomial fits to ratio.
 
         logging.info("\t Compute binomial error for ratio.")
-        # xxx mark Oct 17 2025   p  = yval0_list/yval1_list
         p          = (yval0_list+.01)/(yval1_list+.02)  # avoid zero error, Oct 2025
         cov_ratio  = p*(1-p) / yval1_list
         err        = np.sqrt(cov_ratio)

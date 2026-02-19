@@ -320,7 +320,7 @@ For help, run code with no arguments
    + remove input M0 (or mag0) and just use M0_DEFAUT everywhere to work
      for SALT3 or BAYESN
 
-     xxx
+  
  ******************************************************/
 
 #include "sntools.h" 
@@ -1612,7 +1612,7 @@ void  prep_input_gamma(void) ;
 void  prep_input_probcc0(void);
 void  prep_input_load_COSPAR(double *COSPAR);
 void  prep_input_varname_missing(void);
-void  prep_input_repeat(void); 
+void  prep_input_repeat(char *callFun); 
 void  prep_debug_flag(void);
 void  prep_fitpar(void);
 void  prep_input_zrate_scale(void);
@@ -2259,8 +2259,7 @@ void SALT2mu_DRIVER_EXEC(void) {
   }
 
   if ( INPUTS.NSPLITRAN > 1 || NCALL_SALT2mu_DRIVER_EXEC > 1 ) {  
-    fprintf(FP_STDOUT," xxx %s: call prep_input_repeat ... \n", fnam); fflush(FP_STDOUT);
-    prep_input_repeat();  
+    if ( !SUBPROCESS.USE ) { prep_input_repeat(fnam); }
   }
 
   FITRESULT.NCALL_FCN = 0 ;
@@ -20548,7 +20547,7 @@ void parse_FIELDLIST_SELECT(char *item) {
 } // end parse_FIELDLIST_SELECT
 
 // **************************************************
-void prep_input_repeat(void) {
+void prep_input_repeat(char *callFun) {
 
   // Call this prep function before repeating a fit.
   // Examples:
@@ -20559,10 +20558,14 @@ void prep_input_repeat(void) {
   // Oct 21 2025: 
   //   comment out line with CUTBIT_SPLITRAN to fix D2D bug; not sure why this
   //   seems to work.
+  //
+  // Feb 19 2026: remove line that was remove Oct 21 2025; this line is essential.
 
-  char fnam[] = "prep_input_repeat" ;
-
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "prep_input_repeat", fnam);
   // ------------ BEGIN -----------
+
+  fprintf(FP_STDOUT,"%s\n", fnam); fflush(FP_STDOUT);
 
   // Feb 24 2025 : reset INFO_DATA counters
   INFO_DATA.TABLEVAR.NCONTAM_PASSCUTS = 0;
@@ -20596,13 +20599,12 @@ void prep_input_repeat(void) {
 
       CUTMASK = INFO_DATA.TABLEVAR.CUTMASK[isn];
       
-      /* xxx mark delete Oct 21 2025: this fixes Dust2Dust bug, but not sure why? 
-      // reset... cut bits that get re-applied in SUBPROCESS
-      CUTMASK -= ( CUTMASK & CUTMASK_LIST[CUTBIT_SPLITRAN] ) ;
-      xxxxxxxxxxxxx */
+      // xxx mark delete Oct 21 2025: this fixes Dust2Dust bug, but not sure why? 
+      // Feb 19 2026 : restore this line that was removed Oct 21 2025
+      CUTMASK -= ( CUTMASK & CUTMASK_LIST[CUTBIT_SPLITRAN] ) ;  // undo previous GENPDF_rewgt
 
       if ( SUBPROCESS.NEVT_SIM_PRESCALE > 0 )
-	{ CUTMASK -= (CUTMASK & CUTMASK_LIST[CUTBIT_SIMPS] ); }
+	{ CUTMASK -= (CUTMASK & CUTMASK_LIST[CUTBIT_SIMPS] ); } // undo previous prescale
       
       INFO_DATA.TABLEVAR.CUTMASK[isn] = CUTMASK ;
       if ( CUTMASK == 0 ) { N_PASSCUTS++ ; } // diagnostic
@@ -25874,8 +25876,7 @@ void SUBPROCESS_PREP_NEXTITER(void) {
 
   sprintf(KEYNAME_SUBPROCESS_STDOUT, "SALT2mu_SUBPROCESS-%3.3d:", ITER_EXPECT);
 
-  fprintf(FP_STDOUT," xxx %s: call prep_input_repeat ... \n", fnam); fflush(FP_STDOUT);
-  prep_input_repeat();
+  prep_input_repeat(fnam);
 
   // rewind all SUBPROCESS files
   rewind(SUBPROCESS.FP_INP);   
@@ -25954,7 +25955,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   init_genPDF(OPTMASK, FP_INP, INPFILE, BLANK_STRING);
 
   // over-write CUTBIT_SPLITRAN 
-  sprintf(CUTSTRING_LIST[CUTBIT_SPLITRAN],  "GENPDF rewgt");
+  sprintf(CUTSTRING_LIST[CUTBIT_SPLITRAN],  "GENPDF_rewgt");
 
   // - - - - -
   // prepare index map between IVAR(MAP) and IVAR(TABLE)

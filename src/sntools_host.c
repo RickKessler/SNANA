@@ -3690,7 +3690,7 @@ void check_duplicate_GALID(void) {
     if ( GALID == GALID_LAST &&   ZDIF < ZTOL ) {
       NERR++ ;
 
-      printf(" !*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!* ");
+      printf(" !*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!* \n");
       printf(" !*!*!* Duplicate GALID = %lld  at ZTRUE=%f  ZDIF=%f !*!*! \n", 
 	     GALID, ZTRUE, ZDIF  );
       printf(" !*!*!* Duplicate RA /RA_LAST  = %f / %f \n", RA,  RA_LAST);

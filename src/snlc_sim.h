@@ -548,7 +548,7 @@ struct INPUTS {
   int  SIMLIB_NREPEAT ;  // repeat each ID this many times (for less reading)
   int  SIMLIB_MXREPEAT ; // used only with BPOLY Galactic rate model
   double SIMLIB_MINSEASON ; // min season length (days); default=0
-
+  double SIMLIB_MJD_SHIFT ; // shift every MJD in simlib (e.g. to overlap real images)
   int    SIMLIB_IDSKIP[MXREAD_SIMLIB]; // list of SIMLIB IDs to skip
   int    NSKIP_SIMLIB ;       // number of SIMLIB_IDSKIP values read
 

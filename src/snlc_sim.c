@@ -1113,6 +1113,7 @@ void set_user_defaults(void) {
   INPUTS.SIMLIB_NREPEAT  =  1 ;
   INPUTS.NSKIP_SIMLIB    =  0 ;
   INPUTS.SIMLIB_MINSEASON = 0.0 ;
+  INPUTS.SIMLIB_MJD_SHIFT = 0.0 ;
 
   INPUTS.SIMLIB_CADENCEFOM_ANGSEP     = 0.0 ; // (deg); default is all calc.
   INPUTS.SIMLIB_CADENCEFOM_PARLIST[0] = 0.0 ; // 1st param and parList flag
@@ -3681,6 +3682,9 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "SIMLIB_MINSEASON",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_MINSEASON );
   }
+  else if ( keyMatchSim(1, "SIMLIB_MJD_SHIFT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_MJD_SHIFT );
+  }
   else if ( keyMatchSim(1, "SIMLIB_DUMP",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.SIMLIB_DUMP );
 
@@ -4858,8 +4862,10 @@ int parse_input_SIMGEN_DUMP(char **WORDS,int keySource) {
 
   // Jan 26 2026: 
   // force adding FLAG_ACCEPT that may be required in downstream codes (e.g.. classifiers)
-  sprintf(INPUTS.VARNAME_SIMGEN_DUMP[NVAR],"FLAG_ACCEPT");
-  NVAR++ ;
+  if ( NVAR > 0 ) {
+    sprintf(INPUTS.VARNAME_SIMGEN_DUMP[NVAR],"FLAG_ACCEPT");
+    NVAR++ ;
+  }
 
   // - - - - -
 
@@ -14502,7 +14508,7 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   if ( OPT_DUMP == FLAG_PROCESS_INIT ) {
 
-    sprintf(BANNER,"Init SIMGEN_DUMP file " );
+    sprintf(BANNER,"Init SIMGEN_DUMP file (NVAR=%d)", INPUTS.NVAR_SIMGEN_DUMP );
     print_banner(BANNER );
     
     if ( INPUTS.NVAR_SIMGEN_DUMP == 0 ) 
@@ -19394,7 +19400,8 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	NOBS_FOUND++ ; 	IWD = iwd;  
 	
 	//read MJD into scalar to see if it is within GENRANGE_MJD
-	IWD++; sscanf(WDLIST[IWD], "%le", &MJD  );
+	IWD++; sscanf(WDLIST[IWD], "%le", &MJD  ); 
+	MJD += INPUTS.SIMLIB_MJD_SHIFT;  // Feb 20 2026
        
 	KEEP_MJD =  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
 	if ( MJD > INPUTS.GENRANGE_MJD_EXCLUDE[0] && 

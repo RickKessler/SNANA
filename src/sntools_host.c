@@ -3629,7 +3629,7 @@ void check_duplicate_GALID(void) {
   int  *LIBINDEX_UNSORT ;
   int  NGAL, igal, IVAR_GALID, NERR, VBOSE, isort, ORDER_SORT  ;
 
-  double ZTRUE, ZTRUE_LAST, ZDIF, XGAL;
+  double ZTRUE, ZTRUE_LAST, ZDIF, XGAL, RA, RA_LAST, DEC, DEC_LAST;
   double ZTOL = 0.00001 ;    // z-tolerance   
 
   char fnam[] = "check_duplicate_GALID" ;
@@ -3667,7 +3667,8 @@ void check_duplicate_GALID(void) {
 	      LIBINDEX_UNSORT );  // return array of indices
 
   GALID_LAST  =  -9  ;
-  ZTRUE_LAST  = 0.0 ;
+  ZTRUE_LAST  = RA_LAST = DEC_LAST = 0.0 ;
+  
   NERR = 0;
 
   // check current and previous GALID for duplicates
@@ -3676,6 +3677,8 @@ void check_duplicate_GALID(void) {
     isort = LIBINDEX_UNSORT[igal] ;
     GALID = get_GALID_HOSTLIB(isort) ;
     ZTRUE = get_ZTRUE_HOSTLIB(isort) ;
+    RA    = get_VALUE_HOSTLIB(HOSTLIB.IVAR_RA,isort);
+    DEC   = get_VALUE_HOSTLIB(HOSTLIB.IVAR_DEC,isort);
 
     ZDIF = fabs(ZTRUE - ZTRUE_LAST);
 
@@ -3686,13 +3689,19 @@ void check_duplicate_GALID(void) {
 
     if ( GALID == GALID_LAST &&   ZDIF < ZTOL ) {
       NERR++ ;
-      printf(" !*!*!* Duplicate GALID = %lld  at ZTRUE=%f ZDIF=%f !*!*! \n", 
+
+      printf(" !*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!*!* ");
+      printf(" !*!*!* Duplicate GALID = %lld  at ZTRUE=%f  ZDIF=%f !*!*! \n", 
 	     GALID, ZTRUE, ZDIF  );
+      printf(" !*!*!* Duplicate RA /RA_LAST  = %f / %f \n", RA,  RA_LAST);
+      printf(" !*!*!* Duplicate DEC/DEC_LAST = %f / %f \n", DEC, DEC_LAST);
       fflush(stdout);
     }
 
     GALID_LAST = GALID ;
     ZTRUE_LAST = ZTRUE  ;
+    RA_LAST    = RA;
+    DEC_LAST   = DEC;
   }
 
   if ( NERR ) {
@@ -5578,7 +5587,7 @@ void  init_SAMEHOST(void) {
 
 // ========================================
 double get_ZTRUE_HOSTLIB(int igal) {
-  // Returns ZTRUE from redshift-sorted galaxy list
+  // Returns ZTRUE (heliocentric) from redshift-sorted galaxy list
   double ZTRUE;
   int   ivar ;
   char fnam[] = "get_ZTRUE_HOSTLIB";

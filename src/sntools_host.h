@@ -325,7 +325,7 @@ struct {
 
   // internal arrays for +HOSTNBR command-line option
   int    NNBR_MAX; // actual max of NNBR
-  double *SKY_SORTED_DEC, *SKY_SORTED_RA ; 
+  double *SKY_SORTED_DEC, *SKY_SORTED_RA, *SKY_SORTED_COSDEC ; 
   int    *SKY_SORTED_IGAL_zsort;
   int    *SKY_SORTED_IGAL_DECsort;
   long long GALID_atNNBR_MAX;  
@@ -802,7 +802,7 @@ void malloc_HOSTSPEC(int NBIN_WAVE, int ISPEC);
 // fetch_HOSTPAR function for GENMODEL (e.g., BYOSED)
 int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double *VAL_HOSTPAR);
 
-void   rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
+int    rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 void   malloc_HOSTLIB_APPEND(int NGAL, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 void   addComment_HOSTLIB_APPEND(char *COMMENT,
 				 HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);

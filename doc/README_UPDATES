@@ -23506,6 +23506,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + new option to make table of MARGPDF ;
            see ... ??
 
+     Subtle +HOSTNBR fixes for sim;
+         see https://github.com/RickKessler/SNANA/issues/1615
+
          *****  MISCELLANEOUS(v12_01c) *****
 
      snlc_sim.c:

@@ -9734,12 +9734,13 @@ int fetch_HOSTPAR_GENMODEL(int OPT, char *NAMES_HOSTPAR, double*VAL_HOSTPAR) {
 } // end fetch_HOSTPAR_GENMODEL
 
 // ===================================
-void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
+int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   // generic utility to rewrite HOSTLIB using information
   // Passed here via *HOSTLIB_APPEND.
   // 
   // July 16 2021: write DOCANA keys to FP_NEW
+  // Feb 23 2026: return NLINE_GAL
 
   char *SUFFIX       = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
   int  NLINE_COMMENT = HOSTLIB_APPEND->NLINE_COMMENT;
@@ -9908,7 +9909,7 @@ void rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   printf("  Wrote %d GAL rows\n", NLINE_GAL);
   fflush(stdout);
 
-  return ;
+  return NLINE_GAL ;
 
 } // end rewrite_HOSTLIB
 
@@ -10087,7 +10088,7 @@ void rewrite_HOSTLIB_plusMags(void) {
   addComment_HOSTLIB_APPEND(msg,&HOSTLIB_APPEND);
 				   
   // execute re-write
-  rewrite_HOSTLIB(&HOSTLIB_APPEND);
+  int NLINE_GAL = rewrite_HOSTLIB(&HOSTLIB_APPEND);
 
   // ------------------------------------
   free(GENFLUX_LIST); free(GENMAG_LIST); free(MAG_STORE);
@@ -10208,7 +10209,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND;
   char  *LINE_APPEND, MSG[200] ;
-
+  double RAD = RADIAN;
   // internal debug
   int  NGAL_DEBUG  = INPUTS.HOSTLIB_MAXREAD ;
 
@@ -10220,6 +10221,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
   // --------------- BEGIN ---------------
 
   print_banner(fnam);
+  TIMERS.t_start = time(NULL);
 
   printf("Append up to %d host neighbors within %.1f'' radius.",
 	  HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX, HOSTLIB_NBR_WRITE.SEPNBR_MAX );
@@ -10245,6 +10247,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
   LINE_APPEND = (char*) malloc (MXCHAR_LINE_HOSTLIB * sizeof(char) ) ;
   HOSTLIB_NBR_WRITE.SKY_SORTED_DEC          = (double*) malloc(MEMD) ;
   HOSTLIB_NBR_WRITE.SKY_SORTED_RA           = (double*) malloc(MEMD) ;
+  HOSTLIB_NBR_WRITE.SKY_SORTED_COSDEC       = (double*) malloc(MEMD) ;  // cos(DEC)
   HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort   = (int*) malloc(MEMI) ;
   HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort = (int*) malloc(MEMI) ;
   HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX = -9 ;
@@ -10253,8 +10256,9 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   // sort by DEC to improve NBR-matching speed
   int  ORDER_SORT = +1 ;
-  double *ptrDEC = HOSTLIB.VALUE_ZSORTED[IVAR_DEC] ; 
-  double *ptrRA  = HOSTLIB.VALUE_ZSORTED[IVAR_RA] ; 
+  double *ptrDEC  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC] ; 
+  double *ptrRA   = HOSTLIB.VALUE_ZSORTED[IVAR_RA] ; 
+  double  DEC, RA, XRA;
 
   sortDouble( NGAL, ptrDEC, ORDER_SORT, 
 	      HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort);
@@ -10262,8 +10266,11 @@ void rewrite_HOSTLIB_plusNbr(void) {
   // load new lists of RA & DEC sorted by DEC
   for(igal_DECsort=0; igal_DECsort < NGAL; igal_DECsort++ ) {
     igal_zsort = HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort[igal_DECsort];
-    HOSTLIB_NBR_WRITE.SKY_SORTED_DEC[igal_DECsort]      = ptrDEC[igal_zsort] ;
-    HOSTLIB_NBR_WRITE.SKY_SORTED_RA[igal_DECsort]       = ptrRA[igal_zsort] ;
+    DEC = ptrDEC[igal_zsort] ;
+    RA  = ptrRA[igal_zsort] ;
+    HOSTLIB_NBR_WRITE.SKY_SORTED_DEC[igal_DECsort]      = DEC ;
+    HOSTLIB_NBR_WRITE.SKY_SORTED_RA[igal_DECsort]       = RA ;
+    HOSTLIB_NBR_WRITE.SKY_SORTED_COSDEC[igal_DECsort]   = cos(DEC*RAD);
     HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort[igal_zsort] = igal_DECsort ;
     if ( igal_DECsort < -5 || igal_DECsort > NGAL+5 ) {
       printf(" xxx igal_DECsort=%d  igal_zsort=%6d,  DEC = %9.5f \n",
@@ -10276,6 +10283,9 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   // init diagnistic counters (filled in get_LINE_APPEND_HOSTLIB_plusNbr)
   monitor_HOSTLIB_plusNbr(0,&HOSTLIB_APPEND); 
+
+  print_cputime(TIMERS.t_start, STRING_CPUTIME_INIT, UNIT_TIME_SECOND, 0);
+  TIMERS.t_end_init = time(NULL);
 
   // loop over all galaxies and prepare string to append.
   for(igal_unsort=0; igal_unsort < NGAL; igal_unsort++ ) {
@@ -10314,7 +10324,10 @@ void rewrite_HOSTLIB_plusNbr(void) {
   monitor_HOSTLIB_plusNbr(1,&HOSTLIB_APPEND);
 
   // execute re-write
-  rewrite_HOSTLIB(&HOSTLIB_APPEND);
+  int NLINE_GAL = rewrite_HOSTLIB(&HOSTLIB_APPEND);
+
+  print_cputime(TIMERS.t_end_init, STRING_CPUTIME_PROC_ALL,  UNIT_TIME_SECOND, NLINE_GAL);
+  print_cputime(TIMERS.t_end_init, STRING_CPUTIME_PROC_RATE, UNIT_TIME_SECOND, NLINE_GAL);
 
   exit(0);
 
@@ -10328,6 +10341,10 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 
   // Return LINE_APPEND = original line for igal_unsort plus list of
   // neighbors.
+  //
+  // Feb 23 2026: before making exact angle cut, apply cut on RA*cosDEC
+  //               --> HUGE speedup !!
+  //
 
 #define MXNNBR_STORE 200         // max number of neighbors to track
   double SEPNBR_MAX      = HOSTLIB_NBR_WRITE.SEPNBR_MAX ;
@@ -10343,11 +10360,13 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   double SEP_NBR_LIST[MXNNBR_STORE];
   int    IGAL_LIST[MXNNBR_STORE];
   long long GALID, GALID_NBR, GALID_LIST[MXNNBR_STORE] ;
-  double RA_GAL, DEC_GAL, RA_NBR, DEC_NBR, SEP_NBR, SEP_DEC;
+  double RA_GAL, DEC_GAL, RA_NBR, COSDEC, DEC_NBR, SEP_NBR, SEP_DEC, SEP_RA;
   int  igal_zsort, igal2_unsort, igal2_zsort, igal_DECsort ;
   int  NNBR, NTRY, j, ISORT_CHANGE, isort, NPASS_DEC, LSTDOUT ;
   char cval[20], cval2[20], LINE_STDOUT[200];;
   char fnam[] = "get_LINE_APPEND_HOSTLIB_plusNbr";
+
+  bool LEGACY = (INPUTS.DEBUG_FLAG == -223);
 
   // ------------ BEGIN -----------
 
@@ -10374,7 +10393,8 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   while ( NPASS_DEC > 0 ) {
     NPASS_DEC = 0;
 
-    for(j = -1; j <=1; j+=2 ) { // try both directions
+    for(j = -5; j <=5; j+=1 ) { // try both directions
+      if (j == 0) { continue ; }
 
       NTRY++ ;
       isort = igal_DECsort + j*ISORT_CHANGE;
@@ -10383,19 +10403,18 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
       igal2_zsort   = HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort[isort];
       igal2_unsort  = HOSTLIB.LIBINDEX_UNSORT[igal2_zsort];
 
-      RA_NBR      = HOSTLIB_NBR_WRITE.SKY_SORTED_RA[isort] ;  
+
       DEC_NBR     = HOSTLIB_NBR_WRITE.SKY_SORTED_DEC[isort] ;  
       SEP_DEC     = fabs(DEC_NBR - DEC_GAL)*ASEC_PER_DEG;
-
-      /*      
-      if ( SEP_DEC < 1.0E8 ) {
-	printf("\t zzz igal2_zsort=%d  DEC_GAL/NBR=%f/%f  SEP=%.2f\n", 
-	       igal_zsort, DEC_GAL, DEC_NBR, SEP_DEC );
-      }
-      */
-
       if ( SEP_DEC > SEPNBR_MAX ) { continue ; }
       NPASS_DEC++ ;
+
+      RA_NBR  = HOSTLIB_NBR_WRITE.SKY_SORTED_RA[isort] ;  
+      COSDEC  = HOSTLIB_NBR_WRITE.SKY_SORTED_COSDEC[isort] ;   
+
+      // Feb 23 2026: make simple RA cut before radius cut
+      SEP_RA  = fabs(RA_NBR - RA_GAL)*ASEC_PER_DEG * COSDEC; // .xyz ???
+      if ( !LEGACY && SEP_RA > SEPNBR_MAX ) { continue; }
 
       /*
       if ( LDMP ) {
@@ -10679,7 +10698,7 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
   // execute re-write
-  rewrite_HOSTLIB(&HOSTLIB_APPEND);
+  int NLINE_GAL = rewrite_HOSTLIB(&HOSTLIB_APPEND);
  
   free(LINE_APPEND);
 

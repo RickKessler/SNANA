@@ -1864,7 +1864,7 @@ void   M0dif_calc(void) ;
 double fcn_M0(int n, double *M0LIST );
 
 void   muerr_renorm(void);
-void   printCOVMAT(FILE *fp, int NPAR, int NPARz_write);
+void   printCOVMAT(FILE *fp, int NPAR, int NPARz_write, char *callFun);
 double fcn_muerrsq(char *name,double alpha,double beta, double gamma,
 		   double (*COV)[NLCPAR], double z, double zerr, int optmask);
 double fcn_muerrz(int OPT, double z, double zerr ) ;
@@ -2104,7 +2104,10 @@ int main(int argc,char* argv[ ]) {
   NCALL_SALT2mu_DRIVER_EXEC++ ;
 
 #ifdef USE_SUBPROCESS
-  if ( SUBPROCESS.USE ) { SUBPROCESS_PREP_NEXTITER(); }
+  if ( SUBPROCESS.USE ) { 
+    // xxx mark print_full_command(FP_STDOUT,argc,argv); 
+    SUBPROCESS_PREP_NEXTITER(); 
+  }
 #endif
 
 
@@ -2393,7 +2396,7 @@ int SALT2mu_DRIVER_SUMMARY(void) {
   M0dif_calc();
 
   // print reduced COV matrix
-  printCOVMAT(FP_STDOUT, FITINP.NFITPAR_FLOAT, 999);
+  printCOVMAT(FP_STDOUT, FITINP.NFITPAR_FLOAT, 999, fnam);
 
   // renormalize individual MUERR values so that weighted
   // variance in each z-bin matches fitted M0DIFERR
@@ -2562,8 +2565,8 @@ void exec_mnpout_mnerrs(void) {
 
   // -------------- BEGIN ----------------
 
-  fprintf(FP_STDOUT, "\nFinal parameter values and %s errors.\n",
-	  STRING_MINUIT_ERROR[minos] );  
+  fprintf(FP_STDOUT, "\n%s: Final parameter values and %s errors.\n",
+	  fnam, STRING_MINUIT_ERROR[minos] );  
   fflush(FP_STDOUT);
 
   for (ipar=0; ipar<FITINP.NFITPAR_ALL; ipar++ )  {
@@ -2602,6 +2605,8 @@ void exec_mnpout_mnerrs(void) {
 	fprintf(FP_STDOUT, "par %2d (%2d) %10s   ***** BLINDED ***** \n",
 	       ipar, iv, text);
       }
+      fflush(FP_STDOUT);
+
     }
 
     // fill global arrays for later
@@ -2617,6 +2622,7 @@ void exec_mnpout_mnerrs(void) {
   FITRESULT.PARERR[NJOB_SPLITRAN][IPAR_COVINT_PARAM] = 1.0E-8 ;
   
   // load full cov matrix 
+  fprintf(FP_STDOUT,"%s: call mnemat\n", fnam); fflush(FP_STDOUT);
   int num = MAXPAR;
   mnemat_(FITRESULT.COVMAT,&num);
 
@@ -20572,7 +20578,6 @@ void prep_input_repeat(char *callFun) {
   INFO_DATA.TABLEVAR.NSN_SPECIA       = 0;
   INFO_DATA.TABLEVAR.NSN_PASSCUTS     = 0;
 
-
   // - - - - - -
   FITINP.COVINT_PARAM_FIX   = INPUTS.sigmB ; 
   FITINP.COVINT_PARAM_LAST  = INPUTS.sigmB ; 
@@ -20610,8 +20615,8 @@ void prep_input_repeat(char *callFun) {
       if ( CUTMASK == 0 ) { N_PASSCUTS++ ; } // diagnostic
 
     } // end isn
-    fprintf(FP_STDOUT," Reset CUTBITS at ITER=%d: %d of %d pass cuts\n", 
-	    SUBPROCESS.ITER, N_PASSCUTS, NSN_DATA);
+    fprintf(FP_STDOUT,"%s: Reset CUTBITS : %d of %d pass cuts\n", 
+	    KEYNAME_SUBPROCESS_STDOUT, N_PASSCUTS, NSN_DATA);
     fflush(FP_STDOUT);
   }
 
@@ -20691,8 +20696,6 @@ int SPLITRAN_ACCEPT(int isn, int snid) {
 
 // ======================================
 void  CPU_SUMMARY(void) {
-
-
 
   int NFIT = NCALL_SALT2mu_DRIVER_EXEC;
   fprintf(FP_STDOUT,"\n NFIT_EXEC = %d\n", NFIT);
@@ -23186,7 +23189,7 @@ void write_fitres_driver(char* fileName) {
 
   fprintf(fout," \n");
   int NZwrite = 4; // include this many zM0 bins in COV dump
-  printCOVMAT(fout, FITINP.NFITPAR_FLOAT, NZwrite);
+  printCOVMAT(fout, FITINP.NFITPAR_FLOAT, NZwrite, fnam);
 
   fflush(fout);
 
@@ -24176,7 +24179,8 @@ double avemag0_calc(int opt_dump) {
 
   int nzfit, iz, isplit, IOFF_MAG0 ;
   double norm, mag0, d_nzfit, ave ;
-  
+  char fnam[] = "avemag0_calc";
+
   // -------------- BEGIN -----------------
 
   norm    = 0.0;
@@ -24206,7 +24210,7 @@ double avemag0_calc(int opt_dump) {
   
   if ( opt_dump ) {
     fprintf(FP_STDOUT,
-	   "Average mag0 offset = %f  (wgted by NSN per z bin)\n", ave);
+	    "%s: Average mag0 offset = %f  (wgted by NSN per z bin)\n", fnam, ave);
     fflush(FP_STDOUT);
   }
 
@@ -24399,7 +24403,7 @@ void muerr_renorm(void) {
 
 
 // *********************************************
-void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
+ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write, char *callFun) {
 
   // Created Nov 30 2017
   //   [move code out of main]
@@ -24417,17 +24421,21 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
   double cov, cov_diag, terr[MAXPAR], corr ;
   char tmpName[MXCHAR_VARNAME], msg[100];
 
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "printCOVMAT", fnam); // return fnam 
+
   // --------- BEGIN ----------
 
   if ( INPUTS.cat_only || INPUTS.cutwin_only ) { return; }
 
   if ( NPARz_write > MXCOSPAR ) 
-    { sprintf(msg, "Reduced COV matrix:"); }
+    { sprintf(msg, "%s: Reduced COV matrix:", fnam); }
   else
-    { sprintf(msg, "Reduced COV matrix, includes %d m0_ bins:", 
-	      NPARz_write); }
+    { sprintf(msg, "%s: Reduced COV matrix with %d m0_ bins:", 
+	      fnam, NPARz_write); }
 
   fprintf(fp, "\n# %s\n", msg); fflush(fp);
+  fflush(fp);
 
   for ( iMN=0 ; iMN < NPAR_FLOAT ; iMN++ )
     {
@@ -24440,6 +24448,7 @@ void printCOVMAT(FILE *fp, int NPAR_FLOAT, int NPARz_write) {
 
       //      fprintf(fp,"%2i ",iMN+1); 
       fprintf(fp,"# %-10.10s ", tmpName ); 
+      fflush(fp);
 
       for (jMN=0; jMN <= iMN; ++jMN)	{
 	j  = FITINP.IPARMAP_MN[jMN]  ;
@@ -25377,7 +25386,7 @@ void  SUBPROCESS_INIT(void) {
       sprintf(c1err,"Could not open input GENPDF file to read:" );
       sprintf(c2err," '%s' ", SUBPROCESS.INPFILE);
       SUBPROCESS_REMIND_STDOUT();
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+      errlog(stdout, SEV_FATAL, fnam, c1err, c2err); 
     }
     else {
       printf("%s  Opened input  file (GENPDF map): %s\n", 
@@ -25392,7 +25401,7 @@ void  SUBPROCESS_INIT(void) {
     sprintf(c1err,"Could not open output file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.OUTFILE) ;
     SUBPROCESS_REMIND_STDOUT();
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+    errlog(stdout, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
     printf("%s  Opened output file (fit info): %s\n", 
@@ -25406,10 +25415,10 @@ void  SUBPROCESS_INIT(void) {
     sprintf(c1err,"Could not open STDOUT file to write:" );
     sprintf(c2err," '%s' ", SUBPROCESS.STDOUT_FILE) ;
     SUBPROCESS_REMIND_STDOUT();
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+    errlog(stdout, SEV_FATAL, fnam, c1err, c2err);
   }
   else {
-    printf("%s  Opened STDOUT file (stdout): %s\n", 
+    fprintf(stdout, "%s  Opened STDOUT file (stdout): %s\n", 
 	   KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_FILE );
     fflush(stdout);
   }
@@ -25868,6 +25877,10 @@ void SUBPROCESS_PREP_NEXTITER(void) {
 
   sprintf(KEYNAME_SUBPROCESS_STDOUT, "SALT2mu_SUBPROCESS:");
 
+  fprintf(FP_STDOUT,"%s: Ask D2D for next ITERATION number (current ITER=%d). \n", 
+	  KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.ITER );
+  fflush(FP_STDOUT);
+
   printf("\n%s Enter expected ITERATION number (-1 to quit) => \n",
 	 KEYNAME_SUBPROCESS_STDOUT );   fflush(stdout);
   scanf( "%d", &ITER_EXPECT); // read response
@@ -25879,9 +25892,18 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   prep_input_repeat(fnam);
 
   // rewind all SUBPROCESS files
-  rewind(SUBPROCESS.FP_INP);   
+  fprintf(FP_STDOUT,"%s: rewind INP, OUT, STDOUT (STDOUT_CLOBBER=%d)\n",
+	  KEYNAME_SUBPROCESS_STDOUT, SUBPROCESS.STDOUT_CLOBBER);
+
+  rewind_and_purge(SUBPROCESS.FP_INP);
+  rewind_and_purge(SUBPROCESS.FP_OUT);
+  if ( SUBPROCESS.STDOUT_CLOBBER ) { rewind_and_purge(FP_STDOUT); }
+
+  /* xxx mark delete Feb 24 2026 xxxx
+  rewind(SUBPROCESS.FP_INP);  //  ftruncate(fd, 0)
   rewind(SUBPROCESS.FP_OUT);   
   if ( SUBPROCESS.STDOUT_CLOBBER ) { rewind(FP_STDOUT); }
+  xxxxxxxxx end mark xxxxxx */
 
   // - - - - - -
   
@@ -25904,6 +25926,8 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   // 
   // July 13 2021
   // Updated to include bounding function option
+  // 
+  // Feb 24 2026: replace printf ... with fprintf(FP_STDOUT)
 
   int  OPTMASK  = OPTMASK_GENPDF_EXTERNAL_FP ;
   int  ITER     = SUBPROCESS.ITER ;
@@ -25946,8 +25970,9 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
-  printf("%s Read PDF map(s) for ITERATION=%d\n", 
-	 KEYNAME_SUBPROCESS_STDOUT, ITER );
+  fprintf(FP_STDOUT, "%s Read PDF map(s) for ITERATION=%d\n", 
+	  KEYNAME_SUBPROCESS_STDOUT, ITER );
+  fflush(FP_STDOUT);
 
   // re-init uniqueOverlap in case a key is parsed again
   uniqueOverlap(STRINGMATCH_INIT,"SUBPROCESS"); 
@@ -26066,9 +26091,9 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
   } // end isn loop
 
   // - - - - -
-  printf("%s  Keep %d of %d events after GENPDF reweight\n", 
+  fprintf(FP_STDOUT, "%s  Keep %d of %d events after GENPDF reweight\n", 
 	 KEYNAME_SUBPROCESS_STDOUT, NKEEP_REWGT, NKEEP_ORIG );
-  fflush(stdout);
+  fflush(FP_STDOUT);
 
   return ;
 

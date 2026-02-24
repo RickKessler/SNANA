@@ -23536,7 +23536,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      SALT2mu.c:
        - fix sort_IDSAMPLE_biasCor to properly account for zSPEC/zPHOT;
           see https://github.com/RickKessler/SNANA/issues/1610
-
+       - for SUBPROCESS files that never close, replace rewind with
+          new rewind_and_purge() in sntools.c to actually remove contents; 
+          this removes
+          strange artifacts from previous STDOUT lines appearing in
+          current STDOUT file. 
 
     ITABLE_PDF_MARG NOTES:
         CID  IBIN_PDF  PKMJD x0 x1 AV zPHOT  MINMASK   PDF

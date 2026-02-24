@@ -19,6 +19,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <glob.h>
+#include <fcntl.h>
 
 #include "sndata.h"
 
@@ -811,6 +812,8 @@ void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
 void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *callFun);
+
+void rewind_and_purge(FILE *fp);
 
 FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK, int *GZIPFLAG, char *fnam) ;
 FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,

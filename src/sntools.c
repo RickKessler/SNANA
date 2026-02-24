@@ -9881,6 +9881,15 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
 
 } // end open_TEXTgz
 
+void rewind_and_purge(FILE *fp) {
+
+  // Created Feb 24 2026 (for SALT2mu/D2D)
+
+  rewind(fp);  // rewind to top of file
+
+  int fd = fileno(fp);
+  int istat = ftruncate(fd, 0); // delete contents of file, but do not close it
+}
 
 // =====================================
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
@@ -10848,7 +10857,6 @@ void print_full_command(FILE *fp, int argc, char** argv) {
   int i;
   char snana_version[60];
 
-  
   fprintf(fp,"\n Full command: ");
   for ( i=0; i < argc; i++ ) {  fprintf(fp,"%s ", argv[i] );  }
   fprintf(fp, "\n\n");
@@ -10856,7 +10864,8 @@ void print_full_command(FILE *fp, int argc, char** argv) {
   get_SNANA_VERSION(snana_version);
   fprintf(fp," SNANA_VERSION: %s\n", snana_version);
 
-  fprintf(fp,"\n\n");  fflush(fp);
+  fprintf(fp,"\n\n");  
+  fflush(fp);
 }
 
 // ************************************************

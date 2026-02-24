@@ -44,13 +44,17 @@ AS_IF([test "x$PYTHON_CONFIG" = xno], [AC_MSG_ERROR([cannot find python-config])
 PYTHON_INCLUDES=`$PYTHON_CONFIG --includes`
 AC_SUBST([PYTHON_INCLUDES])
 
-if test "x$PYTHON_CONFIG" != "xno"; then
-	# We seem to require the python3.x libray, so we use embed
-  PYTHON_LIBS=`$PYTHON_CONFIG --embed --ldflags`
-#  AC_DEFINE([USE_PYTHON], [1], [Define to 1 if Python is available.])
-else
-  AC_MSG_ERROR([python3-config not found])
-fi
+# Try --embed first (Python >= 3.8), fall back to plain --ldflags
+AC_MSG_CHECKING([whether python3-config supports --embed])
+python_embed_test=$(${PYTHON_CONFIG} --ldflags --embed 2>/dev/null)
+AS_IF([test $? -eq 0 && test -n "$python_embed_test"],
+  [AC_MSG_RESULT([yes])
+   PYTHON_LIBS=$(${PYTHON_CONFIG} --ldflags --embed)],
+  [AC_MSG_RESULT([no])
+   PYTHON_LIBS=$(${PYTHON_CONFIG} --ldflags)]
+)
+
+
 AC_SUBST([PYTHON_LIBS])
 
 #AM_CONDITIONAL([USE_PYTHON], [test "x$PYTHON_CONFIG" = "xyes"])

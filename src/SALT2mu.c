@@ -24210,7 +24210,7 @@ double avemag0_calc(int opt_dump) {
   
   if ( opt_dump ) {
     fprintf(FP_STDOUT,
-	    "%s: Average mag0 offset = %f  (wgted by NSN per z bin)\n", fnam, ave);
+	    "Average mag0 offset = %f  (wgted by NSN per z bin)\n", ave);
     fflush(FP_STDOUT);
   }
 

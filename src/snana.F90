@@ -1481,7 +1481,7 @@
 
     CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)  & 
           HEADER_OVERRIDE_FILE        &  ! I: comma-sep list of files with CID VAR
-         ,SIM_HEADER_OVERRIDE_FILE   ! I: same, but for sims
+         ,SIM_HEADER_OVERRIDE_FILE       ! I: same, but for sims
 
     CHARACTER   &  ! versions
          VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)    &  ! I: SN versions to read
@@ -2478,6 +2478,7 @@
 ! Oct 2025: require ISDATA=T to read HEADER_OVERRIDE_FILE, and require
 !           LSIM_SNANA=T to read SIM_HEADER_OVERRIDE_FILE
 ! 
+! Feb 2026: remove ENVreplace calls since ENVreplace is called in RD_OVERRIDE_INIT.
 
 
     USE SNDATCOM
@@ -2488,8 +2489,9 @@
 
 ! ------------ BEGIN -----------
 
-    CALL ENVreplace(HEADER_OVERRIDE_FILE)
-    CALL ENVreplace(SIM_HEADER_OVERRIDE_FILE)
+    ! beware: do NOT call ENVreplace here because it won't resolve multiple
+    !   ENVs in comma-sep list. RD_OVERRIDE_INIT calls ENVreplace for
+    !   file separately
 
     LENF_DATA = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
     LENF_SIM  = INDEX(SIM_HEADER_OVERRIDE_FILE,' ') - 1

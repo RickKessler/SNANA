@@ -1293,7 +1293,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   // (e.g., cannot override SNID, FIELD, .. )
   //
   // Oct 3 2023: add input REQUIRE_DOCANA
-  //
+  // Feb 24 2026: abort if there is a mix of override files keyed by CID and GALID
 
   int NROW, ivar, ifile, NFILE = 0;
   int OPTMASK_SNTABLE = 4;           // append next file
@@ -1307,9 +1307,9 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   RD_OVERRIDE.USE = false;
   if ( IGNOREFILE(OVERRIDE_FILE) ) { return; }
 
-  // assume matching by CID (or SNID); below might switch to GALID match 
-  RD_OVERRIDE.MATCH_by_CID   = true ;
-  RD_OVERRIDE.MATCH_by_GALID = false ;
+  // init number of files matched by CID and by GALID
+  RD_OVERRIDE.NMATCH_by_CID   = 0 ;
+  RD_OVERRIDE.NMATCH_by_GALID = 0 ;
 
   print_banner(fnam);
 
@@ -1334,7 +1334,6 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
       fclose(fp);
     }
 
-    // xxx mark delete Feb 10 2026:  ENVreplace(ptrFile, fnam, 1);
 
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST,
 				  OPTMASK_SNTABLE );
@@ -1342,10 +1341,11 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
     // store varname in 1st column used to match with data
     sprintf(RD_OVERRIDE.VARNAME_MATCH, "%s", READTABLE_POINTERS.VARNAME[0] ); //9.29.2025
     VARNAME_MATCH = RD_OVERRIDE.VARNAME_MATCH;
-    if ( strcmp(VARNAME_MATCH,"HOSTGAL_OBJID") == 0 ||
-	 strcmp(VARNAME_MATCH,"GALID")         == 0 ) {
-      RD_OVERRIDE.MATCH_by_CID   = false;
-      RD_OVERRIDE.MATCH_by_GALID = true;
+    if ( strcmp(VARNAME_MATCH,"HOSTGAL_OBJID") == 0 || strcmp(VARNAME_MATCH,"GALID") == 0 ) {
+      RD_OVERRIDE.NMATCH_by_GALID++ ;
+    }
+    else {
+      RD_OVERRIDE.NMATCH_by_CID++ ;
     }
 
     printf("   Stored %d rows of header-override data; match rows using %s\n", 
@@ -1357,6 +1357,15 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
   } // end ifile
+  
+  // Feb 24 2026: require all files to be keyed by CID or GALID, but mix is not allowed.
+  int N_by_CID   = RD_OVERRIDE.NMATCH_by_CID ;
+  int N_by_GALID = RD_OVERRIDE.NMATCH_by_GALID ;
+  if ( N_by_CID > 0 && N_by_GALID > 0 ) {
+    sprintf(c1err,"%d/%d HEADER_OVERRIDE files are keyed by CID/GALID;", N_by_CID, N_by_GALID);
+    sprintf(c2err,"All OVERRIDE files must be keyed by CID or GALID; mix not allowed." );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);       
+  }
 
   // - - - - - - - - - - - - 
   RD_OVERRIDE.USE    = true ;
@@ -1457,7 +1466,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
   // - - - - - -
   ID_LOCAL[0] = 0 ;
-  if ( RD_OVERRIDE.MATCH_by_CID ) 
+  if ( RD_OVERRIDE.NMATCH_by_CID > 0 ) 
     { sprintf(ID_LOCAL,"%s", CID);  }
   else if ( GALID != 0 )
     { sprintf(ID_LOCAL,"%lld", GALID);  }

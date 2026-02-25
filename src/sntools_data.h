@@ -16,7 +16,7 @@ struct {
   int NVAR;  // number of override variables
   int N_PER_VAR[IVARMAX_OVERRIDE] ;
 
-  bool MATCH_by_CID, MATCH_by_GALID; // 9.29.2025
+  int NMATCH_by_CID, NMATCH_by_GALID;
   char VARNAME_MATCH[40];  // e.g., CID, SNID, GALID ...
 
   // logicals to decide if zCMB or zHEL needs to be recomputed.

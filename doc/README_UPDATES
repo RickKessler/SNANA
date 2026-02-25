@@ -23330,6 +23330,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + disable scatter for GRIDGEN option (for PSNID)
 
  
+  
    rename sntools_npz.c to sntools_npz.cpp (for autotools)
 
    remove src/fcasplit.F src/SIMSED_fudge.c    util/obdatamc.py
@@ -23533,16 +23534,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          ENVreplace was called after REQUIRE_DOCANA check, so moved 
          this call to before REQUIRE_DOCANA check.
 
+       + abort on mix of header-override files key by CID and GALID;
+         must be all keyed by CID or GALID
+
      SALT2mu.c:
        - fix sort_IDSAMPLE_biasCor to properly account for zSPEC/zPHOT;
           see https://github.com/RickKessler/SNANA/issues/1610
-       - for SUBPROCESS files that never close, replace rewind with
-          new rewind_and_purge() in sntools.c to actually remove contents; 
-          this removes
-          strange artifacts from previous STDOUT lines appearing in
-          current STDOUT file. 
-
-    ITABLE_PDF_MARG NOTES:
-        CID  IBIN_PDF  PKMJD x0 x1 AV zPHOT  MINMASK   PDF
+       - for SUBPROCESS-opened files that never close (for D2DFIT), replace rewind
+         with new rewind_and_purge() in sntools.c to actually remove contents
+         of file; this change removes strange artifacts from previous STDOUT lines 
+         appearing in current STDOUT file. 
     
 END: 

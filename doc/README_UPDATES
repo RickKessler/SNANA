@@ -23544,5 +23544,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          with new rewind_and_purge() in sntools.c to actually remove contents
          of file; this change removes strange artifacts from previous STDOUT lines 
          appearing in current STDOUT file. 
-    
+       - fix subtle bug in applyCut_chi2max() so that probcc_beams is loaded;
+         here is change for regress test that includes this cut:
+             TASK113_SALT2mu_DES3YR_COVADD  :  mis-match (REF != TEST)
+               ==> REF:  fit-Beta = 3.1122e+00 +/- 1.4986e-01
+               ==> TEST: fit-Beta = 3.1122e+00 +/- 1.4968e-01
+
 END: 

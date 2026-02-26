@@ -320,7 +320,9 @@ For help, run code with no arguments
    + remove input M0 (or mag0) and just use M0_DEFAUT everywhere to work
      for SALT3 or BAYESN
 
-  
+  Feb 25 2026: make DO_H0marge a global so that FCN-iflag is set to 3 (instead of 1)
+               during applyCut_chi2max(), so that probcc_beams is filled.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -621,6 +623,7 @@ int NJOB_SPLITRAN; // number of random split-jobs
 int    NSIMDATA, NSIMIa, NSIMCC ;  // to implement prescale_sim[Data,Ia,CC]
 double PIFAC; 
 
+bool  DO_H0marg;
 // ----------- TYPEDEF STRUCTURES -------------
 
 typedef struct {
@@ -2140,6 +2143,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
 
   PIFAC  = 1.0/sqrt(TWOPI);
   LOGTEN = log(10.0) ;
+  DO_H0marg = false;
 
   t_start = time(NULL);
 
@@ -3191,7 +3195,6 @@ void applyCut_chi2max(void) {
   int  IFLAG_FITWGT0  = DOFLAG_SELECT_FITWGT0 ;
   int  IFLAG_GLOBAL   = 4 ;
 
-  bool   DO_H0marg   = true ;
   double M0_ORIG     = M0_DEFAULT;
 
   bool DOCUT_APPLY   = (iflag_chi2max & IFLAG_APPLY)   > 0 ;
@@ -3213,6 +3216,8 @@ void applyCut_chi2max(void) {
   if ( INPUTS.SELECT_CUTWIN.L_DISABLE)  { return; }  // Jun 2025: CUTWIN NONE
 
   fprintf(FP_STDOUT, "\n Begin %s\n", fnam); fflush(FP_STDOUT);
+
+  DO_H0marg   = true ;
 
   // call same chi2-function used for minimization
   strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
@@ -3337,6 +3342,9 @@ void applyCut_chi2max(void) {
  
   fprintf(FP_STDOUT, " Finished %s\n", fnam); fflush(FP_STDOUT);
   fflush(FP_STDOUT);
+
+  DO_H0marg   = false ;
+
   return ;
 
 } // end applyCut_chi2max
@@ -4213,6 +4221,8 @@ void fcn(int *npar, double grad[], double *fval, double xval[],
     // load fcn args to typedef struct
     thread_chi2sums[t].npar_fcn  = *npar ;
     thread_chi2sums[t].iflag_fcn = *iflag ;
+    if ( DO_H0marg ) { thread_chi2sums[t].iflag_fcn = 3; } // Feb 25 2026
+
     for(ipar=0; ipar < NFITPAR_ALL ; ipar++ ) 
       { thread_chi2sums[t].xval_fcn[ipar] = xval[ipar];   }
 

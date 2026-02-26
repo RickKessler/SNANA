@@ -1949,6 +1949,8 @@ float malloc_FITPARBIAS_ALPHABETA(int opt, int LEN_MALLOC,
 				  FITPARBIAS_DEF *****FITPARBIAS );
 float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *cellinfo);
 
+void release_all_malloc(void);
+
 // ======================================================================
 // ==== GLOBALS AND FUNCTIONS TO USE SALT2mu as SUBPROCESS ==============
 // ======================================================================
@@ -1958,7 +1960,8 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *cellinfo);
 #ifdef USE_SUBPROCESS
 void SUBPROCESS_HELP(void);
 void SUBPROCESS_INIT(void); // one time init driver (binning, malloc ...)
-void SUBPROCESS_MALLOC_INPUTS(void);
+void SUBPROCESS_MALLOC_INPUTS(int opt);
+void SUBPROCESS_MALLOC_OUTPUT_TABLE(int opt, int itable, int NBINTOT);
 void SUBPROCESS_PREP_NEXTITER(void); // prepare for next iteration
 void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN, 
 				  TABLEVAR_DEF *TABLEVAR); 
@@ -2107,21 +2110,19 @@ int main(int argc,char* argv[ ]) {
   NCALL_SALT2mu_DRIVER_EXEC++ ;
 
 #ifdef USE_SUBPROCESS
-  if ( SUBPROCESS.USE ) { 
-    // xxx mark print_full_command(FP_STDOUT,argc,argv); 
-    SUBPROCESS_PREP_NEXTITER(); 
-  }
+  if ( SUBPROCESS.USE ) { SUBPROCESS_PREP_NEXTITER(); }
 #endif
 
-
   SALT2mu_DRIVER_EXEC();
-
 
   FLAG = SALT2mu_DRIVER_SUMMARY();
 
   if ( FLAG == FLAG_EXEC_REPEAT ) { goto DRIVER_EXEC; } // e.g., NSPLITRAN
 
+  release_all_malloc();  // release memory to avoid confusion with valgrind
+
   fprintf(FP_STDOUT, "\n Done. \n"); fflush(FP_STDOUT);
+  
   
   return(0) ;
 
@@ -6232,6 +6233,36 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
 } // end malloc_MUCOV
 
 
+void release_all_malloc(void) {
+
+  // Created Feb 26 2026
+
+  int itable ;
+  char fnam[] = "release_all_malloc" ;
+
+  // --------- BEGIN ---------
+
+  print_banner(fnam); 
+
+  malloc_INFO_DATA(-1,0);
+
+  if ( SUBPROCESS.USE ) {
+    for(itable=0; itable < SUBPROCESS.N_OUTPUT_TABLE; itable++ )
+      { SUBPROCESS_MALLOC_OUTPUT_TABLE(-1, itable, 0);  } 
+
+    SUBPROCESS_MALLOC_INPUTS(-1);
+
+    //    free(SUBPROCESS.SIM_REWGT); 
+    free(SUBPROCESS.RANFLAT_REWGT); 
+    free(SUBPROCESS.RANFLAT_PRESCALE);
+    free(SUBPROCESS.DUMPFLAG_REWGT);
+  }
+  //.xyz
+
+  return;
+
+} // end release_all_malloc
+
 // ****************************************
 void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
@@ -6360,16 +6391,25 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     free(INFO_DATA.muBias_zinterp);
     free(INFO_DATA.chi2);
     free(INFO_DATA.probcc_beams);
-    free(INFO_DATA.set_fitwgt0);
-    free(INFO_DATA.nevt_biascor);
 
-    malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, &INFO_DATA.fitParBias ); 
-    malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
-				&INFO_DATA.FITPARBIAS_ALPHABETA );
-    malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg, 
-		    &INFO_DATA.MUCOVSCALE_ALPHABETA ); 
-    malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg, 
-		    &INFO_DATA.MUCOVADD_ALPHABETA ); 
+
+    if ( nfile_biasCor > 0 ) {
+      free(INFO_DATA.muCOVscale);
+      free(INFO_DATA.muCOVadd);
+      free(INFO_DATA.muBias);
+      free(INFO_DATA.muBiasErr); 
+      free(INFO_DATA.muBias_zinterp); 
+      free(INFO_DATA.set_fitwgt0);
+      free( INFO_DATA.nevt_biascor);
+
+      malloc_double2D(opt, LEN_MALLOC, NLCPAR+1, &INFO_DATA.fitParBias ); 
+      malloc_FITPARBIAS_ALPHABETA(opt, LEN_MALLOC,
+				  &INFO_DATA.FITPARBIAS_ALPHABETA );
+      malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg, 
+		      &INFO_DATA.MUCOVSCALE_ALPHABETA ); 
+      malloc_double4D(opt, LEN_MALLOC, MXa, MXb, MXg, 
+		      &INFO_DATA.MUCOVADD_ALPHABETA ); 
+    }
 
   }
 
@@ -7360,8 +7400,6 @@ int malloc_TABLEVAR_CUTVAL(int LEN_MALLOC, int icut,
   
   if ( strcmp(CUTNAME,"x0") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->x0; }
-
-  // B.P - will need to adapt for BayeSN
 
   else if ( strcmp(CUTNAME,"x1") == 0 )
     { TABLEVAR->CUTVAL[icut] = TABLEVAR->fitpar[INDEX_s]; }
@@ -17912,12 +17950,6 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // check CUTWIN options; reject_CUTWIN returns 
   // 0->accepted, 1->rejected, 2->dweight with large MUERR
 
-  /* xxxxxxx mark delete Jan 12 2026 xxxxxxx
-  bool TEMPFLAG = TEMPFLAG_COUNT[event_type] < 5;
-  DUMPFLAG = (idsurvey== 15) && TEMPFLAG; // .xyz for PS1
-  if ( DUMPFLAG ) { TEMPFLAG_COUNT[event_type]++ ; }
-  xxxxxxxxxxxxxxxxxx */
-
   REJECT = reject_CUTWIN(event_type, idsample, idsurvey, 
 			 DOFLAG_CUTWIN, cutvar_local, DUMPFLAG );
 
@@ -18586,7 +18618,7 @@ int ppar(char* item) {
     SUBPROCESS_HELP();
   }
   if ( uniqueOverlap(item,"SUBPROCESS_FILES=") ) {
-    SUBPROCESS_MALLOC_INPUTS();
+    SUBPROCESS_MALLOC_INPUTS(+1);
     s = SUBPROCESS.INPUT_FILES ; // comma-sep list of INPFILE,OUTFILE
     SUBPROCESS.USE = true ;
     sscanf(&item[17],"%s",s); remove_quote(s); return(1);
@@ -25276,42 +25308,104 @@ void print_SALT2mu_HELP(void) {
 // =======================================================
 
 
-void SUBPROCESS_MALLOC_INPUTS(void) {
+void SUBPROCESS_MALLOC_INPUTS(int opt) {
   // malloc SUBPROCESS.INPUT_xxx arrays; called just before reading
   // SUBPROCESS_FILES argument
   int i;
   int debug_malloc = INPUTS.debug_malloc ;
   char fnam[] = "SUBPROCESS_MALLOC_INPUTS" ;
 
-  print_debug_malloc(+1*debug_malloc,fnam);
+  
+  print_debug_malloc(opt*debug_malloc,fnam);
 
-  SUBPROCESS.INPUT_FILES = 
-    (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
+  if ( opt > 0 ) {
+    SUBPROCESS.INPUT_FILES = 
+      (char*) malloc( MXCHAR_FILENAME*3*sizeof(char) );
+    
+    SUBPROCESS.INPUT_CID_REWGT_DUMP =
+      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
 
-  SUBPROCESS.INPUT_CID_REWGT_DUMP =
-    (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
+      (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
 
-  SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING = 
-    (char*) malloc( 2*MXCHAR_VARNAME*MXVAR_GENPDF*sizeof(char) );
+    SUBPROCESS.INPUT_SIMREF_FILE =
+      (char*) malloc( MXCHAR_FILENAME*sizeof(char) );
 
-  SUBPROCESS.INPUT_SIMREF_FILE =
-    (char*) malloc( MXCHAR_FILENAME*sizeof(char) );
+    SUBPROCESS.N_OUTPUT_TABLE = 0 ;
+    SUBPROCESS.INPUT_OUTPUT_TABLE =  (char**) malloc( 10*sizeof(char*) );
+    for(i=0; i < 10; i++ ) {
+      SUBPROCESS.INPUT_OUTPUT_TABLE[i] =  (char*) malloc( 100*sizeof(char) );
+      SUBPROCESS.INPUT_OUTPUT_TABLE[i][0] =  0;
+    }
+    
+    SUBPROCESS.INPUT_FILES[0]          = 0;
+    SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
+    SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
+    SUBPROCESS.INPUT_SIMREF_FILE[0] = 0;
+  }
+  else {
 
-  SUBPROCESS.N_OUTPUT_TABLE = 0 ;
-  SUBPROCESS.INPUT_OUTPUT_TABLE =  (char**) malloc( 10*sizeof(char*) );
-  for(i=0; i < 10; i++ ) {
-    SUBPROCESS.INPUT_OUTPUT_TABLE[i] =  (char*) malloc( 100*sizeof(char) );
-    SUBPROCESS.INPUT_OUTPUT_TABLE[i][0] =  0;
   }
 
-  SUBPROCESS.INPUT_FILES[0]          = 0;
-  SUBPROCESS.INPUT_CID_REWGT_DUMP[0] = 0 ;
-  SUBPROCESS.INPUT_VARNAMES_GENPDF_STRING[0] = 0;
-  SUBPROCESS.INPUT_SIMREF_FILE[0] = 0;
-
-    return ;
+  return ;
 } // end SUBPROCESS_MALLOC_INPUTS
 
+
+void SUBPROCESS_MALLOC_OUTPUT_TABLE(int OPT, int ITABLE, int NBINTOT) {
+
+  // Created Feb 26 2026
+  //
+  // Inputs:
+  //   OPT:  > 0 -> malloc; <0 -> free
+  //   ITABLE : table number
+  //   NBINTOT : size of malloc
+
+  int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
+  int MEMI  = NBINTOT * sizeof(int);
+  int MEMD  = NBINTOT * sizeof(double);
+  int MEMDD = NBINTOT * sizeof(double*);
+  int ivar, i ;
+  char fnam[] = "SUBPROCESS_MALLOC_OUTPUT_TABLE" ;
+
+  // ----------- BEGIN -----------
+
+  // allocate NBINTOT memory for each variable/dimension
+
+  print_debug_malloc(OPT* INPUTS.debug_malloc,fnam);
+
+  if ( OPT > 0 ) {
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar] = (int*)malloc(MEMI);
+      for(i=0; i < NBINTOT; i++ )  
+	{ SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar][i] = -9 ; }
+    }
+
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT          = (int   *)malloc(MEMI);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM   = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM     = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT       = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD        = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD_ROBUST = (double*)malloc(MEMD);
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST       = (double**)malloc(MEMDD);
+  }
+  else {
+    for(ivar=0; ivar < NVAR; ivar++ ) 
+      { free(SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar]); }
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT) ;
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM);
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM);
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SUM_WGT);
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].SUM_WGT );
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD);
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_STD_ROBUST);
+    free(SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_LIST);
+  }
+
+
+  return;
+
+} // end SUBPROCESS_MALLOC_OUTPUT_TABLE
 
 // ==================================
 void  SUBPROCESS_HELP(void) {
@@ -26264,7 +26358,7 @@ void SUBPROCESS_INIT_DUMP(void) {
   int NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL ;
   int MXSPLIT=20, NSPLIT=0, isn, i, SNID ;
   int debug_malloc = INPUTS.debug_malloc ;
-  bool MATCH, PICK_isn;
+  bool MATCH, PICK_isn, MALLOC_PTRSNID ;
   char *ptrSNID[20], *name ;
   char *string = SUBPROCESS.INPUT_CID_REWGT_DUMP ;
   char fnam[] = "SUBPROCESS_INIT_DUMP" ;
@@ -26274,7 +26368,8 @@ void SUBPROCESS_INIT_DUMP(void) {
   print_debug_malloc(+1*debug_malloc,fnam);
   SUBPROCESS.DUMPFLAG_REWGT = (bool*) malloc( NSN_DATA* sizeof(bool) );
 
-  if ( strlen(string) > 0 ) { 
+  MALLOC_PTRSNID = ( strlen(string) > 0 ) ;
+  if ( MALLOC_PTRSNID ) { 
     for(i=0; i < MXSPLIT; i++ ) 
       { ptrSNID[i] = (char*) malloc( 20*sizeof(char) ); }
     
@@ -26294,6 +26389,10 @@ void SUBPROCESS_INIT_DUMP(void) {
       if ( MATCH || PICK_isn ) { SUBPROCESS.DUMPFLAG_REWGT[isn] = true; }
     }
   }  
+
+  if ( MALLOC_PTRSNID ) {
+    for(i=0; i < MXSPLIT; i++ ) { free(ptrSNID[i]) ; } // Feb 26 2026
+  }
 
   return;
 } // end SUBPROCESS_INIT_DUMP
@@ -26328,6 +26427,7 @@ void SUBPROCESS_OUT_TABLE_PREP(int itable) {
     { sprintf(DELIM,"%s", PERCENT); }
   else
     { sprintf(DELIM,"%s", STAR); }
+  
   splitString(TABLE_STRING, DELIM, fnam, MXVAR,       // inputs
 	      &NVAR, ptrVarDef );               // outputs
 
@@ -26347,8 +26447,7 @@ void SUBPROCESS_OUT_TABLE_PREP(int itable) {
   // - - - - - 
 
   print_debug_malloc(-1*debug_malloc,fnam);
-  for(ivar=0; ivar < MXVAR; ivar++ ) 
-    { free(ptrVarDef[ivar]);  }
+  for(ivar=0; ivar < MXVAR; ivar++ )   { free(ptrVarDef[ivar]);  }
 
 
 } // end SUBPROCESS_OUT_TABLE_PREP
@@ -26508,13 +26607,12 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
 
   // Convert multi-D tables into 1D arrays for easy access.
   // 
-  int debug_malloc = INPUTS.debug_malloc ;
   int NVAR = SUBPROCESS.OUTPUT_TABLE[ITABLE].NVAR ;
   int i, ivar, NBINTOT=1, nbin, nbin_per_var[MXVAR_TABLE_SUBPROCESS];
-  int MEMI, MEMD, MEMDD, IB1D, ib0, ib1, ib2;
+  int IB1D, ib0, ib1, ib2;
   int ib_per_var[MXVAR_TABLE_SUBPROCESS];
-  int  IDMAP = 10 + ITABLE;
-  int  *INDEX_BININFO[MXVAR_TABLE_SUBPROCESS];
+  int IDMAP = 10 + ITABLE;
+
   char fnam[] = "SUBPROCESS_MAP1D_BININFO"; 
 
   // ------------ BEGIN ------------
@@ -26527,20 +26625,23 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
     nbin_per_var[ivar] = nbin; 
     NBINTOT *= nbin;
   }
+  SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT = NBINTOT;
 
   // utility for N-dim -> 1-Dim map
   init_1DINDEX(IDMAP, NVAR, nbin_per_var);
   
+  SUBPROCESS_MALLOC_OUTPUT_TABLE(+1, ITABLE, NBINTOT);
 
+  /* xxxx mark delete Feb 26 2026 xxxxxxxxx
   // allocate NBINTOT memory for each variable/dimension
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].NBINTOT = NBINTOT;
+
   MEMI = NBINTOT * sizeof(int);
   MEMD = NBINTOT * sizeof(double);
   MEMDD = NBINTOT * sizeof(double*);
 
   print_debug_malloc(+1*debug_malloc,fnam);
   for(ivar=0; ivar < NVAR; ivar++ ) {
-
+    //.xyz
     SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar] = (int*)malloc(MEMI);
     SUBPROCESS.OUTPUT_TABLE[ITABLE].NEVT          = (int   *)malloc(MEMI);
     SUBPROCESS.OUTPUT_TABLE[ITABLE].MURES_SQSUM   = (double*)malloc(MEMD);
@@ -26556,6 +26657,9 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
     INDEX_BININFO[ivar] = SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar];
     for(i=0; i < NBINTOT; i++ )  { INDEX_BININFO[ivar][i] = -9 ; }
   }
+  xxxxxxxxxxx end mark xxxxxxxx */
+
+
 
   // Clumsy: hard-wire 3D -> 1D index map, even if NVAR<3.
   // Note that there are more elegant methods for arbitrary dimensions.
@@ -26571,7 +26675,8 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
 	//	 fnam, ib0, ib1, ib2, IB1D ); fflush(stdout);
 	
 	for(ivar=0; ivar < NVAR; ivar++ )
-	  { INDEX_BININFO[ivar][IB1D] = ib_per_var[ivar]; }
+	  { SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar][IB1D] = ib_per_var[ivar]; }
+	// xxx mark delete Feb 26 2026 { INDEX_BININFO[ivar][IB1D] = ib_per_var[ivar]; }
 	
       } // end ib2
     } // end ib1
@@ -27026,6 +27131,8 @@ void SUBPROCESS_REMIND_STDOUT(void) {
 void SUBPROCESS_EXIT(void) {
 
   SUBPROCESS_REMIND_STDOUT();
+
+  release_all_malloc();  // release memory to avoid confusion with valgrind                                            
   printf("%s Graceful Program Exit. Bye.\n", KEYNAME_SUBPROCESS_STDOUT);
   fflush(stdout);
   exit(0);

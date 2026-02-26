@@ -23549,5 +23549,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
              TASK113_SALT2mu_DES3YR_COVADD  :  mis-match (REF != TEST)
                ==> REF:  fit-Beta = 3.1122e+00 +/- 1.4986e-01
                ==> TEST: fit-Beta = 3.1122e+00 +/- 1.4968e-01
+       - add call to release_all_malloc() at end of job;
+          mainly to avoid false errors using valgrind.
 
 END: 

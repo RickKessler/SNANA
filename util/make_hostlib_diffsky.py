@@ -18,6 +18,8 @@ import opencosmo as oc
 import numpy as np
 from pathlib import Path
 
+from astropy.cosmology import LambdaCDM
+
 # =======
 
 KEY_CAT_DIR              = "CAT_DIR"
@@ -35,8 +37,7 @@ REF_DICT = {
 
 
 # hard-wire sersic indices for each galaxy component
-SERSIC_INDEX_DICT = {  'n_disk': 1.0,    'n_bulge': 4.0 }
-
+SERSIC_INDEX_DICT = {  'n_disk_Sersic': 1.0,    'n_bulge_Sersic': 4.0 }
 
 VARNAME_VPEC     = "VPEC"
 VARLIST_FOR_VPEC = [ 'vx', 'vy', 'vz', 'ra', 'dec' ] # needed to compute VPEC
@@ -66,7 +67,7 @@ def get_args():
     parser.add_argument("-p", "--print_column_substring", help=msg, type=str, default=None)
 
     msg = "lc-core wildcard (e.g., 14) to select subset of lc-core*{wildcard}* files"
-    parser.add_argument("-l", "--lc_wildcard", help=msg, type=str, default=None)
+    parser.add_argument("-w", "--wildcard_lc", help=msg, type=str, default=None)
 
     # parse it
     args = parser.parse_args()
@@ -107,8 +108,9 @@ HOSTLIB_VARNAMES_MAP:
 -  redshift_true   ZTRUE_CMB       6.4f
 -  ra              RA_GAL          11.6f
 -  dec             DEC_GAL         11.6f
--  beta_disk       a0_Sersic       5.2f
--  alpha_disk      b0_Sersic       5.2f
+-  beta_disk_Sersic   a0_Sersic       5.2f
+-  alpha_disk_Sersic  b0_Sersic       5.2f
+-  n_disk_Sersic      n0_Sersic       3.1f
 #
 -  lsst_u          u_obs           6.3f
 -  lsst_g          g_obs           6.3f
@@ -154,49 +156,46 @@ def read_yaml(path):
         return yaml.safe_load(f.read())
     # end read_yaml
 
+def addcol_galid(cat_inp, config):
+    cat_out         = cat_inp
+    config['USE_SERIAL_TAG'] = False
+    
+    colname_diffsky_list = list( config['hostlib_varname_dict'].keys() )
+    if 'serial_tag' not in colname_diffsky_list:
+        return cat_out
 
-def addcol_vpec(cat_inp, config):
+    config['USE_SERIAL_TAG'] = True
+    
+    offset_tag = 1000000
+    logging.info('')
+    logging.info(f"Append serial_tag -> GALID with offset = {offset_tag}")
+    
+    serial_tag_list = np.arange(len(cat_out)) + offset_tag
+    cat_out         = cat_out.with_new_columns(serial_tag = serial_tag_list)
+    return cat_out
 
+
+    
+def cosmological_distances(redshift_true, cosmology):
+    D_A = cosmology.angular_diameter_distance(redshift_true)
+    # D_L = cosmology.luminosity_distance(redshift_true)
+    return {'D_A': D_A }
+
+def addcol_distances(cat_inp, config):
+    
+    n_row   = len(cat_inp)
     cat_out = cat_inp
 
-    # if there is no VPEC request, then bail
-    HOSTLIB_VARNAMES_LIST = config['HOSTLIB_VARNAMES_LIST']
-    if VARNAME_VPEC not in HOSTLIB_VARNAMES_LIST: return cat_out
-
+    logging.info(f"Append angle-diameter distances D_A : ")
     t0 = time.time()
-
-    tmp  = cat_out.select(VARLIST_FOR_VPEC).get_data()
-    vx       = np.array( tmp['vx'] )
-    vy       = np.array( tmp['vy'] )
-    vz       = np.array( tmp['vz'] )
-    ra_deg       = np.array( tmp['ra'] )
-    dec_deg      = np.array( tmp['dec'] )  # -90 to +90
-    theta_deg    = 90 - dec_deg            # 0 to 180
     
-    ra_rad     = np.radians(ra_deg)
-    theta_rad  = np.radians(theta_deg)
-    
-    # convert ra,dec to cartesion coords on unit sphere
-    x = np.sin(theta_rad) * np.cos(ra_rad)  # ra_rad or ra_rad - PI ?
-    y = np.sin(theta_rad) * np.sin(ra_rad)
-    z = np.cos(theta_rad)
-    
-    vpec      = x*vx + y*vy + z*vz
-    vpec_dict = { 'vpec' : vpec }
+    cat_out = cat_out.evaluate(cosmological_distances,
+                               cosmology = cat_out.cosmology,
+                               insert=True, vectorize=True)
 
-    logging.info('')
-    logging.info(f"Append vpec = x*vx + y*vy + z*vz")
-    cat_out = cat_out.with_new_columns(**vpec_dict)
-    
-    print_proc_time(t0, "ADDCOL_VPEC", None)
-
-    del tmp;
-    del vx;  del vy;  del vz
-    del x ;  del y ;  del z
-
+    print_proc_time(t0, "ADDCOL_DISTANCES", None)    
+    #sys.exit(f"\n xxx DEBUG STOP xxx \n{cat_out[0:10]}")
     return cat_out
-    # end addcol_vpec
-
 
 def addcol_sersic_indices(cat_inp, config):
 
@@ -223,7 +222,100 @@ def addcol_sersic_indices(cat_inp, config):
     return cat_out
     # end addcol_sersic_indices
 
+
+def addcol_sersic_sizes(cat_inp, config):
+
+    # For each alpha_xxx (kpc), add alpha_xxx_sersic (arcsec)
+    # For each beta_xxx  (kpc), add beta_xxx_sersic (arcsec)
+
+    t0 = time.time()
     
+    # To be modified ; below needs to be complete re-written
+    n_row   = len(cat_inp)
+    cat_out = cat_inp
+    HOSTLIB_VARNAMES_MAP = config[KEY_HOSTLIB_VARNAMES_MAP]
+
+    search_prefix_list = ['alpha', 'beta' ]
+
+    # galaxy size d(kpc) and D_A(Mpc) so
+    #  theta = (.001*d/D_A) is in radians
+    #  1 rad = (180/PI)*2600 = 206264.81 arcsec 
+    #  fac   = .001 * 206264.81
+    #  size_arcsec = fac * size_kpc / D_A
+    
+    arsec_per_rad = (180.0/3.14159) * 3600.0
+    fac           = .001 * arsec_per_rad       # size(arcsec) = fac * d/D_A
+    
+    logging.info('')  # .xyz
+    logging.info('Append Sersic sizes (arcsec) computed from physical sizes (kpc):')
+    addcol_dict = {}
+    D_A         = cat_out.select(['D_A']).get_data().value    
+    for row in HOSTLIB_VARNAMES_MAP:
+        colname_add = row.split()[0]  # orig column with _Sersic does not exist
+        for prefix in search_prefix_list:
+            lenp = len(prefix)
+            if colname_add[0:lenp] == prefix:
+                colname_exist = colname_add.split('_Sersic')[0]
+                logging.info(f"\t Append  {colname_add:<20} = {colname_exist}/D_A  ")
+                size_kpc    = cat_out.select([colname_exist]).get_data().value
+                size_arcsec = (size_kpc/D_A) * fac
+                #print(f" xxx size_arcsec = {size_arcsec[0:10]}")
+                addcol_dict[f"{colname_add}"] = size_arcsec
+
+    # - - - -
+    #sys.exit("\n xxx DEBUG STOP")
+    
+    if len(addcol_dict) > 0 :
+        cat_out = cat_out.with_new_columns(**addcol_dict)
+
+    print_proc_time(t0, "ADDCOL_SERSIC_ARCSEC", None)            
+    #sys.exit(f"\n xxx addcol_dict = \n{addcol_dict} ")
+
+    return cat_out
+    # end addcol_sersic_sizes
+
+
+def addcol_logsfr(cat_inp, config):
+
+    # add logsfr column computed from logssfr and logmass
+
+    t0 = time.time()
+    
+    # To be modified ; below needs to be complete re-written
+    n_row   = len(cat_inp)
+    cat_out = cat_inp
+
+    colnames_to_sum = [ 'logssfr_obs', 'logsm_obs' ]
+    colname_add     = 'logsfr_obs'
+    
+    hostlib_varname_dict = config['hostlib_varname_dict']
+    cat_var_list         = list(hostlib_varname_dict.keys())
+
+    logging.info('') 
+    logging.info(f"Append {colname_add} = {' + '.join(colnames_to_sum)} ")
+
+    
+    addcol_dict = {}
+    v_new = np.array( [0.]*n_row )
+    
+    for v in colnames_to_sum:
+        v_new += cat_out.select([v]).get_data().value
+
+    addcol_dict[f"{colname_add}"] = v_new
+
+    # - - - -
+    #sys.exit("\n xxx DEBUG STOP")
+    
+    if len(addcol_dict) > 0 :
+        cat_out = cat_out.with_new_columns(**addcol_dict)
+
+    print_proc_time(t0, "ADDCOL_LOGSFR", None)            
+    #sys.exit(f"\n xxx addcol_dict = \n{addcol_dict} ")
+
+    return cat_out
+    # end addcol_logsfr
+
+
 def check_Sersic_definitions(config):
 
     # sanity check to make sure that a,b,n are defined for each sersic component,
@@ -311,6 +403,34 @@ def addcol_mag_errors(cat_inp, config):
     
     return cat_out
 
+def addcol_driver(cat_inp, config):
+
+    logging.info('')
+    logging.info('========== COMPUTE/APPEND COLUMNS ===============')
+
+    cat_out = cat_inp
+    
+    # add GALID tag
+    cat_out = addcol_galid(cat_out, config)
+
+    cat_out  = addcol_distances(cat_out, config)
+    
+    # add sersic indices
+    cat_out = addcol_sersic_indices(cat_out, config)
+
+    # add sersic angular sizes computed from physical sizes
+    cat_out = addcol_sersic_sizes(cat_out, config)
+
+    # add logsfr = logssfr + logmass
+    cat_out = addcol_logsfr(cat_out, config)        
+    
+    # check option to add and compute mag_error for each band
+    cat_out = addcol_mag_errors(cat_out, config)
+
+    
+    return cat_out  # end addcol_driver
+
+
 def read_galaxy_cat(args, config):
 
     logging.info('')
@@ -335,8 +455,8 @@ def read_galaxy_cat(args, config):
         
     # fragile-alert reading catalog files with specific prefix
 
-    if args.lc_wildcard:
-        wildcard = f"{cat_dir}/lc_cores-*{args.lc_wildcard}*.hdf5"  
+    if args.wildcard_lc:
+        wildcard = f"{cat_dir}/lc_cores-*{args.wildcard_lc}*.hdf5"  
     else:
         wildcard = f"{cat_dir}/lc_cores-*.hdf5"  
 
@@ -374,7 +494,8 @@ def check_diffsky_columns(config, ds):
     # abort if user-requested diffksy column is not available
     hostlib_varname_dict = config['hostlib_varname_dict'] 
 
-    exception_list = [ 'err', 'n_' ]  # these are computed and hence don't exist in catalog
+    # these are computed and hence don't exist in catalog
+    exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr' ] 
     
     nerr = 0 
     for varname in list(hostlib_varname_dict):
@@ -554,7 +675,11 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     fp.write(f"    CATALOG:    {cat_dir_base} \n")
     fp.write(f"    NGAL:       {ngal} \n")
     fp.write(f"    RA_RANGE:   {str_ra}      # degrees \n")
-    fp.write(f"    DEC_RANGE:  {str_dec}     # degrees \n")    
+    fp.write(f"    DEC_RANGE:  {str_dec}     # degrees \n")
+
+    if config['USE_SERIAL_TAG'] :
+        fp.write("#   WARNING: GALID is sequential number unrelated to diffsky cat\n")
+        
     fp.write(f"\n")
     fp.write(f"  HOSTLIB_VARNAMES_MAP: \n")
     for row in HOSTLIB_VARNAMES_MAP:
@@ -580,6 +705,7 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     fp.write(f"  - creation code  {CODE} \n")
     fp.write(f"  - creation date  {TSTAMP} \n")
     fp.write(f"  - created by user={USERNAME} on node={HOSTNAME}  \n")
+
     fp.write(f"DOCUMENTATION_END: \n")
     fp.write(f"\n")
 
@@ -841,25 +967,15 @@ if __name__ == "__main__":
         
     # fetch entire galaxy catalog
     galaxy_cat  = read_galaxy_cat(args, config)
-
+    
     # apply cuts
     galaxy_cat  = apply_cuts(galaxy_cat, config)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - 
     # add columns computed from other columns
 
-    logging.info('')
-    logging.info('========== COMPUTE/APPEND COLUMNS ===============')
+    galaxy_cat = addcol_driver(galaxy_cat, config)
     
-    # add vpec
-    # xxx no longer needed ? galaxy_cat = addcol_vpec(galaxy_cat, config)    
-
-    # add sersic indices
-    galaxy_cat = addcol_sersic_indices(galaxy_cat, config)
-
-    # check option to add and compute mag_error for each band
-    galaxy_cat = addcol_mag_errors(galaxy_cat, config)
-
 
     logging.info('==================================================')
     logging.info('')

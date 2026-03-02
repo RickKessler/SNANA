@@ -3009,7 +3009,8 @@ double LOAD_SPECEFF_VAR(int imap, int ivar) {
 
   // return value of variable corresponding to this SPECEFF-ivar index
   // June 23 2016: check HOSTMAG and SBMAG 
-
+  // Mar  02 2026: check SNRSUM_REST_V for spectrograph
+  //
   int    ifilt_obs, ifilt,  IVARTYPE, NFILTLIST ;
   double mag, MAG, mag0, mag1, color;
   char *varName = SEARCHEFF_SPEC[imap].VARNAMES[ivar] ;
@@ -3034,6 +3035,9 @@ double LOAD_SPECEFF_VAR(int imap, int ivar) {
   }
   else if ( IVARTYPE == IVARTYPE_SPECEFF_LOGMASS ) {
     return  SEARCHEFF_DATA.LOGMASS ; 
+  }  
+  else if ( IVARTYPE == IVARTYPE_SPECEFF_SNRSUM_REST_V ) {
+    return  SEARCHEFF_DATA.SNRSUM_REST_V ; 
   }  
   else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2mB ) {
     return  SEARCHEFF_DATA.SALT2mB ; 
@@ -3126,7 +3130,8 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
   // Nov 6 2017: set SEARCHEFF_SPEC.IVARTYPE_MASK
   // May 13 2021: allow HOSTMAG or HOST_MAG
   // Aug 27 2024: store IVAR_SALT2x1, IVAR_SALT2c, IVAR_LOGMASS
-  
+  // Mar 02 2026: store IVAR_SNRSUM_REST_V
+  //
   int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
   int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
 
@@ -3188,6 +3193,12 @@ void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
     SEARCHEFF_SPEC[imap].IVAR_LOGMASS = ivar ;
     SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_LOGMASS ;
     SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_LOGMASS );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"SNRSUM_REST_V") ==0 )  { // Mar 2026
+    SEARCHEFF_SPEC[imap].IVAR_SNRSUM_REST_V = ivar ;
+    SEARCHEFF_SPEC[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SNRSUM_REST_V ;
+    SEARCHEFF_SPEC_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SNRSUM_REST_V );
     return ;
   }
 

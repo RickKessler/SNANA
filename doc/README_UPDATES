@@ -23552,4 +23552,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        - add call to release_all_malloc() at end of job;
           mainly to avoid false errors using valgrind.
 
+   sntools_trigger.c[h]:
+      - enable spec-efficiency map for SNRSUM_REST_V of spectrograph
+
 END: 

@@ -31,7 +31,8 @@
 #define  IVARTYPE_SPECEFF_SALT2mB   10  // flag that var is SALT2mb
 #define  IVARTYPE_SPECEFF_SALT2x1   11  // flag that var us SALT2x1
 #define  IVARTYPE_SPECEFF_SALT2c    12  // flag that var is SALT2c
-#define  IVARTYPE_SPECEFF           13  // flag that var is SPECEFF
+#define  IVARTYPE_SPECEFF_SNRSUM_REST_V 13 // flag for SPECTROGRAPH SNR for rest-V
+#define  IVARTYPE_SPECEFF           19  // flag that var is SPECEFF
 #define  MXVAR_SEARCHEFF_SPEC       20  // max number of SPEC-eff VARNAMES
 
 #define  MXMAP_SEARCHEFF_DETECT   50  
@@ -213,7 +214,8 @@ struct {
   char VARNAMES[MXVAR_SEARCHEFF_SPEC][40] ;
   int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD, IVAR_LOGMASS ;
   int IVAR_DTPEAK, IVAR_DTSEASON_PEAK, IVAR_SALT2mB, IVAR_SALT2x1, IVAR_SALT2c ;
-  
+  int IVAR_SNRSUM_REST_V;
+
   char FIELDLIST[60] ;
   int IVARTYPE[MXVAR_SEARCHEFF_SPEC] ;
 
@@ -271,7 +273,8 @@ struct {
   // scalars
   int    CID ;
   double REDSHIFT, PEAKMJD, DTPEAK_MIN, DTSEASON_PEAK, SNRMAX, MWEBV ;
-  double SALT2mB, SALT2x1, SALT2c, LOGMASS ;
+  double SALT2mB, SALT2x1, SALT2c, LOGMASS;
+  double SNRSUM_REST_V ; // for spectrograph 
   int    SIMLIB_ID;
 
 

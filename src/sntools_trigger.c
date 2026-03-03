@@ -2527,7 +2527,8 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
   // Jun 02 2018: check opton to force EFF_SPEC=0
   // Jun 08 2018: check BOOLEAN OR/AND logic for EFF.
   // Aug 09 2024: check for REQUIRED map (e.g., PEAKMJD or DTPEAK)
-  
+  // Mar 03 2026: fix bug and check field MATCH
+
   int  NMAP        = INPUTS_SEARCHEFF.NMAP_SPEC ;
   int  BOOLEAN_OR  = SEARCHEFF_SPEC_INFO.BOOLEAN_OR  ;
   int  BOOLEAN_AND = SEARCHEFF_SPEC_INFO.BOOLEAN_AND ;
@@ -2578,8 +2579,10 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
 
     // check if current field goes with this map
     FIELD_MAP = SEARCHEFF_SPEC[imap].FIELDLIST ;
-    MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP);  // Feb 2021
+    MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP);  // Feb 2021  .xyz
     
+    if ( !MATCH ) { continue; } // bug fix; Mar 3 2026 
+
     // determine list of variables
     NVAR = SEARCHEFF_SPEC[imap].GRIDMAP.NDIM ;
     for ( ivar=0; ivar < NVAR; ivar++ )  {
@@ -2852,10 +2855,13 @@ bool MATCH_SEARCHEFF_FIELD(char *field_map) {
   // subsequent field had clobbered previous field), and here we
   // check first field ... so new logic (Feb 5 2021) can result
   // in using a different map for field overlaps.
+  //
 
   int  NFIELD_OVP = SEARCHEFF_DATA.NFIELD_OVP;
   int  i;
+  bool OVP;
   char *field_data;
+  char fnam[] = "MATCH_SEARCHEFF_FIELD";
 
   // ---------- BEGIN ----------
 
@@ -2865,7 +2871,11 @@ bool MATCH_SEARCHEFF_FIELD(char *field_map) {
 
   for(i=0; i < 1; i++ ) { // only check first FIELD among overlaps
     field_data = SEARCHEFF_DATA.FIELDLIST_OVP[i];
-    if ( strstr(field_map,field_data) != NULL ) { return true ; }
+
+    // xxx mark delete Mar 3 2026 if ( strstr(field_map,field_data) != NULL ) { return true ; }
+    OVP = ( strstr(field_map,field_data) != NULL );
+
+    if ( OVP ) { return true ; }
   }
 
   // if we get here, there is no match -> return false
@@ -2903,7 +2913,7 @@ double interp_SEARCHEFF_zHOST_LEGACY(void) {
     print_preAbort_banner(fnam);
     for(imap=0; imap < NMAP;  imap++ ) {
       field_map = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
-      printf("\t FIELD_MAP[%2d] = %s", imap, field_map );
+      printf("\t FIELD_MAP[%2d] = %s\n", imap, field_map );
     }    
     sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
     sprintf(c2err, "field = '%s'", field_data );
@@ -3328,11 +3338,6 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
   // check how many space-separated PREFIX names to check
   splitString(PREFIX, sepKey, fnam, MXPREFIX,
               &NPREFIX, ptrList ); // <== returned
-
-  /* xxx mark delete Aug 15 2024 xxxxx
-  splitString2(PREFIX, sepKey, MXPREFIX,
-	       &NPREFIX, ptrList ); // <== returned
-  xxxxxxxxxx end mark xxxxx */
   
   for ( i=0; i < NPREFIX; i++ ) {
     ptr_PREFIX = PREFIX_LIST[i];

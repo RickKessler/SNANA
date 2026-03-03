@@ -23554,5 +23554,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    sntools_trigger.c[h]:
       - enable spec-efficiency map for SNRSUM_REST_V of spectrograph
+      - in gen_SEARCHEFF_SPEC, field MATCH was evaluated but not checked,
+        meaning the FIELD key in SEARCHEFF_SPEC_FILE was ignored --> fixed.
 
 END: 

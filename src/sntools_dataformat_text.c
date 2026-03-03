@@ -430,7 +430,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     }
   }
 
-  sprintf(ctmp,"bits 1,2=> found by software,spec" );
+  sprintf(ctmp,"bits 0,1,2 => DETECT+LOGIC, SPEC-CONFIRM, zHOST" );
   fprintf(fp, "SIM_SEARCHEFF_MASK:  %d  # %s \n", 
 	  SNDATA.SIM_SEARCHEFF_MASK, ctmp );
 

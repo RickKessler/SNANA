@@ -3305,23 +3305,23 @@ Fig.~\ref{fig:speceff_varnames}.
   SPECEFF:    0.1      1.00
 
 # TABLE 2 -- 4m telescope
-  VARNAMES:  g-r   r   SPECEFF  # can add comments here
-  SPECEFF:  -0.5  18.0  1.0
-  SPECEFF:  -0.5  20.0  0.6
-  SPECEFF:  -0.5  22.0  0.3
-  SPECEFF:  +0.5  18.0  0.2
-  SPECEFF:  +0.5  20.0  0.08
-  SPECEFF:  +0.5  22.0  0.02
+  VARNAMES:  g-r   r      SPECEFF  # can add comments here
+  SPECEFF:  -0.5  18.0     1.0
+  SPECEFF:  -0.5  20.0     0.6
+  SPECEFF:  -0.5  22.0     0.3
+  SPECEFF:  +0.5  18.0     0.2
+  SPECEFF:  +0.5  20.0     0.08
+  SPECEFF:  +0.5  22.0     0.02
 
 # TABLE 3 -- 8m telescope
-  VARNAMES: REDSHIFT  i   SPECEFF  
-  FIELD:    DEEPFIELD
-  SPECEFF:    0.0    22.0  1.0
-  SPECEFF:    0.0    24.0  0.66
-  SPECEFF:    0.0    26.0  0.31  # can add comments here
-  SPECEFF:    0.5    22.0  0.22
-  SPECEFF:    0.5    24.0  0.14
-  SPECEFF:    0.5    26.0  0.022
+  FIELD:    DEEP1,DEEP2   # comma-sep or '+' sep list of fields; BEFORE VARNAMES
+  VARNAMES: REDSHIFT  i     SPECEFF  
+  SPECEFF:    0.0    22.0    1.0
+  SPECEFF:    0.0    24.0    0.66
+  SPECEFF:    0.0    26.0    0.31  # can add comments here
+  SPECEFF:    0.5    22.0    0.22
+  SPECEFF:    0.5    24.0    0.14
+  SPECEFF:    0.5    26.0    0.022
 \end{Verbatim} 
 \end{center} 
 \end{figure}

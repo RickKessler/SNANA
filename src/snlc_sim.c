@@ -18064,6 +18064,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
 
   while( (fscanf(fp_SIMLIB, "%s", c_get)) != EOF) {
 
+
     if ( c_get[0] == '#' ) { continue; }
 
     if ( strcmp(c_get,"SURVEY:") == 0 ) {
@@ -19273,6 +19274,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       wd0[0] = wd1[0] = 0;
       sprintf(wd0,"%s", WDLIST[iwd] );
       if ( NWD > iwd+1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
+
 
       if ( strcmp(wd0,"LIBID:") == 0 ) {
 	sscanf(wd1, "%d", &ID ); 

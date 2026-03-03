@@ -2119,7 +2119,8 @@ int main(int argc,char* argv[ ]) {
 
   if ( FLAG == FLAG_EXEC_REPEAT ) { goto DRIVER_EXEC; } // e.g., NSPLITRAN
 
-  release_all_malloc();  // release memory to avoid confusion with valgrind
+  if ( INPUTS.debug_flag == 303 ) 
+    { release_all_malloc(); } // release memory to avoid confusion with valgrind
 
   fprintf(FP_STDOUT, "\n Done. \n"); fflush(FP_STDOUT);
   
@@ -4635,8 +4636,6 @@ void *MNCHI2FUN(void *thread) {
       APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
     }
     // - - - - - -  -
-
-    //B.P - if BAYESN && APPLY_COVADD -> abort
 
     if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0

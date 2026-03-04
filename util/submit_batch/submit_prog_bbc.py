@@ -103,6 +103,7 @@
 #    + treat one version same as multiple version so that same OUTPUT_BBCFIT 
 #       name appears in out dirs (see SNANA git issue 1603
 #
+# Mar 3 2026: write contents of INPFILE+ key into SUBMIT.INFO file; see INPFILE_LIST
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -1577,10 +1578,14 @@ class BBC(Program):
         # Feb 2024: check optional list of external FITRES files to include
         CONFIG   = self.config_yaml['CONFIG']
         key = 'INPFILE+'
+        INFILE_LIST = []
         if key in CONFIG:
             for infile in CONFIG[key]:
                 infile = os.path.expandvars(infile)
+                INFILE_LIST.append(infile)
                 cat_list += f",{infile}"
+
+        self.config_prep['INFILE_LIST'] = INFILE_LIST # Mar 3 2026: for SUBMIT.INFO file
 
         return cat_list
 
@@ -2032,6 +2037,7 @@ class BBC(Program):
         muopt_num_list    = self.config_prep['muopt_num_list']
         muopt_label_list  = self.config_prep['muopt_label_list']
         inpdir_list       = self.config_prep['inpdir_list']
+        inpfile_list      = self.config_prep['INFILE_LIST']
         survey_list       = self.config_prep['survey_list']
         n_splitran        = self.config_prep['n_splitran']
         use_wfit          = self.config_prep['use_wfit']
@@ -2087,6 +2093,11 @@ class BBC(Program):
             f.write("INPDIR_LIST:\n")
             for inpdir in inpdir_list:  f.write(f"  - {inpdir}\n")
 
+        if len(inpfile_list) > 0:  # Mar 2026
+            f.write("\n")
+            f.write("INPFILE_LIST:   # external files appended to those in INPDIR_LIST\n")
+            for inpfile in inpfile_list:  f.write(f"  - {inpfile}\n")
+            
         f.write("\n")
         f.write("SURVEY_LIST:\n")
         for survey in survey_list:    f.write(f"  - {survey}\n")

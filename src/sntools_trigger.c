@@ -1259,7 +1259,8 @@ void init_SEARCHEFF_zHOST(char *survey) {
   //
   // Map is of the form
   // FIELD:    <bla>             # optional to give separate map per field
-  // FIELDLIST <bla1+bla2+bla3>  # optional OR of several fields.
+  // FIELDLIST <bla1,bla2,bla3>  # optional OR of several fields.
+  // VARNAMES:  z   EFF
   // HOSTEFF:  <z>  <eff>        # required
   // HOSTEFF:  <z>  <eff>        # idem
   // HOSTEFF:  <z>  <eff>
@@ -1401,6 +1402,8 @@ void read_zHOST_FILE(FILE *fp) {
   // Aug 19 2024: redefine *ptr_VARNAMES[MX] -> **ptr_VARNAMES to avoid
   //              strange crash using -O2 optimization
   //
+  // Mar 04 2026: check for OPT_FIELDMATCH_REQUIRE key in map file
+
   int  OPT_EXTRAP = 0 ;
   int  NTAB=0;
   int  IDMAP, imap, NMAP, ivar, NVAR, NDIM, NFUN ;
@@ -1414,6 +1417,8 @@ void read_zHOST_FILE(FILE *fp) {
   char fnam[] = "read_zHOST_FILE" ;
 
   // ------------ BEGIN ----------
+
+  OPT_FIELDMATCH_REQUIRE_zHOST = 1; // Default unless modified by OPT_FIELDMATCH_REQUIRE: 0 in map file
 
   for(imap=0; imap < MXMAP_SEARCHEFF_zHOST; imap++ ) {
     sprintf(SEARCHEFF_zHOST[imap].FIELDLIST,"NONE" );
@@ -1441,9 +1446,14 @@ void read_zHOST_FILE(FILE *fp) {
     FOUND_VARNAMES = 0 ;
 
     if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) 
-      { readint(fp,1,&OPT_EXTRAP); }
+      { readint(fp, 1, &OPT_EXTRAP); }
+
+    if ( strcmp(c_get,"OPT_FIELDMATCH_REQUIRE:") == 0 ) 
+      { readint(fp, 1, &OPT_FIELDMATCH_REQUIRE_zHOST); } //Mar 4 2026
+
     if ( strcmp(c_get,"FIELDLIST:" ) == 0 ) 
       { readchar(fp,FIELDLIST); }
+
     if ( strcmp(c_get,"PEAKMJD:") == 0 || strcmp(c_get,"PEAKMJD_RANGE:")==0 ) 
       { readdouble(fp,2,PEAKMJD_RANGE);}
 
@@ -1466,7 +1476,7 @@ void read_zHOST_FILE(FILE *fp) {
 		ptr_VARNAMES[ivar] ) ;
       }
 
-      read_GRIDMAP(fp,KEY_ROW,KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN,OPT_EXTRAP,
+      read_GRIDMAP(fp,KEY_ROW,KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN, OPT_EXTRAP,
 		   MXROW_SEARCHEFF_zHOST, fnam,
 		   &SEARCHEFF_zHOST[NMAP].GRIDMAP ) ;
 
@@ -2749,7 +2759,10 @@ double interp_SEARCHEFF_zHOST(void) {
   // July 2020: check PEAKMJD too
   // Oct 15 2020: clarify error message on interp failure.
   // May 27 2021: refactor to take logical OR of multiple maps
-
+  // 
+  // Mar 04 2026: if there are no FIELD matches, abort if OPT_FIELDMATCH_REQUIRE_zHOST>0;
+  //              otherwise just return EFF=0. Allows zHOST coverage in subset of fields.
+  //
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
   int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
   double VARDATA[MXVAR_SEARCHEFF_zHOST];
@@ -2796,10 +2809,16 @@ double interp_SEARCHEFF_zHOST(void) {
   // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
   EFF = 1.0 - Pnoz ;
 
+
   if ( NMATCH == 0 ) {
-    sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
-    sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    if ( OPT_FIELDMATCH_REQUIRE_zHOST > 0 ) {
+      sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
+      sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+    else {
+      return(EFF);
+    }
   }
 
 

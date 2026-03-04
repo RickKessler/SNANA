@@ -3504,7 +3504,16 @@ Next, we given an example of a map with more complex function
 of {\tt HOSTLIB} properties:
 %
 \begin{Verbatim}[frame=single]
-OPT_EXTRAP: 1               # default is 0=>abort; 1=>use value at grid edge
+
+# decide how to handle extrapolations for all maps:
+# default is 0=>abort; 1=>use value at grid edge
+OPT_EXTRAP: 1               
+
+# decide if every event has FIELD corresponding to a map;
+# Detault = 1 -> every event requires map covering FIELD
+# option 0 -> if FIELD is not in a map, set EFF_zHOST=0
+OPT_FIELDMATCH_REQUIRE:  1  
+
 PEAKMJD_RANGE: 55600 58900  # default is 10000 90000
 FIELDLIST:  C3+X3           # default is ALL
 VARNAMES: g_obs i_obs  HOSTEFF

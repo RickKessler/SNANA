@@ -85,8 +85,8 @@ int  SEARCHEFF_FLAG;   // FLAG_EFFSNR or FLAG_EFFMAG
 
 char PATH_SEARCHEFF[2*MXPATHLEN]; // path for PIPELINE_FILE, SPEC_FILE
 
-int NONZERO_SEARCHEFF_SPEC  ;
-int NONZERO_SEARCHEFF_zHOST ;
+int NONZERO_SEARCHEFF_SPEC  ; // number of events with EFF_SPEC > 0
+int NONZERO_SEARCHEFF_zHOST ; // number of events with EFF_zHOST > 0
 double **SEARCHEFF_TMPMAP2D ; // generic array to read/store map
 
 struct  {
@@ -243,6 +243,7 @@ struct {
 
 
 
+int OPT_FIELDMATCH_REQUIRE_zHOST;  // True -> abort if FIELD is not associated with a map
 struct {
   int  NVAR ;   // used by init_HOSTLIB
   char FIELDLIST[100];  // fieldList for each map

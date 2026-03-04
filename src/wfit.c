@@ -530,6 +530,7 @@ void compute_MUCOV_FINAL();
 void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
 void set_stepsizes(void);
+void print_and_check_grid(char *varname, double xmin, double xmax, int nstep, double step) ;
 void set_Ndof(void);
 void init_rz_interp(HD_DEF *HD);
 void exec_rz_interp(int k, Cosparam *cospar, double *rz, double *dmu);
@@ -828,7 +829,7 @@ void init_stuff(void) {
 
   sprintf(varname_w,   "w"  );  // default wCDM model
   sprintf(varname_wa,  "wa" );
-  sprintf(varname_omm, "OM" );
+  sprintf(varname_omm, "om" );
 
   // - - - - -
   // WORKSPACE
@@ -2929,6 +2930,8 @@ void set_stepsizes(void) {
 
   // Created Oct 1 2021
   // Compute grid size for each cosmoPar dimension
+  //
+  // Mar 3 2026: refactor using print_and_check_grid(...) to catch silly mistakes
 
   char fnam[] = "set_stepsizes";
 
@@ -2946,6 +2949,14 @@ void set_stepsizes(void) {
 
   printf("\n");
   printf("   --------   Grid parameters   -------- \n");
+
+  print_and_check_grid(varname_omm, INPUTS.omm_min, INPUTS.omm_max, INPUTS.omm_steps, INPUTS.omm_stepsize);
+  print_and_check_grid(varname_w,  INPUTS.w0_min, INPUTS.w0_max, INPUTS.w0_steps, INPUTS.w0_stepsize);
+
+  if ( INPUTS.dofit_w0wa ) 
+    { print_and_check_grid(varname_wa, INPUTS.wa_min, INPUTS.wa_max, INPUTS.wa_steps, INPUTS.wa_stepsize); }
+
+  /* xxxxxx mark delete Mar 3 2026 xxxxxxxx
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_w, INPUTS.w0_min,
 	 varname_w, INPUTS.w0_max, 
@@ -2957,18 +2968,41 @@ void set_stepsizes(void) {
 	   varname_wa, INPUTS.wa_max,
 	   INPUTS.wa_steps, INPUTS.wa_stepsize);
   }
+
   printf("  %s_min: %6.2f   %s_max: %6.2f  %5i steps of size %8.5f\n",
 	 varname_omm, INPUTS.omm_min,
 	 varname_omm, INPUTS.omm_max,
 	 INPUTS.omm_steps, INPUTS.omm_stepsize);
+  xxxxxxx end mar xxxxxx */
+
 
   printf("   ------------------------------------\n");
+
 
   fflush(stdout);
 
   return;
 } // end set_stepsizes
 
+
+void print_and_check_grid(char *varname, double xmin, double xmax, int nstep, double step) {
+
+  char fnam[] = "print_and_check_grid";
+
+  // ---------- BEGIN --------
+
+  printf("  %smin: %6.2f   %smax: %6.2f  %5i steps of size %8.5f\n",
+	 varname, xmin, varname, xmax, nstep, step);  fflush(stdout);
+
+  if ( xmin > xmax ) {
+    sprintf(c1err,"Dumb input mistake: %smin > %smax; see above.", varname, varname);
+    sprintf(c2err,"Check cospar min/max/step");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
+  }
+
+  return;
+
+} // end print_and_check_grid
 
 // ==================
 void set_Ndof(void) {

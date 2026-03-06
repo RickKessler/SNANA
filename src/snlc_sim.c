@@ -407,8 +407,6 @@ int main(int argc, char **argv) {
     // update SNDATA files & auxiliary files
     update_simFiles(&GENLC.SIMFILE_AUX);
 
-    // xxxx mark delete GENLC.FLAG_ACCEPT = 1 ;  
-
     if ( INPUTS.TRACE_MAIN ) { dmp_trace_main("14", ilc) ; }
 
   GENEFF:
@@ -809,9 +807,6 @@ void set_user_defaults(void) {
     INPUTS.GENRANGE_PEAKMAG[ifilt][0] = -9999. ; 
     INPUTS.GENRANGE_PEAKMAG[ifilt][1] = +9999. ; 
   }
-  // xxx mark  INPUTS.GENRANGE_PEAKMAG[0] = -99990.0 ;
-  // xxx mark  INPUTS.GENRANGE_PEAKMAG[1] =  99999.0 ;
-
 
   INPUTS.GENRANGE_REDSHIFT[0] = 0.0 ;
   INPUTS.GENRANGE_REDSHIFT[1] = 0.0 ;
@@ -2174,12 +2169,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     INPUTS.NFILT_GENRANGE_PEAKMAG++ ;
   }
 
-  /* xxx mark del May 26 2025 xxxxxx
-  else if ( keyMatchSim(1,"GENRANGE_PEAKMAG", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMAG[0] );
-    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMAG[1] );
-  }
-  xxxxxxx end mark */
 
   else if ( keyMatchSim(1,"GENRANGE_MJD", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD[0] );
@@ -3183,13 +3172,6 @@ void parse_input_HOSTLIB_SNR_SCALE(char **WORDS, int keySource) {
     split2doubles(string_mjd_range, COLON, MJDRANGE );
     MJDMIN = MJDRANGE[0];
     MJDMAX = MJDRANGE[1];
-
-    /* xxxxxx mark delete May 20 2025 xxxxxxxx
-    split2floats(string_mjd_range, COLON, fMJD );
-    MJDMIN = (double)fMJD[0];
-    MJDMAX = (double)fMJD[1];
-    xxxxxxxxx end mark xxxxxxxx */
-
   }
 
   sscanf(WORDS[1], "%le", &SNR_SCALE);
@@ -10031,6 +10013,7 @@ void  init_genSpec(void) {
   }
 
 
+
   if ( INPUTS.README_DUMPFLAG    ) { return; }
   if ( SPECTROGRAPH_USEFLAG == 0 ) { return ; }
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 1 ;
@@ -10039,9 +10022,9 @@ void  init_genSpec(void) {
   if ( (OPTMASK & SPECTROGRAPH_OPTMASK_NOSPEC) > 0 ) 
     { INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 0; }
 
+
   if ( INDEX_GENMODEL == MODEL_SALT2     ||
        INDEX_GENMODEL == MODEL_NON1ASED  ||
-       INDEX_GENMODEL == MODEL_SIMSED    || 
        INDEX_GENMODEL == MODEL_FIXMAG    || 
        IS_PySEDMODEL         ) {
     int     NB = INPUTS_SPECTRO.NBIN_LAM ;
@@ -10057,9 +10040,14 @@ void  init_genSpec(void) {
     // do nothing for spectra
   }
   else {
+    if ( INDEX_GENMODEL == MODEL_SIMSED ) {
+      print_preAbort_banner(fnam);
+      printf("  To generate spectra, use NON1ASED model equivalent created by\n");
+      printf("  SNANA util: convert_SIMSED_to_NON1ASED.py\n");
+    } // .xyz
     sprintf(c1err,"Spectrograph option not available for");    
     sprintf(c2err,"INDEX_GENMODEL=%d (%s)", INDEX_GENMODEL, modelName);
-    errmsg(SEV_WARN, 0, fnam, c1err, c2err );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
 
     INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 0;
     INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK     = 0 ;
@@ -11423,11 +11411,6 @@ void GENSPEC_HOST_CONTAMINATION(int imjd) {
     if ( FLAM_SN < 1.0E-30 ) { FLAM_SN = 1.0E-30; } 
 
     FLAM_TOT = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST_CONTAM);
-
-    /* xxx mark delete Mar 10 2025 xxxx
-    FLAM_HOST = GENSPEC.GENFLUX_LIST[IMJD_HOST][ilam];
-    FLAM_TOT  = FLAM_SN + (FLAM_HOST*SCALE_FLAM_HOST_CONTAM);
-    xxxxx*/
 
     GENSPEC.GENFLUX_LIST[imjd][ilam] = FLAM_TOT ;
 
@@ -13339,10 +13322,6 @@ double gen_MWEBV(double RA, double DEC) {
   // apply user scale (June 2017)
   GENLC.MWEBV_SMEAR *= INPUTS.MWEBV_SCALE ;
 
-  // xxx wrong place to update MWEBV 
-  // added by epeterson and dbrout 9/12/24
-  // xxx mark deete GENLC.MWEBV += get_zvariation(GENLC.REDSHIFT_CMB,"EBV_IGM");
-
 
   if ( LDMP ) {
     printf(" xxx --------------------------------------- \n");
@@ -13893,7 +13872,6 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
   
   OVP = (OPTMASK_SIMSED & OPTMASK_GEN_SIMSED_SEQ);
   if ( OVP > 0 )  { 
-    // xxx mark delete ISIMSED_SELECT      = NGENLC_TOT ; // IGEN = ISED (refac)
     ISIMSED_SELECT      = NGENEV_TOT ; // IGEN = ISED (refac)
   }
 
@@ -14199,8 +14177,6 @@ void genran_modelSmear(void) {
   int    ifilt ;
   int    ILIST_RAN = 2 ; // list to use for genSmear randoms
   double rr8, rho, RHO, rmax, rmin, rtot ;
-
-  // xxx mark delete bool ALLOW_ONE_CALL = ( SEARCHEFF_SPEC_INFO.FLAG_PEAKMAG_ONLY == 0 ) ; // temp until new SNANA tag
   bool ALLOW_ONE_CALL = true; // Jul 30 2025
 
   char fnam[] = "genran_modelSmear" ;
@@ -16032,7 +16008,6 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
     for ( ifilt=0; ifilt < GENLC.NFILTDEF_REST; ifilt++ ) {
       ifilt_rest = GENLC.IFILTMAP_REST[ifilt]; 
       cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-      // xxx mark sprintf(cptr,"magT0_%c", FILTERSTRING[ifilt_rest] ) ;
       sprintf(cptr,"PEAKMAG_%c", FILTERSTRING[ifilt_rest] ) ;
       SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8=&GENLC.peakmag_rest[ifilt_rest];
       NVAR_SIMGEN_DUMP++ ;
@@ -16316,8 +16291,13 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   NVAR_SIMGEN_DUMP_GENONLY =   NVAR_SIMGEN_DUMP ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-  sprintf(cptr,"REDSHIFT_FINAL") ;
+  sprintf(cptr,"REDSHIFT_FINAL") ;  // reported best redshift
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_CMB_SMEAR ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"REDSHIFT_FINAL_ERR") ; // error on reported best redshift
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.REDSHIFT_SMEAR_ERR ;
   NVAR_SIMGEN_DUMP++ ;
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -16997,7 +16977,7 @@ void gen_zsmear(double zerr) {
   // 
   int    i, NZRAN ;
   double zsmear, zerr_loc;
-  double ZGEN_MIN = 2.0e-9 ; // xxx mark 0.0001;
+  double ZGEN_MIN = 2.0e-9 ; 
   double zhelio, RA, DEC ;
   char   fnam[] = "gen_zsmear";
 
@@ -20531,8 +20511,6 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
 
   // bail if no synthetic filters.
   if ( INPUTS_SPECTRO.NSYN_FILTER == 0 )  { 
-    // xxx mark ifilt_obs =  JFILT_SPECTROGRAPH ;
-    // xxx mark sprintf(cfilt,  " " ) ;    
     SIMLIB_OBS_RAW.IFILT_OBS[ISTORE]  = JFILT_SPECTROGRAPH;  return ; 
   }
   else {
@@ -23584,7 +23562,6 @@ int geneff_calc(void) {
   // rejected by the search & by CUTWIN-cuts, but EXCLUDEs those
   // rejected by generation-ranges.
 
-  // xxx mark del May 27 2025 : XN0 = (float)(NGENLC_TOT - NGEN_REJECT.GENRANGE );
   XN0 = (float)(NGENLC_TOT); // after passing GENRANGE_CUTS
 
   if ( XN0 > 0.0 ) {
@@ -24929,13 +24906,6 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_GENTYPE   = GENLC.SIM_GENTYPE ;
   sprintf(SNDATA.SIM_TYPE_NAME, "%s", GENLC.SNTYPE_NAME ); 
   
-  /* xxx mark delete Dec 18 2025 xxxxxx
-  // store map[GENTYPE] = name to print in readme
-  char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[SNDATA.SIM_GENTYPE];
-  if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL ) 
-    { catVarList_with_sep(ctype,GENLC.SNTYPE_NAME,PLUS) ;  }
-  xxxxxx */
-
   if ( WRFLAG_BLINDTEST ) 
     { SNDATA.FAKE  = FAKEFLAG_LCSIM_BLINDTEST ; }
   else
@@ -25030,7 +25000,6 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.SIM_MJD_EXPLODE  = GENLC.MJD_EXPLODE;
 
   SNDATA.PIXSIZE          = SIMLIB_OBS_GEN.PIXSIZE[1];
-  // xxx mark del Aug 11 2025  SNDATA.DETNUM[0]        = SIMLIB_HEADER.DETNUM ;
   SNDATA.SIM_AV           = GENLC.AV ;
   SNDATA.SIM_RV           = GENLC.RV ;
 
@@ -25297,10 +25266,6 @@ void zsource_to_SNDATA(int FLAG){
 
   SNDATA.MASK_REDSHIFT_SOURCE = 0;
 
-  /* xxx mark delete Nov 26 2024 xxx
-  ztmp_err = SNDATA.HOSTGAL_SPECZ_ERR[0];
-  if(ztmp_err>=0.0 && ztmp_err<0.05){
-  xxxxxxxx*/
   if ( FOUND_zHOST_SPEC ) {
     SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_SPEC  ;
   }
@@ -26557,7 +26522,6 @@ void init_genSEDMODEL(void) {
 
   logzdif =  log10(zmax) - log10(zmin) ;
   NZBIN = (int)( 50. * logzdif ) + 1 ;
-  // xxx mark Oct 22 2025  if ( NZBIN <= 1 ) { NZBIN = 2; } // avoid divide-by-zero in init_redshift_SEDMODEL
 
   init_redshift_SEDMODEL(NZBIN, zmin, zmax);
 

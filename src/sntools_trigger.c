@@ -1402,13 +1402,16 @@ void read_zHOST_FILE(FILE *fp) {
   // Aug 19 2024: redefine *ptr_VARNAMES[MX] -> **ptr_VARNAMES to avoid
   //              strange crash using -O2 optimization
   //
-  // Mar 04 2026: check for OPT_FIELDMATCH_REQUIRE key in map file
+  // Mar 04 2026: 
+  //   + check for OPT_FIELDMATCH_REQUIRE key in map file
+  //   + skip everything after commentchar
+  //   + reset PEAKMJD_RANGE = 10000 90000 for each map
 
   int  OPT_EXTRAP = 0 ;
   int  NTAB=0;
   int  IDMAP, imap, NMAP, ivar, NVAR, NDIM, NFUN ;
   int  FOUND_VARNAMES;
-  char c_get[100], FIELDLIST[100] ;
+  char c_get[100], line[100], FIELDLIST[100] ;
   char **ptr_VARNAMES, *VARLIST;
   int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
   double PEAKMJD_RANGE[2];
@@ -1432,11 +1435,12 @@ void read_zHOST_FILE(FILE *fp) {
   
   NMAP = NVAR = 0;    
   sprintf(FIELDLIST,"%s", ALL);
-  PEAKMJD_RANGE[0] = 10000.0;
-  PEAKMJD_RANGE[1] = 90000.0;
+  PEAKMJD_RANGE[0] = 10000.0;  PEAKMJD_RANGE[1] = 90000.0;
 
   // -----------------------------
   while( (fscanf(fp, "%s", c_get )) != EOF) {
+
+    if ( c_get[0] == '#' ) { fgets(line,100,fp); }  // skip everything after comment char
 
     if ( c_get[0] == '\t' ) { NTAB++; }
     
@@ -1480,18 +1484,18 @@ void read_zHOST_FILE(FILE *fp) {
 		   MXROW_SEARCHEFF_zHOST, fnam,
 		   &SEARCHEFF_zHOST[NMAP].GRIDMAP ) ;
 
-      printf("\t FIELDLIST = %s \n", FIELDLIST); 
-      if ( PEAKMJD_RANGE[0] > 10001.0 ) {
-	printf("\t PEAKMJD_RANGE = %d to %d \n", 
-	       (int)PEAKMJD_RANGE[0], (int)PEAKMJD_RANGE[1] );
-      }
+      printf("\t FIELDLIST     = %s \n", FIELDLIST); 
+      printf("\t PEAKMJD_RANGE = %d to %d \n", (int)PEAKMJD_RANGE[0], (int)PEAKMJD_RANGE[1] );
+    
+      PEAKMJD_RANGE[0] = 10000.0;  PEAKMJD_RANGE[1] = 90000.0; // reset for next map
+	
       fflush(stdout);
 
       NONZERO_SEARCHEFF_zHOST++ ;
     } // end VARNAMES check
 
     // always increment NMAP, even if past bound.
-    if ( FOUND_VARNAMES ) { NMAP++ ; }
+    if ( FOUND_VARNAMES )   { NMAP++ ; } 
    
   } // end while
 
@@ -2589,7 +2593,7 @@ int gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC) {
 
     // check if current field goes with this map
     FIELD_MAP = SEARCHEFF_SPEC[imap].FIELDLIST ;
-    MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP);  // Feb 2021  .xyz
+    MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP); 
     
     if ( !MATCH ) { continue; } // bug fix; Mar 3 2026 
 
@@ -2731,7 +2735,7 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   if(  INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY ) 
     { EFF = interp_SEARCHEFF_zHOST_LEGACY(); }
   else
-    { EFF = interp_SEARCHEFF_zHOST(); }
+    { EFF = interp_SEARCHEFF_zHOST(ID); }
 
 
   *EFF_zHOST = EFF ;  // load function arg.
@@ -2751,10 +2755,11 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
 
 
 // *******************************************
-double interp_SEARCHEFF_zHOST(void) {
+double interp_SEARCHEFF_zHOST(int ID) {
 
   // Mar 12 2019
   // Interpolate multi-D map to get EFF(HOSTLIB properties)
+  // Input ID is only for print/abort diagnostic.
   //
   // July 2020: check PEAKMJD too
   // Oct 15 2020: clarify error message on interp failure.
@@ -2770,10 +2775,15 @@ double interp_SEARCHEFF_zHOST(void) {
   char *field_map, *field_data, *varName ;  
   bool MATCH_FIELD, MATCH_PEAKMJD ;
 
-  int LDMP = 0;
+  int LDMP = 0 ;
   char fnam[] = "interp_SEARCHEFF_zHOST" ;
 
   // ---------------- BEGIN -------------
+
+  if ( LDMP ) {
+    printf(" xxx --------------------------------------------------- \n");
+    printf(" xxx %s DUMP for CID = %d \n", fnam, ID); 
+  }
 
   // determine which map based on FIELD
   for(imap=0; imap < NMAP;  imap++ ) {
@@ -2788,6 +2798,11 @@ double interp_SEARCHEFF_zHOST(void) {
     if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
       { MATCH_PEAKMJD = true; }
 
+    if ( LDMP ) {
+      printf(" xxx %s: imap=%d  MATCH_FIELD=%d  MATCH_PEAKMJD=%d \n", 
+	     fnam, imap, MATCH_FIELD, MATCH_PEAKMJD); fflush(stdout);
+    }
+
     if ( MATCH_FIELD && MATCH_PEAKMJD ) {
       // load VARDATA from HOSTLIB
       NMATCH++ ;
@@ -2795,21 +2810,30 @@ double interp_SEARCHEFF_zHOST(void) {
       IGAL = SNHOSTGAL.IGAL ;
       for(ivar=0; ivar < NVAR; ivar++ ) {
 	ivar_HOSTLIB  = SEARCHEFF_zHOST[imap].IVAR_HOSTLIB[ivar] ;
+	varName       = SEARCHEFF_zHOST[imap].VARNAMES_HOSTLIB[ivar] ;
 	VARDATA[ivar] = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-      }
+
+	if ( LDMP ) {
+	  printf(" xxx %s: load VARDATA  ivar=%d  %s = %f \n",
+		 fnam, ivar, varName, VARDATA[ivar] ); fflush(stdout);
+	}
+      } // end ivar loop
       
       istat = interp_GRIDMAP(&SEARCHEFF_zHOST[imap].GRIDMAP, VARDATA, 
 			     &EFF_TMP );        // <== returned  
 
       Pnoz *= ( 1.0 - EFF_TMP ); // prob if NOT getting zHOST
-    }
+
+      
+
+    } // end MATCH_FIELD && MATCH_PEAKMJD
 
   } // end imap loop
 
   // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
   EFF = 1.0 - Pnoz ;
 
-
+  // - - - - - - 
   if ( NMATCH == 0 ) {
     if ( OPT_FIELDMATCH_REQUIRE_zHOST > 0 ) {
       sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
@@ -2817,7 +2841,7 @@ double interp_SEARCHEFF_zHOST(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
     else {
-      return(EFF);
+      return(EFF);  // .xyz make sure that this is zero ???
     }
   }
 

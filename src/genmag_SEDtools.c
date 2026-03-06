@@ -3671,7 +3671,6 @@ void genSpec_SEDMODEL(int ised,
     x0fac = x0;
 
     // correct for galactic extinction, host extinction, magoff
-
     MWXT_FRAC   = SEDMODEL_TABLE_MWXT_FRAC[IFILT][ispec] ;
 
     HOSTXT_FRAC = 1.0; 

@@ -122,7 +122,7 @@ NMAX_CID_LIST = 50  # max number of CIDs to print for @@OPT CID_LIST
 # can be used in variables (@V) and weigts (@@WGTFUN).
 NUMPY_FUNC_DICT = {
     'exp'         :  'np.exp'  ,
-    'log10'       :  'np.log'  ,   # works for log and log10        
+    'log10'       :  'np.log10' ,   # works for log and log10        
     'log'         :  'np.log'  ,   # works for log and log10
     'sqrt'        :  'np.sqrt' ,
     'abs'         :  'np.abs'  ,

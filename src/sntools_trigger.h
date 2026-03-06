@@ -60,7 +60,7 @@
 #define APPLYMASK_SEARCHEFF_PIPELINE    1  // pipeline detection
 #define APPLYMASK_SEARCHEFF_SPEC        2  // spec confirmed
 #define APPLYMASK_SEARCHEFF_zHOST       4  // zSpec from host
-// xxxx #define APPLYMASK_SEARCHEFF_SINGLE  8 // pipe detect on single detect
+// ?? #define APPLYMASK_SEARCHEFF_SPEC_or_zHOST  6 // either of above (Mar 2026)
 
 #define DETECT_MASK_SNR         1  // detect mask for SNR or MAG
 #define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
@@ -343,7 +343,7 @@ int    gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC );
 int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);
 double interp_SEARCHEFF_zHOST_LEGACY(void);
-double interp_SEARCHEFF_zHOST(void);
+double interp_SEARCHEFF_zHOST(int ID);
 
 void   check_SEARCHEFF_DETECT(int imap );
 void   check_SEARCHEFF_PHOTPROB(int imap );

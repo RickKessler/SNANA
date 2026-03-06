@@ -3385,7 +3385,7 @@ which forces spec-confirmed events to have {\tt PEAKMJD} in-season;
 i.e., between the first and last observation of a season, where
 a season is defined as a set of observations with gaps less than 90 days.
 This map alone would select every in-season event as spec-confirmed,
-but addition peakmag-dependent maps can be added to the same file.
+but additional peakmag-dependent maps can be added to the same file.
 
 
 \bigskip
@@ -3401,25 +3401,23 @@ in a bit-mask in each data file, defined as follows:
    SIM_SEARCHEFF_MASK += 1   # detected by image-subtraction
    SIM_SEARCHEFF_MASK += 2   # spectroscopically confirmed
    SIM_SEARCHEFF_MASK += 4   # unconfirmed with host redshift (next section)
+   SIM_SEARCHEFF_MASK += 8   # zSPEC from either spec-confirmation of zSPEC
 \end{Verbatim}
 %
-And here are some command examples,
+Here are some examples to interpret this mask:
 %
 \begin{Verbatim}[frame=single]
-   SIM_SEARCHEFF_MASK = 1   # detected by image-subtr; spec-unconfirmed
-   SIM_SEARCHEFF_MASK = 2   # failed image-subtr, but spec-confirmed
-   SIM_SEARCHEFF_MASK = 3   # detected by image-subtr & spec confirmed
-   SIM_SEARCHEFF_MASK = 5   # detected by image-subtr, unconfirmed with zHOST
+   SIM_SEARCHEFF_MASK = 1    # detected by image-subtr;  spec-unconfirmed
+   SIM_SEARCHEFF_MASK = 11   # detected by image-subtr & spec confirmed
+   SIM_SEARCHEFF_MASK = 13   # detected by image-subtr, unconfirmed with zHOST
+   SIM_SEARCHEFF_MASK = 15   # detected by image-subtr; spec-confirmed and zSPEC
 \end{Verbatim}
 %
-Note that {\tt SIM\_SEARCHEFF\_MASK}$ = 2$ corresponds
-to an unphysical case since it is unlikely to get a spectrum
-of a SN that was not identified by the image-subtraction pipeline.
 Although the search \effs\ are always evaluated, the user has
 the option to apply these efficiencies in the simulation,
 or to write out all simulated SNe and use the 
 {\tt SIM\_SEARCHEFF\_MASK} for further investigation.
-The following sim-input keys control trigger selection:
+The following sim-input key controls event selection:
 %
 \begin{Verbatim}[frame=single]
    APPLY_SEARCHEFF_OPT: 0  # keep all events (default)
@@ -3430,11 +3428,11 @@ The following sim-input keys control trigger selection:
 \end{Verbatim}
 %
 When ``{\tt APPLY\_SEARCHEFF\_OPT: 3}'' is set,
-then {\tt SIM\_SEARCHEFF\_MASK=3} for all saved SNe
+then {\tt SIM\_SEARCHEFF\_MASK=11 (3+8)} for all saved SNe
 because those that fail either of the search 
 criteria (software trigger of specID map) are rejected. 
 Setting  ``{\tt APPLY\_SEARCHEFF\_OPT: 1}'' results
-in SNe with {\tt SIM\_SEARCHEFF\_MASK=1} and 3;
+in SNe with {\tt SIM\_SEARCHEFF\_MASK=1} or 11;
 i.e., SNe with and without \spec\ confirmation.
 
 

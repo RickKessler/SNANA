@@ -23558,4 +23558,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         meaning the FIELD key in SEARCHEFF_SPEC_FILE was ignored --> fixed.
       - new optional key in zHOST map: OPT_FIELDMATCH_REQUIRE; see manual
 
+      - set APPLYMASK_SEARCHEFF_zSPEC (8) to allow user to select 
+        zSPEC from either SPECID or from zHOST; e.g
+          APPLY_SEARCHEFF_MASK: 9 # 1(pipeline + 8(zSPEC)
+
 END: 

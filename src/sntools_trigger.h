@@ -58,9 +58,9 @@
 #define SEARCHEFF_PARNAME (char*[4]){ "", "SNR", "ABS(SNR)", "MAG" }
 
 #define APPLYMASK_SEARCHEFF_PIPELINE    1  // pipeline detection
-#define APPLYMASK_SEARCHEFF_SPEC        2  // spec confirmed
-#define APPLYMASK_SEARCHEFF_zHOST       4  // zSpec from host
-// ?? #define APPLYMASK_SEARCHEFF_SPEC_or_zHOST  6 // either of above (Mar 2026)
+#define APPLYMASK_SEARCHEFF_SPECID      2  // spec confirmed (and accurate zSN)
+#define APPLYMASK_SEARCHEFF_zHOST       4  // zSpec from host (not necessarily SPECID)
+#define APPLYMASK_SEARCHEFF_zSPEC       8  // zSpec from SN or HOST (or of SPECID and zHOST)
 
 #define DETECT_MASK_SNR         1  // detect mask for SNR or MAG
 #define DETECT_MASK_MJD_TRIGGER 2  // identify obs where trigger passes
@@ -85,9 +85,9 @@ int  SEARCHEFF_FLAG;   // FLAG_EFFSNR or FLAG_EFFMAG
 
 char PATH_SEARCHEFF[2*MXPATHLEN]; // path for PIPELINE_FILE, SPEC_FILE
 
-int NONZERO_SEARCHEFF_SPEC  ; // number of events with EFF_SPEC > 0
-int NONZERO_SEARCHEFF_zHOST ; // number of events with EFF_zHOST > 0
-double **SEARCHEFF_TMPMAP2D ; // generic array to read/store map
+int NONZERO_SEARCHEFF_SPECID  ; // number of events with EFF_SPEC > 0
+int NONZERO_SEARCHEFF_zHOST   ; // number of events with EFF_zHOST > 0
+double **SEARCHEFF_TMPMAP2D   ; // generic array to read/store map
 
 struct  {
   char   USER_PIPELINE_LOGIC_FILE[MXPATHLEN]; // added Dec 2015
@@ -104,8 +104,8 @@ struct  {
   int    IFLAG_zHOST_EFFZERO;      // flag to set EFF_zHOST=0
   int    IFLAG_zHOST_EFFONE;       // flag to set EFF_zHOST=1 (Nov 2024)
   
-  int    IFLAG_SPEC_EFFZERO;       // flag to set EFF_SPEC=0
-  int    IFLAG_SPEC_EFFONE;        // flag to set EFF_SPEC=1 (Nov 2024)
+  int    IFLAG_SPECID_EFFZERO;       // flag to set EFF_SPEC=0
+  int    IFLAG_SPECID_EFFONE;        // flag to set EFF_SPEC=1 (Nov 2024)
   
   int    IVERSION_zHOST;           // 1=legacy, 2=multi-D
 
@@ -230,7 +230,7 @@ struct {
 
   GRIDMAP_DEF GRIDMAP ;
 
-} SEARCHEFF_SPEC[MXMAP_SEARCHEFF_SPEC] ;
+} SEARCHEFF_SPECID[MXMAP_SEARCHEFF_SPEC] ;
 
 
 struct {
@@ -239,7 +239,7 @@ struct {
   int   BOOLEAN_OR, BOOLEAN_AND;
   int   NLINE_README;
   char  README[40][MXPATHLEN];
-} SEARCHEFF_SPEC_INFO ;
+} SEARCHEFF_SPECID_INFO ;
 
 
 
@@ -321,7 +321,7 @@ struct {
 void   init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF );
 int    init_SEARCHEFF_PIPELINE(char *survey);
 void   init_SEARCHEFF_LOGIC(char *survey) ;
-void   init_SEARCHEFF_SPEC(char *survey)  ;
+void   init_SEARCHEFF_SPECID(char *survey)  ;
 void   init_SEARCHEFF_zHOST(char *survey) ;
 FILE   *open_zHOST_FILE(int OPT);
 void   read_VARNAMES_zHOST(FILE *fp);
@@ -336,10 +336,10 @@ int  malloc_NEXTMAP_SEARCHEFF_DETECT(void);
 
 void   check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF);
 
-int    gen_SEARCHEFF(int ID, double *EFF_SPEC, double *EFF_zHOST, 
+int    gen_SEARCHEFF(int ID, double *EFF_SPECID, double *EFF_zHOST, 
 		     MJD_DETECT_DEF *MJD_DETECT );
 int    gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT );
-int    gen_SEARCHEFF_SPEC(int ID, double *EFF_SPEC );
+int    gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID );
 int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);
 double interp_SEARCHEFF_zHOST_LEGACY(void);

@@ -3241,26 +3241,23 @@ function of redshift, peak-mags, peak colors, and closest time to peak.
 this function from the data and simulations.
 Rather than using an analytical form for $\simeffspec$,
 the simulated efficiency is defined on a multi-dimensional
-grid of redshift, peak-magnitudes and peak-colors.
-An example is shown here,
+grid of many variables.
+An example of definining the $\simeffspec$ map is shown here,
 \begin{verbatim}
   SEARCHEFF_SPEC_FILE:  $SNDATA_ROOT/models/searcheff/SEARCHEFF_SPEC_SDSS.DAT
   SEARCHEFF_SPEC_SCALE: 0.8  # default=1.0
        or
-  SEARCHEFF_SPEC_FILE:  ZERO  # force EFF_SPEC=0 without map
+  SEARCHEFF_SPEC_FILE:  ZERO  # force EFF_SPECID=0 without map
        or
-  SEARCHEFF_SPEC_FILE:  ONE   # force EFF_SPEC=1 without map
+  SEARCHEFF_SPEC_FILE:  ONE   # force EFF_SPECID=1 without map
        or
-  SEARCHEFF_SPEC_FILE:  NONE  # force EFF_SPEC=1 without map
+  SEARCHEFF_SPEC_FILE:  NONE  # force EFF_SPECID=1 without map
 \end{verbatim}
 % $
-%illustrating both the format and the default location.
-%If this file does not exist for a particular survey 
-%(i.e, ``SDSS'' replaced by your survey in the filename)
-If this file is not specified, then $\simeffspec=1$.
+If this file is not specified, then default $\simeffspec=1$.
 For each simulated SN, $\simeffspec$ is determined from 
 multi-dimensional (linear) interpolation. 
-If more than one grid is given 
+If more than one grid map is given in the same $\simeffspec$-map file,
 the logical OR among the efficiencies is used;
 this feature may be useful in cases where different telescopes
 take spectra for SNe in different magnitude ranges.
@@ -3284,12 +3281,13 @@ $i$ band magnitudes above 22.
 The second map depends on the absolute peak $r$-band magnitude
 and the $g-r$ color at peak.
 The 3rd map depends on the $i$-band magnitude and redshift,
-and applies only for the field named 'DEEPFIELD':
-the 'FIELD:' option allows for field-dependent maps.
+and applies only for fields named 'DEEP1' and 'DEEP2'.
+The 'FIELD:' option allows for field-dependent maps,
+and the FIELD key must appear before VARNAMES key.
 There essentially is no limit to the complexity: 
 for example, one could define 
 ``{\tt VARNAMES: g  r  i  g-r  r-i  REDSHIFT SPECEFF}''
-assuming that such a function could be determined.
+assuming that such a function can be determined.
 A list of valid {\tt VARNAMES} is shown in 
 Fig.~\ref{fig:speceff_varnames}.
 
@@ -3299,7 +3297,7 @@ Fig.~\ref{fig:speceff_varnames}.
 \caption{Illustration of \spec\ \eff\ format for the \snana\ simulation.}
 \label{fig:speceff}
 \begin{Verbatim}[frame=single]
-# TABLE 1 -- ensure 100% eff at low redshift
+# TABLE 1 -- ensure SPECEFF=1 at low redshift
   VARNAMES:  REDSHIFT  SPECEFF
   SPECEFF:    0.0      1.00
   SPECEFF:    0.1      1.00
@@ -3347,6 +3345,7 @@ Fig.~\ref{fig:speceff_varnames}.
   * LOGMASS          # hsot galaxy LOGMASS
   * HOSTMAG_[band]   # mag of host galaxy in [band]
   * SBMAG_[band]     # surface brightness mag/arcsec^2 in [band]
+  * SNRSUM_REST_V    # synthetic rest-frame V band from spectrograph
 \end{Verbatim}
 \end{center}
 \end{figure}
@@ -3358,10 +3357,10 @@ however, this \eff\ can depend on the particular SN model
 for two reasons. First, there is an overall magnitude offset
 between different SN models. Second, asymmetric 
 (dim-side) tails in the stretch and color distributions
-may not be properly modeled. To correct for the first 
-case there is a sim-input parameter 
+may not be properly modeled. To investigate the first 
+case (e.g., systematics) the sim-input parameter 
 ``{\tt MAGSHIFT\_SPECEFF: <shift>}'' 
-to shift the peak magnitude used to determine $\simeffspec=0$
+shifts the peak magnitude used to determine $\simeffspec=0$
 from the grid-map.  The second problem can be fixed only
 by using distributions with appropriate tails.
 
@@ -3423,16 +3422,17 @@ or to write out all simulated SNe and use the
 The following sim-input keys control trigger selection:
 %
 \begin{Verbatim}[frame=single]
-   APPLY_SEARCHEFF_OPT: 0  # keep all SNe (default)
-   APPLY_SEARCHEFF_OPT: 1  # keep SN if software trigger passes
-   APPLY_SEARCHEFF_OPT: 3  # keep SN if software and spec triggers pass
-   APPLY_SEARCHEFF_OPT: 5  # keep SN if software trigger and zHOST
+   APPLY_SEARCHEFF_OPT: 0  # keep all events (default)
+   APPLY_SEARCHEFF_OPT: 1  # keep if software trigger passes
+   APPLY_SEARCHEFF_OPT: 3  # keep if software trigger and SPEC-ID -> zSPEC(SN)
+   APPLY_SEARCHEFF_OPT: 5  # keep if software trigger and zHOST
+   APPLY_SEARCHEFF_OPT: 9  # keep if software trigger and zSPEC(SN or HOST)
 \end{Verbatim}
 %
 When ``{\tt APPLY\_SEARCHEFF\_OPT: 3}'' is set,
-then {\tt SIM\_SEARCHEFF\_MASK=3} for all SNe
+then {\tt SIM\_SEARCHEFF\_MASK=3} for all saved SNe
 because those that fail either of the search 
-criteria are rejected. 
+criteria (software trigger of specID map) are rejected. 
 Setting  ``{\tt APPLY\_SEARCHEFF\_OPT: 1}'' results
 in SNe with {\tt SIM\_SEARCHEFF\_MASK=1} and 3;
 i.e., SNe with and without \spec\ confirmation.

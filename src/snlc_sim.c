@@ -345,7 +345,7 @@ int main(int argc, char **argv) {
     }
 
     // check if search finds this SN:
-    GENLC.SEARCHEFF_MASK = 3 ;
+    GENLC.SEARCHEFF_MASK = APPLYMASK_SEARCHEFF_PIPELINE + APPLYMASK_SEARCHEFF_SPECID ; // default
     if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) {
       MJD_DETECT_DEF MJD_DETECT;
       LOAD_SEARCHEFF_DATA();
@@ -1276,7 +1276,7 @@ void set_user_defaults(void) {
   sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE,    "NONE" ); 
  
   INPUTS_SEARCHEFF.USER_SPECEFF_SCALE  = 1.0 ; // May 2018
-  INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO  = 0 ;
+  INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO  = 0 ;
   INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 0 ;
   INPUTS_SEARCHEFF.IVERSION_zHOST      = 0 ;
 
@@ -24348,8 +24348,9 @@ void gen_spectype(void) {
   //
   // Jun 2 2018: if IFLAG_SPEC_EFFZERO, then set PHOTID flag
   // Nov 22 2023: for FIXMAG, hard-wire SNTYPE only if it's not already set.
-  
-  int L_PHOTID, ispgen ;
+  // Mar 07 2026: improve logic for !SPECID
+
+  int L_PHOTID, L_SPECID, ispgen ;
   char fnam[] = "gen_spectype" ;
 
   // ---------- BEGIN --------------
@@ -24359,12 +24360,12 @@ void gen_spectype(void) {
   // However, for SPECTYPE_SEARCH_FLAG, then use search 
   // eff for spec-typing.
 
-
-  L_PHOTID =  ( INPUTS_SEARCHEFF.NMAP_SPEC > 0  &&
-		GENLC.SEARCHEFF_MASK  != 3  ) ;
+  L_SPECID = (GENLC.SEARCHEFF_MASK & APPLYMASK_SEARCHEFF_SPECID) > 0;
+  L_PHOTID =  ( INPUTS_SEARCHEFF.NMAP_SPEC > 0  && !L_SPECID ) ;
+		// xxx mark del Mar 7 2026  GENLC.SEARCHEFF_MASK  != 3  ) ;
 
   // un 2018: if user forces EFF_SPEC=0 without a map, then we have PHOTID
-  if ( INPUTS_SEARCHEFF.IFLAG_SPEC_EFFZERO ) { L_PHOTID = 1; }
+  if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
 
   ispgen = GENLC.NON1ASED.ISPARSE ;
   
@@ -26877,7 +26878,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   int  LFIND_SPEC=0, NEP_PEAKONLY=0, iep  ;
   int  MEMI  = (GENLC.NEPOCH+1) * sizeof(int);
   int  MEMD  = (GENLC.NEPOCH+1) * sizeof(double);
-  int  DOSPEC = (INPUTS.APPLY_SEARCHEFF_OPT & 2) ;
+  int  DOSPEC = (INPUTS.APPLY_SEARCHEFF_OPT & APPLYMASK_SEARCHEFF_SPECID) ;
   double EFF ;
 
   struct {
@@ -26895,7 +26896,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   if ( DOSPEC == 0 ) 
     { return(1); }
 
-  if ( SEARCHEFF_SPEC_INFO.FLAG_PEAKMAG_ONLY == 0 ) 
+  if ( SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY == 0 ) 
     { return(1); }
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 
@@ -26931,7 +26932,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   GENLC.NEPOCH = NEP_PEAKONLY;
   GENMAG_DRIVER(); 
   LOAD_SEARCHEFF_DATA();
-  LFIND_SPEC = gen_SEARCHEFF_SPEC(GENLC.CID, &EFF) ;  // return EFF 
+  LFIND_SPEC = gen_SEARCHEFF_SPECID(GENLC.CID, &EFF) ;  // return EFF 
     
   GENLC.NEPOCH = GENLC_ORIG.NEPOCH ; // always needed for init_event_GENLC
 
@@ -26969,16 +26970,18 @@ int gen_TRIGGER_zHOST(void) {
   // speed simulation.
   //
   // Mar 15 2018: bail if zHOST is NOT required by user
-  // Jun 19 2018: bail of CUTWIN_SNRMAX is specified.
+  // Jun 19 2018: bail if CUTWIN_SNRMAX is specified.
 
   double EFF, IPASS;
   int  NEPOCH_ORIG   = GENLC.NEPOCH;
   int  APPLY_OPT     = INPUTS.APPLY_SEARCHEFF_OPT ;
-  int  REQUIRE_SPEC  = (APPLY_OPT & APPLYMASK_SEARCHEFF_SPEC) ;
+  int  REQUIRE_SPEC  = (APPLY_OPT & APPLYMASK_SEARCHEFF_SPECID) ;
   int  REQUIRE_zHOST = (APPLY_OPT & APPLYMASK_SEARCHEFF_zHOST);
   char fnam[] = "gen_TRIGGER_zHOST" ;
 
   // -------------- BEGIN ------------------
+
+  if ( INPUTS.DEBUG_FLAG == 307 ) { return(1); } // to test APPLY_SEARCHEFF_OPT = 9
 
   // bail if spec-confirmation is required
   if ( REQUIRE_SPEC ) { return(1); }

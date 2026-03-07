@@ -385,8 +385,12 @@ void wr_snfitsio_init_head(void) {
 
   // add zPHOT quantiles
   for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-    sprintf(parName,"HOSTGAL_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
+    int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
+    LOAD_VARNAME_ZPHOT_Q("HOSTGAL", PCT, parName); // return parName .xyz
+    // xxx mark del Mar 6 2026  sprintf(parName,"HOSTGAL_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
     wr_snfitsio_addCol( "1E", parName, itype );
+
+    printf(" xxx %s: load parName = '%s' for iq=%d \n", fnam, parName, iq);
   }
 
   // add HOSTGAL mags 
@@ -440,7 +444,9 @@ void wr_snfitsio_init_head(void) {
 
     // add zPHOT quantiles
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-      sprintf(parName,"HOSTGAL2_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
+      int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
+      LOAD_VARNAME_ZPHOT_Q("HOSTGAL2", PCT, parName); // return parName .xyz
+      // xxx mark del Mar 6 2026 sprintf(parName,"HOSTGAL2_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
       wr_snfitsio_addCol( "1E", parName, itype );
     }
  
@@ -1396,10 +1402,7 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
   
   for(ipar=0; ipar < N_Q; ipar++ ) { 
     PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar];
-
-    sprintf(KEYNAME,"PERCENTILE_%s%2.2d", 
-	    PREFIX_ZPHOT_Q, ipar);  // e.g., 'PERCENTILE_ZPHOT_Q00'
-
+    sprintf(KEYNAME,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, ipar);  // e.g., 'PERCENTILE_ZPHOT_Q00'
     istat=0;
     fits_update_key(fp, TINT, KEYNAME, &PCT, KEYNAME, &istat );  
     sprintf(c1err,"Write %s quantile key", KEYNAME) ;
@@ -1815,10 +1818,12 @@ void wr_snfitsio_update_head(void) {
 
     // HOSTGAL Q PARAMS (Jan 2022)
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-      sprintf(parName,"%s_%s", PREFIX, HOSTLIB.VARNAME_ZPHOT_Q[iq]);
+      int PCT  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
+      LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, parName); // return parName .xyz
+      // xxx mark delete Mar 7 2026 sprintf(parName,"%s_%s",PREFIX,HOSTLIB.VARNAME_ZPHOT_Q[iq]);
+
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E =
-        SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
@@ -3496,8 +3501,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       for(iq=0; iq < N_Q; iq++ ) {
 	int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
 	float *zq = &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq];
-        sprintf(KEY,"%s_%s%3.3d", PREFIX, PREFIX_ZPHOT_Q, PCT); 
-        j++ ; NRD=RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
+	LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, KEY); // return KEY
+        // xxx mark del Mar 6 2026 sprintf(KEY,"%s_%s%3.3d", PREFIX, PREFIX_ZPHOT_Q, PCT); 
+        j++ ; NRD = RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
 
 	//printf(" xxx %s: KEY = %s = %.4f for PCT=%d \n",
 	//     fnam, KEY, zq, PCT); fflush(stdout);

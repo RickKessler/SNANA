@@ -23536,7 +23536,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
        + abort on mix of header-override files key by CID and GALID;
          must be all keyed by CID or GALID
+       + if HOSTGAL_PHOTOZ in on override list and REDSHIFT_FINAL < 0,
+          update REDSHIFT_FINAL and REDSHIFT_HELIO (and their errors)
 
+     sntools_dataformat_fits.c:
+       + fix bug updating QUANTILE overrides to re-written FITS file;
+          quantile values were fine; bug was in defining column name,
+       
      SALT2mu.c:
        - fix sort_IDSAMPLE_biasCor to properly account for zSPEC/zPHOT;
           see https://github.com/RickKessler/SNANA/issues/1610

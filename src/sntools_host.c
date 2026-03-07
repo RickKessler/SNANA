@@ -4479,8 +4479,7 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
     for(q=0; q < N_Q; q++ ) {
       percentile = q * qbin;
       HOSTLIB.PERCENTILE_ZPHOT_Q[q] = percentile ;
-      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[q],"%s%3.3d", 
-	      PREFIX_ZPHOT_Q, percentile);
+      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[q], "%s%3.3d", PREFIX_ZPHOT_Q, percentile);
     }
   }
 

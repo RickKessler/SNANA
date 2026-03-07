@@ -10440,7 +10440,7 @@
     SUBROUTINE copy_SNDATA_MISC()
 
 ! Created Mar 14 2021
-! Update the following SNDATA struct variables for FITS or TEXT format:
+! Update the following SNDATA struct variables for re-writting in FITS or TEXT format:
 ! 
 !   + PEAKMJD                ( if OPT_SETPKMJD > 0)
 !   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
@@ -10474,7 +10474,7 @@
     IMPLICIT NONE
 
     INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
-    INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ, q, igal
+    INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ, q, igal, LENV 
     REAL*8 DVAL(MXEPOCH)
     CHARACTER cKEY*20, cSTRING*20, cfilt*2
     EXTERNAL COPY_SNDATA_HEAD
@@ -10557,12 +10557,14 @@
 ! Oct 2025: photo-z quantiles
     NQ = SNHOST_NZPHOT_Q
     IF ( NQ > 0 ) THEN
-      IGAL = 1
+      do igal = 1, MXSNHOST
       do q = 1, NQ
-         cKEY    = VARNAME_ZPHOT_Q(IGAL,q) // char(0)
+         LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
+         cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
          DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
          CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
               cSTRING, DVAL, LEN_KEY, LEN_STR)
+      enddo
       enddo
     ENDIF
 

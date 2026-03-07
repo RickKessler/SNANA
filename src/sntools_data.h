@@ -20,7 +20,7 @@ struct {
   char VARNAME_MATCH[40];  // e.g., CID, SNID, GALID ...
 
   // logicals to decide if zCMB or zHEL needs to be recomputed.
-  bool FOUND_zCMB, FOUND_zHEL ;
+  bool FOUND_zCMB, FOUND_zHEL, FOUND_HOSTGAL_ZPHOT ;
   int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023)
   char **VARLIST_ZPHOT_Q;
 
@@ -52,6 +52,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key,
                      int NVAL,char *stringVal, double *parVal);
 int  select_MJD_SNDATA(double *CUTWIN_MJD);
 void host_property_list_sndata(char *HOST_PROPERTY_LIST);
+void LOAD_VARNAME_ZPHOT_Q(char *PREFIX, int PCT, char *VARNAME) ; 
 
 void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal);
 

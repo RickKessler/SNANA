@@ -1541,13 +1541,13 @@ def get_wfit_values(wfit_yaml):
                 wa_sig    = 0.5*(wa_sig_lo + wa_sig_up)
 
     # - - - OM - - - -
-    key_list = [ 'omm', 'OM' ]
+    key_list = [ 'omm', 'OM', 'om' ]
     OM = -9.0
     for key in key_list:
         if  key in wfit_yaml:
             omm  = wfit_yaml[key]  
 
-    key_list = [ 'omm_sig', 'OMsig', 'OMsig_marg' ]
+    key_list = [ 'omm_sig', 'OMsig', 'OMsig_marg', 'omsig_marg' ]
     omm_sig = -9.0
     for key in key_list:
         if  key in wfit_yaml:

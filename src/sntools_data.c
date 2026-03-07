@@ -1654,16 +1654,22 @@ void rd_override_zcalc(void) {
   }
 
   // - - - - -
-  // .xyz  
-  if ( RD_OVERRIDE.FOUND_HOSTGAL_ZPHOT && SNDATA.REDSHIFT_FINAL < 0.0 ) {
+  if ( RD_OVERRIDE.FOUND_HOSTGAL_ZPHOT ) {
+
     zHEL     = SNDATA.HOSTGAL_PHOTOZ[0];
-    zHELERR  =  SNDATA.HOSTGAL_PHOTOZ_ERR[0];
-    zCMB     = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
-    
-    SNDATA.REDSHIFT_HELIO     = (float)zHEL;
-    SNDATA.REDSHIFT_HELIO_ERR = (float)zHELERR;
-    SNDATA.REDSHIFT_FINAL     = (float)zCMB ;    
-    SNDATA.REDSHIFT_FINAL_ERR = (float)zHELERR ;
+    zHELERR  = SNDATA.HOSTGAL_PHOTOZ_ERR[0];
+
+    // update REDSHIFT_FINAL if current REDSHIFT_FINAL[HELIO] are not defined (-9),
+    // or if REDSHIFT_HELIO is already equal to the old HOSTGAL_PHOTOZ value. .xyz
+    bool UPD_zFINAL = ( SNDATA.REDSHIFT_HELIO < 0.0 || abs(SNDATA.REDSHIFT_HELIO-zHEL)<1.0E-3 );
+   
+    if ( UPD_zFINAL ) {    
+      zCMB     = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
+      SNDATA.REDSHIFT_HELIO     = (float)zHEL;
+      SNDATA.REDSHIFT_HELIO_ERR = (float)zHELERR;
+      SNDATA.REDSHIFT_FINAL     = (float)zCMB ;    
+      SNDATA.REDSHIFT_FINAL_ERR = (float)zHELERR ;
+    }
   }
 
 

@@ -5,10 +5,8 @@
 
  ******************************************/
 
-#define MXFILE_OVERRIDE 10
-// xxx mark delete #define MXVAR_OVERRIDE  40
-#define IVARMAX_OVERRIDE  200  // max IVAR in override file, so this can be large even with only 1 override var
-
+#define MXFILE_OVERRIDE   10
+#define IVARMAX_OVERRIDE  200  // max IVAR;  can be large even with only 1 override var
 
 struct {
   bool USE;
@@ -32,6 +30,9 @@ struct {
   int  NVAR_USE; // number of override variables used (Aug 2025)
 
   char ID_LAST[40]; // last CID or GALID passed; used to count NUSE_OVERRIDE
+
+  int   N_HOSTGAL_PHOTOZ_REPLACE;
+  float ORIG_HOSTGAL_PHOTOZ[4], ORIG_HOSTGAL_PHOTOZ_ERR[4]; // for special REDSHIFT_FINAL update
 
 } RD_OVERRIDE;
 

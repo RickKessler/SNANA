@@ -425,11 +425,16 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	{ copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_FLAG[igal] ); } 
 
       sprintf(KEY_TEST,"%s_PHOTOZ", PREFIX); 
-      if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ[igal] ); } 
+      if ( strcmp(key,KEY_TEST) == 0 ) { 
+	RD_OVERRIDE.ORIG_HOSTGAL_PHOTOZ[igal] = SNDATA.HOSTGAL_PHOTOZ[igal];
+	copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ[igal] ); 
+      } 
+
       sprintf(KEY_TEST,"%s_PHOTOZ_ERR", PREFIX); 
-      if ( strcmp(key,KEY_TEST) == 0 ) 
-	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ); } 
+      if ( strcmp(key,KEY_TEST) == 0 ) {
+	RD_OVERRIDE.ORIG_HOSTGAL_PHOTOZ_ERR[igal] = SNDATA.HOSTGAL_PHOTOZ_ERR[igal];
+	copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ); 
+      } 
 
       sprintf(KEY_TEST,"%s_SPECZ", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
@@ -1426,6 +1431,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   RD_OVERRIDE.NVAR_USE    = 0;
   RD_OVERRIDE.ID_LAST[0]  = 0; // Aug 8 2025
   RD_OVERRIDE.NEVT        = 0; 
+  RD_OVERRIDE.N_HOSTGAL_PHOTOZ_REPLACE = 0 ;
 
   printf("\n Finished %s\n\n", fnam);
 
@@ -1656,21 +1662,42 @@ void rd_override_zcalc(void) {
   // - - - - -
   if ( RD_OVERRIDE.FOUND_HOSTGAL_ZPHOT ) {
 
-    zHEL     = SNDATA.HOSTGAL_PHOTOZ[0];
-    zHELERR  = SNDATA.HOSTGAL_PHOTOZ_ERR[0];
+    double zPHOT          = SNDATA.HOSTGAL_PHOTOZ[0];
+    double zPHOTERR       = SNDATA.HOSTGAL_PHOTOZ_ERR[0];
+    double zPHOT_ORIG     = RD_OVERRIDE.ORIG_HOSTGAL_PHOTOZ[0];
+    double zPHOTERR_ORIG  = RD_OVERRIDE.ORIG_HOSTGAL_PHOTOZ_ERR[0];
+    double zHEL_ORIG      = SNDATA.REDSHIFT_HELIO;
+    double zHELERR_ORIG   = SNDATA.REDSHIFT_HELIO_ERR;
+    bool UPD1_zFINAL, UPD2_zFINAL ;
 
     // update REDSHIFT_FINAL if current REDSHIFT_FINAL[HELIO] are not defined (-9),
     // or if REDSHIFT_HELIO is already equal to the old HOSTGAL_PHOTOZ value. .xyz
-    bool UPD_zFINAL = ( SNDATA.REDSHIFT_HELIO < 0.0 || abs(SNDATA.REDSHIFT_HELIO-zHEL)<1.0E-3 );
+    UPD1_zFINAL = ( zHEL_ORIG < 0.0 );
+    UPD2_zFINAL = ( fabs(zHEL_ORIG-zPHOT_ORIG)<1.0E-4  && 
+		    fabs(zHELERR_ORIG-zPHOTERR_ORIG)<1.0E-3 );
    
-    if ( UPD_zFINAL ) {    
-      zCMB     = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
-      SNDATA.REDSHIFT_HELIO     = (float)zHEL;
-      SNDATA.REDSHIFT_HELIO_ERR = (float)zHELERR;
+    if ( UPD1_zFINAL || UPD2_zFINAL ) {    
+      zCMB     = zhelio_zcmb_translator(zPHOT,RA,DEC,COORDSYS_EQ,+1);
+      SNDATA.REDSHIFT_HELIO     = (float)zPHOT;
+      SNDATA.REDSHIFT_HELIO_ERR = (float)zPHOTERR;
       SNDATA.REDSHIFT_FINAL     = (float)zCMB ;    
-      SNDATA.REDSHIFT_FINAL_ERR = (float)zHELERR ;
+      SNDATA.REDSHIFT_FINAL_ERR = (float)zPHOTERR ;
     }
-  }
+
+    // Mar 7 2026: print a few diagnostic updates for this special case
+    //        beware; this diagnostic dump has not been seen yet ??
+    if ( UPD2_zFINAL ) {
+      RD_OVERRIDE.N_HOSTGAL_PHOTOZ_REPLACE++ ;
+      if ( RD_OVERRIDE.N_HOSTGAL_PHOTOZ_REPLACE < 10 ) {
+	printf("\n HOSTGAL_PHOTOZ OVERRIDE UPDATE: REDSHIFT_HELIO=%.4f -> %.4f for CID=%s \n\n",
+	       zHEL_ORIG, zPHOT, SNDATA.CCID); 
+	//printf(" xxx OVERRIDE zPHOT_ORIG = %f +_ %f (CID=%s)\n", 
+	//     zPHOT_ORIG, zPHOTERR_ORIG, SNDATA.CCID); // xxxx
+	fflush(stdout);
+      }
+    }
+
+  } // end RD_OVERRIDE.FOUND_HOSTGAL_ZPHOT
 
 
   return ;

@@ -23568,4 +23568,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         zSPEC from either SPECID or from zHOST; e.g
           APPLY_SEARCHEFF_MASK: 9 # 1(pipeline + 8(zSPEC)
 
+      - sim input "REFAC_SEARCHEFF_MAP: 1" implements refactor
+        to use same SPEC-EFF tools/maps on zHOST EFF.
+
 END: 

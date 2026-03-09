@@ -708,8 +708,6 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
   INPUTS.RESTORE_BUG_ZHEL       = true;
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
-  INPUTS_SEARCHEFF.RESTORE_DES5YR = 0 ; // Oct 15 2025
-
   NLINE_RATE_INFO   = 0;
 
   INPUTS.TIME_START[0] = 0 ;
@@ -1253,11 +1251,15 @@ void set_user_defaults(void) {
   INPUTS.APPLY_CUTWIN_OPT = 0;
   INPUTS.NCUTWIN_TOT = 0 ;
 
+  INPUTS_SEARCHEFF.RESTORE_DES5YR      = 0 ; // Oct 15 2025
+  INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 0 ; // Mar 8 2026
+  INPUTS_SEARCHEFF.LEGACY_SEARCHEFF_MAP = 1;
+
   INPUTS_SEARCHEFF.FIX_EFF_PIPELINE = -9.0 ;
   INPUTS_SEARCHEFF.FUNEFF_DEBUG     = 0 ; // 1->100% eff, 2-> hackFun
   INPUTS_SEARCHEFF.NMAP_DETECT      = 0 ;
   INPUTS_SEARCHEFF.NMAP_PHOTPROB    = 0 ;
-  INPUTS_SEARCHEFF.NMAP_SPEC        = 0 ;
+  INPUTS_SEARCHEFF.NMAP_SPECID      = 0 ;
   INPUTS_SEARCHEFF.NMAP_zHOST       = 0 ;
   INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF = 0.0 ;
   INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE = 0;
@@ -1269,8 +1271,6 @@ void set_user_defaults(void) {
   sprintf(INPUTS_SEARCHEFF.USER_SPEC_FILE, "NONE");
   sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE,"NONE");
 
-  //  sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE,  "DEFAULT" ); 
-  //  sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE,    "DEFAULT" ); 
 
   sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE,  "NONE" ); 
   sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE,    "NONE" ); 
@@ -1797,6 +1797,8 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.RESTORE_DES5YR);   // May 28 2025
     INPUTS_SEARCHEFF.RESTORE_DES5YR = INPUTS.RESTORE_DES5YR; // Oct 15 2025
   }
+
+
   else if ( keyMatchSim(1, "RESTORE_BUGS_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     if (ITMP) { INPUTS.RESTORE_BUGS_DES3YR = true; }    
@@ -2553,7 +2555,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );
   }
-  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_FILE  SEARCHEFF_SPECEFF_FILE", 
+  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_FILE  SEARCHEFF_SPECID_FILE  SEARCHEFF_SPECEFF_FILE", 
 			WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_SPEC_FILE );
@@ -2566,6 +2568,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_zHOST_FILE );
   }
+
   else if ( keyMatchSim(1, "APPLY_SEARCHEFF_OPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.APPLY_SEARCHEFF_OPT );
   }
@@ -2575,6 +2578,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "MINOBS_SEARCH",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.MINOBS );
   }
+
+  else if ( keyMatchSim(1, "REFAC_SEARCHEFF_MAP",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ); // temp; mar 8 2026
+    if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP > 0 )  { INPUTS_SEARCHEFF.LEGACY_SEARCHEFF_MAP=0;}
+  }
+
   else if ( strstr(WORDS[0],"LCLIB") != NULL ) {
     N += parse_input_LCLIB(WORDS,keySource);
   }
@@ -6186,10 +6195,6 @@ void parse_input_OBSOLETE(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "RVMW", WORDS[0], keySource) )
     { legacyInput_abort(fnam, KEY, "RVMW:", "RV_MWCOLORLAW:"); }
-
-  else if ( keyMatchSim(1, "HUMAN_SEARCHEFF_OPT", WORDS[0], keySource) )
-    { legacyInput_abort(fnam, KEY, "HUMAN_SEARCHEFF_OPT:", "SEARCHEFF_SPEC_FILE:");}
-
 
   else if ( keyMatchSim(1, "SPECTYPE", WORDS[0], keySource) )
     { legacyInput_abort(fnam, KEY, "SPECTYPE:", ""); }
@@ -24361,7 +24366,7 @@ void gen_spectype(void) {
   // eff for spec-typing.
 
   L_SPECID = (GENLC.SEARCHEFF_MASK & APPLYMASK_SEARCHEFF_SPECID) > 0;
-  L_PHOTID =  ( INPUTS_SEARCHEFF.NMAP_SPEC > 0  && !L_SPECID ) ;
+  L_PHOTID =  ( INPUTS_SEARCHEFF.NMAP_SPECID > 0  && !L_SPECID ) ;
 		// xxx mark del Mar 7 2026  GENLC.SEARCHEFF_MASK  != 3  ) ;
 
   // un 2018: if user forces EFF_SPEC=0 without a map, then we have PHOTID
@@ -26881,6 +26886,12 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   int  DOSPEC = (INPUTS.APPLY_SEARCHEFF_OPT & APPLYMASK_SEARCHEFF_SPECID) ;
   double EFF ;
 
+  int FLAG_PEAKMAG_ONLY;
+  if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP )
+    {  FLAG_PEAKMAG_ONLY = SEARCHEFF_INFO_SPECID.FLAG_PEAKMAG_ONLY ; } // REFAC
+  else
+    {  FLAG_PEAKMAG_ONLY = SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY ; } // LEGACY
+
   struct {
     int NEPOCH, *IFILT_OBS, *ISPEAK;
     double *MJD, *TOBS, *TREST ;
@@ -26896,7 +26907,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   if ( DOSPEC == 0 ) 
     { return(1); }
 
-  if ( SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY == 0 ) 
+  if ( !FLAG_PEAKMAG_ONLY ) 
     { return(1); }
 
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  ) 
@@ -26991,9 +27002,6 @@ int gen_TRIGGER_zHOST(void) {
 
   // bail if zHOST map is NOT defined.
   if ( INPUTS_SEARCHEFF.NMAP_zHOST == 0 )     { return(1); }
-
-  // bail if CUTWIN_SNRMAX is specified (June 18 2018)
-  if ( INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST[0] > 0.0 ) { return(1); }
 
   // bail if generating GRID
   if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  )     { return(1); }
@@ -31212,8 +31220,8 @@ void DASHBOARD_DRIVER(void) {
 
   ENVrestore(INPUTS_SEARCHEFF.USER_SPEC_FILE,fileName_orig);
   printf("SEARCHEFF_SPEC_FILE:    %s\n", fileName_orig );  
-  if ( INPUTS_SEARCHEFF.NMAP_SPEC > 0 ) 
-    { printf("\t NMAP_SPECEFF = %d \n", INPUTS_SEARCHEFF.NMAP_SPEC); }
+  if ( INPUTS_SEARCHEFF.NMAP_SPECID > 0 ) 
+    { printf("\t NMAP_SPECEFF = %d \n", INPUTS_SEARCHEFF.NMAP_SPECID); }
 
   ENVrestore(INPUTS_SEARCHEFF.USER_zHOST_FILE,fileName_orig);
   printf("SEARCHEFF_zHOST_FILE:   %s\n", fileName_orig );  

@@ -25,8 +25,6 @@
     fix index bug for SEARCHEFF_DATA.SBMAG[ifiltobs];
     index is filter-index, not obs-index. Affect new PHOTPROB feature.
  
-  Jun 19 2018: 
-    + read & apply  optional "CUTWIN_SNRMAX: xx yy" in zHOST effic file.
 
   Mar 2019
    + inclue sntools_host.h to access HOSTLIB variables (for zHOST)
@@ -67,16 +65,10 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
 
   /***********************************
     Created Jan 7, 2008 by R.Kessler
-
-    Initialization for search-efficiency.
-    Read SEARCHEFF_SNR_[filter].DAT files, or
-    Read SEARCHEFF_MAG_[filter].DAT files,
-    and store in SEARCH_EFF structure.
-    If search-eff file does not exist, then leave
-    NBIN=0 as a flag to set EFF = 1 for any SNR value.
+    Begin Refactor Mar 8 2026 [use same SEARCHEFF_MAP struct for SPECID and zHOST maps]
 
   Inputs:
-    SURVEN:   
+    SURVEY:       
        name of survey
     APPLYMASK_SEARCHEFF: 
        argument of sim-input APPLY_SEARCHEFF_OPT (only for error checking)
@@ -84,37 +76,30 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
 
         HISTORY
    
-  Mar 06 2018: 
-    + new input argument APPLYMASK_SEARCHEFF
-  Jun 15 2022: 
-    + check option for single detections from sim-input
-       APPLY_SEARCHEFF_SINGLE
-
-  Nov 2024
-    + check new options for IFLAG_zHOST_EFFONE and IFLAG_SPEC_EFFONE
-      corresponding to sim-inputs
-         SEARCH_SPEC_FILE:  ONE
-         SEARCH_zHOST_FILE: ONE
-
   *************/
 
   int  NMAP=0 ;
   char  fnam[] = "init_SEARCHEFF"  ;
   
+  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
+
   // ------------- BEGIN ----------
 
-  sprintf(BANNER, "Initialize SEARCH EFFICIENCY for '%s' \n", SURVEY );
+  sprintf(BANNER, "%s: Initialize SEARCH EFFICIENCY for '%s' \n", fnam, SURVEY );
   print_banner( BANNER );
+
+  if ( REFAC_SEARCHEFF ) 
+    { printf("\t *** REFACTOR CODE *** \n\n"); }
+  else
+    { printf("\t *** LEGACY CODE *** \n\n"); }
 
   INPUTS_SEARCHEFF.NMAP_DETECT   = 0 ;
   INPUTS_SEARCHEFF.NMAP_PHOTPROB = 0 ;
-  INPUTS_SEARCHEFF.NMAP_SPEC     = 0 ;
-  INPUTS_SEARCHEFF.NMAP_zHOST    = 0 ;
   INPUTS_SEARCHEFF.NREDUCED_CORR_PHOTPROB = 0 ;
   INPUTS_SEARCHEFF.NPHOTPROB_DUMP = 0 ;
 
-  INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST[0] = -99.9 ;
-  INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST[1] = +1.0E8 ;
+  INPUTS_SEARCHEFF.NMAP_SPECID   = 0 ;
+  INPUTS_SEARCHEFF.NMAP_zHOST    = 0 ;
 
   SEARCHEFF_FLAG        = 0 ;
   SEARCHEFF_LOGIC.NMJD  = 0;
@@ -127,24 +112,33 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
 
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
     printf("\t Use FUNEFF_DEBUG = %d \n", INPUTS_SEARCHEFF.FUNEFF_DEBUG );
-    //    return ;
   }
 
   // read single file to get pipeline efficiency vs. SNR or vs. MAG.
   // Returns number of maps that have an efficiency curve defined.
   NMAP = init_SEARCHEFF_PIPELINE(SURVEY) ;
-
   if ( NMAP > 0 ) { init_SEARCHEFF_LOGIC(SURVEY); }  // read detection logic
 
 
-  // init prob of get spec-confirmation
-  init_SEARCHEFF_SPECID(SURVEY); 
+  // init prob of getting specID -confirmation
+  if ( REFAC_SEARCHEFF ) 
+    { init_SEARCHEFF_SPECID(SURVEY); }
+  else
+    { init_SEARCHEFF_SPECID_LEGACY(SURVEY); }
+
 
   // init prob of getting zHOST for unconfirmed SN
-  init_SEARCHEFF_zHOST(SURVEY); // May 2014 
+  if ( REFAC_SEARCHEFF ) 
+    { init_SEARCHEFF_zHOST(SURVEY); }
+  else
+    { init_SEARCHEFF_zHOST_LEGACY(SURVEY); }
+  
 
   // Mar 2018: check that user SEARCHEFF mask is possible
-  check_APPLYMASK_SEARCHEFF(SURVEY,APPLYMASK_SEARCHEFF);
+  if ( REFAC_SEARCHEFF ) 
+    { check_APPLYMASK_SEARCHEFF(SURVEY, APPLYMASK_SEARCHEFF); }
+  else
+    { check_APPLYMASK_SEARCHEFF_LEGACY(SURVEY, APPLYMASK_SEARCHEFF); }
 
 
 }  // end of init_SEARCHEFF
@@ -159,15 +153,17 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // APPLYMASK_SEARCHEFF that is the argument of APPLY_SEARCHEFF_OPT.
   // Abort if APPLYMASK_SEARCHEFF_USER is impossible to obtain.
   //
-  // Jul 6 2018: fix bug related to "ZERO" option for spec efficiency.
-  // Sep 4 2019: write COMMENT_README_SEARCHEFF
   // Mar 7 2026: accommodate logic for zSPEC (8-bit)
-  //
+  // Mar 9 2026: refactored 
+
   int  APPLYMASK_ALLOWED=0 , OVP ;
-  int  IFLAG_SPECID_EFFZERO = INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO;
-  int  IFLAG_SPECID_EFFONE  = INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE ;  
-  int  NMAP_SPEC            = INPUTS_SEARCHEFF.NMAP_SPEC ;
-  int  LSPECID              = IFLAG_SPECID_EFFZERO || IFLAG_SPECID_EFFONE || NMAP_SPEC>0 ;
+  int  IFLAG_SPECID_EFFZERO = SEARCHEFF_INFO_SPECID.IFLAG_EFFZERO;
+  int  IFLAG_SPECID_EFFONE  = SEARCHEFF_INFO_SPECID.IFLAG_EFFONE ;  
+  int  NMAP_SPECID          = SEARCHEFF_INFO_SPECID.NMAP ;
+  int  LSPECID              = IFLAG_SPECID_EFFZERO || IFLAG_SPECID_EFFONE || NMAP_SPECID>0 ;
+
+  int  NONZERO_SPECID = SEARCHEFF_INFO_SPECID.NONZERO_SEARCHEFF;
+  int  NONZERO_zHOST  = SEARCHEFF_INFO_zHOST.NONZERO_SEARCHEFF;
 
   char fnam[] = "check_APPLYMASK_SEARCHEFF" ;
 
@@ -176,12 +172,12 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   // pipeline detection always allowed.
   APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_PIPELINE ;
 
-  if ( NONZERO_SEARCHEFF_SPECID )  { 
+  if ( NONZERO_SPECID )  { 
     APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_SPECID ; 
     APPLYMASK_ALLOWED |= APPLYMASK_SEARCHEFF_zSPEC ;  // Mar 2026
   }
 
-  if ( NONZERO_SEARCHEFF_zHOST && LSPECID ) {
+  if ( NONZERO_zHOST && LSPECID ) {
     APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_zHOST; 
     APPLYMASK_ALLOWED |= APPLYMASK_SEARCHEFF_zSPEC ;  // Mar 2026
   }
@@ -202,9 +198,9 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
     printf("\t APPLY_SEARCHEFF_OPT += %d --> zSPEC(SN or HOST).\n",
 	   APPLYMASK_SEARCHEFF_zSPEC );
 
-    printf("\t NONZERO_SEARCHEFF_SPECID=%d   LSPECID=%d \n", 
-	   NONZERO_SEARCHEFF_SPECID, LSPECID);
-    printf("\t NONZERO_SEARCHEFF_zHOST=%d \n", NONZERO_SEARCHEFF_zHOST);
+    printf("\t NONZERO_SPECID=%d   LSPECID=%d \n", 
+	   NONZERO_SPECID, LSPECID);
+    printf("\t NONZERO_zHOST=%d \n", NONZERO_zHOST);
 
     sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' (OVP=%d) ",
 	    APPLYMASK_SEARCHEFF_USER, OVP) ;
@@ -1026,143 +1022,186 @@ void  init_SEARCHEFF_SPECID(char *survey) {
   // this table can reside in current [user] directory
   // or in PATH_SEARCHEFF
   //
-  // Table VARNAMES include
-  // * REDSHIFT
-  // * any of the filters (i.e., 'g' => peak g-band mag).
-  // * SPECEFF   (required last varname)
+  // Refactor March 2026
   //
   //
   // If user-requested file (SEARCHEFF_SPEC_FILE: <file>)
   // does not exist then abort. If default SPEC-eff file
-  // does not exist then just return.
+  // does not exist then just return with message that EFFSPEC=1.
   //
-  // Aug 26, 2011 fix aweful bug
-  //     MAPSIZE    = SEARCHEFF_SPEC.MAPSIZE[NMAP] ;    
-  //  -> MAPSIZE    = SEARCHEFF_SPEC.MAPSIZE[imap] ; 
-  //
-  // Jun 23 2016: check for non-uniform binning.
-  //
-  // Nov  6 2017: set SEARCHEFF_SPEC.FLAG_PEAKMAG_ONLY
-  // Mar 11 2018: refactor
-  // Jun 02 2018: check SPEC_FILE = ZERO option
-  // Mar 14 2019: refactor to use read_GRIDMAP().
-  // Aug 09 2024: read optional REQUIRE key to require selection from map
-  //              (e.g,, PEAKMJD or DTPEAK range)
 
-  char 
-     effspec_file_local[MXPATHLEN]
-    ,*ptrFile_user, *ptrFile_final, *cptr
-    ,c_get[100], LINE[100]
-    ,fnam[] = "init_SEARCHEFF_SPECID" 
-    ;
+  char fnam[] = "init_SEARCHEFF_SPECID";
+
+  // ------------ BEGIN --------------
+
+  init_searcheff_map(&SEARCHEFF_INFO_SPECID) ;
+
+  read_searcheff_map(MAPTYPE_SEARCHEFF_SPECID, INPUTS_SEARCHEFF.USER_SPEC_FILE,
+		     &SEARCHEFF_INFO_SPECID) ;
+
+} // end of init_SEARCHEFF_SPECID
+
+
+// **************************************
+void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
+
+  // Created Mar 2026 [as part of refactor]
+  // init generic INFO including multi-Dimensional MAP_LIST
+
+  int ivar, imap;
+  char fnam[] = "init_searcheff_map" ;
+
+  // ------------ BEGIN ------------
+
+
+  SEARCHEFF_INFO->NMAP       = 0;
+  SEARCHEFF_INFO->OPT_EXTRAP = 0;
+  SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE = 0;
+  SEARCHEFF_INFO->IVARTYPE_MASK     = 0 ;
+  SEARCHEFF_INFO->FLAG_PEAKMAG_ONLY = 0 ;
+  SEARCHEFF_INFO->BOOLEAN_OR        = 1 ; // default logic is OR
+  SEARCHEFF_INFO->BOOLEAN_AND       = 0 ; 
+
+  SEARCHEFF_INFO->NLINE_README      = 0;
+
+  SEARCHEFF_INFO->NONZERO_SEARCHEFF = 0;
+  SEARCHEFF_INFO->IFLAG_EFFZERO          = 0 ;
+  SEARCHEFF_INFO->IFLAG_EFFONE           = 0 ;
+
+  for ( imap=0; imap < MXMAP_SEARCHEFF_MAP;  imap++ ) {
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR           = -9 ; 
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_REDSHIFT  = -9 ;
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_PEAKMJD   = -9 ;
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_DTPEAK    = -9 ;
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_DTSEASON_PEAK = -9 ;
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_LOGMASS   = -9 ;    // Aug 27 2024
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_SALT2mB   = -9 ;
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_SALT2x1   = -9 ;     // Aug 27 2024    
+    SEARCHEFF_INFO->MAP_LIST[imap].IVAR_SALT2c    = -9 ;     // Aug 27 2024
+    SEARCHEFF_INFO->MAP_LIST[imap].REQUIRE        = 0 ; 
+
+    sprintf(SEARCHEFF_INFO->MAP_LIST[imap].FIELDLIST, "%s", ALL ); // default is all fields
+
+    for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_MAP; ivar++ ) {
+      SEARCHEFF_INFO->MAP_LIST[imap].IVARTYPE[ivar]              = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTMAG[ivar]      = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBMAG[ivar]        = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
+    }
+    
+  } // end imap
+
+
+  return;
+
+} // end init_searcheff_map
+
+void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
+
+  // Created Mar 2026
+  // Inputs:
+  //    MAPTYPE:   type of map; SPECID or zHOST
+  //    USER_MAP_FILE : full path name OR base name OR NONE or ZERO or ONE
+  //
+  // Outputs:
+  //    SEARCHEFF_INFO: typedef struct with info per map
+  //
 
   FILE *fp = NULL ;
 
   int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
   int   ID, NDIM, NFUN, N, gzipFlag, ISFIELD ;
-  int   REQUIRE_SPEC_FILE = 0, REQUIRE_MAP;
-  char  KEY_ROW[]  = "SPECEFF:";
+  int   REQUIRE_EFF_FILE = 0, REQUIRE_MAP;
+  char  KEY_ROW[20], KEYNAME_MAP_FILE[40], KEYNAME_EFF[40];
   char  KEY_STOP[] = "" ;
-  char  *VARNAME, *VARLIST ; 
-  char  FIELDLIST[100] ;
+  char  *VARNAME, *VARLIST, FIELDLIST[100] ;
+  char  eff_file_local[MXPATHLEN], *ptrFile_user, *ptrFile_final, *cptr;
+  char  c_get[100], LINE[100];
 
-  int    OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
-  double SPECEFF_SCALE = INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
+  int   OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
 
-  // ------------ BEGIN --------------
+  int IDGRIDMAP_OFFSET, IVARTYPE_MASK = 0  ;
+  char fnam[] = "read_searcheff_map" ;
 
-  N = 0 ;  cptr = SEARCHEFF_SPECID_INFO.README[N] ;
-  sprintf(cptr, "\t %s", "No spec-eff option specified ==> 100% efficiency.");
-  N++;  SEARCHEFF_SPECID_INFO.NLINE_README = N ;  
+  // ----------- BEGIN -------------
 
-  INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO = 0 ;
-  INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE  = 0 ;  
-  SEARCHEFF_SPECID_INFO.IVARTYPE_MASK   = 0 ;
-  SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY = 0 ;
-  SEARCHEFF_SPECID_INFO.BOOLEAN_OR        = 1 ; // default logic is OR
-  SEARCHEFF_SPECID_INFO.BOOLEAN_AND       = 0 ; 
+  if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_SPECID)==0 )  { 
+    IDGRIDMAP_OFFSET = IDGRIDMAP_SPECEFF_OFFSET ; 
+    sprintf(KEY_ROW,"SPECEFF:");
+  }
+  else if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_zHOST)==0 ) { 
+    IDGRIDMAP_OFFSET = IDGRIDMAP_zHOST_OFFSET ; 
+    sprintf(KEY_ROW,"HOSTEFF:");
+  }
+  else {
+    sprintf(c1err,"Unknown MAPTYPE = '%s' (expect %s or  %s)", 
+	    MAPTYPE, MAPTYPE_SEARCHEFF_SPECID, MAPTYPE_SEARCHEFF_zHOST);
+    sprintf(c2err,"for USER_MAP_FILE = %s", USER_MAP_FILE); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;   
+  }
 
-  for( imap=0; imap < MXMAP_SEARCHEFF_SPEC; imap++ ) {
-    SEARCHEFF_SPECID[imap].IVAR           = -9 ;
-    SEARCHEFF_SPECID[imap].IVAR_REDSHIFT  = -9 ;
-    SEARCHEFF_SPECID[imap].IVAR_PEAKMJD   = -9 ;
-    SEARCHEFF_SPECID[imap].IVAR_DTPEAK    = -9 ;
-    SEARCHEFF_SPECID[imap].IVAR_DTSEASON_PEAK = -9 ;
-    SEARCHEFF_SPECID[imap].IVAR_LOGMASS   = -9 ;    // Aug 27 2024
-    SEARCHEFF_SPECID[imap].IVAR_SALT2mB   = -9 ;
-    SEARCHEFF_SPECID[imap].IVAR_SALT2x1   = -9 ;     // Aug 27 2024    
-    SEARCHEFF_SPECID[imap].IVAR_SALT2c    = -9 ;     // Aug 27 2024
-    sprintf(SEARCHEFF_SPECID[imap].FIELDLIST, "%s", ALL ); // default is all fields
-    SEARCHEFF_SPECID[imap].REQUIRE = 0 ; // Aug 2024
-    
-    for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_SPEC; ivar++ ) {
-      SEARCHEFF_SPECID[imap].IVARTYPE[ivar]              = -9 ;
-      SEARCHEFF_SPECID[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
-      SEARCHEFF_SPECID[imap].IFILTOBS_HOSTMAG[ivar]      = -9 ;
-      SEARCHEFF_SPECID[imap].IFILTOBS_SBMAG[ivar]        = -9 ;
-      SEARCHEFF_SPECID[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
-      SEARCHEFF_SPECID[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
-    }
-  } // imap
+  sprintf(KEYNAME_MAP_FILE,"SEARCHEFF_%s_FILE", MAPTYPE); // user-input key name
+  sprintf(KEYNAME_EFF,     "EFF_%s",            MAPTYPE); // internal string for prints
 
-
+  
   // define effspec filename form user input or from default name
 
-  ptrFile_user  = INPUTS_SEARCHEFF.USER_SPEC_FILE ;
-  ptrFile_final = INPUTS_SEARCHEFF.SPEC_FILE ;
+  N = 0 ;  cptr = SEARCHEFF_INFO->README[N] ;
+  N++;  SEARCHEFF_INFO->NLINE_README = N ;  
+
+  ptrFile_user  = USER_MAP_FILE ;             // passed from user input
+  ptrFile_final = SEARCHEFF_INFO->MAP_FILE;   // full path of eff file if defined
 
 
   if ( IGNOREFILE(ptrFile_user) ) {
-    sprintf(effspec_file_local, "%s",  ptrFile_user); 
-    REQUIRE_SPEC_FILE = 0 ;
+    SEARCHEFF_INFO->IFLAG_EFFONE = 1;
+    sprintf(cptr, "\t No %s ==> Force %s = 1",  KEYNAME_MAP_FILE, KEYNAME_EFF);
+    printf("\n %s\n", cptr);    fflush(stdout);
+    SEARCHEFF_INFO->NONZERO_SEARCHEFF++ ;  // pretend there is a map
   }
-  else if ( strcmp(ptrFile_user,"ZERO") == 0  ) {
-    INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO = 1 ;
-    sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ZERO -> Force EFF_SPEC=0. \n");
-    printf("\n %s\n", cptr);
-    fflush(stdout);
-    return ;
-  }
+
   else if ( strcmp(ptrFile_user,"ONE") == 0  ) {
-    INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE = 1 ;
-    sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ONE -> Force EFF_SPEC=1. \n");
-    printf("\n %s\n", cptr);
-    fflush(stdout);
-    return ;
+    SEARCHEFF_INFO->IFLAG_EFFONE = 1;
+    sprintf(cptr,"\t %s = ONE -> Force %s = 1. \n", KEYNAME_MAP_FILE, KEYNAME_EFF);
+    printf("\n %s\n", cptr);    fflush(stdout);
+    SEARCHEFF_INFO->NONZERO_SEARCHEFF++ ;  // pretend there is a map
+  }
+
+  else if ( strcmp(ptrFile_user,"ZERO") == 0  ) {
+    SEARCHEFF_INFO->IFLAG_EFFZERO = 1;
+    sprintf(cptr,"\t %s = ZERO -> Force %s = 0. \n", KEYNAME_MAP_FILE, KEYNAME_EFF);
+    printf("\n %s\n", cptr);    fflush(stdout);
   }
   else { 
-    sprintf(effspec_file_local, "%s",  ptrFile_user); 
-    REQUIRE_SPEC_FILE = 1 ;
+    sprintf(eff_file_local, "%s",  ptrFile_user); 
+    REQUIRE_EFF_FILE = 1;
   }
 
-
+  // - - - - -
   // use utility to check local dir and path.
-  if ( REQUIRE_SPEC_FILE ) {
-    fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, effspec_file_local, 
+  if ( REQUIRE_EFF_FILE ) {
+    fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, eff_file_local, 
 			    ptrFile_final, &gzipFlag ); // returned
+
+    if ( !fp ) {
+      abort_openTextFile(KEYNAME_MAP_FILE,
+			 PATH_SEARCHEFF, eff_file_local, fnam );
+    }
   }
-  
-  if ( fp == NULL ) { 
-    if ( REQUIRE_SPEC_FILE ) {
-      abort_openTextFile("SEARCHEFF_SPEC_FILE",
-			 PATH_SEARCHEFF, effspec_file_local, fnam );
-    }
-    else  { 
-      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> EFF_SPEC=1 \n");
-      fflush(stdout);
-      NONZERO_SEARCHEFF_SPECID++; // default EFFspec = 100%
-      return ; 
-    }
+  else {
+    return ;
   }
 
-  printf("\n");
-  printf("   Reading spectroscopic efficiency from \n\t %s\n", 
-	 ptrFile_final );
+  printf("\n   Reading %s efficiency map from \n\t %s\n", MAPTYPE, ptrFile_final );
 
   NVAR = NROW = NMAP = 0;
   REQUIRE_MAP = 0 ;  sprintf(FIELDLIST,"%s", ALL);
 
-  sprintf(c2err,"%s", "Check spec-eff file above");
+
+  sprintf(c2err,"%s", "Check %s-eff file above", MAPTYPE );
+
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
     
@@ -1173,92 +1212,296 @@ void  init_SEARCHEFF_SPECID(char *survey) {
     ISFIELD = (strcmp(c_get,"FIELD:")==0 || strcmp(c_get,"FIELDLIST:")==0 );
     if ( ISFIELD ) { readchar(fp, FIELDLIST); }
 
-    if ( strcmp(c_get,"REQUIRE:") == 0 ) {
-      readint(fp, 1, &REQUIRE_MAP);
-      fflush(stdout); 
-    }
+    if ( strcmp(c_get,"REQUIRE:") == 0 ) {  readint(fp, 1, &REQUIRE_MAP); }
     
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
 
-    if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_SPEC ) {
+    if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_MAP ) {
       fgets(LINE, 100, fp ); // scoop up varnames
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
-      sprintf(SEARCHEFF_SPECID[NMAP].FIELDLIST,"%s", FIELDLIST );
-      SEARCHEFF_SPECID[NMAP].REQUIRE = REQUIRE_MAP;
-      
+      sprintf(SEARCHEFF_INFO->MAP_LIST[NMAP].FIELDLIST,"%s", FIELDLIST );
+      SEARCHEFF_INFO->MAP_LIST[NMAP].REQUIRE = REQUIRE_MAP;      
+
       for ( ivar=0; ivar < NVAR; ivar++ ) {
-	VARNAME = SEARCHEFF_SPECID[NMAP].VARNAMES[ivar] ;
-	VARLIST = SEARCHEFF_SPECID[NMAP].GRIDMAP.VARLIST ;
-	get_PARSE_WORD(0,ivar,VARNAME, fnam);
-	assign_SPECEFF(NMAP,ivar,VARNAME); 
-	if ( ivar == 0 ) 
-	  { sprintf(VARLIST,"%s", VARNAME ); }
-	else
-	  { sprintf(VARLIST,"%s %s", VARLIST, VARNAME ); }
+	VARNAME = SEARCHEFF_INFO->MAP_LIST[NMAP].VARNAMES[ivar] ;
+	VARLIST = SEARCHEFF_INFO->MAP_LIST[NMAP].GRIDMAP.VARLIST ;
+	get_PARSE_WORD(0, ivar, VARNAME, fnam);
+
+	IVARTYPE_MASK |= assign_MAP_VARNAME(MAPTYPE, ivar, VARNAME, 
+					    &SEARCHEFF_INFO->MAP_LIST[NMAP] ); 
+
+	catVarList_with_sep(VARLIST, VARNAME, " ");
       }
-      
-      ID = IDGRIDMAP_SPECEFF_OFFSET + NMAP;   NDIM = NVAR-1; NFUN=1;
+
+      SEARCHEFF_INFO->IVARTYPE_MASK = IVARTYPE_MASK;
+
+      ID = IDGRIDMAP_OFFSET + NMAP;   NDIM = NVAR-1; NFUN=1;
       read_GRIDMAP(fp, KEY_ROW, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
-		   MXROW_SEARCHEFF_SPEC, fnam,
-		   &SEARCHEFF_SPECID[NMAP].GRIDMAP ) ;
+		   MXROW_SEARCHEFF_MAP, fnam,
+		   &SEARCHEFF_INFO->MAP_LIST[NMAP].GRIDMAP ) ;
       
       printf("\t for FIELDLIST=%s\n", FIELDLIST);
-      if ( REQUIRE_MAP ) { printf("\t This SPECEFF map is required.\n"); }
+      if ( REQUIRE_MAP ) 
+	{ printf("\t This %s-EFF map is required for event selection.\n", MAPTYPE); }
 				  
-      NONZERO_SEARCHEFF_SPECID++; 
+      SEARCHEFF_INFO->NONZERO_SEARCHEFF++; 
+
     }
 
     if ( FOUND_VARNAMES ) { NMAP++; }
 
+
   }  // end of read-line loop
 
- 
+
   fclose(fp); // done reading SPECEFF map(s)
 
-  INPUTS_SEARCHEFF.NMAP_SPEC = NMAP;
+  SEARCHEFF_INFO->NMAP = NMAP ;
 
-  if ( NMAP > MXMAP_SEARCHEFF_SPEC ) {
-    sprintf(c1err,"NMAP=%d  exceeds  MXMAP_SEARCHEFF_SPEC=%d",
-	    NMAP, MXMAP_SEARCHEFF_SPEC );
+  if ( NMAP > MXMAP_SEARCHEFF_MAP ) {
+    sprintf(c1err,"NMAP=%d  exceeds  MXMAP_SEARCHEFF=%d", NMAP, MXMAP_SEARCHEFF_MAP );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
+
 
 
   // -------------------------------------------------------
   // Nov 2017: check if this map depends ONLY on PEAKMAG;
   //   if so, can make sim run faster.
   int IVARTYPE_MASK_PEAKMAG = 0, OVP;
-  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_SPECEFF_PEAKMAG ) ;
-  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_SPECEFF_COLOR   ) ;
-  OVP = ( IVARTYPE_MASK_PEAKMAG & SEARCHEFF_SPECID_INFO.IVARTYPE_MASK ) ;
-  if ( SEARCHEFF_SPECID_INFO.IVARTYPE_MASK == OVP ) 
-    { SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY=1 ; }
+  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_PEAKMAG ) ;
+  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_COLOR   ) ;
+  OVP = ( IVARTYPE_MASK_PEAKMAG & SEARCHEFF_INFO->IVARTYPE_MASK ) ;
+  if ( SEARCHEFF_INFO->IVARTYPE_MASK == OVP ) 
+    { SEARCHEFF_INFO->FLAG_PEAKMAG_ONLY=1 ; }
 
-  /*
-  printf(" xxx FLAG_PEAKMAG_ONLY = %d (OVP=%d, MASKREF=%d, MASK=%d) \n", 
-	 SEARCHEFF_SPEC.FLAG_PEAKMAG_ONLY, 
-	 OVP, IVARTYPE_MASK_PEAKMAG, SEARCHEFF_SPEC.IVARTYPE_MASK );
-  */
+
 
   fflush(stdout) ;
 
   N = 0 ;
-  cptr = SEARCHEFF_SPECID_INFO.README[N] ;  N++ ;  
+  cptr = SEARCHEFF_INFO->README[N] ;  N++ ;  
   sprintf(cptr, "\t %s", "GRID-MAP read from ");
-  cptr = SEARCHEFF_SPECID_INFO.README[N] ;  N++ ;  
+  cptr = SEARCHEFF_INFO->README[N] ;  N++ ;  
   sprintf(cptr, "\t %s", ptrFile_final );
 
+  /* xxx mark delete Mar 9 2026 xxxxxxxx
   if ( fabs(SPECEFF_SCALE-1.0) > 0.0001 ) {
     cptr = SEARCHEFF_SPECID_INFO.README[N] ;    N++ ;  
     sprintf(cptr, "\t EffSpec from file is scaled by %le", SPECEFF_SCALE );
   }
+  xxxx */
 
-  SEARCHEFF_SPECID_INFO.NLINE_README = N ;
+  SEARCHEFF_INFO->NLINE_README = N ;
+
 
   return ;
 
-} // end of init_SEARCHEFF_SPECID
+} // end read_searcheff_map
 
+
+// ***************************************
+int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME, 
+			SEARCHEFF_MAP_DEF *MAP) {
+  
+  // Refactored Mar 2026 to handle both SPEC and zHOST maps.
+  // 
+  // Inputs:
+  //   MAPTYPE   :  SPECID or zPHOT (for diangostic messages)
+  //   ivar      :  variable index to fill in *MAP.IVARTYPE
+  //  *VARNAME   :  name of map variable (table column) to examine
+  //
+  // Outputs:
+  //   *MAP       :  search eff map struct to load.
+  //
+  // If assignment can't be made then abort.
+  // Function returns mask of assigned variables.
+  //
+  // May 13 2021: allow HOSTMAG or HOST_MAG
+  // Aug 27 2024: store IVAR_SALT2x1, IVAR_SALT2c, IVAR_LOGMASS
+  // Mar 02 2026: store IVAR_SNRSUM_REST_V
+  //
+
+  int  IVARTYPE_MASK = 0; 
+  int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
+  int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
+
+  char c0[2], c1[2], c2[2];
+  char minus[2] = "-" ;
+  char fnam[] = "assign_MAP_VARNAME";
+
+  // ----------- BEGIN ---------
+  
+  // check for the easy ones first.
+  if ( strcmp(VARNAME,"SPECEFF") == 0 )  {
+    MAP->IVAR           = ivar ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP ;
+    return IVARTYPE_MASK ;
+  } 
+
+  else if ( strcmp(VARNAME,"HOSTEFF") == 0 )  {
+    MAP->IVAR           = ivar ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP ; 
+    return IVARTYPE_MASK;
+  } 
+  else if ( strcmp(VARNAME,"REDSHIFT") == 0 )  {
+    MAP->IVAR_REDSHIFT  = ivar ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_REDSHIFT ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_REDSHIFT );
+    return IVARTYPE_MASK;
+  }
+
+  else if ( strcmp(VARNAME,"PEAKMJD") == 0 )  {
+    MAP->IVAR_PEAKMJD = ivar ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMJD ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMJD );
+    return IVARTYPE_MASK;
+  }
+  else if ( strcmp(VARNAME,"DTPEAK") == 0 )  {
+    MAP->IVAR_DTPEAK = ivar ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_DTPEAK ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_DTPEAK );
+    return IVARTYPE_MASK;
+  }
+  else if ( strcmp(VARNAME,"DTSEASON_PEAK") == 0 )  {
+    MAP->IVAR_DTSEASON_PEAK = ivar ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_DTSEASON_PEAK ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_DTSEASON_PEAK );
+    return IVARTYPE_MASK ;
+  }
+  else if ( strcmp(VARNAME,"SALT2mB")==0 )  {
+    MAP->IVAR_SALT2mB = ivar ;
+    MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2mB ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2mB );
+    return IVARTYPE_MASK ;
+  }
+  else if ( strcmp(VARNAME,"SALT2c")==0 )  {
+    MAP->IVAR_SALT2c = ivar ;
+    MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2c ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2c );
+    return IVARTYPE_MASK ;
+  }
+  else if ( strcmp(VARNAME,"SALT2x1")==0 )  {
+    MAP->IVAR_SALT2x1 = ivar ;
+    MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2x1 ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2x1 );
+    return IVARTYPE_MASK ;
+  }
+  else if ( strcmp(VARNAME,"LOGMASS") ==0 )  {
+    MAP->IVAR_LOGMASS = ivar ;
+    MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_LOGMASS ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_LOGMASS );
+    return IVARTYPE_MASK ;
+  }
+  else if ( strcmp(VARNAME,"SNRSUM_REST_V") ==0 )  { // Mar 2026
+    MAP->IVAR_SNRSUM_REST_V = ivar ;
+    MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SNRSUM_REST_V ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SNRSUM_REST_V );
+    return IVARTYPE_MASK ;
+  }
+
+
+  // - - - - - - - - - - - - - - -
+  // check for filter-dependent mag or color.
+  // Color must be of the form [filt1]-[filt2]
+  // where [filt1] and [filt2] are single-char strings.
+  // LENVAR =1 for simple mag; e.g., 'g', 'r'
+  // LENVAR =3 for color, e.g., 'g-r'
+
+  ISPEAKMAG   = ISCOLOR = 0;
+  LENVAR      = strlen(VARNAME);
+  ifilt_obs   = ifilt2_obs = -9;
+  
+  if ( strstr(VARNAME,"+") != NULL ) {
+    // Check for bool-OR of multiple peakMags (Feb 2017); e.g. r+i
+    // Store filter-list for any char that is not a plus (+)
+    for(ic=0; ic < LENVAR; ic++ ) {
+      sprintf(c0, "%c", VARNAME[ic] );
+      if ( c0[0] != '+' ) {
+	ifiltlist[ISPEAKMAG] = INTFILTER(c0);
+	ISPEAKMAG++ ;
+      }
+    }
+  }
+  else if ( LENVAR == 1 ) {
+    // check for single peakmag char; e.g. 'r'
+    sprintf(c0, "%c", VARNAME[0] );
+    ifilt_obs  = INTFILTER(c0);
+    if ( ifilt_obs > 0 ) { ifiltlist[0] = ifilt_obs; ISPEAKMAG  = 1; }
+  }
+  else if ( LENVAR == 3 ) {
+    // check for color; e.g. g-i
+    sprintf(c0, "%c", VARNAME[0] );
+    sprintf(c1, "%c", VARNAME[1] );
+    sprintf(c2, "%c", VARNAME[2] );
+
+    ifilt_obs  = INTFILTER(c0);
+    ifilt2_obs = INTFILTER(c2);
+
+    LMNS  = ( strcmp(c1,minus) == 0  ) ;           // require minus sign
+    LFF1  = ( ifilt_obs != ifilt2_obs ) ;          // different filters
+    LFF2  = ( ifilt_obs > 0 && ifilt2_obs > 0 ) ;  // valid filters
+    if ( LMNS && LFF1 && LFF2 ) { ISCOLOR = 1; }
+  }
+
+
+  if ( ISPEAKMAG ) { 
+    MAP->NFILTLIST_PEAKMAG[ivar]  = ISPEAKMAG ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    for(i=0; i < ISPEAKMAG; i++ ) 
+      { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
+    return IVARTYPE_MASK ; 
+  }
+
+  if ( ISCOLOR ) { 
+    MAP->IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
+    MAP->IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_COLOR ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_COLOR );
+    return IVARTYPE_MASK ; 
+  }
+
+  // June 2016: Check for variables of the form XXX_[band]
+
+
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG");
+  if ( ifilt_obs >=0 ) {
+    MAP->NFILTLIST_PEAKMAG[ivar]    = 1 ;
+    MAP->IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    return IVARTYPE_MASK ;
+  }
+
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG");
+  if ( ifilt_obs >=0 ) {
+    MAP->IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_HOSTMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_HOSTMAG );
+    return IVARTYPE_MASK ;
+  }
+
+
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG");
+  if ( ifilt_obs >=0 ) {
+    MAP->IFILTOBS_SBMAG[ivar] = ifilt_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_SBMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SBMAG );
+    return IVARTYPE_MASK ;
+  }
+
+
+  // ------------------------------------------------------
+  // if we get here then abort.
+  sprintf(c1err,"Unknown VARANME='%s' in SEARCHEFF_%s_FILE", VARNAME, MAPTYPE);
+  sprintf(c2err,"Check manual for list of options.");
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+
+  return IVARTYPE_MASK ;
+
+
+} // end of assign_MAP_VARNAME
 
 // ***************************************
 void init_SEARCHEFF_zHOST(char *survey) {
@@ -1282,7 +1525,6 @@ void init_SEARCHEFF_zHOST(char *survey) {
   //              (same format as HOSTLIB_ZPHOTEFF_FILE)
   //
   // Mar 11 2018: refactor with new struct SEARCHEFF_zHOST
-  // Jul 19 2018: read optional CUTWIN_SNRMAX 
   // Jul 30 2018: set NONZERO_SEARCHEFF_zHOST when reading 2-column format
 
   FILE *fp ;
@@ -1338,7 +1580,6 @@ FILE *open_zHOST_FILE(int OPT) {
 
   fp = NULL ;
 
-
   INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 0;
   INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE  = 0;  
   INPUTS_SEARCHEFF.NMAP_zHOST = 0 ;
@@ -1350,8 +1591,7 @@ FILE *open_zHOST_FILE(int OPT) {
     // NULL or NONE, etc ... -> EFF=1
     if ( LPRINT )   {
       INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE = 1; // Nov 19 2024      
-      printf("\n  Optional SEARCHEFF_zHOST_FILE not specified "
-	     "-> Eff=1.0 \n"); 
+      printf("\n  Optional SEARCHEFF_zHOST_FILE not specified -> Eff=1.0 \n"); 
     }
     return(fp);
   }
@@ -1641,9 +1881,6 @@ void read_zHOST_FILE_LEGACY(FILE *fp) {
       NMAP++ ;
     }
 
-    if ( strcmp(c_get,"CUTWIN_SNRMAX:") == 0 ) 
-      { readdouble(fp, 2, INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST ); }
-    
 
     if(strcmp(c_get,"HOSTEFF:") == 0 ) {
 
@@ -1764,6 +2001,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 
   *****/
 
+  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
   int  LFIND1_PIPELINE, LFIND2_SPECID, LFIND3_zHOST, MASK ;
   char fnam[]  = "gen_SEARCHEFF" ;
 
@@ -1798,13 +2036,13 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
   // ------------------------------------
   // if detected by pipeline, check if spec-confirmed
   if ( LFIND1_PIPELINE )  { 
-    LFIND2_SPECID = gen_SEARCHEFF_SPECID(ID, EFF_SPECID) ;  // return EFF_SPECID
+    LFIND2_SPECID = gen_SEARCHEFF_SPECID(ID, EFF_SPECID) ; 
   }
 
 
   // if not spec-confirmed, check for spec zHOST
   if ( LFIND1_PIPELINE && LFIND2_SPECID == 0 )  { 
-    LFIND3_zHOST = gen_SEARCHEFF_zHOST(ID,EFF_zHOST) ; // return EFF_zHOST
+     LFIND3_zHOST = gen_SEARCHEFF_zHOST(ID,EFF_zHOST) ;   // return EFF_zHOST
   }
 
   // --- set return bit-MASK ---- 
@@ -1827,6 +2065,28 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 } // end of gen_SEARCHEFF
 
 
+
+// ******************************************************
+int gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID) {
+
+  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
+  int  IS_SPECID ;
+  char fnam[] = "gen_SEARCHEFF_SPECID";
+
+  // ---------- BEGIN -------------
+
+  if ( REFAC_SEARCHEFF ) {
+    IS_SPECID = gen_searcheff_map(ID, MAPTYPE_SEARCHEFF_SPECID, 
+				  &SEARCHEFF_INFO_SPECID, EFF_SPECID) ;   // return EFF_SPECID
+  }
+  else {
+    // legacy
+    IS_SPECID = gen_SEARCHEFF_SPECID_LEGACY(ID, EFF_SPECID);
+  }
+
+  return IS_SPECID ;
+
+} // end gen_SEARCHEFF_SPECID
 
 // ***************************************
 int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
@@ -2549,48 +2809,59 @@ double get_PIPELINE_PHOTPROB(int istore) {
 
 
 // ***************************************************
-int gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID) {
+int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
 
-  // Return 1 if this SN is spec-confirmed; return 0 otherwise
-  // (O) *EFF_SPECID is the spec-efficiency
   //
-  // May 10 2018: EFF *= USER_SPECEFF_SCALE
-  // Jun 02 2018: check opton to force EFF_SPECID=0
-  // Jun 08 2018: check BOOLEAN OR/AND logic for EFF.
-  // Aug 09 2024: check for REQUIRED map (e.g., PEAKMJD or DTPEAK)
-  // Mar 03 2026: fix bug and check field MATCH
+  // Return 1 if this SN is selected by MAPs defined by SEARCHEFF_INFO; 
+  // return 0 otherwise.
+  // General utility for SPECID and zHOST efficiency maps.
+  //
+  //  [Mar 2026 Refactor from original/obsolete gen_SEARCHEFF_SPECID]
+  //
+  // Inputs:
+  //   ID:        event ID (for diagnostic messages) 
+  //   MAPTYPE:   SPECID or zHOST (for diagnostic messages)
+  //   SEARCHEFF_INFO : struct containing map info
+  //
+  // Outputs
+  //    *EFF efficiency from map
+  //
 
-  int  NMAP        = INPUTS_SEARCHEFF.NMAP_SPEC ;
-  int  BOOLEAN_OR  = SEARCHEFF_SPECID_INFO.BOOLEAN_OR  ;
-  int  BOOLEAN_AND = SEARCHEFF_SPECID_INFO.BOOLEAN_AND ;
+  int  NMAP           = SEARCHEFF_INFO->NMAP ;
+  int  BOOLEAN_OR     = SEARCHEFF_INFO->BOOLEAN_OR  ;
+  int  BOOLEAN_AND    = SEARCHEFF_INFO->BOOLEAN_AND ;
+  int  IFLAG_EFFZERO  = SEARCHEFF_INFO->IFLAG_EFFZERO ;
+  int  IFLAG_EFFONE   = SEARCHEFF_INFO->IFLAG_EFFONE ;
 
-  int  imap, ivar, NVAR, LFIND, istat, REQUIRE_MAP ;
-  bool MATCH, REQUIRE_PASS = true ;
-  double PnoSpec_OR, Pspec_AND, EFF, RAN, VARDATA[MXVAR_SEARCHEFF_SPEC];
-  char *FIELD_MAP;
-  int  LDMP = 0;
-  char fnam[] = "gen_SEARCHEFF_SPECID" ;
+  int    imap, ivar, NVAR, LFIND, istat ;
+  bool   MATCH, REQUIRE_PASS = true ;
+  double PROB_all_FAIL, PROB_all_PASS;  
+  double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP];
+  char   *FIELD_MAP;
+  int    LDMP = 0 ;
+  char   fnam[] = "gen_searcheff_map" ;
 
   // ----------- BEGIN --------
 
-  LFIND = 1 ;
-  EFF   = 1.0 ;
+  LFIND      = 1 ;
+  EFF_LOCAL  = 1.0 ;
 
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
     RAN   = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
-    return gen_SEARCHEFF_DEBUG("SPEC", RAN, EFF_SPECID) ;
+    return gen_SEARCHEFF_DEBUG(MAPTYPE, RAN, EFF) ;
   }
 
 
-  // if there is no spec-eff file, return 100% eff and True
+  // check option of there is no SEARCHEFF map file
   if ( NMAP == 0 )  { 
-    if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO ) 
-      { *EFF_SPECID = 0.0 ; LFIND=0 ; }
-    else if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE ) 
-      { *EFF_SPECID = 1.0 ; LFIND=1 ; }
+    if ( IFLAG_EFFZERO ) 
+      { EFF_LOCAL = 0.0 ; LFIND=0 ; }
+    else if ( IFLAG_EFFONE ) 
+      { EFF_LOCAL = 1.0 ; LFIND=1 ; }
     else
-      { *EFF_SPECID = EFF ; LFIND=1 ; }
+      { EFF_LOCAL ; LFIND=1 ; }
 
+    *EFF = EFF_LOCAL;
     return LFIND ;  
   }
 
@@ -2600,58 +2871,63 @@ int gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID) {
 
   if ( LDMP ) {
     printf(" xxx \n");
-    printf(" xxx %s DUMP for CID = %d ------------- \n", fnam, ID);
+    printf(" xxx %s: %s MAP DUMP for CID = %d ------------- \n", fnam, MAPTYPE, ID);
+    fflush(stdout);
   }
     
-  PnoSpec_OR = 1.0 ;
-  Pspec_AND  = 1.0 ;
-  
+  PROB_all_FAIL = PROB_all_PASS = 1.0;  
+  SEARCHEFF_MAP_DEF *MAP;
+
   for ( imap=0; imap < NMAP; imap++ ) {
 
+    MAP = &SEARCHEFF_INFO->MAP_LIST[imap];
+
     // check if current field goes with this map
-    FIELD_MAP = SEARCHEFF_SPECID[imap].FIELDLIST ;
+    // xxx mark FIELD_MAP = SEARCHEFF_INFO->MAP_LIST[imap].FIELDLIST ;
+    FIELD_MAP = MAP->FIELDLIST ;
     MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP); 
     
     if ( !MATCH ) { continue; } // bug fix; Mar 3 2026 
 
     // determine list of variables
-    NVAR = SEARCHEFF_SPECID[imap].GRIDMAP.NDIM ;
+    // xxx mark    NVAR = SEARCHEFF_INFO->MAP_LIST[imap].GRIDMAP.NDIM ;
+    NVAR = MAP->GRIDMAP.NDIM ;
     for ( ivar=0; ivar < NVAR; ivar++ )  {
-      VARDATA[ivar] = LOAD_SPECEFF_VAR(imap,ivar);
+      VARDATA[ivar] = LOAD_SEARCHEFF_VAR(MAPTYPE, MAP, ivar); // .xyz
       if ( LDMP ) {
-	char *VARNAME = SEARCHEFF_SPECID[imap].VARNAMES[ivar] ;	
+	char *VARNAME = MAP->VARNAMES[ivar] ;	
 	printf(" xxx %s: imap=%d  load ivar=%d:  %s = %f \n",
 	       fnam, imap, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
       }
     }
 
-    istat = interp_GRIDMAP(&SEARCHEFF_SPECID[imap].GRIDMAP, VARDATA, &EFF );
+    // xxx mark istat = interp_GRIDMAP(&SEARCHEFF_INFO->MAP_LIST[imap].GRIDMAP, VARDATA, &EFF_LOCAL );
+    istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, &EFF_LOCAL );
 
     if ( LDMP ) {
-      printf(" xxx %s: imap=%d  EFF=%f \n", fnam, imap, EFF );
+      printf(" xxx %s: imap=%d  EFF=%f \n", fnam, imap, EFF_LOCAL );
       fflush(stdout);
     }
     
-    PnoSpec_OR *= (1.0 - EFF);
-    Pspec_AND  *= EFF ;
-
+    PROB_all_FAIL   *= (1.0 - EFF_LOCAL); // prob that all maps fail
+    PROB_all_PASS   *= EFF_LOCAL ;        // prob that all maps pass
     
     // Aug 2024: check for required map; e.g.. PEAKMJD or DTPEAK range
-    REQUIRE_MAP = SEARCHEFF_SPECID[imap].REQUIRE;
-    if ( REQUIRE_MAP ) {
+    // xxx mark REQUIRE_MAP = SEARCHEFF_INFO->MAP_LIST[imap].REQUIRE;
+    if ( MAP->REQUIRE ) {
       RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[imap+10] ;
-      if ( RAN > EFF ) { REQUIRE_PASS = false ; } 
+      if ( RAN > EFF_LOCAL ) { REQUIRE_PASS = false ; } 
     }
     
-  } // imap for SPECEFF
+  } // imap 
 
   //  printf(" xxx BOOLEAN(OR,AND) = %d %d \n",  BOOLEAN_OR, BOOLEAN_AND);
 
   if ( NMAP > 0  ) { 
     if ( BOOLEAN_OR  )
-      { EFF = 1.0 - PnoSpec_OR ; }
+      { EFF_LOCAL = 1.0 - PROB_all_FAIL ; }
     else if ( BOOLEAN_AND )
-      { EFF = Pspec_AND  ; }
+      { EFF_LOCAL = PROB_all_PASS  ; }
     else {
       sprintf(c1err,"Undefined BOOL logic for SPECEFF maps.");
       sprintf(c2err,"Expecting OR or AND logic.");
@@ -2660,11 +2936,11 @@ int gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID) {
     
   }
 
-  if ( EFF < 0.0 && EFF > -0.001 ) { EFF = 0.0 ; } // allow round-off
+  if ( EFF_LOCAL < 0.0 && EFF_LOCAL > -0.001 ) { EFF_LOCAL = 0.0 ; } // allow round-off
 
   // sanity check
-  if ( EFF < 0.0 || EFF > 1.0001 ) {
-    sprintf(c1err,"Invalid Spec effic= %f for ID=%d", EFF, ID);
+  if ( EFF_LOCAL < 0.0 || EFF_LOCAL > 1.0001 ) {
+    sprintf(c1err,"Invalid %s effic= %f for ID=%d", MAPTYPE, EFF_LOCAL, ID);
     sprintf(c2err,"zHel=%6.3f  PEAKMJD=%9.2f ", 
 	    SEARCHEFF_DATA.REDSHIFT, SEARCHEFF_DATA.PEAKMJD );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
@@ -2672,22 +2948,122 @@ int gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID) {
 
 
   // apply user scale (May 10 2018)
-  EFF *= INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
+  // ??? EFF_LOCAL *= INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
 
   // load output argument
-  *EFF_SPECID = EFF ;  
+  *EFF = EFF_LOCAL ;  
 
   // compare spec-eff to random number
   RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
-  if ( RAN > EFF ) { LFIND = 0 ; }
+  if ( RAN > EFF_LOCAL ) { LFIND = 0 ; }
 
   // Aug 2024: if required map is not satisfied, reject this event
   if ( !REQUIRE_PASS ) { LFIND = 0 ; }
   
   return LFIND ;
 
-} // end of gen_SEARCHEFF_SPECID
+} // end of gen_searcheff_map
 
+// ************************************************
+double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
+
+  // Refactored Mar 2026 to work for both SPECID and zHOST maps.
+  // return value of variable corresponding to this MAP & ivar index
+
+  int    ifilt_obs, ifilt,  IVARTYPE, NFILTLIST ;
+  double mag, MAG, mag0, mag1, color;
+  char *varName = MAP->VARNAMES[ivar] ;
+  char fnam[] = "LOAD_SEARCHEFF_VAR" ;
+
+  // ------------ BEGIN ------------------
+
+      
+  IVARTYPE = MAP->IVARTYPE[ivar]; 
+  
+  if ( IVARTYPE == IVARTYPE_EFFMAP_REDSHIFT ) {
+    return  SEARCHEFF_DATA.REDSHIFT ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMJD ) {
+    return  SEARCHEFF_DATA.PEAKMJD ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_DTPEAK ) {
+    return  SEARCHEFF_DATA.DTPEAK_MIN ; // smallest abs(T-Tpeak)
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_DTSEASON_PEAK ) {
+    return  SEARCHEFF_DATA.DTSEASON_PEAK ; // smallest abs(T-Tpeak)
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_LOGMASS ) {
+    return  SEARCHEFF_DATA.LOGMASS ; 
+  }  
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SNRSUM_REST_V ) {
+    return  SEARCHEFF_DATA.SNRSUM_REST_V ; 
+  }  
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SALT2mB ) {
+    return  SEARCHEFF_DATA.SALT2mB ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SALT2x1 ) {
+    return  SEARCHEFF_DATA.SALT2x1 ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SALT2c ) {
+    return  SEARCHEFF_DATA.SALT2c ; 
+  }
+
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMAG ) {
+    // take average of peakMags that are OR'ed in this map.
+    int NTMP = 0 ;
+    MAG = 0.0 ;
+    NFILTLIST = MAP->NFILTLIST_PEAKMAG[ivar] ;
+    for(ifilt=0; ifilt < NFILTLIST; ifilt++ ) {
+      ifilt_obs = MAP->IFILTLIST_PEAKMAG[ivar][ifilt] ;
+      mag       = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
+      if ( mag < 40. && mag > 0.0 ) { MAG += mag; NTMP++; }
+    }
+    if ( NTMP > 0 ) 
+      { MAG /= (float)NTMP ; }
+    else
+      { MAG = -9.0; }
+    //    check_magUndefined(mag,varName,fnam);  // abort if mag is undefined
+    MAG  += INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ; // .xyz generalize for zHOST or SPECID ??
+    return(MAG) ;
+  }   
+
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_COLOR ) {
+    ifilt_obs = MAP->IFILTOBS_PEAKCOLOR[ivar][0] ;
+    mag0 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs]  ;
+    check_magUndefined(mag0,varName,fnam);  
+    
+    ifilt_obs = MAP->IFILTOBS_PEAKCOLOR[ivar][1] ;
+    mag1 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
+    check_magUndefined(mag1,varName,fnam);  
+	  
+    color = mag0 - mag1 ;
+    return  color ;
+  }          
+
+
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTMAG ) {
+    ifilt_obs = MAP->IFILTOBS_HOSTMAG[ivar] ;
+    mag       = SEARCHEFF_DATA.HOSTMAG[ifilt_obs] ;
+    check_magUndefined(mag,varName,fnam);
+    return mag ;
+  }          
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SBMAG ) {
+    ifilt_obs = MAP->IFILTOBS_SBMAG[ivar] ;
+    mag       = SEARCHEFF_DATA.SBMAG[ifilt_obs] ;
+    check_magUndefined(mag,varName,fnam);
+    return mag ;
+  }          
+
+
+  // if we get here then abort.
+  sprintf(c1err,"Could not find ivar=%d for varName = %s ", ivar, varName);
+  sprintf(c2err,"Check %s map", MAPTYPE );
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+
+
+  return(-9.0); // should never get here
+
+} // end of LOAD_SEARCHEFF_VAR
 
 // ************************************************
 int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
@@ -2698,13 +3074,11 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   //
   // Jan 22 2017: check for field-dependent HOSTEFF map.
   // Mar 11 2018: refactor
-  // Jun 19 2018: check CUTWIN_SNRMAX
   // Oct 15 2025: 
   //    + bail if hostless event (can't get zSpec_host if host is not found)
 
   bool  USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; // Oct 2025
   int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
-  double  *CUTWIN_SNRMAX = INPUTS_SEARCHEFF.CUTWIN_SNRMAX_zHOST ;
   int     LFIND ;
   double  SNRMAX, RAN, EFF ;
   char fnam[] = "gen_SEARCHEFF_zHOST" ;
@@ -2744,10 +3118,6 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
     return LFIND ;  
   }
 
-  // check optional SNR cut 
-  SNRMAX = SEARCHEFF_DATA.SNRMAX ;
-  if ( SNRMAX < CUTWIN_SNRMAX[0] ) { return(0) ; }
-  if ( SNRMAX > CUTWIN_SNRMAX[1] ) { return(0) ; }
 
   if(  INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY ) 
     { EFF = interp_SEARCHEFF_zHOST_LEGACY(); }
@@ -2858,7 +3228,7 @@ double interp_SEARCHEFF_zHOST(int ID) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
     else {
-      return(EFF);  // .xyz make sure that this is zero ???
+      return(EFF);  
     }
   }
 
@@ -3074,301 +3444,10 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
 
 } // end LOAD_PHOTPROB_VAR
 
-// ************************************************
-double LOAD_SPECEFF_VAR(int imap, int ivar) {
 
-  // return value of variable corresponding to this SPECEFF-ivar index
-  // June 23 2016: check HOSTMAG and SBMAG 
-  // Mar  02 2026: check SNRSUM_REST_V for spectrograph
-  //
-  int    ifilt_obs, ifilt,  IVARTYPE, NFILTLIST ;
-  double mag, MAG, mag0, mag1, color;
-  char *varName = SEARCHEFF_SPECID[imap].VARNAMES[ivar] ;
-  char fnam[] = "LOAD_SPECEFF_VAR" ;
-
-  // ------------ BEGIN ------------------
-
-      
-  IVARTYPE = SEARCHEFF_SPECID[imap].IVARTYPE[ivar]; 
-  
-  if ( IVARTYPE == IVARTYPE_SPECEFF_REDSHIFT ) {
-    return  SEARCHEFF_DATA.REDSHIFT ; 
-  }
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_PEAKMJD ) {
-    return  SEARCHEFF_DATA.PEAKMJD ; 
-  }
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_DTPEAK ) {
-    return  SEARCHEFF_DATA.DTPEAK_MIN ; // smallest abs(T-Tpeak)
-  }
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_DTSEASON_PEAK ) {
-    return  SEARCHEFF_DATA.DTSEASON_PEAK ; // smallest abs(T-Tpeak)
-  }
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_LOGMASS ) {
-    return  SEARCHEFF_DATA.LOGMASS ; 
-  }  
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_SNRSUM_REST_V ) {
-    return  SEARCHEFF_DATA.SNRSUM_REST_V ; 
-  }  
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2mB ) {
-    return  SEARCHEFF_DATA.SALT2mB ; 
-  }
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2x1 ) {
-    return  SEARCHEFF_DATA.SALT2x1 ; 
-  }
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_SALT2c ) {
-    return  SEARCHEFF_DATA.SALT2c ; 
-  }
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_PEAKMAG ) {
-    // take average of peakMags that are OR'ed in this map.
-    int NTMP = 0 ;
-    MAG = 0.0 ;
-    NFILTLIST = SEARCHEFF_SPECID[imap].NFILTLIST_PEAKMAG[ivar] ;
-    for(ifilt=0; ifilt < NFILTLIST; ifilt++ ) {
-      ifilt_obs = SEARCHEFF_SPECID[imap].IFILTLIST_PEAKMAG[ivar][ifilt] ;
-      mag       = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
-      /*
-      printf(" xxx ifilt=%d of %d,  ifilt_obs=%2d   mag=%.3f \n", 
-	     ifilt, NFILTLIST, ifilt_obs, mag); fflush(stdout);
-      */
-      if ( mag < 100. && mag > 0.0 ) { MAG += mag; NTMP++; }
-    }
-    if ( NTMP > 0 ) 
-      { MAG /= (float)NTMP ; }
-    else
-      { MAG = -9.0; }
-    //    check_magUndefined(mag,varName,fnam);  // abort if mag is undefined
-    MAG  += INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ;
-    return(MAG) ;
-  }   
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_COLOR ) {
-    ifilt_obs = SEARCHEFF_SPECID[imap].IFILTOBS_PEAKCOLOR[ivar][0] ;
-    mag0 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs]  ;
-    check_magUndefined(mag0,varName,fnam);  
-    
-    ifilt_obs = SEARCHEFF_SPECID[imap].IFILTOBS_PEAKCOLOR[ivar][1] ;
-    mag1 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
-    check_magUndefined(mag1,varName,fnam);  
-	  
-    color = mag0 - mag1 ;
-    return  color ;
-  }          
-
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_HOSTMAG ) {
-    ifilt_obs = SEARCHEFF_SPECID[imap].IFILTOBS_HOSTMAG[ivar] ;
-    mag       = SEARCHEFF_DATA.HOSTMAG[ifilt_obs] ;
-    check_magUndefined(mag,varName,fnam);
-    return mag ;
-  }          
-  else if ( IVARTYPE == IVARTYPE_SPECEFF_SBMAG ) {
-    ifilt_obs = SEARCHEFF_SPECID[imap].IFILTOBS_SBMAG[ivar] ;
-    mag       = SEARCHEFF_DATA.SBMAG[ifilt_obs] ;
-    check_magUndefined(mag,varName,fnam);
-    return mag ;
-  }          
-
-
-  // if we get here then abort.
-  sprintf(c1err,"Could not find ivar=%d for imap=%d ", ivar, imap);
-  sprintf(c2err,"Check %s", INPUTS_SEARCHEFF.SPEC_FILE );
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-
-  return(-9.0); // should never get here
-
-} // end of LOAD_SPECEFF_VAR
-
-
-
-// ***************************************
-void assign_SPECEFF(int imap, int ivar, char *VARNAME) {
-  
-  // Assign SPECEFF VARNAME to one of
-  //  * SEARCHEFF_SPEC.IVAR
-  //  * SEARCHEFF_SPEC.IVAR_REDSHIFT  
-  //  * SEARCHEFF_SPEC.IVAR_PEAKMJD
-  //  * SEARCHEFF_SPEC.IVAR_DTPEAK
-  //  * SEARCHEFF_SPEC.IVAR_DTSEASON_PEAK
-  //  * SEARCHEFF_SPEC.IVAR_SALT2mb[x1,c]
-  //  * SEARCHEFF_SPEC.IVAR_LOGMASS  
-  //  * SEARCHEFF_SPEC.IFILTOBS_PEAKMAG
-  //  * SEARCHEFF_SPEC.IFILTOBS_PEAKCOLOR
-  //  * SEARCHEFF_SPEC.IFILTOBS_HOSTMAG 
-  //  * SEARCHEFF_SPEC.IFILTOBS_SBMAG
-  //
-  // If assignment can't be made then abort.
-  //
-  //
-  // Nov 6 2017: set SEARCHEFF_SPEC.IVARTYPE_MASK
-  // May 13 2021: allow HOSTMAG or HOST_MAG
-  // Aug 27 2024: store IVAR_SALT2x1, IVAR_SALT2c, IVAR_LOGMASS
-  // Mar 02 2026: store IVAR_SNRSUM_REST_V
-  //
-  int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
-  int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
-
-  char c0[2], c1[2], c2[2];
-  char minus[2] = "-" ;
-  char fnam[] = "assign_SPECEFF";
-
-  // ----------- BEGIN ---------
-  
-  // check for the easy ones first.
-  if ( strcmp(VARNAME,"SPECEFF") == 0 )  {
-    SEARCHEFF_SPECID[imap].IVAR = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF ;
-    return ;
-  } 
-  else if ( strcmp(VARNAME,"REDSHIFT") == 0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_REDSHIFT = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_REDSHIFT ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_REDSHIFT );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"PEAKMJD") == 0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_PEAKMJD = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_PEAKMJD ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_PEAKMJD );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"DTPEAK") == 0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_DTPEAK = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_DTPEAK ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_DTPEAK );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"DTSEASON_PEAK") == 0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_DTSEASON_PEAK = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_DTSEASON_PEAK ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_DTSEASON_PEAK );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"SALT2mB")==0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_SALT2mB = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2mB ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2mB );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"SALT2c")==0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_SALT2c = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2c ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2c );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"SALT2x1")==0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_SALT2x1 = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SALT2x1 ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SALT2x1 );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"LOGMASS") ==0 )  {
-    SEARCHEFF_SPECID[imap].IVAR_LOGMASS = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_LOGMASS ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_LOGMASS );
-    return ;
-  }
-  else if ( strcmp(VARNAME,"SNRSUM_REST_V") ==0 )  { // Mar 2026
-    SEARCHEFF_SPECID[imap].IVAR_SNRSUM_REST_V = ivar ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] =  IVARTYPE_SPECEFF_SNRSUM_REST_V ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SNRSUM_REST_V );
-    return ;
-  }
-
-  // check for mag or color.
-  // Color must be of the form [filt1]-[filt2]
-  // where [filt1] and [filt2] are single-char strings.
-  // LENVAR =1 for simple mag; e.g., 'g', 'r'
-  // LENVAR =3 for color, e.g., 'g-r'
-
-  ISPEAKMAG  = ISCOLOR = 0;
-  LENVAR = strlen(VARNAME);
-  ifilt_obs = ifilt2_obs = -9;
-  
-  if ( strstr(VARNAME,"+") != NULL ) {
-    // OR of multiple peakMags (Feb 2017)
-    // Store filter-list for any char that is not a plus (+)
-    for(ic=0; ic < LENVAR; ic++ ) {
-      sprintf(c0, "%c", VARNAME[ic] );
-      if ( c0[0] != '+' ) {
-	ifiltlist[ISPEAKMAG] = INTFILTER(c0);
-	ISPEAKMAG++ ;
-      }
-    }
-  }
-  else if ( LENVAR == 1 ) {
-    sprintf(c0, "%c", VARNAME[0] );
-    ifilt_obs  = INTFILTER(c0);
-    if ( ifilt_obs > 0 ) { ifiltlist[0]=ifilt_obs; ISPEAKMAG  = 1; }
-  }
-  else if ( LENVAR == 3 ) {
-    sprintf(c0, "%c", VARNAME[0] );
-    sprintf(c1, "%c", VARNAME[1] );
-    sprintf(c2, "%c", VARNAME[2] );
-
-    ifilt_obs  = INTFILTER(c0);
-    ifilt2_obs = INTFILTER(c2);
-
-    LMNS  = ( strcmp(c1,minus) == 0  ) ;           // require minus sign
-    LFF1  = ( ifilt_obs != ifilt2_obs ) ;          // different filters
-    LFF2  = ( ifilt_obs > 0 && ifilt2_obs > 0 ) ;  // valid filters
-    if ( LMNS && LFF1 && LFF2 ) { ISCOLOR = 1; }
-  }
-
-  if ( ISPEAKMAG ) { 
-    SEARCHEFF_SPECID[imap].NFILTLIST_PEAKMAG[ivar]  = ISPEAKMAG ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_PEAKMAG ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_PEAKMAG );
-    for(i=0; i < ISPEAKMAG; i++ ) {
-      SEARCHEFF_SPECID[imap].IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ;
-    }
-    return ; 
-  }
-
-  if ( ISCOLOR ) { 
-    SEARCHEFF_SPECID[imap].IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
-    SEARCHEFF_SPECID[imap].IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_COLOR ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_COLOR );
-    return ; 
-  }
-
-
-  // June 2016: Check for variables of the form XXX_[band]
-  ifilt_obs = IFILTOBS_SPECEFF_VAR(VARNAME,"PEAKMAG");
-  if ( ifilt_obs >=0 ) {
-    SEARCHEFF_SPECID[imap].NFILTLIST_PEAKMAG[ivar]    = 1 ;
-    SEARCHEFF_SPECID[imap].IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_PEAKMAG ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_PEAKMAG );
-    return ;
-  }
-
-  ifilt_obs = IFILTOBS_SPECEFF_VAR(VARNAME,"HOSTMAG HOST_MAG");
-  if ( ifilt_obs >=0 ) {
-    SEARCHEFF_SPECID[imap].IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_HOSTMAG ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_HOSTMAG );
-    return ;
-  }
-
-  ifilt_obs = IFILTOBS_SPECEFF_VAR(VARNAME,"SBMAG");
-  if ( ifilt_obs >=0 ) {
-    SEARCHEFF_SPECID[imap].IFILTOBS_SBMAG[ivar] = ifilt_obs ;
-    SEARCHEFF_SPECID[imap].IVARTYPE[ivar] = IVARTYPE_SPECEFF_SBMAG ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_SPECEFF_SBMAG );
-    return ;
-  }
-
-  // ------------------------------------------------------
-  // if we get here then abort.
-  sprintf(c1err,"Unknown SPECEFF VARNAME: '%s'", VARNAME);
-  sprintf(c2err,"Check manual for list of options.");
-  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-
-  return ;
-
-} // end of assign_SPECEFF
 
 // ============================================================
-int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
+int IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *PREFIX) {
 
   // if SPECEFF *VARNAME is of the form *PREFIX_[band],
   // then return integer filter index for [band].
@@ -3382,14 +3461,15 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
   //    PREFIX = "HOSTMAG HOST_MAG"
   //
   // Aug 15 2024: splitString2 crashes, so use splitString(...).
-  
+  // Mar 09 2026: Rename function IFILTOBS_SPECEFF_VAR -> IFILTOBS_SEARCHEFF_VARNAME
+
 #define MXPREFIX 4
   int  NPREFIX=0;
   int  i, LENV, IFILTOBS = -9;
   char cfilt[2], PREFIX_LIST[MXPREFIX][80], *ptr_PREFIX;
   char *ptrList[MXPREFIX];
   char sepKey[] = " ";
-  char fnam[] = "IFILTOBS_SPECEFF_VAR" ;
+  char fnam[] = "IFILTOBS_SEARCHEFF_VARNAME" ;
 
   // -------------- BEGIN ---------------
 
@@ -3410,7 +3490,7 @@ int IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) {
 
   return(IFILTOBS);
 
-} // end IFILTOBS_SPECEFF_VAR
+} // end IFILTOBS_SEARCHEFF_VARNAME
 
 // ============================================================
 int  gen_SEARCHEFF_DEBUG(char *WHAT, double RAN, double *EFF) {
@@ -3467,3 +3547,983 @@ int  gen_SEARCHEFF_DEBUG(char *WHAT, double RAN, double *EFF) {
   if ( EFF_LOCAL > RAN_LOCAL ) { return 1; } else { return 0; }
 
 } // end of  gen_SEARCHEFF_DEBUG
+
+
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// @@@@@@@@@@@@ LEGACY_FUNCTIONS @@@@@@@@@@@@@@@@@                                     
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+
+// *************************************
+void  check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
+
+  // Created March 2018
+  // Compute SEARCHEFF-mask that is possible, 
+  // and check that it is compatible with user-input
+  // APPLYMASK_SEARCHEFF that is the argument of APPLY_SEARCHEFF_OPT.
+  // Abort if APPLYMASK_SEARCHEFF_USER is impossible to obtain.
+  //
+  // Jul 6 2018: fix bug related to "ZERO" option for spec efficiency.
+  // Sep 4 2019: write COMMENT_README_SEARCHEFF
+  // Mar 7 2026: accommodate logic for zSPEC (8-bit)
+  //
+  int  APPLYMASK_ALLOWED=0 , OVP ;
+  int  IFLAG_SPECID_EFFZERO = INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO;
+  int  IFLAG_SPECID_EFFONE  = INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE ;  
+  int  NMAP_SPECID          = INPUTS_SEARCHEFF.NMAP_SPECID ;
+  int  LSPECID              = IFLAG_SPECID_EFFZERO || IFLAG_SPECID_EFFONE || NMAP_SPECID>0 ;
+
+  char fnam[] = "check_APPLYMASK_SEARCHEFF_LEGACY" ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // ---------- BEGIN --------------
+
+  // pipeline detection always allowed.
+  APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_PIPELINE ;
+
+  if ( NONZERO_SEARCHEFF_SPECID )  { 
+    APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_SPECID ; 
+    APPLYMASK_ALLOWED |= APPLYMASK_SEARCHEFF_zSPEC ;  // Mar 2026
+  }
+
+  if ( NONZERO_SEARCHEFF_zHOST && LSPECID ) {
+    APPLYMASK_ALLOWED += APPLYMASK_SEARCHEFF_zHOST; 
+    APPLYMASK_ALLOWED |= APPLYMASK_SEARCHEFF_zSPEC ;  // Mar 2026
+  }
+
+  OVP = ( APPLYMASK_ALLOWED & APPLYMASK_SEARCHEFF_USER) ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  if ( OVP != APPLYMASK_SEARCHEFF_USER) {
+    print_preAbort_banner(fnam);
+    printf("\t APPLY_SEARCHEFF_OPT += %d --> detection pipeline.\n",
+	   APPLYMASK_SEARCHEFF_PIPELINE);
+
+    printf("\t APPLY_SEARCHEFF_OPT += %d --> SPECID confirmed.\n",
+	   APPLYMASK_SEARCHEFF_SPECID );
+
+    printf("\t APPLY_SEARCHEFF_OPT += %d --> zHOST(spec).\n",
+	   APPLYMASK_SEARCHEFF_zHOST );
+
+    printf("\t APPLY_SEARCHEFF_OPT += %d --> zSPEC(SN or HOST).\n",
+	   APPLYMASK_SEARCHEFF_zSPEC );
+
+    printf("\t NONZERO_SEARCHEFF_SPECID=%d   LSPECID=%d \n", 
+	   NONZERO_SEARCHEFF_SPECID, LSPECID);
+    printf("\t NONZERO_SEARCHEFF_zHOST=%d \n", NONZERO_SEARCHEFF_zHOST);
+
+    sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' (OVP=%d) ",
+	    APPLYMASK_SEARCHEFF_USER, OVP) ;
+    sprintf(c2err,"Simulation can produce SEARCHEFF mask %d \n",
+	    APPLYMASK_ALLOWED);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // - - - - - - 
+  // Sep 4 2019: prepare README comment for trigger.
+
+  COMMENT_README_SEARCHEFF[0][0] = 0;
+  COMMENT_README_SEARCHEFF[1][0] = 0;
+
+  sprintf(COMMENT_README_SEARCHEFF[0], "APPLY_SEARCHEFF_OPT=%d --> ",
+	  APPLYMASK_SEARCHEFF_USER);
+
+  int REQ_PIPE, REQ_SPEC, REQ_zHOST, NUSE=0;
+  char ctmp[100], clist[100], cplus[] = "+" ;
+  REQ_PIPE  = (APPLYMASK_SEARCHEFF_USER & APPLYMASK_SEARCHEFF_PIPELINE );
+  REQ_SPEC  = (APPLYMASK_SEARCHEFF_USER & APPLYMASK_SEARCHEFF_SPECID );
+  REQ_zHOST = (APPLYMASK_SEARCHEFF_USER & APPLYMASK_SEARCHEFF_zHOST );
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  ctmp[0] = clist[0] = 0; 
+  if ( REQ_PIPE ) 
+    { strcat(clist,"PIPELINE"); NUSE++; }
+
+  if ( REQ_SPEC ) {
+    if ( NUSE >0 ) { strcat(clist,cplus); }
+    strcat(clist,"SPEC");  NUSE++ ;
+  }
+  if ( REQ_zHOST ) { 
+    if ( NUSE > 0 ) { strcat(clist,cplus); }
+    strcat(clist,"zHOST");   NUSE++ ;
+  }
+
+  if ( NUSE > 0 ) 
+    { sprintf(ctmp,"Require EFF(%s)", clist); }
+  else
+    { sprintf(ctmp,"No trigger requirements"); }
+
+  strcat(COMMENT_README_SEARCHEFF[0],ctmp);
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  if ( INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE ) {
+    sprintf(COMMENT_README_SEARCHEFF[1],
+	    "SPECIAL OPTION: "
+	    "EFF(PIPE) applied to single-exposures instead of co-add");
+  }
+  
+  return ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+} // end  check_APPLYMASK_SEARCHEFF_LEGACY
+
+
+// ************************************************
+double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
+
+  // return value of variable corresponding to this SPECEFF-ivar index
+  // June 23 2016: check HOSTMAG and SBMAG 
+  // Mar  02 2026: check SNRSUM_REST_V for spectrograph
+  //
+  int    ifilt_obs, ifilt,  IVARTYPE, NFILTLIST ;
+  double mag, MAG, mag0, mag1, color;
+  char *varName = SEARCHEFF_SPECID_LEGACY[imap].VARNAMES[ivar] ;
+  char fnam[] = "LOAD_SPECEFF_VAR_LEGACY" ;
+
+  // ------------ BEGIN ------------------
+
+      
+  IVARTYPE = SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar]; 
+  
+  if ( IVARTYPE == IVARTYPE_EFFMAP_REDSHIFT ) {
+    return  SEARCHEFF_DATA.REDSHIFT ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMJD ) {
+    return  SEARCHEFF_DATA.PEAKMJD ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_DTPEAK ) {
+    return  SEARCHEFF_DATA.DTPEAK_MIN ; // smallest abs(T-Tpeak)
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_DTSEASON_PEAK ) {
+    return  SEARCHEFF_DATA.DTSEASON_PEAK ; // smallest abs(T-Tpeak)
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_LOGMASS ) {
+    return  SEARCHEFF_DATA.LOGMASS ; 
+  }  
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SNRSUM_REST_V ) {
+    return  SEARCHEFF_DATA.SNRSUM_REST_V ; 
+  }  
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SALT2mB ) {
+    return  SEARCHEFF_DATA.SALT2mB ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SALT2x1 ) {
+    return  SEARCHEFF_DATA.SALT2x1 ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SALT2c ) {
+    return  SEARCHEFF_DATA.SALT2c ; 
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMAG ) {
+    // take average of peakMags that are OR'ed in this map.
+    int NTMP = 0 ;
+    MAG = 0.0 ;
+    NFILTLIST = SEARCHEFF_SPECID_LEGACY[imap].NFILTLIST_PEAKMAG[ivar] ;
+    for(ifilt=0; ifilt < NFILTLIST; ifilt++ ) {
+      ifilt_obs = SEARCHEFF_SPECID_LEGACY[imap].IFILTLIST_PEAKMAG[ivar][ifilt] ;
+      mag       = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
+      if ( mag < 40. && mag > 0.0 ) { MAG += mag; NTMP++; }
+    }
+    if ( NTMP > 0 ) 
+      { MAG /= (float)NTMP ; }
+    else
+      { MAG = -9.0; }
+    //    check_magUndefined(mag,varName,fnam);  // abort if mag is undefined
+    MAG  += INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ;
+    return(MAG) ;
+  }   
+
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_COLOR ) {
+    ifilt_obs = SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][0] ;
+    mag0 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs]  ;
+    check_magUndefined(mag0,varName,fnam);  
+    
+    ifilt_obs = SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][1] ;
+    mag1 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
+    check_magUndefined(mag1,varName,fnam);  
+	  
+    color = mag0 - mag1 ;
+    return  color ;
+  }          
+
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTMAG ) {
+    ifilt_obs = SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_HOSTMAG[ivar] ;
+    mag       = SEARCHEFF_DATA.HOSTMAG[ifilt_obs] ;
+    check_magUndefined(mag,varName,fnam);
+    return mag ;
+  }          
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SBMAG ) {
+    ifilt_obs = SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_SBMAG[ivar] ;
+    mag       = SEARCHEFF_DATA.SBMAG[ifilt_obs] ;
+    check_magUndefined(mag,varName,fnam);
+    return mag ;
+  }          
+
+
+  // if we get here then abort.
+  sprintf(c1err,"Could not find ivar=%d for imap=%d ", ivar, imap);
+  sprintf(c2err,"Check %s", INPUTS_SEARCHEFF.SPEC_FILE );
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+
+  return(-9.0); // should never get here
+
+} // end of LOAD_SPECEFF_VAR_LEGACY
+
+
+// *******************************************
+void  init_SEARCHEFF_SPECID_LEGACY(char *survey) {
+
+  // Created July 2011 by R.Kessler
+  // If optional EFF(SPEC-confirm) table exists, read and store.
+  // Table name must be SEARCHEFF_[survey]_SPEC.DAT;
+  // this table can reside in current [user] directory
+  // or in PATH_SEARCHEFF
+  //
+  // Table VARNAMES include
+  // * REDSHIFT
+  // * any of the filters (i.e., 'g' => peak g-band mag).
+  // * SPECEFF   (required last varname)
+  //
+  //
+  // If user-requested file (SEARCHEFF_SPEC_FILE: <file>)
+  // does not exist then abort. If default SPEC-eff file
+  // does not exist then just return.
+  //
+  // Aug 26, 2011 fix aweful bug
+  //     MAPSIZE    = SEARCHEFF_SPEC.MAPSIZE[NMAP] ;    
+  //  -> MAPSIZE    = SEARCHEFF_SPEC.MAPSIZE[imap] ; 
+  //
+  // Jun 23 2016: check for non-uniform binning.
+  //
+  // Nov  6 2017: set SEARCHEFF_SPEC.FLAG_PEAKMAG_ONLY
+  // Mar 11 2018: refactor
+  // Jun 02 2018: check SPEC_FILE = ZERO option
+  // Mar 14 2019: refactor to use read_GRIDMAP().
+  // Aug 09 2024: read optional REQUIRE key to require selection from map
+  //              (e.g,, PEAKMJD or DTPEAK range)
+
+  char 
+     effspec_file_local[MXPATHLEN]
+    ,*ptrFile_user, *ptrFile_final, *cptr
+    ,c_get[100], LINE[100]
+    ,fnam[] = "init_SEARCHEFF_SPECID_LEGACY" 
+    ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  FILE *fp = NULL ;
+
+  int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
+  int   ID, NDIM, NFUN, N, gzipFlag, ISFIELD ;
+  int   REQUIRE_SPEC_FILE = 0, REQUIRE_MAP;
+  char  KEY_ROW[]  = "SPECEFF:";
+  char  KEY_STOP[] = "" ;
+  char  *VARNAME, *VARLIST ; 
+  char  FIELDLIST[100] ;
+
+  int    OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
+  double SPECEFF_SCALE = INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
+
+  // ------------ BEGIN --------------
+
+  N = 0 ;  cptr = SEARCHEFF_SPECID_INFO.README[N] ;
+  sprintf(cptr, "\t %s", "No spec-eff option specified ==> 100% efficiency.");
+  N++;  SEARCHEFF_SPECID_INFO.NLINE_README = N ;  
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO = 0 ;
+  INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE  = 0 ;  
+  SEARCHEFF_SPECID_INFO.IVARTYPE_MASK   = 0 ;
+  SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY = 0 ;
+  SEARCHEFF_SPECID_INFO.BOOLEAN_OR        = 1 ; // default logic is OR
+  SEARCHEFF_SPECID_INFO.BOOLEAN_AND       = 0 ; 
+
+  for( imap=0; imap < MXMAP_SEARCHEFF_SPECID; imap++ ) {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR           = -9 ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_REDSHIFT  = -9 ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_PEAKMJD   = -9 ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_DTPEAK    = -9 ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_DTSEASON_PEAK = -9 ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_LOGMASS   = -9 ;    // Aug 27 2024
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_SALT2mB   = -9 ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_SALT2x1   = -9 ;     // Aug 27 2024    
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_SALT2c    = -9 ;     // Aug 27 2024
+    sprintf(SEARCHEFF_SPECID_LEGACY[imap].FIELDLIST, "%s", ALL ); // default is all fields
+    SEARCHEFF_SPECID_LEGACY[imap].REQUIRE = 0 ; // Aug 2024
+    
+    for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_SPEC; ivar++ ) {
+      SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar]              = -9 ;
+      SEARCHEFF_SPECID_LEGACY[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
+      SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_HOSTMAG[ivar]      = -9 ;
+      SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_SBMAG[ivar]        = -9 ;
+      SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
+      SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
+    }
+  } // imap
+
+
+  // define effspec filename form user input or from default name
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  ptrFile_user  = INPUTS_SEARCHEFF.USER_SPEC_FILE ;
+  ptrFile_final = INPUTS_SEARCHEFF.SPEC_FILE ;
+
+
+  if ( IGNOREFILE(ptrFile_user) ) {
+    sprintf(effspec_file_local, "%s",  ptrFile_user); 
+    REQUIRE_SPEC_FILE = 0 ;
+  }
+  else if ( strcmp(ptrFile_user,"ZERO") == 0  ) {
+    INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO = 1 ;
+    sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ZERO -> Force EFF_SPEC=0. \n");
+    printf("\n %s\n", cptr);
+    fflush(stdout);
+    return ;
+  }
+  else if ( strcmp(ptrFile_user,"ONE") == 0  ) {
+    INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE = 1 ;
+    sprintf(cptr,"\t SEARCHEFF_SPEC_FILE = ONE -> Force EFF_SPEC=1. \n");
+    printf("\n %s\n", cptr);
+    fflush(stdout);
+    return ;
+  }
+  else { 
+    sprintf(effspec_file_local, "%s",  ptrFile_user); 
+    REQUIRE_SPEC_FILE = 1 ;
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // use utility to check local dir and path.
+  if ( REQUIRE_SPEC_FILE ) {
+    fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, effspec_file_local, 
+			    ptrFile_final, &gzipFlag ); // returned
+  }
+  
+  if ( fp == NULL ) { 
+    if ( REQUIRE_SPEC_FILE ) {
+      abort_openTextFile("SEARCHEFF_SPEC_FILE",
+			 PATH_SEARCHEFF, effspec_file_local, fnam );
+    }
+    else  { 
+      printf("\n  Optional SEARCHEFF_SPEC_FILE not specified -> EFF_SPEC=1 \n");
+      fflush(stdout);
+      NONZERO_SEARCHEFF_SPECID++; // default EFFspec = 100%
+      return ; 
+    }
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+  printf("\n");
+  printf("   Reading spectroscopic efficiency from \n\t %s\n", 
+	 ptrFile_final );
+
+  NVAR = NROW = NMAP = 0;
+  REQUIRE_MAP = 0 ;  sprintf(FIELDLIST,"%s", ALL);
+
+  sprintf(c2err,"%s", "Check spec-eff file above");
+
+  while( (fscanf(fp, "%s", c_get )) != EOF) {
+    
+    if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(ptrFile_final); }
+
+    // - - - - - -
+    // check optional key to associate map with particular field[list]
+    ISFIELD = (strcmp(c_get,"FIELD:")==0 || strcmp(c_get,"FIELDLIST:")==0 );
+    if ( ISFIELD ) { readchar(fp, FIELDLIST); }
+
+    if ( strcmp(c_get,"REQUIRE:") == 0 ) {
+      readint(fp, 1, &REQUIRE_MAP);
+      fflush(stdout); 
+    }
+    
+    // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+    FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
+
+    if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_SPECID ) {
+      fgets(LINE, 100, fp ); // scoop up varnames
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
+      sprintf(SEARCHEFF_SPECID_LEGACY[NMAP].FIELDLIST,"%s", FIELDLIST );
+      SEARCHEFF_SPECID_LEGACY[NMAP].REQUIRE = REQUIRE_MAP;
+      
+      for ( ivar=0; ivar < NVAR; ivar++ ) {
+	VARNAME = SEARCHEFF_SPECID_LEGACY[NMAP].VARNAMES[ivar] ;
+	VARLIST = SEARCHEFF_SPECID_LEGACY[NMAP].GRIDMAP.VARLIST ;
+	get_PARSE_WORD(0,ivar,VARNAME, fnam);
+	assign_SPECEFF_LEGACY(NMAP,ivar,VARNAME); 
+	if ( ivar == 0 ) 
+	  { sprintf(VARLIST,"%s", VARNAME ); }
+	else
+	  { sprintf(VARLIST,"%s %s", VARLIST, VARNAME ); }
+      }
+      
+      ID = IDGRIDMAP_SPECEFF_OFFSET + NMAP;   NDIM = NVAR-1; NFUN=1;
+      read_GRIDMAP(fp, KEY_ROW, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
+		   MXROW_SEARCHEFF_SPECID, fnam,
+		   &SEARCHEFF_SPECID_LEGACY[NMAP].GRIDMAP ) ;
+      
+      printf("\t for FIELDLIST=%s\n", FIELDLIST);
+      if ( REQUIRE_MAP ) { printf("\t This SPECEFF map is required.\n"); }
+				  
+      NONZERO_SEARCHEFF_SPECID++; 
+    }
+
+    if ( FOUND_VARNAMES ) { NMAP++; }
+
+  }  // end of read-line loop
+
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@ 
+  fclose(fp); // done reading SPECEFF map(s)
+
+  INPUTS_SEARCHEFF.NMAP_SPECID = NMAP;
+
+  if ( NMAP > MXMAP_SEARCHEFF_SPECID ) {
+    sprintf(c1err,"NMAP=%d  exceeds  MXMAP_SEARCHEFF_SPECID=%d",
+	    NMAP, MXMAP_SEARCHEFF_SPECID );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+
+  // -------------------------------------------------------
+  // Nov 2017: check if this map depends ONLY on PEAKMAG;
+  //   if so, can make sim run faster.
+  int IVARTYPE_MASK_PEAKMAG = 0, OVP;
+  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_PEAKMAG ) ;
+  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_COLOR   ) ;
+  OVP = ( IVARTYPE_MASK_PEAKMAG & SEARCHEFF_SPECID_INFO.IVARTYPE_MASK ) ;
+  if ( SEARCHEFF_SPECID_INFO.IVARTYPE_MASK == OVP ) 
+    { SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY=1 ; }
+
+  /*
+  printf(" xxx FLAG_PEAKMAG_ONLY = %d (OVP=%d, MASKREF=%d, MASK=%d) \n", 
+	 SEARCHEFF_SPEC.FLAG_PEAKMAG_ONLY, 
+	 OVP, IVARTYPE_MASK_PEAKMAG, SEARCHEFF_SPEC.IVARTYPE_MASK );
+  */
+
+  fflush(stdout) ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  N = 0 ;
+  cptr = SEARCHEFF_SPECID_INFO.README[N] ;  N++ ;  
+  sprintf(cptr, "\t %s", "GRID-MAP read from ");
+  cptr = SEARCHEFF_SPECID_INFO.README[N] ;  N++ ;  
+  sprintf(cptr, "\t %s", ptrFile_final );
+
+  if ( fabs(SPECEFF_SCALE-1.0) > 0.0001 ) {
+    cptr = SEARCHEFF_SPECID_INFO.README[N] ;    N++ ;  
+    sprintf(cptr, "\t EffSpec from file is scaled by %le", SPECEFF_SCALE );
+  }
+
+  SEARCHEFF_SPECID_INFO.NLINE_README = N ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  return ;
+
+} // end of init_SEARCHEFF_SPECID_LEGACY
+
+// ***************************************
+void init_SEARCHEFF_zHOST_LEGACY(char *survey) {
+
+  // Created May 8 2014 by R.Kessler
+  //
+  // Read optional efficiency map for obtaining a host-galaxy
+  // redshift for UNCONFIRMED SNe. Note that non-uniform 
+  // redshift binning is allowed.
+  //
+  // Map is of the form
+  // FIELD:    <bla>             # optional to give separate map per field
+  // FIELDLIST <bla1,bla2,bla3>  # optional OR of several fields.
+  // VARNAMES:  z   EFF
+  // HOSTEFF:  <z>  <eff>        # required
+  // HOSTEFF:  <z>  <eff>        # idem
+  // HOSTEFF:  <z>  <eff>
+  // etc ...
+  //
+  // Apr 11 2016: if no HOSTEFF keys, then read as 2-column file
+  //              (same format as HOSTLIB_ZPHOTEFF_FILE)
+  //
+  // Mar 11 2018: refactor with new struct SEARCHEFF_zHOST
+  // Jul 30 2018: set NONZERO_SEARCHEFF_zHOST when reading 2-column format
+
+  FILE *fp ;
+  char fnam[] = "init_SEARCHEFF_zHOST_LEGACY" ;
+
+  // --------------- BEGIN ------------
+
+  // check file format version: LEGACY or MULTI-D
+  // If init_HOSTLIB already checked, then 
+  // INPUTS_SEARCHEFF.IVERSION_zHOST is already set > 0.
+  if ( INPUTS_SEARCHEFF.IVERSION_zHOST == 0 ) {
+    fp = open_zHOST_FILE(1);
+    if ( fp != NULL ) { read_VARNAMES_zHOST(fp); fclose(fp); }
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // ------------------------------------
+  
+  // check VARNAMES key to see if legacy (z-only) file
+  int LEGACY = ( INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY );
+
+  fp = open_zHOST_FILE(1);
+  if ( fp == NULL ) { return ; }
+
+  if ( LEGACY ) 
+    { read_zHOST_FILE_LEGACY(fp); }
+  else
+    { read_zHOST_FILE(fp); }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  fclose(fp);
+
+  return;
+} // end of init_SEARCHEFF_zHOSTEFF_LEGACY
+
+
+// ***************************************************
+int gen_SEARCHEFF_SPECID_LEGACY(int ID, double *EFF_SPECID) {
+
+  // Return 1 if this SN is spec-confirmed; return 0 otherwise
+  // (O) *EFF_SPECID is the spec-efficiency
+  //
+  // May 10 2018: EFF *= USER_SPECEFF_SCALE
+  // Jun 02 2018: check opton to force EFF_SPECID=0
+  // Jun 08 2018: check BOOLEAN OR/AND logic for EFF.
+  // Aug 09 2024: check for REQUIRED map (e.g., PEAKMJD or DTPEAK)
+  // Mar 03 2026: fix bug and check field MATCH
+
+  int  NMAP        = INPUTS_SEARCHEFF.NMAP_SPECID ;
+  int  BOOLEAN_OR  = SEARCHEFF_SPECID_INFO.BOOLEAN_OR  ;
+  int  BOOLEAN_AND = SEARCHEFF_SPECID_INFO.BOOLEAN_AND ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  int  imap, ivar, NVAR, LFIND, istat, REQUIRE_MAP ;
+  bool MATCH, REQUIRE_PASS = true ;
+  double PnoSpec_OR, Pspec_AND, EFF, RAN, VARDATA[MXVAR_SEARCHEFF_SPEC];
+  char *FIELD_MAP;
+  int  LDMP = 0;
+  char fnam[] = "gen_SEARCHEFF_SPECID_LEGACY" ;
+
+  // ----------- BEGIN --------
+
+  LFIND = 1 ;
+  EFF   = 1.0 ;
+
+  if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
+    RAN   = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
+    return gen_SEARCHEFF_DEBUG("SPEC", RAN, EFF_SPECID) ;
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // if there is no spec-eff file, return 100% eff and True
+  if ( NMAP == 0 )  { 
+    if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO ) 
+      { *EFF_SPECID = 0.0 ; LFIND=0 ; }
+    else if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFONE ) 
+      { *EFF_SPECID = 1.0 ; LFIND=1 ; }
+    else
+      { *EFF_SPECID = EFF ; LFIND=1 ; }
+
+    return LFIND ;  
+  }
+
+  // do multi-dimensional interpolation if SPEC-EFF map
+  // is specified. Take the logical-OR of each map,
+  // which means that EFF = 1 - product(1-Eff_imap)
+
+  if ( LDMP ) {
+    printf(" xxx \n");
+    printf(" xxx %s DUMP for CID = %d ------------- \n", fnam, ID);
+  }
+    
+  PnoSpec_OR = 1.0 ;
+  Pspec_AND  = 1.0 ;
+  
+  for ( imap=0; imap < NMAP; imap++ ) {
+
+    // check if current field goes with this map
+    FIELD_MAP = SEARCHEFF_SPECID_LEGACY[imap].FIELDLIST ;
+    MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP); 
+    
+    if ( !MATCH ) { continue; } // bug fix; Mar 3 2026 
+
+    // determine list of variables
+    NVAR = SEARCHEFF_SPECID_LEGACY[imap].GRIDMAP.NDIM ;
+    for ( ivar=0; ivar < NVAR; ivar++ )  {
+      VARDATA[ivar] = LOAD_SPECEFF_VAR_LEGACY(imap,ivar);
+      if ( LDMP ) {
+	char *VARNAME = SEARCHEFF_SPECID_LEGACY[imap].VARNAMES[ivar] ;	
+	printf(" xxx %s: imap=%d  load ivar=%d:  %s = %f \n",
+	       fnam, imap, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
+      }
+    }
+
+    istat = interp_GRIDMAP(&SEARCHEFF_SPECID_LEGACY[imap].GRIDMAP, VARDATA, &EFF );
+
+    if ( LDMP ) {
+      printf(" xxx %s: imap=%d  EFF=%f \n", fnam, imap, EFF );
+      fflush(stdout);
+    }
+    
+    PnoSpec_OR *= (1.0 - EFF);
+    Pspec_AND  *= EFF ;
+
+    // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+    
+    // Aug 2024: check for required map; e.g.. PEAKMJD or DTPEAK range
+    REQUIRE_MAP = SEARCHEFF_SPECID_LEGACY[imap].REQUIRE;
+    if ( REQUIRE_MAP ) {
+      RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[imap+10] ;
+      if ( RAN > EFF ) { REQUIRE_PASS = false ; } 
+    }
+    
+  } // imap for SPECEFF
+
+  //  printf(" xxx BOOLEAN(OR,AND) = %d %d \n",  BOOLEAN_OR, BOOLEAN_AND);
+
+  if ( NMAP > 0  ) { 
+    if ( BOOLEAN_OR  )
+      { EFF = 1.0 - PnoSpec_OR ; }
+    else if ( BOOLEAN_AND )
+      { EFF = Pspec_AND  ; }
+    else {
+      sprintf(c1err,"Undefined BOOL logic for SPECEFF maps.");
+      sprintf(c2err,"Expecting OR or AND logic.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
+    }
+    
+  }
+
+  if ( EFF < 0.0 && EFF > -0.001 ) { EFF = 0.0 ; } // allow round-off
+
+  // sanity check
+  if ( EFF < 0.0 || EFF > 1.0001 ) {
+    sprintf(c1err,"Invalid Spec effic= %f for ID=%d", EFF, ID);
+    sprintf(c2err,"zHel=%6.3f  PEAKMJD=%9.2f ", 
+	    SEARCHEFF_DATA.REDSHIFT, SEARCHEFF_DATA.PEAKMJD );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // apply user scale (May 10 2018)
+  EFF *= INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
+
+  // load output argument
+  *EFF_SPECID = EFF ;  
+
+  // compare spec-eff to random number
+  RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
+  if ( RAN > EFF ) { LFIND = 0 ; }
+
+  // Aug 2024: if required map is not satisfied, reject this event
+  if ( !REQUIRE_PASS ) { LFIND = 0 ; }
+  
+  return LFIND ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+} // end of gen_SEARCHEFF_SPECID_LEGACY
+
+
+// ************************************************
+int gen_SEARCHEFF_zHOST_LEGACY(int ID, double *EFF_zHOST) {
+
+  // Created May 8 2014:
+  // Check efficiency of finding host galaxy redshift;
+  // return 0, 1 if not found, found.
+  //
+  // Jan 22 2017: check for field-dependent HOSTEFF map.
+  // Mar 11 2018: refactor
+  // Oct 15 2025: 
+  //    + bail if hostless event (can't get zSpec_host if host is not found)
+
+  bool  USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; // Oct 2025
+  int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
+  int     LFIND ;
+  double  SNRMAX, RAN, EFF ;
+  char fnam[] = "gen_SEARCHEFF_zHOST_LEGACY" ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // ----------- BEGIN -----------
+
+  *EFF_zHOST = 0.0 ; // init return arg
+
+  if ( INPUTS_SEARCHEFF.RESTORE_DES5YR ) {
+    // restore D5YR bug by ignoring hostless events
+  }
+  else {
+    // implement host-less fix Oct 15 2025 
+    // (original motivation: for DESC all photo-z/re-analysis of DES-SN5YR)
+    if ( USE_HOSTLIB && SNHOSTGAL.NNBR_DDLRCUT == 0 ) { return 0; }
+  }
+
+  // check debug option
+  if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
+    RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
+    return gen_SEARCHEFF_DEBUG("zHOST", RAN, EFF_zHOST) ;
+  }
+
+  LFIND = 1 ;
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // check options if there is no zHOST-eff file
+  if ( NMAP == 0 )  { 
+    if ( INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO ) 
+      { *EFF_zHOST = 0.0;  LFIND=0; }
+    else if ( INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE ) 
+      { *EFF_zHOST = 1.0;  LFIND=1; }
+    else {
+      // no user option
+      *EFF_zHOST = 1.0 ; LFIND=1 ;
+    }
+
+    return LFIND ;  
+  }
+
+
+  if(  INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY ) 
+    { EFF = interp_SEARCHEFF_zHOST_LEGACY(); }
+  else
+    { EFF = interp_SEARCHEFF_zHOST(ID); }
+
+
+  *EFF_zHOST = EFF ;  // load function arg.
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // borrow one of the already-allocated SPEC randoms.
+  RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
+  if ( RAN > EFF ) { LFIND = 0 ; }
+
+  /*
+  printf(" xxxx %s : FIELD=%s z = %.3f  EFF=%.3f   LFIND=%d \n",
+	 fnam, field_data, z, EFF, LFIND); fflush(stdout); // xxxx
+  */
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  return LFIND ;
+
+}   // end of gen_SEARCHEFF_zHOST_LEGACY
+
+
+// ***************************************
+void assign_SPECEFF_LEGACY(int imap, int ivar, char *VARNAME) {
+  
+  // Assign SPECEFF VARNAME to one of
+  //  * SEARCHEFF_SPEC.IVAR
+  //  * SEARCHEFF_SPEC.IVAR_REDSHIFT  
+  //  * SEARCHEFF_SPEC.IVAR_PEAKMJD
+  //  * SEARCHEFF_SPEC.IVAR_DTPEAK
+  //  * SEARCHEFF_SPEC.IVAR_DTSEASON_PEAK
+  //  * SEARCHEFF_SPEC.IVAR_SALT2mb[x1,c]
+  //  * SEARCHEFF_SPEC.IVAR_LOGMASS  
+  //  * SEARCHEFF_SPEC.IFILTOBS_PEAKMAG
+  //  * SEARCHEFF_SPEC.IFILTOBS_PEAKCOLOR
+  //  * SEARCHEFF_SPEC.IFILTOBS_HOSTMAG 
+  //  * SEARCHEFF_SPEC.IFILTOBS_SBMAG
+  //
+  // If assignment can't be made then abort.
+  //
+  //
+  // Nov 6 2017: set SEARCHEFF_SPEC.IVARTYPE_MASK
+  // May 13 2021: allow HOSTMAG or HOST_MAG
+  // Aug 27 2024: store IVAR_SALT2x1, IVAR_SALT2c, IVAR_LOGMASS
+  // Mar 02 2026: store IVAR_SNRSUM_REST_V
+  //
+  int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
+  int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
+
+  char c0[2], c1[2], c2[2];
+  char minus[2] = "-" ;
+  char fnam[] = "assign_SPECEFF_LEGACY";
+
+  // ----------- BEGIN ---------
+  
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  // check for the easy ones first.
+  if ( strcmp(VARNAME,"SPECEFF") == 0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP ;
+    return ;
+  } 
+  else if ( strcmp(VARNAME,"REDSHIFT") == 0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_REDSHIFT = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_REDSHIFT ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_REDSHIFT );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"PEAKMJD") == 0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_PEAKMJD = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMJD ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMJD );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"DTPEAK") == 0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_DTPEAK = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_DTPEAK ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_DTPEAK );
+    return ;
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  else if ( strcmp(VARNAME,"DTSEASON_PEAK") == 0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_DTSEASON_PEAK = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_DTSEASON_PEAK ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_DTSEASON_PEAK );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"SALT2mB")==0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_SALT2mB = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2mB ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2mB );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"SALT2c")==0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_SALT2c = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2c ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2c );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"SALT2x1")==0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_SALT2x1 = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2x1 ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2x1 );
+    return ;
+  }
+  else if ( strcmp(VARNAME,"LOGMASS") ==0 )  {
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_LOGMASS = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] =  IVARTYPE_EFFMAP_LOGMASS ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_LOGMASS );
+    return ;
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  else if ( strcmp(VARNAME,"SNRSUM_REST_V") ==0 )  { // Mar 2026
+    SEARCHEFF_SPECID_LEGACY[imap].IVAR_SNRSUM_REST_V = ivar ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SNRSUM_REST_V ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SNRSUM_REST_V );
+    return ;
+  }
+
+  // check for mag or color.
+  // Color must be of the form [filt1]-[filt2]
+  // where [filt1] and [filt2] are single-char strings.
+  // LENVAR =1 for simple mag; e.g., 'g', 'r'
+  // LENVAR =3 for color, e.g., 'g-r'
+
+  ISPEAKMAG  = ISCOLOR = 0;
+  LENVAR = strlen(VARNAME);
+  ifilt_obs = ifilt2_obs = -9;
+  
+  if ( strstr(VARNAME,"+") != NULL ) {
+    // OR of multiple peakMags (Feb 2017)
+    // Store filter-list for any char that is not a plus (+)
+    for(ic=0; ic < LENVAR; ic++ ) {
+      sprintf(c0, "%c", VARNAME[ic] );
+      if ( c0[0] != '+' ) {
+	ifiltlist[ISPEAKMAG] = INTFILTER(c0);
+	ISPEAKMAG++ ;
+      }
+    }
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  else if ( LENVAR == 1 ) {
+    sprintf(c0, "%c", VARNAME[0] );
+    ifilt_obs  = INTFILTER(c0);
+    if ( ifilt_obs > 0 ) { ifiltlist[0]=ifilt_obs; ISPEAKMAG  = 1; }
+  }
+  else if ( LENVAR == 3 ) {
+    sprintf(c0, "%c", VARNAME[0] );
+    sprintf(c1, "%c", VARNAME[1] );
+    sprintf(c2, "%c", VARNAME[2] );
+
+    ifilt_obs  = INTFILTER(c0);
+    ifilt2_obs = INTFILTER(c2);
+
+    LMNS  = ( strcmp(c1,minus) == 0  ) ;           // require minus sign
+    LFF1  = ( ifilt_obs != ifilt2_obs ) ;          // different filters
+    LFF2  = ( ifilt_obs > 0 && ifilt2_obs > 0 ) ;  // valid filters
+    if ( LMNS && LFF1 && LFF2 ) { ISCOLOR = 1; }
+  }
+
+  if ( ISPEAKMAG ) { 
+    SEARCHEFF_SPECID_LEGACY[imap].NFILTLIST_PEAKMAG[ivar]  = ISPEAKMAG ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    for(i=0; i < ISPEAKMAG; i++ ) {
+      SEARCHEFF_SPECID_LEGACY[imap].IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ;
+    }
+    return ; 
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  if ( ISCOLOR ) { 
+    SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
+    SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_COLOR ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_COLOR );
+    return ; 
+  }
+
+
+  // June 2016: Check for variables of the form XXX_[band]
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG");
+  if ( ifilt_obs >=0 ) {
+    SEARCHEFF_SPECID_LEGACY[imap].NFILTLIST_PEAKMAG[ivar]    = 1 ;
+    SEARCHEFF_SPECID_LEGACY[imap].IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    return ;
+  }
+
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG");
+  if ( ifilt_obs >=0 ) {
+    SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_HOSTMAG ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_HOSTMAG );
+    return ;
+  }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG");
+  if ( ifilt_obs >=0 ) {
+    SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_SBMAG[ivar] = ifilt_obs ;
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_SBMAG ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SBMAG );
+    return ;
+  }
+
+  // ------------------------------------------------------
+  // if we get here then abort.
+  sprintf(c1err,"Unknown SPECEFF VARNAME: '%s'", VARNAME);
+  sprintf(c2err,"Check manual for list of options.");
+  errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+
+  return ;
+
+
+} // end of assign_SPECEFF_LEGACY
+
+// ======= END: =========

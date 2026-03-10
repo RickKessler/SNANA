@@ -9979,6 +9979,21 @@ void init_genSmear_filters(void) {
 } // end of init_genSmear_filters
 
 
+bool REQUEST_USER_SPECTRA(void) {
+  // Created Mar 2026
+  // return true if there is a request for spectra.
+
+  bool request;
+  request = ( NPEREVT_TAKE_SPECTRUM > 0 ||            // TAKE_SPECTRUM keys in sim input
+	      INPUTS.USE_SIMLIB_TAKE_SPECTRUM ||      // TAKE_SPECTRUM keys in SIMLIB
+	      INPUTS.USE_SIMLIB_SPECTROGRAPH  ||      // SPECTROGRAPH keys in SIMLIB
+	      INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE > 0. ) ; // true SEDs
+
+  return request;
+
+} // end REQUEST_USER_SPECTRA
+
+
 // ************************************
 void  init_genSpec(void) {
 
@@ -9987,6 +10002,7 @@ void  init_genSpec(void) {
   // See GENSPEC_DRIVER for execution.
   //
   // Jul 12 2019: allow BYOSED
+  // Mar 10 2026: return if !REQUEST_USER_SPECTRA()
 
   char *modelName  = GENMODEL_NAME[INDEX_GENMODEL][0] ; // generic model name
   int  OPTMASK     = INPUTS.SPECTROGRAPH_OPTIONS.OPTMASK ;
@@ -10019,9 +10035,12 @@ void  init_genSpec(void) {
   }
 
 
-
   if ( INPUTS.README_DUMPFLAG    ) { return; }
   if ( SPECTROGRAPH_USEFLAG == 0 ) { return ; }
+
+  if ( !REQUEST_USER_SPECTRA() ) { return; } // bail if there is no user request for spectra
+  // .xyz
+
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 1 ;
 
   // check user option to turn off spectra
@@ -15060,10 +15079,16 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // ----------- BEGIN ---------
 
+  bool IS_SPECTRA = REQUEST_USER_SPECTRA();
+
+
+  /* xxxx mark delete Mar 10 2026 xxxxxxxx
   bool IS_SPECTRA = ( NPEREVT_TAKE_SPECTRUM > 0 || 
 		      INPUTS.USE_SIMLIB_TAKE_SPECTRUM || 
 		      INPUTS.USE_SIMLIB_SPECTROGRAPH  ||
 		      INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE > 0. ) ;
+  xxxxxxxx end mark xxx*/
+
 
   if ( !IS_SPECTRA ) { return; }
   

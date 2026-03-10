@@ -2676,7 +2676,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   double PROB_all_FAIL, PROB_all_PASS;  
   double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP], PEAKMJD ;
   double *ptr_FLAT_RANDOMS;
-  char   *FIELD_MAP;
+  char   *FIELD_MAP, *VARNAME ;
   int    INDX_RAN, LDMP = 0; // (ID == 173)
   char   fnam[] = "gen_searcheff_map" ;
 
@@ -2706,14 +2706,14 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
     else if ( IFLAG_EFFONE ) 
       { EFF_LOCAL = 1.0 ; LFIND=1 ; }
     else
-      { EFF_LOCAL ; LFIND=1 ; }
+      { EFF_LOCAL = 1.0 ; LFIND=1 ; }
 
     *EFF = EFF_LOCAL;
     return LFIND ;  
   }
 
-  // do multi-dimensional interpolation if SPEC-EFF map
-  // is specified. Take the logical-OR of each map,
+  // do multi-dimensional interpolation if SPEC-EFF mapis specified. 
+  // Take the logical-OR of each map,
   // which means that EFF = 1 - product(1-Eff_imap)
 
   if ( LDMP ) {
@@ -2724,7 +2724,8 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
 	   fnam, BOOLEAN_OR, BOOLEAN_AND );
     fflush(stdout);
   }
-    
+  
+  // - - - - - - - - - - - - -
   PROB_all_FAIL = PROB_all_PASS = 1.0;  
   SEARCHEFF_MAP_DEF *MAP;
 
@@ -2749,7 +2750,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
     for ( ivar=0; ivar < NVAR; ivar++ )  {
       VARDATA[ivar] = LOAD_SEARCHEFF_VAR(MAPTYPE, MAP, ivar); 
       if ( LDMP ) {
-	char *VARNAME = MAP->VARNAMES[ivar] ;	
+	VARNAME = MAP->VARNAMES[ivar] ;	
 	printf(" xxx %s: imap=%d  load ivar=%d:  %s = %f \n",
 	       fnam, imap, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
 	printf(" xxx %s: imap=%d  FIELD=%s  PEAKMJD_RANGE=%.0f-%.0f \n",
@@ -2838,7 +2839,6 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   // Aug 2024: if required map is not satisfied, reject this event
   if ( !REQUIRE_PASS ) { LFIND = 0 ; }
   
-
   return LFIND ;
 
 } // end of gen_searcheff_map
@@ -2860,7 +2860,15 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
       
   IVARTYPE = MAP->IVARTYPE[ivar]; 
   
-  if ( IVARTYPE == IVARTYPE_EFFMAP_REDSHIFT ) {
+  if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTLIB ) {        // March 2026
+    int IGAL         = SNHOSTGAL.IGAL ;
+    int ivar_HOSTLIB = MAP->IVAR_HOSTLIB[ivar];
+    double val       = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
+    //    printf(" xxx %s: ivar=%d  ivar_HOSTLIB=%d(%s)  value=%f \n",
+    //	   fnam, ivar, ivar_HOSTLIB, MAP->VARNAMES[ivar], val) ; fflush(stdout);
+    return val;
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_REDSHIFT ) {
     return  SEARCHEFF_DATA.REDSHIFT ; 
   }
   else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMJD ) {
@@ -2934,15 +2942,6 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
     return mag ;
   }          
 
-  else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTLIB ) {  // March 2026
-    // .xyz
-    int IGAL         = SNHOSTGAL.IGAL ;
-    int ivar_HOSTLIB = MAP->IVAR_HOSTLIB[ivar];
-    double val       = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-    //    printf(" xxx %s: ivar=%d  ivar_HOSTLIB=%d(%s)  value=%f \n",
-    //	   fnam, ivar, ivar_HOSTLIB, MAP->VARNAMES[ivar], val) ; fflush(stdout);
-    return val;
-  }
 
   // if we get here then abort.
   sprintf(c1err,"Could not find ivar=%d for varName = %s ", ivar, varName);

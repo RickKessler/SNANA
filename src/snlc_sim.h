@@ -2173,6 +2173,8 @@ double genmodel_Tshift(double T, double z);
 void   init_simvar(void);        // one-time init of counters, etc ..
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
+bool   REQUEST_USER_SPECTRA(void); // return TRUE if there is a request for spectra
+
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
 void   init_read_calib_wrapper(void); // formerly called init_kcor
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array

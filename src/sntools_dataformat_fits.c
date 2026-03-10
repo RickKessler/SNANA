@@ -387,10 +387,7 @@ void wr_snfitsio_init_head(void) {
   for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
     int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
     LOAD_VARNAME_ZPHOT_Q("HOSTGAL", PCT, parName); // return parName .xyz
-    // xxx mark del Mar 6 2026  sprintf(parName,"HOSTGAL_%s", HOSTLIB.VARNAME_ZPHOT_Q[iq]);
     wr_snfitsio_addCol( "1E", parName, itype );
-
-    printf(" xxx %s: load parName = '%s' for iq=%d \n", fnam, parName, iq);
   }
 
   // add HOSTGAL mags 

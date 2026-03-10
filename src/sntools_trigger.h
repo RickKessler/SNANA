@@ -36,9 +36,11 @@
 #define  IVARTYPE_EFFMAP_SALT2x1   11  // flag that var us SALT2x1
 #define  IVARTYPE_EFFMAP_SALT2c    12  // flag that var is SALT2c
 #define  IVARTYPE_EFFMAP_SNRSUM_REST_V 13 // flag for SPECTROGRAPH SNR for rest-V
+#define  IVARTYPE_EFFMAP_HOSTLIB   18  // flag that var is in HOSTLIB (Mar 2026)
 #define  IVARTYPE_EFFMAP           19  // flag that var is SPECEFF
 
 #define  MXVAR_SEARCHEFF_MAP       20  // max number of VARNAMES for SEARCHEFF maps
+#define  MXVAR_SEARCHEFF_HOSTLIB   10
 #define  MXMAP_SEARCHEFF_MAP       50  
 #define  MXROW_SEARCHEFF_MAP    30000
 
@@ -225,13 +227,21 @@ struct SEARCHEFF_LOGIC {
 // - - - - -
 // define typedef struct for generic multi-dimensional map
 typedef struct {
+
+  int NVAR_TOT;
   char VARNAMES[MXVAR_SEARCHEFF_MAP][40] ;
   int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD, IVAR_LOGMASS ;
   int IVAR_DTPEAK, IVAR_DTSEASON_PEAK, IVAR_SALT2mB, IVAR_SALT2x1, IVAR_SALT2c ;
   int IVAR_SNRSUM_REST_V;
 
-  char FIELDLIST[60] ;
-  int IVARTYPE[MXVAR_SEARCHEFF_MAP] ;
+  int NVAR_HOST;  // optional subset of NVAR
+  int IVAR_HOST[MXVAR_SEARCHEFF_HOSTLIB];    // map IVAR for HOST var
+  int IVAR_HOSTLIB[MXVAR_SEARCHEFF_MAP]; // HOSTLIB ivar for HOSTLIB subset
+
+  char   FIELDLIST[60] ;
+  double PEAKMJD_RANGE[2]; // PEAKMJD range for each map
+
+  int IVARTYPE[MXVAR_SEARCHEFF_MAP] ;  // specifies which IVAR_XXX above
 
   int REQUIRE; // 1 -> require this map (logical AND) instead of optional (OR)
   
@@ -253,7 +263,7 @@ typedef struct {
   char  MAP_FILE[MXPATHLEN]; // full path of map file
   int   NMAP ;
   int   OPT_EXTRAP ;
-  int   OPT_FIELDMATCH_REQUIRE ;
+  int   OPT_FIELDMATCH_REQUIRE ; // true -> every field must be associated with a map
   SEARCHEFF_MAP_DEF  MAP_LIST[MXMAP_SEARCHEFF_MAP];
 
   int   IFLAG_EFFZERO, IFLAG_EFFONE;
@@ -356,6 +366,7 @@ struct {
   double GAUSS_PHOTPROB[MXOBS_TRIGGER];     // Gauss ran for each detection
   double GAUSSCORR_PHOTPROB[MXOBS_TRIGGER] ;  // correlated Gauss Ran
   double FLAT_SPEC[MXFILTINDX+1] ;            // for each filter
+  double FLAT_zHOST[MXFILTINDX+1] ;           // for each filter
 } SEARCHEFF_RANDOMS ;
 
 
@@ -373,8 +384,6 @@ void   read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF
 int    assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 
 void   read_VARNAMES_zHOST(FILE *fp);
-void   read_zHOST_FILE_LEGACY(FILE *fp);
-void   read_zHOST_FILE(FILE *fp);
 int    parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB, 
 			    char **varName_HOSTLIB, char *varNameList );
 
@@ -393,8 +402,7 @@ int    gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID);
 int    gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF);
 
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);
-double interp_SEARCHEFF_zHOST_LEGACY(void);
-double interp_SEARCHEFF_zHOST(int ID);
+
 
 void   check_SEARCHEFF_DETECT(int imap );
 void   check_SEARCHEFF_PHOTPROB(int imap );
@@ -424,6 +432,11 @@ bool   MATCH_SEARCHEFF_FIELD(char *field_map);
 // @@@@@@@@@@@@ LEGACY_DECLARATIONS @@@@@@@@@@@@@@@@@
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+double interp_SEARCHEFF_zHOST_LEGACY(void);
+double interp_SEARCHEFF_zHOST(int ID);
+
+void   read_zHOST_FILE_LEGACY(FILE *fp);
+void   read_zHOST_FILE(FILE *fp);
 void   check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF);
 double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar);
 int    gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID );

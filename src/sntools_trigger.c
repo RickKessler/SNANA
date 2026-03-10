@@ -160,7 +160,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   int  IFLAG_SPECID_EFFZERO = SEARCHEFF_INFO_SPECID.IFLAG_EFFZERO;
   int  IFLAG_SPECID_EFFONE  = SEARCHEFF_INFO_SPECID.IFLAG_EFFONE ;  
   int  NMAP_SPECID          = SEARCHEFF_INFO_SPECID.NMAP ;
-  int  LSPECID              = IFLAG_SPECID_EFFZERO || IFLAG_SPECID_EFFONE || NMAP_SPECID>0 ;
+  int  LSPECID   = IFLAG_SPECID_EFFZERO || IFLAG_SPECID_EFFONE || NMAP_SPECID>0 ;
 
   int  NONZERO_SPECID = SEARCHEFF_INFO_SPECID.NONZERO_SEARCHEFF;
   int  NONZERO_zHOST  = SEARCHEFF_INFO_zHOST.NONZERO_SEARCHEFF;
@@ -198,8 +198,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
     printf("\t APPLY_SEARCHEFF_OPT += %d --> zSPEC(SN or HOST).\n",
 	   APPLYMASK_SEARCHEFF_zSPEC );
 
-    printf("\t NONZERO_SPECID=%d   LSPECID=%d \n", 
-	   NONZERO_SPECID, LSPECID);
+    printf("\t NONZERO_SPECID=%d   LSPECID=%d \n",  NONZERO_SPECID, LSPECID);
     printf("\t NONZERO_zHOST=%d \n", NONZERO_zHOST);
 
     sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' (OVP=%d) ",
@@ -1054,9 +1053,9 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
   // ------------ BEGIN ------------
 
 
-  SEARCHEFF_INFO->NMAP       = 0;
-  SEARCHEFF_INFO->OPT_EXTRAP = 0;
-  SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE = 0;
+  SEARCHEFF_INFO->NMAP                   = 0;
+  SEARCHEFF_INFO->OPT_EXTRAP             = 0;
+  SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE = 1 ;
   SEARCHEFF_INFO->IVARTYPE_MASK     = 0 ;
   SEARCHEFF_INFO->FLAG_PEAKMAG_ONLY = 0 ;
   SEARCHEFF_INFO->BOOLEAN_OR        = 1 ; // default logic is OR
@@ -1069,6 +1068,9 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
   SEARCHEFF_INFO->IFLAG_EFFONE           = 0 ;
 
   for ( imap=0; imap < MXMAP_SEARCHEFF_MAP;  imap++ ) {
+
+    SEARCHEFF_INFO->MAP_LIST[imap].NVAR_TOT       =  0 ; 
+    SEARCHEFF_INFO->MAP_LIST[imap].NVAR_HOST      =  0 ; 
     SEARCHEFF_INFO->MAP_LIST[imap].IVAR           = -9 ; 
     SEARCHEFF_INFO->MAP_LIST[imap].IVAR_REDSHIFT  = -9 ;
     SEARCHEFF_INFO->MAP_LIST[imap].IVAR_PEAKMJD   = -9 ;
@@ -1089,6 +1091,7 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBMAG[ivar]        = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
+      SEARCHEFF_INFO->MAP_LIST[imap].IVAR_HOSTLIB[ivar] = -9 ;
     }
     
   } // end imap
@@ -1114,12 +1117,13 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
   int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
   int   ID, NDIM, NFUN, N, gzipFlag, ISFIELD ;
   int   REQUIRE_EFF_FILE = 0, REQUIRE_MAP;
+  int   OPT_EXTRAP, OPT_FIELDMATCH_REQUIRE ;
   char  KEY_ROW[20], KEYNAME_MAP_FILE[40], KEYNAME_EFF[40];
   char  KEY_STOP[] = "" ;
   char  *VARNAME, *VARLIST, FIELDLIST[100] ;
   char  eff_file_local[MXPATHLEN], *ptrFile_user, *ptrFile_final, *cptr;
   char  c_get[100], LINE[100];
-
+  double PEAKMJD_RANGE[2];
   int   OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
 
   int IDGRIDMAP_OFFSET, IVARTYPE_MASK = 0  ;
@@ -1197,8 +1201,9 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
   printf("\n   Reading %s efficiency map from \n\t %s\n", MAPTYPE, ptrFile_final );
 
   NVAR = NROW = NMAP = 0;
-  REQUIRE_MAP = 0 ;  sprintf(FIELDLIST,"%s", ALL);
 
+  REQUIRE_MAP = 0 ;  sprintf(FIELDLIST,"%s", ALL);
+  PEAKMJD_RANGE[0] = 10000;  PEAKMJD_RANGE[1] = 90000;  
 
   sprintf(c2err,"%s", "Check %s-eff file above", MAPTYPE );
 
@@ -1207,20 +1212,34 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
     
     if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(ptrFile_final); }
 
+    if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) 
+      { readint(fp, 1, &SEARCHEFF_INFO->OPT_EXTRAP); }
+
+    if ( strcmp(c_get,"OPT_FIELDMATCH_REQUIRE:") == 0 ) 
+      { readint(fp, 1, &SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE); }  
+
     // - - - - - -
     // check optional key to associate map with particular field[list]
-    ISFIELD = (strcmp(c_get,"FIELD:")==0 || strcmp(c_get,"FIELDLIST:")==0 );
-    if ( ISFIELD ) { readchar(fp, FIELDLIST); }
+    if ( strcmp(c_get,"FIELD:")==0 || strcmp(c_get,"FIELDLIST:")==0 ) 
+      { readchar(fp, FIELDLIST); }
 
-    if ( strcmp(c_get,"REQUIRE:") == 0 ) {  readint(fp, 1, &REQUIRE_MAP); }
+    if ( strcmp(c_get,"PEAKMJD:") == 0 || strcmp(c_get,"PEAKMJD_RANGE:")==0 ) 
+      { readdouble(fp, 2, PEAKMJD_RANGE);}
+
+    if ( strcmp(c_get,"REQUIRE:") == 0 ) 
+      { readint(fp, 1, &REQUIRE_MAP); }
     
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
 
     if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_MAP ) {
       fgets(LINE, 100, fp ); // scoop up varnames
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
+
+      SEARCHEFF_INFO->MAP_LIST[NMAP].NVAR_TOT = NVAR ;
+      SEARCHEFF_INFO->MAP_LIST[NMAP].REQUIRE  = REQUIRE_MAP;      
+      SEARCHEFF_INFO->MAP_LIST[NMAP].PEAKMJD_RANGE[0] = PEAKMJD_RANGE[0];
+      SEARCHEFF_INFO->MAP_LIST[NMAP].PEAKMJD_RANGE[1] = PEAKMJD_RANGE[1];
       sprintf(SEARCHEFF_INFO->MAP_LIST[NMAP].FIELDLIST,"%s", FIELDLIST );
-      SEARCHEFF_INFO->MAP_LIST[NMAP].REQUIRE = REQUIRE_MAP;      
 
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = SEARCHEFF_INFO->MAP_LIST[NMAP].VARNAMES[ivar] ;
@@ -1235,28 +1254,44 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
 
       SEARCHEFF_INFO->IVARTYPE_MASK = IVARTYPE_MASK;
 
+      OPT_EXTRAP = SEARCHEFF_INFO->OPT_EXTRAP;
       ID = IDGRIDMAP_OFFSET + NMAP;   NDIM = NVAR-1; NFUN=1;
-      read_GRIDMAP(fp, KEY_ROW, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, 0,
+      read_GRIDMAP(fp, KEY_ROW, KEY_ROW, KEY_STOP, ID, NDIM, NFUN, OPT_EXTRAP,
 		   MXROW_SEARCHEFF_MAP, fnam,
 		   &SEARCHEFF_INFO->MAP_LIST[NMAP].GRIDMAP ) ;
       
-      printf("\t for FIELDLIST=%s\n", FIELDLIST);
+      printf("\t for FIELDLIST=%s   and  %.0f < PEAKMJD < %.0f \n", 
+	     FIELDLIST, PEAKMJD_RANGE[0], PEAKMJD_RANGE[1]) ;
+
       if ( REQUIRE_MAP ) 
 	{ printf("\t This %s-EFF map is required for event selection.\n", MAPTYPE); }
 				  
       SEARCHEFF_INFO->NONZERO_SEARCHEFF++; 
+      NMAP++;  // increment map counter
 
-    }
+      // reset map attributes
+      REQUIRE_MAP = 0 ;  sprintf(FIELDLIST,"%s", ALL);
+      PEAKMJD_RANGE[0] = 10000;  PEAKMJD_RANGE[1] = 90000;  
 
-    if ( FOUND_VARNAMES ) { NMAP++; }
-
+    } // end FOUND_VARNAMES
 
   }  // end of read-line loop
 
+  // - - - - - - - - - - - - - - - - - - - - - 
 
-  fclose(fp); // done reading SPECEFF map(s)
+  fclose(fp); // done reading EFF map(s)
 
-  SEARCHEFF_INFO->NMAP = NMAP ;
+  SEARCHEFF_INFO->NMAP       = NMAP ;
+  SEARCHEFF_INFO->OPT_EXTRAP = OPT_EXTRAP ;
+  SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE = OPT_FIELDMATCH_REQUIRE;
+
+  printf("\n\t Finished preparing %d %s maps\n", 
+	 NMAP, MAPTYPE);
+  printf("\t OPT_EXTRAP             = %d \n", 
+	 SEARCHEFF_INFO->OPT_EXTRAP );
+  printf("\t OPT_FIELDMATCH_REQUIRE = %d \n", 
+	 SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE );
+  fflush(stdout) ;
 
   if ( NMAP > MXMAP_SEARCHEFF_MAP ) {
     sprintf(c1err,"NMAP=%d  exceeds  MXMAP_SEARCHEFF=%d", NMAP, MXMAP_SEARCHEFF_MAP );
@@ -1322,6 +1357,7 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
   // Mar 02 2026: store IVAR_SNRSUM_REST_V
   //
 
+  bool USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; 
   int  IVARTYPE_MASK = 0; 
   int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
   int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
@@ -1332,6 +1368,23 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
 
   // ----------- BEGIN ---------
   
+  if ( USE_HOSTLIB ) {
+    int NVAR_HOST, ivar_tmp;
+    // check if VARNAME is in HOSTLIB 
+    ivar_tmp = IVAR_HOSTLIB(VARNAME,0); 
+    if ( ivar_tmp > 0 ) {
+      //printf("\t Found %-20.20s in HOSTLIB for %s map \n", VARNAME, MAPTYPE);
+      NVAR_HOST = MAP->NVAR_HOST;
+      MAP->IVAR_HOST[NVAR_HOST]    = ivar ;     // SEARCHEFF map ivar  
+      MAP->IVAR_HOSTLIB[ivar]      = ivar_tmp ; // hostlib ivar/column
+      MAP->IVARTYPE[ivar]          = IVARTYPE_EFFMAP_HOSTLIB ; 
+      IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_HOSTLIB );
+      MAP->NVAR_HOST++ ;
+      return IVARTYPE_MASK ;
+    }
+  }
+
+  // - - - - -
   // check for the easy ones first.
   if ( strcmp(VARNAME,"SPECEFF") == 0 )  {
     MAP->IVAR           = ivar ;
@@ -1399,6 +1452,7 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
     IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SNRSUM_REST_V );
     return IVARTYPE_MASK ;
   }
+
 
 
   // - - - - - - - - - - - - - - -
@@ -1532,28 +1586,26 @@ void init_SEARCHEFF_zHOST(char *survey) {
 
   // --------------- BEGIN ------------
 
-  // check file format version: LEGACY or MULTI-D
-  // If init_HOSTLIB already checked, then 
-  // INPUTS_SEARCHEFF.IVERSION_zHOST is already set > 0.
+  // abort on ancient legacy format that has no VARNAMES
+  // and two columns only: redshift and EFF.
   if ( INPUTS_SEARCHEFF.IVERSION_zHOST == 0 ) {
     fp = open_zHOST_FILE(1);
     if ( fp != NULL ) { read_VARNAMES_zHOST(fp); fclose(fp); }
+    int LEGACY = ( INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY );
+    if ( LEGACY ) {
+      sprintf(c1err,"Two-column (z EFF) format no longer supported");
+      sprintf(c2err,"See manual for multi-D format.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
   }
 
   // ------------------------------------
   
-  // check VARNAMES key to see if legacy (z-only) file
-  int LEGACY = ( INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY );
+  init_searcheff_map(&SEARCHEFF_INFO_zHOST) ;
 
-  fp = open_zHOST_FILE(1);
-  if ( fp == NULL ) { return ; }
+  read_searcheff_map(MAPTYPE_SEARCHEFF_zHOST, INPUTS_SEARCHEFF.USER_zHOST_FILE,
+		     &SEARCHEFF_INFO_zHOST) ;
 
-  if ( LEGACY ) 
-    { read_zHOST_FILE_LEGACY(fp); }
-  else
-    { read_zHOST_FILE(fp); }
-
-  fclose(fp);
 
   return;
 } // end of init_SEARCHEFF_zHOSTEFF
@@ -1642,135 +1694,6 @@ FILE *open_zHOST_FILE(int OPT) {
 
 } // end open_zHOST_FILE
 
-// ***************************************
-void read_zHOST_FILE(FILE *fp) {
-
-  // March 2019:
-  // Read zHOST effic file with arbitrary dependence on HOSTLIB properties.
-  // If using FIELDLIST, each map must start with a new VARNAMES key 
-  // 
-  // Dec 3 2019: fix bug by setting KEY_STOP = ""
-  // Jul 13 2020: read optional PEAKMJD
-  // Aug 19 2024: redefine *ptr_VARNAMES[MX] -> **ptr_VARNAMES to avoid
-  //              strange crash using -O2 optimization
-  //
-  // Mar 04 2026: 
-  //   + check for OPT_FIELDMATCH_REQUIRE key in map file
-  //   + skip everything after commentchar
-  //   + reset PEAKMJD_RANGE = 10000 90000 for each map
-
-  int  OPT_EXTRAP = 0 ;
-  int  NTAB=0;
-  int  IDMAP, imap, NMAP, ivar, NVAR, NDIM, NFUN ;
-  int  FOUND_VARNAMES;
-  char c_get[100], line[100], FIELDLIST[100] ;
-  char **ptr_VARNAMES, *VARLIST;
-  int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
-  double PEAKMJD_RANGE[2];
-  char KEY_ROW[]   = "HOSTEFF:" ;
-  char KEY_STOP[]  = "" ;
-  char fnam[] = "read_zHOST_FILE" ;
-
-  // ------------ BEGIN ----------
-
-  OPT_FIELDMATCH_REQUIRE_zHOST = 1; // Default unless modified by OPT_FIELDMATCH_REQUIRE: 0 in map file
-
-  for(imap=0; imap < MXMAP_SEARCHEFF_zHOST; imap++ ) {
-    sprintf(SEARCHEFF_zHOST[imap].FIELDLIST,"NONE" );
-  }
-
-  ptr_VARNAMES = (char**) malloc( MXVAR_SEARCHEFF_zHOST*sizeof(char*) );
-  for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ ) {
-    ptr_VARNAMES[ivar] = (char*) malloc( 40*sizeof(char) );
-  }
-
-  
-  NMAP = NVAR = 0;    
-  sprintf(FIELDLIST,"%s", ALL);
-  PEAKMJD_RANGE[0] = 10000.0;  PEAKMJD_RANGE[1] = 90000.0;
-
-  // -----------------------------
-  while( (fscanf(fp, "%s", c_get )) != EOF) {
-
-    if ( c_get[0] == '#' ) { fgets(line,100,fp); }  // skip everything after comment char
-
-    if ( c_get[0] == '\t' ) { NTAB++; }
-    
-    if ( strcmp(c_get,"NVAR:")==0 ) 
-      { warn_NVAR_KEY(INPUTS_SEARCHEFF.zHOST_FILE); }
-
-    FOUND_VARNAMES = 0 ;
-
-    if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) 
-      { readint(fp, 1, &OPT_EXTRAP); }
-
-    if ( strcmp(c_get,"OPT_FIELDMATCH_REQUIRE:") == 0 ) 
-      { readint(fp, 1, &OPT_FIELDMATCH_REQUIRE_zHOST); } //Mar 4 2026
-
-    if ( strcmp(c_get,"FIELDLIST:" ) == 0 ) 
-      { readchar(fp,FIELDLIST); }
-
-    if ( strcmp(c_get,"PEAKMJD:") == 0 || strcmp(c_get,"PEAKMJD_RANGE:")==0 ) 
-      { readdouble(fp,2,PEAKMJD_RANGE);}
-
-    if ( strcmp(c_get,"VARNAMES:"  ) == 0 ) { FOUND_VARNAMES=1; }
-
-    // parse VARNAMES in map
-    if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_zHOST ) {
-      VARLIST = SEARCHEFF_zHOST[NMAP].GRIDMAP.VARLIST ;
-      NVAR = parse_VARNAMES_zHOST(fp, IVAR_HOSTLIB_TMP, ptr_VARNAMES,VARLIST);
-      NDIM = NVAR-1; NFUN=1;  IDMAP=IDGRIDMAP_zHOST_OFFSET+NMAP ;
-
-      // store a few things in global
-      sprintf(SEARCHEFF_zHOST[NMAP].FIELDLIST,"%s", FIELDLIST);
-      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[0] = PEAKMJD_RANGE[0];
-      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[1] = PEAKMJD_RANGE[1];
-
-      for(ivar=0; ivar<NVAR; ivar++ ) {
-	SEARCHEFF_zHOST[NMAP].IVAR_HOSTLIB[ivar] = IVAR_HOSTLIB_TMP[ivar];
-	sprintf(SEARCHEFF_zHOST[NMAP].VARNAMES_HOSTLIB[ivar],"%s",
-		ptr_VARNAMES[ivar] ) ;
-      }
-
-      read_GRIDMAP(fp,KEY_ROW,KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN, OPT_EXTRAP,
-		   MXROW_SEARCHEFF_zHOST, fnam,
-		   &SEARCHEFF_zHOST[NMAP].GRIDMAP ) ;
-
-      printf("\t FIELDLIST     = %s \n", FIELDLIST); 
-      printf("\t PEAKMJD_RANGE = %d to %d \n", (int)PEAKMJD_RANGE[0], (int)PEAKMJD_RANGE[1] );
-    
-      PEAKMJD_RANGE[0] = 10000.0;  PEAKMJD_RANGE[1] = 90000.0; // reset for next map
-	
-      fflush(stdout);
-
-      NONZERO_SEARCHEFF_zHOST++ ;
-    } // end VARNAMES check
-
-    // always increment NMAP, even if past bound.
-    if ( FOUND_VARNAMES )   { NMAP++ ; } 
-   
-  } // end while
-
-  INPUTS_SEARCHEFF.NMAP_zHOST = NMAP ;
-
-
-  if ( NMAP > MXMAP_SEARCHEFF_zHOST ) {
-    sprintf(c1err,"NMAP=%d exceeds MXMAP_SEARCHEFF_zHOST=%d",
-	    NMAP, MXMAP_SEARCHEFF_zHOST );
-    sprintf(c2err,"Too many zHOST maps; check SEARCHEFF_zHOST_FILE arg.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
-  }
-
-  tabs_ABORT(NTAB, INPUTS_SEARCHEFF.zHOST_FILE, fnam);
-
-  // free temp memory
-  for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ )
-    { free(ptr_VARNAMES[ivar]);  }
-  free(ptr_VARNAMES);
-  
-  return ;
-
-} // end read_zHOST_FILE
 
 
 // ***************************************************
@@ -1807,11 +1730,11 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
   NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
   for ( ivar=0; ivar < NVAR; ivar++ ) {
     varName_H = varName_HOSTLIB[ivar];
-    ivar_H    = &ivar_HOSTLIB[ivar];
+    ivar_H    = &ivar_HOSTLIB[ivar];  // assign local pointer
 
     get_PARSE_WORD(0,ivar,varName_H, fnam);
     checkAlternateVarNames_HOSTLIB(varName_H); // 10.03.2020
-    *ivar_H  = IVAR_HOSTLIB(varName_H,0);
+    *ivar_H  = IVAR_HOSTLIB(varName_H,0);  // sntools_host.c
     
     if (LDMP ) {
       printf(" xxx %s: varName[%d] = '%s' (IVAR_HOSTLIB=%d)\n", 
@@ -1845,92 +1768,6 @@ int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB,
   return(NVAR) ;
 
 } // end parse_VARNAMES_zHOST
-
-// ***************************************
-void read_zHOST_FILE_LEGACY(FILE *fp) {
-
-  // March 2019
-  // This legacy code is separated from init_SEARCHEFF_zHOST.
-  // Here the efficiency depends only on redshift.
-
-  char c_get[100], FIELDLIST[100], *ptrField ;
-  int  NROW = 0, NMAP=0, imap ;
-  int  MEMD = MXROW_SEARCHEFF_zHOST * sizeof(double);
-  double VAL[2];
-  char fnam[] = "read_zHOST_FILE_LEGACY" ;
-
-  for(imap=0; imap < MXMAP_SEARCHEFF_zHOST; imap++ ) {
-    SEARCHEFF_zHOST_LEGACY[imap].NROW = 0 ;
-    sprintf(SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST,"NONE" );
-  }
-
-  // allocate memory for first map
-  SEARCHEFF_zHOST_LEGACY[0].REDSHIFT = (double*)malloc(MEMD);
-  SEARCHEFF_zHOST_LEGACY[0].EFF      = (double*)malloc(MEMD);
-
-  while( (fscanf(fp, "%s", c_get )) != EOF) {
-
-    if( strcmp(c_get,"FIELD:") == 0 || strcmp(c_get,"FIELDLIST:") == 0 ) {
-      readchar(fp,FIELDLIST);
-      sprintf(SEARCHEFF_zHOST_LEGACY[NMAP].FIELDLIST,"%s", FIELDLIST);
-
-      if ( NMAP > 0 ) {
-	SEARCHEFF_zHOST_LEGACY[NMAP].REDSHIFT = (double*)malloc(MEMD);
-	SEARCHEFF_zHOST_LEGACY[NMAP].EFF      = (double*)malloc(MEMD);
-      }
-      NMAP++ ;
-    }
-
-
-    if(strcmp(c_get,"HOSTEFF:") == 0 ) {
-
-      // logic is tricky because FIELD key is optional
-      imap = NMAP ;
-      ptrField = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ; 
-
-      // if FIELDLIST not given, then associate ALL fields with map
-      if ( NMAP==0 && strcmp(ptrField,"NONE")==0 ) 
-	{ sprintf(ptrField,"%s", ALL); NMAP++ ; }
-
-      imap = NMAP-1 ; 
-      if ( NMAP < MXMAP_SEARCHEFF_zHOST ) {
-	readdouble(fp, 2, VAL);
-	NROW = SEARCHEFF_zHOST_LEGACY[imap].NROW ;
-	SEARCHEFF_zHOST_LEGACY[imap].REDSHIFT[NROW] = VAL[0] ;
-	SEARCHEFF_zHOST_LEGACY[imap].EFF[NROW]      = VAL[1] ;
-	SEARCHEFF_zHOST_LEGACY[imap].NROW++ ;
-
-	if ( VAL[1] > 1.0E-9 ) { NONZERO_SEARCHEFF_zHOST++ ; }
-      }
-    }    
-  }  // end while
-
-  INPUTS_SEARCHEFF.NMAP_zHOST = NMAP;
-
-  if ( NMAP >= MXMAP_SEARCHEFF_zHOST ) {
-    sprintf(c1err,"NMAP=%d exceeds bound.", NMAP );
-    sprintf(c2err,"Check bound MXMAP_SEARCHEFF_zHOST=%d", 
-	    MXMAP_SEARCHEFF_zHOST );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-  }
-
-
-  printf("\t Stored %d redshift bins for SEARCHEFF_zHOST map. \n",
-	 NROW );  fflush(stdout);
-
-  NROW = SEARCHEFF_zHOST_LEGACY[0].NROW ;
-  if ( NROW > 0 ) { 
-    return ; 
-  }
-  else {
-    sprintf(c1err,"No redshift bins found for SEARCHEFF_zHOST map.");
-    sprintf(c2err,"Check SEARCHEFF_zHOST_FILE key");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;    
-  }
-
-  return ;
-
-} // end of read_zHOST_FILE_LEGACY
 
 
 // ********************************
@@ -2832,13 +2669,15 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   int  BOOLEAN_AND    = SEARCHEFF_INFO->BOOLEAN_AND ;
   int  IFLAG_EFFZERO  = SEARCHEFF_INFO->IFLAG_EFFZERO ;
   int  IFLAG_EFFONE   = SEARCHEFF_INFO->IFLAG_EFFONE ;
+  int  OPT_FIELDMATCH_REQUIRE = SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE;
 
-  int    imap, ivar, NVAR, LFIND, istat ;
-  bool   MATCH, REQUIRE_PASS = true ;
+  int    imap, ivar, NVAR, LFIND, istat, NMATCH = 0;
+  bool   MATCH_FIELD, MATCH_PEAKMJD, REQUIRE_PASS = true ;
   double PROB_all_FAIL, PROB_all_PASS;  
-  double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP];
+  double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP], PEAKMJD ;
+  double *ptr_FLAT_RANDOMS;
   char   *FIELD_MAP;
-  int    LDMP = 0 ;
+  int    INDX_RAN, LDMP = 0; // (ID == 173)
   char   fnam[] = "gen_searcheff_map" ;
 
   // ----------- BEGIN --------
@@ -2847,10 +2686,18 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   EFF_LOCAL  = 1.0 ;
 
   if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
-    RAN   = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
+    RAN   = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ; 
     return gen_SEARCHEFF_DEBUG(MAPTYPE, RAN, EFF) ;
   }
 
+  if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_SPECID) == 0 ) {
+    ptr_FLAT_RANDOMS = SEARCHEFF_RANDOMS.FLAT_SPEC;
+    INDX_RAN = 0 ;
+  }
+  else if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_zHOST) == 0 ) {
+    ptr_FLAT_RANDOMS = SEARCHEFF_RANDOMS.FLAT_zHOST;
+    INDX_RAN = 50 ;
+  }
 
   // check option of there is no SEARCHEFF map file
   if ( NMAP == 0 )  { 
@@ -2871,7 +2718,10 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
 
   if ( LDMP ) {
     printf(" xxx \n");
-    printf(" xxx %s: %s MAP DUMP for CID = %d ------------- \n", fnam, MAPTYPE, ID);
+    printf(" xxx %s: %s MAP DUMP for CID = %d ------------- \n", 
+	   fnam, MAPTYPE, ID);
+    printf(" xxx %s: BOOLEAN_[OR,AND] = %d, %d \n",
+	   fnam, BOOLEAN_OR, BOOLEAN_AND );
     fflush(stdout);
   }
     
@@ -2882,46 +2732,65 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
 
     MAP = &SEARCHEFF_INFO->MAP_LIST[imap];
 
-    // check if current field goes with this map
-    // xxx mark FIELD_MAP = SEARCHEFF_INFO->MAP_LIST[imap].FIELDLIST ;
-    FIELD_MAP = MAP->FIELDLIST ;
-    MATCH = MATCH_SEARCHEFF_FIELD(FIELD_MAP); 
-    
-    if ( !MATCH ) { continue; } // bug fix; Mar 3 2026 
+    // check if current FIELD & PEAKMJD goes with this map
+    FIELD_MAP   = MAP->FIELDLIST ;
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(FIELD_MAP);
+    if ( !MATCH_FIELD ) { continue; } // bug fix; Mar 3 2026 
 
+    PEAKMJD = SEARCHEFF_DATA.PEAKMJD ;
+    MATCH_PEAKMJD = ( PEAKMJD >= MAP->PEAKMJD_RANGE[0] && 
+		      PEAKMJD <= MAP->PEAKMJD_RANGE[1] );
+    if ( !MATCH_PEAKMJD ) { continue ; }
+
+    NMATCH++ ; // count how many maps are matched to field/peakmjd
+    
     // determine list of variables
-    // xxx mark    NVAR = SEARCHEFF_INFO->MAP_LIST[imap].GRIDMAP.NDIM ;
     NVAR = MAP->GRIDMAP.NDIM ;
     for ( ivar=0; ivar < NVAR; ivar++ )  {
-      VARDATA[ivar] = LOAD_SEARCHEFF_VAR(MAPTYPE, MAP, ivar); // .xyz
+      VARDATA[ivar] = LOAD_SEARCHEFF_VAR(MAPTYPE, MAP, ivar); 
       if ( LDMP ) {
 	char *VARNAME = MAP->VARNAMES[ivar] ;	
 	printf(" xxx %s: imap=%d  load ivar=%d:  %s = %f \n",
 	       fnam, imap, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
+	printf(" xxx %s: imap=%d  FIELD=%s  PEAKMJD_RANGE=%.0f-%.0f \n",
+	       fnam, imap, MAP->FIELDLIST, 
+	       MAP->PEAKMJD_RANGE[0], MAP->PEAKMJD_RANGE[1]);
+	fflush(stdout);
       }
     }
 
-    // xxx mark istat = interp_GRIDMAP(&SEARCHEFF_INFO->MAP_LIST[imap].GRIDMAP, VARDATA, &EFF_LOCAL );
     istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, &EFF_LOCAL );
 
     if ( LDMP ) {
-      printf(" xxx %s: imap=%d  EFF=%f \n", fnam, imap, EFF_LOCAL );
+      printf(" xxx %s: imap=%d  EFF(interp)=%.3f \n", fnam, imap, EFF_LOCAL );
       fflush(stdout);
     }
     
-    PROB_all_FAIL   *= (1.0 - EFF_LOCAL); // prob that all maps fail
-    PROB_all_PASS   *= EFF_LOCAL ;        // prob that all maps pass
+    PROB_all_FAIL *= (1.0 - EFF_LOCAL); // prob that all maps fail
+    PROB_all_PASS *= EFF_LOCAL ;        // prob that all maps pass
     
     // Aug 2024: check for required map; e.g.. PEAKMJD or DTPEAK range
-    // xxx mark REQUIRE_MAP = SEARCHEFF_INFO->MAP_LIST[imap].REQUIRE;
     if ( MAP->REQUIRE ) {
-      RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[imap+10] ;
+      RAN = ptr_FLAT_RANDOMS[imap+10] ;
       if ( RAN > EFF_LOCAL ) { REQUIRE_PASS = false ; } 
     }
     
   } // imap 
 
-  //  printf(" xxx BOOLEAN(OR,AND) = %d %d \n",  BOOLEAN_OR, BOOLEAN_AND);
+  // - - - - - -
+  if ( NMATCH == 0 ) {
+    if ( OPT_FIELDMATCH_REQUIRE > 0 ) {
+      sprintf(c1err, "Invalid NMATCH=%d %s maps for", MAPTYPE, NMATCH );
+      sprintf(c2err, "FIELD = '%s'  PEAKMJD=%.3f", 
+	      SEARCHEFF_DATA.FIELDNAME, PEAKMJD );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+    else {
+      return 0.0 ;  
+    }
+  }
+
+  // - - - - -
 
   if ( NMAP > 0  ) { 
     if ( BOOLEAN_OR  )
@@ -2936,16 +2805,17 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
     
   }
 
-  if ( EFF_LOCAL < 0.0 && EFF_LOCAL > -0.001 ) { EFF_LOCAL = 0.0 ; } // allow round-off
-
+  // allow round-off
+  if ( EFF_LOCAL < 0.0 && EFF_LOCAL > -0.001 ) { EFF_LOCAL = 0.0 ; } 
+  if ( EFF_LOCAL > 1.0 && EFF_LOCAL <  1.0003) { EFF_LOCAL = 0.99999; }
   // sanity check
-  if ( EFF_LOCAL < 0.0 || EFF_LOCAL > 1.0001 ) {
-    sprintf(c1err,"Invalid %s effic= %f for ID=%d", MAPTYPE, EFF_LOCAL, ID);
-    sprintf(c2err,"zHel=%6.3f  PEAKMJD=%9.2f ", 
-	    SEARCHEFF_DATA.REDSHIFT, SEARCHEFF_DATA.PEAKMJD );
+  if ( EFF_LOCAL < 0.0 || EFF_LOCAL > 1.0003 ) {
+    sprintf(c1err,"Invalid EFF(%s) = %.4f for ID=%d", MAPTYPE, EFF_LOCAL, ID);
+    sprintf(c2err,"zHel=%6.3f  PEAKMJD=%9.2f  FIELD=%s", 
+	    SEARCHEFF_DATA.REDSHIFT, 
+	    SEARCHEFF_DATA.PEAKMJD, SEARCHEFF_DATA.FIELDNAME );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
-
 
   // apply user scale (May 10 2018)
   // ??? EFF_LOCAL *= INPUTS_SEARCHEFF.USER_SPECEFF_SCALE ;
@@ -2954,12 +2824,21 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   *EFF = EFF_LOCAL ;  
 
   // compare spec-eff to random number
-  RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
+  // xxx mark  RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[0] ;
+  RAN = ptr_FLAT_RANDOMS[INDX_RAN];
   if ( RAN > EFF_LOCAL ) { LFIND = 0 ; }
 
+  if ( LDMP ) {
+    printf(" xxx %s: PROB_all_FAIL=%.4f  PROB_all_PASS=%.4f \n",
+	   fnam, PROB_all_FAIL, PROB_all_PASS);
+    printf(" xxx %s: RAN=%.3f  EFF(FINAL) = %.3f  LFIND=%d \n",
+	   fnam, RAN, EFF_LOCAL, LFIND); 
+    fflush(stdout);
+  }
   // Aug 2024: if required map is not satisfied, reject this event
   if ( !REQUIRE_PASS ) { LFIND = 0 ; }
   
+
   return LFIND ;
 
 } // end of gen_searcheff_map
@@ -2967,8 +2846,9 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
 // ************************************************
 double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
 
-  // Refactored Mar 2026 to work for both SPECID and zHOST maps.
-  // return value of variable corresponding to this MAP & ivar index
+  // Refactored Mar 2026 to work for both SPECID and zHOST maps,
+  // and to include optional HOSTLIB columns.
+  // Function returns value of variable corresponding to this MAP & ivar index
 
   int    ifilt_obs, ifilt,  IVARTYPE, NFILTLIST ;
   double mag, MAG, mag0, mag1, color;
@@ -3054,6 +2934,15 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
     return mag ;
   }          
 
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTLIB ) {  // March 2026
+    // .xyz
+    int IGAL         = SNHOSTGAL.IGAL ;
+    int ivar_HOSTLIB = MAP->IVAR_HOSTLIB[ivar];
+    double val       = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
+    //    printf(" xxx %s: ivar=%d  ivar_HOSTLIB=%d(%s)  value=%f \n",
+    //	   fnam, ivar, ivar_HOSTLIB, MAP->VARNAMES[ivar], val) ; fflush(stdout);
+    return val;
+  }
 
   // if we get here then abort.
   sprintf(c1err,"Could not find ivar=%d for varName = %s ", ivar, varName);
@@ -3077,16 +2966,16 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   // Oct 15 2025: 
   //    + bail if hostless event (can't get zSpec_host if host is not found)
 
-  bool  USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; // Oct 2025
-  int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
+  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
+  int NMAP            = SEARCHEFF_INFO_zHOST.NMAP;
+  bool  USE_HOSTLIB   = (HOSTLIB.NGAL_STORE > 0 ) ; // Oct 2025
   int     LFIND ;
   double  SNRMAX, RAN, EFF ;
   char fnam[] = "gen_SEARCHEFF_zHOST" ;
 
   // ----------- BEGIN -----------
 
-  *EFF_zHOST = 0.0 ; // init return arg
-
+  *EFF_zHOST = 0.0 ;
   if ( INPUTS_SEARCHEFF.RESTORE_DES5YR ) {
     // restore D5YR bug by ignoring hostless events
   }
@@ -3096,177 +2985,20 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
     if ( USE_HOSTLIB && SNHOSTGAL.NNBR_DDLRCUT == 0 ) { return 0; }
   }
 
-  // check debug option
-  if ( INPUTS_SEARCHEFF.FUNEFF_DEBUG ) {
-    RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
-    return gen_SEARCHEFF_DEBUG("zHOST", RAN, EFF_zHOST) ;
+
+  if ( REFAC_SEARCHEFF ) {
+    LFIND = gen_searcheff_map(ID, MAPTYPE_SEARCHEFF_zHOST, 
+			      &SEARCHEFF_INFO_zHOST, EFF_zHOST) ; 
   }
-
-  LFIND = 1 ;
-
-  // check options if there is no zHOST-eff file
-  if ( NMAP == 0 )  { 
-    if ( INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO ) 
-      { *EFF_zHOST = 0.0;  LFIND=0; }
-    else if ( INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE ) 
-      { *EFF_zHOST = 1.0;  LFIND=1; }
-    else {
-      // no user option
-      *EFF_zHOST = 1.0 ; LFIND=1 ;
-    }
-
-    return LFIND ;  
+  else {
+    // legacy
+    LFIND = gen_SEARCHEFF_zHOST_LEGACY(ID,EFF_zHOST); 
   }
-
-
-  if(  INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY ) 
-    { EFF = interp_SEARCHEFF_zHOST_LEGACY(); }
-  else
-    { EFF = interp_SEARCHEFF_zHOST(ID); }
-
-
-  *EFF_zHOST = EFF ;  // load function arg.
-
-  // borrow one of the already-allocated SPEC randoms.
-  RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
-  if ( RAN > EFF ) { LFIND = 0 ; }
-
-  /*
-  printf(" xxxx %s : FIELD=%s z = %.3f  EFF=%.3f   LFIND=%d \n",
-	 fnam, field_data, z, EFF, LFIND); fflush(stdout); // xxxx
-  */
 
   return LFIND ;
 
 }   // end of gen_SEARCHEFF_zHOST
 
-
-// *******************************************
-double interp_SEARCHEFF_zHOST(int ID) {
-
-  // Mar 12 2019
-  // Interpolate multi-D map to get EFF(HOSTLIB properties)
-  // Input ID is only for print/abort diagnostic.
-  //
-  // July 2020: check PEAKMJD too
-  // Oct 15 2020: clarify error message on interp failure.
-  // May 27 2021: refactor to take logical OR of multiple maps
-  // 
-  // Mar 04 2026: if there are no FIELD matches, abort if OPT_FIELDMATCH_REQUIRE_zHOST>0;
-  //              otherwise just return EFF=0. Allows zHOST coverage in subset of fields.
-  //
-  int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
-  int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
-  double VARDATA[MXVAR_SEARCHEFF_zHOST];
-  double EFF = 0.0, Pnoz=1.0, EFF_TMP, PEAKMJD, *PEAKMJD_RANGE ;
-  char *field_map, *field_data, *varName ;  
-  bool MATCH_FIELD, MATCH_PEAKMJD ;
-
-  int LDMP = 0 ;
-  char fnam[] = "interp_SEARCHEFF_zHOST" ;
-
-  // ---------------- BEGIN -------------
-
-  if ( LDMP ) {
-    printf(" xxx --------------------------------------------------- \n");
-    printf(" xxx %s DUMP for CID = %d \n", fnam, ID); 
-  }
-
-  // determine which map based on FIELD
-  for(imap=0; imap < NMAP;  imap++ ) {
-    MATCH_FIELD = MATCH_PEAKMJD = false ;
-
-    field_map  = SEARCHEFF_zHOST[imap].FIELDLIST ;
-    field_data = SEARCHEFF_DATA.FIELDNAME ;
-    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
-
-    PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
-    PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
-    if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
-      { MATCH_PEAKMJD = true; }
-
-    if ( LDMP ) {
-      printf(" xxx %s: imap=%d  MATCH_FIELD=%d  MATCH_PEAKMJD=%d \n", 
-	     fnam, imap, MATCH_FIELD, MATCH_PEAKMJD); fflush(stdout);
-    }
-
-    if ( MATCH_FIELD && MATCH_PEAKMJD ) {
-      // load VARDATA from HOSTLIB
-      NMATCH++ ;
-      NVAR = SEARCHEFF_zHOST[imap].GRIDMAP.NDIM ;
-      IGAL = SNHOSTGAL.IGAL ;
-      for(ivar=0; ivar < NVAR; ivar++ ) {
-	ivar_HOSTLIB  = SEARCHEFF_zHOST[imap].IVAR_HOSTLIB[ivar] ;
-	varName       = SEARCHEFF_zHOST[imap].VARNAMES_HOSTLIB[ivar] ;
-	VARDATA[ivar] = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
-
-	if ( LDMP ) {
-	  printf(" xxx %s: load VARDATA  ivar=%d  %s = %f \n",
-		 fnam, ivar, varName, VARDATA[ivar] ); fflush(stdout);
-	}
-      } // end ivar loop
-      
-      istat = interp_GRIDMAP(&SEARCHEFF_zHOST[imap].GRIDMAP, VARDATA, 
-			     &EFF_TMP );        // <== returned  
-
-      Pnoz *= ( 1.0 - EFF_TMP ); // prob if NOT getting zHOST
-
-      
-
-    } // end MATCH_FIELD && MATCH_PEAKMJD
-
-  } // end imap loop
-
-  // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
-  EFF = 1.0 - Pnoz ;
-
-  // - - - - - - 
-  if ( NMATCH == 0 ) {
-    if ( OPT_FIELDMATCH_REQUIRE_zHOST > 0 ) {
-      sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
-      sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-    }
-    else {
-      return(EFF);  
-    }
-  }
-
-
-  if ( LDMP || istat != SUCCESS ) {
-    long long GALID = SNHOSTGAL.GALID ;
-    double VALMIN, VALMAX, VAL ;
-    char tmpStr[20];
-    printf(" \n");
-    printf(" xxx --------------------------------------------------- \n");
-    printf(" xxx DUMP %s : \n", fnam);
-    printf(" xxx   IMAP=%d  FIELD=%s  NVAR=%d  IGAL=%d  GALID=%lld\n", 
-	   IMAP, field_data, NVAR, IGAL, GALID ) ;
-    for(ivar=0; ivar < NVAR; ivar++ ) {
-      varName      = SEARCHEFF_zHOST[IMAP].VARNAMES_HOSTLIB[ivar];
-      ivar_HOSTLIB = SEARCHEFF_zHOST[IMAP].IVAR_HOSTLIB[ivar] ;
-      VALMIN       = SEARCHEFF_zHOST[IMAP].GRIDMAP.VALMIN[ivar] ;
-      VALMAX       = SEARCHEFF_zHOST[IMAP].GRIDMAP.VALMAX[ivar] ;
-      VAL          = VARDATA[ivar];
-      sprintf(tmpStr,"satisfies");
-      if ( VAL < VALMIN || VAL > VALMAX ) { sprintf(tmpStr,"FAILS"); }
-      printf(" xxx   %s = %f  (%s map bound: %f to %f) \n", 
-	     varName, VAL, tmpStr, VALMIN, VALMAX );
-    }
-    printf(" xxx   EFF=%f  istat(interp_GRIDMAP)=%d \n", EFF, istat);
-    fflush(stdout);
-  }
-
-
-  if ( istat != SUCCESS ) {
-    sprintf(c1err, "Could not get zHOST_EFF from map");
-    sprintf(c2err, "See info dump above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-  }
-
-  return(EFF);
-
-} // end of interp_SEARCHEFF_zHOST
 
 
 // ===============================================
@@ -3295,7 +3027,7 @@ bool MATCH_SEARCHEFF_FIELD(char *field_map) {
 
   // ---------- BEGIN ----------
 
-  if ( strcmp(field_map,ALL)      == 0    ) { return true ; }
+  if ( strcmp(field_map,ALL)  == 0    ) { return true ; }
 
   // xxx  for(i=0; i < NFIELD_OVP; i++ ) { // maybe someday ??
 
@@ -3313,51 +3045,6 @@ bool MATCH_SEARCHEFF_FIELD(char *field_map) {
 
 } // end MATCH_SEARCHEFF_FIELD
 
-
-// *******************************************
-double interp_SEARCHEFF_zHOST_LEGACY(void) {
-
-  // Mar 12 2019
-  // Code moved from gen_SEARCHEFF_zHOST.
-  // Interpolate map to get z-dependent zSpec efficiency.
-
-  int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
-  int OPT_INTERP = 1; // linear interp
-
-  double z, EFF;
-  int NMATCH=0, IMAP=-9, imap;   char *field_map, *field_data ;
-  bool MATCH_FIELD ;
-  char fnam[] = "interp_SEARCHEFF_zHOST_LEGACY" ;
-
-  z          = SEARCHEFF_DATA.REDSHIFT ; 
-  field_data = SEARCHEFF_DATA.FIELDNAME ; 
-
-  for(imap=0; imap < NMAP;  imap++ ) {
-
-    field_map   = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
-    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
-    if ( MATCH_FIELD ) { IMAP = imap ; NMATCH++ ; }
-  }
-
-  if ( NMATCH != 1 ) {
-    print_preAbort_banner(fnam);
-    for(imap=0; imap < NMAP;  imap++ ) {
-      field_map = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
-      printf("\t FIELD_MAP[%2d] = %s\n", imap, field_map );
-    }    
-    sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
-    sprintf(c2err, "field = '%s'", field_data );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-  }
-
-  EFF = interp_1DFUN(OPT_INTERP, z   
-		     , SEARCHEFF_zHOST_LEGACY[IMAP].NROW
-		     , SEARCHEFF_zHOST_LEGACY[IMAP].REDSHIFT
-		     , SEARCHEFF_zHOST_LEGACY[IMAP].EFF,  fnam );
-
-  return(EFF);
-
-} // end interp_SEARCHEFF_zHOST_LEGACY
 
 // *********************************************
 void LOAD_PHOTPROB_CDF(int NVAR_CDF, double *VAL ) {
@@ -3503,9 +3190,10 @@ int  gen_SEARCHEFF_DEBUG(char *WHAT, double RAN, double *EFF) {
   // Input RAN is a random number from 0 to 1
   // Output *EFF is the efficiency
 
-  char fnam[] = "gen_SEARCHEFF_DEBUG" ;
   int    IDEBUG ;
   double RAN_LOCAL, EFF_LOCAL, zTau ;
+  char fnam[] = "gen_SEARCHEFF_DEBUG" ;
+  // --------- BEGIN ------------
 
   IDEBUG = INPUTS_SEARCHEFF.FUNEFF_DEBUG ;
   if ( IDEBUG == 0 ) { return 0 ; }
@@ -3553,6 +3241,399 @@ int  gen_SEARCHEFF_DEBUG(char *WHAT, double RAN, double *EFF) {
 // @@@@@@@@@@@@ LEGACY_FUNCTIONS @@@@@@@@@@@@@@@@@                                     
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+
+// *******************************************
+double interp_SEARCHEFF_zHOST(int ID) {
+
+  // Mar 12 2019
+  // Interpolate multi-D map to get EFF(HOSTLIB properties)
+  // Input ID is only for print/abort diagnostic.
+  //
+  // July 2020: check PEAKMJD too
+  // Oct 15 2020: clarify error message on interp failure.
+  // May 27 2021: refactor to take logical OR of multiple maps
+  // 
+  // Mar 04 2026: if there are no FIELD matches, abort if OPT_FIELDMATCH_REQUIRE_zHOST>0;
+  //              otherwise just return EFF=0. Allows zHOST coverage in subset of fields.
+  //
+  int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
+  int IMAP=0, istat, imap, NVAR, ivar, ivar_HOSTLIB, IGAL, NMATCH=0;
+  double VARDATA[MXVAR_SEARCHEFF_zHOST];
+  double EFF = 0.0, Pnoz=1.0, EFF_TMP, PEAKMJD, *PEAKMJD_RANGE ;
+  char *field_map, *field_data, *varName ;  
+  bool MATCH_FIELD, MATCH_PEAKMJD ;
+
+  int LDMP = 0 ;
+  char fnam[] = "interp_SEARCHEFF_zHOST" ;
+
+  // ---------------- BEGIN -------------
+
+  if ( LDMP ) {
+    printf(" xxx --------------------------------------------------- \n");
+    printf(" xxx %s DUMP for CID = %d \n", fnam, ID); 
+  }
+
+  // determine which map based on FIELD
+  for(imap=0; imap < NMAP;  imap++ ) {
+    MATCH_FIELD = MATCH_PEAKMJD = false ;
+
+    field_map  = SEARCHEFF_zHOST[imap].FIELDLIST ;
+    field_data = SEARCHEFF_DATA.FIELDNAME ;
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
+
+    PEAKMJD_RANGE = SEARCHEFF_zHOST[imap].PEAKMJD_RANGE ;
+    PEAKMJD       = SEARCHEFF_DATA.PEAKMJD ;
+    if ( PEAKMJD >= PEAKMJD_RANGE[0] && PEAKMJD <= PEAKMJD_RANGE[1] ) 
+      { MATCH_PEAKMJD = true; }
+
+    if ( LDMP ) {
+      printf(" xxx %s: imap=%d  MATCH_FIELD=%d  MATCH_PEAKMJD=%d \n", 
+	     fnam, imap, MATCH_FIELD, MATCH_PEAKMJD); fflush(stdout);
+    }
+
+
+    if ( MATCH_FIELD && MATCH_PEAKMJD ) {
+      // load VARDATA from HOSTLIB
+      NMATCH++ ;
+      NVAR = SEARCHEFF_zHOST[imap].GRIDMAP.NDIM ;
+      IGAL = SNHOSTGAL.IGAL ;
+      for(ivar=0; ivar < NVAR; ivar++ ) {
+	ivar_HOSTLIB  = SEARCHEFF_zHOST[imap].IVAR_HOSTLIB[ivar] ;
+	varName       = SEARCHEFF_zHOST[imap].VARNAMES_HOSTLIB[ivar] ;
+	VARDATA[ivar] = HOSTLIB.VALUE_ZSORTED[ivar_HOSTLIB][IGAL] ;
+
+	if ( LDMP ) {
+	  printf(" xxx %s: load VARDATA  ivar=%d  %s = %f \n",
+		 fnam, ivar, varName, VARDATA[ivar] ); fflush(stdout);
+	}
+      } // end ivar loop
+      
+      istat = interp_GRIDMAP(&SEARCHEFF_zHOST[imap].GRIDMAP, VARDATA, 
+			     &EFF_TMP );        // <== returned  
+
+      Pnoz *= ( 1.0 - EFF_TMP ); // prob if NOT getting zHOST
+
+      
+
+    } // end MATCH_FIELD && MATCH_PEAKMJD
+
+  } // end imap loop
+
+  // E.g., EFF = 0, 0.7; Pnoz=(1-0)*(1-0.7) = 0.3; EFF = 1-0.3 = 0.7
+  EFF = 1.0 - Pnoz ;
+
+  // - - - - - - 
+  if ( NMATCH == 0 ) {
+    if ( OPT_FIELDMATCH_REQUIRE_zHOST > 0 ) {
+      sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
+      sprintf(c2err, "field = '%s'  PEAKMJD=%.3f", field_data, PEAKMJD );
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+    else {
+      return(EFF);  
+    }
+  }
+
+
+  if ( LDMP || istat != SUCCESS ) {
+    long long GALID = SNHOSTGAL.GALID ;
+    double VALMIN, VALMAX, VAL ;
+    char tmpStr[20];
+    printf(" \n");
+    printf(" xxx --------------------------------------------------- \n");
+    printf(" xxx DUMP %s : \n", fnam);
+    printf(" xxx   IMAP=%d  FIELD=%s  NVAR=%d  IGAL=%d  GALID=%lld\n", 
+	   IMAP, field_data, NVAR, IGAL, GALID ) ;
+    for(ivar=0; ivar < NVAR; ivar++ ) {
+      varName      = SEARCHEFF_zHOST[IMAP].VARNAMES_HOSTLIB[ivar];
+      ivar_HOSTLIB = SEARCHEFF_zHOST[IMAP].IVAR_HOSTLIB[ivar] ;
+      VALMIN       = SEARCHEFF_zHOST[IMAP].GRIDMAP.VALMIN[ivar] ;
+      VALMAX       = SEARCHEFF_zHOST[IMAP].GRIDMAP.VALMAX[ivar] ;
+      VAL          = VARDATA[ivar];
+      sprintf(tmpStr,"satisfies");
+      if ( VAL < VALMIN || VAL > VALMAX ) { sprintf(tmpStr,"FAILS"); }
+      printf(" xxx   %s = %f  (%s map bound: %f to %f) \n", 
+	     varName, VAL, tmpStr, VALMIN, VALMAX );
+    }
+    printf(" xxx   EFF=%f  istat(interp_GRIDMAP)=%d \n", EFF, istat);
+    fflush(stdout);
+  }
+
+
+  if ( istat != SUCCESS ) {
+    sprintf(c1err, "Could not get zHOST_EFF from map");
+    sprintf(c2err, "See info dump above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  return(EFF);
+
+} // end of interp_SEARCHEFF_zHOST
+
+
+// *******************************************
+double interp_SEARCHEFF_zHOST_LEGACY(void) {
+
+  // Mar 12 2019
+  // Code moved from gen_SEARCHEFF_zHOST.
+  // Interpolate map to get z-dependent zSpec efficiency.
+
+  int NMAP = INPUTS_SEARCHEFF.NMAP_zHOST ;
+  int OPT_INTERP = 1; // linear interp
+
+  double z, EFF;
+  int NMATCH=0, IMAP=-9, imap;   char *field_map, *field_data ;
+  bool MATCH_FIELD ;
+  char fnam[] = "interp_SEARCHEFF_zHOST_LEGACY" ;
+
+  z          = SEARCHEFF_DATA.REDSHIFT ; 
+  field_data = SEARCHEFF_DATA.FIELDNAME ; 
+
+  for(imap=0; imap < NMAP;  imap++ ) {
+
+    field_map   = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
+    MATCH_FIELD = MATCH_SEARCHEFF_FIELD(field_map);
+    if ( MATCH_FIELD ) { IMAP = imap ; NMATCH++ ; }
+  }
+
+  if ( NMATCH != 1 ) {
+    print_preAbort_banner(fnam);
+    for(imap=0; imap < NMAP;  imap++ ) {
+      field_map = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ;
+      printf("\t FIELD_MAP[%2d] = %s\n", imap, field_map );
+    }    
+    sprintf(c1err, "Invalid NMATCH=%d for", NMATCH );
+    sprintf(c2err, "field = '%s'", field_data );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  EFF = interp_1DFUN(OPT_INTERP, z   
+		     , SEARCHEFF_zHOST_LEGACY[IMAP].NROW
+		     , SEARCHEFF_zHOST_LEGACY[IMAP].REDSHIFT
+		     , SEARCHEFF_zHOST_LEGACY[IMAP].EFF,  fnam );
+
+  return(EFF);
+
+} // end interp_SEARCHEFF_zHOST_LEGACY
+
+
+
+// ***************************************
+void read_zHOST_FILE_LEGACY(FILE *fp) {
+
+  // March 2019:
+  // Read zHOST effic file with arbitrary dependence on HOSTLIB properties.
+  // If using FIELDLIST, each map must start with a new VARNAMES key 
+  // 
+  // Dec 3 2019: fix bug by setting KEY_STOP = ""
+  // Jul 13 2020: read optional PEAKMJD
+  // Aug 19 2024: redefine *ptr_VARNAMES[MX] -> **ptr_VARNAMES to avoid
+  //              strange crash using -O2 optimization
+  //
+  // Mar 04 2026: 
+  //   + check for OPT_FIELDMATCH_REQUIRE key in map file
+  //   + skip everything after commentchar
+  //   + reset PEAKMJD_RANGE = 10000 90000 for each map
+
+  int  OPT_EXTRAP = 0 ;
+  int  NTAB=0;
+  int  IDMAP, imap, NMAP, ivar, NVAR, NDIM, NFUN ;
+  int  FOUND_VARNAMES;
+  char c_get[100], line[100], FIELDLIST[100] ;
+  char **ptr_VARNAMES, *VARLIST;
+  int  IVAR_HOSTLIB_TMP[MXVAR_SEARCHEFF_zHOST];
+  double PEAKMJD_RANGE[2];
+  char KEY_ROW[]   = "HOSTEFF:" ;
+  char KEY_STOP[]  = "" ;
+  char fnam[] = "read_zHOST_FILE_LEGACY" ;
+
+  // ------------ BEGIN ----------
+
+  OPT_FIELDMATCH_REQUIRE_zHOST = 1; // Default unless modified by OPT_FIELDMATCH_REQUIRE: 0 in map file
+
+  for(imap=0; imap < MXMAP_SEARCHEFF_zHOST; imap++ ) {
+    sprintf(SEARCHEFF_zHOST[imap].FIELDLIST,"NONE" );
+  }
+
+  ptr_VARNAMES = (char**) malloc( MXVAR_SEARCHEFF_zHOST*sizeof(char*) );
+  for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ ) {
+    ptr_VARNAMES[ivar] = (char*) malloc( 40*sizeof(char) );
+  }
+
+  
+  NMAP = NVAR = 0;    
+  sprintf(FIELDLIST,"%s", ALL);
+  PEAKMJD_RANGE[0] = 10000.0;  PEAKMJD_RANGE[1] = 90000.0;
+
+  // -----------------------------
+  while( (fscanf(fp, "%s", c_get )) != EOF) {
+
+    if ( c_get[0] == '#' ) { fgets(line,100,fp); }  // skip everything after comment char
+
+    if ( c_get[0] == '\t' ) { NTAB++; }
+    
+    if ( strcmp(c_get,"NVAR:")==0 ) 
+      { warn_NVAR_KEY(INPUTS_SEARCHEFF.zHOST_FILE); }
+
+    FOUND_VARNAMES = 0 ;
+
+    if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) 
+      { readint(fp, 1, &OPT_EXTRAP); }
+
+    if ( strcmp(c_get,"OPT_FIELDMATCH_REQUIRE:") == 0 ) 
+      { readint(fp, 1, &OPT_FIELDMATCH_REQUIRE_zHOST); } //Mar 4 2026
+
+    if ( strcmp(c_get,"FIELDLIST:" ) == 0 ) 
+      { readchar(fp,FIELDLIST); }
+
+    if ( strcmp(c_get,"PEAKMJD:") == 0 || strcmp(c_get,"PEAKMJD_RANGE:")==0 ) 
+      { readdouble(fp,2,PEAKMJD_RANGE);}
+
+    if ( strcmp(c_get,"VARNAMES:"  ) == 0 ) { FOUND_VARNAMES=1; }
+
+    // parse VARNAMES in map
+    if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_zHOST ) {
+      VARLIST = SEARCHEFF_zHOST[NMAP].GRIDMAP.VARLIST ;
+      NVAR = parse_VARNAMES_zHOST(fp, IVAR_HOSTLIB_TMP, ptr_VARNAMES,VARLIST);
+      NDIM = NVAR-1; NFUN=1;  IDMAP=IDGRIDMAP_zHOST_OFFSET+NMAP ;
+
+      // store a few things in global
+      sprintf(SEARCHEFF_zHOST[NMAP].FIELDLIST,"%s", FIELDLIST);
+      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[0] = PEAKMJD_RANGE[0];
+      SEARCHEFF_zHOST[NMAP].PEAKMJD_RANGE[1] = PEAKMJD_RANGE[1];
+
+      for(ivar=0; ivar<NVAR; ivar++ ) {
+	SEARCHEFF_zHOST[NMAP].IVAR_HOSTLIB[ivar] = IVAR_HOSTLIB_TMP[ivar];
+	sprintf(SEARCHEFF_zHOST[NMAP].VARNAMES_HOSTLIB[ivar],"%s",
+		ptr_VARNAMES[ivar] ) ;
+      }
+
+      read_GRIDMAP(fp,KEY_ROW,KEY_ROW, KEY_STOP, IDMAP, NDIM, NFUN, OPT_EXTRAP,
+		   MXROW_SEARCHEFF_zHOST, fnam,
+		   &SEARCHEFF_zHOST[NMAP].GRIDMAP ) ;
+
+      printf("\t FIELDLIST     = %s \n", FIELDLIST); 
+      printf("\t PEAKMJD_RANGE = %d to %d \n", (int)PEAKMJD_RANGE[0], (int)PEAKMJD_RANGE[1] );
+    
+      PEAKMJD_RANGE[0] = 10000.0;  PEAKMJD_RANGE[1] = 90000.0; // reset for next map
+	
+      fflush(stdout);
+
+      NONZERO_SEARCHEFF_zHOST++ ;
+    } // end VARNAMES check
+
+    // always increment NMAP, even if past bound.
+    if ( FOUND_VARNAMES )   { NMAP++ ; } 
+   
+  } // end while
+
+  INPUTS_SEARCHEFF.NMAP_zHOST = NMAP ;
+
+
+  if ( NMAP > MXMAP_SEARCHEFF_zHOST ) {
+    sprintf(c1err,"NMAP=%d exceeds MXMAP_SEARCHEFF_zHOST=%d",
+	    NMAP, MXMAP_SEARCHEFF_zHOST );
+    sprintf(c2err,"Too many zHOST maps; check SEARCHEFF_zHOST_FILE arg.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
+  }
+
+  tabs_ABORT(NTAB, INPUTS_SEARCHEFF.zHOST_FILE, fnam);
+
+  // free temp memory
+  for(ivar=0; ivar < MXVAR_SEARCHEFF_zHOST; ivar++ )
+    { free(ptr_VARNAMES[ivar]);  }
+  free(ptr_VARNAMES);
+  
+  return ;
+
+} // end read_zHOST_FILE_LEGACY
+
+
+// ***************************************
+void read_zHOST_FILE_LEGACY2(FILE *fp) {
+
+  // March 2019
+  // This legacy code is separated from init_SEARCHEFF_zHOST.
+  // Here the efficiency depends only on redshift.
+
+  char c_get[100], FIELDLIST[100], *ptrField ;
+  int  NROW = 0, NMAP=0, imap ;
+  int  MEMD = MXROW_SEARCHEFF_zHOST * sizeof(double);
+  double VAL[2];
+  char fnam[] = "read_zHOST_FILE_LEGACY2" ;
+
+  for(imap=0; imap < MXMAP_SEARCHEFF_zHOST; imap++ ) {
+    SEARCHEFF_zHOST_LEGACY[imap].NROW = 0 ;
+    sprintf(SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST,"NONE" );
+  }
+
+  // allocate memory for first map
+  SEARCHEFF_zHOST_LEGACY[0].REDSHIFT = (double*)malloc(MEMD);
+  SEARCHEFF_zHOST_LEGACY[0].EFF      = (double*)malloc(MEMD);
+
+  while( (fscanf(fp, "%s", c_get )) != EOF) {
+
+    if( strcmp(c_get,"FIELD:") == 0 || strcmp(c_get,"FIELDLIST:") == 0 ) {
+      readchar(fp,FIELDLIST);
+      sprintf(SEARCHEFF_zHOST_LEGACY[NMAP].FIELDLIST,"%s", FIELDLIST);
+
+      if ( NMAP > 0 ) {
+	SEARCHEFF_zHOST_LEGACY[NMAP].REDSHIFT = (double*)malloc(MEMD);
+	SEARCHEFF_zHOST_LEGACY[NMAP].EFF      = (double*)malloc(MEMD);
+      }
+      NMAP++ ;
+    }
+
+
+    if(strcmp(c_get,"HOSTEFF:") == 0 ) {
+
+      // logic is tricky because FIELD key is optional
+      imap = NMAP ;
+      ptrField = SEARCHEFF_zHOST_LEGACY[imap].FIELDLIST ; 
+
+      // if FIELDLIST not given, then associate ALL fields with map
+      if ( NMAP==0 && strcmp(ptrField,"NONE")==0 ) 
+	{ sprintf(ptrField,"%s", ALL); NMAP++ ; }
+
+      imap = NMAP-1 ; 
+      if ( NMAP < MXMAP_SEARCHEFF_zHOST ) {
+	readdouble(fp, 2, VAL);
+	NROW = SEARCHEFF_zHOST_LEGACY[imap].NROW ;
+	SEARCHEFF_zHOST_LEGACY[imap].REDSHIFT[NROW] = VAL[0] ;
+	SEARCHEFF_zHOST_LEGACY[imap].EFF[NROW]      = VAL[1] ;
+	SEARCHEFF_zHOST_LEGACY[imap].NROW++ ;
+
+	if ( VAL[1] > 1.0E-9 ) { NONZERO_SEARCHEFF_zHOST++ ; }
+      }
+    }    
+  }  // end while
+
+  INPUTS_SEARCHEFF.NMAP_zHOST = NMAP;
+
+  if ( NMAP >= MXMAP_SEARCHEFF_zHOST ) {
+    sprintf(c1err,"NMAP=%d exceeds bound.", NMAP );
+    sprintf(c2err,"Check bound MXMAP_SEARCHEFF_zHOST=%d", 
+	    MXMAP_SEARCHEFF_zHOST );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+
+  printf("\t Stored %d redshift bins for SEARCHEFF_zHOST map. \n",
+	 NROW );  fflush(stdout);
+
+  NROW = SEARCHEFF_zHOST_LEGACY[0].NROW ;
+  if ( NROW > 0 ) { 
+    return ; 
+  }
+  else {
+    sprintf(c1err,"No redshift bins found for SEARCHEFF_zHOST map.");
+    sprintf(c2err,"Check SEARCHEFF_zHOST_FILE key");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;    
+  }
+
+  return ;
+
+} // end of read_zHOST_FILE_LEGACY2
 
 // *************************************
 void  check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
@@ -3612,7 +3693,8 @@ void  check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF_USE
 
     printf("\t NONZERO_SEARCHEFF_SPECID=%d   LSPECID=%d \n", 
 	   NONZERO_SEARCHEFF_SPECID, LSPECID);
-    printf("\t NONZERO_SEARCHEFF_zHOST=%d \n", NONZERO_SEARCHEFF_zHOST);
+    printf("\t NONZERO_SEARCHEFF_zHOST=%d \n", 
+	   NONZERO_SEARCHEFF_zHOST);
 
     sprintf(c1err,"Invalid user-input 'APPLY_SEARCHEFF_OPT: %d' (OVP=%d) ",
 	    APPLYMASK_SEARCHEFF_USER, OVP) ;
@@ -4077,9 +4159,9 @@ void init_SEARCHEFF_zHOST_LEGACY(char *survey) {
   if ( fp == NULL ) { return ; }
 
   if ( LEGACY ) 
-    { read_zHOST_FILE_LEGACY(fp); }
+    { read_zHOST_FILE_LEGACY2(fp); }
   else
-    { read_zHOST_FILE(fp); }
+    { read_zHOST_FILE_LEGACY(fp); }
 
   // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
 

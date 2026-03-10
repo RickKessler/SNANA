@@ -5653,8 +5653,9 @@ int IVAR_HOSTLIB(char *varname, int FLAG) {
   // For input variable name return 'IVAR' index
   // to be used  the array HOSTLIB.VALUE_ZSORTED[ivar].
   // 
+  // FLAG  = 0  : return -9 if key not found
   // FLAG += 1  : abort if key not found; else return -9
-  // FLAG += 2  : case sensitive compar (default is case insensitive)
+  // FLAG += 2  : case sensitive compare (default is case insensitive)
   //
   // Feb 2014: use case-insenstive string check.
   // Apr 2021: FLAG +=2 for case-sensitive compare; e.g., b_obs != B_obs

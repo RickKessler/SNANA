@@ -9421,7 +9421,8 @@ void  init_event_GENLC(void) {
     GENLC.SNRMAX_FILT[ifilt_obs]    = -9.0 ;  
     GENLC.SNRMAX_SORTED[ifilt_obs]  = -9.0 ;  
 
-    SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt_obs] = -9.0 ;
+    SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt_obs]  = -9.0 ;
+    SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt_obs] = -9.0 ;
 
     GENLC.NOBS_MODELFLUX_FILTER[ifilt_obs] = 0 ;
     GENLC.NOBS_SATURATE_FILTER[0][ifilt_obs] = 0 ;
@@ -10969,6 +10970,7 @@ void GENSPEC_TRUE(int imjd) {
   } // end ifilt
 
   free(GENFLAM_LIST);
+  free(NULL_FLAMERR_LIST); // Mar 10 2026: hope to fix mem leak
 
   return ;
 
@@ -24312,8 +24314,15 @@ void  LOAD_SEARCHEFF_DATA(void) {
 
   for ( ifilt=0; ifilt <= MXFILTINDX; ifilt++ ) {
 
-    if ( SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt] < -0.01 ) 
-      { SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]  = getRan_Flat1(1); }
+    if ( SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt] < -0.01 )  { 
+      SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]  = getRan_Flat1(1); 
+      SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt] = SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]; // temp for refac debug (Mar 2026)
+    }
+
+    if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP == 2 ) {
+      if ( SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt] < -0.01 ) 
+	{ SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt]  = getRan_Flat1(1); } // Mar 2026
+    }
 
     if ( ifilt == MXFILTINDX ) { continue ; } // avoid array overwrite
     SEARCHEFF_DATA.PEAKMAG[ifilt] = MAG_UNDEFINED ;

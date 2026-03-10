@@ -23493,6 +23493,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        Default PRIOR_MJDSIG = 20.0  -> 1E9 (flat)
        Beware for fitting BayeSN, MLCS, SNOOPY
 
+    snlc_sim.c
+      fixed nasty memory leak using spectrograph feature; see free(NULL_FLAMERR_LIST)
+
          *****  USEFUL(v12_01c) *****
 
     snana.F90: 

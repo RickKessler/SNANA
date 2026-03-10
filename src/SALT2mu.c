@@ -14735,7 +14735,7 @@ int get_fitParBias(char *cid,
 	    IZMIN, IZMAX, USEZ[IZMIN], USEZ[IZMAX], ISKIP );
      fflush(stdout);
    }
-   if ( ISKIP ) { return(-11); }
+   if ( ISKIP ) { return(-11); } // .xyz
 
    
    OK = 0 ;

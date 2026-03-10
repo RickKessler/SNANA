@@ -277,11 +277,11 @@ void malloc_GRIDMAP(int OPT, GRIDMAP_DEF *gridmap, int NFUN, int NDIM, int MAPSI
       gridmap->FUNVAL[ifun] = (double *)malloc(MEMD);      
     }
 
-    sprintf(string,"allocate %.2f MB for %d bins", MEMORY, MAPSIZE);
+    sprintf(string,"allocate %.2f MB for %d bins and NFUN=%d", MEMORY, MAPSIZE, NFUN);
     gridmap->MEMORY = MEMORY ;
   }
   else {
-    sprintf(string,"free GRIDMAP %d ", gridmap->ID );
+    sprintf(string,"free GRIDMAP %d with NFUN=%d", gridmap->ID, NFUN );
 
     free(gridmap->NBIN);
     free(gridmap->VALMIN);

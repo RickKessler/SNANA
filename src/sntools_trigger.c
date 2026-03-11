@@ -1038,6 +1038,8 @@ void  init_SEARCHEFF_SPECID(char *survey) {
   read_searcheff_map(MAPTYPE_SEARCHEFF_SPECID, INPUTS_SEARCHEFF.USER_SPEC_FILE,
 		     &SEARCHEFF_INFO_SPECID) ;
 
+  INPUTS_SEARCHEFF.NMAP_SPECID = SEARCHEFF_INFO_SPECID.NMAP; // for snlc_sim
+
 } // end of init_SEARCHEFF_SPECID
 
 
@@ -1606,6 +1608,7 @@ void init_SEARCHEFF_zHOST(char *survey) {
   read_searcheff_map(MAPTYPE_SEARCHEFF_zHOST, INPUTS_SEARCHEFF.USER_zHOST_FILE,
 		     &SEARCHEFF_INFO_zHOST) ;
 
+  INPUTS_SEARCHEFF.NMAP_zHOST = SEARCHEFF_INFO_zHOST.NMAP; // for snlc_sim
 
   return;
 } // end of init_SEARCHEFF_zHOSTEFF
@@ -1852,6 +1855,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
   MJD_DETECT->LAST    = 1.0E6 ;
   MASK = 0 ;  // init return arg
 
+
   // 5/26/2009: minimum trigger is at least 2 measurements
   if ( SEARCHEFF_DATA.NOBS < INPUTS_SEARCHEFF.MINOBS ) { return MASK ; }
 
@@ -1878,7 +1882,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 
 
   // if not spec-confirmed, check for spec zHOST
-  if ( LFIND1_PIPELINE && LFIND2_SPECID == 0 )  { 
+  if ( LFIND1_PIPELINE  &&  LFIND2_SPECID == 0 )  { 
      LFIND3_zHOST = gen_SEARCHEFF_zHOST(ID,EFF_zHOST) ;   // return EFF_zHOST
   }
 
@@ -2717,8 +2721,8 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   // which means that EFF = 1 - product(1-Eff_imap)
 
   if ( LDMP ) {
-    printf(" xxx \n");
-    printf(" xxx %s: %s MAP DUMP for CID = %d ------------- \n", 
+    printf(" xxx ================================================================= \n");
+    printf(" xxx %s: %s MAP DUMP for CID = %d  \n", 
 	   fnam, MAPTYPE, ID);
     printf(" xxx %s: BOOLEAN_[OR,AND] = %d, %d \n",
 	   fnam, BOOLEAN_OR, BOOLEAN_AND );
@@ -2973,6 +2977,7 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   char fnam[] = "gen_SEARCHEFF_zHOST" ;
 
   // ----------- BEGIN -----------
+
 
   *EFF_zHOST = 0.0 ;
   if ( INPUTS_SEARCHEFF.RESTORE_DES5YR ) {
@@ -3268,7 +3273,7 @@ double interp_SEARCHEFF_zHOST(int ID) {
   // ---------------- BEGIN -------------
 
   if ( LDMP ) {
-    printf(" xxx --------------------------------------------------- \n");
+    printf(" xxx ====================================================== \n");
     printf(" xxx %s DUMP for CID = %d \n", fnam, ID); 
   }
 
@@ -3312,8 +3317,6 @@ double interp_SEARCHEFF_zHOST(int ID) {
 
       Pnoz *= ( 1.0 - EFF_TMP ); // prob if NOT getting zHOST
 
-      
-
     } // end MATCH_FIELD && MATCH_PEAKMJD
 
   } // end imap loop
@@ -3339,8 +3342,8 @@ double interp_SEARCHEFF_zHOST(int ID) {
     double VALMIN, VALMAX, VAL ;
     char tmpStr[20];
     printf(" \n");
-    printf(" xxx --------------------------------------------------- \n");
-    printf(" xxx DUMP %s : \n", fnam);
+    printf(" xxx - - - - - - - \n");
+    printf(" xxx DUMP %s for CID = %d: \n", fnam, ID);
     printf(" xxx   IMAP=%d  FIELD=%s  NVAR=%d  IGAL=%d  GALID=%lld\n", 
 	   IMAP, field_data, NVAR, IGAL, GALID ) ;
     for(ivar=0; ivar < NVAR; ivar++ ) {
@@ -4390,10 +4393,12 @@ int gen_SEARCHEFF_zHOST_LEGACY(int ID, double *EFF_zHOST) {
   RAN = SEARCHEFF_RANDOMS.FLAT_SPEC[50] ;
   if ( RAN > EFF ) { LFIND = 0 ; }
 
-  /*
-  printf(" xxxx %s : FIELD=%s z = %.3f  EFF=%.3f   LFIND=%d \n",
-	 fnam, field_data, z, EFF, LFIND); fflush(stdout); // xxxx
-  */
+  int LDMP = 0;
+  if ( LDMP ) {
+    printf(" xxxx %s : FIELD=%s   RAN=%.3f  EFF=%.3f   LFIND=%d \n",
+	   fnam, SEARCHEFF_DATA.FIELDNAME, RAN, EFF, LFIND); fflush(stdout); // xxxx
+    fflush(stdout);
+  }
 
   // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
 

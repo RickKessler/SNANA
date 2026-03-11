@@ -27035,10 +27035,10 @@ int gen_TRIGGER_zHOST(void) {
   if ( !REQUIRE_zHOST ) { return(1); }
 
   // bail if zHOST map is NOT defined.
-  if ( INPUTS_SEARCHEFF.NMAP_zHOST == 0 )     { return(1); }
+  if ( INPUTS_SEARCHEFF.NMAP_zHOST == 0 )   { return(1); }
 
   // bail if generating GRID
-  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  )     { return(1); }
+  if ( GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID  )  { return(1); }
 
   // load data to load randoms used for efficiencies.
   GENLC.NEPOCH=1;  LOAD_SEARCHEFF_DATA();

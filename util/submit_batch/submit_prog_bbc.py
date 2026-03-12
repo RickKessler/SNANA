@@ -2900,6 +2900,14 @@ class BBC(Program):
     def write_fitpar_summary_row(self, f, row, bbc_yaml):
         # created Feb 2025
         # Write summary for this MERGE.LOG row to file pointer f
+        # Note that the summary includes much more info than MERGE.LOG
+        # and hence takes many rows.
+        #
+        # Mar 2026: 
+        #    + add FITIOT_LABEL as comment after each FITOPT_ARGS; same for MUOPT
+        #       This addition is only for human readability.
+        #    + remove \\ from args
+        #
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
@@ -2923,7 +2931,6 @@ class BBC(Program):
 
         frac_reject = float(NEVT_REJECT_BIASCOR)/float(NEVT_DATA)
 
-
         key_opt      = f"{fitopt_num}_{muopt_num}"
         comment_grep = f"{version}  {key_opt}"
 
@@ -2931,16 +2938,30 @@ class BBC(Program):
         f.write(f" \n")
         f.write(f"{pad }- {key_opt}: \n")
 
+        indx_fitopt_label = 2
+        indx_fitopt_args  = 3
+        indx_muopt_label  = 1
+        indx_muopt_args   = 2
+
+        FITOPT_LABEL = FITOPT_LIST[ifit][indx_fitopt_label]
+        FITOPT_ARGS  = FITOPT_LIST[ifit][indx_fitopt_args]
+        MUOPT_LABEL  = MUOPT_LIST[imu][indx_muopt_label]
+        MUOPT_ARGS   = MUOPT_LIST[imu][indx_muopt_args]
+
+        # if ARGS =  'KEY\\(inner\\)', remove backslashes to get 'KEY(inner)'
+        FITOPT_ARGS = FITOPT_ARGS.replace('\\','')
+        MUOPT_ARGS  = MUOPT_ARGS.replace('\\','')
+
         # check list sizes to accomodate noINPDIR option
         n_list = 0
         if FITOPT_LIST : n_list = len(FITOPT_LIST)
         if n_list > 0 :
-            f.write(f"{pad}    FITOPT: {FITOPT_LIST[ifit][3]} \n")
+            f.write(f"{pad}    FITOPT: {FITOPT_ARGS}   #  {FITOPT_LABEL} \n")
 
         n_list = 0
         if MUOPT_LIST : n_list = len(MUOPT_LIST)
         if n_list > 0 :
-            f.write(f"{pad}    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+            f.write(f"{pad}    MUOPT:  {MUOPT_ARGS}    # {MUOPT_LABEL} \n")
 
         f.write(f"{pad}    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
                 f"        # DATA, BIASCOR, CCPRIOR for {comment_grep}\n")

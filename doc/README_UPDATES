@@ -23576,4 +23576,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       - sim input "REFAC_SEARCHEFF_MAP: 1" implements refactor
         to use same SPEC-EFF tools/maps on zHOST EFF.
 
+   sntools_genGauss_asym.c:
+     + inside prepIndex_GENGAUSS(), add array bound protection before calling
+       copy_GENGAUSS_ASYM(); should fix dust2dust crash.
+
 END: 

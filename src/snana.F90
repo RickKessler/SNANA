@@ -1527,9 +1527,9 @@
         ,OPT_SIMLIB_OUT        &  ! I: bit mask of SIMLIB_OUT options
         ,SIMLIB_OUT_TMINFIX    &  ! I: choose PEAKMJD so that min(MJD-PEAKMJD)=TMINFIX
         ,REQUIRE_DOCANA  & 
-        ,OPT_SNCID_LIST       &  ! I: 1=force all and ignore cuts;
-                           ! I: 2=set INIVAL=FITPAR
-                           ! I: 4=use each FITPAR and ERROR as prior
+        ,OPT_SNCID_LIST       &  ! I: 1=force all and ignore cuts; to sync events for common event cut
+                                 ! I: 2=set INIVAL=FITPAR
+                                 ! I: 4=use each FITPAR and ERROR as prior
         ,OPT_VPEC_COR        ! I: 1=apply vpec cor (default)
 
     LOGICAL  & 
@@ -1566,8 +1566,8 @@
         ,LDMP_SATURATE        &  ! I: dump saturated observations
         ,USESIM_SNIA          &  ! I: default True -> process simulated SNIa
         ,USESIM_NONIA         &  ! I: default True -> process simulated nonIa
-        ,USESIM_TRUEFLUX      &  ! I: SNLC_FLUXCAL -> SIM_FLUXCAL
-        ,USESIM_REDSHIFT      &  ! I: replace REDSHIFT with SIM_REDSHIFT
+        ,USESIM_TRUEFLUX      &  ! I: SNLC_FLUXCAL -> SIM_FLUXCAL (use true flux)
+        ,USESIM_REDSHIFT      &  ! I: replace REDSHIFT with true SIM_REDSHIFT (i.e., cheat)
         ,LPROB_TRUEFLUX       &  ! I: T=> compute F-Ftrue chi2 and PROB
         ,RESTORE_WRONG_VPEC   &  ! I: restore incorrect VPEC sign correction
         ,RESTORE_OVERRIDE_ZBUG  &  ! I: restore z=zCMB insteead of zHEL
@@ -26821,8 +26821,6 @@
 
     MNARG(1) = DBLE(MINUIT_PRINT_LEVEL)
     CALL MNEXCM(FCNANYLC, 'SET PRI', MNARG, 1, IERR, ANYLCFUN )
-
-
 
 ! init each parameter
     INIBND(1,IPAR_ISN) = 0

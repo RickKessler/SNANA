@@ -150,9 +150,11 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
   // Called by readFile routine and command-line read function.
   //
   // Jun 11 2020: moved from snlc_sim.h, and set USE=true.
-
+  // Mar 12 2026: add array bound check before calling copy_GENGAUSS_ASYM(...);
+  //              this bug may have caused Dust2Dust to crash
+  //
   char *ptrName = genGauss->NAME;
-  //  char fnam[] = "prepIndex_GENGAUSS" ;
+  char fnam[] = "prepIndex_GENGAUSS" ;
   // ---------- BEGIN ---------
 
   // if genGauss name is not set, then set name and FUNINDEX
@@ -167,7 +169,15 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
   // some kind of global operation or init is needed.
 
   int FUNINDEX = genGauss->FUNINDEX ;
-  copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );
+  if ( FUNINDEX < MXGENGAUSS )  {  
+    copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );  
+  }
+  else if ( FUNINDEX == MXGENGAUSS ) {
+    printf("  %s WARNING: FUNINDEX=%d -> no more saving copies of genGauss\n", fnam, FUNINDEX);
+    fflush(stdout);
+  }
+
+  return ;
 
 } // end prepIndex_GENGAUSS
 

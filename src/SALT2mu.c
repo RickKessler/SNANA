@@ -2300,8 +2300,8 @@ void SALT2mu_DRIVER_EXEC(void) {
   // Beginning of DOFIT loop
   while ( DOFIT_FLAG != FITFLAG_DONE  ) {
 
-    //Miniut MINIMIZE using SIMplex
-    strcpy(mcom,"SIM 1000");   len = strlen(mcom);
+    //Miniut MINIMIZE using SIMplex to get approx solution (max iterations is 1000)
+    strcpy(mcom,"SIM 1000");   len = strlen(mcom); 
     mncomd_(fcn, mcom, &icondn, &null, len);  fflush(FP_STDOUT);
 
     // minimize with MIGRAD
@@ -2309,15 +2309,14 @@ void SALT2mu_DRIVER_EXEC(void) {
     mncomd_(fcn,mcom,&icondn,&null,len);  fflush(FP_STDOUT); 
 
     //Minuit MINOS (compute errors)
-    strcpy(mcom,STRING_MINUIT_ERROR[INPUTS.minos]);
-
-    len = strlen(mcom); 
+    strcpy(mcom,STRING_MINUIT_ERROR[INPUTS.minos]);    len = strlen(mcom); 
     mncomd_(fcn, mcom, &icondn, &null, len);  fflush(FP_STDOUT);
 
     //Final call to FCN at minimum of chi-squared
     strcpy(mcom,"CALL FCN 3");  len = strlen(mcom);
     mncomd_(fcn, mcom, &icondn, &null, len);   fflush(FP_STDOUT);
 
+    // get errors
     mnstat_(&chi2min, &fedm, &errdef, &npari, &nparx, &istat);
     ndof = FITRESULT.NSNFIT - npari; 
     FITRESULT.MNSTAT      = istat;
@@ -2330,6 +2329,11 @@ void SALT2mu_DRIVER_EXEC(void) {
 
     fflush(FP_STDOUT);  
   }   // End of fitflag_sigmb  loop
+
+
+  // Mar 11 2026: add explicit EXIT; might help Dust2dust stay alive
+  strcpy(mcom,"EXIT");  len = strlen(mcom);
+  mncomd_(fcn, mcom, &icondn, &null, len);  
 
   // - - - - -
   // May 26 2021: free genPDF maps

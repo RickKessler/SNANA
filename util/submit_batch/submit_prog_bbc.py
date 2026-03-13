@@ -3059,12 +3059,15 @@ class BBC(Program):
         # prepare w-varnames for varnames
         varlist_w = f"{varname_w} {varname_w}sig"
         varname_FoM = ''
+        varname_rho_w0wa = ''
+
         if use_wfit_w0wa :
             varlist_w += f" {varname_wa} {varname_wa}sig"  #w0waCDM
             varname_FoM = 'FoM'
+            varname_rho_w0wa = 'rho_w0wa'
 
         varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
-                   f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
+                   f"{varlist_w} {varname_rho_w0wa} {varname_omm} {varname_omm}_sig "\
                    f"CHI2 NDOF NWARN {varname_FoM}  LABEL"
 
         # read the whole MERGE.LOG file to figure out where things are
@@ -3107,17 +3110,18 @@ class BBC(Program):
             # extract wfit values into local variables
             wfit_values_dict = util.get_wfit_values(wfit_yaml)
             
-            w       = wfit_values_dict['w']  
-            w_sig   = wfit_values_dict['w_sig']
-            wa      = wfit_values_dict['wa']    
-            wa_sig  = wfit_values_dict['wa_sig']
-            omm     = wfit_values_dict['omm']  
-            omm_sig = wfit_values_dict['omm_sig']
-            chi2    = wfit_values_dict['chi2'] 
-            sigint  = wfit_values_dict['sigint']
-            ndof    = wfit_values_dict['ndof']
-            FoM     = wfit_values_dict['FoM']
-            nwarn   = wfit_values_dict['nwarn']
+            w         = wfit_values_dict['w']  
+            w_sig     = wfit_values_dict['w_sig']
+            wa        = wfit_values_dict['wa']    
+            wa_sig    = wfit_values_dict['wa_sig']
+            omm       = wfit_values_dict['omm']  
+            omm_sig   = wfit_values_dict['omm_sig']
+            rho_w0wa  = wfit_values_dict['rho_w0wa'] 
+            chi2      = wfit_values_dict['chi2'] 
+            sigint    = wfit_values_dict['sigint']
+            ndof      = wfit_values_dict['ndof']
+            FoM       = wfit_values_dict['FoM']
+            nwarn     = wfit_values_dict['nwarn']
             self.wfit_cpu_sum += wfit_values_dict['cpu_minutes']
 
             w_ran   = int(wfit_values_dict['w_ran']) 
@@ -3126,7 +3130,7 @@ class BBC(Program):
 
             if use_wfit_w0wa :
                 w0 = w ; w0_sig = w_sig
-                str_w     = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+                str_w     = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f} {rho_w0wa:7.4f}"
                 str_FoM   = f"{FoM:.1f}"
             else:
                 str_w      = f"{w:7.4f} {w_sig:6.4f}"

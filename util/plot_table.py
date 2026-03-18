@@ -37,6 +37,8 @@
 #                 (original AI-pasted code was wrong)
 #     + fix to work with multiple @@WGTVAR values, same as with multuple @@CUT or @@V or @@TFILE.
 #
+# Mar 16 2026: new inputs @@HLINE and @@VLINE to draw horizontal and/or vertical line(s)
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -629,6 +631,12 @@ def get_args():
 
     msg = "Extra text on plot"
     parser.add_argument('@@TEXT', '@@text', default=None, help=msg, nargs="+")    
+
+    msg = "dashed horizontal lines on plot (enter list of Y-coords"
+    parser.add_argument('@@HLINE', '@@hline', default=None, help=msg, nargs="+")    
+
+    msg = "dashed vertical lines on plot (enter list of X-coords"
+    parser.add_argument('@@VLINE', '@@vline', default=None, help=msg, nargs="+")    
 
     msg = "Override default legend on plot (space sep list per TFILE); auto-compute location"
     parser.add_argument('@@LEGEND', '@@legend', default=None, help=msg, nargs="+")
@@ -3007,7 +3015,9 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     do_logy      = OPT_LOGY      in OPT
     do_grid      = OPT_GRID      in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
-    
+    hline_list   = args.HLINE
+    vline_list   = args.VLINE
+
     bounds_dict   = plot_info.bounds_dict
     axis_dict     = plot_info.axis_dict_list[0] # ?? fragile?
 
@@ -3042,8 +3052,18 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
     if do_diag_line:
         x = np.linspace(xmin,xmax,100);  y = x
-        plt.plot(x,y, zorder=10)
+        plt.plot(x,y, zorder=10, linestyle='--')
     
+    if hline_list:
+        for y_hline in hline_list:
+            x = np.linspace(xmin,xmax,10);  y = [ float(y_hline) ]*10
+            plt.plot(x, y, zorder=10, linestyle='--', color='black')
+
+    if vline_list:
+        for x_vline in vline_list:
+            y = np.linspace(ymin,ymax,10);  x = [ float(x_vline) ]*10
+            plt.plot(x, y, zorder=10, linestyle='--', color='black')
+
     fsize_label = 12 * args.FONTSIZE_SCALE
     xlabel  = axis_dict['xaxis_label']
     ylabel  = axis_dict['yaxis_label']    

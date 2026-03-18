@@ -9118,7 +9118,7 @@
     write(LUN,38) '   += 4 -> zPHOT_HOST(mean+stdev or quantiles)'
     write(LUN,38) '   += 8 -> zPHOT_HOST(quantiles)'
     write(LUN,38)  & 
-         '    MASK:     NEVT(MASK=val)    NEVT(MASK val)'
+         '    MASK:     NEVT(MASK=val)    NEVT(MASK&val)'
     DO 200 MASK = 0, MXMASK_zSOURCE
        NEVT    = N_MASK_LOCAL(MASK)
        NEVT_or = 0

@@ -12,6 +12,9 @@
 #   + if everything is a symlink, don't bother submitting into slurm
 #      (no need to wait in q for nothing)
 #     
+# Mar 18 2026: fix bug to pick out only the FITRES files and ignore other
+#              table files; see modification to INPUT_BASE
+#
 
 import os, sys, shutil, yaml, glob
 import logging
@@ -106,6 +109,12 @@ class combine_fitres(Program):
             else:
                 MIMIC_OUTDIR_INP = None
                 MIMIC_OUTDIR_OUT = None
+
+            # make sure to pick out ONLY the FITRES tables;
+            # ignore other tables such as SNANA, LCPLOT, etc ...
+            # If user did not specify *FITRES* in the wildcard, add it here
+            if '.FITRES' not in INPUT_BASE:
+                INPUT_BASE += '.FITRES*'
 
             if INPUT_TOPDIR :  
                 INPUT_BASE     = f"{INPUT_TOPDIR}/{INPUT_BASE}"

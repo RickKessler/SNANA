@@ -7390,10 +7390,15 @@ void prep_user_input(void) {
 
   }
 
+  int REFAC = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP;
+  if ( REFAC > 0 ) {
+    printf("\t REFAC_SEARCHEFF_MAP = %d (for SPECID and zHOST efficiency maps)\n", REFAC );
+  }
+
   // malloc GENLC arrays based on user options
   malloc_GENLC();
 
-  printf("\n");
+  printf("\n"); fflush(stdout);
 
   return ;
 
@@ -24341,12 +24346,17 @@ void  LOAD_SEARCHEFF_DATA(void) {
 
     if ( SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt] < -0.01 )  { 
       SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]  = getRan_Flat1(1); 
-      SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt] = SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]; // temp for refac debug (Mar 2026)
     }
 
-    if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP == 2 ) {
-      if ( SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt] < -0.01 ) 
-	{ SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt]  = getRan_Flat1(1); } // Mar 2026
+    if ( SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt] < -0.01 ) { 
+
+      if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP == 1 ) {
+	SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt]  = SEARCHEFF_RANDOMS.FLAT_SPEC[ifilt]; // xxx temp for refac debug
+      }
+      else if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP == 2 ) {
+	SEARCHEFF_RANDOMS.FLAT_zHOST[ifilt]  = getRan_Flat1(1); // Mar 2026; eventual 'nominal' 
+      }
+
     }
 
     if ( ifilt == MXFILTINDX ) { continue ; } // avoid array overwrite

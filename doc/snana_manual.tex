@@ -10564,8 +10564,8 @@ Quantiles can be overwritten if they already exist in the
 original data files, 
 or appended if the original data files
 do not include quantile information. For quantile overrides using
-{\tt HOSTGAL\_ZPHOT\_Qppp} (where {\tt ppp=000, 010, ... 100}), 
-make sure to also include an {\tt NZPHOT\_Q} column with each value set to 11.
+\verb|HOSTGAL_ZPHOT_Qppp| (where {\tt ppp=000, 010, ... 100}), 
+make sure to also include an \verb|NZPHOT_Q| column with each value set to 11.
 
 
 A common  mistake is to accidentally replace data variable names with names in the
@@ -10573,8 +10573,28 @@ output FITRES tables: unfortunately the variable naming is not consistent.
 Such substituion usually results in an abort since no
 valid override variables are found.
 
+
+\clearpage % .xyz
+\subsubsection{Over-Riding Header Information: {\tt HEADER\_OVERRIDE\_DIR} }
+\label{sss:header_override_dir}
+%
+If using \verb|HEADER_OVERRIDE_FILE| with long comma-separated lists becomes
+difficult to manage, an alternative approach is to specify an override
+{\it directory} with a list file indicating which override files to use.
+For example,
+\begin{verbatim}
+   &SNLCINP
+      HEADER_OVERRIDE_DIR = '/project/mysurvey/OVERRIDES/V02'
+    !   beware that /project/mysurvey/overrides/V02/V02.LIST   must exist
+\end{verbatim}
+reads a list of overrides files from the LIST file, and internally
+constructs a comma-separated list of override files. This strategy
+is similar to reading data by specifying a data folder with
+\verb|VERSION_PHOTOMETRY| rather than specifying a list of files.
+
+
 % - - - - - - - - 
-\clearpage
+%\clearpage
 \subsubsection{Over-Riding by {\tt HOSTGAL\_OBJID} instead of {\tt CID}}
 \label{sss:header_override_galid}
 

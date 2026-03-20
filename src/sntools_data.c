@@ -22,6 +22,8 @@
 #include  "sntools_host.h" 
 //#include  "sntools_trigger.h" 
 
+#include  <sys/stat.h>
+
 
 // =======================================================
 bool IS_SIMKEY_SNDATA(char *key) {
@@ -1296,15 +1298,19 @@ void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST) {
 } // end RD_PRIVATE_INIT
 
 // ==============================================
-void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
+void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
 
   // read and store columns from comma-sep list of  override files 
   // to override values in data headers (not photometry).
   // Allows float/double/int, but not strings
   // (e.g., cannot override SNID, FIELD, .. )
   //
+  // Input *OVERRIDE_PATH is either a comma-sep list of files,
+  // or a folder containint [OVERRIDE_PATH].LIST with list of override files.
+  //
   // Oct 3 2023: add input REQUIRE_DOCANA
   // Feb 24 2026: abort if there is a mix of override files keyed by CID and GALID
+  // Mar 20 2026: refactor to allow either file list or directory to be passed.
 
   int NROW, ivar, ifile, NFILE = 0;
   int OPTMASK_SNTABLE = 4;           // append next file
@@ -1315,8 +1321,10 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 
   // ----------- BEGIN -----------
 
+
   RD_OVERRIDE.USE = false;
-  if ( IGNOREFILE(OVERRIDE_FILE) ) { return; }
+  if ( IGNOREFILE(OVERRIDE_PATH) ) { return; }
+
 
   // init number of files matched by CID and by GALID
   RD_OVERRIDE.NMATCH_by_CID   = 0 ;
@@ -1324,8 +1332,12 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
 
   print_banner(fnam);
 
+  // get list of override files
+  char *OVERRIDE_FILE_LIST = (char*)malloc(MXPATHLEN*10 * sizeof(char) );
+  get_override_file_list(OVERRIDE_PATH, OVERRIDE_FILE_LIST);
+
   // split comma-sep OVERRIDE_FILE 
-  parse_commaSepList(fnam, OVERRIDE_FILE, MXFILE_OVERRIDE, MXPATHLEN,
+  parse_commaSepList(fnam, OVERRIDE_FILE_LIST, MXFILE_OVERRIDE, MXPATHLEN,
 		     &NFILE, &file_list ); // <== returned
   
 
@@ -1438,6 +1450,85 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA) {
   return ;
 
 } // end RD_OVERRIDE_INIT
+
+void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
+
+  // Created Mar 20 2026
+  // For input OVERRIDE_PATH, return comma-sep list of files in
+  // OVERRIDE_FILE_LIST. 
+  // If *OVERRIDE_PATH is already a file list, return OVERRIDE_FILE_LIST = OVERRIDE_PATH.
+  // If *OVERRIDE_PATH is a directory, read LIST file from directory that contains
+  // list file override files.
+
+  bool IS_FILE = false ;
+  bool IS_DIR  = false ;
+  int  istat;
+  struct stat statbuf ; 
+  int LDMP = 0 ;
+  char fnam[] = "get_override_file_list" ;
+
+  // ----------- BEGIN ---------
+
+  OVERRIDE_FILE_LIST[0] = 0 ;
+
+  // if there is a comma, then it has to be a file list
+  if (strstr(OVERRIDE_PATH,COMMA) != NULL ) {  
+    IS_FILE = true ;  
+  }
+  else {
+    // use stat function to determin file vs. path
+    ENVreplace(OVERRIDE_PATH, fnam, 1);
+    istat   = stat(OVERRIDE_PATH, &statbuf);
+    IS_DIR  = S_ISDIR(statbuf.st_mode);
+    IS_FILE = !IS_DIR ;
+  }
+
+  if ( LDMP ) {
+    printf("\n xxx %s DUMP -------------------------------- \n", fnam );
+    printf(" xxx %s: OVERRIDE_PATH = %s\n", fnam, OVERRIDE_PATH);
+    printf(" xxx %s: IS[DIR,FILE] = %d  %d \n", fnam, IS_DIR, IS_FILE) ;
+    fflush(stdout);
+  }
+
+  // - - - 
+  if ( IS_FILE ) {
+    sprintf(OVERRIDE_FILE_LIST, "%s", OVERRIDE_PATH);
+  }
+  else {
+    // for /path/base, check list file with name  /path/base/base.LIST
+    char *basename = strrchr(OVERRIDE_PATH, '/'); // basename include slash    
+    char *LIST_FILE = (char*) malloc(MXPATHLEN * sizeof(char) );
+    char *tmp_file  = (char*) malloc(MXPATHLEN * sizeof(char) );
+    char *TMP_FILE  = (char*) malloc(MXPATHLEN * sizeof(char) );
+    int i, NF;
+    sprintf(LIST_FILE, "%s/%s.LIST", OVERRIDE_PATH, &basename[1] );
+
+    if ( LDMP ) {
+      printf(" xxx %s: basename = %s \n", fnam, basename);
+      printf(" xxx %s: LIST_FILE = %s \n", fnam, LIST_FILE);      
+    }
+    NF = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, LIST_FILE, fnam);
+
+    printf("   Found %d OVERRIDE files in folder \n   %s : \n", NF, OVERRIDE_PATH);
+    for (i=0; i < NF; i++ ) {
+      get_PARSE_WORD(LANGFLAG_PARSE_WORDS_C, i, tmp_file, fnam);  
+      sprintf(TMP_FILE, "%s/%s", OVERRIDE_PATH, tmp_file);
+      catVarList_with_comma(OVERRIDE_FILE_LIST,TMP_FILE);
+      printf("\t %s \n", tmp_file);
+    }
+    // .xyz
+  }
+
+  if ( LDMP ) {
+    printf(" xxx %s: final OVERRIDE_FILE_LIST = \n xxx %s \n", 
+	   fnam, OVERRIDE_FILE_LIST); 
+  }
+
+  fflush(stdout);
+  //  debugexit(fnam);
+  return;
+
+} // end get_override_file_list
 
 
 // ==================================================

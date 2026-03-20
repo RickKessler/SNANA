@@ -23508,6 +23508,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         SIM_COMPACT_noFLUXCAL to identify (roman-desc) sim in which
         only MJD, BAND, SIM_MAGOBS appear in PHOT file and there is 
         no FLUXCAL[ERR]
+      + new &SNLCINP  [SIM_]HEADER_OVERRIDE_DIR pointing to a folder
+        of header overrides
 
      snlc_fit.F90
       + new option to make table of priors for plotting;        

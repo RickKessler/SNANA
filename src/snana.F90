@@ -1481,7 +1481,9 @@
 
     CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)  & 
           HEADER_OVERRIDE_FILE        &  ! I: comma-sep list of files with CID VAR
-         ,SIM_HEADER_OVERRIDE_FILE       ! I: same, but for sims
+         ,HEADER_OVERRIDE_DIR         &  ! I: folder containing header_override files
+         ,SIM_HEADER_OVERRIDE_FILE    &  ! I: same, but for sims
+         ,SIM_HEADER_OVERRIDE_DIR        ! I: same, but for sims
 
     CHARACTER   &  ! versions
          VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)    &  ! I: SN versions to read
@@ -1646,7 +1648,8 @@
           , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE  & 
           , CALIB_FILE, KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY  & 
           , USERTAGS_FILE  & 
-          , VPEC_FILE, HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_FILE  & 
+          , VPEC_FILE, HEADER_OVERRIDE_FILE, HEADER_OVERRIDE_DIR  &
+          , SIM_HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_DIR     & 
           , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE, NONLINEARITY_FILE  & 
           , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR  & 
           , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST  & 
@@ -2473,49 +2476,85 @@
 
 ! Created May 2023
 ! Wrapper to call C-function RD_OVERRIDE_INIT
+!
+! Be carefule that real data and sim each have their own
+! separate override keys to avoid conflict.
 ! 
 ! Oct 2023: pass REQ_DOC=1 to require DOCANA.
 ! Oct 2025: require ISDATA=T to read HEADER_OVERRIDE_FILE, and require
 !           LSIM_SNANA=T to read SIM_HEADER_OVERRIDE_FILE
 ! 
 ! Feb 2026: remove ENVreplace calls since ENVreplace is called in RD_OVERRIDE_INIT.
-
+! Mar 2026: refactor to pass either file list or folder name
 
     USE SNDATCOM
     USE SNLCINP_NML
-    INTEGER LENF_DATA, LENF_SIM, LEN_PRIV, REQ_DOC
+    IMPLICIT NONE
+
+    INTEGER LEN_PATH, LEN_PRIV, REQ_DOC, NPATH
     LOGICAL ISDATA
-    CHARACTER STR_TMP*(10*MXCHAR_FILENAME)
+    CHARACTER STR_TMP*(MXFILE_LIST*MXCHAR_FILENAME)
+    CHARACTER OVERRIDE_PATH*(MXFILE_LIST*MXCHAR_FILENAME) ! file list or folder
+
+    LOGICAL IGNOREFILE_fortran  ! function
 
 ! ------------ BEGIN -----------
 
-    ! beware: do NOT call ENVreplace here because it won't resolve multiple
-    !   ENVs in comma-sep list. RD_OVERRIDE_INIT calls ENVreplace for
-    !   file separately
+    ISDATA        = .NOT. LSIM_SNANA
+    OVERRIDE_PATH = ''
+    NPATH         = 0
 
-    LENF_DATA = INDEX(HEADER_OVERRIDE_FILE,' ') - 1
-    LENF_SIM  = INDEX(SIM_HEADER_OVERRIDE_FILE,' ') - 1
-    ISDATA    = .NOT. LSIM_SNANA
+    ! BEWARE: do NOT call ENVreplace here because it won't resolve multiple
+    !   ENVs in comma-sep list. 
+    !   RD_OVERRIDE_INIT calls ENVreplace for file separately
 
-    IF ( LENF_DATA > 0 .AND. LENF_SIM == 0 .AND. LSIM_SNANA ) THEN
-        print*,' '
-        print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
-        print*,'    WARNING: HEADER_OVERRIDE_FILE ignored for sim'
-        print*,' !=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!=!='
-        print*,' '
-    ENDIF
+    if ( ISDATA ) then
+       if ( .NOT. IGNOREFILE_fortran(HEADER_OVERRIDE_FILE) ) then
+          OVERRIDE_PATH = HEADER_OVERRIDE_FILE
+          NPATH = NPATH + 1
+       endif
+       if ( .NOT. IGNOREFILE_fortran(HEADER_OVERRIDE_DIR) ) then
+          OVERRIDE_PATH = HEADER_OVERRIDE_DIR
+          NPATH = NPATH + 1
+       endif
+    endif
 
-    REQ_DOC = 1  ! require DOCANA
+    if ( LSIM_SNANA ) then
+       if ( .NOT. IGNOREFILE_fortran(SIM_HEADER_OVERRIDE_FILE) ) then
+          OVERRIDE_PATH = SIM_HEADER_OVERRIDE_FILE
+          NPATH = NPATH + 1
+       endif
+       if ( .NOT. IGNOREFILE_fortran(SIM_HEADER_OVERRIDE_DIR) ) then
+          OVERRIDE_PATH = SIM_HEADER_OVERRIDE_DIR
+          NPATH = NPATH + 1
+       endif
+    endif
+    
 
-    IF ( LENF_DATA > 0 .AND. ISDATA ) THEN
-     STR_TMP = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
-     CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_DATA)
-    ENDIF
-    IF ( LENF_SIM > 0 .AND. LSIM_SNANA ) THEN
-      STR_TMP = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
-      CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_SIM)
-    ENDIF
+    if ( NPATH > 1 ) then
+       C1err = 'Cannot specify OVERRIDE_FILE and OVERRIDE_DIR; '
+       C2err = 'Select one or the other.'
+       CALL MADABORT("INIT_READ_OVERRIDE", c1err, c2err )
+    endif
 
+    if ( NPATH == 1 ) then
+       LEN_PATH = INDEX(OVERRIDE_PATH,' ') - 1
+       REQ_DOC = 1  ! require DOCANA
+       CALL RD_OVERRIDE_INIT(OVERRIDE_PATH(1:LEN_PATH)//char(0), REQ_DOC, LEN_PATH)
+    endif
+
+! xxxxxxxxxxx mark delete Mar 20 2026 xxxxxxxxx
+!    IF ( LENF_DATA > 0 .AND. ISDATA ) THEN
+!     STR_TMP = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
+!     CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_DATA)
+!    ENDIF
+!    IF ( LENF_SIM > 0 .AND. LSIM_SNANA ) THEN
+!      STR_TMP = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
+!      CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_SIM)
+!    ENDIF
+! xxxxxxxxxx end mark xxxxxxxxx
+
+    ! - - - - - -
     LEN_PRIV = INDEX(PRIVATE_VARNAME_READLIST,' ') -1
     IF ( LEN_PRIV > 0 ) THEN
        STR_TMP = PRIVATE_VARNAME_READLIST(1:LEN_PRIV)//char(0)
@@ -7170,6 +7209,13 @@
                    1, iArg, ARGLIST) ) then
          SIM_HEADER_OVERRIDE_FILE = ARGLIST(1)
 
+       else if ( MATCH_NMLKEY('HEADER_OVERRIDE_DIR',  & 
+                   1, iArg, ARGLIST) ) then
+         HEADER_OVERRIDE_DIR = ARGLIST(1)
+       else if ( MATCH_NMLKEY('SIM_HEADER_OVERRIDE_DIR',  & 
+                   1, iArg, ARGLIST) ) then
+         SIM_HEADER_OVERRIDE_DIR = ARGLIST(1)
+
 ! LSNIGNORE
 
        else if ( MATCH_NMLKEY('INTERP_OPT',  & 
@@ -11689,7 +11735,9 @@
     USERTAGS_FILE = ''
     VPEC_FILE            = ''
     HEADER_OVERRIDE_FILE = ''
+    HEADER_OVERRIDE_DIR  = ''
     SIM_HEADER_OVERRIDE_FILE = ''
+    SIM_HEADER_OVERRIDE_DIR  = ''
 
 
     NPAR_SIMSED      = 0
@@ -12170,15 +12218,15 @@
 ! file = 'NULL' or 'NONE' or 'BLANK' or ''
 
     USE SNPAR
-    CHARACTER FILENAME*(*), cFILE*(MXCHAR_FILENAME)
+    CHARACTER FILENAME*(*), cFILE*(MXFILE_LIST*MXCHAR_FILENAME)
     INTEGER LENF, IGNORE
 
     INTEGER  IGNOREFILE
     EXTERNAL IGNOREFILE
 ! --------- BEGIN -------------
 
-    LENF = INDEX(FILENAME//' ',' ') - 1
-    cFILE = FILENAME(1:LENF) // char(0)
+    LENF   = INDEX(FILENAME//' ',' ') - 1
+    cFILE  = FILENAME(1:LENF) // char(0)
     IGNORE = IGNOREFILE(cFILE,LENF)
 
 ! xxxxxxxx
@@ -19071,7 +19119,6 @@
 ! =============================================
     DOUBLE PRECISION FUNCTION DLMAG8_REF(Z8)
 ! Oct 23 2020: refactor DLMAG function to use sntools_cosmology.c
-
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -28806,7 +28853,7 @@
              ipar2          = ipar_dim(idim2)
              PARVAL(ipar2)  = FITVAL(ipar2,iter)
           ENDDO
-          ! .xyz
+
        DO  igrid   = 1, NGRID
           PARVAL(ipar)  = PARVAL_GRID(igrid,ipar)
           CALL FITVAL_FLOAT(PARVAL, NDIM, X8) ! returns NDIM and X8

@@ -68,6 +68,7 @@ bool IS_SIMKEY_SNDATA(char *key);
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA);
 int  RD_OVERRIDE_FETCH(char *CCID, long long int GALID, char *VARNAME, double *DVAL, char *STRVAL);
 void RD_OVERRIDE_POSTPROC(void); 
+void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST);
 void rd_override_append(void);
 void rd_override_zcalc(void);
 void rd_override_zphot_q(int OPT);

@@ -11738,6 +11738,14 @@
     DOPRIOR_DLMAG = ( PRIOR_MUERRSCALE .LT. 999.0 )
     IF ( .NOT. DOPRIOR_DLMAG ) RETURN
 
+    ! here we have MU prior based on OM,w0,wa errors. 
+    ! abort if flat DMU prior is also specified since only one is allowed/
+    if ( PRIOR_DMU_RANGE(2) < 0.8 .OR. PRIOR_DMU_RANGE(1)  > -8.0 ) then
+      c1err = 'Cannot define both DMU priors; '      
+      c2err = 'pick either PRIOR_MUERRSCALE  or  PRIOR_DMU_RANGE'
+      CALL MADABORT ( "FITINI_MUPRIOR", c1err, c2err )
+    endif
+
     IPAR     = IPAR_DLMAG  ! local variable
 
     write(global_banner,21) PRIOR_MUERRSCALE

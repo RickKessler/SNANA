@@ -18,6 +18,7 @@
 \usepackage{hyperref}
 %\usepackage{epsfig}
 \usepackage{graphicx}
+\usepackage{cprotect}
 
 \setlength{\textheight}{9.5in}
 \setlength{\textwidth}{7.0in}
@@ -8650,50 +8651,50 @@ Photo-$z$ priors are described in \S\ref{subsec:photoz},
 and a brief description of the other {\tt \&FITINP}
 namelist prior options are given below.
 %
-\begin{itemize}
-  \item {\tt\bf PRIOR\_MJDSIG}: 
+\begin{itemize}  % .xyz
+  \item \verb|PRIOR_MJDSIG|:
     sigma on Gaussian prior for MJD at peak brightness.
     Default is 20 days.
 %
-  \item {\tt\bf PRIOR\_SHAPE\_RANGE(2)}: 
-    range of flat prior for shape parameter to prevent
-    crazy values.
-    Typical prior-range values are \{$-0.5,2.0$\} for the \mlcs\ 
-    parameter $\Delta$, and \{$-5,+3$\} for \SALTII\ parameter $x_1$. 
-    Default range is \{$-9,+9$\}.
-    The parameter below defines a smooth roll-off at the edges.
+  \item \verb|PRIOR_SHAPE_RANGE(2)|  and \verb|PRIOR_SHAPE_SIGMA|: 
+    range of flat prior for shape parameter to prevent crazy values,
+    and Gauss roll-off. Default range is \{$-9,+9$\} and $\sigma=0.1$.
 %
-  \item {\tt\bf PRIOR\_SHAPE\_SIGMA}: 
-    sigma of Gaussian roll-off at edge of flat prior defined above.
-    Default is 0.1.
+  \item \verb|PRIOR_COLOR_RANGE(2)|  and \verb|PRIOR_COLOR_SIGMA|: 
+    range of flat prior for color parameter to prevent crazy values,
+    and Gauss roll-off. Default range is \{$-9,+9$\} and $\sigma=0.01$.
 %
-  \item {\tt\bf PRIOR\_DELTA\_PROFILE(4)}:
+  \item \verb|PRIOR_DMU_RANGE(2)|  and \verb|PRIOR_DMU_SIGMA|: 
+    range of flat prior for $\mu-\mu_{\rm theory}$, mainly for photo-$z$ fits,
+    and Gauss roll-off. Default range is \{$-9,+9$\} and $\sigma=0.1$.
+%
+  \item \verb|PRIOR_DELTA_PROFILE(4)|:
     Used only for \mlcs\ $\Delta$,  
     the first two elements are $-\sigma$ and $+\sigma$
     for the asymmetric Gaussian prior, the 3rd element is
     the $\Delta$ value at the Gaussian peak,
     and the 4th element is the minimum 'flat'  probability
-    for all $\Delta$ values within {\tt PRIOR\_SHAPE\_RANGE}.
+    for all $\Delta$ values within \verb|PRIOR_SHAPE_RANGE|.
     A flat $\Delta$ prior is obtained by simply setting the 
     4th element to 1.0. Setting the 4th element to $\sim 0.1$
     results in a Gaussian prior with a flat tail for large 
     $\Delta$ values; this tail prevents the suppression of
     very fast decliners (91bg-like).
 %
-  \item {\tt\bf OPT\_PRIOR}: Default is 1 $\to$ use priors.
+  \item \verb|OPT_PRIOR|: Default is 1 $\to$ use priors.
     Setting to zero turns off ALL priors regardless of their values.
 %
-  \item {\tt\bf OPT\_PRIOR\_AV}: 
+  \item \verb|OPT_PRIOR_AV|: 
     Used only for \mlcs\ model, default is 1 $\to$ use $A_V$ priors.
     Setting to zero turns off $A_V$-related priors.
 %
- \item {\tt\bf PRIOR\_AVEXP(2)}:
+ \item \verb|PRIOR_AVEXP(2)|:
    For \mlcs\ only, defines up to two exponential slopes for $A_V$ prior.
 %
- \item {\tt\bf PRIOR\_AVWGT(2)}:
+ \item \verb|PRIOR_AVWGT(2)|:
    For \mlcs\ only, defines weight for the two $A_V$-exponential terms.
 %
- \item {\tt\bf PRIOR\_AVRES}:
+ \item \verb|PRIOR_AVRES|:
    Since the $A_V$ prior has a sharp boundary at $A_V=0$ and therefore
    a discontinuity in the fitting function, this {\tt PRIOR\_AVRES}
    option allows a Gaussian smearing of the prior function that results
@@ -11794,7 +11795,7 @@ use the more general {\tt GENPDF\_FILE} option
    PRIOR_MJDSIG   = xxx            ! Gaussian prior on MJD at peak
    PRIOR_SHAPE_RANGE = xxx, xxx  ! flat prior on x1 (prevents crazy values)
    PRIOR_SHAPE_SIGMA = xxx       ! Gauss rolloff at edges of flat prior
-
+   
    OPT_COVAR = 0  ! 0 => COV-diag only 
                   ! 1 => COV fixed during fit
                   ! 2 => COV re-calculated for each chi2 in fit

@@ -549,8 +549,10 @@
         ,PRIOR_SHAPE2_SIGMA     &  ! I: sigma for guassian roll-off on FLAT prior
         ,PRIOR_COLOR_RANGE(2)   &  ! I: min,max for FLAT SHAPE prior
         ,PRIOR_COLOR_SIGMA      &  ! I: sigma for guassian roll-off on FLAT prior
-        ,PRIOR_LUMIPAR_RANGE(2)   &  ! I: idem, legacy variable
-        ,PRIOR_LUMIPAR_SIGMA      &  ! I: idem, legacy variable
+        ,PRIOR_LUMIPAR_RANGE(2)   &  ! I: legacy input for PRIOR_SHAPE_RANGE
+        ,PRIOR_LUMIPAR_SIGMA      &  ! I: legacy_input for PRIOR_SHAPE_SIGMA
+        ,PRIOR_DMU_RANGE(2)       &  ! I: min/max for prior on mu-mu_theory
+        ,PRIOR_DMU_SIGMA          &  ! I: Gauss roll-offf
         ,PRIOR_DELTA_PROFILE(4)   &  ! I: DELTA-prior pars: sig(low,up)   min (for MLCS2k2)
 ! 
         ,FUDGE_COVAR       &  ! I: fudge normalized covariances (0=> no fudge)
@@ -723,6 +725,7 @@
          ,PRIOR_SHAPE_RANGE, PRIOR_SHAPE_SIGMA  & 
          ,PRIOR_SHAPE2_RANGE, PRIOR_SHAPE2_SIGMA  & 
          ,PRIOR_LUMIPAR_RANGE, PRIOR_LUMIPAR_SIGMA   &  ! legacy
+         ,PRIOR_DMU_RANGE, PRIOR_DMU_SIGMA           &
          ,PRIOR_DELTA_PROFILE  & 
          ,OPT_PRIOR, OPT_PRIOR_AV  & 
          ,OPT_MNSTAT_COV, SIMFIT_IDEAL_PRESCALE  & 
@@ -4752,7 +4755,7 @@
 ! Jan 2024: check prior for IPAR_SHAPE2 (2nd SHAPE param)
 ! Jan 2025: call CHI2_PRIOR_SNCID_FILE for USE_PRIOR_SNCID_FILE = T
 ! Dec 2025: if PROBz <=0, force chi2prior = 1000 
-!
+! Mar 2026: add flat-top prior on DMU = MU - MU_THEORY
 ! --------------
 
     USE SNDATCOM
@@ -4794,7 +4797,7 @@
         ,PRIOR_ZPULL  & 
         ,PRIOR_MUPULL  & 
         ,GET_RV8  & 
-        ,eval_zPDF_spline
+        ,eval_zPDF_spline, DLMAG8_REF
 
     EXTERNAL eval_zPDF_spline
 
@@ -4846,7 +4849,6 @@
 ! translate SALT2 params into distance modulus
        MU = 30.0 - 2.5*log10(DIST)  & 
             + (SALT2alpha*SHAPE(1)) - (SALT2beta * COLOR)
-
        COLORMAX = CMAX_SALT2
     ENDIF
 
@@ -4898,11 +4900,9 @@
 !  load local variables for user-specified options from &SNLCINP OPT_PHOTOZ
       DO_QUANTILES    = btest(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
 
-
       if ( DO_QUANTILES ) then
         ! get the probability at this redshift
         PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
-! xxx mark        if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
         if ( PROBZ > 0.0 ) then
            CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
         else
@@ -4920,8 +4920,16 @@
          CALL DUMP_ZPHOT_PRIOR(ZSN,PROBZ)
       endif
 
-      pull    = PRIOR_MUPULL(isn,ZSN,MU)
-      CHI2TMP = CHI2_PRIOR(ipar_DLMAG,pull)
+      IF ( PRIOR_MUERRSCALE < 9.0 ) THEN
+         pull    = PRIOR_MUPULL(isn, ZSN, MU)
+         CHI2TMP = CHI2_PRIOR(ipar_DLMAG, pull) 
+      ELSE IF ( PRIOR_DMU_RANGE(2) < 8.0 ) THEN
+         ! .xyz
+         DIF = MU - DLMAG8_REF(ZSN)   ! change to interpolating grid for speed ?
+         CHI2TMP = CHI2_PRIOR(ipar_DLMAG, DIF) 
+      ELSE
+         CHI2TMP = 0.0
+      ENDIF
       CHI2PRIOR(IPAR_DLMAG) = CHI2PRIOR(IPAR_DLMAG) + CHI2TMP
 
     ENDIF
@@ -4943,11 +4951,6 @@
       CHI2PRIOR(IPAR_COLOR)  = CHI2_PRIOR(IPAR_COLOR,COLOR)
     ENDIF
 
-    ! xxxxxxxxxx mark delete
-    !print*,' xxx x1,c=', sngl(SHAPE(1)), sngl(color), &
-    !       '  chi2_prior=', sngl(CHI2PRIOR(IPAR_SHAPE)), sngl(CHI2PRIOR(IPAR_COLOR))
-    !call flush(6)
-    ! xxxxxxxxxx 
 
 ! =================================================
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) GOTO 888 ! restore 6/19/23
@@ -7021,6 +7024,10 @@
     PRIOR_COLOR_RANGE(2) = +9.0
     PRIOR_COLOR_SIGMA    =  0.01  ! Gauss roll-off at edges of flat prior 
 
+    PRIOR_DMU_RANGE(1) = -9.0  ! 3/2026
+    PRIOR_DMU_RANGE(2) = +9.0
+    PRIOR_DMU_SIGMA    =  0.1
+
 ! Aug 17 2015: from snlc_sim.defaults since this is no longer read
     PRIOR_DELTA_PROFILE(1) =  0.23  ! sigma(low)
     PRIOR_DELTA_PROFILE(2) =  0.48  ! sigma(upper)
@@ -7134,6 +7141,8 @@
       PRIOR_SHAPE2_RANGE(2)   = +8.0
       PRIOR_COLOR_RANGE(1)   = -8.0
       PRIOR_COLOR_RANGE(2)   = +8.0
+      PRIOR_DMU_RANGE(1)     = -9.0
+      PRIOR_DMU_RANGE(2)     =  9.0
       PRIOR_DELTA_PROFILE(4) =  1.0
     ENDIF
 
@@ -7641,6 +7650,13 @@
 
       else if (MATCH_NMLKEY('PRIOR_COLOR_SIGMA', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) PRIOR_COLOR_SIGMA
+
+      else if (MATCH_NMLKEY('PRIOR_DMU_RANGE', 2,i,ARGLIST)) then
+          READ(ARGLIST(1),*) PRIOR_DMU_RANGE(1)
+          READ(ARGLIST(2),*) PRIOR_DMU_RANGE(2)
+
+      else if (MATCH_NMLKEY('PRIOR_DMU_SIGMA', 1,i,ARGLIST)) then
+          READ(ARGLIST(1),*) PRIOR_DMU_SIGMA
 
       else if (MATCH_NMLKEY('NGRID_PDF', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) NGRID_PDF
@@ -11321,7 +11337,7 @@
          USE_PRIOR(ipar_zPHOT)  = .TRUE.
       ENDIF
 
-      CALL FITINI_MUPRIOR(LSTAT)
+      CALL FITINI_MUPRIOR(LSTAT)  ! check prior using OM,w0,wa errors
       IF ( LSTAT ) THEN
          NPRIOR = NPRIOR + 1
          USE_PRIOR(ipar_DLMAG)  = .TRUE.
@@ -11371,6 +11387,13 @@
     ENDIF
 
     ipar = IPAR_COLOR
+    CALL FITINI_FLATPRIOR(IPAR,LSTAT)
+    IF ( LSTAT ) THEN
+       NPRIOR = NPRIOR + 1
+       USE_PRIOR(IPAR)   = .TRUE.
+    ENDIF
+
+    ipar = IPAR_DLMAG  ! Mar 19, 2026
     CALL FITINI_FLATPRIOR(IPAR,LSTAT)
     IF ( LSTAT ) THEN
        NPRIOR = NPRIOR + 1
@@ -11627,8 +11650,7 @@
       if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_LINEAR)) then
         METHOD_SPLINE_QUANTILES = "LINEAR"
       endif
-      write(global_banner,23)  & 
-                PRIOR_ZERRSCALE,METHOD_SPLINE_QUANTILES
+      write(global_banner,23)  PRIOR_ZERRSCALE, METHOD_SPLINE_QUANTILES
     endif
 
     if ( global_banner .EQ. '' ) then
@@ -11697,7 +11719,6 @@
 ! 
 ! ------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -11720,7 +11741,7 @@
     IPAR     = IPAR_DLMAG  ! local variable
 
     write(global_banner,21) PRIOR_MUERRSCALE
-21    format('INIT Gaussian DLMAG PRIOR with error-scale=',F6.2 )
+21    format('INIT Gaussian DLMAG PRIOR with error-scale=', F6.2 )
     CALL PRBANNER(global_banner)
     print*,' '
 
@@ -11912,17 +11933,18 @@
         ,PTMP, PMIN, SIGTMP, ARGTMP  & 
         ,VAR0
 
-    character comment_prior*60
+    character comment_prior*60, PARNAME*60
     LOGICAL LLO, LHI, DO_DELTA_PROFILE, LFLAT
     LOGICAL IS_SALT2,  IS_SNOOPY
-    LOGICAL IS_SHAPE, IS_SHAPE2, IS_COLOR, IS_zPHOT
+    LOGICAL IS_SHAPE, IS_SHAPE2, IS_COLOR, IS_zPHOT, IS_DMU
     LOGICAL IS_BAYESN, IS_MODEL_FLATCOLOR
 
 ! -------------- BEGIN ---------------
 
     LSTAT    = .FALSE.
     comment_prior = ' '
-    LFLAT = .TRUE.  ! default is flat between Guass-rolls
+    LFLAT   = .TRUE.  ! default is flat between Guass-rolls
+
 
     IS_SALT2  = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
     IS_SNOOPY = ( FITMODEL_INDEX .EQ. MODEL_SNOOPY )
@@ -11933,10 +11955,13 @@
     IS_SHAPE  = ( IPAR .EQ. IPAR_SHAPE  )
     IS_SHAPE2 = ( IPAR .EQ. IPAR_SHAPE2 )
     IS_zPHOT  = ( IPAR .EQ. IPAR_zPHOT .and. DOFIT_PHOTOZ )
+    IS_DMU    = ( IPAR .EQ. IPAR_DLMAG .and. PRIOR_DMU_RANGE(2) < 8.0 )
 
     DO_DELTA_PROFILE = IPAR .EQ. IPAR_SHAPE  & 
                    .and. FITMODEL_INDEX .EQ. MODEL_MLCS2k2  & 
                    .and. PRIOR_DELTA_PROFILE(4) .LT. 1.0
+
+    PARNAME = PARNAME_STORE(ipar)
 
     IF ( IS_SHAPE ) THEN
         RANGE(1) = PRIOR_SHAPE_RANGE(1)
@@ -11980,28 +12005,34 @@
         RANGE(1) = PHOTOZ_RANGE_KCOR(1)
         RANGE(2) = PHOTOZ_RANGE_KCOR(2)
         SIGMA    = 0.2
+
+    ELSE IF ( IS_DMU ) THEN  ! March 19 2026
+       RANGE(1) = PRIOR_DMU_RANGE(1)
+       RANGE(2) = PRIOR_DMU_RANGE(2)
+       SIGMA    = PRIOR_DMU_SIGMA
+       PARNAME  = 'DMU'
     ELSE
         RETURN
     ENDIF
 
 ! -------------------------------------
-    LL = INDEX( PARNAME_STORE(ipar), ' ' ) - 1
-    write(global_banner,23) PARNAME_STORE(ipar)(1:LL), RANGE, SIGMA
-23    format('INIT ',A,' PRIOR: ',F5.2,' to ',F5.2,  & 
-           '  Gauss roll sigma=',F5.2 )
+    LL = INDEX( PARNAME, ' ' ) - 1
+    write(global_banner,23) PARNAME(1:LL), RANGE, SIGMA
+23    format('INIT ',A,' PRIOR: ',F5.2,' to ',F5.2, '  Gauss roll sigma=',F5.2 )
 
     CALL PRBANNER(global_banner(1:68))
-    print*,' '
-    print*, '  ', comment_prior
-    CALL FLUSH(6)
 
+    if ( comment_prior .NE. ' ' ) then
+       print*,' '
+       print*, '  ', comment_prior
+       CALL FLUSH(6)
+    endif
 ! define range as defined range +- 10 sigmas.
 
     tmp = 10. * SIGMA
     if ( tmp < 2.0 ) tmp = 2.0   ! Feb 2026 : avoid prior truncation for c,x1
     PRIOR_RANGE(1,IPAR) = RANGE(1) - tmp
     PRIOR_RANGE(2,IPAR) = RANGE(2) + tmp
-
 
     IF ( LFLAT ) THEN
       FLATPRIOR_RANGE(1,IPAR) = RANGE(1)
@@ -12366,8 +12397,9 @@
     DOUBLE PRECISION FUNCTION CHI2_PRIOR(ipar, PARVAL)
 ! 
 ! Return chi2 penality for prior.
-! IPAR is the fitpar index;
-! FITPAR is the value to look up the prior.
+! Inputs: 
+!   IPAR is the fitpar index;
+!   FITPAR is the value to look up the prior; could be par value or pull
 ! 
 ! Mar 2024: refactor to use interp_1DFUN (C fun in sntools.c)
 !       and get rid of very old/obscure interpolcation code.

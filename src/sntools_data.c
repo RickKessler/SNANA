@@ -1325,7 +1325,6 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   RD_OVERRIDE.USE = false;
   if ( IGNOREFILE(OVERRIDE_PATH) ) { return; }
 
-
   // init number of files matched by CID and by GALID
   RD_OVERRIDE.NMATCH_by_CID   = 0 ;
   RD_OVERRIDE.NMATCH_by_GALID = 0 ;
@@ -1335,6 +1334,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   // get list of override files
   char *OVERRIDE_FILE_LIST = (char*)malloc(MXPATHLEN * 10 * sizeof(char) );
   get_override_file_list(OVERRIDE_PATH, OVERRIDE_FILE_LIST);
+
+  if ( strlen(OVERRIDE_FILE_LIST) < 3 )  { return; }
 
   // split comma-sep OVERRIDE_FILE 
   parse_commaSepList(fnam, OVERRIDE_FILE_LIST, MXFILE_OVERRIDE, MXPATHLEN,
@@ -1463,9 +1464,11 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
 
   bool IS_FILE = false ;
   bool IS_DIR  = false ;
-  int  istat;
-  struct stat statbuf ; 
+  bool IS_LINK = false ;
+  int  istat, istat_link; 
+  struct stat statbuf, linkbuf ; 
   int LDMP = 0 ;
+  char cWARN[20];
   char OVERRIDE_PATH_LOCAL[MXPATHLEN]; // more memory for ENVreplace
   char fnam[] = "get_override_file_list" ;
 
@@ -1479,18 +1482,20 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
     IS_FILE = true ;  
   }
   else {
-    // use stat function to determin file vs. path
+    // use stat function to determine file vs. path
     ENVreplace(OVERRIDE_PATH_LOCAL, fnam, 1);
 
-    istat   = stat(OVERRIDE_PATH_LOCAL, &statbuf);
-    IS_DIR  = S_ISDIR(statbuf.st_mode);
-    IS_FILE = !IS_DIR ;
+    istat       =  stat(OVERRIDE_PATH_LOCAL, &statbuf);
+    istat_link  = lstat(OVERRIDE_PATH_LOCAL, &linkbuf);
+    IS_DIR      = S_ISDIR(statbuf.st_mode);
+    IS_LINK     = S_ISLNK(linkbuf.st_mode);
+    IS_FILE     = !IS_DIR ;
   }
 
   if ( LDMP ) {
     printf("\n xxx %s DUMP -------------------------------- \n", fnam );
     printf(" xxx %s: OVERRIDE_PATH = '%s' \n", fnam, OVERRIDE_PATH_LOCAL);
-    printf(" xxx %s: IS[DIR,FILE] = %d  %d \n", fnam, IS_DIR, IS_FILE) ;
+    printf(" xxx %s: IS[DIR,FILE,LINK] = %d  %d  %d\n", fnam, IS_DIR, IS_FILE, IS_LINK) ;
     fflush(stdout);
   }
 
@@ -1505,6 +1510,13 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
     char *tmp_file  = (char*) malloc(MXPATHLEN * sizeof(char) );
     char *TMP_FILE  = (char*) malloc(MXPATHLEN * sizeof(char) );
     int i, NF;
+
+    if ( IS_LINK ) { // show resolved symlink
+      char symlink[MXPATHLEN];  ssize_t count;
+      count = readlink(OVERRIDE_PATH_LOCAL, symlink, sizeof(symlink) - 1);
+      symlink[count] = '\0'; // Manually null-terminate
+      printf("  Resolve OVERRIDE symLink: %s -> %s\n", &basename[1],  symlink ); fflush(stdout);
+    }
     sprintf(LIST_FILE, "%s/%s.LIST", OVERRIDE_PATH_LOCAL, &basename[1] );
 
     if ( LDMP ) {
@@ -1513,9 +1525,11 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
     }
     NF = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_FILE, LIST_FILE, fnam);
 
-    printf("   Found %d OVERRIDE files in folder \n   %s : \n", NF, OVERRIDE_PATH_LOCAL);
+    cWARN[0] = 0;    if ( NF == 0 ) { sprintf(cWARN,"WARNING:"); }
+
+    printf("  %s Found %d OVERRIDE files in folder \n   %s : \n", cWARN, NF, OVERRIDE_PATH_LOCAL);
     for (i=0; i < NF; i++ ) {
-      get_PARSE_WORD(LANGFLAG_PARSE_WORDS_C, i, tmp_file, fnam);  
+      get_PARSE_WORD(LANGFLAG_PARSE_WORDS_C, i, tmp_file, fnam);
       sprintf(TMP_FILE, "%s/%s", OVERRIDE_PATH_LOCAL, tmp_file);
       catVarList_with_comma(OVERRIDE_FILE_LIST,TMP_FILE);
       printf("\t %s \n", tmp_file);
@@ -1530,7 +1544,8 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
   }
 
   fflush(stdout);
-  //debugexit(fnam);
+  //debugexit(fnam); // xxx REMOVE
+
   return;
 
 } // end get_override_file_list

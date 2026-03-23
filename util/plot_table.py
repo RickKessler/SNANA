@@ -38,6 +38,7 @@
 #     + fix to work with multiple @@WGTVAR values, same as with multuple @@CUT or @@V or @@TFILE.
 #
 # Mar 16 2026: new inputs @@HLINE and @@VLINE to draw horizontal and/or vertical line(s)
+# Mar 23 2026: fix to work with comma-sep csv as well as space-sep csv file.
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -208,6 +209,7 @@ HACK_FLAG_DICT = {
     'help'              : HACK_FLAG_HELP    
 }
 
+COMMA = ','
 
 # ================================
 
@@ -1717,7 +1719,7 @@ def read_tables(args, plot_info):
             # variables exist.
             # count number of rows to skip before VARNAMES; e.g., skip DOCANA for HOSTLIB 
 
-            varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
+            varname_idrow, nrow_skip, colsep = check_table_varnames(tfile,args.raw_var_list)
             plot_info.varname_idrow  = varname_idrow            
             usecol_list = [ varname_idrow ] + args.raw_var_list
 
@@ -1727,7 +1729,7 @@ def read_tables(args, plot_info):
 
             # read table and store in data frame.
             # only read needed columms to reduce memory consumption.
-            df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
+            df  = pd.read_csv(tfile, comment="#", sep=colsep,      # sep=r"\s+",
                               usecols  = usecol_list,
                               skiprows = nrow_skip,
                               nrows    = NROWS )
@@ -2003,9 +2005,17 @@ def check_table_varnames(tfile, var_list):
     MXROW_SKIP = 200 # stop checking after this many lines
 
     format_table = None
+    colsep       = r"\s+"  # default column separator is whitespace
 
     for line in t:
-        wdlist = line.split()
+
+        line  = line.rstrip()  # remove trailing space and linefeed 
+        if COMMA in line:
+            colsep = COMMA
+            wdlist = line.split(COMMA)
+        else:
+            wdlist = line.split()
+
         if len(wdlist) == 0 :
             nrow_read += 1
             continue
@@ -2019,7 +2029,7 @@ def check_table_varnames(tfile, var_list):
 
         if wdlist[0] == 'VARNAMES:' :            
             table_var_list = wdlist[1:]
-            format_table = FORMAT_SNANA_TABLE
+            format_table   = FORMAT_SNANA_TABLE
             break
         else:
             nrow_read += 1    
@@ -2029,7 +2039,8 @@ def check_table_varnames(tfile, var_list):
 
     if format_table == FORMAT_SNANA_TABLE:
         nrow_skip = nrow_read
-        logging.info(f"\t Format = {FORMAT_SNANA_TABLE}: found {nrow_skip} rows to skip before 'VARNAMES:' key")
+        logging.info(f"\t Format = {FORMAT_SNANA_TABLE}: found {nrow_skip} " \
+                     f"rows to skip before 'VARNAMES:' key")
     elif format_table == FORMAT_CSV:
         nrow_skip = 0
         logging.info(f"\t Format = {FORMAT_CSV}")
@@ -2046,6 +2057,9 @@ def check_table_varnames(tfile, var_list):
 
     n_idrow = len(varname_idrow)
     if n_idrow != 1 :
+        print(f"\nPre-ABORT dump")
+        print(f"  VALID_IDROW_LIST = {VALID_IDROW_LIST}")
+        print(f"  table_var_list = {table_var_list}")
         sys.exit(f"\n ERROR: found {n_idrow} ID columns: {varname_idrow}\n\t One and only one is allowed. ")
 
     varname_idrow = varname_idrow[0]  # switch from list back to scaler
@@ -2062,7 +2076,7 @@ def check_table_varnames(tfile, var_list):
             sys.exit(f"\n\t ABORT")
 
 
-    return varname_idrow, nrow_skip
+    return varname_idrow, nrow_skip, colsep
 
     # end check_table_varnames
 
@@ -2076,7 +2090,6 @@ def poisson_interval(k, alpha=0.32):
     from scipy.stats import chi2
     a = alpha
     low, high = (chi2.ppf(a/2, 2*k) / 2, chi2.ppf(1-a/2, 2*k + 2) / 2)
-
     low[k == 0]  = 0.0
     high[k == 0] = 0.0    
     

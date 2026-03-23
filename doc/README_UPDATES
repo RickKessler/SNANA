@@ -23537,6 +23537,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + allow multipe @@WGTVAR values to overlay with different weights
        + new option @@HLINE and @@VLINE to draw horizontal or vertical line(s)
           in dashed black
+       + fix to work with comma-sep csv file and space sep csv.
 
      snana.F90;  
        + add &SNLCINP input CUTWIN_HOST_NMATCH

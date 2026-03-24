@@ -1418,10 +1418,8 @@
 
 ! determin RESTLAMBDA_USEFIT based on user FITRANGE and that
 ! defined by the model
-    RESTLAMBDA_USEFIT(1) =  & 
-           MAX(RESTLAMBDA_MODEL(1),RESTLAMBDA_FITRANGE(1))
-    RESTLAMBDA_USEFIT(2) =  & 
-           MIN(RESTLAMBDA_MODEL(2),RESTLAMBDA_FITRANGE(2))
+    RESTLAMBDA_USEFIT(1) = MAX(RESTLAMBDA_MODEL(1),RESTLAMBDA_FITRANGE(1))
+    RESTLAMBDA_USEFIT(2) = MIN(RESTLAMBDA_MODEL(2),RESTLAMBDA_FITRANGE(2))
 
     print*,'  '
     write(6,350) 'SN-MODEL', RESTLAMBDA_MODEL
@@ -4023,7 +4021,7 @@
 
     INTEGER  & 
          ISN, ITER, ifilt, ipar, IFILT_obs, epoch, imjd, ifitdata  & 
-        ,NFITDATA_LOC, irow, icol, IERR, ep  & 
+        ,NFITDATA_LOC, NFITDATA_LAM_REJECT, irow, icol, IERR, ep  & 
         ,NFITDATA_FILT(0:MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
 
     character cfilt*1
@@ -4044,7 +4042,7 @@
         ,chi2filt_sigma(MXFILT_OBS),chi2sum_sigma,chi2filt(MXFILT_OBS)  & 
         ,errfrac, DEL_FLUX(MXFIT_DATA)  & 
         ,FF, COV_INV, x1, DT1, DT2, CHI2PRIOR(0:MXFITPAR)  & 
-        ,LAMAVG, LAMREST, XVAL4COV(MXFITPAR)
+        ,LAMAVG, LAMREST, XVAL4COV(MXFITPAR), scale_chi2, chi2save
 
     LOGICAL  & 
          LFLAG_FIRST_MN   &  ! first call from MINUIT (IFLAG=2)
@@ -4069,7 +4067,7 @@
         ,GET_RV8, GET_DIST8, SALT2xx1, getlogdeterminant
     LOGICAL FIRST_ITERATION
 
-! ----------- BEGIN ------------
+! ----------- BEGIN FCNSNLC ------------
 
     CHI2TOT = 1.0E7
 
@@ -4097,6 +4095,7 @@
     ELSE
        NFITDATA_LOC = NFITDATA
     ENDIF
+    NFITDATA_LAM_REJECT = 0
 
 ! extract parameters into local variables
 
@@ -4193,8 +4192,13 @@
       LAMAVG    = DBLE( FILTOBS_LAMAVG(ifilt_obs) )
       LAMREST   = LAMAVG /ZZ
 
-      if ( LAMREST > RESTLAMBDA_USEFIT(2) ) GOTO 102
-      if ( LAMREST < RESTLAMBDA_USEFIT(1) ) GOTO 102
+      if ( LAMREST < RESTLAMBDA_USEFIT(1) .or. LAMREST > RESTLAMBDA_USEFIT(2) ) then
+         if ( LFITDATA ) NFITDATA_LAM_REJECT = NFITDATA_LAM_REJECT + 1
+         goto 102
+      endif
+
+      ! xxx mark del 3.24.2026  if ( LAMREST > RESTLAMBDA_USEFIT(2) ) GOTO 102
+      ! xxx mark del            if ( LAMREST < RESTLAMBDA_USEFIT(1) ) GOTO 102
 
       MJD                = R8EP_MJD(ifitdata)
       MJDFIT             = MJD - MJDOFF
@@ -4489,7 +4493,7 @@
             REJECT_SIGNOISE = (signoise_data < SIGNOISE_REJECT)
 
             LREJECT  =  & 
-                    REJECT_DELCHI2 .or. REJECT_SIGNOISE .or.  & 
+                    REJECT_DELCHI2 .or. REJECT_SIGNOISE .or.  &   ! .xyz
                     REJECT_TREST   .or. REJECT_MJD
 
             LREJECT2  =  & 
@@ -4518,13 +4522,6 @@
 
            ! sums used for initializing photoz x0/MU
            if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. SCALE_NBIN_COURSE_PHOTOZ > 0 ) then
-
-! xxxxxxxxxxxxxxxxxxxxxx
-!              write(6,668) zsn, Trest, flux_data, flux_model
-!668           format(' xxx FCN: z=',F5.3,'  Trest=', F6.1,'  F(data,model) = ', 2F10.1 )
-!              call flush(6)  ! xxx REMOVE
-! xxxxxxxxxxxxxxxxxxxxx
-
               R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig
               R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig
               R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig
@@ -4647,6 +4644,20 @@
         call flush(6)
     endif
 
+
+! - - - - -
+! 3/24/2026 playground test to account for tossed obs in photo-z fit due to rest-frame wave
+    if ( DEBUG_FLAG == 325 .and. NFITDATA_LAM_REJECT > 0 ) then
+       scale_chi2 = DBLE( NFITDATA_FILT(0)+NFITDATA_LAM_REJECT) / DBLE(NFITDATA_FILT(0))
+       chi2save   = chi2tot
+       chi2tot    = scale_chi2*(chi2tot-chi2ini) + chi2ini
+!       write(6,6663) NFITDATA_FILT(0), NFITDATA_LAM_REJECT, scale_chi2, &
+!            chi2ini, chi2save, chi2tot
+!6663   format(T2,' xxx NDOF(tot,rej) = ', 2I4, '  scale_chi2=', F7.3, &
+!            '  chi2tot(ini,orig,scaled) = ', 3F9.1 )
+!       call flush(6)
+    endif
+
 ! - - - - - - -
     IF ( LDMPFCN_LOC ) THEN
        write(6,6665) chi2tot,  NFITDATA_FILT(0)
@@ -4660,12 +4671,6 @@
        CALL TABLE_DMPFCN(isn)
     ENDIF
 
-! xxxxxxxxxxxxxxxxxxxxxx
-!    print*,' xxx XVAL(t0,x1,c,d,z) = ', &
-!         SNGL(XVAL(3)), SNGL(XVAL(4)), SNGL(XVAL(6)), SNGL(XVAL(9)), SNGL(XVAL(8)), '  &
-!         CHI2=', SNGL(CHI2TOT)
-!    call flush(6)
-! xxxxxxxxxxxxxxxxxxxxx
 
     RETURN
   END SUBROUTINE FCNSNLC
@@ -8779,6 +8784,7 @@
     REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE, d_cospar
     REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
+    REAL*8 RESTLAMBDA_SAVE(2) 
     INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER
     REAL SCALE_ALL, SCALE_z
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
@@ -8786,7 +8792,7 @@
 
     REAL*8  d_tmp, dsave_tmp, tmp, chi2_tmp, chi2min_tmp  ! for DEBUG test
     INTEGER jd_tmp
-
+    LOGICAL REFAC_LAMRANGE
     CHARACTER FNAM*28
     REAL*8 GET_DIST8, USRFUN
     EXTERNAL USRFUN
@@ -8877,24 +8883,39 @@
     ENDIF
 
 
+! Mar 2026 check to open wavelength range for burn in
+    REFAC_LAMRANGE = ( DEBUG_FLAG == 324 .or. DEBUG_FLAG == 325)
+    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then
+       RESTLAMBDA_SAVE(1) = RESTLAMBDA_USEFIT(1)
+       RESTLAMBDA_SAVE(2) = RESTLAMBDA_USEFIT(2)
+
+       RESTLAMBDA_USEFIT(1) = RESTLAMBDA_MODEL(1) ! maybe go bluer later ??
+       RESTLAMBDA_USEFIT(2) = RESTLAMBDA_MODEL(2) ! maybe go bluer later ??
+
+       if ( STDOUT_UPDATE ) then
+          write(6,438) RESTLAMBDA_MODEL(1), RESTLAMBDA_MODEL(2)
+438       format(T5,'With UVLAM_EXTRAP, extend RESTLAMBDA for COURSEGRID to: ', 2F8.0 )
+       endif
+       ! .xyz
+    endif
 ! ------------------------------------------------------
 ! start t, z,c,s course-grid loop
 
-    DO 53 it  = 1, NTBIN
+    DO 53 it  = 1, NTBIN   ! MJD (time) bins
        t = TMIN + dble(it-1) * TBIN
        INIVAL(IPAR_PEAKMJD) = t
 
-    DO 55 iz  = 1, NZBIN
+    DO 55 iz  = 1, NZBIN   ! redshift (or 1+zphot) bins
 
       zvar  = ZVAR_MIN + dble(iz-1)*ZVAR_BIN  ! 1/(1+z) (not z)
       z = ZVAR / ( 1 - ZVAR )                 ! translate back to z
       INIVAL(IPAR_zPHOT)  = z
 
-    DO 57 is = 1, NSBIN
+    DO 57 is = 1, NSBIN    ! shape
       s = SMIN + dble(is-1) * SBIN
       INIVAL(IPAR_SHAPE) = s
 
-    DO 59 ic  = 1, NCBIN
+    DO 59 ic  = 1, NCBIN   ! color
       c       = CMIN + dble(ic-1)*CBIN
       INIVAL(IPAR_COLOR)  = c
 
@@ -8951,6 +8972,11 @@
     INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
     INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
     OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
+
+    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then ! restore user wave range
+       RESTLAMBDA_USEFIT(1) = RESTLAMBDA_SAVE(1)
+       RESTLAMBDA_USEFIT(2) = RESTLAMBDA_SAVE(2)
+    endif
 
     RETURN
   END SUBROUTINE INIPAR_PHOTOZ_COURSEGRID

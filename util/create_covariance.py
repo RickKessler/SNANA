@@ -846,7 +846,7 @@ def get_rebin_info(config,HD):
     # Beware that digitize return fortran-like index starting at 1
     col_ix1 = np.digitize( HD[VARNAME_x1], bins_x1)
     col_ic  = np.digitize( HD[VARNAME_c],  bins_c)
-    col_iz  = HD[VARNAME_iz]
+    col_iz  = HD[VARNAME_iz].to_numpy()
 
     col_ix1 -= 1  # convert to C like index starting at 0
     col_ic  -= 1  # idem

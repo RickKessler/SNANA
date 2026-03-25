@@ -189,6 +189,8 @@
 #    using the same dictionary structure. Previously, the FITOPT and MUOPT
 #    dictionaries had different structures, which makes code more confusing.
 #    
+# Mar 24 2026 Rujuta P: col_iz = HD[VARNAME_iz] --> HD[VARNAME_iz].to_numpy()
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess

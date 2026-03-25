@@ -39,6 +39,7 @@
 #
 # Mar 16 2026: new inputs @@HLINE and @@VLINE to draw horizontal and/or vertical line(s)
 # Mar 23 2026: fix to work with comma-sep csv as well as space-sep csv file.
+# Mar 25 2026: fix bugs from Mar 23 change to allow comma-sep csv
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -2010,7 +2011,9 @@ def check_table_varnames(tfile, var_list):
     for line in t:
 
         line  = line.rstrip()  # remove trailing space and linefeed 
-        if COMMA in line:
+        if len(line) == 0: line = '#'  # protect checking line[0] below
+
+        if line[0] != '#' and COMMA in line:
             colsep = COMMA
             wdlist = line.split(COMMA)
         else:

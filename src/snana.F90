@@ -427,8 +427,11 @@
          EPOCH_IGNORE_MJD(MXEPOCH_IGNORE)
 
 
+! Mar 24 2026: DLMAG_REF vs. redshift on grid for speed when using prior
+    REAL*8, dimension(:), allocatable :: DLMAG_REF_GRID, LOGZ_REF_GRID
+    INTEGER NCALL_DLMAG_REF, NZBIN_DLMAG_REF
 
-
+! track duplicate MJDs
     REAL*8  DUPLICATE_MJDLIST(200)
 
   END MODULE CTRLCOM
@@ -11510,6 +11513,8 @@
     IDSURVEY = -9 ;  IDSUBSURVEY=-9
     NCALL_SNANA_DRIVER  = 0
     NCALL_INTEGPDF      = 0
+    NCALL_DLMAG_REF     = 0 
+
     CALL PRBANNER ( " INIT_SNVAR: Init variables." )
 
     FORMAT_TEXT    = .FALSE.
@@ -17130,7 +17135,7 @@
         ,LFLUX, LERR, LTMP, USE4SNRMAX
 
 ! function
-    REAL*8   DLMAG8_REF
+    REAL*8   DLMAG_REF
     EXTERNAL SORTFLOAT, modify_MWEBV_SFD
     INTEGER  ISTAT_REQUIRE_EPOCHS
 
@@ -17236,7 +17241,7 @@
 
     IF ( Z .GT. 1.0E-5 ) THEN
        z8 = dble(z)
-       SNLC_DLMAG  = SNGL(DLMAG8_REF(z8) )
+       SNLC_DLMAG  = SNGL(DLMAG_REF(z8) )
     ELSE
        SNLC_DLMAG  = -9.0  ! undefined
     ENDIF
@@ -19117,33 +19122,75 @@
   END SUBROUTINE ERASE_FILTER
 
 ! =============================================
-    DOUBLE PRECISION FUNCTION DLMAG8_REF(Z8)
+    DOUBLE PRECISION FUNCTION DLMAG_REF(Z)
+
 ! Oct 23 2020: refactor DLMAG function to use sntools_cosmology.c
+! Mar 24 2026: refactor to interpolate on grid for speed.
 
     USE SNDATCOM
     USE SNLCINP_NML
 
     IMPLICIT NONE
 
-    REAL*8 Z8             ! input redshift
+    REAL*8 Z             ! input redshift
     REAL*8 zCMB, zHEL, vPEC, H0, OM, OL, w0, wa
 
-    REAL*8   DLMAG_fortC    ! C function in sntools_cosmology.c
-    EXTERNAL DLMAG_fortC
+    INTEGER  NZBIN, ALLOC_STATUS, iz
+    REAL*8   logz, ztmp
+
+    REAL*8, PARAMETER  ::  LOGZMIN = -4.0
+    REAL*8, PARAMETER  ::  LOGZMAX = +1.0
+    REAL*8, PARAMETER  ::  LOGZBIN =  0.0001
+    REAL*8, PARAMETER  ::  ZMIN    =  0.0001
+
+    LOGICAL  DO_INTERP, DO_EXACT
+    REAL*8   DLMAG_fortC, INTERP_1DFUN    ! C function in sntools_cosmology.c
+    EXTERNAL DLMAG_fortC, INTERP_1DFUN
 
 ! ------- BEGIN -------
 
-    H0   = H0_REF(1)
-    OM   = OMAT_REF(1)
-    OL   = OLAM_REF(1)
-    w0   = W0_REF(1)
-    wa   = WA_REF(1)
-    zCMB = z8
-    zHEL = z8
-    vPEC = 0.0
-    DLMAG8_REF = DLMAG_fortC(zCMB, zHEL, vPEC, H0, OM, OL, w0, wa)
+    DO_INTERP = .false.
+    DO_EXACT  = (.not. DO_INTERP) .or. ( z <= ZMIN ) 
+
+    if ( DO_EXACT ) then
+       ! original exact calculation each call
+       H0 = H0_REF(1);  OM = OMAT_REF(1); OL = OLAM_REF(1)
+       w0 = W0_REF(1);  wa = WA_REF(1)
+       zCMB = z ;  zHEL = z ;  vPEC = 0.0
+       DLMAG_REF  = DLMAG_fortC(zCMB, zHEL, vPEC, H0, OM, OL, w0, wa)
+       return
+    endif
+    
+    ! ---------------------------------------------------
+    ! Mar 2026: use interpolation on logz grid
+    NCALL_DLMAG_REF = NCALL_DLMAG_REF + 1
+    
+    if ( NCALL_DLMAG_REF == 1 ) then
+       H0 = H0_REF(1);  OM = OMAT_REF(1); OL = OLAM_REF(1)
+       w0 = W0_REF(1);  wa = WA_REF(1)
+
+       NZBIN = int( (LOGZMAX - LOGZMIN + 1.0E-6) / LOGZBIN) + 1
+       write(6,50) NZBIN, LOGZMIN, LOGZMAX
+50     format(T2,'Allocate DLMAG_REF grid: ', I5,' logz-bins over ', F6.2, ' < logz < ', F6.2)
+       allocate(LOGZ_REF_GRID(NZBIN),     stat=alloc_status)
+       allocate(DLMAG_REF_GRID(NZBIN),    stat=alloc_status)
+       DO iz = 1, NZBIN
+          logz = LOGZMIN + LOGZBIN*DBLE(iz-1)
+          ztmp = 10.**logz
+          zCMB = ztmp ;  zHEL = ztmp ;  vPEC = 0.0
+          LOGZ_REF_GRID(iz)     = logz
+          DLMAG_REF_GRID(iz)    = DLMAG_fortC(zCMB, zHEL, vPEC, H0, OM, OL, w0, wa)
+       ENDDO
+       NZBIN_DLMAG_REF = NZBIN ! store global
+    endif
+
+    ! interpolate DLMAG 
+    logz = log10(z)
+    DLMAG_REF = interp_1dfun(1, logz, NZBIN_DLMAG_REF, LOGZ_REF_GRID, DLMAG_REF_GRID, &
+         "DLMAG_REF"//char(0), 20)
+
     RETURN
-  END FUNCTION DLMAG8_REF
+  END FUNCTION DLMAG_REF
 
 
 

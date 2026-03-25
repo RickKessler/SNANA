@@ -4063,7 +4063,7 @@
 
 ! functions
     REAL*8  & 
-         FCNCHI2_PRIOR, FCNCHI2_SIGMA, DLMAG8_REF  & 
+         FCNCHI2_PRIOR, FCNCHI2_SIGMA, DLMAG_REF  & 
         ,GET_RV8, GET_DIST8, SALT2xx1, getlogdeterminant
     LOGICAL FIRST_ITERATION
 
@@ -4802,7 +4802,7 @@
         ,PRIOR_ZPULL  & 
         ,PRIOR_MUPULL  & 
         ,GET_RV8  & 
-        ,eval_zPDF_spline, DLMAG8_REF
+        ,eval_zPDF_spline, DLMAG_REF
 
     EXTERNAL eval_zPDF_spline
 
@@ -4929,7 +4929,7 @@
          pull    = PRIOR_MUPULL(isn, ZSN, MU)
          CHI2TMP = CHI2_PRIOR(ipar_DLMAG, pull) 
       ELSE IF ( PRIOR_DMU_RANGE(2) < 8.0 ) THEN
-         DIF = MU - DLMAG8_REF(ZSN)   ! change to interpolating grid for speed ?
+         DIF = MU - DLMAG_REF(ZSN)   ! change to interpolating grid for speed ?
          CHI2TMP = CHI2_PRIOR(ipar_DLMAG, DIF) 
       ELSE
          CHI2TMP = 0.0
@@ -5270,7 +5270,7 @@
         ,GET_KCORERR             &  ! C code
         ,GALextinct     &  ! returns approx MW extinction
         ,KCORFUN8  & 
-        ,DLMAG8_REF  & 
+        ,DLMAG_REF  & 
         ,SALT2x0calc, SALT2xx1, SALT2zz, SALT2x2  & 
         ,PARLIST_SN(10), PARLIST_HOST(10)
 
@@ -5528,7 +5528,7 @@
            SALT2x0 = TEN8**DIST    ! MU
 
         else if ( OPT_SALT2FIT .EQ. 2  ) then
-           MUTMP = (DIST + DLMAG8_REF(ZSN))   ! DIST is really MUDIF
+           MUTMP = (DIST + DLMAG_REF(ZSN))   ! DIST is really MUDIF
            SALT2x0 = SALT2x0calc(ZERO8,ZERO8, ZERO8, ZERO8, MUTMP )
 
         else if ( OPT_SALT2FIT .EQ. 4  ) then  ! emulate Julien/snfit
@@ -5599,7 +5599,7 @@
 
 ! translate fit-params into SALT2 language
 
-        MUTMP   = (DIST + DLMAG8_REF(ZSN))   ! DIST is really MUDIF
+        MUTMP   = (DIST + DLMAG_REF(ZSN))   ! DIST is really MUDIF
         SALT2x0 = TEN8** (-0.4*MUTMP )      ! borrow SALT2x0 for now
 
         SALT2x1 = 0.0  ! unused shape-par variable for SIMSED
@@ -6139,12 +6139,12 @@
     DOUBLE PRECISION  S2a, S2b, x0, MUREF
 
 ! function
-    DOUBLE PRECISION  SALT2x0calc, DLMAG8_REF
+    DOUBLE PRECISION  SALT2x0calc, DLMAG_REF
 
 ! ---------- BEGIN -----------
 
     GET_DIST8 = 0.0
-    MUREF     = DLMAG8_REF(Z)
+    MUREF     = DLMAG_REF(Z)
 
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
        S2a = DBLE(SALT2alpha)
@@ -6394,7 +6394,7 @@
 
     REAL*8  & 
          Flux8, Z8, DISTPAR8, COLORPAR8  & 
-        ,RVHOST8, DLMAG8, SHAPEPAR8(2)  & 
+        ,RVHOST8, DLMAG, SHAPEPAR8(2)  & 
         ,AVwarp8, KCOR8(2), MAGERR8, MWEBV8  & 
         ,ERRFRAC8, XTAV, XTMW  & 
         ,FITPARLOC8(IPAR_MAX)  & 
@@ -6407,7 +6407,7 @@
 
 
 ! function
-    REAL*8  USRFUN, DLMAG8_REF, GET_RV8, GET_DIST8
+    REAL*8  USRFUN, DLMAG_REF, GET_RV8, GET_DIST8
 
 ! -------------- BEGIN ----------------
 
@@ -6446,7 +6446,7 @@
 
         LMUFIX = DOFIT_PHOTOZ .and. (INISTP_DLMAG .EQ. 0.0)
         if ( LMUFIX ) THEN
-           DLMAG8   = DLMAG8_REF(Z8)
+           DLMAG   = DLMAG_REF(Z8)
            DISTPAR8 = GET_DIST8(Z8,SHAPEPAR8(1),COLORPAR8,ONE8)
         endif  ! LMMUFIX
 
@@ -6487,7 +6487,7 @@
     ELSE IF ( LREST_COSMO ) THEN
 
       magtmp8 = -2.5*DLOG10(FLUX8) + ZP_FLUXCAL  & 
-                  -(XTMW + KCOR8(1) + DLMAG8_REF(Z8) )
+                  -(XTMW + KCOR8(1) + DLMAG_REF(Z8) )
 
       if ( OPT .EQ. 3 ) magtmp8 = magtmp8 - XTAV
 
@@ -6502,7 +6502,7 @@
 !        print*,' XXXXX ------------------------------------- '
 !        print*,' XXXXX ifilt_obs, Tobs = ', ifilt_obs, T8obs
 !        print*,' XXXXX XTMW, KCOR = ', XTMW, KCOR8(1)
-!        print*,' XXXXX Z, MU = ', Z8, DLMAG8_REF(Z8)
+!        print*,' XXXXX Z, MU = ', Z8, DLMAG_REF(Z8)
 !        print*,' XXXXX FLUX8, MAGTMP8 = ', FLUX8, MAGTMP8
 ! -------------
 
@@ -6899,6 +6899,7 @@
     OPT_PHOTOZ       = 0
     PHOTODZ_REJECT   = 0.05    ! initial W.A.G; users should test this
     PHOTODZ1Z_REJECT = -99.0   ! no cut
+
     PHOTOZ_BOUND(1)  = 1.0E-6
     PHOTOZ_BOUND(2)  = 1.4
     PHOTOZ_ITER1_LAMRANGE(1) =  4000.  ! default => skip UV region;
@@ -12652,30 +12653,38 @@
         ,sigmu_w0, sigmu_wa, sigmu_om
 
 ! functions
-    REAL*8 DLMAG8_REF
+    REAL*8 DLMAG_REF
 ! ------------ BEGIN -------------
 
     PRIOR_MUPULL = 0.0
     if ( .NOT. DOPRIOR_DLMAG ) RETURN
 
-    muref = DLMAG8_REF(ZSN)
+    ! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    ! Mar 24 2026 : stop here until it is fixed
+    !print*,' '
+    !print*,' ERROR: DMU prior based on cospar uncertainties is BROKEN'
+    !print*,'        Need to compute dmu w.r.t. DLMAG_REF_GRID'
+    !STOP                 
+    ! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    muref = DLMAG_REF(ZSN)
 
 ! Now get DLMAG with w shifted by its uncertainty
     W_SAVE    = W0_REF(1)
     W0_REF(1) = W0_REF(1) + W0_REF(2)
-    mu_w0     = DLMAG8_REF(ZSN)
+    mu_w0     = DLMAG_REF(ZSN)
     W0_REF(1) = W_SAVE
 
 ! Nov 7 2025: Now get DLMAG with wa shifted by its uncertainty
     W_SAVE    = WA_REF(1)
     WA_REF(1) = WA_REF(1) + WA_REF(2)
-    mu_wa     = DLMAG8_REF(ZSN)
+    mu_wa     = DLMAG_REF(ZSN)
     WA_REF(1) = W_SAVE
 
 ! now get DLMAG with OMAT shifted by its uncertainty
     OMAT_SAVE    = OMAT_REF(1)
     OMAT_REF(1)  = OMAT_REF(1) + OMAT_REF(2)
-    mu_om        = DLMAG8_REF(ZSN)
+    mu_om        = DLMAG_REF(ZSN)
     OMAT_REF(1)  = OMAT_SAVE
 
 ! now add mu-shifts in quadrature (ignore correlations)
@@ -13180,7 +13189,7 @@
 
 ! function
     REAL   LCPROBCHI2
-    REAL*8 DLMAG8_REF, SALT2mBcalc
+    REAL*8 DLMAG_REF, SALT2mBcalc
 
     EXTERNAL SORTFLOAT
 
@@ -13484,7 +13493,7 @@
 
     NPAR = NPAR + 1
       Z8  = FITVAL_STORE(IPAR_zPHOT)  ! Zspec or Zphot
-      MU8REF = DLMAG8_REF(Z8)
+      MU8REF = DLMAG_REF(Z8)
 
       IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
          x08  = FITVAL_STORE(IPAR_X0)
@@ -14027,7 +14036,7 @@
 ! xxx mark      LOGICAL LPZ_PHOT, LPZ_BEST, LPZ_QUANTILE
 ! functions
 
-    REAL*8  DLMAG8_REF
+    REAL*8  DLMAG_REF
 
 ! ------------ BEGIN -----------
 
@@ -14049,8 +14058,8 @@
     Z8(1) = dble(Zfit)
     Z8(2) = Z8(1) + dZ8
 
-    MU8(1) = DLMAG8_REF(Z8(1))
-    MU8(2) = DLMAG8_REF(Z8(2))
+    MU8(1) = DLMAG_REF(Z8(1))
+    MU8(2) = DLMAG_REF(Z8(2))
     MUREF  = MU8(1)
 
     DZDMU = ( Z8(2) - Z8(1) ) / ( MU8(1) - MU8(2) )  ! local derivative

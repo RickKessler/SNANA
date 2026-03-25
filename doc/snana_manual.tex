@@ -9475,15 +9475,20 @@ An approximate fix is to use the same UV-extrapolation feature used
 in the simulation (\S\ref{sss:UVLAM_EXTRAP}),
 \begin{verbatim}
    &FITINP
-      UVLAM_EXTRAPFLUX    = 500          
+      UVLAM_EXTRAPFLUX    = 1000          
       RESTLAMBDA_FITRANGE = 2000, 13000 
 \end{verbatim}
 In this example, the model flux at the bluest wavelength (at each phase)
-is  linearly extrapolated to zero flux at $\lam=500$~\AA.
-The {\tt RESTLAMBDA\_FITRANGE} should be set so that all bands
-are defined at the highest allowed $\Zphot$ set by the
-{\tt PHOTOZ\_BOUND} input.
+is linearly extrapolated to zero flux at $\lam=1000$~\AA.
+For the initial parameter estimates (\S\ref{sss:photoz_ini}),
+the lower bound of \verb|RESTLAMBDA_FITRANGE| is replaced with
+\verb|UVLAM_EXTRAPFLUX| (starting with {\tt SNANA} version v12\_01d); 
+the original \verb|RESTLAMBDA_FITRANGE|
+is restored before the {\tt MINUIT} minimiztion.
 
+For cosmology analyses, \verb|RESTLAMBDA_FITRANGE| should be set
+based on the highest quality model precision; 
+for rate analyses, this wavelength range can be relaxed.
 
 % ------------------------------------
   \clearpage

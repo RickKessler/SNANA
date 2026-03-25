@@ -4493,7 +4493,7 @@
             REJECT_SIGNOISE = (signoise_data < SIGNOISE_REJECT)
 
             LREJECT  =  & 
-                    REJECT_DELCHI2 .or. REJECT_SIGNOISE .or.  &   ! .xyz
+                    REJECT_DELCHI2 .or. REJECT_SIGNOISE .or.  &   
                     REJECT_TREST   .or. REJECT_MJD
 
             LREJECT2  =  & 
@@ -4929,7 +4929,6 @@
          pull    = PRIOR_MUPULL(isn, ZSN, MU)
          CHI2TMP = CHI2_PRIOR(ipar_DLMAG, pull) 
       ELSE IF ( PRIOR_DMU_RANGE(2) < 8.0 ) THEN
-         ! .xyz
          DIF = MU - DLMAG8_REF(ZSN)   ! change to interpolating grid for speed ?
          CHI2TMP = CHI2_PRIOR(ipar_DLMAG, DIF) 
       ELSE
@@ -8883,18 +8882,18 @@
     ENDIF
 
 
-! Mar 2026 check to open wavelength range for burn in
-    REFAC_LAMRANGE = ( DEBUG_FLAG == 324 .or. DEBUG_FLAG == 325)
+    ! Mar 24 2026: open wavelength range if UVLAM_EXTRAPFLUX is set;
+    !        DEBUG_FLAG = -324 restores legacy code to ignore UVLAM_EXTRAPFLUX.
+    REFAC_LAMRANGE = ( DEBUG_FLAG .NE. -324 )
     IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then
        RESTLAMBDA_SAVE(1) = RESTLAMBDA_USEFIT(1)
        RESTLAMBDA_SAVE(2) = RESTLAMBDA_USEFIT(2)
-
-       RESTLAMBDA_USEFIT(1) = RESTLAMBDA_MODEL(1) ! maybe go bluer later ??
-       RESTLAMBDA_USEFIT(2) = RESTLAMBDA_MODEL(2) ! maybe go bluer later ??
+       RESTLAMBDA_USEFIT(1) = RESTLAMBDA_MODEL(1) 
+       RESTLAMBDA_USEFIT(2) = RESTLAMBDA_MODEL(2) 
 
        if ( STDOUT_UPDATE ) then
           write(6,438) RESTLAMBDA_MODEL(1), RESTLAMBDA_MODEL(2)
-438       format(T5,'With UVLAM_EXTRAP, extend RESTLAMBDA for COURSEGRID to: ', 2F8.0 )
+438       format(T5,'UVLAM_EXTRAP -> extend RESTLAMBDA for COURSEGRID to: ', 2F8.0 )
        endif
        ! .xyz
     endif
@@ -8974,6 +8973,11 @@
     OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
 
     IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then ! restore user wave range
+       if ( STDOUT_UPDATE ) then
+          write(6,439) RESTLAMBDA_SAVE(1), RESTLAMBDA_SAVE(2)
+439       format(T5,'UVLAM_EXTRAP -> restore RESTLAMBDA to: ', 2F8.0 )
+       endif
+       call flush(6)
        RESTLAMBDA_USEFIT(1) = RESTLAMBDA_SAVE(1)
        RESTLAMBDA_USEFIT(2) = RESTLAMBDA_SAVE(2)
     endif

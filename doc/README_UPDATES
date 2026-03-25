@@ -23499,7 +23499,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_sim.c
       fixed nasty memory leak using spectrograph feature; see free(NULL_FLAMERR_LIST)
-
    
          *****  USEFUL(v12_01c) *****
 
@@ -23512,10 +23511,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         of header overrides
 
      snlc_fit.F90
-      + new option to make table of priors for plotting;        
+      + new option to make table of priors for plotting;    
           see https://github.com/RickKessler/SNANA/issues/1612
-      + new option to make table of MARGPDF ;
-           see ... ??
+      + new option to make table of MARGPDF with SNTABLE_LIST 'SNANA PDF'
 
      Subtle +HOSTNBR fixes for sim;
          see https://github.com/RickKessler/SNANA/issues/1615
@@ -23591,5 +23589,22 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        copy_GENGAUSS_ASYM(); should fix dust2dust crash.
 
    submit_prog_combine.py: fix bug to avoid scooping up tables other than FITRES
+
+
+# =============================================================
+         v12_01d (Mar 24 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01d) *****
+
+   
+         *****  USEFUL(v12_01d) *****
+
+    For photo-z fits, &FINTINP input UVLAM_EXTRAPFLUX is automatically
+    used for blue edge RESTLAMBDA for initial parameter estimates,
+    and then original RESTLAMBDA range is restored for MINUIT fit.
+    See manual section 5.12.6 Avoiding Filter Drop-outs at High PhotoZ.
+
+         *****  MISCELLANEOUS(v12_01d) *****
+
 
 END: 

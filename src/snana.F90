@@ -19133,15 +19133,15 @@
     IMPLICIT NONE
 
     REAL*8 Z             ! input redshift
-    REAL*8 zCMB, zHEL, vPEC, H0, OM, OL, w0, wa
+    REAL*8 zCMB, zHEL, vPEC, H0, OM, OL, w0, wa ! local args for DLMAG_fortC
 
-    INTEGER  NZBIN, ALLOC_STATUS, iz
+    INTEGER  NZBIN, ALLOC_STATUS, iz  ! for interp method
     REAL*8   logz, ztmp
 
+    REAL*8, PARAMETER  ::  ZMIN    =  0.0001  ! beware: must correspond to LOGZMIN below
     REAL*8, PARAMETER  ::  LOGZMIN = -4.0
     REAL*8, PARAMETER  ::  LOGZMAX = +1.0
     REAL*8, PARAMETER  ::  LOGZBIN =  0.0001
-    REAL*8, PARAMETER  ::  ZMIN    =  0.0001
 
     LOGICAL  DO_INTERP, DO_EXACT
     REAL*8   DLMAG_fortC, INTERP_1DFUN    ! C function in sntools_cosmology.c
@@ -19163,6 +19163,7 @@
     
     ! ---------------------------------------------------
     ! Mar 2026: use interpolation on logz grid
+    !  problem: doesn't work for cosmology prior where w0,w0,Om are modified
     NCALL_DLMAG_REF = NCALL_DLMAG_REF + 1
     
     if ( NCALL_DLMAG_REF == 1 ) then

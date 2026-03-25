@@ -23,6 +23,9 @@ CONFIG:   # generic info for any task
   # optional max walltime request (default is 24hr)
   BATCH_WALLTIME: '1:00:00'  # 1hr max wall time
 
+  # optional env setup (if different than your current env)
+  BATCH_ENV_SETUP:  conda decactive ; source /path/setup.sh  # example
+
   # option to force all jobs on single node
   BATCH_SINGLE_NODE: True
 

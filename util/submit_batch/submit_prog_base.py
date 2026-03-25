@@ -40,6 +40,8 @@
 # Feb 16 2025: fix kill-job logic to work properly when first iteration BBC job fails,
 #              so that both iterations are stopped and produce STOP in ALL.DONE file.
 #
+# Mar 25 2026: new key BATCH_ENV_SETUP to change env in slurm; initially for BayeSN GPU fitter
+#
 # ============================================
 
 #import argparse
@@ -222,17 +224,17 @@ class Program:
     
         # check of SSH or BATCH, and parse relevant strings
 
-
         NODELIST      = ''
         n_core        = 0
         submit_mode   = "NULL"
         node_list     = []
 
-        memory        = BATCH_MEM_DEFAULT
+        # xxx memory        = BATCH_MEM_DEFAULT
+        # xxx walltime      = BATCH_WALLTIME_DEFAULT
+        # xxx nthreads      = BATCH_NTHREADS_DEFAULT
+        # xxx batch_single_node = False
+
         maxjob        = BATCH_MAXJOB_DEFAULT
-        walltime      = BATCH_WALLTIME_DEFAULT
-        nthreads      = BATCH_NTHREADS_DEFAULT
-        batch_single_node = False
 
         kill_flag     = config_yaml['args'].kill
         n_core_arg    = config_yaml['args'].ncore
@@ -282,20 +284,28 @@ class Program:
             util.log_assert(False, msgerr)
 
         # check optional memory input
-        if 'BATCH_MEM' in CONFIG :
-            memory = str(CONFIG['BATCH_MEM'])
 
-        # check optional walltime (Jan 6 2021)
-        if 'BATCH_WALLTIME' in CONFIG :
-            walltime = CONFIG['BATCH_WALLTIME']
+        memory            = str(CONFIG.setdefault('BATCH_MEM', BATCH_MEM_DEFAULT) )
+        walltime          = CONFIG.setdefault('BATCH_WALLTIME', BATCH_WALLTIME_DEFAULT)
+        nthreads          = CONFIG.setdefault('BATCH_NTHREADS', BATCH_NTHREADS_DEFAULT )
+        batch_single_node = CONFIG.setdefault('BATCH_SINGLE_NODE', False)
+        batch_env_setup   = CONFIG.setdefault('BATCH_ENV_SETUP', None)
 
-        if 'BATCH_NTHREADS' in CONFIG :
-            nthreads = CONFIG['BATCH_NTHREADS']
-
-        # option to run everything on one node
-        if 'BATCH_SINGLE_NODE' in CONFIG :
-            batch_single_node = CONFIG['BATCH_SINGLE_NODE']
+        if batch_single_node:
             config_prep['batch_command']  += f" -n {n_core}"
+
+        # xxx mark delete Mar 25 2026 xxxxx
+        #
+        # if 'BATCH_MEM' in CONFIG :            memory = str(CONFIG['BATCH_MEM'])
+        # check optional walltime (Jan 6 2021)
+        # if 'BATCH_WALLTIME' in CONFIG :            walltime = CONFIG['BATCH_WALLTIME']
+        # if 'BATCH_NTHREADS' in CONFIG : nthreads = CONFIG['BATCH_NTHREADS']
+        # option to run everything on one node
+        #if 'BATCH_SINGLE_NODE' in CONFIG :
+        #    batch_single_node = CONFIG['BATCH_SINGLE_NODE']
+        #    config_prep['batch_command']  += f" -n {n_core}"
+        #
+        # xxxxxxxx end mark xxxxxxxx
 
         sys.stdout.flush()
 
@@ -307,6 +317,7 @@ class Program:
         config_prep['maxjob']      = maxjob
         config_prep['nthreads']    = nthreads
         config_prep['batch_single_node'] = batch_single_node
+        config_prep['batch_env_setup']   = batch_env_setup  # Mar 25 2026, for BayeSN GPU fitter
 
         return
         
@@ -758,7 +769,8 @@ class Program:
         # upper case XXX_FILE includes full path
         #
         # Apr 12 2022: check for docker command (e.g., 'shifter')
-        
+        # Mar 25 2026: check for batch_env_setup
+
         BATCH_TEMPLATE   = self.config_prep['BATCH_TEMPLATE'] 
         script_dir       = self.config_prep['script_dir']
         command_docker   = self.config_prep['command_docker']
@@ -767,6 +779,7 @@ class Program:
         replace_walltime = self.config_prep['walltime']
         replace_cpus_per_task = self.config_prep['nthreads'] # 08/apr/2022
         batch_single_node = self.config_prep['batch_single_node']
+        batch_env_setup   = self.config_prep['batch_env_setup']  # 3.2026
 
         BATCH_FILE      = f"{script_dir}/{batch_file}"
 
@@ -816,10 +829,24 @@ class Program:
         for line in batch_line_list:
             if batch_single_node and 'REPLACE_MEM' in line:
                 continue
-            for KEY,VALUE in REPLACE_KEY_DICT.items():
+            ISLINE_JOB = 'REPLACE_JOB' in line
+            for KEY, VALUE in REPLACE_KEY_DICT.items():
                 if KEY in line:
                     line = line.replace(KEY,str(VALUE))
+
+            # check to add env setup before JOB commamnd
+            if ISLINE_JOB :
+                if batch_env_setup is not None:
+                    b.write(f"echo 'Execute user-defined env setup: ' \n")
+                    b.write(f"{batch_env_setup}\n")
+
+                b.write(f"echo CONDA_DEFAULT_ENV = $CONDA_DEFAULT_ENV \n")
+                b.write(f"echo '# - - - - - - - - - - - - - - - - - - - - - - - -' \n")
+                b.write(f"echo '' \n\n")
+
             b.write(f"{line}")  # line includes \n
+
+
         b.close()
 
         return

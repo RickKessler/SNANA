@@ -1088,11 +1088,25 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
     for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_MAP; ivar++ ) {
       SEARCHEFF_INFO->MAP_LIST[imap].IVARTYPE[ivar]              = -9 ;
+
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTMAG[ivar]      = -9 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBMAG[ivar]        = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_PEAKMAG[ivar][0]  = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_PEAKMAG[ivar][1]  = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
+
+      SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_HOSTMAG[ivar]     =  0 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_HOSTMAG[ivar][0]  = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_HOSTMAG[ivar][1]  = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][0] = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][1] = -9 ;
+
+      SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_SBMAG[ivar]     =  0 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_SBMAG[ivar][0]  = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_SBMAG[ivar][1]  = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][0] = -9 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][1] = -9 ;
+
       SEARCHEFF_INFO->MAP_LIST[imap].IVAR_HOSTLIB[ivar] = -9 ;
     }
     
@@ -1304,15 +1318,13 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
 
   // -------------------------------------------------------
   // Nov 2017: check if this map depends ONLY on PEAKMAG;
-  //   if so, can make sim run faster.
+  //   if so, set flag to make sim run faster.
   int IVARTYPE_MASK_PEAKMAG = 0, OVP;
   IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_PEAKMAG ) ;
-  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_COLOR   ) ;
+  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_PEAKCOLOR   ) ;
   OVP = ( IVARTYPE_MASK_PEAKMAG & SEARCHEFF_INFO->IVARTYPE_MASK ) ;
   if ( SEARCHEFF_INFO->IVARTYPE_MASK == OVP ) 
     { SEARCHEFF_INFO->FLAG_PEAKMAG_ONLY=1 ; }
-
-
 
   fflush(stdout) ;
 
@@ -1362,7 +1374,7 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
   bool USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; 
   int  IVARTYPE_MASK = 0; 
   int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
-  int  ISPEAKMAG, ISCOLOR, LFF1, LFF2, LMNS ;
+  int  IS_PEAKMAG, IS_PEAKCOLOR, IS_HOSTCOLOR, LFF1, LFF2, LMNS ;
 
   char c0[2], c1[2], c2[2];
   char minus[2] = "-" ;
@@ -1459,12 +1471,23 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
 
   // - - - - - - - - - - - - - - -
   // check for filter-dependent mag or color.
-  // Color must be of the form [filt1]-[filt2]
-  // where [filt1] and [filt2] are single-char strings.
-  // LENVAR =1 for simple mag; e.g., 'g', 'r'
-  // LENVAR =3 for color, e.g., 'g-r'
+  //.xyz
+  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
 
-  ISPEAKMAG   = ISCOLOR = 0;
+  if ( REFAC_SEARCHEFF <= 2 ) {
+    IVARTYPE_MASK = assign_MAP_VARNAME_FILTERS_LEGACY(MAPTYPE, ivar, VARNAME, MAP);
+    if ( IVARTYPE_MASK > 0 ) { return IVARTYPE_MASK; }
+  }
+  else if ( REFAC_SEARCHEFF == 3 ) {
+    IVARTYPE_MASK = assign_MAP_VARNAME_FILTERS(MAPTYPE, ivar, VARNAME, MAP);
+    if ( IVARTYPE_MASK > 0 ) { return IVARTYPE_MASK; }
+  }
+
+
+  /* xxxxxx mark delete Mar 26 2026 xxxxxxxxxxxxx
+
+  // --- legacy below - - - - -
+  IS_PEAKMAG  = IS_PEAKCOLOR = IS_HOSTCOLOR = 0;
   LENVAR      = strlen(VARNAME);
   ifilt_obs   = ifilt2_obs = -9;
   
@@ -1474,8 +1497,8 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
     for(ic=0; ic < LENVAR; ic++ ) {
       sprintf(c0, "%c", VARNAME[ic] );
       if ( c0[0] != '+' ) {
-	ifiltlist[ISPEAKMAG] = INTFILTER(c0);
-	ISPEAKMAG++ ;
+	ifiltlist[IS_PEAKMAG] = INTFILTER(c0);
+	IS_PEAKMAG++ ;
       }
     }
   }
@@ -1483,7 +1506,7 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
     // check for single peakmag char; e.g. 'r'
     sprintf(c0, "%c", VARNAME[0] );
     ifilt_obs  = INTFILTER(c0);
-    if ( ifilt_obs > 0 ) { ifiltlist[0] = ifilt_obs; ISPEAKMAG  = 1; }
+    if ( ifilt_obs > 0 ) { ifiltlist[0] = ifilt_obs; IS_PEAKMAG = 1; }
   }
   else if ( LENVAR == 3 ) {
     // check for color; e.g. g-i
@@ -1497,31 +1520,30 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
     LMNS  = ( strcmp(c1,minus) == 0  ) ;           // require minus sign
     LFF1  = ( ifilt_obs != ifilt2_obs ) ;          // different filters
     LFF2  = ( ifilt_obs > 0 && ifilt2_obs > 0 ) ;  // valid filters
-    if ( LMNS && LFF1 && LFF2 ) { ISCOLOR = 1; }
+    if ( LMNS && LFF1 && LFF2 ) { IS_PEAKCOLOR = 1; }
   }
 
 
-  if ( ISPEAKMAG ) { 
-    MAP->NFILTLIST_PEAKMAG[ivar]  = ISPEAKMAG ;
-    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
+  if ( IS_PEAKMAG ) { 
+    MAP->NFILTLIST_PEAKMAG[ivar]  = IS_PEAKMAG ;
+    MAP->IVARTYPE[ivar]           = IVARTYPE_EFFMAP_PEAKMAG ;
     IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
-    for(i=0; i < ISPEAKMAG; i++ ) 
+    for(i=0; i < IS_PEAKMAG; i++ ) 
       { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
     return IVARTYPE_MASK ; 
   }
 
-  if ( ISCOLOR ) { 
+  if ( IS_PEAKCOLOR ) { 
     MAP->IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
     MAP->IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
-    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_COLOR ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_COLOR );
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKCOLOR ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
     return IVARTYPE_MASK ; 
   }
 
-  // June 2016: Check for variables of the form XXX_[band]
-
-
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG");
+  // - - - - - - - - - - - - - -
+  // Check for variables of the form XXX_[band] or [band]_XXX
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG", +1);
   if ( ifilt_obs >=0 ) {
     MAP->NFILTLIST_PEAKMAG[ivar]    = 1 ;
     MAP->IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
@@ -1530,7 +1552,7 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
     return IVARTYPE_MASK ;
   }
 
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG");
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG", +1);
   if ( ifilt_obs >=0 ) {
     MAP->IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_HOSTMAG ;
@@ -1539,14 +1561,15 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
   }
 
 
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG");
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG", +1 );
   if ( ifilt_obs >=0 ) {
     MAP->IFILTOBS_SBMAG[ivar] = ifilt_obs ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_SBMAG ;
     IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SBMAG );
     return IVARTYPE_MASK ;
   }
-
+  // - - - - - -
+  xxxxxxxxxxx */
 
   // ------------------------------------------------------
   // if we get here then abort.
@@ -1558,6 +1581,251 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
 
 
 } // end of assign_MAP_VARNAME
+
+
+int assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME, 
+			       SEARCHEFF_MAP_DEF *MAP) {
+
+  int IVARTYPE_MASK = 0 ;
+  int IVARTYPE      = 0 ;
+
+  bool HAS_PLUS  = strstr(VARNAME,PLUS)  != NULL ; // indicates logical-OR among bands
+  bool HAS_MINUS = strstr(VARNAME,MINUS) != NULL ; // indicates color
+  bool FOUND_MATCH_PREFIX = false ;
+
+#define MXSUBSTR 4
+  char *ptrLIST[MXSUBSTR], SUBSTRING_LIST[MXSUBSTR][20];
+  int  ipre, isub, NSUBSTR, NMATCH, ichar_band, ifiltlist[20] ;
+
+  // for PEAKMAG, allow color = PEAKMAG_[band0]-PEAKMAG_[band1], etc ...
+#define NPREFIX_VARNAME 4
+  char PREFIX_LIST[NPREFIX_VARNAME][20] = {  
+    "PEAKMAG_", 
+    "HOSTMAG_", 
+    "_obs", 
+    "SBMAG_"  
+  } ;
+
+  int  IVARMAG_EFFMAP_LIST[NPREFIX_VARNAME] = { 
+    IVARTYPE_EFFMAP_PEAKMAG, 
+    IVARTYPE_EFFMAP_HOSTMAG, 
+    IVARTYPE_EFFMAP_HOSTMAG, 
+    IVARTYPE_EFFMAP_SBMAG 
+  } ;
+
+  int  IVARCOLOR_EFFMAP_LIST[NPREFIX_VARNAME] = { 
+    IVARTYPE_EFFMAP_PEAKCOLOR, 
+    IVARTYPE_EFFMAP_HOSTCOLOR, 
+    IVARTYPE_EFFMAP_HOSTCOLOR, 
+    IVARTYPE_EFFMAP_SBCOLOR 
+  } ;
+
+  int IPREFIX_PEAKMAG = 0; 
+  int IPREFIX_obs     = 3;
+  char *ptr_PREFIX, c0[2];
+  char fnam[] = "assign_MAP_VARNAME_FILTERS" ;
+  
+  // -------------- BEGIN ---------------
+
+  // we have match to prefix, so check band and check logic
+
+  for(isub=0; isub < MXSUBSTR; isub++ ) { ptrLIST[isub] = SUBSTRING_LIST[isub] ; }
+
+  // check how many space-separated SUBSTR names to check
+  if ( HAS_PLUS ) 
+    { splitString(VARNAME, PLUS,  fnam, MXSUBSTR, &NSUBSTR, ptrLIST ); }
+  else if ( HAS_MINUS ) 
+    { splitString(VARNAME, MINUS, fnam, MXSUBSTR, &NSUBSTR, ptrLIST ); }
+  else
+    { NSUBSTR = 1;   ptrLIST[0] = VARNAME; }
+
+  ichar_band = strlen(VARNAME) - 1; // default is band is last char of VARNAME
+
+  // - - - - 
+  // check which prefix matches; return if none
+  for ( ipre=0;  ipre < NPREFIX_VARNAME; ipre++ ) {
+    NMATCH = 0 ;
+    for ( isub=0; isub < NSUBSTR; isub++ ) {        
+      if ( strstr(ptrLIST[isub],PREFIX_LIST[ipre]) != NULL ) {
+	FOUND_MATCH_PREFIX = true ;
+      }
+
+      // check for single band representation of PEAKMAG; e.g. r is same as PRAKMAG_r
+      if ( ipre == IPREFIX_PEAKMAG && strlen(ptrLIST[isub])==1 ) 
+	{  FOUND_MATCH_PREFIX = true; }
+
+      if ( ipre == IPREFIX_obs && strlen(ptrLIST[isub])==4 ) 
+	{  FOUND_MATCH_PREFIX = true;  ichar_band = 0; }
+
+      if ( FOUND_MATCH_PREFIX ) { 
+	sprintf(c0, "%c", VARNAME[ichar_band] );
+	ifiltlist[NMATCH] = INTFILTER(c0);
+	NMATCH++ ; 
+      }
+
+    } // end isub loop
+
+    if ( NMATCH > 0 && NMATCH != NSUBSTR ) {
+      sprintf(c1err,"Found %d prefix matches among %d subtrings in VARNAME=%s",
+	      NMATCH, NSUBSTR, VARNAME);
+      sprintf(c2err,"Check %s in %s map", VARNAME, MAPTYPE);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+
+    // if we have matches, set pointer to identified prefix
+    if ( NMATCH == NSUBSTR ) { 
+      ptr_PREFIX = PREFIX_LIST[ipre]; 
+      if ( HAS_MINUS ) {
+	IVARTYPE      = IVARCOLOR_EFFMAP_LIST[ipre] ;
+      }
+      else {
+	IVARTYPE      = IVARMAG_EFFMAP_LIST[ipre] ;
+
+      }	
+    }
+
+  } // end loop over possible prefixes
+
+  // - - - - - - - - - - -  -
+
+  if ( IVARTYPE_MASK > 0 ) {
+    IVARTYPE_MASK = ( 1 << IVARTYPE ) ;
+  }
+
+  /* xxxxxxxxx mark delete xxxxxxx
+
+  if ( IS_PEAKMAG ) { 
+    MAP->NFILTLIST_PEAKMAG[ivar]  = IS_PEAKMAG ;
+    MAP->IVARTYPE[ivar]           = IVARTYPE_EFFMAP_PEAKMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    for(i=0; i < IS_PEAKMAG; i++ ) 
+      { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
+    return IVARTYPE_MASK ; 
+  }
+
+  if ( IS_PEAKCOLOR ) { 
+    MAP->IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
+    MAP->IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKCOLOR ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
+    return IVARTYPE_MASK ; 
+  }
+  xxxxxx end mark xxxxxx */
+
+  return IVARTYPE_MASK ;
+  
+} // end assign_MAP_VARNAME_FILTERS
+
+
+
+int assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME, 
+				      SEARCHEFF_MAP_DEF *MAP) {
+
+  // Mar 2026
+  // Legacy code to check filter-dependent varnames; e.g., r+i  g-r, etc ...
+  //
+  // - - - - - - - - - - - - - - -
+  // check for filter-dependent mag or color.
+  // Color must be of the form [filt1]-[filt2]
+  // where [filt1] and [filt2] are single-char strings.
+  // LENVAR =1 for simple mag; e.g., 'g', 'r'
+  // LENVAR =3 for color, e.g., 'g-r'
+
+  int IVARTYPE_MASK = 0 ;
+  int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
+  int  IS_PEAKMAG, IS_PEAKCOLOR, IS_HOSTCOLOR, LFF1, LFF2, LMNS ;
+  char c0[2], c1[2], c2[2];
+  char minus[2] = "-" ;
+  char fnam[] = "assign_MAP_VARNAME_FILTERS_LEGACY" ;
+
+  // --------- BEGIN --------
+
+  IS_PEAKMAG  = IS_PEAKCOLOR = IS_HOSTCOLOR = 0;
+  LENVAR      = strlen(VARNAME);
+  ifilt_obs   = ifilt2_obs = -9;
+  
+  if ( strstr(VARNAME,"+") != NULL ) {
+    // Check for bool-OR of multiple peakMags (Feb 2017); e.g. r+i
+    // Store filter-list for any char that is not a plus (+)
+    for(ic=0; ic < LENVAR; ic++ ) {
+      sprintf(c0, "%c", VARNAME[ic] );
+      if ( c0[0] != '+' ) {
+	ifiltlist[IS_PEAKMAG] = INTFILTER(c0);
+	IS_PEAKMAG++ ;
+      }
+    }
+  }
+  else if ( LENVAR == 1 ) {
+    // check for single peakmag char; e.g. 'r'
+    sprintf(c0, "%c", VARNAME[0] );
+    ifilt_obs  = INTFILTER(c0);
+    if ( ifilt_obs > 0 ) { ifiltlist[0] = ifilt_obs; IS_PEAKMAG = 1; }
+  }
+  else if ( LENVAR == 3 ) {
+    // check for color; e.g. g-i
+    sprintf(c0, "%c", VARNAME[0] );
+    sprintf(c1, "%c", VARNAME[1] );
+    sprintf(c2, "%c", VARNAME[2] );
+
+    ifilt_obs  = INTFILTER(c0);
+    ifilt2_obs = INTFILTER(c2);
+
+    LMNS  = ( strcmp(c1,minus) == 0  ) ;           // require minus sign
+    LFF1  = ( ifilt_obs != ifilt2_obs ) ;          // different filters
+    LFF2  = ( ifilt_obs > 0 && ifilt2_obs > 0 ) ;  // valid filters
+    if ( LMNS && LFF1 && LFF2 ) { IS_PEAKCOLOR = 1; }
+  }
+
+
+  if ( IS_PEAKMAG ) { 
+    MAP->NFILTLIST_PEAKMAG[ivar]  = IS_PEAKMAG ;
+    MAP->IVARTYPE[ivar]           = IVARTYPE_EFFMAP_PEAKMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    for(i=0; i < IS_PEAKMAG; i++ ) 
+      { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
+    return IVARTYPE_MASK ; 
+  }
+
+  if ( IS_PEAKCOLOR ) { 
+    MAP->IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
+    MAP->IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKCOLOR ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
+    return IVARTYPE_MASK ; 
+  }
+
+  // - - - - - - - - - - - - - -
+  // Check for variables of the form XXX_[band] or [band]_XXX
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG", +1);
+  if ( ifilt_obs >=0 ) {
+    MAP->NFILTLIST_PEAKMAG[ivar]    = 1 ;
+    MAP->IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    return IVARTYPE_MASK ;
+  }
+
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG", +1);
+  if ( ifilt_obs >=0 ) {
+    MAP->IFILTLIST_HOSTMAG[ivar][0] = ifilt_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_HOSTMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_HOSTMAG );
+    return IVARTYPE_MASK ;
+  }
+
+
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG", +1 );
+  if ( ifilt_obs >=0 ) {
+    MAP->IFILTLIST_SBMAG[ivar][0] = ifilt_obs ;
+    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_SBMAG ;
+    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SBMAG );
+    return IVARTYPE_MASK ;
+  }
+
+  return 0;
+  
+} // end assign_MAP_VARNAME_FILTERS_LEGACY
+
 
 // ***************************************
 void init_SEARCHEFF_zHOST(char *survey) {
@@ -2919,7 +3187,7 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
     return(MAG) ;
   }   
 
-  else if ( IVARTYPE == IVARTYPE_EFFMAP_COLOR ) {
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKCOLOR ) {
     ifilt_obs = MAP->IFILTOBS_PEAKCOLOR[ivar][0] ;
     mag0 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs]  ;
     check_magUndefined(mag0,varName,fnam);  
@@ -2934,13 +3202,13 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
 
 
   else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTMAG ) {
-    ifilt_obs = MAP->IFILTOBS_HOSTMAG[ivar] ;
+    ifilt_obs = MAP->IFILTLIST_HOSTMAG[ivar][0] ;
     mag       = SEARCHEFF_DATA.HOSTMAG[ifilt_obs] ;
     check_magUndefined(mag,varName,fnam);
     return mag ;
   }          
   else if ( IVARTYPE == IVARTYPE_EFFMAP_SBMAG ) {
-    ifilt_obs = MAP->IFILTOBS_SBMAG[ivar] ;
+    ifilt_obs = MAP->IFILTLIST_SBMAG[ivar][0] ;
     mag       = SEARCHEFF_DATA.SBMAG[ifilt_obs] ;
     check_magUndefined(mag,varName,fnam);
     return mag ;
@@ -3138,43 +3406,55 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
 
 
 // ============================================================
-int IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *PREFIX) {
+int IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *SUBSTR, int OPT) {
 
-  // if SPECEFF *VARNAME is of the form *PREFIX_[band],
-  // then return integer filter index for [band].
-  // If PREFIX is not part of VARNAME, return -9.
+  // if input  *VARNAME is of the form *SUBSTR_[band] (OPT=1),
+  // or [band]_*SUBSTR (OPT=0),
+  // return integer filter index for [band].
+  // If *SUBSTR is not part of VARNAME, return -9.
   //
-  // Example:  VARNAME = HOSTMAG_r and PREFIX = HOSTMAG
-  //           --> returns IFILTOBS=3
+  // SUBSTR can be list to check; e.g "HOSTMAG HOST_MAG"
   //
-  // May 13 2021:
-  //   Allow multiple prefix names separated by space; e.g., 
-  //    PREFIX = "HOSTMAG HOST_MAG"
+  // Example-1:  VARNAME = HOSTMAG_r   SUBSTR = 'HOSTMAG'     OPT=1
+  //             --> returns IFILTOBS=3
   //
+  // Example-2:  VARNAME = J_obs   SUBSTR = '_obs'     OPT=0
+  //             --> returns IFILTOBS=7
+  //  
   // Aug 15 2024: splitString2 crashes, so use splitString(...).
   // Mar 09 2026: Rename function IFILTOBS_SPECEFF_VAR -> IFILTOBS_SEARCHEFF_VARNAME
+  // Mar 26 2026: refactor with new OPT input
 
-#define MXPREFIX 4
-  int  NPREFIX=0;
+  bool ISBAND_FIRSTCHAR = (OPT == 0);
+  bool ISBAND_LASTCHAR  = (OPT >  0);
+
+#define MXSUBSTR 4
+  int  NSUBSTR=0;
   int  i, LENV, IFILTOBS = -9;
-  char cfilt[2], PREFIX_LIST[MXPREFIX][80], *ptr_PREFIX;
-  char *ptrList[MXPREFIX];
+  bool MATCH;
+  char cfilt[2], SUBSTR_LIST[MXSUBSTR][80], *ptr_SUBSTR;
+  char *ptrList[MXSUBSTR];
   char sepKey[] = " ";
   char fnam[] = "IFILTOBS_SEARCHEFF_VARNAME" ;
 
   // -------------- BEGIN ---------------
 
-  for(i=0; i < MXPREFIX; i++ ) { ptrList[i] = PREFIX_LIST[i]; }
+  for(i=0; i < MXSUBSTR; i++ ) { ptrList[i] = SUBSTR_LIST[i]; }
 
-  // check how many space-separated PREFIX names to check
-  splitString(PREFIX, sepKey, fnam, MXPREFIX,
-              &NPREFIX, ptrList ); // <== returned
+  // check how many space-separated SUBSTR names to check
+  splitString(SUBSTR, sepKey, fnam, MXSUBSTR,
+              &NSUBSTR, ptrList ); // <== returned
   
-  for ( i=0; i < NPREFIX; i++ ) {
-    ptr_PREFIX = PREFIX_LIST[i];
-    if ( strstr(VARNAME,ptr_PREFIX) != NULL ) {
+  for ( i=0; i < NSUBSTR; i++ ) {
+    ptr_SUBSTR = SUBSTR_LIST[i];
+    MATCH = ( strstr(VARNAME,ptr_SUBSTR) != NULL ) ;
+    if ( MATCH ) {
       LENV      = strlen(VARNAME);
-      sprintf(cfilt,"%c", VARNAME[LENV-1] );
+      if ( ISBAND_FIRSTCHAR ) 
+	{ sprintf(cfilt,"%c", VARNAME[0] ); } // e.g. J_obs from HOSTLIB -> J
+      else
+	{ sprintf(cfilt,"%c", VARNAME[LENV-1] ); } // e.g. PEAKMAG_r -> r
+
       IFILTOBS  = INTFILTER(cfilt);
     }
   }
@@ -3820,7 +4100,7 @@ double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
     return(MAG) ;
   }   
 
-  else if ( IVARTYPE == IVARTYPE_EFFMAP_COLOR ) {
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKCOLOR ) {
     ifilt_obs = SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][0] ;
     mag0 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs]  ;
     check_magUndefined(mag0,varName,fnam);  
@@ -4079,7 +4359,7 @@ void  init_SEARCHEFF_SPECID_LEGACY(char *survey) {
   //   if so, can make sim run faster.
   int IVARTYPE_MASK_PEAKMAG = 0, OVP;
   IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_PEAKMAG ) ;
-  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_COLOR   ) ;
+  IVARTYPE_MASK_PEAKMAG += (1<< IVARTYPE_EFFMAP_PEAKCOLOR   ) ;
   OVP = ( IVARTYPE_MASK_PEAKMAG & SEARCHEFF_SPECID_INFO.IVARTYPE_MASK ) ;
   if ( SEARCHEFF_SPECID_INFO.IVARTYPE_MASK == OVP ) 
     { SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY=1 ; }
@@ -4567,14 +4847,14 @@ void assign_SPECEFF_LEGACY(int imap, int ivar, char *VARNAME) {
   if ( ISCOLOR ) { 
     SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
     SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
-    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_COLOR ;
-    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_COLOR );
+    SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKCOLOR ;
+    SEARCHEFF_SPECID_INFO.IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
     return ; 
   }
 
 
   // June 2016: Check for variables of the form XXX_[band]
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG");
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG", 1);
   if ( ifilt_obs >=0 ) {
     SEARCHEFF_SPECID_LEGACY[imap].NFILTLIST_PEAKMAG[ivar]    = 1 ;
     SEARCHEFF_SPECID_LEGACY[imap].IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
@@ -4583,7 +4863,7 @@ void assign_SPECEFF_LEGACY(int imap, int ivar, char *VARNAME) {
     return ;
   }
 
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG");
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG", 1);
   if ( ifilt_obs >=0 ) {
     SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
     SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_HOSTMAG ;
@@ -4593,7 +4873,7 @@ void assign_SPECEFF_LEGACY(int imap, int ivar, char *VARNAME) {
 
   // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
 
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG");
+  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG", 1);
   if ( ifilt_obs >=0 ) {
     SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_SBMAG[ivar] = ifilt_obs ;
     SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar] = IVARTYPE_EFFMAP_SBMAG ;

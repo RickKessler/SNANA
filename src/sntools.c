@@ -9311,7 +9311,9 @@ void check_uniform_bins(int NBIN,double *VAL_ARRAY, char *comment_forAbort) {
 void  check_magUndefined(double mag, char *varName, char *callFun) {
 
   // Created Jun 23 2016
-  char fnam[] = "check_magUndefined" ;
+  char fnam[200] ;
+  concat_callfun_plus_fnam(callFun, "check_magUndefined", fnam);
+  // xxx mark   char fnam[] = "check_magUndefined" ; //.xyz
 
   if ( mag == MAG_UNDEFINED ) {
     sprintf(c1err,"Undefined %s = %f", varName, mag);

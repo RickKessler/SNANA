@@ -24,18 +24,20 @@
 
 
 #define  IVARTYPE_EFFMAP_PEAKMAG    1  // flag that var is a peakmag
-#define  IVARTYPE_EFFMAP_COLOR      2  // flag that var is a peak color
+#define  IVARTYPE_EFFMAP_PEAKCOLOR  2  // flag that var is a peak color
 #define  IVARTYPE_EFFMAP_REDSHIFT   3  // flag that var is a redshift
 #define  IVARTYPE_EFFMAP_PEAKMJD    4  // flag that var is a peakmjd
 #define  IVARTYPE_EFFMAP_DTPEAK     5  // flag that var is a dTpeak_min
 #define  IVARTYPE_EFFMAP_DTSEASON_PEAK 6
 #define  IVARTYPE_EFFMAP_HOSTMAG    7  // flag that var is HOSTmag
-#define  IVARTYPE_EFFMAP_SBMAG      8  // flag that var is SBmag
-#define  IVARTYPE_EFFMAP_LOGMASS    9  // flag that var is a LOGMASS
-#define  IVARTYPE_EFFMAP_SALT2mB   10  // flag that var is SALT2mb
-#define  IVARTYPE_EFFMAP_SALT2x1   11  // flag that var us SALT2x1
-#define  IVARTYPE_EFFMAP_SALT2c    12  // flag that var is SALT2c
-#define  IVARTYPE_EFFMAP_SNRSUM_REST_V 13 // flag for SPECTROGRAPH SNR for rest-V
+#define  IVARTYPE_EFFMAP_HOSTCOLOR  8  // flag that var is HOST color
+#define  IVARTYPE_EFFMAP_SBMAG      9  // flag that var is SBmag
+#define  IVARTYPE_EFFMAP_SBCOLOR   10  // flag that var is SB color
+#define  IVARTYPE_EFFMAP_LOGMASS   11  // flag that var is a LOGMASS
+#define  IVARTYPE_EFFMAP_SALT2mB   12  // flag that var is SALT2mb
+#define  IVARTYPE_EFFMAP_SALT2x1   13  // flag that var us SALT2x1
+#define  IVARTYPE_EFFMAP_SALT2c    14  // flag that var is SALT2c
+#define  IVARTYPE_EFFMAP_SNRSUM_REST_V 15 // flag for SPECTROGRAPH SNR for rest-V
 #define  IVARTYPE_EFFMAP_HOSTLIB   18  // flag that var is in HOSTLIB (Mar 2026)
 #define  IVARTYPE_EFFMAP           19  // flag that var is SPECEFF
 
@@ -161,7 +163,6 @@ struct  {
   int RESTORE_DES5YR; // Oct 15 2025
 
   int REFAC_SEARCHEFF_MAP;    // Mar 8 2026
-  int LEGACY_SEARCHEFF_MAP;
 
 } INPUTS_SEARCHEFF ;
 
@@ -249,8 +250,14 @@ typedef struct {
   int NFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP];
   int IFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];  
   int IFILTOBS_PEAKCOLOR[MXVAR_SEARCHEFF_MAP][2]; 
-  int IFILTOBS_HOSTMAG[MXVAR_SEARCHEFF_MAP]; 
-  int IFILTOBS_SBMAG[MXVAR_SEARCHEFF_MAP]; 
+
+  int NFILTLIST_HOSTMAG[MXVAR_SEARCHEFF_MAP];  // Mar 26 2026
+  int IFILTLIST_HOSTMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];
+  int IFILTOBS_HOSTCOLOR[MXVAR_SEARCHEFF_MAP][2]; // Mar 26 2026
+
+  int NFILTLIST_SBMAG[MXVAR_SEARCHEFF_MAP];  // Mar 26 2026
+  int IFILTLIST_SBMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];
+  int IFILTOBS_SBCOLOR[MXVAR_SEARCHEFF_MAP]; 
 
   GRIDMAP_DEF GRIDMAP ;
 
@@ -382,6 +389,8 @@ FILE   *open_zHOST_FILE(int OPT);
 void   init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
 void   read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
 int    assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
+int    assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
+int    assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 
 void   read_VARNAMES_zHOST(FILE *fp);
 int    parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB, 
@@ -419,8 +428,7 @@ void   dumpLine_PIPELINE_PHOTPROB(void);
 
 void   parse_search_eff_logic(char *survey, int NMJD, char *logic);
 
-// xxx mark delete int    IFILTOBS_SPECEFF_VAR(char *VARNAME, char *PREFIX) ;
-int    IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *PREFIX) ;
+int    IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *SUBSTR, int OPT) ;
 
 int    IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME);
 

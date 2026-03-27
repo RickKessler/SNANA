@@ -885,13 +885,6 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
 
   // - - - - - -
 
-  /*
-  // optional if ERRCALC is requested
-  sprintf(VARNAME_SNLC[NVAR], "ERRCALC" );     
-  sprintf(VARDEF_SNLC[NVAR],  "optional calculated error");
-  NVAR++ ;
-  */
-
   // below are optional if using rest-frame model
   sprintf(VARNAME_SNLC[NVAR], "BAND_REST" );     
   sprintf(VARDEF_SNLC[NVAR],  "optional rest-frame band");

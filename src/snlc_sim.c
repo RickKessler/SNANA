@@ -1252,8 +1252,7 @@ void set_user_defaults(void) {
   INPUTS.NCUTWIN_TOT = 0 ;
 
   INPUTS_SEARCHEFF.RESTORE_DES5YR      = 0 ; // Oct 15 2025
-  INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 0 ; // Mar 8 2026
-  INPUTS_SEARCHEFF.LEGACY_SEARCHEFF_MAP = 1;
+  INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 1 ; // turn on REFAC, Mar 26 2026
 
   INPUTS_SEARCHEFF.FIX_EFF_PIPELINE = -9.0 ;
   INPUTS_SEARCHEFF.FUNEFF_DEBUG     = 0 ; // 1->100% eff, 2-> hackFun
@@ -2581,7 +2580,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   else if ( keyMatchSim(1, "REFAC_SEARCHEFF_MAP",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ); // temp; mar 8 2026
-    if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP > 0 )  { INPUTS_SEARCHEFF.LEGACY_SEARCHEFF_MAP=0;}
   }
 
   else if ( strstr(WORDS[0],"LCLIB") != NULL ) {

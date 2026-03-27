@@ -80,6 +80,7 @@
 #define COLON      ":"              // to split colon-sep strings
 #define PERCENT    "%"              // idem for %-sep strings
 #define PLUS       "+"
+#define MINUS      "-"
 #define STAR       "*"
 #define DOT        "."
 #define ALL        "ALL"

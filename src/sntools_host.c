@@ -121,13 +121,17 @@ void INIT_HOSTLIB(void) {
   //  March 2011, R.Kessler
   //  read and  initialize host-galaxy library (HOSTLIB)
   //  for SNANA simulation.
+  //
+  // Mar 28 2026: begin REFAC_SEARCHEFF to read HOSTLIB variables before
+  //      checking SEARCHEFF_[SPEC,zHOST] & GENPDF maps ; this enables
+  //      storing the relevant HOSTLIB variables for these maps.
+  //     
 
   int USE ;
   FILE *fp_hostlib ;
   char fnam[] = "INIT_HOSTLIB" ;
 
-  // M. Vincenzi Feb 2022
-  REFAC_HOSTLIB = false; 
+  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ; // Mar 2026
 
   // ---------------- BEGIN -------------
 
@@ -156,13 +160,31 @@ void INIT_HOSTLIB(void) {
   // set inital values for HOSTLIB structure
   initvar_HOSTLIB();
 
+  if ( REFAC_SEARCHEFF ) {
+    // open HOSTLIB and read VARNAMES here so that below we know which
+    // variables in the SEARCHEFF & GENPDF maps are in the HOSTLIB
+    open_HOSTLIB(&fp_hostlib);         // open and return file pointer   
+    read_head_HOSTLIB(fp_hostlib);     // read VARNAMES and any other header info
+  }
+
+  // Mar 28 2026: pull init_[REQUIRED,OPTIONAL] out of initvar_HOSTLIB
+  //  and paste it here after read_head_HOSTLIB
+  init_REQUIRED_HOSTVAR(); 
+  init_OPTIONAL_HOSTVAR();
+
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
   read_HOSTLIB_WGTMAP();
 
   // open hostlib and start reading
-  open_HOSTLIB(&fp_hostlib);     // open and return file pointer
-  read_head_HOSTLIB(fp_hostlib); // read header info: VARNAMES, ...
-  close_HOSTLIB(fp_hostlib);     // close HOSTLIB to rewind
+  if ( REFAC_SEARCHEFF ) {
+    prep_head_HOSTLIB();  // prepare HOSTLIB variables after reading WGTMAP
+  }
+  else {
+    // legacy mode
+    open_HOSTLIB(&fp_hostlib);            // open and return file pointer
+    read_head_HOSTLIB_LEGACY(fp_hostlib); // read header info: VARNAMES, ...
+    close_HOSTLIB(fp_hostlib);            // close HOSTLIB to rewind
+  }
 
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();
@@ -289,6 +311,10 @@ void print_HOSTLIB_MSKOPT(void) {
 void initvar_HOSTLIB(void) {
 
   // one-time init of variables used for HOSTLIB
+  // 
+  // Mar 28 2026: move init_REQUIRED_HOSTVAR() and init_OPTIONAL_HOSTVAR
+  //              out of here and into INIT_HOSTLIB() after call to initvar_HOSTLIB.
+  //
 
   int ivar, j, igal, ifilt  ;
   char fnam[] = "initvar_HOSTLIB" ;
@@ -374,13 +400,14 @@ void initvar_HOSTLIB(void) {
 
   HOSTLIB.IVAR_a_DLR  = -9 ;
   HOSTLIB.IVAR_b_DLR  = -9 ;
-  // ------------------------
+  
+
+  /* xxxxxxxx mark delete Mar 28 2026 xxxxxxxxx
   // set array of required and optional keys
   init_REQUIRED_HOSTVAR();
-
-
   // now the optional keys
   init_OPTIONAL_HOSTVAR();
+  xxxxxxx end mark xxxxxxxxxxxxx */
 
 
   HOSTLIB_WGTMAP.GRIDMAP.NDIM = 0;
@@ -757,8 +784,8 @@ void init_REQUIRED_HOSTVAR(void) {
 
   HOSTLIB.NVAR_REQUIRED = NVAR ;
 
-  // append STOREPAR automatically so that used HOSTLIB variables
-  // can be added to SIMGEN-DUMP
+  // append STOREPAR automatically so that used HOSTLIB variables can be
+  // added to SIMGEN-DUMP, or used for SEARCHEFF_[SPEC,zHOST]_FILE and GENPDF_FILE.
   append_HOSTLIB_STOREPAR();
 
   // check user-specified HOSTLIB variables to store in data files.
@@ -896,6 +923,7 @@ void append_HOSTLIB_STOREPAR(void) {
 
   int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
   //  REFAC_SEARCHEFF = 0 ; // xxx REMOVE
+
   if ( REFAC_SEARCHEFF ) {    
     char **VARNAMES_RAW ;
     bool IS_OBS_MAG;
@@ -2392,6 +2420,39 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
 // ============================================
 void read_head_HOSTLIB(FILE *fp) {
 
+  // Mar 28 2026
+  // As part of SEARCHEFF refactor, split original read_head_HOSTLIB
+  // into two parts; 
+  //  1. read VARNAMES -> this function
+  //  2. preparation   -> see new prep_head_HOSTLIB
+
+  char fnam[] = "read_head_HOSTLIB" ;
+
+  // -------------- BEGIN ----------
+
+  return ;
+
+} // end read_head_HOSTLIB
+
+
+// =========================================================
+void prep_head_HOSTLIB(void) {
+
+  // Created Mar 28 2026
+  // HOSTLIB VARNAMES have already been read by read_head_HOSTLIB;
+  // here to the preparation.
+
+  char fnam[] = "prep_head_HOSTLIB";
+
+  // -------------- BEGIN -----------
+
+  return ;
+
+} // end prep_head_HOSTLIB
+
+// ============================================
+void read_head_HOSTLIB_LEGACY(FILE *fp) {
+
   // Mar 6, 2011
   // read HOSTLIB header keys 
   // -  NVAR: %d
@@ -2428,8 +2489,9 @@ void read_head_HOSTLIB(FILE *fp) {
   char  key[40], c_get[200], c_var[100], ctmp[80], wd[20], *cptr, *cptr2 ;
   char *basename;
   char  LINE[MXCHAR_LINE_HOSTLIB];
-  char  fnam[] = "read_head_HOSTLIB" ;
+  char  fnam[] = "read_head_HOSTLIB_LEGACY" ;
 
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
   // ------------- BEGIN ---------
 
   NVAR = NVAR_WGTMAP = 0 ;
@@ -2467,6 +2529,8 @@ void read_head_HOSTLIB(FILE *fp) {
         errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
       }
 
+      // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
+
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam); 
       HOSTLIB.NVAR_ALL = NVAR;
       if ( NVAR < HOSTLIB.NVAR_REQUIRED || NVAR > MXVAR_HOSTLIB ) {
@@ -2491,6 +2555,8 @@ void read_head_HOSTLIB(FILE *fp) {
 
 	// load ALL array
 	sprintf( HOSTLIB.VARNAME_ALL[ivar], "%s", c_var);
+
+	// @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
 	// check for duplicate columns (9.16.2021)  
 	// E.g., ZERR and ZPHOTERR are both converted to ZPHOT_ERR.
@@ -2521,6 +2587,8 @@ void read_head_HOSTLIB(FILE *fp) {
 	      HOSTLIB.IS_SNPAR_STORE[N] = 1 ; // index is for all variables
 	    }
 
+	    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
+
             if ( strstr(c_var,HOSTLIB_PREFIX_ZPHOT_Q) != NULL ) {
 	      int   percentile, N_Q = HOSTLIB.NZPHOT_Q;
 	      char *VARNAME = HOSTLIB.VARNAME_ZPHOT_Q[N_Q];
@@ -2541,6 +2609,7 @@ void read_head_HOSTLIB(FILE *fp) {
 
     } // end of VARNAMES
 
+    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
     // - - - - - 
     // look for fixed Sersic index 'n#_Sersic' outside of VARNAMES list
@@ -2558,6 +2627,7 @@ void read_head_HOSTLIB(FILE *fp) {
 
   } // end of while-fscanf 
 
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   // -----------------------------
 
@@ -2576,6 +2646,7 @@ void read_head_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   // make sure the required header was read
   if ( HOSTLIB.NVAR_ALL <= 0 ) {
@@ -2590,6 +2661,8 @@ void read_head_HOSTLIB(FILE *fp) {
 
   NVAR_WGTMAP =  HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
   for ( IVAR_STORE=0; IVAR_STORE < HOSTLIB.NVAR_STORE ; IVAR_STORE++ ) {
+
+    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
     sprintf(c_var,"%s", HOSTLIB.VARNAME_STORE[IVAR_STORE] );
     for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ ) {
@@ -2609,6 +2682,8 @@ void read_head_HOSTLIB(FILE *fp) {
 	goto DONEMATCH ; 
       }
     } // end ivar
+
+    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   DONEMATCH:
 
@@ -2631,6 +2706,7 @@ void read_head_HOSTLIB(FILE *fp) {
    
   } // end IVAR_STORE
   
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   // make sure we found what we are looking for by checking 
   // that each var-string returns a valid 'ivar.
@@ -2649,6 +2725,7 @@ void read_head_HOSTLIB(FILE *fp) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   // optional
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB(HOSTLIB_VARNAME_TRUE_MATCH, 0) ; 
@@ -2681,6 +2758,8 @@ void read_head_HOSTLIB(FILE *fp) {
     }
   }
 
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
+
   HOSTLIB.IVAR_ANGLE        = IVAR_HOSTLIB(HOSTLIB_VARNAME_ANGLE,0) ;   
   HOSTLIB.IVAR_FIELD        = IVAR_HOSTLIB(HOSTLIB_VARNAME_FIELD,0) ;   
   HOSTLIB.IVAR_ELLIPTICITY  = IVAR_HOSTLIB(HOSTLIB_VARNAME_ELLIPTICITY,0) ;
@@ -2695,6 +2774,8 @@ void read_head_HOSTLIB(FILE *fp) {
   // keep this debug flag to disable host NBR
   if ( INPUTS.DEBUG_FLAG  == 1012      ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
   if ( (INPUTS.RESTORE_DES5YR & 2) > 0 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; } // May 28 2025
+
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   // Jan 2015: Optional RA & DEC have multiple allowed keys
   int IVAR_RA[3], IVAR_DEC[3] ;
@@ -2711,12 +2792,13 @@ void read_head_HOSTLIB(FILE *fp) {
     if ( IVAR_DEC[i] > 0 ) { HOSTLIB.IVAR_DEC = IVAR_DEC[i] ; }
   }
 
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   // Mar 2025 check for specbasis coeff
   HOSTLIB.IVAR_COEFF_SPECBASIS00 = IVAR_HOSTLIB("COEFF_SPECBASIS00", 0);
   
 
-  // Mmake sure that these WGTMAP variables are really defined.
+  // Make sure that these WGTMAP variables are really defined.
   // Also flag user-STOREPAR [EXTRA] variables that are also in WGTMAP (7.2019)
   int  NVAR_EXTRA  = HOSTLIB_OUTVAR_EXTRA.NOUT ;
   char *varName_WGTMAP, *varName_EXTRA;
@@ -2736,6 +2818,9 @@ void read_head_HOSTLIB(FILE *fp) {
     }
   }
 
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@  
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
+
   // --------------------------------------------------
   // Misc error checking (added May 2020)
 
@@ -2754,6 +2839,8 @@ void read_head_HOSTLIB(FILE *fp) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
   }
+
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   if ( DO_RADEC && (HOSTLIB.IVAR_RA<0 || HOSTLIB.IVAR_DEC < 0) ) {
     print_preAbort_banner(fnam);
@@ -2776,10 +2863,11 @@ void read_head_HOSTLIB(FILE *fp) {
 	    "%d-bit from HOSTLIB_MSKOPT", HOSTLIB_MSKOPT_SWAPZPHOT ) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
+  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   return ;
 
-} // end of read_head_HOSTLIB
+} // end of read_head_HOSTLIB_LEGACY
 
 // ==============================
 bool match_varname_HOSTLIB(char *varName0, char *varName1) {

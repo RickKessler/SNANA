@@ -23616,4 +23616,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         to check for band at begging or end of VARNAME string;
         allows parsing e.g., J_obs or PEAKMAG_J
 
+        PROBLEM: only zHOST variables with 'obs' in the name
+             are saved in HOSTLOB-STOREPAR, which is fragile.
+             May need to read HOSTLIB header to check which
+             zHOST variables to save ... or check zHOST_FILE
+             later in INIT_HOSTLIB
 END: 

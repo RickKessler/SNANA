@@ -877,32 +877,64 @@ void append_HOSTLIB_STOREPAR(void) {
   //
   // Nov 18 2024: print append comments to stdout
   
-  char *STOREPAR  = INPUTS.HOSTLIB_STOREPAR_LIST ;
+  char *STOREPAR   = INPUTS.HOSTLIB_STOREPAR_LIST ;
   char *COMMENTPAR = INPUTS.HOSTLIB_COMMENTPAR_LIST; // maybe fill and use for later ???
-  int  ivar, NVAR_zHOST, gzipFlag ;
-  char *ptrVarName;
-  FILE *fp ;
+  int  ivar, NVAR_RAW_zHOST, gzipFlag, OPEN_STATUS ;
+  char *ptrVarName ;
+  float fmem;
+  FILE *fp;
   char fnam[] = "append_HOSTLIB_STOREPAR" ;
-
   // -------------- BEGIN ------------
 
     
+  printf("  Append HOSTLIB variables from SPECID, zHOST, GENPDF files \n");
+  fflush(stdout);
+
   // If zHOST_FILE exists,  copy variables from zHOST efficiency map to 
   // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that all of the 
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.
 
-  fp = open_zHOST_FILE(-1);
-  if ( fp != NULL ) { 
-    read_VARNAMES_zHOST(fp); fclose(fp);
-    NVAR_zHOST = SEARCHEFF_zHOST[0].NVAR ; // Jun 12 2020
-    for(ivar=0; ivar < NVAR_zHOST; ivar++ ) {
-      ptrVarName = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar];
-      printf("\t append HOSTLIB_STOREPAR with %s from SEARCHEFF_zHOST_FILE\n",
-	     ptrVarName); fflush(stdout);
-      catVarList_with_comma(STOREPAR,ptrVarName);
-    } // end ivar
-  }
+  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
+  //  REFAC_SEARCHEFF = 0 ; // xxx REMOVE
+  if ( REFAC_SEARCHEFF ) {    
+    char **VARNAMES_RAW ;
+    bool IS_OBS_MAG;
+    fmem = malloc_strlist(+1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_RAW );
+      
+    read_searcheff_raw_varnames(INPUTS_SEARCHEFF.USER_zHOST_FILE, &OPEN_STATUS,
+				&NVAR_RAW_zHOST, VARNAMES_RAW) ;
 
+    // We don't yet have list of HOSTLIB variables, so to be safe
+    // only store variables with 'obs' in the name;
+    // beware this logic is very fragile
+    for(ivar=0; ivar < NVAR_RAW_zHOST; ivar++ )  { 
+      IS_OBS_MAG = strstr(VARNAMES_RAW[ivar], "obs") != NULL ;
+      if ( IS_OBS_MAG ) {
+	printf("\t append HOSTLIB_STOREPAR with %s from SEARCHEFF_zHOST_FILE\n",
+	       VARNAMES_RAW[ivar] ); fflush(stdout);
+	catVarList_with_comma(STOREPAR, VARNAMES_RAW[ivar]); 
+      }
+    }
+
+    fmem = malloc_strlist(-1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_RAW );
+
+  }
+  else {
+    // legacy mode, 
+    fp = open_zHOST_FILE(0);
+    if ( fp != NULL ) { 
+      read_VARNAMES_zHOST_LEGACY(fp); fclose(fp);
+      NVAR_RAW_zHOST = SEARCHEFF_zHOST[0].NVAR ; // Jun 12 2020
+      for(ivar=0; ivar < NVAR_RAW_zHOST; ivar++ ) {
+	ptrVarName = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar];
+	printf("\t append HOSTLIB_STOREPAR with %s from SEARCHEFF_zHOST_FILE\n",
+	       ptrVarName); fflush(stdout);
+	catVarList_with_comma(STOREPAR,ptrVarName);
+      } // end ivar
+    }
+  }  // end REFAC_SEARCHEFF
+
+  
   // - - - - - - - 
   // check PDF maps for populations
   if ( IGNOREFILE(INPUTS.GENPDF.MAP_FILE) )
@@ -915,12 +947,9 @@ void append_HOSTLIB_STOREPAR(void) {
     char **VARNAMES;
 
     UNIQUE   = (int*)malloc(MXVAR*sizeof(int));
-    VARNAMES = (char**) malloc( MXVAR*sizeof(char*) );
-    for(ivar=0; ivar < MXVAR; ivar++ ) 
-      { VARNAMES[ivar] = (char*) malloc( 40*sizeof(char) ); }
 
-    read_VARNAMES_KEYS(fp, MXVAR, NVAR_SKIP, fnam, &NVAR, &NKEY,
-		       UNIQUE, VARNAMES ) ;
+    malloc_strlist(+1, MXVAR, 40, &VARNAMES);
+    read_VARNAMES_KEYS(fp, MXVAR, NVAR_SKIP, fnam, &NVAR, &NKEY, UNIQUE, VARNAMES ) ;
     for(ivar=0; ivar < NVAR; ivar++ ) {
       ptrVarName = VARNAMES[ivar] ;
       if ( strcmp(ptrVarName,"PROB") == 0 ) { continue; }
@@ -928,16 +957,13 @@ void append_HOSTLIB_STOREPAR(void) {
 	catVarList_with_comma(STOREPAR,ptrVarName);
 	printf("\t append HOSTLIB_STOREPAR with %s from GENPDF_FILE\n",
 	       ptrVarName); fflush(stdout);
-      }
-
-      
-     /* printf(" xxx %s: found varName[%2d] = '%s' (UNIQUE=%d)\n",
-	     fnam, ivar, VARNAMES[ivar], UNIQUE[ivar]); fflush(stdout);
-     */
-
+      }     
     }
+
+    malloc_strlist(-1, MXVAR, 40, &VARNAMES);  // free memory
     fclose(fp);
-  }
+  } // end fp
+
 
   // Jul 14 2020: check for WGTMAP variables here.
   //  WGTMAP is read later, but possibly after reading HOSTLIB
@@ -2537,7 +2563,6 @@ void read_head_HOSTLIB(FILE *fp) {
 
  VARCHECK:  // note there is NO more file-reading below
 
-
   //-----------------------
   // sanity check on optioanl SNPARams
   USE = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
@@ -2596,7 +2621,7 @@ void read_head_HOSTLIB(FILE *fp) {
       printf("\t %s '%s' (IVAR_STORE=%d) \n", ctmp, c_var, IVAR_STORE ); 
       fflush(stdout);
     }
-    if ( !MATCH  ) {
+    if ( !MATCH  ) {  //.xyz
       sprintf(c1err,"Could not find required HOSTLIB var '%s' (IVAR_STORE=%d)", 
 	      c_var, IVAR_STORE );
       sprintf(c2err,"Check HOSTLIB_STOREPAR key and "

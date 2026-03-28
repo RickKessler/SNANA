@@ -6322,7 +6322,6 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
   int LEN, N;
   char *localString, *ptrtok, lastc[2] ;
 
-
   char fnam[200];
   concat_callfun_plus_fnam(callFun, "splitString", fnam);
 
@@ -6359,6 +6358,37 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
   return ;
 
 } // end splitString
+
+
+void nsplitString(char *string, char *sepList, char *callFun, int MXsplit,
+                  int *Nsplit, char **ptrSplit, char *sep ) {
+
+  // Created Mar 27 2026
+  // Similar to splitString, except sepList is a list of separators to check.
+  // Example: sepList = " ," -> check for space and comma sep; return *sep = 
+  // found separator (single char)
+  // Initial use is to check PLUS or MINUS separator in variables for SEARCHEFF maps.
+  
+  int  i, LENsepList = strlen(sepList);
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "nsplitString", fnam);
+
+  // ---------- BEGIN ---------
+
+  for(i=0; i < LENsepList; i++ ) {
+    sprintf(sep, "%c", sepList[i] );
+    if( strstr(string,sep) != NULL ) {
+      splitString(string, sep, fnam, MXsplit, Nsplit, ptrSplit );
+      return ;
+    }
+  }
+
+  // did not find any separator, so return null sep, and 1 split substring = string
+  sep[0] = 0;   *Nsplit = 1;     sprintf(ptrSplit[0], "%s", string);
+
+  return ;
+} // end nsplitString
 
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) {
@@ -9102,6 +9132,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 
   // Mar 2019
   // Read file (*fp) and return information about "VARNAMES: <varList>"
+  // Checks for multiple VARNAMES keys that can appear in some maps.
   //
   // Inputs
   //   fp      : file pointer to read
@@ -9119,6 +9150,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   //
   // Jun 12 2020: new option for NVAR_SKIP < 0 -> skip first var(s).
   // Jul 13 2020: avoid storing duplicate var names
+  // Mar 27 2026: skip contents after commentchar
 
   int  NVAR_STORE = 0, NKEY_LOCAL = 0 ;
   int  FOUND_VARNAMES, ivar, ivar_start, ivar_end, ivar2, NVAR_TMP ;
@@ -9133,6 +9165,9 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   if ( LDMP ) { printf(" xxx %s: ---------- DUMP ------------ \n", fnam);  }
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
+
+    if ( commentchar(c_get) ) { fgets(LINE, 100, fp); continue; } // Mar 2026
+
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
     if ( FOUND_VARNAMES ) {
       NKEY_LOCAL++ ;
@@ -10940,11 +10975,14 @@ float malloc_shortint2D(int opt, int LEN1, int LEN2, short int ***array2D ) {
 float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
   // Created Jun 11 2019
   // Malloc array2D[LEN1][LEN2]  (intended for LEN1=NSN, LEN2=NCLPAR)
+  // Functions return MB of memory allocated
+
   float f_MEMTOT = 0.0 ;
   long long MEMTOT=0, i1 ;
   int MEM1 = LEN1 * sizeof(double*); 
   int MEM2 = LEN2 * sizeof(double);
   char fnam[] = "malloc_double2D";
+
   // ----------- BEGIN -------------
 
   print_debug_malloc(opt,fnam);
@@ -10963,7 +11001,6 @@ float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
     for(i1=0; i1 < LEN1; i1++ ) 
       { free((*array2D)[i1]); }
     free(*array2D) ;    
-    // xxxxx mark delete   free(array2D[i1]) ;
   }
 
 
@@ -11010,6 +11047,7 @@ float malloc_double3D(int opt, int LEN1, int LEN2, int LEN3,
   // Created Jun 11 2019
   // Malloc array3D[LEN1][LEN2][LEN3] 
   //   (intended for LEN1=NSN, LEN2=MXa, LEN3=MXb)
+  // Functions return MB of memory allocated
 
   float f_MEMTOT = 0.0 ;
   int MEMTOT=0, i1, i2 ;
@@ -11095,6 +11133,7 @@ float malloc_double4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
   // Created July 2019
   // Malloc array3D[LEN1][LEN2][LEN3][LEN4] 
   //   (intended for LEN1=NSN, LEN2=MXa, LEN3=MXb, LEN4=MXg)
+  // Functions return MB of memory allocated
 
   float f_MEMTOT = 0.0 ;
   int MEMTOT=0, i1, i2, i3 ;
@@ -11194,3 +11233,34 @@ float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
   return(f_MEMTOT);
 
 }   // end malloc_shortint4D
+
+
+float malloc_strlist(int opt, int LEN1, int LEN2, char ***strlist ) {
+
+  // Created Mar 27 2027
+  // Functions return MB of memory allocated
+  int i;
+  float f_MEMTOT = 0.0 ;
+  int MEM1    = LEN1 * sizeof(char*) ; 
+  int MEM2    = LEN2 * sizeof(char);
+  char fnam[] = "malloc_strlist";
+
+  // ----------- BEGIN ---------------
+  print_debug_malloc(opt,fnam);
+  //  printf(" xxx %s: LEN1=%d  LEN2=%d \n", fnam, LEN1, LEN2 );
+
+  if ( opt > 0 ) {
+    *strlist = (char**) malloc( MEM1 );
+    for(i=0; i < LEN1; i++ ) { (*strlist)[i] = (char*) malloc( MEM2 ); }
+    f_MEMTOT += (float)MEM2 ;
+  }
+  else {
+    for(i=0; i < LEN1; i++ ) { free( (*strlist)[i] ); }
+    free( *strlist );
+  }
+  
+
+  return f_MEMTOT/1.0E6;
+
+
+} // end malloc_strlist

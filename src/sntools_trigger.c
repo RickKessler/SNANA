@@ -1,7 +1,6 @@
-
 /************************************
-  Jan 17 2014 R.Kessler
- 
+  Jan 17 2014 R.Kessler   
+  
   Pull out simulation trigger codes (PIPELINE and SPEC)
   into separate sntools_trigger.o to allow for other
   [non-sim] programs to use these trigger codes.
@@ -1089,23 +1088,25 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
     for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_MAP; ivar++ ) {
       SEARCHEFF_INFO->MAP_LIST[imap].IVARTYPE[ivar]              = -9 ;
 
+      SEARCHEFF_INFO->MAP_LIST[imap].FLAG_MAG[ivar]   = 0 ;
+
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_PEAKMAG[ivar][0]  = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_PEAKMAG[ivar][1]  = -9 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
+      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
+      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
 
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_HOSTMAG[ivar]     =  0 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_HOSTMAG[ivar][0]  = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_HOSTMAG[ivar][1]  = -9 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][0] = -9 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][1] = -9 ;
+      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][0] = -9 ;
+      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][1] = -9 ;
 
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_SBMAG[ivar]     =  0 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_SBMAG[ivar][0]  = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_SBMAG[ivar][1]  = -9 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][0] = -9 ;
-      SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][1] = -9 ;
+      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][0] = -9 ;
+      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][1] = -9 ;
 
       SEARCHEFF_INFO->MAP_LIST[imap].IVAR_HOSTLIB[ivar] = -9 ;
     }
@@ -1226,6 +1227,8 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
     
+    if ( commentchar(c_get) ) { fgets(LINE, 100, fp ); continue ; }
+
     if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(ptrFile_final); }
 
     if ( strcmp(c_get,"OPT_EXTRAP:") == 0 ) 
@@ -1373,30 +1376,11 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
 
   bool USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; 
   int  IVARTYPE_MASK = 0; 
-  int  ifilt_obs, ifilt2_obs, ifiltlist[MXFILTINDX], LENVAR, ic, i ;
-  int  IS_PEAKMAG, IS_PEAKCOLOR, IS_HOSTCOLOR, LFF1, LFF2, LMNS ;
 
-  char c0[2], c1[2], c2[2];
-  char minus[2] = "-" ;
   char fnam[] = "assign_MAP_VARNAME";
 
   // ----------- BEGIN ---------
   
-  if ( USE_HOSTLIB ) {
-    int NVAR_HOST, ivar_tmp;
-    // check if VARNAME is in HOSTLIB 
-    ivar_tmp = IVAR_HOSTLIB(VARNAME,0); 
-    if ( ivar_tmp > 0 ) {
-      //printf("\t Found %-20.20s in HOSTLIB for %s map \n", VARNAME, MAPTYPE);
-      NVAR_HOST = MAP->NVAR_HOST;
-      MAP->IVAR_HOST[NVAR_HOST]    = ivar ;     // SEARCHEFF map ivar  
-      MAP->IVAR_HOSTLIB[ivar]      = ivar_tmp ; // hostlib ivar/column
-      MAP->IVARTYPE[ivar]          = IVARTYPE_EFFMAP_HOSTLIB ; 
-      IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_HOSTLIB );
-      MAP->NVAR_HOST++ ;
-      return IVARTYPE_MASK ;
-    }
-  }
 
   // - - - - -
   // check for the easy ones first.
@@ -1414,56 +1398,56 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
   else if ( strcmp(VARNAME,"REDSHIFT") == 0 )  {
     MAP->IVAR_REDSHIFT  = ivar ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_REDSHIFT ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_REDSHIFT );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_REDSHIFT );
     return IVARTYPE_MASK;
   }
 
   else if ( strcmp(VARNAME,"PEAKMJD") == 0 )  {
     MAP->IVAR_PEAKMJD = ivar ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMJD ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMJD );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_PEAKMJD );
     return IVARTYPE_MASK;
   }
   else if ( strcmp(VARNAME,"DTPEAK") == 0 )  {
     MAP->IVAR_DTPEAK = ivar ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_DTPEAK ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_DTPEAK );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_DTPEAK );
     return IVARTYPE_MASK;
   }
   else if ( strcmp(VARNAME,"DTSEASON_PEAK") == 0 )  {
     MAP->IVAR_DTSEASON_PEAK = ivar ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_DTSEASON_PEAK ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_DTSEASON_PEAK );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_DTSEASON_PEAK );
     return IVARTYPE_MASK ;
   }
   else if ( strcmp(VARNAME,"SALT2mB")==0 )  {
     MAP->IVAR_SALT2mB = ivar ;
     MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2mB ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2mB );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_SALT2mB );
     return IVARTYPE_MASK ;
   }
   else if ( strcmp(VARNAME,"SALT2c")==0 )  {
     MAP->IVAR_SALT2c = ivar ;
     MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2c ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2c );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_SALT2c );
     return IVARTYPE_MASK ;
   }
   else if ( strcmp(VARNAME,"SALT2x1")==0 )  {
     MAP->IVAR_SALT2x1 = ivar ;
     MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SALT2x1 ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SALT2x1 );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_SALT2x1 );
     return IVARTYPE_MASK ;
   }
   else if ( strcmp(VARNAME,"LOGMASS") ==0 )  {
     MAP->IVAR_LOGMASS = ivar ;
     MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_LOGMASS ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_LOGMASS );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_LOGMASS );
     return IVARTYPE_MASK ;
   }
   else if ( strcmp(VARNAME,"SNRSUM_REST_V") ==0 )  { // Mar 2026
     MAP->IVAR_SNRSUM_REST_V = ivar ;
     MAP->IVARTYPE[ivar] =  IVARTYPE_EFFMAP_SNRSUM_REST_V ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SNRSUM_REST_V );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_SNRSUM_REST_V );
     return IVARTYPE_MASK ;
   }
 
@@ -1474,102 +1458,33 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
   //.xyz
   int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
 
-  if ( REFAC_SEARCHEFF <= 2 ) {
+  /* xxx mark delete Mar 27 2026 xxxx
     IVARTYPE_MASK = assign_MAP_VARNAME_FILTERS_LEGACY(MAPTYPE, ivar, VARNAME, MAP);
     if ( IVARTYPE_MASK > 0 ) { return IVARTYPE_MASK; }
-  }
-  else if ( REFAC_SEARCHEFF == 3 ) {
-    IVARTYPE_MASK = assign_MAP_VARNAME_FILTERS(MAPTYPE, ivar, VARNAME, MAP);
-    if ( IVARTYPE_MASK > 0 ) { return IVARTYPE_MASK; }
-  }
+  xxxxxxxx end mark xxxxxxx */
+
+  IVARTYPE_MASK = assign_MAP_VARNAME_FILTERS(MAPTYPE, ivar, VARNAME, MAP);
+  if ( IVARTYPE_MASK > 0 ) { return IVARTYPE_MASK; }
 
 
-  /* xxxxxx mark delete Mar 26 2026 xxxxxxxxxxxxx
-
-  // --- legacy below - - - - -
-  IS_PEAKMAG  = IS_PEAKCOLOR = IS_HOSTCOLOR = 0;
-  LENVAR      = strlen(VARNAME);
-  ifilt_obs   = ifilt2_obs = -9;
-  
-  if ( strstr(VARNAME,"+") != NULL ) {
-    // Check for bool-OR of multiple peakMags (Feb 2017); e.g. r+i
-    // Store filter-list for any char that is not a plus (+)
-    for(ic=0; ic < LENVAR; ic++ ) {
-      sprintf(c0, "%c", VARNAME[ic] );
-      if ( c0[0] != '+' ) {
-	ifiltlist[IS_PEAKMAG] = INTFILTER(c0);
-	IS_PEAKMAG++ ;
-      }
+  // check for other HOSTLIB variables that are not filter-dependent
+  if ( USE_HOSTLIB ) {
+    int NVAR_HOST, ivar_tmp;
+    // check if VARNAME is in HOSTLIB 
+    ivar_tmp = IVAR_HOSTLIB(VARNAME,0); 
+    if ( ivar_tmp > 0 ) {
+      //printf("\t Found %-20.20s in HOSTLIB for %s map \n", VARNAME, MAPTYPE);
+      NVAR_HOST = MAP->NVAR_HOST;
+      MAP->IVAR_HOST[NVAR_HOST]    = ivar ;     // SEARCHEFF map ivar  
+      MAP->IVAR_HOSTLIB[ivar]      = ivar_tmp ; // hostlib ivar/column
+      MAP->IVARTYPE[ivar]          = IVARTYPE_EFFMAP_HOSTLIB ; 
+      IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_HOSTLIB );
+      MAP->NVAR_HOST++ ;
+      return IVARTYPE_MASK ;
     }
   }
-  else if ( LENVAR == 1 ) {
-    // check for single peakmag char; e.g. 'r'
-    sprintf(c0, "%c", VARNAME[0] );
-    ifilt_obs  = INTFILTER(c0);
-    if ( ifilt_obs > 0 ) { ifiltlist[0] = ifilt_obs; IS_PEAKMAG = 1; }
-  }
-  else if ( LENVAR == 3 ) {
-    // check for color; e.g. g-i
-    sprintf(c0, "%c", VARNAME[0] );
-    sprintf(c1, "%c", VARNAME[1] );
-    sprintf(c2, "%c", VARNAME[2] );
-
-    ifilt_obs  = INTFILTER(c0);
-    ifilt2_obs = INTFILTER(c2);
-
-    LMNS  = ( strcmp(c1,minus) == 0  ) ;           // require minus sign
-    LFF1  = ( ifilt_obs != ifilt2_obs ) ;          // different filters
-    LFF2  = ( ifilt_obs > 0 && ifilt2_obs > 0 ) ;  // valid filters
-    if ( LMNS && LFF1 && LFF2 ) { IS_PEAKCOLOR = 1; }
-  }
 
 
-  if ( IS_PEAKMAG ) { 
-    MAP->NFILTLIST_PEAKMAG[ivar]  = IS_PEAKMAG ;
-    MAP->IVARTYPE[ivar]           = IVARTYPE_EFFMAP_PEAKMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
-    for(i=0; i < IS_PEAKMAG; i++ ) 
-      { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
-    return IVARTYPE_MASK ; 
-  }
-
-  if ( IS_PEAKCOLOR ) { 
-    MAP->IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
-    MAP->IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
-    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKCOLOR ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
-    return IVARTYPE_MASK ; 
-  }
-
-  // - - - - - - - - - - - - - -
-  // Check for variables of the form XXX_[band] or [band]_XXX
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"PEAKMAG", +1);
-  if ( ifilt_obs >=0 ) {
-    MAP->NFILTLIST_PEAKMAG[ivar]    = 1 ;
-    MAP->IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
-    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
-    return IVARTYPE_MASK ;
-  }
-
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"HOSTMAG HOST_MAG", +1);
-  if ( ifilt_obs >=0 ) {
-    MAP->IFILTOBS_HOSTMAG[ivar] = ifilt_obs ;
-    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_HOSTMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_HOSTMAG );
-    return IVARTYPE_MASK ;
-  }
-
-
-  ifilt_obs = IFILTOBS_SEARCHEFF_VARNAME(VARNAME,"SBMAG", +1 );
-  if ( ifilt_obs >=0 ) {
-    MAP->IFILTOBS_SBMAG[ivar] = ifilt_obs ;
-    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_SBMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SBMAG );
-    return IVARTYPE_MASK ;
-  }
-  // - - - - - -
-  xxxxxxxxxxx */
 
   // ------------------------------------------------------
   // if we get here then abort.
@@ -1589,22 +1504,30 @@ int assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME,
   int IVARTYPE_MASK = 0 ;
   int IVARTYPE      = 0 ;
 
-  bool HAS_PLUS  = strstr(VARNAME,PLUS)  != NULL ; // indicates logical-OR among bands
-  bool HAS_MINUS = strstr(VARNAME,MINUS) != NULL ; // indicates color
+  bool HAS_PLUS  = strstr(VARNAME,PLUS)  != NULL ; // logical-OR among bands; eg l+p
+  bool HAS_MINUS = strstr(VARNAME,MINUS) != NULL ; // color; e.g., g-r
   bool FOUND_MATCH_PREFIX = false ;
+  bool IS_COLOR = HAS_MINUS ; 
+  bool IS_MAG   = !HAS_MINUS ;
 
-#define MXSUBSTR 4
-  char *ptrLIST[MXSUBSTR], SUBSTRING_LIST[MXSUBSTR][20];
-  int  ipre, isub, NSUBSTR, NMATCH, ichar_band, ifiltlist[20] ;
+  int MXSUBSTR = MXSUBSTR_SEARCHEFF_MAP;
+
+  char **ptrLIST, SUB[40], sep[2];
+  float fmem; 
+  int  ipre, isub, NSUBSTR, NMATCH, ichar_band, ifiltlist[20], NFILT=0  ;
+  int  i, ifilt_obs;
 
   // for PEAKMAG, allow color = PEAKMAG_[band0]-PEAKMAG_[band1], etc ...
 #define NPREFIX_VARNAME 4
   char PREFIX_LIST[NPREFIX_VARNAME][20] = {  
-    "PEAKMAG_", 
-    "HOSTMAG_", 
-    "_obs", 
-    "SBMAG_"  
+    "PEAKMAG_",  // 0
+    "HOSTMAG_",  // 1
+    "_obs",      // 2
+    "SBMAG_"     // 3
   } ;
+
+  int IPREFIX_PEAKMAG = 0; 
+  int IPREFIX_obs     = 2;
 
   int  IVARMAG_EFFMAP_LIST[NPREFIX_VARNAME] = { 
     IVARTYPE_EFFMAP_PEAKMAG, 
@@ -1614,56 +1537,76 @@ int assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME,
   } ;
 
   int  IVARCOLOR_EFFMAP_LIST[NPREFIX_VARNAME] = { 
-    IVARTYPE_EFFMAP_PEAKCOLOR, 
+    IVARTYPE_EFFMAP_PEAKCOLOR,  
     IVARTYPE_EFFMAP_HOSTCOLOR, 
     IVARTYPE_EFFMAP_HOSTCOLOR, 
     IVARTYPE_EFFMAP_SBCOLOR 
   } ;
 
-  int IPREFIX_PEAKMAG = 0; 
-  int IPREFIX_obs     = 3;
-  char *ptr_PREFIX, c0[2];
+  char PREFIX[40], cband[2];
+  int LDMP = 0 ;
+
   char fnam[] = "assign_MAP_VARNAME_FILTERS" ;
   
   // -------------- BEGIN ---------------
 
-  // we have match to prefix, so check band and check logic
+  // xxx mark   for(isub=0; isub < MXSUBSTR; isub++ ) { ptrLIST[isub] = SUBSTRING_LIST[isub] ; }
+  fmem = malloc_strlist(+1, MXSUBSTR, 40, &ptrLIST );
 
-  for(isub=0; isub < MXSUBSTR; isub++ ) { ptrLIST[isub] = SUBSTRING_LIST[isub] ; }
+  for(i=0; i < 10; i++ ) { ifiltlist[i] = -9; }
 
   // check how many space-separated SUBSTR names to check
-  if ( HAS_PLUS ) 
-    { splitString(VARNAME, PLUS,  fnam, MXSUBSTR, &NSUBSTR, ptrLIST ); }
-  else if ( HAS_MINUS ) 
-    { splitString(VARNAME, MINUS, fnam, MXSUBSTR, &NSUBSTR, ptrLIST ); }
-  else
-    { NSUBSTR = 1;   ptrLIST[0] = VARNAME; }
+  // Split by both '+' and '-'
+  nsplitString(VARNAME, "+-",  fnam, MXSUBSTR, &NSUBSTR, ptrLIST, sep );
 
-  ichar_band = strlen(VARNAME) - 1; // default is band is last char of VARNAME
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------------------- \n");
+    printf(" xxx %s DUMP for %s-MAP  ivar=%d  VARNAME=%s \n", 
+	   fnam, MAPTYPE, ivar, VARNAME);
+    printf(" xxx   HAS[+ -] = [ %d %d ]  IS_[MAG,COLOR] = [ %d %d ] \n", 
+	   HAS_PLUS, HAS_MINUS, IS_MAG, IS_COLOR );
+    fflush(stdout);
+  }
 
   // - - - - 
   // check which prefix matches; return if none
   for ( ipre=0;  ipre < NPREFIX_VARNAME; ipre++ ) {
     NMATCH = 0 ;
-    for ( isub=0; isub < NSUBSTR; isub++ ) {        
-      if ( strstr(ptrLIST[isub],PREFIX_LIST[ipre]) != NULL ) {
-	FOUND_MATCH_PREFIX = true ;
-      }
+    sprintf(PREFIX, "%s", PREFIX_LIST[ipre] );
+
+    for ( isub=0; isub < NSUBSTR; isub++ ) {
+      FOUND_MATCH_PREFIX = false;
+      sprintf(SUB, "%s", ptrLIST[isub] );
+      ichar_band = strlen(SUB) - 1; // default band location is last char of VARNAME
+
+      if ( strstr(SUB,PREFIX) != NULL ) {  FOUND_MATCH_PREFIX = true ;  }
 
       // check for single band representation of PEAKMAG; e.g. r is same as PRAKMAG_r
-      if ( ipre == IPREFIX_PEAKMAG && strlen(ptrLIST[isub])==1 ) 
-	{  FOUND_MATCH_PREFIX = true; }
+      if ( ipre == IPREFIX_PEAKMAG && strlen(SUB)==1 ) 
+	{  FOUND_MATCH_PREFIX = true;  PREFIX[0] = 0; }
 
-      if ( ipre == IPREFIX_obs && strlen(ptrLIST[isub])==4 ) 
-	{  FOUND_MATCH_PREFIX = true;  ichar_band = 0; }
+      // check for HOSTLIB name [band]_obs ... treat same as HOSTMAG_[band]
+      if ( ipre == IPREFIX_obs && FOUND_MATCH_PREFIX ) {
+	if ( strlen(SUB) == 5 ) { ichar_band = 0; }  
+	else                    { FOUND_MATCH_PREFIX = false; }  // fragile alert
+      }
 
       if ( FOUND_MATCH_PREFIX ) { 
-	sprintf(c0, "%c", VARNAME[ichar_band] );
-	ifiltlist[NMATCH] = INTFILTER(c0);
+	sprintf(cband, "%c", SUB[ichar_band] );
+	ifilt_obs         = INTFILTER(cband);
+	ifiltlist[NMATCH] = ifilt_obs ;
 	NMATCH++ ; 
+	NFILT = NMATCH;
+	if ( LDMP ) {
+	  printf(" xxx   NMATCH=%d for SUBSTR='%s'  PREFIX='%s'  "
+		 "ichar_band=%d  band='%s'  ifilt_obs=%d\n",
+		 NMATCH, SUB, PREFIX, ichar_band, cband, ifilt_obs );
+	  fflush(stdout);
+	}
       }
 
     } // end isub loop
+
 
     if ( NMATCH > 0 && NMATCH != NSUBSTR ) {
       sprintf(c1err,"Found %d prefix matches among %d subtrings in VARNAME=%s",
@@ -1674,45 +1617,72 @@ int assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME,
 
     // if we have matches, set pointer to identified prefix
     if ( NMATCH == NSUBSTR ) { 
-      ptr_PREFIX = PREFIX_LIST[ipre]; 
       if ( HAS_MINUS ) {
 	IVARTYPE      = IVARCOLOR_EFFMAP_LIST[ipre] ;
       }
       else {
 	IVARTYPE      = IVARMAG_EFFMAP_LIST[ipre] ;
-
       }	
     }
 
   } // end loop over possible prefixes
 
+  // free memory
+  fmem = malloc_strlist(+1, MXSUBSTR, 40, &ptrLIST );
   // - - - - - - - - - - -  -
 
-  if ( IVARTYPE_MASK > 0 ) {
+  if ( IVARTYPE > 0 ) {
     IVARTYPE_MASK = ( 1 << IVARTYPE ) ;
+    MAP->IVARTYPE[ivar] = IVARTYPE;
+
+    if ( IS_MAG   ) { MAP->FLAG_MAG[ivar] =  FLAG_EFFMAP_MAG   ; }
+    if ( IS_COLOR ) { MAP->FLAG_MAG[ivar] =  FLAG_EFFMAP_COLOR ; }
+
+    if ( LDMP ) {
+      printf(" xxx   IVARTYPE=%d  ivar=%d  IS_[MAG,COLOR] = [%d,%d]  FLAG_MAG=%d\n",
+	     IVARTYPE, ivar, IS_MAG, IS_COLOR, MAP->FLAG_MAG[ivar] );
+      printf(" xxx\t   (FLAG_EFFMAP_MAG=%d  FLAG_EFFMAP_COLOR=%d) \n",
+	     FLAG_EFFMAP_MAG, FLAG_EFFMAP_COLOR);
+      fflush(stdout);
+    }
+  }
+  else {
+    if ( LDMP ) { printf(" xxx   return with no matches. \n xxx \n"); fflush(stdout);  }
+    return IVARTYPE_MASK ;
   }
 
-  /* xxxxxxxxx mark delete xxxxxxx
 
-  if ( IS_PEAKMAG ) { 
-    MAP->NFILTLIST_PEAKMAG[ivar]  = IS_PEAKMAG ;
-    MAP->IVARTYPE[ivar]           = IVARTYPE_EFFMAP_PEAKMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
-    for(i=0; i < IS_PEAKMAG; i++ ) 
-      { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
-    return IVARTYPE_MASK ; 
+
+  bool IS_PEAKMAG = ( IVARTYPE==IVARTYPE_EFFMAP_PEAKMAG || IVARTYPE==IVARTYPE_EFFMAP_PEAKCOLOR); 
+  bool IS_HOSTMAG = ( IVARTYPE==IVARTYPE_EFFMAP_HOSTMAG || IVARTYPE==IVARTYPE_EFFMAP_HOSTCOLOR); 
+  bool IS_SBMAG   = ( IVARTYPE==IVARTYPE_EFFMAP_SBMAG   || IVARTYPE==IVARTYPE_EFFMAP_SBCOLOR  ); 
+
+  if ( LDMP ) { 
+    printf(" xxx   IS[PEAKMAG, HOSTMAG, SBMAG] = [ %d %d %d ] \n",
+	   IS_PEAKMAG, IS_HOSTMAG, IS_SBMAG ); fflush(stdout);
   }
 
-  if ( IS_PEAKCOLOR ) { 
-    MAP->IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
-    MAP->IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
-    MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKCOLOR ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
-    return IVARTYPE_MASK ; 
+  if ( IS_PEAKMAG ) {
+    MAP->NFILTLIST_PEAKMAG[ivar]  = NFILT ;
+    if ( LDMP ) { printf(" xxx   load NFILT=%d for ivar=%d  IFILT_OBS = %d %d\n", 
+			 NFILT, ivar, ifiltlist[0], ifiltlist[1]); }
+    for(i=0; i < NFILT; i++ ) { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
   }
-  xxxxxx end mark xxxxxx */
 
-  return IVARTYPE_MASK ;
+  if ( IS_HOSTMAG ) {
+    MAP->NFILTLIST_HOSTMAG[ivar]  = NFILT ;
+    for(i=0; i < NFILT; i++ ) { MAP->IFILTLIST_HOSTMAG[ivar][i] = ifiltlist[i] ; }
+  }
+
+  if ( IS_SBMAG ) {
+    MAP->NFILTLIST_SBMAG[ivar]  = NFILT ;
+    for(i=0; i < NFILT; i++ ) { MAP->IFILTLIST_SBMAG[ivar][i] = ifiltlist[i] ; }
+  }
+
+  if ( LDMP ) { printf(" xxx \n"); fflush(stdout); }
+
+  return IVARTYPE_MASK ; 
+
   
 } // end assign_MAP_VARNAME_FILTERS
 
@@ -1780,17 +1750,17 @@ int assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME,
   if ( IS_PEAKMAG ) { 
     MAP->NFILTLIST_PEAKMAG[ivar]  = IS_PEAKMAG ;
     MAP->IVARTYPE[ivar]           = IVARTYPE_EFFMAP_PEAKMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
     for(i=0; i < IS_PEAKMAG; i++ ) 
       { MAP->IFILTLIST_PEAKMAG[ivar][i] = ifiltlist[i] ; }
     return IVARTYPE_MASK ; 
   }
 
   if ( IS_PEAKCOLOR ) { 
-    MAP->IFILTOBS_PEAKCOLOR[ivar][0] = ifilt_obs ;
-    MAP->IFILTOBS_PEAKCOLOR[ivar][1] = ifilt2_obs ;
+    MAP->IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
+    MAP->IFILTLIST_PEAKMAG[ivar][1] = ifilt2_obs ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKCOLOR ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_PEAKCOLOR );
     return IVARTYPE_MASK ; 
   }
 
@@ -1801,7 +1771,7 @@ int assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME,
     MAP->NFILTLIST_PEAKMAG[ivar]    = 1 ;
     MAP->IFILTLIST_PEAKMAG[ivar][0] = ifilt_obs ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_PEAKMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_PEAKMAG );
     return IVARTYPE_MASK ;
   }
 
@@ -1809,7 +1779,7 @@ int assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME,
   if ( ifilt_obs >=0 ) {
     MAP->IFILTLIST_HOSTMAG[ivar][0] = ifilt_obs ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_HOSTMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_HOSTMAG );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_HOSTMAG );
     return IVARTYPE_MASK ;
   }
 
@@ -1818,7 +1788,7 @@ int assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME,
   if ( ifilt_obs >=0 ) {
     MAP->IFILTLIST_SBMAG[ivar][0] = ifilt_obs ;
     MAP->IVARTYPE[ivar] = IVARTYPE_EFFMAP_SBMAG ;
-    IVARTYPE_MASK |= ( 1 << IVARTYPE_EFFMAP_SBMAG );
+    IVARTYPE_MASK = ( 1 << IVARTYPE_EFFMAP_SBMAG );
     return IVARTYPE_MASK ;
   }
 
@@ -1860,7 +1830,7 @@ void init_SEARCHEFF_zHOST(char *survey) {
   // and two columns only: redshift and EFF.
   if ( INPUTS_SEARCHEFF.IVERSION_zHOST == 0 ) {
     fp = open_zHOST_FILE(1);
-    if ( fp != NULL ) { read_VARNAMES_zHOST(fp); fclose(fp); }
+    if ( fp != NULL ) { read_VARNAMES_zHOST_LEGACY(fp); fclose(fp); }
     int LEGACY = ( INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY );
     if ( LEGACY ) {
       sprintf(c1err,"Two-column (z EFF) format no longer supported");
@@ -1882,16 +1852,84 @@ void init_SEARCHEFF_zHOST(char *survey) {
 } // end of init_SEARCHEFF_zHOSTEFF
 
 
+void read_searcheff_raw_varnames(char *SEARCHEFF_FILE, int *OPEN_STATUS, 
+				 int *NVAR_RAW, char **VARNAMES_RAW) {
+
+  // Created Mar 27 2026
+  // For input EFFMAP_FILE, read VARNAMES and break up variables that have
+  // + or -.
+  //
+  // Example: SPECEFF file has  VARNAMES:  r  g-i
+  //   This functions returns *NVAR_RAW = 3  and VARNAMES_RAW = 'r', 'g', 'i'
+  //   
+
+  int MXVAR = MXVAR_SEARCHEFF_MAP ;
+  int NSKIP = 1; // skip HOSTEFF of SPECEFF column
+  int NKEY, NVAR, UNIQUE[MXVAR_SEARCHEFF_MAP], ivar, NVAR_RAW_LOCAL = 0 ;
+  int MXSUBSTR=4, NSUBSTR, isub ;
+  FILE *fp;
+  float fmem; 
+  char **VARNAMES_LOCAL, **SUBSTRING_LIST, SUB[40], sep[2], VARLIST[80] ;
+  int LDMP = 0 ;
+  char fnam[] = "read_searcheff_raw_varnames";
+
+  // ------------ BEGIN -----------
+
+  *NVAR_RAW    = 0 ;
+  *OPEN_STATUS = 0;  // not SUCCESS, nor ERROR
+  VARLIST[0]   = 0;
+  if ( strlen(SEARCHEFF_FILE) < 6 ) { return; } // avoid options like ONE or ZERO or NONE
+
+  int OPTMASK = 1;  // +=1(verbose)  +=4(don't check DOC)
+  int gzipFlag;
+  char PATH_LIST[] = "",   SEARCHEFF_FULLPATH[MXPATHLEN];
+  fp  = snana_openTextFile (OPTMASK, PATH_LIST, SEARCHEFF_FILE, SEARCHEFF_FULLPATH, &gzipFlag);
+
+  fmem += malloc_strlist(+1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_LOCAL );
+  fmem += malloc_strlist(+1, MXVAR_SEARCHEFF_MAP, 40, &SUBSTRING_LIST );
+
+  read_VARNAMES_KEYS(fp, MXVAR, NSKIP, fnam, &NVAR, &NKEY, UNIQUE, VARNAMES_LOCAL);
+  
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+
+    // if VARNAME_LOCAL is g-r, split into 'g' and 'r' to report both RAW variables
+    nsplitString(VARNAMES_LOCAL[ivar], "+-",  fnam, MXSUBSTR, &NSUBSTR, SUBSTRING_LIST, sep );
+    for (isub=0; isub < NSUBSTR; isub++ ) {
+      sprintf(SUB, "%s", SUBSTRING_LIST[isub] );
+      sprintf(VARNAMES_RAW[NVAR_RAW_LOCAL], "%s", SUB );
+      strcat(VARLIST," ");      strcat(VARLIST,SUB);
+      if ( LDMP ) {
+	printf(" xxx %s: VARNAMES_RAW[%d] = %s \n", fnam, NVAR_RAW_LOCAL, SUB); fflush(stdout);
+      }
+      NVAR_RAW_LOCAL++ ;
+    } // end isub loop
+  } // end ivar loop
+
+
+  *NVAR_RAW = NVAR_RAW_LOCAL;
+
+  printf("\t Found %d RAW variables: '%s' \n", NVAR_RAW_LOCAL, VARLIST);
+  fflush(stdout);
+
+  fmem = malloc_strlist(-1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_LOCAL );
+  fmem = malloc_strlist(-1, MXVAR_SEARCHEFF_MAP, 40, &SUBSTRING_LIST );
+  fclose(fp);
+
+  return;
+
+} // end read_searcheff_raw_varnames
+
+
 // ************************************
-FILE *open_zHOST_FILE(int OPT) {
+FILE *open_zHOST_FILE(int VBOSE) {
 
   // Mar 20 2019
   // Open zHOST file and return file pointer 
   //
-  // OPT = +1 -> normal init called from trigger code
-  // OPT = -1 -> called from init_HOSTLIB to get VARNAMES
+  // VBOSE = +1 -> print to stdout
+  // VBOSE =  0 -> do NOT print to stdout
 
-  int LPRINT = ( OPT > 0 ) ; // stdout printing
+  int LPRINT = ( VBOSE > 0 ) ; // stdout printing
   int  REQUIRE_zHOST_FILE=0, gzipFlag ;
   char *ptrFile_user ;
   char *ptrFile_final ;
@@ -1954,128 +1992,15 @@ FILE *open_zHOST_FILE(int OPT) {
 
   // --------------------------------------------
 
-  if ( LPRINT ) {
-    printf("\n");
-    printf("   Read zHOST-for-unconfirmed effic map from \n\t %s\n", 
-	   ptrFile_final );
-    fflush(stdout) ;
-  }
+  // always print message for opened file
+  printf("   Open zHOST-for-unconfirmed effic map from \n\t %s\n", ptrFile_final );
+  fflush(stdout) ;
 
   return(fp);
 
 } // end open_zHOST_FILE
 
 
-
-// ***************************************************
-int parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB, 
-			 char **varName_HOSTLIB, char *varNameList) {
-
-  // Mar 2019
-  // parse variable names after VARNAMES key; return(NVAR)
-  //
-  // Inputs:
-  //    fp   file pointer to read
-  // Outputs:
-  //   *ivar_HOSTLIB     : HOSTLIB ivar for each variable
-  //  **varName_HOSTLIB  : pointer to each varName
-  //   *varNameList      : space-separate list (for printing)
-  //
-
-  int NVAR, ivar, *ivar_H;
-  char LINE[100], *varName_H;
-  char fnam[] = "parse_VARNAMES_zHOST" ;
-  int  NERR = 0 ;
-  int  LDMP = 0 ;
-  // ----------- BEGIN ------------
-
-  fgets(LINE, 100, fp ); // scoop up varnames
-  if ( LDMP ) {
-    printf(" xxx %s --------------------------------- \n", fnam );
-    printf(" xxx %s VARNAMES LINE = '%s' \n", fnam, LINE);
-    fflush(stdout);
-  }
-
-  varNameList[0] = 0 ;
-
-  NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
-  for ( ivar=0; ivar < NVAR; ivar++ ) {
-    varName_H = varName_HOSTLIB[ivar];
-    ivar_H    = &ivar_HOSTLIB[ivar];  // assign local pointer
-
-    get_PARSE_WORD(0,ivar,varName_H, fnam);
-    checkAlternateVarNames_HOSTLIB(varName_H); // 10.03.2020
-    *ivar_H  = IVAR_HOSTLIB(varName_H,0);  // sntools_host.c
-    
-    if (LDMP ) {
-      printf(" xxx %s: varName[%d] = '%s' (IVAR_HOSTLIB=%d)\n", 
-	     fnam, ivar, varName_H , *ivar_H); fflush(stdout);
-    }
-
-    // sanity checks
-    if ( ivar < NVAR-1  && *ivar_H < 0 ) {
-      NERR++;
-      printf("\t ERROR: unknown zHOST variable '%s' not in HOSTLIB\n",
-	     varName_H);
-    }
-
-    /*
-    if ( ivar == NVAR-1 && strcmp(varName_H,"EFF")!=0 ) {
-      NERR++ ;
-      printf("\t ERROR: last zHOST variable is '%s, but must be EFF\n", 
-	     varName_H);   
-    }
-    */
-
-    catVarList_with_sep(varNameList, varName_H, " ");
-  }
-  
-  if ( NERR > 0 ) {
-    sprintf(c1err,"%d zHOST variables are invalid", NERR);
-    sprintf(c2err,"See ERROR messages above.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
-  }
-
-  return(NVAR) ;
-
-} // end parse_VARNAMES_zHOST
-
-
-// ********************************
-void read_VARNAMES_zHOST(FILE *fp) {
-
-  // Mar 20 2019
-  //
-  // * Read VARNAMES keys from *fp
-  // * set INPUTS_SEARCHEFF.IVERSION_zHOST
-  // * fill SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar]
-  //
-
-  int MXVAR = MXVAR_SEARCHEFF_zHOST;
-  int ivar, NVAR, NKEY, UNIQUE[MXVAR_SEARCHEFF_zHOST];
-  char *VARNAMES[MXVAR_SEARCHEFF_zHOST];
-  char fnam[] = "read_VARNAMES_zHOST" ;
-
-  // -------------- BEGIN ---------------
-
-  SEARCHEFF_zHOST[0].NVAR = 0;
-  if ( INPUTS_SEARCHEFF.IVERSION_zHOST > 0 ) { return ; }
-
-  for(ivar=0; ivar < MXVAR; ivar++ )
-    { VARNAMES[ivar] = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar]; }
-
-  read_VARNAMES_KEYS(fp, MXVAR, 1, fnam,&NVAR, &NKEY, UNIQUE, VARNAMES) ;
-  SEARCHEFF_zHOST[0].NVAR = NVAR;
-
-  if ( NVAR == 0 )
-    { INPUTS_SEARCHEFF.IVERSION_zHOST = IVERSION_zHOST_LEGACY; }
-  else
-    { INPUTS_SEARCHEFF.IVERSION_zHOST = IVERSION_zHOST_MULTID; }
-
-
-  return ;
-
-} // end  read_VARNAMES_zHOST
 
 
 // ***************************************
@@ -2949,7 +2874,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP], PEAKMJD ;
   double *ptr_FLAT_RANDOMS;
   char   *FIELD_MAP, *VARNAME ;
-  int    INDX_RAN, LDMP = 0; // (ID == 173)
+  int    INDX_RAN, LDMP = 0 ; // (ID == 7) ;
   char   fnam[] = "gen_searcheff_map" ;
 
   // ----------- BEGIN --------
@@ -3008,12 +2933,16 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
     // check if current FIELD & PEAKMJD goes with this map
     FIELD_MAP   = MAP->FIELDLIST ;
     MATCH_FIELD = MATCH_SEARCHEFF_FIELD(FIELD_MAP);
-    if ( !MATCH_FIELD ) { continue; } // bug fix; Mar 3 2026 
 
     PEAKMJD = SEARCHEFF_DATA.PEAKMJD ;
     MATCH_PEAKMJD = ( PEAKMJD >= MAP->PEAKMJD_RANGE[0] && 
 		      PEAKMJD <= MAP->PEAKMJD_RANGE[1] );
-    if ( !MATCH_PEAKMJD ) { continue ; }
+
+    if ( LDMP ) {
+      printf(" xxx %s: FIELD=%s  PEAKMJD=%.0f  MATCH[FIELD,PEAKMJD] = %d, %d \n",
+	     fnam, SEARCHEFF_DATA.FIELDNAME, PEAKMJD, MATCH_FIELD, MATCH_PEAKMJD ); fflush(stdout);
+    }
+    if ( !(MATCH_PEAKMJD && MATCH_FIELD)  ) { continue ; }
 
     NMATCH++ ; // count how many maps are matched to field/peakmjd
     
@@ -3023,9 +2952,9 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
       VARDATA[ivar] = LOAD_SEARCHEFF_VAR(MAPTYPE, MAP, ivar); 
       if ( LDMP ) {
 	VARNAME = MAP->VARNAMES[ivar] ;	
-	printf(" xxx %s: imap=%d  load ivar=%d:  %s = %f \n",
+	printf(" xxx %s MATCH: imap=%d  load ivar=%d:  %s = %f \n",
 	       fnam, imap, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
-	printf(" xxx %s: imap=%d  FIELD=%s  PEAKMJD_RANGE=%.0f-%.0f \n",
+	printf(" xxx %s MATCH : imap=%d  FIELD=%s  PEAKMJD_RANGE=%.0f-%.0f \n",
 	       fnam, imap, MAP->FIELDLIST, 
 	       MAP->PEAKMJD_RANGE[0], MAP->PEAKMJD_RANGE[1]);
 	fflush(stdout);
@@ -3035,7 +2964,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
     istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, &EFF_LOCAL );
 
     if ( LDMP ) {
-      printf(" xxx %s: imap=%d  EFF(interp)=%.3f \n", fnam, imap, EFF_LOCAL );
+      printf(" xxx %s MATCH: imap=%d  EFF(interp)=%.3f \n", fnam, imap, EFF_LOCAL );
       fflush(stdout);
     }
     
@@ -3168,51 +3097,24 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
     return  SEARCHEFF_DATA.SALT2c ; 
   }
 
-  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMAG ) {
-    // take average of peakMags that are OR'ed in this map.
-    int NTMP = 0 ;
-    MAG = 0.0 ;
-    NFILTLIST = MAP->NFILTLIST_PEAKMAG[ivar] ;
-    for(ifilt=0; ifilt < NFILTLIST; ifilt++ ) {
-      ifilt_obs = MAP->IFILTLIST_PEAKMAG[ivar][ifilt] ;
-      mag       = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
-      if ( mag < 40. && mag > 0.0 ) { MAG += mag; NTMP++; }
-    }
-    if ( NTMP > 0 ) 
-      { MAG /= (float)NTMP ; }
-    else
-      { MAG = -9.0; }
-    //    check_magUndefined(mag,varName,fnam);  // abort if mag is undefined
-    MAG  += INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ; // .xyz generalize for zHOST or SPECID ??
-    return(MAG) ;
-  }   
-
-  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKCOLOR ) {
-    ifilt_obs = MAP->IFILTOBS_PEAKCOLOR[ivar][0] ;
-    mag0 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs]  ;
-    check_magUndefined(mag0,varName,fnam);  
-    
-    ifilt_obs = MAP->IFILTOBS_PEAKCOLOR[ivar][1] ;
-    mag1 = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
-    check_magUndefined(mag1,varName,fnam);  
-	  
-    color = mag0 - mag1 ;
-    return  color ;
-  }          
-
-
-  else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTMAG ) {
-    ifilt_obs = MAP->IFILTLIST_HOSTMAG[ivar][0] ;
-    mag       = SEARCHEFF_DATA.HOSTMAG[ifilt_obs] ;
-    check_magUndefined(mag,varName,fnam);
-    return mag ;
-  }          
-  else if ( IVARTYPE == IVARTYPE_EFFMAP_SBMAG ) {
-    ifilt_obs = MAP->IFILTLIST_SBMAG[ivar][0] ;
-    mag       = SEARCHEFF_DATA.SBMAG[ifilt_obs] ;
-    check_magUndefined(mag,varName,fnam);
-    return mag ;
-  }          
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMAG || IVARTYPE == IVARTYPE_EFFMAP_PEAKCOLOR) {
+    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->VARNAMES[ivar],
+			    MAP->NFILTLIST_PEAKMAG[ivar], MAP->IFILTLIST_PEAKMAG[ivar], 
+			    SEARCHEFF_DATA.PEAKMAG );
+    return mag;
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTMAG || IVARTYPE == IVARTYPE_EFFMAP_HOSTCOLOR) {
+    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->VARNAMES[ivar],
+			    MAP->NFILTLIST_HOSTMAG[ivar], MAP->IFILTLIST_HOSTMAG[ivar], 
+			    SEARCHEFF_DATA.HOSTMAG );
+    return mag;
+  }
+  else if ( IVARTYPE == IVARTYPE_EFFMAP_SBMAG || IVARTYPE == IVARTYPE_EFFMAP_SBCOLOR) {
+    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->VARNAMES[ivar],
+			    MAP->NFILTLIST_SBMAG[ivar], MAP->IFILTLIST_SBMAG[ivar], 
+			    SEARCHEFF_DATA.SBMAG );
+    return mag;
+  }
 
 
   // if we get here then abort.
@@ -3224,6 +3126,98 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
   return(-9.0); // should never get here
 
 } // end of LOAD_SEARCHEFF_VAR
+
+
+double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, char *VARNAME,
+			 int NFILT, int *IFILTLIST, double *MAG_DATA) {
+
+  // Created Mar 27 2026
+  // utility to return mag among list of bands, or color from list of bands.
+  // Inputs:
+  //   MAPTYPE    : SPECID or zHOST
+  //   FLAG_MAG   : FLAG_EFFMAP_MAG (for mag) or FLAG_EFFMAP_COLOR
+  //   VARNAME    : var name in map (for diagnostic only)
+  //   NFILT      : number of filters passed
+  //   IFILTLIST  : list of NFILT absolute filter indices
+  //   MAG_DATA   : list of NFILT mag values from sim data
+  //
+  // Function returns either mag or color based on FLAG_MAG value.
+
+  int ifilt, ifilt_obs  ;
+  int LDMP = 0 ;
+  char fnam[] = "get_searcheff_mag" ;
+
+  // ------------ BEGIN --------------
+
+  if ( NFILT <= 0 || NFILT > 20 )  {
+    sprintf(c1err,"Invalid NFILT=%d for VARNAME=%s in %s-MAP", NFILT, VARNAME, MAPTYPE);
+    sprintf(c2err,"FLAG_MAG = %d ", FLAG_MAG);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  if ( LDMP ) {
+    printf(" xxx --------------------------------------------------- \n");
+    printf(" xxx %s(%s) DUMP for %s-MAP FLAG_MAG=%d NFILT=%d \n", 
+	   fnam, VARNAME, MAPTYPE, FLAG_MAG, NFILT );
+    fflush(stdout);
+  }
+
+  if ( FLAG_MAG == FLAG_EFFMAP_MAG ) {
+
+    double mag=0.0,  mag_tmp=0.0;   int nmag_valid=0 ;
+    for(ifilt=0; ifilt < NFILT; ifilt++ ) {
+      ifilt_obs = IFILTLIST[ifilt] ;
+      mag_tmp   = MAG_DATA[ifilt_obs] ;
+      if ( mag_tmp < 40. && mag_tmp > 0.0 ) { mag += mag_tmp; nmag_valid++; }
+
+      if ( LDMP ) {
+	printf(" xxx %s(%s): ifilt_obs = %d mag_tmp = %.3f \n", 
+	       fnam, VARNAME, ifilt_obs, mag_tmp);	fflush(stdout);
+      }
+    }
+    if ( nmag_valid > 0 ) 
+      { mag /= (double)nmag_valid ; }
+    else
+      { mag = -9.0; }
+    
+
+    //    check_magUndefined(mag,varName,fnam);  // abort if mag is undefined
+    //MAG  += INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ; // .xyz generalize for zHOST or SPECID ??
+
+    if ( LDMP )
+      { printf(" xxx %s(%s): return  mag = %.3f \n",  fnam, VARNAME, mag); fflush(stdout); }
+
+    return mag;
+  }
+  else if ( FLAG_MAG == FLAG_EFFMAP_COLOR ) {
+
+    double mag0, mag1, color ;   int ifilt_obs0, ifilt_obs1;
+    ifilt_obs0 = IFILTLIST[0] ;    mag0 = MAG_DATA[ifilt_obs0];
+    ifilt_obs1 = IFILTLIST[1] ;    mag1 = MAG_DATA[ifilt_obs1];
+    check_magUndefined(mag0, VARNAME, fnam); 
+    check_magUndefined(mag1, VARNAME, fnam);  
+	  
+    color = mag0 - mag1 ;
+
+    if ( LDMP ) {
+      printf(" xxx %s(%s): ifilt_obs= %d,%d   color = %.3f - %.3f = %.3f \n",
+	     fnam, VARNAME, ifilt_obs0, ifilt_obs1, mag0, mag1, color); fflush(stdout);
+    }
+
+    return color ;
+  }
+
+  else {
+    sprintf(c1err,"Invalid FLAG_MAG = %d",  FLAG_MAG);
+    sprintf(c2err,"Expecting FLAG_MAG = %d(mag) or %d(color)",
+	    FLAG_EFFMAP_MAG, FLAG_EFFMAP_COLOR);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  // should never get here
+  return MAG_UNDEFINED;
+
+} // end get_searcheff_mag
 
 // ************************************************
 int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
@@ -3405,63 +3399,6 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
 
 
 
-// ============================================================
-int IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *SUBSTR, int OPT) {
-
-  // if input  *VARNAME is of the form *SUBSTR_[band] (OPT=1),
-  // or [band]_*SUBSTR (OPT=0),
-  // return integer filter index for [band].
-  // If *SUBSTR is not part of VARNAME, return -9.
-  //
-  // SUBSTR can be list to check; e.g "HOSTMAG HOST_MAG"
-  //
-  // Example-1:  VARNAME = HOSTMAG_r   SUBSTR = 'HOSTMAG'     OPT=1
-  //             --> returns IFILTOBS=3
-  //
-  // Example-2:  VARNAME = J_obs   SUBSTR = '_obs'     OPT=0
-  //             --> returns IFILTOBS=7
-  //  
-  // Aug 15 2024: splitString2 crashes, so use splitString(...).
-  // Mar 09 2026: Rename function IFILTOBS_SPECEFF_VAR -> IFILTOBS_SEARCHEFF_VARNAME
-  // Mar 26 2026: refactor with new OPT input
-
-  bool ISBAND_FIRSTCHAR = (OPT == 0);
-  bool ISBAND_LASTCHAR  = (OPT >  0);
-
-#define MXSUBSTR 4
-  int  NSUBSTR=0;
-  int  i, LENV, IFILTOBS = -9;
-  bool MATCH;
-  char cfilt[2], SUBSTR_LIST[MXSUBSTR][80], *ptr_SUBSTR;
-  char *ptrList[MXSUBSTR];
-  char sepKey[] = " ";
-  char fnam[] = "IFILTOBS_SEARCHEFF_VARNAME" ;
-
-  // -------------- BEGIN ---------------
-
-  for(i=0; i < MXSUBSTR; i++ ) { ptrList[i] = SUBSTR_LIST[i]; }
-
-  // check how many space-separated SUBSTR names to check
-  splitString(SUBSTR, sepKey, fnam, MXSUBSTR,
-              &NSUBSTR, ptrList ); // <== returned
-  
-  for ( i=0; i < NSUBSTR; i++ ) {
-    ptr_SUBSTR = SUBSTR_LIST[i];
-    MATCH = ( strstr(VARNAME,ptr_SUBSTR) != NULL ) ;
-    if ( MATCH ) {
-      LENV      = strlen(VARNAME);
-      if ( ISBAND_FIRSTCHAR ) 
-	{ sprintf(cfilt,"%c", VARNAME[0] ); } // e.g. J_obs from HOSTLIB -> J
-      else
-	{ sprintf(cfilt,"%c", VARNAME[LENV-1] ); } // e.g. PEAKMAG_r -> r
-
-      IFILTOBS  = INTFILTER(cfilt);
-    }
-  }
-
-  return(IFILTOBS);
-
-} // end IFILTOBS_SEARCHEFF_VARNAME
 
 // ============================================================
 int  gen_SEARCHEFF_DEBUG(char *WHAT, double RAN, double *EFF) {
@@ -3525,6 +3462,67 @@ int  gen_SEARCHEFF_DEBUG(char *WHAT, double RAN, double *EFF) {
 // @@@@@@@@@@@@ LEGACY_FUNCTIONS @@@@@@@@@@@@@@@@@                                     
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+
+
+// ============================================================
+int IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *SUBSTR, int OPT) {
+
+  // if input  *VARNAME is of the form *SUBSTR_[band] (OPT=1),
+  // or [band]_*SUBSTR (OPT=0),
+  // return integer filter index for [band].
+  // If *SUBSTR is not part of VARNAME, return -9.
+  //
+  // SUBSTR can be list to check; e.g "HOSTMAG HOST_MAG"
+  //
+  // Example-1:  VARNAME = HOSTMAG_r   SUBSTR = 'HOSTMAG'     OPT=1
+  //             --> returns IFILTOBS=3
+  //
+  // Example-2:  VARNAME = J_obs   SUBSTR = '_obs'     OPT=0
+  //             --> returns IFILTOBS=7
+  //  
+  // Aug 15 2024: splitString2 crashes, so use splitString(...).
+  // Mar 09 2026: Rename function IFILTOBS_SPECEFF_VAR -> IFILTOBS_SEARCHEFF_VARNAME
+  // Mar 26 2026: refactor with new OPT input
+
+  bool ISBAND_FIRSTCHAR = (OPT == 0);
+  bool ISBAND_LASTCHAR  = (OPT >  0);
+
+
+  int  MXSUBSTR = MXSUBSTR_SEARCHEFF_MAP, NSUBSTR=0;
+  int  i, LENV, IFILTOBS = -9;
+  bool MATCH;
+  char cfilt[2], SUBSTR_LIST[MXSUBSTR_SEARCHEFF_MAP][80], *ptr_SUBSTR;
+  char *ptrList[MXSUBSTR_SEARCHEFF_MAP];
+  float fmem = 0.0 ;
+  char sepKey[] = " ";
+  char fnam[] = "IFILTOBS_SEARCHEFF_VARNAME" ;
+
+  // -------------- BEGIN ---------------
+
+  for(i=0; i < MXSUBSTR; i++ ) { ptrList[i] = SUBSTR_LIST[i]; }
+
+  // check how many space-separated SUBSTR names to check
+  splitString(SUBSTR, sepKey, fnam, MXSUBSTR,
+              &NSUBSTR, ptrList ); // <== returned
+  
+  for ( i=0; i < NSUBSTR; i++ ) {
+    ptr_SUBSTR = SUBSTR_LIST[i];
+    
+    MATCH = ( strstr(VARNAME,ptr_SUBSTR) != NULL ) ;
+    if ( MATCH ) {
+      LENV      = strlen(VARNAME);
+      if ( ISBAND_FIRSTCHAR ) 
+	{ sprintf(cfilt,"%c", VARNAME[0] ); } // e.g. J_obs from HOSTLIB -> J
+      else
+	{ sprintf(cfilt,"%c", VARNAME[LENV-1] ); } // e.g. PEAKMAG_r -> r
+
+      IFILTOBS  = INTFILTER(cfilt);
+    }
+  }
+
+  return(IFILTOBS);
+
+} // end IFILTOBS_SEARCHEFF_VARNAME
 
 // *******************************************
 double interp_SEARCHEFF_zHOST(int ID) {
@@ -3776,7 +3774,7 @@ void read_zHOST_FILE_LEGACY(FILE *fp) {
     // parse VARNAMES in map
     if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_zHOST ) {
       VARLIST = SEARCHEFF_zHOST[NMAP].GRIDMAP.VARLIST ;
-      NVAR = parse_VARNAMES_zHOST(fp, IVAR_HOSTLIB_TMP, ptr_VARNAMES,VARLIST);
+      NVAR = parse_VARNAMES_zHOST_LEGACY(fp, IVAR_HOSTLIB_TMP, ptr_VARNAMES,VARLIST);
       NDIM = NVAR-1; NFUN=1;  IDMAP=IDGRIDMAP_zHOST_OFFSET+NMAP ;
 
       // store a few things in global
@@ -4037,6 +4035,120 @@ void  check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF_USE
 } // end  check_APPLYMASK_SEARCHEFF_LEGACY
 
 
+
+// ***************************************************
+int parse_VARNAMES_zHOST_LEGACY(FILE *fp, int *ivar_HOSTLIB, 
+			 char **varName_HOSTLIB, char *varNameList) {
+
+  // Mar 2019
+  // parse variable names after VARNAMES key; return(NVAR)
+  //
+  // Inputs:
+  //    fp   file pointer to read
+  // Outputs:
+  //   *ivar_HOSTLIB     : HOSTLIB ivar for each variable
+  //  **varName_HOSTLIB  : pointer to each varName
+  //   *varNameList      : space-separate list (for printing)
+  //
+
+  int NVAR, ivar, *ivar_H;
+  char LINE[100], *varName_H;
+  char fnam[] = "parse_VARNAMES_zHOST_LEGACY" ;
+  int  NERR = 0 ;
+  int  LDMP = 0 ;
+  // ----------- BEGIN ------------
+
+  fgets(LINE, 100, fp ); // scoop up varnames
+  if ( LDMP ) {
+    printf(" xxx %s --------------------------------- \n", fnam );
+    printf(" xxx %s VARNAMES LINE = '%s' \n", fnam, LINE);
+    fflush(stdout);
+  }
+
+  varNameList[0] = 0 ;
+
+  NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
+  for ( ivar=0; ivar < NVAR; ivar++ ) {
+    varName_H = varName_HOSTLIB[ivar];
+    ivar_H    = &ivar_HOSTLIB[ivar];  // assign local pointer
+
+    get_PARSE_WORD(0,ivar,varName_H, fnam);
+    checkAlternateVarNames_HOSTLIB(varName_H); // 10.03.2020
+    *ivar_H  = IVAR_HOSTLIB(varName_H,0);  // sntools_host.c
+    
+    if (LDMP ) {
+      printf(" xxx %s: varName[%d] = '%s' (IVAR_HOSTLIB=%d)\n", 
+	     fnam, ivar, varName_H , *ivar_H); fflush(stdout);
+    }
+
+    // sanity checks
+    if ( ivar < NVAR-1  && *ivar_H < 0 ) {
+      NERR++;
+      printf("\t ERROR: unknown zHOST variable '%s' not in HOSTLIB\n",
+	     varName_H);
+    }
+
+    /*
+    if ( ivar == NVAR-1 && strcmp(varName_H,"EFF")!=0 ) {
+      NERR++ ;
+      printf("\t ERROR: last zHOST variable is '%s, but must be EFF\n", 
+	     varName_H);   
+    }
+    */
+
+    catVarList_with_sep(varNameList, varName_H, " ");
+  }
+  
+  if ( NERR > 0 ) {
+    sprintf(c1err,"%d zHOST variables are invalid", NERR);
+    sprintf(c2err,"See ERROR messages above.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
+  }
+
+  return(NVAR) ;
+
+} // end parse_VARNAMES_zHOST_LEGACY
+
+
+// ********************************
+void read_VARNAMES_zHOST_LEGACY(FILE *fp) {
+
+  // Mar 20 2019
+  //
+  // * Read VARNAMES keys from *fp
+  // * set INPUTS_SEARCHEFF.IVERSION_zHOST
+  // * fill SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar]
+  //
+  // Purpose: check format, and provide list of variables for HOSTLIB to read.
+
+  int MXVAR = MXVAR_SEARCHEFF_zHOST;
+  int ivar, NVAR, NKEY, UNIQUE[MXVAR_SEARCHEFF_zHOST];
+  int NSKIP = 1 ; // skip HOSTEFF colum
+  char *VARNAMES[MXVAR_SEARCHEFF_zHOST];
+  char fnam[] = "read_VARNAMES_zHOST_LEGACY" ;
+
+  // -------------- BEGIN ---------------
+
+  SEARCHEFF_zHOST[0].NVAR = 0;
+  if ( INPUTS_SEARCHEFF.IVERSION_zHOST > 0 ) { return ; }
+
+  for(ivar=0; ivar < MXVAR; ivar++ )
+    { VARNAMES[ivar] = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar]; }
+
+  read_VARNAMES_KEYS(fp, MXVAR, NSKIP, fnam, &NVAR, &NKEY, UNIQUE, VARNAMES) ;
+
+  if ( NVAR == 0 )
+    { INPUTS_SEARCHEFF.IVERSION_zHOST = IVERSION_zHOST_LEGACY; }
+  else
+    { INPUTS_SEARCHEFF.IVERSION_zHOST = IVERSION_zHOST_MULTID; }
+
+  SEARCHEFF_zHOST[0].NVAR = NVAR;
+
+  return ;
+
+} // end  read_VARNAMES_zHOST_LEGACY
+
+
 // ************************************************
 double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
 
@@ -4051,6 +4163,7 @@ double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
 
   // ------------ BEGIN ------------------
 
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
       
   IVARTYPE = SEARCHEFF_SPECID_LEGACY[imap].IVARTYPE[ivar]; 
   
@@ -4066,6 +4179,8 @@ double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
   else if ( IVARTYPE == IVARTYPE_EFFMAP_DTSEASON_PEAK ) {
     return  SEARCHEFF_DATA.DTSEASON_PEAK ; // smallest abs(T-Tpeak)
   }
+
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
   else if ( IVARTYPE == IVARTYPE_EFFMAP_LOGMASS ) {
     return  SEARCHEFF_DATA.LOGMASS ; 
   }  
@@ -4082,6 +4197,7 @@ double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
     return  SEARCHEFF_DATA.SALT2c ; 
   }
   else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMAG ) {
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
     // take average of peakMags that are OR'ed in this map.
     int NTMP = 0 ;
     MAG = 0.0 ;
@@ -4091,6 +4207,8 @@ double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
       mag       = SEARCHEFF_DATA.PEAKMAG[ifilt_obs] ;
       if ( mag < 40. && mag > 0.0 ) { MAG += mag; NTMP++; }
     }
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
     if ( NTMP > 0 ) 
       { MAG /= (float)NTMP ; }
     else
@@ -4113,6 +4231,8 @@ double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
     return  color ;
   }          
 
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
+
   else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTMAG ) {
     ifilt_obs = SEARCHEFF_SPECID_LEGACY[imap].IFILTOBS_HOSTMAG[ivar] ;
     mag       = SEARCHEFF_DATA.HOSTMAG[ifilt_obs] ;
@@ -4126,6 +4246,7 @@ double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar) {
     return mag ;
   }          
 
+  // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@
 
   // if we get here then abort.
   sprintf(c1err,"Could not find ivar=%d for imap=%d ", ivar, imap);
@@ -4427,7 +4548,7 @@ void init_SEARCHEFF_zHOST_LEGACY(char *survey) {
   // INPUTS_SEARCHEFF.IVERSION_zHOST is already set > 0.
   if ( INPUTS_SEARCHEFF.IVERSION_zHOST == 0 ) {
     fp = open_zHOST_FILE(1);
-    if ( fp != NULL ) { read_VARNAMES_zHOST(fp); fclose(fp); }
+    if ( fp != NULL ) { read_VARNAMES_zHOST_LEGACY(fp); fclose(fp); }
   }
 
   // @@@@@@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@@

@@ -786,8 +786,13 @@ void remove_string_termination(char *STRING, int LEN) ;
 
 void splitString(char *string, char *sep, char *callFun, int MXsplit,
 		 int *Nsplit, char **ptrSplit );
+
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
+
+void nsplitString(char *string, char *sepList, char *callFun, int MXsplit,
+		  int *Nsplit, char **ptrSplit, char *sep );
+
 void split2doubles(char *string, char *sep, double *dval) ;
 void split2floats(char *string, char *sep, float *fval) ;
 
@@ -981,5 +986,7 @@ float malloc_shortint2D(int opt, int LEN1, int LEN2,
 			short int ***array2D );
 float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 			short int *****array4D );
+
+float malloc_strlist(int opt, int LEN1, int LEN2, char ***strlist );
 
 // ============== END OF FILE =============

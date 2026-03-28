@@ -46,6 +46,11 @@
 #define  MXMAP_SEARCHEFF_MAP       50  
 #define  MXROW_SEARCHEFF_MAP    30000
 
+#define MXSUBSTR_SEARCHEFF_MAP 4 // e.g., g+r+i+z is max number of + separated substrings
+
+#define  FLAG_EFFMAP_MAG    1   // mag for PEAK(SN), or HOST, or SB ...
+#define  FLAG_EFFMAP_COLOR  2   // color for PEAK(SN), or HOST, or SB ...
+
 // - - - -
 #define  MXVAR_SEARCHEFF_SPEC       20  // max number of SPEC-eff VARNAMES
 #define  MXMAP_SEARCHEFF_DETECT   50  
@@ -230,7 +235,7 @@ struct SEARCHEFF_LOGIC {
 typedef struct {
 
   int NVAR_TOT;
-  char VARNAMES[MXVAR_SEARCHEFF_MAP][40] ;
+  char VARNAMES[MXVAR_SEARCHEFF_MAP][40] ; // note that 'g-r' counts as one VARNAME
   int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD, IVAR_LOGMASS ;
   int IVAR_DTPEAK, IVAR_DTSEASON_PEAK, IVAR_SALT2mB, IVAR_SALT2x1, IVAR_SALT2c ;
   int IVAR_SNRSUM_REST_V;
@@ -246,18 +251,20 @@ typedef struct {
 
   int REQUIRE; // 1 -> require this map (logical AND) instead of optional (OR)
   
+  int FLAG_MAG[MXVAR_SEARCHEFF_MAP];   // flag for mag or color
+
   // ifilt_obs (mag and color) vs. IVAR index
   int NFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP];
   int IFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];  
-  int IFILTOBS_PEAKCOLOR[MXVAR_SEARCHEFF_MAP][2]; 
+  // xxx int IFILTOBS_PEAKCOLOR[MXVAR_SEARCHEFF_MAP][2]; 
 
   int NFILTLIST_HOSTMAG[MXVAR_SEARCHEFF_MAP];  // Mar 26 2026
   int IFILTLIST_HOSTMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];
-  int IFILTOBS_HOSTCOLOR[MXVAR_SEARCHEFF_MAP][2]; // Mar 26 2026
+  // xxx  int IFILTOBS_HOSTCOLOR[MXVAR_SEARCHEFF_MAP][2]; // Mar 26 2026
 
   int NFILTLIST_SBMAG[MXVAR_SEARCHEFF_MAP];  // Mar 26 2026
   int IFILTLIST_SBMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];
-  int IFILTOBS_SBCOLOR[MXVAR_SEARCHEFF_MAP][2]; 
+  // xxx  int IFILTOBS_SBCOLOR[MXVAR_SEARCHEFF_MAP][2]; 
 
   GRIDMAP_DEF GRIDMAP ;
 
@@ -291,34 +298,7 @@ SEARCHEFF_INFO_DEF SEARCHEFF_INFO_SPECID ;
 SEARCHEFF_INFO_DEF SEARCHEFF_INFO_zHOST  ;
 
 
-/* xxx mark xxxxx
-typedef struct {
-  int   IVARTYPE_MASK ;
-  int   FLAG_PEAKMAG_ONLY ;
-  int   BOOLEAN_OR, BOOLEAN_AND;
-  int   NLINE_README;
-  char  README[40][MXPATHLEN];
-} SEARCHEFF_INFO_DEF ;  // legacy
-xxxxxx */
-
 // - - - - - - -
-
-int OPT_FIELDMATCH_REQUIRE_zHOST;  // True -> abort if FIELD is not associated with a map
-struct {
-  int  NVAR ;   // used by init_HOSTLIB
-  char FIELDLIST[100];  // fieldList for each map
-  double PEAKMJD_RANGE[2]; // PEAKMJD range for each map (7/2020)
-  char VARNAMES_HOSTLIB[MXVAR_SEARCHEFF_zHOST][40] ; 
-  int  IVAR_HOSTLIB[MXVAR_SEARCHEFF_zHOST] ; // points to HOSTLIB ivar
-  GRIDMAP_DEF  GRIDMAP ;
-} SEARCHEFF_zHOST[MXMAP_SEARCHEFF_zHOST] ; // legacy
-
-
-struct {
-  char   FIELDLIST[100]; // fieldList for each map
-  int    NROW ;
-  double *REDSHIFT, *EFF;    // malloc for each new map
-} SEARCHEFF_zHOST_LEGACY[MXMAP_SEARCHEFF_zHOST] ;
 
 
 // Oct 2021 - definw MJDs associated with pipeline detections
@@ -390,18 +370,14 @@ void   init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
 void   read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
 int    assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 int    assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
-int    assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 
-void   read_VARNAMES_zHOST(FILE *fp);
-int    parse_VARNAMES_zHOST(FILE *fp, int *ivar_HOSTLIB, 
-			    char **varName_HOSTLIB, char *varNameList );
+void   read_searcheff_raw_varnames(char *SEARCHEFF_FILE, int *OPEN_STATUS, int *NVAR_RAW, char **RAW_VARNAMES);
 
 int  readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key);
 int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key);
 int  malloc_NEXTMAP_SEARCHEFF_DETECT(void);
 
 void   check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF);
-void   check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF);
 
 int    gen_SEARCHEFF(int ID, double *EFF_SPECID, double *EFF_zHOST, 
 		     MJD_DETECT_DEF *MJD_DETECT );
@@ -420,6 +396,9 @@ void   LOAD_PHOTPROB_CDF(int NVAR_CDF, double *WGTLIST );
 double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) ;
 double GETEFF_PIPELINE_DETECT(int obs);
 
+double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, char *VARNAME,
+			 int NFILT, int *IFILTLIST, double *MAG_DATA);
+
 void   setObs_for_PHOTPROB(int DETECT_FLAG, int obs);
 void   setRan_for_PHOTPROB(void) ;
 double get_PIPELINE_PHOTPROB(int obs);
@@ -427,8 +406,6 @@ double get_PIPELINE_PHOTPROB_Obsolete(int DETECT_FLAG, int obs);
 void   dumpLine_PIPELINE_PHOTPROB(void);
 
 void   parse_search_eff_logic(char *survey, int NMJD, char *logic);
-
-int    IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *SUBSTR, int OPT) ;
 
 int    IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME);
 
@@ -440,8 +417,12 @@ bool   MATCH_SEARCHEFF_FIELD(char *field_map);
 // @@@@@@@@@@@@ LEGACY_DECLARATIONS @@@@@@@@@@@@@@@@@
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+int    IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *SUBSTR, int OPT) ;
 double interp_SEARCHEFF_zHOST_LEGACY(void);
 double interp_SEARCHEFF_zHOST(int ID);
+void   check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF);
+
+int    assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 
 void   read_zHOST_FILE_LEGACY(FILE *fp);
 void   read_zHOST_FILE(FILE *fp);
@@ -449,6 +430,28 @@ void   check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF);
 double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar);
 int    gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID );
 int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
+
+void   read_VARNAMES_zHOST_LEGACY(FILE *fp);
+int    parse_VARNAMES_zHOST_LEGACY(FILE *fp, int *ivar_HOSTLIB, 
+				   char **varName_HOSTLIB, char *varNameList );
+
+int OPT_FIELDMATCH_REQUIRE_zHOST;  // True -> abort if FIELD is not associated with a map
+struct {
+  int  NVAR ;   // used by init_HOSTLIB
+  char FIELDLIST[100];  // fieldList for each map
+  double PEAKMJD_RANGE[2]; // PEAKMJD range for each map (7/2020)
+  char VARNAMES_HOSTLIB[MXVAR_SEARCHEFF_zHOST][40] ; 
+  int  IVAR_HOSTLIB[MXVAR_SEARCHEFF_zHOST] ; // points to HOSTLIB ivar
+  GRIDMAP_DEF  GRIDMAP ;
+} SEARCHEFF_zHOST[MXMAP_SEARCHEFF_zHOST] ; // legacy
+
+
+struct {
+  char   FIELDLIST[100]; // fieldList for each map
+  int    NROW ;
+  double *REDSHIFT, *EFF;    // malloc for each new map
+} SEARCHEFF_zHOST_LEGACY[MXMAP_SEARCHEFF_zHOST] ;
+
 
 struct {
   char VARNAMES[MXVAR_SEARCHEFF_SPEC][40] ;

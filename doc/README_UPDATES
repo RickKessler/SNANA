@@ -23596,7 +23596,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v12_01d) *****
 
-    sntools_trigger.c[h]: 
+    sntools_trigger.c[h]: ... NOT YET ... 
       For simulation, released refactor (previous SNANA tag) to treat 
       SPECEFF_FILE and zHOST_FILE with same underlying code, which should
       add more flexibility to each map.

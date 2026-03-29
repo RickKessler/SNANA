@@ -9482,6 +9482,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
   // --------------------------------------------------------
   // check option to compute host noise under SN
+
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_GALMAG) == 0 ) 
     { return ; }
 

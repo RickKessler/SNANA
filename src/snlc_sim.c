@@ -10042,7 +10042,6 @@ void  init_genSpec(void) {
   if ( SPECTROGRAPH_USEFLAG == 0 ) { return ; }
 
   if ( !REQUEST_USER_SPECTRA() ) { return; } // bail if there is no user request for spectra
-  // .xyz
 
   INPUTS.SPECTROGRAPH_OPTIONS.DOFLAG_SPEC = 1 ;
 
@@ -10072,7 +10071,7 @@ void  init_genSpec(void) {
       print_preAbort_banner(fnam);
       printf("  To generate spectra, use NON1ASED model equivalent created by\n");
       printf("  SNANA util: convert_SIMSED_to_NON1ASED.py\n");
-    } // .xyz
+    } 
     sprintf(c1err,"Spectrograph option not available for");    
     sprintf(c2err,"INDEX_GENMODEL=%d (%s)", INDEX_GENMODEL, modelName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
@@ -16423,6 +16422,16 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"SIM_SEARCHEFF_MASK") ;  // repeat to match manual
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.SEARCHEFF_MASK ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SEARCHEFF_SPEC") ;   // EFF(SPECID) - Mar 28 2026
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SEARCHEFF_SPEC ;
+  NVAR_SIMGEN_DUMP++ ;
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"SEARCHEFF_zHOST") ; // EFF(zHOST) - Mar 28 2026
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SEARCHEFF_zHOST ;
   NVAR_SIMGEN_DUMP++ ;
 
   if ( NVAR_SIMGEN_DUMP >= MXSIMGEN_DUMP ) {
@@ -24363,6 +24372,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
     SEARCHEFF_DATA.SBMAG[ifilt]   = MAG_UNDEFINED ;
   }
   
+
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
       ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
       /*
@@ -24371,7 +24381,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
 	     SNHOSTGAL.GALMAG[ifilt_obs][0], SNHOSTGAL.SB_MAG[ifilt_obs] );
       */
       SEARCHEFF_DATA.PEAKMAG[ifilt_obs] =  GENLC.peakmag_obs[ifilt_obs] ;
-      SEARCHEFF_DATA.HOSTMAG[ifilt_obs] =  SNHOSTGAL.GALMAG[ifilt_obs][0] ;
+      SEARCHEFF_DATA.HOSTMAG[ifilt_obs] =  SNHOSTGAL.GALMAG[ifilt_obs][0] ; //.xyz
       SEARCHEFF_DATA.SBMAG[ifilt_obs]   =  SNHOSTGAL.SB_MAG[ifilt_obs];
   }  // ifilt
 

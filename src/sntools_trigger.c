@@ -1455,7 +1455,6 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
 
   // - - - - - - - - - - - - - - -
   // check for filter-dependent mag or color.
-  //.xyz
   int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
 
   /* xxx mark delete Mar 27 2026 xxxx
@@ -2868,13 +2867,13 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   int  IFLAG_EFFONE   = SEARCHEFF_INFO->IFLAG_EFFONE ;
   int  OPT_FIELDMATCH_REQUIRE = SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE;
 
-  int    imap, ivar, NVAR, LFIND, istat, NMATCH = 0;
+  int    imap, ivar, NVAR, LFIND, istat, NMATCH = 0, INDX_RAN ;
   bool   MATCH_FIELD, MATCH_PEAKMJD, REQUIRE_PASS = true ;
   double PROB_all_FAIL, PROB_all_PASS;  
   double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP], PEAKMJD ;
   double *ptr_FLAT_RANDOMS;
   char   *FIELD_MAP, *VARNAME ;
-  int    INDX_RAN, LDMP = 0 ; // (ID == 7) ;
+  int    LDMP = 0 ; // (ID == 7) ;
   char   fnam[] = "gen_searcheff_map" ;
 
   // ----------- BEGIN --------
@@ -2939,6 +2938,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
 		      PEAKMJD <= MAP->PEAKMJD_RANGE[1] );
 
     if ( LDMP ) {
+      printf(" xxx - - - - - - - - - - - - - - - - - - \n");
       printf(" xxx %s: FIELD=%s  PEAKMJD=%.0f  MATCH[FIELD,PEAKMJD] = %d, %d \n",
 	     fnam, SEARCHEFF_DATA.FIELDNAME, PEAKMJD, MATCH_FIELD, MATCH_PEAKMJD ); fflush(stdout);
     }
@@ -2952,11 +2952,11 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
       VARDATA[ivar] = LOAD_SEARCHEFF_VAR(MAPTYPE, MAP, ivar); 
       if ( LDMP ) {
 	VARNAME = MAP->VARNAMES[ivar] ;	
-	printf(" xxx %s MATCH: imap=%d  load ivar=%d:  %s = %f \n",
-	       fnam, imap, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
-	printf(" xxx %s MATCH : imap=%d  FIELD=%s  PEAKMJD_RANGE=%.0f-%.0f \n",
-	       fnam, imap, MAP->FIELDLIST, 
-	       MAP->PEAKMJD_RANGE[0], MAP->PEAKMJD_RANGE[1]);
+	printf(" xxx %s MATCH: imap=%d \n", fnam, imap);
+	printf(" xxx %s \t load ivar=%d:  %s = %f \n",
+	       fnam, ivar, VARNAME, VARDATA[ivar]); fflush(stdout);
+	printf(" xxx %s \t FIELD=%s  PEAKMJD_RANGE=%.0f-%.0f \n",
+	       fnam, MAP->FIELDLIST, MAP->PEAKMJD_RANGE[0], MAP->PEAKMJD_RANGE[1]);
 	fflush(stdout);
       }
     }
@@ -2964,7 +2964,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
     istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, &EFF_LOCAL );
 
     if ( LDMP ) {
-      printf(" xxx %s MATCH: imap=%d  EFF(interp)=%.3f \n", fnam, imap, EFF_LOCAL );
+      printf(" xxx %s \t EFF(interp)=%.3f \n", fnam, imap, EFF_LOCAL );
       fflush(stdout);
     }
     
@@ -3060,7 +3060,8 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
 
       
   IVARTYPE = MAP->IVARTYPE[ivar]; 
-  
+ 
+
   if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTLIB ) {        // March 2026
     int IGAL         = SNHOSTGAL.IGAL ;
     int ivar_HOSTLIB = MAP->IVAR_HOSTLIB[ivar];
@@ -3069,6 +3070,7 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
     //	   fnam, ivar, ivar_HOSTLIB, MAP->VARNAMES[ivar], val) ; fflush(stdout);
     return val;
   }
+
   else if ( IVARTYPE == IVARTYPE_EFFMAP_REDSHIFT ) {
     return  SEARCHEFF_DATA.REDSHIFT ; 
   }

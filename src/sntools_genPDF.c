@@ -320,7 +320,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     for(ivar=1; ivar < NVAR-1; ivar++ )	{ 
       VARNAME = GENPDF[imap].VARNAMES[ivar] ;
       checkAlternateVarNames_HOSTLIB(VARNAME);
-      ivar_hostlib = IVAR_HOSTLIB(VARNAME,ABORTFLAG);
+      ivar_hostlib = IVAR_HOSTLIB_STORE(VARNAME,ABORTFLAG);
       if ( ivar_hostlib < 0 ) {
 	sprintf(c1err,"Could not find HOSTLIB variable '%s'", VARNAME);
 	sprintf(c2err,"Check HOSTLIB and check GENPDF_FILE");

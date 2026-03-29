@@ -1471,7 +1471,7 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
   if ( USE_HOSTLIB ) {
     int NVAR_HOST, ivar_tmp;
     // check if VARNAME is in HOSTLIB 
-    ivar_tmp = IVAR_HOSTLIB(VARNAME,0); 
+    ivar_tmp = IVAR_HOSTLIB_STORE(VARNAME,0); 
     if ( ivar_tmp > 0 ) {
       //printf("\t Found %-20.20s in HOSTLIB for %s map \n", VARNAME, MAPTYPE);
       NVAR_HOST = MAP->NVAR_HOST;
@@ -4074,7 +4074,7 @@ int parse_VARNAMES_zHOST_LEGACY(FILE *fp, int *ivar_HOSTLIB,
 
     get_PARSE_WORD(0,ivar,varName_H, fnam);
     checkAlternateVarNames_HOSTLIB(varName_H); // 10.03.2020
-    *ivar_H  = IVAR_HOSTLIB(varName_H,0);  // sntools_host.c
+    *ivar_H  = IVAR_HOSTLIB_STORE(varName_H,0);  // sntools_host.c
     
     if (LDMP ) {
       printf(" xxx %s: varName[%d] = '%s' (IVAR_HOSTLIB=%d)\n", 

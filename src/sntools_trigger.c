@@ -1032,18 +1032,21 @@ void  init_SEARCHEFF_SPECID(char *survey) {
 
   // ------------ BEGIN --------------
 
-  init_searcheff_map(&SEARCHEFF_INFO_SPECID) ;
+  init_searcheff_map(MAPTYPE_SEARCHEFF_SPECID, &SEARCHEFF_INFO_SPECID) ;
 
-  read_searcheff_map(MAPTYPE_SEARCHEFF_SPECID, INPUTS_SEARCHEFF.USER_SPEC_FILE,
-		     &SEARCHEFF_INFO_SPECID) ;
+  init_searcheff_magshift(&SEARCHEFF_INFO_SPECID);
 
-  INPUTS_SEARCHEFF.NMAP_SPECID = SEARCHEFF_INFO_SPECID.NMAP; // for snlc_sim
+  read_searcheff_map(INPUTS_SEARCHEFF.USER_SPEC_FILE, &SEARCHEFF_INFO_SPECID) ;
+
+  // temp assignment for snlc_sim ... can remove this later after REFACTOR is released
+  INPUTS_SEARCHEFF.NMAP_SPECID = SEARCHEFF_INFO_SPECID.NMAP; 
+
 
 } // end of init_SEARCHEFF_SPECID
 
 
 // **************************************
-void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
+void init_searcheff_map(char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
   // Created Mar 2026 [as part of refactor]
   // init generic INFO including multi-Dimensional MAP_LIST
@@ -1053,6 +1056,10 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
   // ------------ BEGIN ------------
 
+  printf(" -------------------------------------------------- \n");
+  printf("  Init SEARCHEFF_%s Efficiency map(s): \n", MAPTYPE); fflush(stdout);
+
+  sprintf(SEARCHEFF_INFO->MAPTYPE, "%s", MAPTYPE);
 
   SEARCHEFF_INFO->NMAP                   = 0;
   SEARCHEFF_INFO->OPT_EXTRAP             = 0;
@@ -1082,9 +1089,11 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
     SEARCHEFF_INFO->MAP_LIST[imap].IVAR_SALT2x1   = -9 ;     // Aug 27 2024    
     SEARCHEFF_INFO->MAP_LIST[imap].IVAR_SALT2c    = -9 ;     // Aug 27 2024
     SEARCHEFF_INFO->MAP_LIST[imap].REQUIRE        = 0 ; 
+    SEARCHEFF_INFO->MAP_LIST[imap].MAGSHIFT       = 0.0 ;
 
     sprintf(SEARCHEFF_INFO->MAP_LIST[imap].FIELDLIST, "%s", ALL ); // default is all fields
 
+    
     for ( ivar=0 ; ivar < MXVAR_SEARCHEFF_MAP; ivar++ ) {
       SEARCHEFF_INFO->MAP_LIST[imap].IVARTYPE[ivar]              = -9 ;
 
@@ -1093,20 +1102,14 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_PEAKMAG[ivar][0]  = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_PEAKMAG[ivar][1]  = -9 ;
-      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][0] = -9 ;
-      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_PEAKCOLOR[ivar][1] = -9 ;  
 
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_HOSTMAG[ivar]     =  0 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_HOSTMAG[ivar][0]  = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_HOSTMAG[ivar][1]  = -9 ;
-      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][0] = -9 ;
-      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_HOSTCOLOR[ivar][1] = -9 ;
 
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_SBMAG[ivar]     =  0 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_SBMAG[ivar][0]  = -9 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_SBMAG[ivar][1]  = -9 ;
-      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][0] = -9 ;
-      // xxx SEARCHEFF_INFO->MAP_LIST[imap].IFILTOBS_SBCOLOR[ivar][1] = -9 ;
 
       SEARCHEFF_INFO->MAP_LIST[imap].IVAR_HOSTLIB[ivar] = -9 ;
     }
@@ -1118,7 +1121,36 @@ void init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
 } // end init_searcheff_map
 
-void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
+
+void  init_searcheff_magshift(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
+
+  char *MAPTYPE = SEARCHEFF_INFO->MAPTYPE ;
+  int imap ;
+  double MAGSHIFT;
+  char fnam[] = "init_searcheff_magshift" ;
+
+  // ------------ BEGIN -----------
+
+  if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_SPECID)==0 ) 
+    { MAGSHIFT = INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF; }
+  else if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_zHOST)==0 )
+    { MAGSHIFT = INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF; }
+
+
+  // for now assign same MAGSHIFT to all mags (later applied only to MAG type map);
+  // maybe later will need map-dependent shift ?
+
+  printf("\t Init MAGSHIFT = %.2f for SEARCHEFF_%s Efficiency map.\n", 
+	 MAGSHIFT, MAPTYPE );   fflush(stdout);
+
+  for ( imap=0; imap < MXMAP_SEARCHEFF_MAP;  imap++ ) 
+    { SEARCHEFF_INFO->MAP_LIST[imap].MAGSHIFT = MAGSHIFT ; }    
+  
+
+  return;
+} // end init_searcheff_magshift
+
+void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
   // Created Mar 2026
   // Inputs:
@@ -1129,6 +1161,7 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
   //    SEARCHEFF_INFO: typedef struct with info per map
   //
 
+  char *MAPTYPE = SEARCHEFF_INFO->MAPTYPE;
   FILE *fp = NULL ;
 
   int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
@@ -1148,6 +1181,7 @@ void read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *
 
   // ----------- BEGIN -------------
 
+  
   if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_SPECID)==0 )  { 
     IDGRIDMAP_OFFSET = IDGRIDMAP_SPECEFF_OFFSET ; 
     sprintf(KEY_ROW,"SPECEFF:");
@@ -1799,26 +1833,11 @@ int assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME,
 // ***************************************
 void init_SEARCHEFF_zHOST(char *survey) {
 
-  // Created May 8 2014 by R.Kessler
+  // Refactored March 2026
   //
   // Read optional efficiency map for obtaining a host-galaxy
-  // redshift for UNCONFIRMED SNe. Note that non-uniform 
-  // redshift binning is allowed.
+  // redshift for UNCONFIRMED SNe.
   //
-  // Map is of the form
-  // FIELD:    <bla>             # optional to give separate map per field
-  // FIELDLIST <bla1,bla2,bla3>  # optional OR of several fields.
-  // VARNAMES:  z   EFF
-  // HOSTEFF:  <z>  <eff>        # required
-  // HOSTEFF:  <z>  <eff>        # idem
-  // HOSTEFF:  <z>  <eff>
-  // etc ...
-  //
-  // Apr 11 2016: if no HOSTEFF keys, then read as 2-column file
-  //              (same format as HOSTLIB_ZPHOTEFF_FILE)
-  //
-  // Mar 11 2018: refactor with new struct SEARCHEFF_zHOST
-  // Jul 30 2018: set NONZERO_SEARCHEFF_zHOST when reading 2-column format
 
   FILE *fp ;
   char fnam[] = "init_SEARCHEFF_zHOST" ;
@@ -1840,12 +1859,13 @@ void init_SEARCHEFF_zHOST(char *survey) {
 
   // ------------------------------------
   
-  init_searcheff_map(&SEARCHEFF_INFO_zHOST) ;
+  init_searcheff_map(MAPTYPE_SEARCHEFF_zHOST, &SEARCHEFF_INFO_zHOST) ;
 
-  read_searcheff_map(MAPTYPE_SEARCHEFF_zHOST, INPUTS_SEARCHEFF.USER_zHOST_FILE,
-		     &SEARCHEFF_INFO_zHOST) ;
+  init_searcheff_magshift(&SEARCHEFF_INFO_zHOST);
 
-  INPUTS_SEARCHEFF.NMAP_zHOST = SEARCHEFF_INFO_zHOST.NMAP; // for snlc_sim
+  read_searcheff_map(INPUTS_SEARCHEFF.USER_zHOST_FILE, &SEARCHEFF_INFO_zHOST) ;
+
+  INPUTS_SEARCHEFF.NMAP_zHOST   = SEARCHEFF_INFO_zHOST.NMAP; // for snlc_sim
 
   return;
 } // end of init_SEARCHEFF_zHOSTEFF
@@ -2109,8 +2129,7 @@ int gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID) {
   // ---------- BEGIN -------------
 
   if ( REFAC_SEARCHEFF ) {
-    IS_SPECID = gen_searcheff_map(ID, MAPTYPE_SEARCHEFF_SPECID, 
-				  &SEARCHEFF_INFO_SPECID, EFF_SPECID) ;   // return EFF_SPECID
+    IS_SPECID = gen_searcheff_map(ID, &SEARCHEFF_INFO_SPECID, EFF_SPECID) ; // return EFF_SPECID
   }
   else {
     // legacy
@@ -2842,7 +2861,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
 
 
 // ***************************************************
-int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
+int gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
 
   //
   // Return 1 if this SN is selected by MAPs defined by SEARCHEFF_INFO; 
@@ -2852,7 +2871,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   //  [Mar 2026 Refactor from original/obsolete gen_SEARCHEFF_SPECID]
   //
   // Inputs:
-  //   ID:        event ID (for diagnostic messages) 
+  //   ID:        event ID (for diagnostic/error messages) 
   //   MAPTYPE:   SPECID or zHOST (for diagnostic messages)
   //   SEARCHEFF_INFO : struct containing map info
   //
@@ -2860,6 +2879,7 @@ int gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO,
   //    *EFF efficiency from map
   //
 
+  char *MAPTYPE       = SEARCHEFF_INFO->MAPTYPE ;
   int  NMAP           = SEARCHEFF_INFO->NMAP ;
   int  BOOLEAN_OR     = SEARCHEFF_INFO->BOOLEAN_OR  ;
   int  BOOLEAN_AND    = SEARCHEFF_INFO->BOOLEAN_AND ;
@@ -3100,19 +3120,23 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
   }
 
   else if ( IVARTYPE == IVARTYPE_EFFMAP_PEAKMAG || IVARTYPE == IVARTYPE_EFFMAP_PEAKCOLOR) {
-    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->VARNAMES[ivar],
+    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->MAGSHIFT,
+			    MAP->VARNAMES[ivar],
 			    MAP->NFILTLIST_PEAKMAG[ivar], MAP->IFILTLIST_PEAKMAG[ivar], 
 			    SEARCHEFF_DATA.PEAKMAG );
     return mag;
   }
   else if ( IVARTYPE == IVARTYPE_EFFMAP_HOSTMAG || IVARTYPE == IVARTYPE_EFFMAP_HOSTCOLOR) {
-    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->VARNAMES[ivar],
+    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->MAGSHIFT,
+			    MAP->VARNAMES[ivar],
 			    MAP->NFILTLIST_HOSTMAG[ivar], MAP->IFILTLIST_HOSTMAG[ivar], 
 			    SEARCHEFF_DATA.HOSTMAG );
     return mag;
   }
   else if ( IVARTYPE == IVARTYPE_EFFMAP_SBMAG || IVARTYPE == IVARTYPE_EFFMAP_SBCOLOR) {
-    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAP->VARNAMES[ivar],
+    double MAGSHIFT = 0.0 ; // no shift for SBmag
+    mag = get_searcheff_mag(MAPTYPE, MAP->FLAG_MAG[ivar], MAGSHIFT,
+			    MAP->VARNAMES[ivar],
 			    MAP->NFILTLIST_SBMAG[ivar], MAP->IFILTLIST_SBMAG[ivar], 
 			    SEARCHEFF_DATA.SBMAG );
     return mag;
@@ -3130,7 +3154,7 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
 } // end of LOAD_SEARCHEFF_VAR
 
 
-double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, char *VARNAME,
+double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, double MAGSHIFT, char *VARNAME,
 			 int NFILT, int *IFILTLIST, double *MAG_DATA) {
 
   // Created Mar 27 2026
@@ -3138,6 +3162,7 @@ double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, char *VARNAME,
   // Inputs:
   //   MAPTYPE    : SPECID or zHOST
   //   FLAG_MAG   : FLAG_EFFMAP_MAG (for mag) or FLAG_EFFMAP_COLOR
+  //   MAGSHIFT   : for systematics
   //   VARNAME    : var name in map (for diagnostic only)
   //   NFILT      : number of filters passed
   //   IFILTLIST  : list of NFILT absolute filter indices
@@ -3177,14 +3202,13 @@ double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, char *VARNAME,
 	       fnam, VARNAME, ifilt_obs, mag_tmp);	fflush(stdout);
       }
     }
-    if ( nmag_valid > 0 ) 
-      { mag /= (double)nmag_valid ; }
+    if ( nmag_valid > 0 ) { 
+      mag /= (double)nmag_valid ;
+      mag += MAGSHIFT; // systematic shift; see user keys MAGSHIFT_[SPECEFF,zHOSTEFF]
+    }
     else
       { mag = -9.0; }
     
-
-    //    check_magUndefined(mag,varName,fnam);  // abort if mag is undefined
-    //MAG  += INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF ; // .xyz generalize for zHOST or SPECID ??
 
     if ( LDMP )
       { printf(" xxx %s(%s): return  mag = %.3f \n",  fnam, VARNAME, mag); fflush(stdout); }
@@ -3255,8 +3279,7 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
 
 
   if ( REFAC_SEARCHEFF ) {
-    LFIND = gen_searcheff_map(ID, MAPTYPE_SEARCHEFF_zHOST, 
-			      &SEARCHEFF_INFO_zHOST, EFF_zHOST) ; 
+    LFIND = gen_searcheff_map(ID, &SEARCHEFF_INFO_zHOST, EFF_zHOST) ; 
   }
   else {
     // legacy

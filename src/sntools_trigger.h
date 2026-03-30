@@ -140,7 +140,7 @@ struct  {
   double NPSFSIGMA_MINSEP_DETECT; 
 
   // global peakmag shift for GRIDMAP lookup
-  double MAGSHIFT_SPECEFF ; 
+  double MAGSHIFT_SPECEFF, MAGSHIFT_zHOSTEFF ;
 
   // min number of observations to evaluate trigger
   int    MINOBS ; 
@@ -252,19 +252,17 @@ typedef struct {
   int REQUIRE; // 1 -> require this map (logical AND) instead of optional (OR)
   
   int FLAG_MAG[MXVAR_SEARCHEFF_MAP];   // flag for mag or color
+  double MAGSHIFT; // from user input MAGSHIFT_SPECEFF or MAGSHIFT_zHOSTEFF
 
   // ifilt_obs (mag and color) vs. IVAR index
   int NFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP];
   int IFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];  
-  // xxx int IFILTOBS_PEAKCOLOR[MXVAR_SEARCHEFF_MAP][2]; 
 
   int NFILTLIST_HOSTMAG[MXVAR_SEARCHEFF_MAP];  // Mar 26 2026
   int IFILTLIST_HOSTMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];
-  // xxx  int IFILTOBS_HOSTCOLOR[MXVAR_SEARCHEFF_MAP][2]; // Mar 26 2026
 
   int NFILTLIST_SBMAG[MXVAR_SEARCHEFF_MAP];  // Mar 26 2026
   int IFILTLIST_SBMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];
-  // xxx  int IFILTOBS_SBCOLOR[MXVAR_SEARCHEFF_MAP][2]; 
 
   GRIDMAP_DEF GRIDMAP ;
 
@@ -273,7 +271,7 @@ typedef struct {
 
 // Mar 2026: define SEARCHEFF maps using refactored typedef struct
 typedef struct {
-
+  char  MAPTYPE[20];         // e.g., SPECID, zHOST 
   char  MAP_FILE[MXPATHLEN]; // full path of map file
   int   NMAP ;
   int   OPT_EXTRAP ;
@@ -366,8 +364,9 @@ void   init_SEARCHEFF_SPECID(char *survey)  ;
 void   init_SEARCHEFF_zHOST(char *survey) ;
 
 FILE   *open_zHOST_FILE(int OPT);
-void   init_searcheff_map(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
-void   read_searcheff_map(char *MAPTYPE, char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
+void   init_searcheff_map(char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
+void   init_searcheff_magshift(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
+void   read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
 int    assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 int    assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 
@@ -384,7 +383,7 @@ int    gen_SEARCHEFF(int ID, double *EFF_SPECID, double *EFF_zHOST,
 int    gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT );
 
 int    gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID);
-int    gen_searcheff_map(int ID, char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF);
+int    gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF);
 
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);
 
@@ -396,7 +395,7 @@ void   LOAD_PHOTPROB_CDF(int NVAR_CDF, double *WGTLIST );
 double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) ;
 double GETEFF_PIPELINE_DETECT(int obs);
 
-double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, char *VARNAME,
+double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, double MAGSHIFT, char *VARNAME,
 			 int NFILT, int *IFILTLIST, double *MAG_DATA);
 
 void   setObs_for_PHOTPROB(int DETECT_FLAG, int obs);

@@ -1260,7 +1260,8 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.NMAP_PHOTPROB    = 0 ;
   INPUTS_SEARCHEFF.NMAP_SPECID      = 0 ;
   INPUTS_SEARCHEFF.NMAP_zHOST       = 0 ;
-  INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF = 0.0 ;
+  INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF  = 0.0 ;
+  INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF = 0.0 ;
   INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE = 0;
   INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT = 0.0 ; // e.g., for SL
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
@@ -2542,9 +2543,14 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.GENPERFECT );
     README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_GENMODEL, fnam) ;
   }
+
   else if ( keyMatchSim(1, "MAGSHIFT_SPECEFF",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
   }
+  else if ( keyMatchSim(1, "MAGSHIFT_zHOSTEFF",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF );
+  }
+
   else if ( keyMatchSim(1, "SEARCHEFF_PIPELINE_LOGIC_FILE", WORDS[0],keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE );

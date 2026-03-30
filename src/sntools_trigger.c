@@ -1034,9 +1034,8 @@ void  init_SEARCHEFF_SPECID(char *survey) {
 
   init_searcheff_map(MAPTYPE_SEARCHEFF_SPECID, &SEARCHEFF_INFO_SPECID) ;
 
-  init_searcheff_magshift(&SEARCHEFF_INFO_SPECID);
-
   read_searcheff_map(INPUTS_SEARCHEFF.USER_SPEC_FILE, &SEARCHEFF_INFO_SPECID) ;
+
 
   // temp assignment for snlc_sim ... can remove this later after REFACTOR is released
   INPUTS_SEARCHEFF.NMAP_SPECID = SEARCHEFF_INFO_SPECID.NMAP; 
@@ -1098,6 +1097,7 @@ void init_searcheff_map(char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
       SEARCHEFF_INFO->MAP_LIST[imap].IVARTYPE[ivar]              = -9 ;
 
       SEARCHEFF_INFO->MAP_LIST[imap].FLAG_MAG[ivar]   = 0 ;
+      SEARCHEFF_INFO->MAP_LIST[imap].SHIFT[ivar]      = 0 ;
 
       SEARCHEFF_INFO->MAP_LIST[imap].NFILTLIST_PEAKMAG[ivar]     =  0 ;
       SEARCHEFF_INFO->MAP_LIST[imap].IFILTLIST_PEAKMAG[ivar][0]  = -9 ;
@@ -1122,33 +1122,71 @@ void init_searcheff_map(char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 } // end init_searcheff_map
 
 
-void  init_searcheff_magshift(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
+void  init_searcheff_shifts(int imap, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
+  // Created Mar 20 2026
+  // Define systematic shift per map variable (default shift =0).
+  // See sim input keys
+  //   SEARCHEFF_SPEC_SHIFT([varname]): [value]
+  //   SEARCHEFF_zHOST_SHIFT([varname]): [value]
+  //
+
+  int  NMAP     = SEARCHEFF_INFO->NMAP;
   char *MAPTYPE = SEARCHEFF_INFO->MAPTYPE ;
-  int imap ;
-  double MAGSHIFT;
-  char fnam[] = "init_searcheff_magshift" ;
+  int    ivar, ivar2, NSHIFT ;
+  double MAGSHIFT, SHIFT ;
+  double *ptr_SHIFT_VALUES;
+  char   *ptr_SHIFT_VARNAMES[MXVAR_SEARCHEFF_MAP] ;
+  SEARCHEFF_MAP_DEF *MAP = &SEARCHEFF_INFO->MAP_LIST[imap];
+  char fnam[] = "init_searcheff_shifts" ;
 
   // ------------ BEGIN -----------
 
-  if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_SPECID)==0 ) 
-    { MAGSHIFT = INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF; }
-  else if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_zHOST)==0 )
-    { MAGSHIFT = INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF; }
+  // select inputs based on SPEC or zHOST map type
+  if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_SPECID)==0 ) {
+    NSHIFT           = INPUTS_SEARCHEFF.NSHIFT_SPEC ;
+    MAGSHIFT         = INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF; 
+    ptr_SHIFT_VALUES = INPUTS_SEARCHEFF.SHIFT_VALUES_SPEC ;
+    for(ivar=0; ivar < NSHIFT; ivar++ ) 
+      { ptr_SHIFT_VARNAMES[ivar] = INPUTS_SEARCHEFF.SHIFT_VARNAMES_SPEC[ivar]; }
+  }
+  else if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_zHOST)==0 ) {
+    NSHIFT           = INPUTS_SEARCHEFF.NSHIFT_zHOST ;
+    MAGSHIFT         = INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF; 
+    ptr_SHIFT_VALUES = INPUTS_SEARCHEFF.SHIFT_VALUES_zHOST ;
+    for(ivar=0; ivar < NSHIFT; ivar++ ) 
+      { ptr_SHIFT_VARNAMES[ivar] = INPUTS_SEARCHEFF.SHIFT_VARNAMES_zHOST[ivar]; }
+  }
 
 
-  // for now assign same MAGSHIFT to all mags (later applied only to MAG type map);
-  // maybe later will need map-dependent shift ?
+  // assign same MAGSHIFT to all mags (later applied only to MAG type map);
+  if ( imap==0 ) { MAP->MAGSHIFT = MAGSHIFT ; }
 
-  printf("\t Init MAGSHIFT = %.2f for SEARCHEFF_%s Efficiency map.\n", 
-	 MAGSHIFT, MAPTYPE );   fflush(stdout);
+  // - - - - - - -
+  if ( MAGSHIFT != 0.0 ) {
+    printf("\t set SHIFT = %8.2f for %s PEAK & HOST mags \n",
+	   SHIFT, MAPTYPE ); fflush(stdout);
+  }    
 
-  for ( imap=0; imap < MXMAP_SEARCHEFF_MAP;  imap++ ) 
-    { SEARCHEFF_INFO->MAP_LIST[imap].MAGSHIFT = MAGSHIFT ; }    
-  
+  if ( NSHIFT == 0 ) { return ; }  
+
+  char *VARNAME, *VARNAME2;
+  // assign more specific shift based on VARNAME
+  for(ivar=0; ivar < MAP->NVAR_TOT-1; ivar++ ) {
+    VARNAME = MAP->VARNAMES[ivar];
+    for(ivar2=0; ivar2 < NSHIFT; ivar2++ ) {
+      VARNAME2 = ptr_SHIFT_VARNAMES[ivar2] ;
+      SHIFT    = ptr_SHIFT_VALUES[ivar2];
+      if ( strcmp(VARNAME,VARNAME2) == 0 ) {
+	MAP->SHIFT[ivar] = SHIFT;
+	printf("\t set SHIFT = %8.2f for %s VARNAME = %s \n",
+	       SHIFT, MAPTYPE, VARNAME); fflush(stdout);
+      }
+    }
+  }
 
   return;
-} // end init_searcheff_magshift
+} // end init_searcheff_shifts
 
 void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
@@ -1318,7 +1356,9 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
 
       if ( REQUIRE_MAP ) 
 	{ printf("\t This %s-EFF map is required for event selection.\n", MAPTYPE); }
-				  
+	
+      init_searcheff_shifts(NMAP, SEARCHEFF_INFO);	
+
       SEARCHEFF_INFO->NONZERO_SEARCHEFF++; 
       NMAP++;  // increment map counter
 
@@ -1331,7 +1371,6 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   }  // end of read-line loop
 
   // - - - - - - - - - - - - - - - - - - - - - 
-
   fclose(fp); // done reading EFF map(s)
 
   SEARCHEFF_INFO->NMAP       = NMAP ;
@@ -1860,8 +1899,6 @@ void init_SEARCHEFF_zHOST(char *survey) {
   // ------------------------------------
   
   init_searcheff_map(MAPTYPE_SEARCHEFF_zHOST, &SEARCHEFF_INFO_zHOST) ;
-
-  init_searcheff_magshift(&SEARCHEFF_INFO_zHOST);
 
   read_searcheff_map(INPUTS_SEARCHEFF.USER_zHOST_FILE, &SEARCHEFF_INFO_zHOST) ;
 
@@ -2970,6 +3007,7 @@ int gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
     NVAR = MAP->GRIDMAP.NDIM ;
     for ( ivar=0; ivar < NVAR; ivar++ )  {
       VARDATA[ivar] = LOAD_SEARCHEFF_VAR(MAPTYPE, MAP, ivar); 
+      VARDATA[ivar] += MAP->SHIFT[ivar]; // optional systematic shift
       if ( LDMP ) {
 	VARNAME = MAP->VARNAMES[ivar] ;	
 	printf(" xxx %s MATCH: imap=%d \n", fnam, imap);

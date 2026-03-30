@@ -67,8 +67,10 @@
 #define  MXMAP_SEARCHEFF_zHOST   20    // max number of zHOST maps
 #define  MXROW_SEARCHEFF_zHOST  5000   // max size of each map
 #define  MXVAR_SEARCHEFF_zHOST   10    // max number of zHOST VARNAMES
+
 #define  IVERSION_zHOST_LEGACY    1    // legacy z-only map
 #define  IVERSION_zHOST_MULTID    2    // multi-D map of HOSTLIB properties
+#define  MXSHIFT_SEARCHEFF        8    // max number of systematic (varname) shifts
 
 #define FLAG_EFFSNR_DETECT    1    // flag for EFF vs, SNR
 #define FLAG_EFFABSSNR_DETECT 2    // flag for EFF vs, ABS(SNR)
@@ -129,7 +131,7 @@ struct  {
 
   int    APPLY_DETECT_SINGLE;    // check EFF(pipe) on each exposure, not coadd
 
-  double USER_SPECEFF_SCALE; // default=1.0
+  double USER_SPECEFF_SCALE; // default=1.0 ?? obsolete ??
   // xxx mark delete Mar 8 2026   double CUTWIN_SNRMAX_zHOST[2]; // extra requirement for zHOST
 
   // time-window (days) in which all detections count as 1 detection
@@ -139,8 +141,11 @@ struct  {
   // Number of PSF-sigmas to resolve nearby LCs for detections (e.g, SL images)
   double NPSFSIGMA_MINSEP_DETECT; 
 
-  // global peakmag shift for GRIDMAP lookup
-  double MAGSHIFT_SPECEFF, MAGSHIFT_zHOSTEFF ;
+  // systematic shifts of data values used for efficiency lookup map
+  double  MAGSHIFT_SPECEFF, MAGSHIFT_zHOSTEFF ; // applies only to MAG variables
+  int     NSHIFT_SPEC, NSHIFT_zHOST;            // applies to arbitrary map variable
+  double  *SHIFT_VALUES_SPEC, *SHIFT_VALUES_zHOST;    
+  char   **SHIFT_VARNAMES_SPEC, **SHIFT_VARNAMES_zHOST ;
 
   // min number of observations to evaluate trigger
   int    MINOBS ; 
@@ -254,6 +259,8 @@ typedef struct {
   int FLAG_MAG[MXVAR_SEARCHEFF_MAP];   // flag for mag or color
   double MAGSHIFT; // from user input MAGSHIFT_SPECEFF or MAGSHIFT_zHOSTEFF
 
+  double SHIFT[MXVAR_SEARCHEFF_MAP]; // systematic shift per variable
+
   // ifilt_obs (mag and color) vs. IVAR index
   int NFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP];
   int IFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_MAP][MXFILTINDX];  
@@ -316,7 +323,6 @@ struct {
   double SNRSUM_REST_V ; // for spectrograph 
   int    SIMLIB_ID;
 
-
   char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
   char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
   int  NFIELD_OVP;   // number of overlap fields
@@ -365,7 +371,7 @@ void   init_SEARCHEFF_zHOST(char *survey) ;
 
 FILE   *open_zHOST_FILE(int OPT);
 void   init_searcheff_map(char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
-void   init_searcheff_magshift(SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
+void   init_searcheff_shifts(int imap, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
 void   read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) ;
 int    assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 int    assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;

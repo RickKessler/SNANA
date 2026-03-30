@@ -1995,6 +1995,7 @@ int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);
 int    parse_input_SIMSED_COV(char **WORDS, int keySource );
+int    parse_input_SEARCHEFF(char **WORDS, int keySource );
 void   parse_input_SIMLIB_NSKIPMJD(char *STRING);
 void   parse_input_SIMSED_SUBSET(char *PARNAME, char *STRINGOPT);
 

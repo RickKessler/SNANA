@@ -1260,8 +1260,6 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.NMAP_PHOTPROB    = 0 ;
   INPUTS_SEARCHEFF.NMAP_SPECID      = 0 ;
   INPUTS_SEARCHEFF.NMAP_zHOST       = 0 ;
-  INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF  = 0.0 ;
-  INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF = 0.0 ;
   INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE = 0;
   INPUTS_SEARCHEFF.NPSFSIGMA_MINSEP_DETECT = 0.0 ; // e.g., for SL
   INPUTS_SEARCHEFF.MINOBS       = 2 ;  // at least 2 obs for search trigger
@@ -1271,7 +1269,6 @@ void set_user_defaults(void) {
   sprintf(INPUTS_SEARCHEFF.USER_SPEC_FILE, "NONE");
   sprintf(INPUTS_SEARCHEFF.USER_zHOST_FILE,"NONE");
 
-
   sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE,  "NONE" ); 
   sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE,    "NONE" ); 
  
@@ -1280,6 +1277,12 @@ void set_user_defaults(void) {
   INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 0 ;
   INPUTS_SEARCHEFF.IVERSION_zHOST      = 0 ;
 
+  INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF  = 0.0 ;
+  INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF = 0.0 ;
+  INPUTS_SEARCHEFF.NSHIFT_SPEC       = 0 ;
+  INPUTS_SEARCHEFF.NSHIFT_zHOST      = 0 ;
+
+  // - - - - - -
   INPUTS.EPCUTWIN_LAMREST[0] =  2000.0 ;
   INPUTS.EPCUTWIN_LAMREST[1] = 22000.0 ;
 
@@ -1670,7 +1673,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   bool ISKEY_GENMODEL, ISKEY_EBV, ISKEY_AV, ISKEY_RV, ISKEY_SPEC, ISKEY_LENS ;
   bool ISKEY_MWEBV, ISKEY_GENMAG_OFF, ISKEY_GENMAG_SMEAR, ISKEY_CUTWIN ;
   bool ISKEY_CID, ISKEY_RANSYSTPAR, ISKEY_ATMOS ;
-  bool ISKEY_EXCLUDE, ISKEY_PEAKMAG;
+  bool ISKEY_EXCLUDE, ISKEY_PEAKMAG, ISKEY_SEARCHEFF ;
   char strPoly[60], ctmp[60], *parName ;
   char fnam[] = "parse_input_key_driver" ;
   
@@ -1733,6 +1736,9 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 			      WORDS[0], keySource)  ;
 
   ISKEY_ATMOS = (strstr(WORDS[0],"ATMOSPHERE_")    != NULL );
+
+  ISKEY_SEARCHEFF = (strstr(WORDS[0],"SEARCHEFF") != NULL || 
+		     strstr(WORDS[0],"MAGSHIFT_")  != NULL);  // legacy MAGSHIFT_SPEC[zHOST]EFF
 
   // - - - - - - -
 
@@ -2544,10 +2550,17 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     README_KEYPLUSARGS_load(20, 1, WORDS, keySource, &README_KEYS_GENMODEL, fnam) ;
   }
 
-  else if ( keyMatchSim(1, "MAGSHIFT_SPECEFF",  WORDS[0],keySource) ) {
+  // - - - - - -
+  else if ( ISKEY_SEARCHEFF ) {
+    N += parse_input_SEARCHEFF(WORDS, keySource);
+  }
+
+
+  /* xxxxxxxxx mark delete Mar 30 2026 xxxxxxxxx
+  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_MAGSHIFT MAGSHIFT_SPECEFF",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
   }
-  else if ( keyMatchSim(1, "MAGSHIFT_zHOSTEFF",  WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "SEARCHEFF_zHOST_MAGSHIFT MAGSHIFT_zHOSTEFF",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF );
   }
 
@@ -2574,9 +2587,15 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_zHOST_FILE );
   }
 
+  else if ( keyMatchSim(1, "REFAC_SEARCHEFF_MAP",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ); // temp; mar 8 2026
+  }
   else if ( keyMatchSim(1, "APPLY_SEARCHEFF_OPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.APPLY_SEARCHEFF_OPT );
   }
+  xxxxxxxxxx end mark xxxxxxx*/
+
+
   else if ( keyMatchSim(1, "APPLY_DETECT_SINGLE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE );
   }
@@ -2584,9 +2603,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.MINOBS );
   }
 
-  else if ( keyMatchSim(1, "REFAC_SEARCHEFF_MAP",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ); // temp; mar 8 2026
-  }
 
   else if ( strstr(WORDS[0],"LCLIB") != NULL ) {
     N += parse_input_LCLIB(WORDS,keySource);
@@ -3150,6 +3166,90 @@ void parse_input_HOSTLIB_GAL_DETECT(char *FEATURE, char *STRING) {
   return ;
 
 } // end parse_input_HOSTLIB_GAL_DETECT
+
+
+
+// ======================================================
+int parse_input_SEARCHEFF(char **WORDS, int keySource) {
+
+  // Created Mar 30 2026
+  int N = 0, NSHIFT ;
+  int MEMD_SHIFT = MXSHIFT_SEARCHEFF * sizeof(double);
+  float fmem = 0.0, shift ;
+  char varname[40];
+  char fnam[] = "parse_input_SEARCHEFF";
+
+  // ----------- BEGIN ----------
+
+
+  if ( keyMatchSim(1, "SEARCHEFF_PIPELINE_LOGIC_FILE", WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
+    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE );
+  }
+  else if ( keyMatchSim(1, "SEARCHEFF_PIPELINE_FILE SEARCHEFF_PIPELINE_EFF_FILE",  
+			WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
+    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );
+  }
+  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_FILE  SEARCHEFF_SPECID_FILE  SEARCHEFF_SPECEFF_FILE", 
+			WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
+    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_SPEC_FILE );
+  }
+  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_SCALE SEARCHEFF_SPECEFF_SCALE",
+			WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.USER_SPECEFF_SCALE );
+  }
+  else if ( keyMatchSim(1, "SEARCHEFF_zHOST_FILE", WORDS[0],keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
+    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_zHOST_FILE );
+  }
+
+  else if ( keyMatchSim(1, "REFAC_SEARCHEFF_MAP",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ); // temp; mar 8 2026
+  }
+  else if ( keyMatchSim(1, "APPLY_SEARCHEFF_OPT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.APPLY_SEARCHEFF_OPT );
+  }
+
+  // check systematic shifts
+  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_MAGSHIFT MAGSHIFT_SPECEFF",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
+  }
+  else if ( keyMatchSim(1, "SEARCHEFF_zHOST_MAGSHIFT MAGSHIFT_zHOSTEFF",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF );
+  }
+
+  else if ( strstr(WORDS[0],"SEARCHEFF_SPEC_SHIFT") != NULL ) {
+    NSHIFT = INPUTS_SEARCHEFF.NSHIFT_SPEC;
+    if ( NSHIFT == 0 ) {
+      fmem = malloc_strlist(+1, MXSHIFT_SEARCHEFF, 40, &INPUTS_SEARCHEFF.SHIFT_VARNAMES_SPEC );
+      INPUTS_SEARCHEFF.SHIFT_VALUES_SPEC = (double*)malloc(MEMD_SHIFT);
+    }
+    // if WORDS[0] = 'SEARCHEFF_SPEC_SHIFT(r_obs_auto)', varname = 'r_obs_auto'
+    extractStringOpt(WORDS[0],varname) ;   
+    N++; sscanf(WORDS[N], "%f", &shift );
+    sprintf(INPUTS_SEARCHEFF.SHIFT_VARNAMES_SPEC[NSHIFT], "%s", varname);
+    INPUTS_SEARCHEFF.SHIFT_VALUES_SPEC[NSHIFT] = shift;
+    INPUTS_SEARCHEFF.NSHIFT_SPEC++ ;
+  }
+
+  else if ( strstr(WORDS[0],"SEARCHEFF_zHOST_SHIFT") != NULL ) {
+    NSHIFT = INPUTS_SEARCHEFF.NSHIFT_zHOST;
+    if ( NSHIFT == 0 ) {
+      fmem = malloc_strlist(+1, MXSHIFT_SEARCHEFF, 40, &INPUTS_SEARCHEFF.SHIFT_VARNAMES_zHOST );
+      INPUTS_SEARCHEFF.SHIFT_VALUES_zHOST = (double*)malloc(MEMD_SHIFT);
+    }
+    extractStringOpt(WORDS[0],varname) ;   
+    N++; sscanf(WORDS[N], "%f", &shift );
+    sprintf(INPUTS_SEARCHEFF.SHIFT_VARNAMES_zHOST[NSHIFT], "%s", varname);
+    INPUTS_SEARCHEFF.SHIFT_VALUES_zHOST[NSHIFT] = shift;
+    INPUTS_SEARCHEFF.NSHIFT_zHOST++;
+  }
+
+  return N;
+
+} // end parse_input_SEARCHEFF
 
 
 // ===============================================

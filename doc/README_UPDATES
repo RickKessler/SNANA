@@ -23621,6 +23621,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
              May need to read HOSTLIB header to check which
              zHOST variables to save ... or check zHOST_FILE
              later in INIT_HOSTLIB
-        To DO: implement SPEC and zHOST mag shift option
+        Done; implement SPEC and zHOST mag shift option
 
+    TO DO:
+       SEARCHEFF_SPEC_SHIFT(r_obs_auto): .2
+       SEARCHEFF_SPEC_SHIFT(gr_obs_auto): .02
+
+       SEARCHEFF_SPEC_MAGSHIFT: .2
 END: 

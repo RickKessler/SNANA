@@ -2556,46 +2556,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   }
 
 
-  /* xxxxxxxxx mark delete Mar 30 2026 xxxxxxxxx
-  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_MAGSHIFT MAGSHIFT_SPECEFF",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF );
-  }
-  else if ( keyMatchSim(1, "SEARCHEFF_zHOST_MAGSHIFT MAGSHIFT_zHOSTEFF",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF );
-  }
-
-  else if ( keyMatchSim(1, "SEARCHEFF_PIPELINE_LOGIC_FILE", WORDS[0],keySource) ) {
-    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN);
-    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_LOGIC_FILE );
-  }
-  else if ( keyMatchSim(1, "SEARCHEFF_PIPELINE_FILE SEARCHEFF_PIPELINE_EFF_FILE",  
-			WORDS[0],keySource) ) {
-    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
-    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE );
-  }
-  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_FILE  SEARCHEFF_SPECID_FILE  SEARCHEFF_SPECEFF_FILE", 
-			WORDS[0],keySource) ) {
-    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
-    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_SPEC_FILE );
-  }
-  else if ( keyMatchSim(1, "SEARCHEFF_SPEC_SCALE SEARCHEFF_SPECEFF_SCALE",
-			WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%le", &INPUTS_SEARCHEFF.USER_SPECEFF_SCALE );
-  }
-  else if ( keyMatchSim(1, "SEARCHEFF_zHOST_FILE", WORDS[0],keySource) ) {
-    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
-    N++;  sscanf(WORDS[N], "%s", INPUTS_SEARCHEFF.USER_zHOST_FILE );
-  }
-
-  else if ( keyMatchSim(1, "REFAC_SEARCHEFF_MAP",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ); // temp; mar 8 2026
-  }
-  else if ( keyMatchSim(1, "APPLY_SEARCHEFF_OPT",  WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%d", &INPUTS.APPLY_SEARCHEFF_OPT );
-  }
-  xxxxxxxxxx end mark xxxxxxx*/
-
-
   else if ( keyMatchSim(1, "APPLY_DETECT_SINGLE",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS_SEARCHEFF.APPLY_DETECT_SINGLE );
   }

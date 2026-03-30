@@ -81,6 +81,7 @@
 \newcommand{\effs}{efficiencies}
 \newcommand{\simeffsub}{\epsilon_{\rm subtr}}
 \newcommand{\simeffspec}{\epsilon_{\rm spec}}
+\newcommand{\simeffzhost}{\epsilon_{\rm zHOST}}
 \newcommand{\magdim}{{\mathcal M}_{\rm dim}}
 
 \newcommand{\spec}{spectroscopic}
@@ -2977,31 +2978,30 @@ generation range.
 \newcommand{\nospec}{unconfirmed}
 \newcommand{\Nospec}{Unconfirmed}
 
-The simulation includes options to model the search \eff\
-of the survey. The search \eff\ is broken into three parts:
+The simulation includes options to model 3 components of each survey 
+search \eff:
 (i) image subtraction pipelines characterized by \eff\ vs. S/N or mag,
-(ii) \spec\ \eff\ that describes visual scanning and 
-\spec\ targeting and selection, and 
+(ii) \spec-confirmation \eff\ and 
 (iii) for {\specy}-{\nospec} SNe, the ``{\tt zHOST}'' efficiency 
 for obtaining an accurate host-galaxy redshift.
 %
-Some explicit examples of sim-input options will be given
-at the end of this section.
-To ensure that your settings are correct,
-it is {\em essential} to always check that the
-simulated redshift distribution matches that
-of the data, and to check separately for the
+Some explicit examples of sim-input options are provided in the
+subsections below.
+To ensure correct settings, it is {\em essential} to always check that the
+simulated distributions matches the data, and to check separately for the
 \specy-confirmed and \nospec\ sub-samples.
 
 
+Publicly released efficiency files are stored in the directory  
+\verb|$SNDATA_ROOT/models/searcheff|,
+and the file-name typically includes the name of the survey.
 
-Default efficiency files  are stored in the directory  
-{\tt \$SNDATA\_ROOT/models/searcheff},
-and the file-name includes the name of the survey.
-However, you can specify an efficiency file in
-your private directory, or ignore the efficiency
-file by specifying a file-name as 
-{\tt NULL} or {\tt NONE}.
+{\bf LEGACY WARNING:} as of \SNANA\ version \verb|v12_01e|,
+the {\tt SEARCHEFF} efficiency code was refactored to significantly
+expand capabilities, mainly to allow the spec-efficiency and
+zHOST-efficiency maps to use the same set of variables.
+For earlier \SNANA\ versions, check associated manual for limitations
+with these maps.
 
 % -----------------------------------------------
 \subsubsection{Software-Pipeline Efficiency }
@@ -3069,7 +3069,6 @@ added to the SNANA \& FITRES tables:
 {NEPOCH\_DETECT} (number of detections) and 
 {TLIVE\_DETECT} (time between first and last detection).
 
-\clearpage
 The second type of optional map is used to specify a {\tt PHOTPROB}
 value between zero and one. This quantity is not used in the simulation,
 but is passed to the output data files so that cuts can be applied.
@@ -3229,15 +3228,16 @@ SEARCHEFF_PIPELINE_LOGIC_FILE:  $SNDATA_ROOT/models/searcheff/SEARCHEFF_PIPELINE
 \end{verbatim}
 
 
-
-\subsubsection{Spectroscopic-Confirmation Efficiency }
+\clearpage
+\subsubsection{Spectroscopic-Confirmation Efficiency ($\simeffspec$) }
 \label{sss:eff_spec}
 % \bigskip  % \clearpage
 
-The human/\spec\ \eff\ ($\simeffspec$) cannot be rigorously computed
-since it involves human decision making during the survey.
+The \spec-confirmation \eff\ ($\simeffspec$) cannot be rigorously computed
+since it involves complex algorithms or human decision making during a survey.
 The \snana\ simulation parametrizes $\simeffspec$ as an arbitrary
-function of redshift, peak-mags, peak colors, and closest time to peak.
+function of redshift, peak-mags, peak colors, \hostlib\ variables 
+(including mags and colors), and closest time to peak.
 \S\ref{sssec:simeffspec} suggests how to determine
 this function from the data and simulations.
 Rather than using an analytical form for $\simeffspec$,
@@ -3246,25 +3246,36 @@ grid of many variables.
 An example of definining the $\simeffspec$ map is shown here,
 \begin{verbatim}
   SEARCHEFF_SPEC_FILE:  $SNDATA_ROOT/models/searcheff/SEARCHEFF_SPEC_SDSS.DAT
-  SEARCHEFF_SPEC_SCALE: 0.8  # default=1.0
-       or
+  #     or
   SEARCHEFF_SPEC_FILE:  ZERO  # force EFF_SPECID=0 without map
-       or
+  #     or
   SEARCHEFF_SPEC_FILE:  ONE   # force EFF_SPECID=1 without map
-       or
+  #     or
   SEARCHEFF_SPEC_FILE:  NONE  # force EFF_SPECID=1 without map
+ 
+  # --------------------
+  #  !!!!! for systematics !!!!!
+  #
+  SEARCHEFF_SPEC_MAGSHIFT: 0.2   # shift all peak and host mags by 0.2
+  #       or
+  SEARCHEFF_SPEC_SHIFT(r): 0.2           # shift only r-band peak by 0.2
+  #       or
+  SEARCHEFF_SPEC_SHIFT(PEAKMAG_r): 0.2   # same as above
+
 \end{verbatim}
 % $
-If this file is not specified, then default $\simeffspec=1$.
-For each simulated SN, $\simeffspec$ is determined from 
-multi-dimensional (linear) interpolation. 
+If \verb|SEARCHEFF_SPEC_FILE|  is not specified, then default $\simeffspec=1$.
+For each simulated SN, $\simeffspec$ is determined from  multi-dimensional (linear) 
+interpolation. 
 If more than one grid map is given in the same $\simeffspec$-map file,
 the logical OR among the efficiencies is used;
 this feature may be useful in cases where different telescopes
 take spectra for SNe in different magnitude ranges.
-It is important to note that $\simeffspec=0$ outside
-the redshift/magnitude range given by the grid.
-This feature allows using different telescopes to cover
+%
+For parameter values outside the grid range, default $\simeffspec=0$;
+extrapolation with nearest edge value is enabled with ``\verb|OPT_EXTRAP: 1|''
+in the \verb|SEARCHEFF_SPEC_FILE|.
+This out-of-range feature allows using different telescopes to cover
 different magnitude ranges, but be careful that very bright
 SNe can have $\simeffspec=0$ if the magnitude range is not
 wide enough at the bright end. To avoid mistakenly losing 
@@ -3276,34 +3287,39 @@ this is the first grid-map in Fig.~\ref{fig:speceff}.
 Fig.~\ref{fig:speceff} below illustrates a
 \spec-\eff\ grid with three tables.
 The first table ensures 100\% \eff\ for redshifts $z<0.1$.
-The second table describes the \eff\ for $r$-band magnitudes 
+The second table describes the \eff\ for peak $r$-band magnitudes 
 below 22, and the last table defines the \eff\ for
-$i$ band magnitudes above 22. 
+peak $i$ band magnitudes above 22. 
 The second map depends on the absolute peak $r$-band magnitude
-and the $g-r$ color at peak.
-The 3rd map depends on the $i$-band magnitude and redshift,
-and applies only for fields named 'DEEP1' and 'DEEP2'.
+and the peak $g-r$ color at peak.
+The 3rd map depends on the peak $i$-band magnitude and redshift,
+and applies only for fields named '\verb|DEEP1|' and '\verb|DEEP2|'.
 The 'FIELD:' option allows for field-dependent maps,
-and the FIELD key must appear before VARNAMES key.
+and the \verb|FIELD| key must appear before \verb|VARNAMES| key.
 There essentially is no limit to the complexity: 
 for example, one could define 
-``{\tt VARNAMES: g  r  i  g-r  r-i  REDSHIFT SPECEFF}''
+``\verb|VARNAMES: g  r  i  g-r  r-i  REDSHIFT SPECEFF|''
 assuming that such a function can be determined.
-A list of valid {\tt VARNAMES} is shown in 
-Fig.~\ref{fig:speceff_varnames}.
 
 % ----------------
 \begin{figure}[hb] 
 \begin{center}
-\caption{Illustration of \spec\ \eff\ format for the \snana\ simulation.}
+\caption{Illustration of \spec\ \eff\ ($\simeffspec$) table format for the \snana\ simulation.
+         The same table structure works for {\tt SEARCHEFF\_zHOST\_FILE},
+         with {\tt SPECEFF} (key and column name) replaced with {\tt HOSTEFF}. }
+\medskip
 \label{fig:speceff}
 \begin{Verbatim}[frame=single]
+  OPT_EXTRAP: 0  # 0 -> EFF=0 outside grid
+                 # 1 -> if outside grid, extrap EFF to nearest edge
+
 # TABLE 1 -- ensure SPECEFF=1 at low redshift
   VARNAMES:  REDSHIFT  SPECEFF
   SPECEFF:    0.0      1.00
   SPECEFF:    0.1      1.00
 
 # TABLE 2 -- 4m telescope
+# VARNAMES:  PEAKMAG_g-PEAKMAG_r PEAKMAG_r  SPECEFF  # more verbose allowed 
   VARNAMES:  g-r   r      SPECEFF  # can add comments here
   SPECEFF:  -0.5  18.0     1.0
   SPECEFF:  -0.5  20.0     0.6
@@ -3325,48 +3341,45 @@ Fig.~\ref{fig:speceff_varnames}.
 \end{center} 
 \end{figure}
 
+\clearpage
+
+A list of valid {\tt VARNAMES} is shown in 
+Fig.~\ref{fig:searcheff_varnames}. A color must be constructed
+from either 2 peak mags (e.g., \verb|r-i|) or two host mags (e.g., \verb|g_obs-r_obs|).
+While a mixed SN-HOST color (e.g., \verb|g-r_obs|) is not allowed,
+peak and host mags can appear in different columns; e.g., \\
+``\verb|VARNAMES: g-r  g_obs-r_obs SPECEFF|'' is allowed.
+
 
 % ----------------
 \begin{figure}[hb] 
 \begin{center}
-\caption{ Valid {\tt VARNAMES} to describe $\simeffspec$ in Fig.~\ref{fig:speceff} }
-\label{fig:speceff_varnames}
+\caption{ Valid {\tt VARNAMES} to describe $\simeffspec$ in Fig.~\ref{fig:speceff}.
+          Also valid for $\simeffzhost$ table in Fig.~??}
+\label{fig:searcheff_varnames}
 \begin{Verbatim}[frame=single]
-  * g r i            # peak mag in any band
-  * PEAKMAG_[band]   # idem for any [band]
-  * g-r              # peak color
-  * g-i              # another peak color
-  * REDSHIFT         # redshift
-  * PEAKMJD          # MJD at time of peak brightness
-  * DTPEAK           # closest T-Tpeak; can be pos or negative
-  * DTSEASON_PEAK    # positive if PEAK is in-season; else negative
-  * SALT2mB          # SALT2 mB 
-  * SALT2x1          # SALT2 stretch parameter
-  * SALT2c           # SALT2 color parameter
-  * LOGMASS          # hsot galaxy LOGMASS
-  * HOSTMAG_[band]   # mag of host galaxy in [band]
-  * SBMAG_[band]     # surface brightness mag/arcsec^2 in [band]
-  * SNRSUM_REST_V    # synthetic rest-frame V band from spectrograph
+  * g r i                # peak mags in any band
+  * g-r                  # peak color
+  * g-i                  # another peak color
+  * PEAKMAG_[band]       # idem for any [band]; e.g. PEAKMAG_r is same as r
+  * REDSHIFT             # redshift
+  * PEAKMJD              # MJD at time of peak brightness
+  * DTPEAK               # closest T-Tpeak; can be pos or negative
+  * DTSEASON_PEAK        # positive if PEAK is in-season; else negative
+  * SALT2mB, SALT2x1, SALT2c          # SALT2 mB, stretch, color
+  * LOGMASS              # hsot galaxy LOGMASS
+  * SNRSUM_REST_V        # synthetic rest-frame V band from spectrograph
+  * [varname_hostlib]    # any variable from hostlib
+  * HOSTMAG_[band]       # mag of host galaxy in [band]
+  * HOSTMAG_g-HOSTMAG_r  # hosg g-r color
+  * g_obs-r_obs          # same host g-r color
+  * SBMAG_[band]         # surface brightness mag/arcsec^2 in [band]
 \end{Verbatim}
 \end{center}
 \end{figure}
 
 
-In principle there is just one function of redshift and
-peak-magnitudes to describe the \spec\ \eff. In practice,
-however, this \eff\ can depend on the particular SN model
-for two reasons. First, there is an overall magnitude offset
-between different SN models. Second, asymmetric 
-(dim-side) tails in the stretch and color distributions
-may not be properly modeled. To investigate the first 
-case (e.g., systematics) the sim-input parameter 
-``{\tt MAGSHIFT\_SPECEFF: <shift>}'' 
-shifts the peak magnitude used to determine $\simeffspec=0$
-from the grid-map.  The second problem can be fixed only
-by using distributions with appropriate tails.
-
-\bigskip
-For multiple maps in one {SEARCHEFF\_SPEC\_FILE} file,
+For multiple maps in one \verb|SEARCHEFF_SPEC_FILE| file,
 the default logic is ``OR'', meaning that
 random selection from any map results in spectroscopic confirmation.
 This logic accomodates multiple telescopes covering different
@@ -3378,8 +3391,8 @@ key before the {\tt VARNAMES} key as shown in this example:
 \begin{verbatim}
   REQUIRE:   1
   VARNAMES:  DTSEASON_PEAK  SPECEFF
-  SPECEFF:   0    1.0   # 100% eff for in-season peakMJD
-  SPECEFF:  999   1.0
+  SPECEFF:       0           1.0   # 100% eff for in-season peakMJD
+  SPECEFF:      900          1.0
 \end{verbatim}
 %
 which forces spec-confirmed events to have {\tt PEAKMJD} in-season;
@@ -3397,7 +3410,7 @@ the \effs\ to determine which epochs/SNe are selected.
 The results of these two search algorithms are stored
 in a bit-mask in each data file, defined as follows:
 
-%
+\clearpage
 \begin{Verbatim}[frame=single]
    SIM_SEARCHEFF_MASK += 1   # detected by image-subtraction
    SIM_SEARCHEFF_MASK += 2   # spectroscopically confirmed
@@ -3441,16 +3454,17 @@ Finally, {\tt SIM\_SEARCHEFF\_MASK} can be specified
 as a {\tt SIMGEN\_DUMP} variable (\S\ref{sss:simgen_dump}) 
 and it appears in the analysis tables (\S\ref{subsec:anavar}).
 
+
 % --------------
-\clearpage
-\subsubsection{\Nospec\ Efficiency for Host-Galaxy Redshift }
+%\clearpage
+\subsubsection{\Nospec\ Efficiency for Host-Galaxy Spectroscopic Redshift ($\simeffzhost$) }
 \label{sss:eff_zHOST}
 
-For the unconfirmed SNe, i.e., those with {\tt SIM\_SEARCHEFF\_MASK=1},
+For the unconfirmed SNe, i.e., those with \verb|SIM_SEARCHEFF_MASK=1|,
 the default redshift is assumed to have the same precision as for 
 the confirmed SNe, presumably from a host-galaxy \spec\ redshift. 
-However, a redshift-dependent fraction of unconfirmed 
-\spec\ (host-galaxy) redshifts can be specified with
+A redshift-dependent fraction of unconfirmed 
+\spec\ (host-galaxy) redshifts ($\simeffzhost$) can be specified with
 %
 \begin{verbatim}
       SEARCHEFF_zHOST_FILE:  <fileName>
@@ -3460,51 +3474,20 @@ However, a redshift-dependent fraction of unconfirmed
       SEARCHEFF_zHOST_FILE:  ZERO      # Eff(zHOST) = 0.0
           or
       SEARCHEFF_zHOST_FILE:  NONE      # Eff(zHOST) = 1.0
+
+      # !!!! systematics !!!
+      SEARCHEFF_zHOST_MAGSHIFT: 0.2    # change HOST and SN mags by 0.2
+          or
+      SEARCHEFF_zHOST_SHIFT(LOGMASS): 0.1  # shift LOGMASS in map
 \end{verbatim}
 %
-where the file contains an \eff\ map.  There are two kinds of maps:
-1) legacy map which depends only on true redshift, and 
-2) nominal map (starting with {\tt v10\_70}) defining an arbitrary 
-function of {\tt HOSTLIB} parameters
-(see ``{\tt VARNAMES:}''  key in Fig.~\ref{fig:hostlib}).
-
-Here we show an example of the redshift-dependent legacy map:
-\begin{Verbatim}[frame=single]
-# LEGACY SEARCHEFF_zHOST map:
-CUTWIN_SNRMAX:  5 1E8  # optional SNRMAX cut on source (not on host)
-
-FIELDLIST:  F1+F2       # optional 
-HOSTEFF:  0.0     1.0   # required: args are redshift & effic.
-HOSTEFF:  0.50    0.8
-HOSTEFF:  1.00    0.6
-HOSTEFF:  1.50    0.2
-
-FIELDLIST:  F3+F4+F5
-HOSTEFF:  0.0     1.0
-HOSTEFF:  0.50    0.9
-HOSTEFF:  1.00    0.8
-HOSTEFF:  1.50    0.7
- etc ...
-\end{Verbatim}                             
-The {\tt FIELDLIST} arguments are optional, as leaving this out
-will apply the map to all fields. {\tt HOSTEFF} keys are required.
-In analogy with the \spec\ efficiency, the default 
-survey-dependent file is
-\begin{verbatim}
-     $SNDATA_ROOT/models/searcheff/SEARCHEFF_zHOST_SDSS.DAT
-\end{verbatim}
-%$
-and similary with `SDSS' replaced by an arbitray survey name.
-This feature can be used even if there is no host-galaxy 
-simulation (\S\ref{subsec:hostlib}).
-
-\clearpage
-Next, we given an example of a map with more complex function
-of {\tt HOSTLIB} properties:
+where the file contains a $\simeffzhost$ map that is very similar
+so the $\simeffspec$ maps in \ref{sss:eff_spec}, except that 
+\verb|SPECEFF| keys and colums are replaced with \verb|HOSTEFF|.
+Here is an example map that depends on 
+\verb|FIELD|,  \verb|PEAKMJD|, and {\tt g} and {\tt i}-band host mags,
 %
 \begin{Verbatim}[frame=single]
-
-# decide how to handle extrapolations for all maps:
 # default is 0=>abort; 1=>use value at grid edge
 OPT_EXTRAP: 1               
 
@@ -3557,27 +3540,31 @@ Also note that {\tt FIELDLIST} must come before the {\tt VARNAMES} key.
 {\tt PEAKMJD\_RANGE} allows for season-dependent maps.
 Finally, the first $N-1$ {\tt VARNAMES} specifies arbitrary
 {\tt HOSTLIB} propertes from the {\tt VARNAMES} key in 
-Fig.~\ref{fig:hostlib}. The last ($N$th) {\tt VARNAME} must be {\tt HOSTEFF}.
+Fig.~\ref{fig:hostlib}, and also SN properties such as {\tt PEAKMAG}
+and SALT2 parameters. See Fig.~\ref{fig:searcheff_varnames} for
+complete list of allowed {\tt VARNAMES}.
+Host color dependence can be specified with ``\verb|g_obs-r_obs|''
+or equivalently, ''\verb|HOSTMAG_g-HOSTMAG_r|.''
+The last ($N$th) {\tt VARNAME} must be {\tt HOSTEFF}.
 
 
-\clearpage
 For unconfirmed SNe that have no redshift information,
 the redshift and its error are set to $-9$; 
 this value flags the photo-z fitting option in {\tt snlc\_fit.exe}
 to ignore redshift-prior information
-({\tt OPT\_PHOTOZ=2}, (\S\ref{subsec:photoz}).
-When an accurate host-galaxy redshift is used, 
-the 4-bit is set in {\tt SIM\_SEARCHEFF\_MASK}. 
+({\tt OPT\_PHOTOZ=2}, \S\ref{subsec:photoz}).
+When an accurate host-galaxy redshift is available from either 
+\spec\ confirmation or the host,
+the 4-bit is set with {\tt SIM\_SEARCHEFF\_MASK+=8}. 
 There is a valid (i.e, positive) redshift when 
-{\tt SIM\_SEARCHEFF\_MASK} has either the 2-bit or 4-bit set.
-{\tt SIM\_SEARCHEFF\_MASK=1} means that the SN is
+\verb|SIM_SEARCHEFF_MASK| has either the 2-bit or 4-bit set.
+\verb|SIM_SEARCHEFF_MASK=1| means that the SN is
 detected by the pipeline (\S\ref{sss:eff_pipeline})
-but that there is no valid redshift
-({\tt REDSHIFT\_FINAL = -9}).
+but there is no valid redshift
+(\verb|REDSHIFT_FINAL = -9|).
 Finally, recall from \S\ref{subsec:sim_sntype} 
 that the unconfirmed SNTYPE in the data header is 
 100 plus the spec-confirmed SNTYPE.
-
 
 %\clearpage
 Below are a few examples of sim-input settings.
@@ -3585,7 +3572,7 @@ First, to simulate a \specy\ confirmed sample
 using private search-\eff\ files,
 %
 \begin{Verbatim}[frame=single]
-   APPLY_SEARCHEFF_OPT: 3         # apply PIPELINE+SPEC efficiencies
+   APPLY_SEARCHEFF_OPT: 3         # apply DETECTION+SPEC efficiencies
    SEARCHEFF_PIPELINE_EFF_FILE: TESTEFF_PIPELINE.DAT  # private file
    SEARCHEFF_SPEC_FILE:         TESTEFF_SPEC.DAT      # private file
 \end{Verbatim}
@@ -3593,33 +3580,33 @@ using private search-\eff\ files,
 To simulate a mix of confirmed and unconfirmed SN~Ia:
 %
 \begin{Verbatim}[frame=single]
-   APPLY_SEARCHEFF_OPT: 1        # apply only the software trigger
+   APPLY_SEARCHEFF_OPT: 1        # apply only DETECTION
 \end{Verbatim}
-Events with {\tt SIM\_SEARCHEFF\_MASK=3} or 5 have a \spec\ redshift
-with \unc\ given by the {\tt GENSIGMA\_REDSHIFT} key.
-Events with {\tt SIM\_SEARCHEFF\_MASK=1} (unconfirmed and no
-host spec-z) have a host-galaxy photo-z
+Events with \verb|SIM_SEARCHEFF_MASK=3| or 5 have a \spec\ redshift
+with \unc\ given by the \verb|GENSIGMA_REDSHIFT| key.
+Events with \verb|SIM_SEARCHEFF_MASK=1| 
+(unconfirmed and no host spec-z) have a host-galaxy photo-z
 if such information is availabe in the {\tt HOSTLIB};
 otherwise the redshift is set to -9.
 
 \bigskip\noindent
 To simulate and select events with \spec\ host redshift,
 \begin{Verbatim}[frame=single]
-   APPLY_SEARCHEFF_OPT: 5        # apply software trigger & zHOST
+   APPLY_SEARCHEFF_OPT: 5        # apply DETECTION & zHOST
    SEARCHEFF_zHOST_FILE:  SEARCHEFF_zHOST.DAT
 \end{Verbatim}
 
 {\bf zHOST VALIDATION:}
-to validate the zHOST efficiency, include {\tt SIM\_EFFMASK} in the
-variable list for the {\tt SIMGEN\_DUMP} option (\S\ref{sss:simgen_dump}), 
-and use command-line override  ``{\tt APPLY\_SEARCHEFF\_OPT 1}.'' 
+to validate the zHOST efficiency, include \verb|SIM_SEARCHEFF_MASK| in the
+\verb|SIMGEN_DUMP| option (\S\ref{sss:simgen_dump}), 
+and use command-line override  ``\verb|APPLY_SEARCHEFF_OPT 1|.'' 
 The simulated zHOST efficiency is defined to be
 \begin{verbatim}
-                          N[SIM_EFFMASK=5]
-    EFF(zHOST) = ------------------------------------- ,
-                 N[SIM_EFFMASK=1] + N[SIM_EFFMASK=5] 
+                          N[SIM_SEARCHEFF_MASK=5]
+    EFF(zHOST) = --------------------------------------------------- ,
+                 N[SIM_SEARCHEFF_MASK=1] + N[SIM_SEARCHEFF_MASK=5] 
 \end{verbatim}
-and note that spectroscopically-confirmed events ({\tt SIM\_EFFMASK=3})
+and note that spectroscopically-confirmed events (\verb|SIM_SEARCHEFF_MASK=3|)
 are ignored here.
 {\tt EFF(zHOST)} can be defined as a function of the {\tt HOSTLIB}
 property(s) and compared against the expected efficiency defined

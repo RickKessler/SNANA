@@ -1160,7 +1160,7 @@ void  init_searcheff_shifts(int imap, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
 
   // assign same MAGSHIFT to all mags (later applied only to MAG type map);
-  if ( imap==0 ) { MAP->MAGSHIFT = MAGSHIFT ; }
+  MAP->MAGSHIFT = MAGSHIFT ; 
 
   // - - - - - - -
   if ( MAGSHIFT != 0.0 ) {

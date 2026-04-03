@@ -2659,6 +2659,7 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
   // Feb 18 2022: read 2 lines for FIRSTLINE
   // Aug 31 2023: minor refactor to handle strlen > 10k (see NWD_APPROX)
   // Nov 16 2023: pass callFun arg for abort message
+  // Apr 03 2026: require NWD>0 as part of logic to immediately return
 
   bool DO_STRING       = ( (OPT & MSKOPT_PARSE_WORDS_STRING) > 0 );
   bool DO_FILE         = ( (OPT & MSKOPT_PARSE_WORDS_FILE)   > 0 );
@@ -2682,7 +2683,11 @@ int store_PARSE_WORDS(int OPT, char *FILENAME, char *callFun ) {
   // if input file (or string) is the same as before,
   // just return since everything is still stored.
 
-  if ( LENF > 0 && strcmp(PARSE_WORDS.FILENAME,FILENAME)==0 ) 
+  //  printf(" xxx %s: compare '%s' against '%s'  NWD=%d\n", 
+  //	 fnam, PARSE_WORDS.FILENAME, FILENAME, PARSE_WORDS.NWD);
+
+  bool MATCH = ( strcmp(PARSE_WORDS.FILENAME,FILENAME)==0 ); 
+  if ( LENF > 0 && PARSE_WORDS.NWD>0 && MATCH ) 
     { return(PARSE_WORDS.NWD); }
 
   if ( LDMP ) {

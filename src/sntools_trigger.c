@@ -1210,7 +1210,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   char  KEY_STOP[] = "" ;
   char  *VARNAME, *VARLIST, FIELDLIST[100] ;
   char  eff_file_local[MXPATHLEN], *ptrFile_user, *ptrFile_final, *cptr;
-  char  c_get[100], LINE[100];
+  char  c_get[100], LINE[MXPATHLEN];
   double PEAKMJD_RANGE[2];
   int   OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
 
@@ -1324,7 +1324,8 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
 
     if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_MAP ) {
       fgets(LINE, 100, fp ); // scoop up varnames
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam );
+
+      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, LINE, fnam );
 
       SEARCHEFF_INFO->MAP_LIST[NMAP].NVAR_TOT = NVAR ;
       SEARCHEFF_INFO->MAP_LIST[NMAP].REQUIRE  = REQUIRE_MAP;      

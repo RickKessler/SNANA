@@ -23596,11 +23596,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v12_01d) *****
 
-    sntools_trigger.c[h]: ... NOT YET ... 
-      For simulation, released refactor (previous SNANA tag) to treat 
+    sntools_trigger.c[h]: 
+      For simulation, finish refactor (previous SNANA tag) to treat 
       SPECEFF_FILE and zHOST_FILE with same underlying code, which should
       add more flexibility to each map.
-      See INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 1.
+      See INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 0.
+      REFAC not yet default.
 
          *****  USEFUL(v12_01d) *****
 
@@ -23616,16 +23617,29 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         to check for band at begging or end of VARNAME string;
         allows parsing e.g., J_obs or PEAKMAG_J
 
-        PROBLEM: only zHOST variables with 'obs' in the name
-             are saved in HOSTLOB-STOREPAR, which is fragile.
-             May need to read HOSTLIB header to check which
-             zHOST variables to save ... or check zHOST_FILE
-             later in INIT_HOSTLIB
-        Done; implement SPEC and zHOST mag shift option
+   sntools_host.c:
+     + minor refac to read HOSTLIB varnames before checking map files
+       (SPEC, zHOST, GENPD) that contain HOSTLIB variables. 
+       This enables precise checking of which map variables are in
+       the hostlib, so no longer need implicit assumptions about
+       which map variables are in HOSTLIB.
+       
+# =============================================================
+         v12_01e (Apr 3 2026) <--- start date of git tag
 
-    TO DO:
-       SEARCHEFF_SPEC_SHIFT(r_obs_auto): .2
-       SEARCHEFF_SPEC_SHIFT(gr_obs_auto): .02
+         *****  IMPORTANT(v12_01e) *****
 
-       SEARCHEFF_SPEC_MAGSHIFT: .2
+    snlc_sim.c: set default INPUTS.REFAC_SEARCHEFF_MAP=1 to release
+        refactor from previous versions for SPEC_FILE and zHOST_FILE.
+        See https://github.com/RickKessler/SNANA/issues/1619
+
+         *****  USEFUL(v12_01e) *****
+
+
+         *****  MISCELLANEOUS(v12_01e) *****
+
+   sntools.c
+     + subtle bug fix in store_PARSE_WORDS to work with newly released
+       refactor.
+
 END: 

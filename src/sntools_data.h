@@ -5,6 +5,8 @@
 
  ******************************************/
 
+int REFAC_DATA_FLAG ;  // Apr 3 2026: refactor to store LOGMASS[_ERR] in z-bins
+
 #define MXFILE_OVERRIDE   10
 #define IVARMAX_OVERRIDE  200  // max IVAR;  can be large even with only 1 override var
 
@@ -45,6 +47,8 @@ int FORMAT_SNDATA_WRITE ;
 
 // ======== function prototypes =============
 
+void SET_REFAC_DATA_FLAG(int refac_data_flag);
+
 void copy_SNDATA_GLOBAL(int copyFlag, char *key,
                         int NVAL, char *stringVal, double *parVal);
 void copy_SNDATA_HEAD(int copyFlag, char *key,
@@ -79,6 +83,8 @@ void rd_override_check_mistake(char *varname_mistake, char *varname_correct);
 void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST); 
 
 // mangled functions for fortran
+void set_refac_data_flag__(int *refac_data_flag);
+
 void copy_sndata_global__(int *copyFlag, char *key,
                           int *NVAL, char *stringVal, double *parVal);
 void copy_sndata_head__(int *copyFlag, char *key,

@@ -166,6 +166,12 @@ struct VERSION
 } VERSION_INFO ;
 
 
+#define MXBIN_HOSTGALz 41 // max z bins for zPHOT quantiles, LOGMASS[_ERR]
+typedef struct {
+  float   Z_LIST[MXHOSTGAL][MXBIN_HOSTGALz] ;     // redshift list
+  int     VAL_LIST[MXHOSTGAL][MXBIN_HOSTGALz] ;   // value list
+  int     NZ[MXHOSTGAL] ;
+} HOSTGALz_DEF ;
 
 // define main SNDATA data structure
 
@@ -243,7 +249,7 @@ struct SNDATA {
   int   NXPIX, NYPIX;
 
   int   DETNUM[MXEPOCH] ; // detector/CCD number or sensor id
-  int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g., EXPNUM, VISIT_ID)
+  int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g. EXPNUM, VISIT_ID)
 
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch
@@ -328,6 +334,11 @@ struct SNDATA {
   float   HOSTGAL_PHOTOZ_ERR[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
+
+  // .xyz
+  HOSTGALz_DEF HOSTGALz_ZPHOT_QUANTILES ;
+  HOSTGALz_DEF HOSTGALz_LOGMASS ;
+  HOSTGALz_DEF HOSTGALz_LOGMASS_ERR ;
 
   float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
   int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles

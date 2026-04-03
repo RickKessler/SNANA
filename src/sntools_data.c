@@ -25,6 +25,17 @@
 #include  <sys/stat.h>
 
 
+// set_refac_data_flag is for devel only
+void SET_REFAC_DATA_FLAG(int refac_data_flag) { 
+  printf("\n Set REFAC_DATA_FLAG = %d\n\n ", refac_data_flag);
+  fflush(stdout);
+  REFAC_DATA_FLAG = refac_data_flag ; 
+}
+
+void set_refac_data_flag__(int *refac_data_flag)
+{ SET_REFAC_DATA_FLAG(*refac_data_flag); }
+
+
 // =======================================================
 bool IS_SIMKEY_SNDATA(char *key) {
 

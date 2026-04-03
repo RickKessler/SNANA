@@ -1535,7 +1535,8 @@
         ,OPT_SNCID_LIST       &  ! I: 1=force all and ignore cuts; to sync events for common event cut
                                  ! I: 2=set INIVAL=FITPAR
                                  ! I: 4=use each FITPAR and ERROR as prior
-        ,OPT_VPEC_COR        ! I: 1=apply vpec cor (default)
+        ,OPT_VPEC_COR          &    ! I: 1=apply vpec cor (default)
+        ,REFAC_DATA_FLAG            ! I: flag to refactor data structure
 
     LOGICAL  & 
          LSIM_SEARCH_SPEC    &  ! I: T => require simulated SPEC-tag
@@ -1666,7 +1667,7 @@
           , USESIM_SNIA, USESIM_NONIA, USESIM_TRUEFLUX, USESIM_REDSHIFT  & 
           , USE_SNHOST_ZPHOT, USE_HOSTGAL_PHOTOZ, USE_SNHOST_QZPHOT  & 
           , RESTORE_WRONG_VPEC, RESTORE_OVERRIDE_ZBUG  & 
-          , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR  & 
+          , RESTORE_MWEBV_ERR_BUG, RESTORE_DES5YR, REFAC_DATA_FLAG  & 
           , REQUIRE_DOCANA, FORCE_STDOUT_BATCH  & 
           , LPROB_TRUEFLUX  & 
           , ABORT_ON_NOEPOCHS, ABORT_ON_BADAVWARP, ABORT_ON_NOPKMJD  & 
@@ -5730,6 +5731,7 @@
     RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
     RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
     RESTORE_DES5YR        = .FALSE. ! May 28 2025
+    REFAC_DATA_FLAG       = 0       ! Apr 03 2026
 
     REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
@@ -7428,6 +7430,10 @@
        else if ( MATCH_NMLKEY('RESTORE_DES5YR',  & 
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) RESTORE_DES5YR
+
+       else if ( MATCH_NMLKEY('REFAC_DATA_FLAG',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) REFAC_DATA_FLAG
 
 ! - - - - -
        else if ( MATCH_NMLKEY('REQUIRE_DOCANA',  & 
@@ -11496,6 +11502,7 @@
 ! function
     INTEGER FILTINDX, EXEC_CIDMASK, STORE_PARSE_WORDS
     EXTERNAL STORE_PARSE_WORDS, SET_EXIT_ERRCODE
+    EXTERNAL SET_REFAC_DATA_FLAG
 
 ! ---------------- BEGIN ------------
 
@@ -11807,6 +11814,7 @@
 
     NWD = STORE_PARSE_WORDS(-1, ""//char(0), FNAM//char(0), 2, 12);
 
+    CALL SET_REFAC_DATA_FLAG(REFAC_DATA_FLAG)  ! Apr 3 2026
 
     RETURN
   END SUBROUTINE INIT_SNVAR

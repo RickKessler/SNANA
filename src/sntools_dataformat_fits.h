@@ -17,7 +17,6 @@
 
 **************************************************/
 
-// xxx mark delete Aug 7 2025   #define REFAC_SNFITSIO 1
 
 // ==================================
 // global variables

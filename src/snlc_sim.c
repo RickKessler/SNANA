@@ -41,6 +41,7 @@
 #include "sntools_fluxErrModels.h"
 #include "sntools_fluxErrModels_legacy.h"
 #include "sntools_genSmear.h"
+#include "sntools_data.h"
 #include "sntools_dataformat_fits.h"
 #include "sntools_dataformat_text.h"
 #include "sntools_calib.h"
@@ -708,6 +709,8 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
   INPUTS.RESTORE_BUG_ZHEL       = true;
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
+
+  INPUTS.REFAC_DATA_FLAG        = 0 ;
   NLINE_RATE_INFO   = 0;
 
   INPUTS.TIME_START[0] = 0 ;
@@ -1252,7 +1255,7 @@ void set_user_defaults(void) {
   INPUTS.NCUTWIN_TOT = 0 ;
 
   INPUTS_SEARCHEFF.RESTORE_DES5YR       = 0 ; // Oct 15 2025
-  INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 0 ; // release refac, Apr 3 2026 
+  INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 1 ; // release refac, Apr 3 2026 
 
   INPUTS_SEARCHEFF.FIX_EFF_PIPELINE = -9.0 ;
   INPUTS_SEARCHEFF.FUNEFF_DEBUG     = 0 ; // 1->100% eff, 2-> hackFun
@@ -1804,7 +1807,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     INPUTS_SEARCHEFF.RESTORE_DES5YR = INPUTS.RESTORE_DES5YR; // Oct 15 2025
   }
 
-
   else if ( keyMatchSim(1, "RESTORE_BUGS_DES3YR", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     if (ITMP) { INPUTS.RESTORE_BUGS_DES3YR = true; }    
@@ -1818,7 +1820,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     INPUTS.RESTORE_WRONG_VPEC = ( ITMP > 0 );
   }
   // - - - - - -
-
+  else if ( keyMatchSim(1, "REFAC_DATA_FLAG", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.REFAC_DATA_FLAG);   // May 28 2025
+  }
+  // - - - - -
   else if ( ISKEY_HOSTLIB ) {
     N += parse_input_HOSTLIB(WORDS, keySource);
   }
@@ -9148,6 +9153,7 @@ void init_simvar(void) {
   set_GENMODEL_NAME();
 
   init_GaussIntegral();
+  SET_REFAC_DATA_FLAG(INPUTS.REFAC_DATA_FLAG);
 
   GENLC.STOPGEN_FLAG = 0 ;
   GENLC.FLAG_ACCEPT   = GENLC.FLAG_ACCEPT_LAST = 0 ;

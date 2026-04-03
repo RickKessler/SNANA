@@ -528,6 +528,7 @@ struct INPUTS {
   // restores settings for DES-SN5YR/V24: 
   // +=1(Fitz99 approx), +=2(no host NBR); 3 -> both
   int RESTORE_DES5YR;    
+  int REFAC_DATA_FLAG;
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)

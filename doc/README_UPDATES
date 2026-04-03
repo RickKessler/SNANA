@@ -23632,7 +23632,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c: set default INPUTS.REFAC_SEARCHEFF_MAP=1 to release
         refactor from previous versions for SPEC_FILE and zHOST_FILE.
         See https://github.com/RickKessler/SNANA/issues/1619
-
+        
          *****  USEFUL(v12_01e) *****
 
 

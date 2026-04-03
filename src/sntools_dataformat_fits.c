@@ -1015,6 +1015,8 @@ void wr_snfitsio_create(int itype ) {
 
   SNFITSIO_CODE_IVERSION = 27; // Jul 23 2025  write/read ZP_FLUXCAL
   
+  if ( REFAC_DATA_FLAG > 0 ) { SNFITSIO_CODE_IVERSION = 28; } // LOGMASS[_ERR](z)
+
   // - - - - - - - 
 
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 

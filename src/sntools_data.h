@@ -66,6 +66,7 @@ void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
 void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
 void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
 void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
+void copy_HOSTGALz(int copyFlag, char *PREFIX, HOSTGALz_DEF *HOSTGALz);
 
 bool IS_SIMKEY_SNDATA(char *key);
 

@@ -17,10 +17,7 @@
 #include  "sntools_data.h"
 #include  "sntools_output.h"
 #include  "sntools_cosmology.h"
-
-//#include  "sntools_dataformat_text.h"
 #include  "sntools_host.h" 
-//#include  "sntools_trigger.h" 
 
 #include  <sys/stat.h>
 
@@ -81,6 +78,9 @@ void copy_str(int copyFlag, char *STR0, char *STR1) {
   else                  { sprintf(STR0, "%s", STR1); }
 }
 
+void copy_HOSTGALz(int copyFlag, char *PREFIX, HOSTGALz_DEF *HOSTGALz) {
+
+} // 
 
 // ===================================================
 void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL, 
@@ -513,15 +513,29 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	if ( strcmp(key,KEY_TEST) == 0 ) 
 	  { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_MAGERR[igal][ifilt]); } 
       }
-      if ( strstr(key,PREFIX_ZPHOT_Q) != NULL ) {
-	for(q=0; q < SNDATA.HOSTGAL_NZPHOT_Q; q++ ) {
-	  PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ;
-	  LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, KEY_TEST); // return KEY_TEST
-	  // xxxx mark delete sprintf(KEY_TEST,"%s_%s%3.3d", PREFIX, PREFIX_ZPHOT_Q, PCT);
-	  if ( strcmp(key,KEY_TEST) == 0 ) 
-	    { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_ZPHOT_Q[igal][q]);  } 
-	}
+
+      // - - - 
+      if ( REFAC_DATA_FLAG > 0 ) {
+	// data keys"
+	//HOSTGAL_ZPHOT_QUANTILE(z,nn) / HOSTGAL_ZPHOT_QUANTILE(val,nn)
+	//HOSTGAL2_ZPHOT_QUANTILE_[nn] / HOSTGAL2_ZPHOT_PCT_[nn]
+	//HOSTGAL_zLOGMASS / HOSTGAL_val_LOGMASS
+	//	copy_HOSTGALz(copyFlag, KEY, parVal, &SNDATA.HOSTGALz_ZPHOT_QUANTILE ); //.xyz
+	// copy_HOSTGALz(copyFlag, prefix, HOSTGALz_DEF *)
       }
+      else {
+	// legacy
+	if ( strstr(key,PREFIX_ZPHOT_Q) != NULL ) {
+	  for(q=0; q < SNDATA.HOSTGAL_NZPHOT_Q; q++ ) {
+	    PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q] ;
+	    LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, KEY_TEST); // return KEY_TEST
+	    if ( strcmp(key,KEY_TEST) == 0 ) 
+	    { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_ZPHOT_Q[igal][q]);  } 
+	  }
+	} // end PREFIX_ZPHOT_Q
+      }
+
+      // - - - -
 
     } // end igal
 
@@ -1546,7 +1560,7 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
       printf("\t %s \n", tmp_file);
     }
     free(LIST_FILE); free(tmp_file); free(TMP_FILE);
-    // .xyz
+
   }
 
   if ( LDMP ) {

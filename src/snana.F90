@@ -5884,6 +5884,8 @@
     ENDIF
 #endif
 
+    CALL SET_REFAC_DATA_FLAG(REFAC_DATA_FLAG)  ! Apr 3 2026
+
 ! -----------------------------------------
 ! Compute useful variables from namelist
 
@@ -11814,7 +11816,6 @@
 
     NWD = STORE_PARSE_WORDS(-1, ""//char(0), FNAM//char(0), 2, 12);
 
-    CALL SET_REFAC_DATA_FLAG(REFAC_DATA_FLAG)  ! Apr 3 2026
 
     RETURN
   END SUBROUTINE INIT_SNVAR

@@ -34,6 +34,7 @@
 
 #define MXFILE_SNFITSIO     500  // max number of fits-files to read
 #define MXPAR_SNFITSIO      600  // max number of header variables
+#define MXELEMENT_SNFITSIO  100  // max elements per vector write (Apr 2026)
 
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes
 
@@ -138,6 +139,8 @@ struct {
   unsigned int   value_1V ;  // 4-byte unsigned int
   long long      value_1K ;  // 8 bytte long long int
   
+  float          list_1E[MXELEMENT_SNFITSIO] ; // list of 4-byte floats
+
   int NROW ; // increment number of rows written
 
   // index used to speed search for header-param column during update

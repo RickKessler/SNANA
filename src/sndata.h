@@ -116,6 +116,15 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 #define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
 #define STRING_NZPHOT_Q "NZPHOT_Q"
 
+
+// define suffixes for refactoed data stream with z-dependent quantities
+#define SUFFIX_QUANTILE_ZPHOT       "QUANTILE_ZPHOT"    // append to HOSTGALz or HOSTGALz2
+#define SUFFIX_QUANTILE_PERCENT     "QUANTILE_PERCENT"
+#define SUFFIX_LOGMASS_ZGRID        "LOGMASS_ZGRID"
+#define SUFFIX_LOGMASS_VALGRID      "LOGMASS_VALGRID"
+#define SUFFIX_LOGMASS_ERR_ZGRID    "LOGMASS_ERR_ZGRID"
+#define SUFFIX_LOGMASS_ERR_VALGRID  "LOGMASS_ERR_VALGRID"
+
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
 char PATH_SNDATA_LCMERGE[MXPATHLEN];
@@ -168,9 +177,9 @@ struct VERSION
 
 #define MXBIN_HOSTGALz 41 // max z bins for zPHOT quantiles, LOGMASS[_ERR]
 typedef struct {
-  float   Z_LIST[MXHOSTGAL][MXBIN_HOSTGALz] ;     // redshift list
-  int     VAL_LIST[MXHOSTGAL][MXBIN_HOSTGALz] ;   // value list
-  int     NZ[MXHOSTGAL] ;
+  int     NZ;
+  float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)
+  int     VAL_LIST[MXBIN_HOSTGALz] ;   // value list
 } HOSTGALz_DEF ;
 
 // define main SNDATA data structure
@@ -336,9 +345,9 @@ struct SNDATA {
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
 
   // .xyz
-  HOSTGALz_DEF HOSTGALz_ZPHOT_QUANTILES ;
-  HOSTGALz_DEF HOSTGALz_LOGMASS ;
-  HOSTGALz_DEF HOSTGALz_LOGMASS_ERR ;
+  HOSTGALz_DEF HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL] ;
+  HOSTGALz_DEF HOSTGALz_LOGMASS[MXHOSTGAL] ;
+  HOSTGALz_DEF HOSTGALz_LOGMASS_ERR[MXHOSTGAL] ;
 
   float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
   int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles

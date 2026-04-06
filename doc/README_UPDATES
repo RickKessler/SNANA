@@ -23642,4 +23642,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + subtle bug fix in store_PARSE_WORDS to work with newly released
        refactor.
 
+   Add REFAC_DATA_FLAG input to snlc_sim.exe and snana.exe to begin
+   adding z-dependent grids to data stream:
+      HOSTGALz_ZPHOT_QUANTILE
+      HOSTGALz_LOGMASS
+      HOSTGALz_LOGMASS_ERR
+
 END: 

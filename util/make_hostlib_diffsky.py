@@ -28,6 +28,7 @@ KEY_HOSTLIB_FILE         = "HOSTLIB_FILE"
 KEY_CUTWIN               = "CUTWIN"
 KEY_MAG_5SIG             = "MAG_5SIG"
 KEY_HOSTLIB_GALID        = "GALID"
+KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
 
 
 REF_DICT = {
@@ -316,6 +317,93 @@ def addcol_logsfr(cat_inp, config):
     # end addcol_logsfr
 
 
+
+def _get_mag_bands(config):
+    """Return list of diffsky-side mag band column names from MAG_5SIG config."""
+    MAG_5SIG = config.get(KEY_MAG_5SIG, [])
+    return [row.split()[0] for row in MAG_5SIG]
+
+
+def inject_mag_columns(df_cat, config):
+    """Inject pre-computed magnitude columns into df_cat from the OVERRIDE_FILE parquet.
+
+    Join key: core_tag (HDF5, int64 read via h5py) ↔ serial_tag (parquet, int64).
+    Both are the same LastJourney halo ID stored as true int64 — exact match, no
+    precision loss. df_cat must contain a 'core_tag' column (added temporarily by
+    convert_galaxy_cat_to_pandas when OVERRIDE_FILE is set); it is dropped after join.
+    Mag errors are recomputed from MAG_5SIG after the merge.
+    """
+    override_file = config[KEY_OVERRIDE_FILE]
+    parquet_file  = os.path.splitext(override_file)[0] + '.parquet'
+
+    if os.path.exists(parquet_file):
+        logging.info(f"inject_mag_columns: reading parquet {parquet_file}")
+        df_mag = pd.read_parquet(parquet_file)
+    else:
+        logging.info(f"inject_mag_columns: reading HOSTLIB text {override_file}")
+        with open(override_file) as f:
+            for i, line in enumerate(f):
+                if line.startswith("VARNAMES:"):
+                    header_line = i
+                    break
+        df_mag = pd.read_csv(override_file, sep=r"\s+", skiprows=header_line, header=0)
+
+    logging.info(f"  inject table: {len(df_mag):,} rows, columns: {list(df_mag.columns)}")
+
+    # Determine which mag columns to pull from the parquet
+    hostlib_varname_dict = config['hostlib_varname_dict']   # diffsky → hostlib
+    mag_bands = _get_mag_bands(config)                       # diffsky names e.g. ['des_g',...]
+
+    cols_to_merge = ['serial_tag']
+    rename_map    = {}
+    for band in mag_bands:
+        if band in df_mag.columns:
+            cols_to_merge.append(band)
+        else:
+            hlib_name = hostlib_varname_dict.get(band)
+            if hlib_name and hlib_name in df_mag.columns:
+                rename_map[hlib_name] = band
+                cols_to_merge.append(hlib_name)
+            else:
+                logging.warning(f"  inject_mag_columns: band '{band}' not in parquet — filling 0.0")
+                df_cat[band] = 0.0
+
+    if rename_map:
+        df_mag = df_mag.rename(columns=rename_map)
+        cols_to_merge = [rename_map.get(c, c) for c in cols_to_merge]
+
+    # Left-merge on core_tag (df_cat) ↔ serial_tag (parquet) — both int64, exact match
+    n_before = len(df_cat)
+    df_cat = df_cat.merge(
+        df_mag[cols_to_merge].rename(columns={'serial_tag': 'core_tag'}),
+        on='core_tag', how='left'
+    )
+
+    # Drop core_tag — it was added temporarily for the join, not a HOSTLIB output column
+    df_cat = df_cat.drop(columns=['core_tag'])
+
+    n_missing = df_cat[mag_bands[0]].isna().sum() if mag_bands else 0
+    if n_missing > 0:
+        logging.warning(f"  inject_mag_columns: {n_missing}/{n_before} galaxies have no mag match — filling 0.0")
+        for band in mag_bands:
+            df_cat[band] = df_cat[band].fillna(0.0)
+
+    logging.info(f"  inject_mag_columns: merged mags for {n_before - n_missing:,}/{n_before:,} galaxies")
+
+    # Compute mag errors from MAG_5SIG
+    MAG_5SIG = config.get(KEY_MAG_5SIG, [])
+    if MAG_5SIG:
+        logging.info("  inject_mag_columns: computing mag errors from MAG_5SIG")
+        for row in MAG_5SIG:
+            band     = row.split()[0]
+            band_err = band + '_err'
+            m5sig    = float(row.split()[1])
+            powm5    = 0.2 * math.pow(10.0, -0.2 * m5sig)
+            df_cat[band_err] = powm5 * np.power(10.0, 0.2 * df_cat[band].values)
+
+    return df_cat
+
+
 def check_Sersic_definitions(config):
 
     # sanity check to make sure that a,b,n are defined for each sersic component,
@@ -425,9 +513,10 @@ def addcol_driver(cat_inp, config):
     cat_out = addcol_logsfr(cat_out, config)        
     
     # check option to add and compute mag_error for each band
-    cat_out = addcol_mag_errors(cat_out, config)
+    # (skipped when OVERRIDE_FILE is set — mag bands not in HDF5, errors computed post-merge)
+    if KEY_OVERRIDE_FILE not in config:
+        cat_out = addcol_mag_errors(cat_out, config)
 
-    
     return cat_out  # end addcol_driver
 
 
@@ -490,14 +579,18 @@ def read_galaxy_cat(args, config):
     # end read_galaxy_cat
 
 def check_diffsky_columns(config, ds):
-    
+
     # abort if user-requested diffksy column is not available
-    hostlib_varname_dict = config['hostlib_varname_dict'] 
+    hostlib_varname_dict = config['hostlib_varname_dict']
 
     # these are computed and hence don't exist in catalog
-    exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr' ] 
-    
-    nerr = 0 
+    exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr' ]
+
+    # if OVERRIDE_FILE is configured, mag band columns are not in HDF5 — skip them
+    if KEY_OVERRIDE_FILE in config:
+        exception_list += _get_mag_bands(config)
+
+    nerr = 0
     for varname in list(hostlib_varname_dict):
 
         SKIPIT = False
@@ -719,9 +812,19 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
 def convert_galaxy_cat_to_pandas(galaxy_cat, config):
 
     logging.info(f"Convert galaxy catalog to pandas: ")
-    
+
     hostlib_varname_dict = config['hostlib_varname_dict']
     cat_var_list         = list(hostlib_varname_dict.keys())
+
+    if KEY_OVERRIDE_FILE in config:
+        # Exclude mag band columns and their errors — not in HDF5, will be injected from parquet
+        mag_bands    = _get_mag_bands(config)
+        mag_err_cols = [b + '_err' for b in mag_bands]
+        cat_var_list = [v for v in cat_var_list if v not in mag_bands and v not in mag_err_cols]
+        # Add core_tag temporarily — needed as join key in inject_mag_columns
+        if 'core_tag' not in cat_var_list:
+            cat_var_list.append('core_tag')
+        logging.info(f"  (OVERRIDE_FILE mode: excluding mag bands from HDF5 select, adding core_tag for join)")
 
     t0 = time.time()
     df_cat = galaxy_cat.select(cat_var_list).get_data().to_pandas()
@@ -958,30 +1061,30 @@ if __name__ == "__main__":
 
     # make sure Sersic column definitions are consistent to avoid crash later
     check_Sersic_definitions(config)
-    
+
     # parse varname mapping between diffsky and hostlib
     config   = parse_varname_map(config)
 
     # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
     config  = parse_hostlib_info(config)
-        
-    # fetch entire galaxy catalog
+
+    # fetch entire galaxy catalog from HDF5
     galaxy_cat  = read_galaxy_cat(args, config)
-    
+
     # apply cuts
     galaxy_cat  = apply_cuts(galaxy_cat, config)
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - 
     # add columns computed from other columns
-
     galaxy_cat = addcol_driver(galaxy_cat, config)
-    
 
     logging.info('==================================================')
     logging.info('')
-    
-    # - - - - - - - - - - - - - - - - - - - - -  -
+
     df_cat = convert_galaxy_cat_to_pandas(galaxy_cat, config)
+
+    if KEY_OVERRIDE_FILE in config:
+        # Inject pre-computed mags from parquet; join on core_tag ↔ serial_tag (both int64)
+        df_cat = inject_mag_columns(df_cat, config)
 
     # figure out coordinate range for each hostlib
     config['hostlib_dict'] = get_coord_ranges(df_cat, config)

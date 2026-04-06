@@ -371,6 +371,10 @@ def get_args():
     parser.add_argument("--nbin_c", help=msg, 
                         nargs='?', type=int, default=0 )
 
+    msg = "number of z bins for rebinning ONLY if there is no BiasCor (default=0)"
+    parser.add_argument("--nbin_z", help=msg, 
+                        nargs='?', type=int, default=0 )
+    
     #msg = "rebin args; 0 (unbinned) or e.g., c:5,x1:2 (5 c bins,2 x1 bins)"
     #parser.add_argument("--rebin", help=msg, nargs='+', type=str )
 
@@ -821,18 +825,33 @@ def get_rebin_info(config,HD):
     # Figure out x1 and c rebinning for input Hubble diagram table 'HD'.
     # Load bin info into config.
 
-    nbin_x1 = config['nbin_x1']  # user input
-    nbin_c  = config['nbin_c']   # user input
-    nbin_z  = len(HD[VARNAME_iz].unique())  # from FITRES file
-
-    epsilon = 1.0E-6
-
+    epsilon = 1.0E-6    
     zmin  = HD[VARNAME_zHD].min() - epsilon 
     zmax  = HD[VARNAME_zHD].max() + epsilon 
     x1min = HD[VARNAME_x1].min()  - epsilon 
     x1max = HD[VARNAME_x1].max()  + epsilon
     cmin  = HD[VARNAME_c].min()   - epsilon
     cmax  = HD[VARNAME_c].max()   + epsilon
+
+    nbin_x1 = config['nbin_x1']  # user input
+    nbin_c  = config['nbin_c']   # user input
+
+    # Apr 6 2026: if there is no biasCor, theh IZBIN isn't in the FITRES file
+    # so use input --nbin_z to create this column internally
+    if VARNAME_iz not in HD:
+        nbin_z = config['nbin_z']  # Apr 6 2026
+        if nbin_z > 0:
+            zbin = (zmax-zmin) / float(nbin_z)
+            HD[VARNAME_iz] = pd.cut(HD[VARNAME_zHD], bins=nbin_z, labels=False)
+            #HD[VARNAME_iz] = ((HD[VARNAME_zHD] - zmin)/zbin).astype(int) # crosscheck
+        else:
+            msgerr = '\nABORT: Rebin option without biasCor requires --nbin_z arg'
+            assert False, msgerr
+
+        #varlist = ['CID', 'zHD', 'IZBIN']
+        #sys.exit(f"\n xxx z-range = {zmin} to {zmax} : HD = \n{HD[varlist][15530:15570]}")
+        
+    nbin_z  = len(HD[VARNAME_iz].unique())  # from FITRES file
 
     logging.info(f"\t z (min,max) = {zmin:.3f} {zmax:.3f}   (nbin={nbin_z}) ")
     logging.info(f"\t x1(min,max) = {x1min:.3f} {x1max:.3f}  (nbin={nbin_x1}) ")
@@ -2803,6 +2822,7 @@ def prep_config(config,args):
     config['nbin_z']   = None
     config['nbin_x1']  = args.nbin_x1
     config['nbin_c']   = args.nbin_c
+    config['nbin_z']   = args.nbin_z
     config['HD_size']  = None
 
     config['data_dir'] = Path(config["INPUT_DIR"]) / config["VERSION"]  # Feb 2025

@@ -3441,13 +3441,13 @@ void readFits_genSmear_COVSED(char *fileName) {
 
   // read wave column
   NREAD = NBIN_WAVE;  istat=0;
-  fits_read_col_dbl(fp, ICOL_WAVE, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+  fits_read_col_dbl(fp, ICOL_WAVE, FIRSTROW, FIRSTELEM, NREAD, NULL_D,
 		    GENSMEAR_COVSED.WAVE, &anynul, &istat);
   snfitsio_errorCheck("read WAVE bins", istat);
   
   // read covmat into 1D array
   NREAD = NBIN_COVMAT;  istat=0;
-  fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+  fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_D,
 		    GENSMEAR_COVSED.DECOMP.COVMAT1D, &anynul, &istat);
   snfitsio_errorCheck("read COVMAT1D", istat);
 

@@ -588,11 +588,11 @@ void read_calib_zpoff(void) {
   // read primary mag, ZPOFF for primary, and photometry offsets
   // passed from optional ZPOFF.DAT file in $SNDATA_ROOT/filters.
   fits_read_col_dbl(FP, ICOL_PRIMARY_MAG, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, CALIB_INFO.PRIMARY_MAG, &anynul, &istat )  ;      
+		    NULL_D, CALIB_INFO.PRIMARY_MAG, &anynul, &istat )  ;      
   snfitsio_errorCheck("Read PRIMARY_MAG", istat);
 
   fits_read_col_dbl(FP, ICOL_PRIMARY_ZPOFF_SYN, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, CALIB_INFO.PRIMARY_ZPOFF_SYN, &anynul, &istat );
+		    NULL_D, CALIB_INFO.PRIMARY_ZPOFF_SYN, &anynul, &istat );
   snfitsio_errorCheck("Read PRIMARY_ZPOFF", istat);
 
   
@@ -600,7 +600,7 @@ void read_calib_zpoff(void) {
   // This is typoically a post-publication hack to get mags
   // back on the desired system.
   fits_read_col_dbl(FP, ICOL_PRIMARY_ZPOFF_FILE, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1D, CALIB_INFO.PRIMARY_ZPOFF_FILE, &anynul, &istat );  
+		    NULL_D, CALIB_INFO.PRIMARY_ZPOFF_FILE, &anynul, &istat );  
   snfitsio_errorCheck("Read PRIMARY_ZPOFF_FILE", istat);
 
   if ( KCOR_VERBOSE_FLAG  ) {
@@ -648,7 +648,7 @@ void read_calib_snsed(void) {
   snfitsio_errorCheck("Cannot move to SNSED table", istat);
 
   fits_read_col_flt(FP, ICOL, FIRSTROW, FIRSTELEM, NROW,
-		    NULL_1E, CALIB_INFO.FLUX_SNSED_F, &anynul, &istat )  ;      
+		    NULL_E, CALIB_INFO.FLUX_SNSED_F, &anynul, &istat )  ;      
   snfitsio_errorCheck("Read FLUX_SNSED", istat);
 
   return ;
@@ -853,7 +853,7 @@ void read_kcor_tables(void) {
     IBIN_LAST   = IBIN_FIRST + NROW - 1 ;
 
     fits_read_col_flt(FP, icol, FIRSTROW, FIRSTELEM, NROW,
-		      NULL_1E, &CALIB_INFO.KCORTABLE1D_F[IBIN_FIRST], 
+		      NULL_E, &CALIB_INFO.KCORTABLE1D_F[IBIN_FIRST], 
 		      &anynul, &istat )  ;      
     snfitsio_errorCheck("Read KCOR TABLE", istat);
 
@@ -1307,7 +1307,7 @@ void read_kcor_mags(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       fits_read_col_flt(FP, ICOL_LCMAG, FIRSTROW, FIRSTELEM, NROW,
-			NULL_1E, &CALIB_INFO.LCMAG_TABLE1D_F[IBIN_FIRST], 
+			NULL_E, &CALIB_INFO.LCMAG_TABLE1D_F[IBIN_FIRST], 
 			&anynul, &istat );
       sprintf(c1err,"read LCMAG(%s)", CFILT);
       snfitsio_errorCheck(c1err, istat);
@@ -1337,7 +1337,7 @@ void read_kcor_mags(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       fits_read_col_flt(FP, ICOL_MWXT, FIRSTROW, FIRSTELEM, NROW,
-			NULL_1E, &CALIB_INFO.MWXT_TABLE1D_F[IBIN_FIRST],
+			NULL_E, &CALIB_INFO.MWXT_TABLE1D_F[IBIN_FIRST],
 			&anynul, &istat );
       sprintf(c1err,"read MWXT-slope(%s)", CFILT);
       snfitsio_errorCheck(c1err, istat);
@@ -1396,7 +1396,7 @@ void read_calib_filters(void) {
   // read array of wavelength bins 
   ICOL=1 ;
   fits_read_col_dbl(FP, ICOL, FIRSTROW, FIRSTELEM, NBL,
-		    NULL_1E, ARRAY_LAM,	&anynul, &istat );
+		    NULL_E, ARRAY_LAM,	&anynul, &istat );
   sprintf(c1err,"read LAM array" );
   snfitsio_errorCheck(c1err,istat);
 
@@ -1419,7 +1419,7 @@ void read_calib_filters(void) {
     strcat(FILTERLIST_READ,FILTER_BAND);
 
     fits_read_col_dbl(FP, ICOL, FIRSTROW, FIRSTELEM, NBL,
-		      NULL_1E, ARRAY_TRANS, &anynul, &istat );
+		      NULL_E, ARRAY_TRANS, &anynul, &istat );
     sprintf(c1err,"read %s filter trans", FILTER_NAME );
     snfitsio_errorCheck(c1err,istat);
 
@@ -1741,7 +1741,7 @@ void read_calib_primarysed(void) {
   ICOL_LAM=1;    
   ptr_tmp =  CALIB_INFO.FILTERCAL_OBS.PRIMARY_LAM ;
   fits_read_col_dbl(FP, ICOL_LAM, FIRSTROW, FIRSTELEM, NBL,
-		    NULL_1E, ptr_tmp, &anynul, &istat );
+		    NULL_E, ptr_tmp, &anynul, &istat );
   sprintf(c1err,"read lam array for primary = '%s'", NAME);
   snfitsio_errorCheck(c1err, istat);
 
@@ -1749,7 +1749,7 @@ void read_calib_primarysed(void) {
   ICOL_FLUX= ICOL_LAM + 1 + KINDX;  
   ptr_tmp =  CALIB_INFO.FILTERCAL_OBS.PRIMARY_FLUX ;
   fits_read_col_dbl(FP, ICOL_FLUX, FIRSTROW, FIRSTELEM, NBL,
-		    NULL_1E, ptr_tmp, &anynul, &istat );
+		    NULL_E, ptr_tmp, &anynul, &istat );
   sprintf(c1err,"read flux array for primary = '%s'", NAME);
   snfitsio_errorCheck(c1err, istat);
 

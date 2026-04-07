@@ -161,11 +161,11 @@ struct {
 #define MXFORM_SNFITSIO 10
 
 #define NULL_A      "NULL"
-#define NULL_1J     (int)-9
-#define NULL_1I     (short)-9
-#define NULL_1E     (float)-9.0
-#define NULL_1D     (double)-9.0
-#define NULL_1K     (long long)-9
+#define NULL_J     (int)-9
+#define NULL_I     (short)-9
+#define NULL_E     (float)-9.0
+#define NULL_D     (double)-9.0
+#define NULL_K     (long long)-9
 
 
 struct  {

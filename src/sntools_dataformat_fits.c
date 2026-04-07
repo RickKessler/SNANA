@@ -5119,28 +5119,28 @@ void rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow) {
 		      &anynul, &istat );
   }
   else if ( iform == IFORM_1J ) {
-    fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
+    fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_J,
 		      &RD_SNFITSIO_TABLEVAL_1J[itype][ipar][1], 
 		      &anynul, &istat );
   }
   else if ( iform == IFORM_1I ) {
     // usht -> sht (Feb 20 2013)
-    fits_read_col_sht(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1I,
+    fits_read_col_sht(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_I,
 		      &RD_SNFITSIO_TABLEVAL_1I[itype][ipar][1], 
 		      &anynul, &istat );
   }  
   else if ( iform == IFORM_1E ) {
-    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E,
 		      &RD_SNFITSIO_TABLEVAL_1E[itype][ipar][1], 
 		      &anynul, &istat );
   }
   else if ( iform == IFORM_1D ) {
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		      &RD_SNFITSIO_TABLEVAL_1D[itype][ipar][1], 
 		      &anynul, &istat );    
   }
   else if ( iform == IFORM_1K ) {
-    fits_read_col_lnglng(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1K,
+    fits_read_col_lnglng(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_K,
 		      &RD_SNFITSIO_TABLEVAL_1K[itype][ipar][1], 
 		      &anynul, &istat );
   }
@@ -5332,12 +5332,12 @@ void  rd_snfitsio_specFile( int ifile ) {
   fits_read_col_str(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_A,
 		    RDSPEC_SNFITSIO_HEADER.SNID, &anynul, &istat ); 
   icol=2 ;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		    RDSPEC_SNFITSIO_HEADER.MJD, &anynul, &istat ); 
 
   if ( SNFITSIO_CODE_IVERSION >= 26 ) {
     icol=3 ;
-    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E,
 		      RDSPEC_SNFITSIO_HEADER.TEXPOSE, &anynul, &istat ); 
 
     icol=4 ;
@@ -5348,15 +5348,15 @@ void  rd_snfitsio_specFile( int ifile ) {
   // Oct 23 2025: read global wave range and bin size (for SED_TRUE_
   if ( READ_SED_TRUE ) {
     icol=5 ; 
-    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E,
 		      RDSPEC_SNFITSIO_HEADER.LAMMIN, &anynul, &istat );     
 
     icol=6 ; 
-    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E,
 		      RDSPEC_SNFITSIO_HEADER.LAMMAX, &anynul, &istat );     
 
     icol=7 ; 
-    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E,
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E,
 		      RDSPEC_SNFITSIO_HEADER.LAMBIN, &anynul, &istat );     
   }
 
@@ -5368,15 +5368,15 @@ void  rd_snfitsio_specFile( int ifile ) {
   icol = ICOL_NBIN_LAM-1; ; // decrement here because it is incremented below.
       
   icol++ ;
-  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1I,
+  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_I,
 		    RDSPEC_SNFITSIO_HEADER.NLAMBIN, &anynul, &istat ); 
 
   icol++ ;
-  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
+  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_J,
 		    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN, &anynul, &istat ); 
 
   icol++ ;
-  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1J,
+  fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_J,
 		    RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX, &anynul, &istat ); 
 
   // move to next table : SPECTRAL FLUX vs. wave
@@ -5486,14 +5486,14 @@ void RD_SNFITSIO_SPECDATA(int irow,
     // --> works for data and sim
 
     icol++ ; ;  
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		      LAMMIN, &anynul, &istat ); 
 
     sprintf(c1err,"Read LAMMIN for spectrum" ) ;
     snfitsio_errorCheck(c1err, istat);
   
     icol++ ; ;  
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		      LAMMAX, &anynul, &istat ); 
     sprintf(c1err,"Read LAMMAX for spectrum" ) ;
     snfitsio_errorCheck(c1err, istat);    
@@ -5501,18 +5501,18 @@ void RD_SNFITSIO_SPECDATA(int irow,
     // - - - -
 
     icol++ ;  istat=0;
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		      FLAM, &anynul, &istat ); 
     
     icol++ ;  istat=0;
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		      FLAMERR, &anynul, &istat ); 
   }
 
   // for sim, read true SIM_FLAM
   if ( SNFITSIO_SIMFLAG_SNANA ) {
     icol++ ;  istat=0;
-    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D,
+    fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		      SIM_FLAM, &anynul, &istat ); 
   }
 

@@ -1047,13 +1047,13 @@ void read_spectrograph_fits(char *inFile) {
   
   // read lambda range for each wavelength bin
   icol = 1 ;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D, 
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D, 
 		    INPUTS_SPECTRO.LAMMIN_LIST, &anynul, &istat );
   sprintf(c1err,"read LAMMIN_LIST column" );
   snfitsio_errorCheck(c1err, istat);
 
   icol = 2 ;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D, 
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D, 
 		    INPUTS_SPECTRO.LAMMAX_LIST, &anynul, &istat );
   sprintf(c1err,"read LAMMAX_LIST column" );
   snfitsio_errorCheck(c1err, istat);
@@ -1062,7 +1062,7 @@ void read_spectrograph_fits(char *inFile) {
 	 INPUTS_SPECTRO.LAMMIN_LIST[0], INPUTS_SPECTRO.LAMMAX_LIST[NBL-1]);
 
   icol = 3 ;
-  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1D, 
+  fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D, 
 		    INPUTS_SPECTRO.LAMSIGMA_LIST, &anynul, &istat );
   sprintf(c1err,"read LAMSIGMA_LIST column" );
   snfitsio_errorCheck(c1err, istat);
@@ -1099,13 +1099,13 @@ void read_spectrograph_fits(char *inFile) {
 
   for(t=0; t < NBT; t++ ) {
     icol++ ;
-    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E, 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E, 
 		      ZP_f, &anynul, &istat );
     sprintf(c1err,"read ZP  column" );
     snfitsio_errorCheck(c1err, istat);
 
     icol++ ;
-    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E, 
+    fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E, 
 		      SQ_f, &anynul, &istat );
     sprintf(c1err,"read SQSIGSKY column" );
     snfitsio_errorCheck(c1err, istat);
@@ -1164,13 +1164,13 @@ void read_spectrograph_fits(char *inFile) {
   snfitsio_errorCheck(c1err, istat);
 
   icol = 2 ;
-  fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E, 
+  fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E, 
 		    LAMMIN_f, &anynul, &istat );
   sprintf(c1err,"read SYN_FILTERLIST_LAMMIN  column " );
   snfitsio_errorCheck(c1err, istat);
 
   icol = 3 ;
-  fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_1E, 
+  fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E, 
 		    LAMMAX_f, &anynul, &istat );
   sprintf(c1err,"read SYN_FILTERLIST_LAMMAX  column" );
   snfitsio_errorCheck(c1err, istat);

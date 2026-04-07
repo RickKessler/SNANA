@@ -118,9 +118,11 @@ typedef struct {
   char  form[MXPAR_SNFITSIO][4] ;
   char *ptrForm[MXPAR_SNFITSIO] ;
 
+  int n_element; // Apr 7 2026 : 1 for scalar, >1 for vector (e.g. HOSTGALz_QUANTILE)
+
   // these are all set to blank
   char *ptrUnit[MXPAR_SNFITSIO] ;
-
+  
   int iform[MXPAR_SNFITSIO] ;
 
 } SNFITSIO_TABLEDEF ;

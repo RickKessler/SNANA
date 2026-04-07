@@ -23651,4 +23651,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
   create_covariance.py:
      fix to work without biasCor by adding nbin_z arg;
 
+  sntools_dataformat_text.c:
+    + fix awful bug and read SIM_WGT_POPULATION so that text formatted                             
+      BCOR works in BBC  
+
 END: 

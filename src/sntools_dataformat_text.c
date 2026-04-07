@@ -38,6 +38,8 @@
  Dec 22 2023: write SIM_WGT_POPULATION 
  Mar 14 2024: write and read MASK_REDSHIFT_SOURCE
  Oct 31 2025: write SIM_PEAKMAG with f7.4 format instead of f6.3
+ Apr 07 2026: fix awful bug and read SIM_WGT_POPULATION so that text formatted
+               BCOR works in BBC
 
 *************************************************/
 
@@ -1507,6 +1509,7 @@ void  rd_sntextio_global(void) {
   // May 25 2023: use PySEDMODEL_CHOICE_LIST and remove hard-coded PySEDMODEL names
   // Mar 25 2024: Read number of quantiles
   // Jul 23 2025: read ZP_FLUXCAL
+  // Apr 07 2026: read SIM_WGT_POPULATION
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
   int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
@@ -1664,6 +1667,10 @@ void  rd_sntextio_global(void) {
       else if ( strcmp(word0,"SIM_MWRV:") == 0 ) {
 	iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_MWRV, fnam ) ;
       }
+      else if ( strcmp(word0,"SIM_WGT_POPULATION:") == 0 ) {
+	iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_WGT_POPULATION, fnam ) ;
+      }
+
       else if ( strstr(word0,"SIM_STRONGLENS") != NULL ) {
 	SNDATA.SIM_SL_FLAG = 1 ;
       }

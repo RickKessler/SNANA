@@ -383,12 +383,6 @@ void wr_snfitsio_init_head(void) {
   // add if-block later if possible; to avoid writing garbage for most sims
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
 
-  // add zPHOT quantiles
-  for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-    int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-    LOAD_VARNAME_ZPHOT_Q("HOSTGAL", PCT, parName); // return parName
-    wr_snfitsio_addCol( "1E", parName, itype );
-  }
 
   // add HOSTGAL mags 
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -404,6 +398,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", parName, itype );
   }
 
+  // add zPHOT quantiles
   if ( REFAC_DATA_FLAG > 0 ) {
     sprintf(parName, "HOSTGALz_%s", SUFFIX_QUANTILE_ZPHOT);
     wr_snfitsio_addCol( "11E", parName, itype );    
@@ -411,7 +406,17 @@ void wr_snfitsio_init_head(void) {
     sprintf(parName, "HOSTGALz_%s", SUFFIX_QUANTILE_PERCENT);
     wr_snfitsio_addCol( "11E", parName, itype );    
   }
+  else {
+    // legacy
+    for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
+      int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
+      LOAD_VARNAME_ZPHOT_Q("HOSTGAL", PCT, parName); // return parName
+      wr_snfitsio_addCol( "1E", parName, itype );
+    }
+  }
   
+
+  // - - - - - 
   if ( SNFITSIO_HOSTGAL2_FLAG ) {
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID" ,      itype ); 
     wr_snfitsio_addCol( "1I", "HOSTGAL2_FLAG" ,       itype ); 
@@ -447,18 +452,20 @@ void wr_snfitsio_init_head(void) {
     }
 
     // add zPHOT quantiles
-    for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-      int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-      LOAD_VARNAME_ZPHOT_Q("HOSTGAL2", PCT, parName); // return parName .xyz
-      wr_snfitsio_addCol( "1E", parName, itype );
-    }
-
     if ( REFAC_DATA_FLAG > 0 ) {
       sprintf(parName, "HOSTGAL2z_%s", SUFFIX_QUANTILE_ZPHOT);
       wr_snfitsio_addCol( "11E", parName, itype );    
 
       sprintf(parName, "HOSTGAL2z_%s", SUFFIX_QUANTILE_PERCENT);
       wr_snfitsio_addCol( "11E", parName, itype );    
+    }
+    else {
+      // legacy
+      for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
+	int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
+	LOAD_VARNAME_ZPHOT_Q("HOSTGAL2", PCT, parName); // return parName
+	wr_snfitsio_addCol( "1E", parName, itype );
+      }
     }
  
   }  // end of 2nd-HOSTGAL block
@@ -1831,7 +1838,7 @@ void wr_snfitsio_update_head(void) {
     if ( REFAC_DATA_FLAG > 0 ) {
       int iz; 
       for(iz=0; iz<11; iz++ ) 
-	{ WR_SNFITSIO_TABLEVAL[itype].list_1E[iz] = (iz * 0.11);  }
+	{ WR_SNFITSIO_TABLEVAL[itype].list_1E[iz] = (iz * 0.11) + .001*(float)igal;  }
       sprintf(parName, "%sz_%s", PREFIX, SUFFIX_QUANTILE_ZPHOT);
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
@@ -1846,7 +1853,7 @@ void wr_snfitsio_update_head(void) {
       // legacy
       for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
 	int PCT  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-	LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, parName); // return parName .xyz
+	LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, parName); // return parName 
 	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
 	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
 	wr_snfitsio_fillTable ( ptrColnum, parName, itype );
@@ -3531,8 +3538,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
       if ( REFAC_DATA_FLAG > 0 ) {
 	float ztmp[1000], pct[1000]; int iz, NRDz, NRDpct;
-	for(iz=0; iz<100; iz++ ) {  ztmp[iz]=-7.0; pct[iz]=-8.0; }
-
+	for(iz=0; iz<100; iz++ ) {  ztmp[iz]=-7.0; pct[iz]=-8.0; } // .xyz
 
 	printf(" xxx --------------------------------------------------------------- \n");
 	printf(" xxx --------------------------------------------------------------- \n");
@@ -3548,10 +3554,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	j++ ; NRDpct = RD_SNFITSIO_FLT(isn, KEY, pct,
 				    &SNFITSIO_READINDX_HEAD[j]);
 
-
-	printf(" xxx %s: NRD(z,pct) = %d %d \n", fnam, NRDz, NRDpct);
+	printf(" xxx %s: NRD(z,pct) = %d %d   igal=%d\n", fnam, NRDz, NRDpct, igal);
 	for(iz=0; iz < 15; iz++ ) {
-	  printf(" xxx %s: iz=%2d z=%.2f  pct=%.1f \n", fnam, iz, ztmp[iz], pct[iz]);	  
+	  printf(" xxx %s: iz=%2d z=%.3f  pct=%6.2f \n", fnam, iz, ztmp[iz], pct[iz]);	  
 	}
 	fflush(stdout);
 
@@ -5172,7 +5177,7 @@ void rd_snfitsio_head(int ifile) {
   NCOL = NPAR_RD_SNFITSIO[itype];
   for ( icol=1; icol <= NCOL; icol++ ) {
     NROW = NSNLC;
-    if ( REFAC_DATA_FLAG && (icol==56 || icol==57) ) { NROW *= 11; }
+    if ( REFAC_DATA_FLAG && (icol==56 || icol==57 || icol==88 || icol==89) ) { NROW *= 11; }
     rd_snfitsio_tblcol ( itype, icol, 1, NROW ); 
   }
 
@@ -5764,7 +5769,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   double D_VAL ;
   long long K_VAL ;
   
-  int LDMP =  ( strstr(parName,"HOSTGALz") != NULL );
+  int LDMP =  ( strstr(parName,"HOSTGALz") != NULL || strstr(parName,"HOSTGAL2z") != NULL);
+
   char fnam[] = "RD_SNFITSIO_PARVAL" ;
 
   // ------------ BEGIN --------------

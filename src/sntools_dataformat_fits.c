@@ -1931,29 +1931,33 @@ void wr_snfitsio_update_head(void) {
 
     // HOSTGAL QUANTILES (Jan 2022) 
     if ( REFAC_DATA_FLAG > 0 ) {
-      int iz; 
-      int nbin_z = 11 + igal + (SNDATA.NOBS % 7);
       char parNames[3][60];
       char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
-
       get_parnames_HOSTGALz(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, 
 			    ptrNames); // return ptrNames
 
+      // xxxxx hack in values that sim or data will fill later xxxxxxx
+      int iz, nbin_z = 11 + igal + (SNDATA.NOBS % 7);
+      SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ = nbin_z;
+      for(iz=0; iz < nbin_z; iz++ ) {  
+	SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST[iz]   = (float)(iz * 0.11) + .001*(float)igal;
+	SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST[iz] = (float)(iz * 10);
+      }
+      // xxxxx end hack xxxxxxxx
+
       LOC++ ;
       ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_I = nbin_z;
+      WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ ;
       wr_snfitsio_fillTable ( ptrColnum, parNames[0], itype );
 
-      for(iz=0; iz<nbin_z; iz++ ) 
-	{ WR_SNFITSIO_TABLEVAL[itype].list_E[iz] = (iz * 0.11) + .001*(float)igal;  }
       LOC++ ; 
       ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      wr_snfitsio_fillTable ( ptrColnum, parNames[1], itype );
+      WR_SNFITSIO_TABLEVAL[itype].list_E = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST;
+      wr_snfitsio_fillTable ( ptrColnum, parNames[1], itype );  
 
-      for(iz=0; iz<nbin_z; iz++ ) 
-	{ WR_SNFITSIO_TABLEVAL[itype].list_E[iz] = (iz * 10);  }
       LOC++ ;
       ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].list_E = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST;
       wr_snfitsio_fillTable ( ptrColnum, parNames[2], itype );
     }
     else {
@@ -2454,7 +2458,7 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
   }
   else if ( REFAC_DATA_FLAG && iform == IFORM_E && n_element > 1 ) {  // new feature, Apr 2026
     fits_write_col(fp, TFLOAT, colnum, firstrow, firstelem, n_element,
-		   &WR_SNFITSIO_TABLEVAL[itype].list_E, &istat);  
+		   WR_SNFITSIO_TABLEVAL[itype].list_E, &istat);  
   }
   // - - - - - -
   else if ( iform == IFORM_J ) {  // 32-bit signed int

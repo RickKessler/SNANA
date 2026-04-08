@@ -1060,8 +1060,8 @@ void init_searcheff_map(char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
 
   sprintf(SEARCHEFF_INFO->MAPTYPE, "%s", MAPTYPE);
 
-  SEARCHEFF_INFO->NMAP                   = 0;
-  SEARCHEFF_INFO->OPT_EXTRAP             = 0;
+  SEARCHEFF_INFO->NMAP                   = 0 ;
+  SEARCHEFF_INFO->OPT_EXTRAP             = 0 ;
   SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE = 1 ;
   SEARCHEFF_INFO->IVARTYPE_MASK     = 0 ;
   SEARCHEFF_INFO->FLAG_PEAKMAG_ONLY = 0 ;
@@ -1204,8 +1204,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
 
   int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
   int   ID, NDIM, NFUN, N, gzipFlag, ISFIELD ;
-  int   REQUIRE_EFF_FILE = 0, REQUIRE_MAP;
-  int   OPT_EXTRAP, OPT_FIELDMATCH_REQUIRE ;
+  int   REQUIRE_EFF_FILE = 0, REQUIRE_MAP, OPT_EXTRAP=0;
   char  KEY_ROW[20], KEYNAME_MAP_FILE[40], KEYNAME_EFF[40];
   char  KEY_STOP[] = "" ;
   char  *VARNAME, *VARLIST, FIELDLIST[100] ;
@@ -1375,8 +1374,6 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   fclose(fp); // done reading EFF map(s)
 
   SEARCHEFF_INFO->NMAP       = NMAP ;
-  SEARCHEFF_INFO->OPT_EXTRAP = OPT_EXTRAP ;
-  SEARCHEFF_INFO->OPT_FIELDMATCH_REQUIRE = OPT_FIELDMATCH_REQUIRE;
 
   printf("\n\t Finished preparing %d %s maps\n", 
 	 NMAP, MAPTYPE);

@@ -181,7 +181,7 @@ struct VERSION
 typedef struct {
   int     NZ;
   float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)
-  int     VAL_LIST[MXBIN_HOSTGALz] ;   // value list
+  float   VAL_LIST[MXBIN_HOSTGALz] ;   // value list
 } HOSTGALz_DEF ;
 
 // define main SNDATA data structure

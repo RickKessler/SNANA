@@ -142,7 +142,7 @@ struct {
   unsigned int   value_V ;  // 4-byte unsigned int
   long long      value_K ;  // 8 bytte long long int
   
-  float          list_E[MXELEMENT_SNFITSIO] ; // list of 4-byte floats
+  float         *list_E ; // pointer to list of 4-byte floats
 
   int NROW ; // increment number of rows written
 

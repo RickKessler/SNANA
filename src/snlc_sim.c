@@ -25633,12 +25633,11 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     SNDATA.SIM_HOSTLIB_MSKOPT = 
       INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
+
     SNDATA.HOSTGAL_NZPHOT_Q = N_Q;
     for(ipar=0; ipar < N_Q; ipar++ ) { 
       PCT  = HOSTLIB.PERCENTILE_ZPHOT_Q[ipar]; // e.g, 10 -> 10th percentile
-      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] = PCT;
-      //      printf(" xxx %s: PERCENTILE_ZPHOT_Q[%d] = %d \n", 
-      //     fnam,ipar,PCT); fflush(stdout);
+      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] = PCT;        // legacy
     }
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
@@ -25760,9 +25759,21 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_SQRADIUS[m]     = SNHOSTGAL_DDLR_SORT[m].SQRADIUS;
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
 
+      if ( REFAC_DATA_FLAG ) 
+	{ SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].NZ = HOSTLIB.NZPHOT_Q ; }
+
       // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
       for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++){
-      	SNDATA.HOSTGAL_ZPHOT_Q[m][j] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_Q[j] ;
+	double zq   = SNHOSTGAL_DDLR_SORT[m].ZPHOT_Q[j] ;
+	double pct  = HOSTLIB.PERCENTILE_ZPHOT_Q[j]; 
+
+	if ( REFAC_DATA_FLAG ) {
+	  SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].Z_LIST[j]   = zq;   // REFAC
+	  SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].VAL_LIST[j] = pct;  // REFAC
+	}
+	else {
+	  SNDATA.HOSTGAL_ZPHOT_Q[m][j] = zq ;   // legacy storage
+	}
       }
 
     }

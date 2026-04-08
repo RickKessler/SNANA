@@ -23655,4 +23655,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + fix awful bug and read SIM_WGT_POPULATION so that text formatted                             
       BCOR works in BBC  
 
+  sntools_host.c:
+     + for +HOSTNBR option, fix dumb bug from Feb 23 fix (speedup ok)
+       bug added here  https://github.com/RickKessler/SNANA/issues/1615
+       and fixed here  https://github.com/RickKessler/SNANA/issues/1636
+
+
 END: 

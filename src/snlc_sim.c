@@ -1824,7 +1824,6 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   // - - - - - -
   else if ( keyMatchSim(1, "REFAC_DATA_FLAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.REFAC_DATA_FLAG);   // May 28 2025
-    printf(" xxx %s: REFAC_DATA_FLAG = %d \n", fnam, INPUTS.REFAC_DATA_FLAG ); fflush(stdout);
   }
   // - - - - -
   else if ( ISKEY_HOSTLIB ) {

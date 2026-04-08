@@ -116,14 +116,15 @@ typedef struct {
 
   // cast of each header parameter (float, double, int ...)
   char  form[MXPAR_SNFITSIO][4] ;
-  char *ptrForm[MXPAR_SNFITSIO] ;
+  char *ptrForm[MXPAR_SNFITSIO] ; // points to form, for fits utility
+  int iform[MXPAR_SNFITSIO] ;     // integer representation
 
-  int n_element; // Apr 7 2026 : 1 for scalar, >1 for vector (e.g. HOSTGALz_QUANTILE)
+  // Apr 7 2026 : n_ele=1 for scalar, >1 for vector (e.g. HOSTGALz_QUANTILE)
+  int n_element[MXPAR_SNFITSIO]; 
 
   // these are all set to blank
   char *ptrUnit[MXPAR_SNFITSIO] ;
-  
-  int iform[MXPAR_SNFITSIO] ;
+ 
 
 } SNFITSIO_TABLEDEF ;
 
@@ -133,15 +134,15 @@ SNFITSIO_TABLEDEF WR_SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO];
 struct { 
   // temp values to fill Header table
   char          *value_A  ;  // ascii/text
-  float          value_1E ;  // 4-byte float
-  double         value_1D ;  // 8-byte double
-  int            value_1J ;  // 4-byte signed int
-  short int      value_1I ;  // 2-byte signed int
-  unsigned short value_1U ;  // 2-byte unsigned int
-  unsigned int   value_1V ;  // 4-byte unsigned int
-  long long      value_1K ;  // 8 bytte long long int
+  float          value_E ;  // 4-byte float
+  double         value_D ;  // 8-byte double
+  int            value_J ;  // 4-byte signed int
+  short int      value_I ;  // 2-byte signed int
+  unsigned short value_U ;  // 2-byte unsigned int
+  unsigned int   value_V ;  // 4-byte unsigned int
+  long long      value_K ;  // 8 bytte long long int
   
-  float          list_1E[MXELEMENT_SNFITSIO] ; // list of 4-byte floats
+  float          list_E[MXELEMENT_SNFITSIO] ; // list of 4-byte floats
 
   int NROW ; // increment number of rows written
 
@@ -153,11 +154,11 @@ struct {
 
 
 #define IFORM_A   1
-#define IFORM_1J  2
-#define IFORM_1I  3
-#define IFORM_1E  4
-#define IFORM_1D  5
-#define IFORM_1K  6
+#define IFORM_J  2
+#define IFORM_I  3
+#define IFORM_E  4
+#define IFORM_D  5
+#define IFORM_K  6
 #define MXFORM_SNFITSIO 10
 
 #define NULL_A      "NULL"
@@ -308,7 +309,7 @@ void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX,
 int   ifile_snfitsio(int isn);
 
 void  check_required_headkeys(int OPTMASK) ; 
-int   formIndex_snfitsio(char *form) ;
+int   formIndex_snfitsio(char *form, char *callFun) ;
 
 void SET_RDMASK_SNFITSIO(int N, int *mask) ;
 

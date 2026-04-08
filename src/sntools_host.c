@@ -8925,7 +8925,7 @@ void SIMLIB_SNHOST_POS(int IGAL, SERSIC_DEF *SERSIC, int DEBUG_MODE) {
   else {
     long long GALID = get_GALID_HOSTLIB(IGAL);
     printf(" xxx ------------------------------------------------ \n" ) ;
-    printf(" xxx %s  DEBUB  DUMP for GALID = %lld\n", fnam, GALID );
+    printf(" xxx %s  DEBUG  DUMP for GALID = %lld\n", fnam, GALID );
     printf(" xxx RA,DEC = %.3f, %.3f \n", RA_GAL, DEC_GAL);
     printf(" xxx Sersic a, b = %.3f, %.3f   a_rot=%.1f deg \n", 
 	   SERSIC->a[0], SERSIC->b[0], a_rot );
@@ -10287,22 +10287,30 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // 
   // July 16 2021: write DOCANA keys to FP_NEW
   // Feb 23 2026: return NLINE_GAL
+  // Apr 07 2026: if input hostlib has '.gz' extension, remove it from ouput hostlib name
 
   char *SUFFIX       = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
   int  NLINE_COMMENT = HOSTLIB_APPEND->NLINE_COMMENT;
   char *VARNAMES     = HOSTLIB_APPEND->VARNAMES_APPEND ;
   char *LINE         = (char*) malloc ( sizeof(char) * MXCHAR_LINE_HOSTLIB );
 
-  int  gzipFlag;
-  FILE *FP_ORIG, *FP_NEW;
   char *HLIB_ORIG = INPUTS.HOSTLIB_FILE;
+  int LENF        = strlen(INPUTS.HOSTLIB_FILE); 
+
+  int  gzipFlag ;
+  FILE *FP_ORIG, *FP_NEW;
   char  HLIB_TMP[MXPATHLEN], HLIB_NEW[100], DUMPATH[MXPATHLEN];
   char fnam[] = "rewrite_HOSTLIB" ;
 
   // -------------- BEGIN --------------
 
+  // create output file name HLIB_ORIG+APPEND, but if .gz is there then get rid of it
+  if ( strstr(INPUTS.HOSTLIB_FILE,".gz") != NULL ) { LENF -= 3; }
+  strncpy(HLIB_TMP, HLIB_ORIG, LENF);  HLIB_TMP[LENF] = '\0' ;
+  strcat(HLIB_TMP,SUFFIX); // append +HOSTNBR to outoput file name
+
   // create local string with name of HOSTLIB
-  sprintf(HLIB_TMP,"%s%s", HLIB_ORIG, SUFFIX ); 
+  // xxx mark del Apr 7 2026   sprintf(HLIB_TMP, "%s%s", HLIB_ORIG, SUFFIX ); 
 
   // remove path from HLIB_NEW to ensure that new file is created
   // locally and not in somebody else's directory.
@@ -10794,8 +10802,8 @@ void rewrite_HOSTLIB_plusNbr(void) {
   HOSTLIB_NBR_WRITE.SKY_SORTED_DEC          = (double*) malloc(MEMD) ;
   HOSTLIB_NBR_WRITE.SKY_SORTED_RA           = (double*) malloc(MEMD) ;
   HOSTLIB_NBR_WRITE.SKY_SORTED_COSDEC       = (double*) malloc(MEMD) ;  // cos(DEC)
-  HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort   = (int*) malloc(MEMI) ;
-  HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort = (int*) malloc(MEMI) ;
+  HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort   = (int   *) malloc(MEMI) ;
+  HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort = (int   *) malloc(MEMI) ;
   HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX = -9 ;
   HOSTLIB_NBR_WRITE.NNBR_MAX         =  0 ;
 
@@ -10818,8 +10826,9 @@ void rewrite_HOSTLIB_plusNbr(void) {
     HOSTLIB_NBR_WRITE.SKY_SORTED_RA[igal_DECsort]       = RA ;
     HOSTLIB_NBR_WRITE.SKY_SORTED_COSDEC[igal_DECsort]   = cos(DEC*RAD);
     HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort[igal_zsort] = igal_DECsort ;
-    if ( igal_DECsort < -5 || igal_DECsort > NGAL+5 ) {
-      printf(" xxx igal_DECsort=%d  igal_zsort=%6d,  DEC = %9.5f \n",
+
+    if ( igal_zsort == -3 ) {
+      printf(" xxx igal_DECsort=%d  igal_zsort=%6d,  DEC=%9.5f  RA=%9.5f\n",
 	     igal_DECsort, igal_zsort, ptrDEC[igal_zsort] ); fflush(stdout);
     }
   }
@@ -10827,7 +10836,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
   // ----------------------------
   if ( NGAL_DEBUG < MXROW_HOSTLIB ) { NGAL = NGAL_DEBUG; }
 
-  // init diagnistic counters (filled in get_LINE_APPEND_HOSTLIB_plusNbr)
+  // init diagnostic counters (filled in get_LINE_APPEND_HOSTLIB_plusNbr)
   monitor_HOSTLIB_plusNbr(0,&HOSTLIB_APPEND); 
 
   print_cputime(TIMERS.t_start, STRING_CPUTIME_INIT, UNIT_TIME_SECOND, 0);
@@ -10889,8 +10898,10 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   // neighbors.
   //
   // Feb 23 2026: before making exact angle cut, apply cut on RA*cosDEC
-  //               --> HUGE speedup !!
+  //               --> HUGE speedup !! See git issue 1615
   //
+  // Apr 07 2026: restore Feb 23 change (-5 < j < +5) back to original -1<j<1.
+  //              The Feb 23 speedup is OK, but not the change in j-loop.
 
 #define MXNNBR_STORE 200         // max number of neighbors to track
   double SEPNBR_MAX      = HOSTLIB_NBR_WRITE.SEPNBR_MAX ;
@@ -10901,7 +10912,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   int  IVAR_GALID  = HOSTLIB.IVAR_GALID;
   int  IVAR_RA     = HOSTLIB.IVAR_RA ;
   int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
-  int  LDMP        = (igal_unsort < -3);
+  int  LDMP        = (igal_unsort == 3 );
 
   double SEP_NBR_LIST[MXNNBR_STORE];
   int    IGAL_LIST[MXNNBR_STORE];
@@ -10926,21 +10937,21 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   if ( LDMP ) {
     printf("\n xxx ---------- %s DUMP ---------------- \n", fnam);
     printf(" xxx Input igal_unsort=%d  \n", igal_unsort);
-    printf(" xxx recover igal_zsort=%d,  igal_DECsort=%d \n", 
-	   igal_zsort, igal_DECsort );
+    printf(" xxx recover igal_zsort=%d,  igal_DECsort=%d   GALID=%lld\n", 
+	   igal_zsort, igal_DECsort, GALID );
     fflush(stdout);
   }
 
 
-  sprintf(LINE_APPEND,"-1");
+  sprintf(LINE_APPEND,"-1"); // default -1 means no NBR
   LINE_STDOUT[0] = 0 ;
   NNBR = NTRY = 0 ; NPASS_DEC = 1;  ISORT_CHANGE=1;
 
   while ( NPASS_DEC > 0 ) {
-    NPASS_DEC = 0;
+    NPASS_DEC = 0;  // each pass is 1 galaxy further from current galaxy
 
-    for(j = -5; j <=5; j+=1 ) { // try both directions
-      if (j == 0) { continue ; }
+    for(j = -1; j <= 1; j+=2 ) { // try both directions
+      // if (j == 0) { continue ; }
 
       NTRY++ ;
       isort = igal_DECsort + j*ISORT_CHANGE;
@@ -10948,7 +10959,6 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
       if ( isort < 0  || isort >= NGAL ) { continue; }
       igal2_zsort   = HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_DECsort[isort];
       igal2_unsort  = HOSTLIB.LIBINDEX_UNSORT[igal2_zsort];
-
 
       DEC_NBR     = HOSTLIB_NBR_WRITE.SKY_SORTED_DEC[isort] ;  
       SEP_DEC     = fabs(DEC_NBR - DEC_GAL)*ASEC_PER_DEG;
@@ -10960,22 +10970,22 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
 
       // Feb 23 2026: make simple RA cut before radius cut
       SEP_RA  = fabs(RA_NBR - RA_GAL)*ASEC_PER_DEG * COSDEC; // .xyz ???
-      if ( !LEGACY && SEP_RA > SEPNBR_MAX ) { continue; }
-
-      /*
-      if ( LDMP ) {
-	printf("\t j=%2d, isort=%6d  igal2=%6d NPASS=%d  dDEC=%f\n",
-	       j, isort, igal2_unsort, NPASS_DEC, SEP_DEC); fflush(stdout);
-      }
-      */
+      if ( !LEGACY && SEP_RA > SEPNBR_MAX ) { continue; }      
 
       SEP_NBR = angSep(RA_GAL, DEC_GAL, RA_NBR, DEC_NBR, ASEC_PER_DEG);
       if ( SEP_NBR > SEPNBR_MAX ) { continue ; }
       GALID_NBR = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal2_zsort] ;
       
-      SEP_NBR_LIST[NNBR] = SEP_NBR;
-      IGAL_LIST[NNBR]    = igal2_unsort;
-      GALID_LIST[NNBR]   = GALID_NBR;
+      if ( LDMP ) {
+	printf("\t j=%2d, isort=%6d  igal2=%6d  NNBR=%d  NPASS=%d  SEP=%.3f \n",
+	       j, isort, igal2_unsort, NNBR, NPASS_DEC, SEP_NBR); fflush(stdout);
+      }
+
+      if ( NNBR < MXNNBR_STORE ) {
+	SEP_NBR_LIST[NNBR] = SEP_NBR;
+	IGAL_LIST[NNBR]    = igal2_unsort;
+	GALID_LIST[NNBR]   = GALID_NBR;
+      }
       NNBR++ ;
       if ( NNBR > HOSTLIB_NBR_WRITE.NNBR_MAX ) { 
 	HOSTLIB_NBR_WRITE.NNBR_MAX = NNBR; 
@@ -11007,6 +11017,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   }
 
   sortDouble( NNBR, SEP_NBR_LIST, ORDER_SORT, UNSORT ) ;
+
   for(i=0; i < NNBR; i++ ) {
     isort       = UNSORT[i];
     SEP_NBR     = SEP_NBR_LIST[isort];
@@ -11020,8 +11031,8 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
       { TRUNCATE = 1 ; continue; }
 
     if ( LDMP ) {
-      printf("\t xxx SEP(%2d) = %8.2f  IGAL=%d \n", isort, SEP_NBR, IGAL);
-      fflush(stdout);
+      printf("\t xxx SEP(%2d) = %8.4f  IGAL=%7d   GALID=%lld\n", 
+	     isort, SEP_NBR, IGAL, GALID_NBR);      fflush(stdout);
     }
 
     if ( i == 0 )  { 
@@ -11141,7 +11152,6 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   // that does not include GALID.
   SNTABLE_VARNAMES(append_file, tmp_varname_string);
  
-
   // convert space-sep append_varlist into individual varname list,
   // and toss out varName(s) that already exist in HOSTLIB
   OPTMASK = MSKOPT_PARSE_WORDS_STRING;  

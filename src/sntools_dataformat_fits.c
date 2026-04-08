@@ -645,8 +645,10 @@ void wr_snfitsio_init_head(void) {
 void wr_snfitsio_addCol(char *tform, char *name, int itype) {
 
   // add table column with form *tform and *name.
+  // Apr 7 2026: parse tform = 1E into 1 and E, 11E into 11 and E, etc ...
 
-  int NPAR;
+  int lent = strlen(tform);
+  int  NPAR, n_element, iform ;
   char  *ptrTmp ;
   char fnam[] = "wr_snfitsio_addCol"     ;
 
@@ -675,13 +677,30 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   sprintf(ptrTmp, "%s", name ) ;
 
   // param  type (int, float ...)
-  ptrTmp = WR_SNFITSIO_TABLEDEF[itype].form[NPAR];  
+  ptrTmp = WR_SNFITSIO_TABLEDEF[itype].form[NPAR];
   WR_SNFITSIO_TABLEDEF[itype].ptrForm[NPAR] = ptrTmp ;
   sprintf(ptrTmp, "%s", tform ) ;
+  // xxx mark  sprintf(ptrTmp, "%c", tform[lent-1] ) ;  // strip last char only .xyz
 
+  // Apr 7 2026: store integer representation
+  iform = formIndex_snfitsio(tform, fnam);
+  WR_SNFITSIO_TABLEDEF[itype].iform[NPAR] = iform ;
+
+  // Apr 7 2026: extract number of elements; 
+  // e.g., 11E -> n_ele=1;  1E -> n_ele=1
+  char cnum[8] = "" ;
+  strncpy(cnum, tform, lent-1);   cnum[lent] = '\0' ;
+  sscanf(cnum, "%d", &n_element);
+  WR_SNFITSIO_TABLEDEF[itype].n_element[NPAR] = n_element ;
 
   // set unit to blank
   WR_SNFITSIO_TABLEDEF[itype].ptrUnit[NPAR] = stringBlank ;
+
+  int LDMP = 0 ; //  ( n_element > 1 ) ;
+  if ( LDMP ) {
+    printf(" xxx %s: %12s tform = '%3s' => iform=%d  n_element=%d\n", 
+	   fnam, name, tform, iform, n_element); fflush(stdout);
+  }
 
   return;
 
@@ -1111,8 +1130,9 @@ void wr_snfitsio_create(int itype ) {
     // write private variables
     wr_snfitsio_global_private(fp);
 
+
     //write number of Q quantiles
-    wr_snfitsio_global_zphot_q(fp);
+    if ( !REFAC_DATA_FLAG ) { wr_snfitsio_global_zphot_q(fp); }
 
   }
 
@@ -1403,7 +1423,9 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
 
   // Created Feb 10 2022
   // write zphot quantile column names
-  
+  //
+  // @@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@
+  //
   int  N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
   int  istat=0, ipar, PCT ; 
   char KEYNAME[60], PARNAME[60];
@@ -1415,6 +1437,8 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
                   "number of Q zphot quantiles", &istat );
   sprintf(c1err,"Write NZPHOT_Q") ;
   snfitsio_errorCheck(c1err, istat) ;
+
+  // @@@@@ SOON TO BE OBSOLETE @@@@@@@
 
   if ( N_Q == 0 ) { return ; }
 
@@ -1429,6 +1453,7 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
     snfitsio_errorCheck(c1err, istat) ;
   }
 
+  // @@@@@ SOON TO BE OBSOLETE @@@@@@@
   return;
 
 } // end wr_snfitsio_zphot_q
@@ -1546,7 +1571,7 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_A = SNDATA.CCID ;
   wr_snfitsio_fillTable ( ptrColnum, "SNID", itype );
-
+  
   // IAUC and transient NAME
   if ( SNDATA.FAKE == FAKEFLAG_DATA ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -1561,23 +1586,23 @@ void wr_snfitsio_update_head(void) {
   
   // fake flag
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.FAKE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = (short int)SNDATA.FAKE ;
   wr_snfitsio_fillTable ( ptrColnum, "FAKE", itype );
 
   // mask of fluxcor fudges (Nov 2018); real data only
   if ( !SNFITSIO_SIMFLAG_SNANA  ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.MASK_FLUXCOR ;
+    WR_SNFITSIO_TABLEVAL[itype].value_I = (short int)SNDATA.MASK_FLUXCOR ;
     wr_snfitsio_fillTable ( ptrColnum, "MASK_FLUXCOR_SNANA", itype );
   }
 
   // RA & DEC
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.RA_AVG ;
+  WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.RA_AVG ;
   wr_snfitsio_fillTable ( ptrColnum, "RA", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.DEC_AVG ;
+  WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.DEC_AVG ;
   wr_snfitsio_fillTable ( ptrColnum, "DEC", itype );
 
   if ( SNFITSIO_ATMOS ) {
@@ -1587,94 +1612,94 @@ void wr_snfitsio_update_head(void) {
 
   // PIXEL size
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PIXSIZE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.PIXSIZE ;
   wr_snfitsio_fillTable ( ptrColnum, "PIXSIZE", itype );
 
   // NXPIX (Aug 7 2014)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.NXPIX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.NXPIX ;
   wr_snfitsio_fillTable ( ptrColnum, "NXPIX", itype );
 
   // NYPIX (Aug 7 2014)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.NYPIX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.NYPIX ;
   wr_snfitsio_fillTable ( ptrColnum, "NYPIX", itype );
 
   // SNTYPE
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SNTYPE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SNTYPE ;
   wr_snfitsio_fillTable ( ptrColnum, "SNTYPE", itype );
 
   // NOBS
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.NOBS ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.NOBS ;
   wr_snfitsio_fillTable ( ptrColnum, "NOBS", itype );
 
   // PTROBS_MIN/MAX
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = PTROBS_MIN ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = PTROBS_MIN ;
   wr_snfitsio_fillTable ( ptrColnum, "PTROBS_MIN", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = PTROBS_MAX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = PTROBS_MAX ;
   wr_snfitsio_fillTable ( ptrColnum, "PTROBS_MAX", itype );
 
 
   // MWEBV
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MWEBV ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.MWEBV ;
   wr_snfitsio_fillTable ( ptrColnum, "MWEBV", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MWEBV_ERR ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.MWEBV_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "MWEBV_ERR", itype );
 
 
   // Z_HELIO and error
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.REDSHIFT_HELIO ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.REDSHIFT_HELIO ;
   wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_HELIO", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.REDSHIFT_HELIO_ERR ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.REDSHIFT_HELIO_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_HELIO_ERR", itype );
 
 
   // Z_FINAL = ZCMB, and error
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.REDSHIFT_FINAL ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.REDSHIFT_FINAL ;
   wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_FINAL", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.REDSHIFT_FINAL_ERR ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.REDSHIFT_FINAL_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_FINAL_ERR", itype );
 
   if ( SNFITSIO_DATAFLAG ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.REDSHIFT_QUALITYFLAG ;
+    WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.REDSHIFT_QUALITYFLAG ;
     wr_snfitsio_fillTable ( ptrColnum, "REDSHIFT_QUALITYFLAG", itype );
   }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.MASK_REDSHIFT_SOURCE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.MASK_REDSHIFT_SOURCE ;
   wr_snfitsio_fillTable ( ptrColnum, "MASK_REDSHIFT_SOURCE", itype );
   
   // VPEC and error (Jan 2018)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.VPEC ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.VPEC ;
   wr_snfitsio_fillTable ( ptrColnum, "VPEC", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.VPEC_ERR ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.VPEC_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "VPEC_ERR", itype );
 
   // LENSDMU and error (Aug 2024)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.LENSDMU ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.LENSDMU ;
   wr_snfitsio_fillTable ( ptrColnum, "LENSDMU", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.LENSDMU_ERR ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.LENSDMU_ERR ;
   wr_snfitsio_fillTable ( ptrColnum, "LENSDMU_ERR", itype );
 
   // ---------- HOST --------------
@@ -1683,12 +1708,12 @@ void wr_snfitsio_update_head(void) {
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   sprintf(parName,"%s_NMATCH", PREFIX);
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_NMATCH[0] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.HOSTGAL_NMATCH[0] ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   sprintf(parName,"%s_NMATCH2", PREFIX);
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_NMATCH[1] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.HOSTGAL_NMATCH[1] ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
   for(igal=0; igal < NHOSTGAL; igal++ ) {
@@ -1697,123 +1722,123 @@ void wr_snfitsio_update_head(void) {
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_OBJID", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.HOSTGAL_OBJID[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_K = SNDATA.HOSTGAL_OBJID[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_FLAG", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.HOSTGAL_FLAG[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.HOSTGAL_FLAG[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
     // HOST photoz and its error
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_PHOTOZ", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_PHOTOZ[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_PHOTOZ[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_PHOTOZ_ERR", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // HOST specZ and its error
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_SPECZ", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_SPECZ[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_SPECZ[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_SPECZ_ERR", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_SPECZ_ERR[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_SPECZ_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host coords (Added Feb 18 2019)
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_RA", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.HOSTGAL_RA[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.HOSTGAL_RA[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_DEC", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.HOSTGAL_DEC[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.HOSTGAL_DEC[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     // host-SN separation
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_SNSEP", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_SNSEP[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_SNSEP[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     // direction light-radius
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_DDLR", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_DDLR[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_DDLR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
    
     // start host properties 
     // host logmass
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_OBS[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_LOGMASS_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGMASS);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGMASS_ERR[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_LOGMASS_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host sfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_OBS[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_LOGSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGSFR);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGSFR_ERR[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_LOGSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host ssfr
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_LOGsSFR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_LOGsSFR );
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_LOGsSFR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // host color                                                                                           
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_OBS[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_COLOR_OBS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_%s_ERR", PREFIX, HOSTGAL_PROPERTY_BASENAME_COLOR);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_COLOR_ERR[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_COLOR_ERR[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     // end of host properties
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_ELLIPTICITY", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_ELLIPTICITY[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_ELLIPTICITY[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_OBJID2", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.HOSTGAL_OBJID2[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_K = SNDATA.HOSTGAL_OBJID2[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_OBJID_UNIQUE", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.HOSTGAL_OBJID_UNIQUE[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_K = SNDATA.HOSTGAL_OBJID_UNIQUE[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_SQRADIUS", PREFIX);
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_SQRADIUS[igal] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_SQRADIUS[igal] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
     // HOSTGAL MAGS
@@ -1821,7 +1846,7 @@ void wr_snfitsio_update_head(void) {
       ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
       sprintf(parName,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs] );
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_MAG[igal][ifilt] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_MAG[igal][ifilt] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
@@ -1830,21 +1855,21 @@ void wr_snfitsio_update_head(void) {
       ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
       sprintf(parName,"%s_MAGERR_%c", PREFIX, FILTERSTRING[ifilt_obs] );
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_MAGERR[igal][ifilt] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_MAGERR[igal][ifilt] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
-    // HOSTGAL Q PARAMS (Jan 2022) // .xyz
+    // HOSTGAL QUANTILES (Jan 2022) 
     if ( REFAC_DATA_FLAG > 0 ) {
       int iz; 
       for(iz=0; iz<11; iz++ ) 
-	{ WR_SNFITSIO_TABLEVAL[itype].list_1E[iz] = (iz * 0.11) + .001*(float)igal;  }
+	{ WR_SNFITSIO_TABLEVAL[itype].list_E[iz] = (iz * 0.11) + .001*(float)igal;  }
       sprintf(parName, "%sz_%s", PREFIX, SUFFIX_QUANTILE_ZPHOT);
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
       for(iz=0; iz<11; iz++ ) 
-	{ WR_SNFITSIO_TABLEVAL[itype].list_1E[iz] = (iz * 10);  }
+	{ WR_SNFITSIO_TABLEVAL[itype].list_E[iz] = (iz * 10);  }
       sprintf(parName,"%sz_%s", PREFIX, SUFFIX_QUANTILE_PERCENT);
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
@@ -1855,7 +1880,7 @@ void wr_snfitsio_update_head(void) {
 	int PCT  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
 	LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, parName); // return parName 
 	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
+	WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
 	wr_snfitsio_fillTable ( ptrColnum, parName, itype );
       }
     }
@@ -1870,7 +1895,7 @@ void wr_snfitsio_update_head(void) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
     sprintf(parName,"HOSTGAL_SB_FLUXCAL_%c", FILTERSTRING[ifilt_obs] );
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = 
+    WR_SNFITSIO_TABLEVAL[itype].value_E = 
       SNDATA.HOSTGAL_SB_FLUXCAL[ifilt] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
   }
@@ -1878,7 +1903,7 @@ void wr_snfitsio_update_head(void) {
   // host confusion
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   sprintf(parName,"HOSTGAL_CONFUSION" );
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.HOSTGAL_CONFUSION ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_CONFUSION ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
 
@@ -1886,33 +1911,33 @@ void wr_snfitsio_update_head(void) {
 
   // PEAKMJD 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SEARCH_PEAKMJD ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SEARCH_PEAKMJD ;
   wr_snfitsio_fillTable ( ptrColnum, "PEAKMJD", itype );
 
   // MJD_TRIGGER (Oct 2021)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MJD_TRIGGER ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.MJD_TRIGGER ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD_TRIGGER", itype );
 
   // MJD_DETECT[FIRST,LAST] (Oct 2021)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MJD_DETECT_FIRST ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.MJD_DETECT_FIRST ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD_DETECT_FIRST", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.MJD_DETECT_LAST ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.MJD_DETECT_LAST ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD_DETECT_LAST", itype );
 
   // SEARCH_TYPE (for SDSS only)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SEARCH_TYPE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SEARCH_TYPE ;
   wr_snfitsio_fillTable ( ptrColnum, "SEARCH_TYPE", itype );
 
 
   // optional PRIVATE variables
   for ( ivar=1; ivar <= SNDATA.NVAR_PRIVATE ; ivar++ ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.PRIVATE_VALUE[ivar] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.PRIVATE_VALUE[ivar] ;
     sprintf(parName,"%s" ,SNDATA.PRIVATE_KEYWORD[ivar] );
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
   }
@@ -1933,17 +1958,17 @@ void wr_snfitsio_update_head(void) {
 
   // SIM_MODEL index 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_MODEL_INDEX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = (short)SNDATA.SIM_MODEL_INDEX ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MODEL_INDEX", itype );
 
   // SIM_GENTYPE index
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_GENTYPE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = (short)SNDATA.SIM_GENTYPE ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_GENTYPE", itype );
 
   // write legacy GENTYPE name .... for a while
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = (short)SNDATA.SIM_GENTYPE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = (short)SNDATA.SIM_GENTYPE ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_TYPE_INDEX", itype );
 
   // SIM_TYPE name  (Ia, Ib, II ...)
@@ -1954,65 +1979,65 @@ void wr_snfitsio_update_head(void) {
 
   // NON1a index (0 => 1a)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_TEMPLATE_INDEX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SIM_TEMPLATE_INDEX ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_TEMPLATE_INDEX", itype );
 
   // SIMLIB LIBID
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_LIBID ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SIM_LIBID ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_LIBID", itype );
 
   // Now many times this LIBID was generated
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_NGEN_LIBID ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SIM_NGEN_LIBID ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_NGEN_LIBID", itype );
 
   // Number of simulated observations suppresed because
   // model is not defined (Mar 2017)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_NOBS_UNDEFINED ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SIM_NOBS_UNDEFINED ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_NOBS_UNDEFINED", itype );
 
   // SIM_SEARCHEFF_MASK
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_SEARCHEFF_MASK ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SIM_SEARCHEFF_MASK ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_SEARCHEFF_MASK", itype );
 
   // -------
   // SIM_REDSHIFT
   // zhelio 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_HELIO ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_REDSHIFT_HELIO ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_HELIO", itype );
 
   // zcmb
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_CMB ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_REDSHIFT_CMB ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_CMB", itype );
 
   // zhost 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_HOST ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_REDSHIFT_HOST ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_HOST", itype );
 
   // true z of DDLR-matched host
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_REDSHIFT_HOST_MATCH ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_REDSHIFT_HOST_MATCH ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_HOST_MATCH", itype );
 
   // integer redshift flag to indicate source of redshift
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_REDSHIFT_FLAG ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.SIM_REDSHIFT_FLAG ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_REDSHIFT_FLAG", itype );
 
   // true HOSTGAL OBJID
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.SIM_HOSTLIB_GALID ;
+  WR_SNFITSIO_TABLEVAL[itype].value_K = SNDATA.SIM_HOSTLIB_GALID ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_HOSTLIB_GALID", itype );
 
   // Vpec
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_VPEC ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_VPEC ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_VPEC", itype );
 
   // - - - - - - - user-selected sim host properties - - - - - - - -
@@ -2022,7 +2047,7 @@ void wr_snfitsio_update_head(void) {
   igal = 0 ;
   for(ipar=0; ipar < SNDATA.NPAR_SIM_HOSTLIB; ipar++ ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = 
+    WR_SNFITSIO_TABLEVAL[itype].value_E = 
       SNDATA.SIM_HOSTLIB_PARVAL[ipar][igal] ;
     sprintf(parName,"%s", SNDATA.SIM_HOSTLIB_KEYWORD[ipar] );
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
@@ -2032,122 +2057,122 @@ void wr_snfitsio_update_head(void) {
   // -------------------
   // SIM_SNHOST_DDLR (Oct 2025)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SNHOST_DDLR ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SNHOST_DDLR ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_SNHOST_DDLR", itype );
 
   // SIM_SNHOST_SEP (Oct 2025)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SNHOST_SEP ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SNHOST_SEP ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_SNHOST_SEP", itype );
 
   // -------------------
   // SIM_DLMU
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_DLMU ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_DLMU ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_DLMU", itype );
 
   // SIM_LENSDMU
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_LENSDMU ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_LENSDMU ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_LENSDMU", itype );
 
   // May 2025 user-defined MUSHIFT
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MUSHIFT ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_MUSHIFT ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MUSHIFT", itype );
 
 
   // SIM_RA/DEC
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.SIM_RA ;
+  WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.SIM_RA ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_RA", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.SIM_DEC ;
+  WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.SIM_DEC ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_DEC", itype );
 
   // SIM_MWEBV
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MWEBV ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_MWEBV ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MWEBV", itype );
 
   // SIM_PEAKMJD
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_PEAKMJD ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_PEAKMJD ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_PEAKMJD", itype );
 
   // SIM_MJD_EXPLODE
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MJD_EXPLODE ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_MJD_EXPLODE ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MJD_EXPLODE", itype );
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_MAGSMEAR_COH ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_MAGSMEAR_COH ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_MAGSMEAR_COH", itype );
 
 
   // Dec 22 2023: write SIM_WGT for population
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_WGT_POPULATION ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_WGT_POPULATION ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_WGT_POPULATION", itype );
 
   // Ju 16 2016: always write SIM_RV & SIM_AV
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_AV ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_AV ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_AV", itype );
   
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_RV ;
+  WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_RV ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_RV", itype );
 
 
   if ( SNDATA.SIM_MODEL_INDEX == MODEL_SALT2 ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2x0 ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2x0 ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_SALT2x0", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2x1 ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2x1 ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_SALT2x1", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2c ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2c ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_SALT2c", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2mB ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2mB ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_SALT2mB", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2alpha ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2alpha ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_SALT2alpha", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2beta ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2beta ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_SALT2beta", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2gammaDM ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2gammaDM ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_SALT2gammaDM", itype );
     
   }
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_MLCS2k2 ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_DELTA ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_DELTA ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_DELTA", itype );
 
   }
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SNOOPY ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_STRETCH ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_STRETCH ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRETCH", itype );
   }
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_BAYESN ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_THETA ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_THETA ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_THETA", itype );
   }
 
@@ -2159,12 +2184,12 @@ void wr_snfitsio_update_head(void) {
 
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SIMSED && SNFITSIO_SIMFLAG_MODELPAR ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SALT2x0 ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SALT2x0 ;
     wr_snfitsio_fillTable ( ptrColnum, "SIMSED_SALT2x0", itype );
 
     for ( ipar=0; ipar < SNDATA.NPAR_SIMSED; ipar++ ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMSED_PARVAL[ipar] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIMSED_PARVAL[ipar] ;
       sprintf(parName,"%s" ,SNDATA.SIMSED_KEYWORD[ipar] );
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
@@ -2173,7 +2198,7 @@ void wr_snfitsio_update_head(void) {
 
   for ( ipar=0; ipar < SNDATA.NPAR_PySEDMODEL;  ipar++ ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PySEDMODEL_PARVAL[ipar] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.PySEDMODEL_PARVAL[ipar] ;
     sprintf(parName,"%s" ,SNDATA.PySEDMODEL_KEYWORD[ipar] );
     wr_snfitsio_fillTable ( ptrColnum, parName, itype );
   }
@@ -2181,7 +2206,7 @@ void wr_snfitsio_update_head(void) {
   if ( SNDATA.SIM_MODEL_INDEX  == MODEL_LCLIB && SNFITSIO_SIMFLAG_MODELPAR) {
     for ( ipar=0; ipar < SNDATA.NPAR_LCLIB;  ipar++ ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.LCLIB_PARVAL[ipar] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.LCLIB_PARVAL[ipar] ;
       sprintf(parName,"%s" ,SNDATA.LCLIB_KEYWORD[ipar] );
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
@@ -2206,50 +2231,50 @@ void wr_snfitsio_update_head(void) {
   // strong lens params (Jul 2019)
   if ( SNDATA.SIM_SL_FLAG ) { 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.SIM_SL_IDLENS ;
+    WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.SIM_SL_IDLENS ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IDLENS", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1K = SNDATA.SIM_SL_GALID ;
+    WR_SNFITSIO_TABLEVAL[itype].value_K = SNDATA.SIM_SL_GALID ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_GALID", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_zLENS ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SL_zLENS ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_z", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_TDELAY ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SL_TDELAY ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_TDELAY", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_MAGSHIFT ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SL_MAGSHIFT ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_MAGSHIFT", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_NIMG ;
+    WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.SIM_SL_NIMG ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_NIMG", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SIM_SL_IMGNUM ;
+    WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.SIM_SL_IMGNUM ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_IMGNUM", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_MINSEP ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SL_MINSEP ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_MINSEP", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_LOGMASS ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SL_LOGMASS ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_LOGMASS", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIM_SL_LOGMASS_ERR ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_SL_LOGMASS_ERR ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_STRONGLENS_LOGMASS_ERR", itype );
   }
 
 
   sprintf(parName,"SIM_SUBSAMPLE_INDEX");
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = SNDATA.SUBSAMPLE_INDEX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.SUBSAMPLE_INDEX ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );
 
   // make sure that required keys exist.
@@ -2275,10 +2300,9 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
   // Sep 20 2017: define logical ALLOW_BLANK to allow exceptions
   //              for the no-blank rule on strins. See SUBSURVEY.
   //
-  int istat, colnum, firstelem, firstrow, nrow, LEN, OPTMASK ;
-  int LDMP = 0 ;
+  int istat, colnum, firstelem, firstrow, n_element, nrow, OPTMASK, iform ;
   fitsfile *fp ;
-  char *ptrForm, cfirst[2], clast[2] ;
+  char *ptrForm; 
   char fnam[] = "wr_snfitsio_fillTable";
 
   // ------------ BEGIN -----------
@@ -2295,21 +2319,24 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
   firstelem = 1 ;
   firstrow  = WR_SNFITSIO_TABLEVAL[itype].NROW ;
   ptrForm   = WR_SNFITSIO_TABLEDEF[itype].ptrForm[colnum];
-  
-  LEN = strlen(ptrForm);
-  sprintf(cfirst, "%c",  ptrForm[0] ); // first character only
-  sprintf(clast,  "%c",  ptrForm[LEN-1] ); // last char only
-
+  iform     = WR_SNFITSIO_TABLEDEF[itype].iform[colnum];  // 4.07.2026
+  n_element = WR_SNFITSIO_TABLEDEF[itype].n_element[colnum];
   istat     = 0 ;
 
-  /*
-  printf(" %2d : xxxx colnum = %2d  clast = %s (parName=%s) \n", 
-	 NWR_SNFITSIO, colnum, clast, parName );
-  */
+  int LDMP = 0 ; // ( itype == ITYPE_SNFITSIO_HEAD && colnum < 3 ) ;
+  
+  if ( LDMP ) {
+    printf(" xxx ------------------------------------------------- \n");
+    printf(" xxx %s: colnum = %2d  iform=%d (parName=%s)  firstrow=%d\n", 
+	   fnam, colnum, iform, parName, firstrow );  fflush(stdout);
+  }
 
-  if ( strcmp(clast,"A") == 0 ) {
+  if ( iform == IFORM_A ) {
     char *A = WR_SNFITSIO_TABLEVAL[itype].value_A ;
     int ALLOW_BLANK = ( strcmp(parName,"SUBSURVEY")==0 );
+
+    if ( LDMP ) 
+      { printf(" xxx %s: write A = %s to colunm=%d\n", fnam, A, colnum); fflush(stdout); }
 
     if ( strlen(A) == 0 &&  !ALLOW_BLANK  ) {
       sprintf(c1err,"Cannot write %s='' (blank string)", parName);
@@ -2317,33 +2344,37 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
     fits_write_col(fp, TSTRING, colnum, firstrow, firstelem, nrow,
-		   &WR_SNFITSIO_TABLEVAL[itype].value_A, &istat);  
+    		   &WR_SNFITSIO_TABLEVAL[itype].value_A, &istat); 
   }
-  else if ( strcmp(ptrForm,"1D") == 0 ) {
+  else if ( iform == IFORM_D ) {
     fits_write_col(fp, TDOUBLE, colnum, firstrow, firstelem, nrow,
-		   &WR_SNFITSIO_TABLEVAL[itype].value_1D, &istat);  
+		   &WR_SNFITSIO_TABLEVAL[itype].value_D, &istat);  
   }
-  else if ( strcmp(ptrForm,"1E") == 0 ) {
+  // - - - - - 
+  // Apr 7 2026: value_E (scalar) and list_E (vector) are treated separately
+  //             even though they could be combined into a single array variable.
+  //             The reason is refactor safety; will fix this variable redundancy later.
+  else if ( iform == IFORM_E && n_element == 1 ) {
     fits_write_col(fp, TFLOAT, colnum, firstrow, firstelem, nrow,
-		   &WR_SNFITSIO_TABLEVAL[itype].value_1E, &istat);  
+		   &WR_SNFITSIO_TABLEVAL[itype].value_E, &istat);  
   }
-  else if ( REFAC_DATA_FLAG && strcmp(ptrForm,"11E") == 0 ) {  // Apr 2026 - TEST vector write
-    fits_write_col(fp, TFLOAT, colnum, firstrow, firstelem, 11,
-		   &WR_SNFITSIO_TABLEVAL[itype].list_1E, &istat);  
+  else if ( REFAC_DATA_FLAG && iform == IFORM_E && n_element > 1 ) {  // new feature, Apr 2026
+    fits_write_col(fp, TFLOAT, colnum, firstrow, firstelem, n_element,
+		   &WR_SNFITSIO_TABLEVAL[itype].list_E, &istat);  
   }
-  else if ( strcmp(ptrForm,"1J") == 0 ) {  // 32-bit signed int
+  // - - - - - -
+  else if ( iform == IFORM_J ) {  // 32-bit signed int
     fits_write_col(fp, TINT, colnum, firstrow, firstelem, nrow,
-		   &WR_SNFITSIO_TABLEVAL[itype].value_1J, &istat);  
+		   &WR_SNFITSIO_TABLEVAL[itype].value_J, &istat);  
   }
-  else if ( strcmp(ptrForm,"1I") == 0 ) {  // 16-bit unsigned int
+  else if ( iform == IFORM_I ) {  // 16-bit unsigned int
     fits_write_col(fp, TSHORT, colnum, firstrow, firstelem, nrow,
-		   &WR_SNFITSIO_TABLEVAL[itype].value_1I, &istat);  
+		   &WR_SNFITSIO_TABLEVAL[itype].value_I, &istat);  
   }
-  else if ( strcmp(ptrForm,"1K") == 0 ) {  // 64 bit long long
+  else if ( iform == IFORM_K ) {  // 64 bit long long
     fits_write_col(fp, TLONGLONG, colnum, firstrow, firstelem, nrow,
-		   &WR_SNFITSIO_TABLEVAL[itype].value_1K, &istat);  
+		   &WR_SNFITSIO_TABLEVAL[itype].value_K, &istat);  
   }
-
 
   else {
     sprintf(c1err,"Unrecognized Form = '%s' for param='%s' ", 
@@ -2380,7 +2411,7 @@ void wr_snfitsio_fillTable_filters(int *COLNUM_INDX, char *PREFIX, int ITYPE, fl
     sprintf(parName,"%s_%c", PREFIX, FILTERSTRING[ifilt_obs] );      
     LOC++ ;
     ptrColnum = &WR_SNFITSIO_TABLEVAL[ITYPE].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[ITYPE].value_1E = VAL[ifilt_obs] ;
+    WR_SNFITSIO_TABLEVAL[ITYPE].value_E = VAL[ifilt_obs] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, ITYPE );
   }
 
@@ -2409,7 +2440,7 @@ void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, d
     sprintf(parName,"%s_%c", PREFIX, FILTERSTRING[ifilt_obs] );      
     LOC++ ;
     ptrColnum = &WR_SNFITSIO_TABLEVAL[ITYPE].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[ITYPE].value_1D = DVAL[ifilt_obs] ;
+    WR_SNFITSIO_TABLEVAL[ITYPE].value_D = DVAL[ifilt_obs] ;
     wr_snfitsio_fillTable ( ptrColnum, parName, ITYPE );
   }
 
@@ -2434,7 +2465,7 @@ void wr_snfitsio_update_phot(int ep) {
 
   // MJD
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = SNDATA.MJD[ep] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_D = SNDATA.MJD[ep] ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD", itype );
  
   // FILTER
@@ -2445,13 +2476,13 @@ void wr_snfitsio_update_phot(int ep) {
   if ( WRFULL ){
     // DETNUM (Mar 2021)
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1I = (short int)SNDATA.DETNUM[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_I = (short int)SNDATA.DETNUM[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "DETNUM", itype );
 
     // IMGNUM (Oct 2021)
     if ( !SNFITSIO_SIMFLAG_SNANA ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.IMGNUM[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.IMGNUM[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "IMGNUM", itype );
     }
 
@@ -2462,11 +2493,11 @@ void wr_snfitsio_update_phot(int ep) {
 
     // PHOTFLAG & PHOTPROB
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1J = SNDATA.PHOTFLAG[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.PHOTFLAG[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "PHOTFLAG", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PHOTPROB[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.PHOTPROB[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "PHOTPROB", itype );
   } // end WRFULL
 
@@ -2474,98 +2505,98 @@ void wr_snfitsio_update_phot(int ep) {
   // FLUXCAL and its error
   if ( !SNFITSIO_COMPACT_noFLUXCAL_FLAG ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.FLUXCAL[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "FLUXCAL", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.FLUXCAL_ERRTOT[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.FLUXCAL_ERRTOT[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "FLUXCALERR", itype );
   }
 
   if ( WRFULL ){
     if ( SNDATA.NEA_PSF_UNIT ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_NEA[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.PSF_NEA[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "PSF_NEA", itype );
     }
     else {
       // PSF (SIG1, SIG2 and ratio). Unit is Gauss-sigma, pixels
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_SIG1[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.PSF_SIG1[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "PSF_SIG1", itype );
       
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_SIG2[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.PSF_SIG2[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "PSF_SIG2", itype );
 
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.PSF_RATIO[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.PSF_RATIO[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "PSF_RATIO", itype );
     }
 
     // SKYSIG (ADU per pixel)
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SKY_SIG[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SKY_SIG[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "SKY_SIG", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SKY_SIG_T[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SKY_SIG_T[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "SKY_SIG_T", itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.READNOISE[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.READNOISE[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "RDNOISE", itype );
 
     // zeropt and it error and the GAIN (e- per ADU)
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZEROPT[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.ZEROPT[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "ZEROPT", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.ZEROPT_ERR[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.ZEROPT_ERR[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "ZEROPT_ERR", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.TEXPOSE[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.TEXPOSE[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "TEXPOSE", itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.GAIN[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.GAIN[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "GAIN", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.XPIX[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.XPIX[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "XPIX", itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.YPIX[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.YPIX[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "YPIX", itype );
 
     // check writing atmos/DCR information (July 2023)
     if ( SNFITSIO_ATMOS ) {  
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.dRA[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.dRA[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "dRA", itype );
 
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.dDEC[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.dDEC[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "dDEC", itype );
 
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.AIRMASS[ep] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.AIRMASS[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "AIRMASS", itype );
       
       if ( SNFITSIO_SIMFLAG_SNANA ) {
 	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_DCR_dRA[ep] ;
+	WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIMEPOCH_DCR_dRA[ep] ;
 	wr_snfitsio_fillTable ( ptrColnum, "SIM_DCR_dRA", itype );
 
 	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_DCR_dDEC[ep] ;
+	WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIMEPOCH_DCR_dDEC[ep] ;
 	wr_snfitsio_fillTable ( ptrColnum, "SIM_DCR_dDEC", itype );
 
 	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-	WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_DCR_dMAG[ep] ;
+	WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIMEPOCH_DCR_dMAG[ep] ;
 	wr_snfitsio_fillTable ( ptrColnum, "SIM_DCR_dMAG", itype );
       }
 
@@ -2579,14 +2610,14 @@ void wr_snfitsio_update_phot(int ep) {
   if ( SNFITSIO_SIMFLAG_SNANA || SNFITSIO_SIMFLAG_MAGOBS ) { 
     LOC++ ; 
     ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_MAG[ep] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIMEPOCH_MAG[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "SIM_MAGOBS", itype );
   }
 
   if ( SNFITSIO_SIMFLAG_SNRMON ) {  // Mar 28 2018
     LOC++ ; 
     ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = SNDATA.SIMEPOCH_SNRMON[ep];
+    WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIMEPOCH_SNRMON[ep];
     wr_snfitsio_fillTable ( ptrColnum, SNDATA.VARNAME_SNRMON, itype );
   }
 
@@ -2641,13 +2672,13 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   // MJD  
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.MJD_LIST[imjd] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_D = GENSPEC.MJD_LIST[imjd] ;
   wr_snfitsio_fillTable ( ptrColnum, "MJD", itype );
 
   if ( SNFITSIO_CODE_IVERSION >= 26 )  {  // Sep 6 2024
     // Texpose    
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1D = GENSPEC.TEXPOSE_LIST[imjd] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_D = GENSPEC.TEXPOSE_LIST[imjd] ;
     wr_snfitsio_fillTable ( ptrColnum, "Texpose", itype );
 
     // instrument name
@@ -2661,27 +2692,27 @@ void  wr_snfitsio_update_spec(int imjd)  {
     if ( SNFITSIO_CODE_IVERSION < 26 ) { // legacy write
       // Texpose
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.TEXPOSE_LIST[imjd] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = GENSPEC.TEXPOSE_LIST[imjd] ;
       wr_snfitsio_fillTable ( ptrColnum, "Texpose", itype );
     }
     
     // - - - - - -
     // SNR_COMPUTE
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.SNR_COMPUTE_LIST[imjd] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = GENSPEC.SNR_COMPUTE_LIST[imjd] ;
     wr_snfitsio_fillTable ( ptrColnum, "SNR_COMPUTE", itype );
     
     // LAMOBS range for SNR_COMPUTE
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.LAMOBS_SNR_LIST[imjd][0] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = GENSPEC.LAMOBS_SNR_LIST[imjd][0] ;
     wr_snfitsio_fillTable ( ptrColnum, "LAMMIN_SNR", itype );
     
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.LAMOBS_SNR_LIST[imjd][1] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = GENSPEC.LAMOBS_SNR_LIST[imjd][1] ;
     wr_snfitsio_fillTable ( ptrColnum, "LAMMAX_SNR", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = GENSPEC.SCALE_FLAM_HOST_CONTAM[imjd] ;
     wr_snfitsio_fillTable ( ptrColnum, "SCALE_HOST_CONTAM", itype );
   }
 
@@ -2693,31 +2724,31 @@ void  wr_snfitsio_update_spec(int imjd)  {
     double LAMBIN = INPUTS_SPECTRO.LAMBIN_LIST[0]; // all bin sizes are equal
  
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMIN ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = LAMMIN ;
     wr_snfitsio_fillTable ( ptrColnum, "LAMMIN", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMAX ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = LAMMAX ;
     wr_snfitsio_fillTable ( ptrColnum, "LAMMAX", itype );
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMBIN ;
+    WR_SNFITSIO_TABLEVAL[itype].value_E = LAMBIN ;
     wr_snfitsio_fillTable ( ptrColnum, "LAMBIN", itype );
   }
 
   // NBLAM
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1I = NBLAM_WR ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = NBLAM_WR ;
   wr_snfitsio_fillTable ( ptrColnum, "NBIN_LAM", itype );
 
   // PTRSPEC_MIN
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = PTRSPEC_MIN ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = PTRSPEC_MIN ;
   wr_snfitsio_fillTable ( ptrColnum, "PTRSPEC_MIN", itype );
 
   // PTRSPEC_MAX
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].value_1J = PTRSPEC_MAX ;
+  WR_SNFITSIO_TABLEVAL[itype].value_J = PTRSPEC_MAX ;
   wr_snfitsio_fillTable ( ptrColnum, "PTRSPEC_MAX", itype );
 
 
@@ -2773,19 +2804,19 @@ void  wr_snfitsio_update_spec(int imjd)  {
     if ( WRITE_SPECTRA ) {
       // refactored Oct 2021
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMIN ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = LAMMIN ;
       wr_snfitsio_fillTable ( ptrColnum, "LAMMIN", itype );  
 
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = LAMMAX ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = LAMMAX ;
       wr_snfitsio_fillTable ( ptrColnum, "LAMMAX", itype );  
 
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAM ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = FLAM ;
       wr_snfitsio_fillTable ( ptrColnum, "FLAM", itype );  
    
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = FLAMERR ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = FLAMERR ;
       wr_snfitsio_fillTable ( ptrColnum, "FLAMERR", itype );  
     }
     else if ( WRITE_SED_TRUE ) {
@@ -2800,13 +2831,13 @@ void  wr_snfitsio_update_spec(int imjd)  {
     if ( SNFITSIO_SIMFLAG_SNANA ) {
       // always write true SIM_FLAM for all formats
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1E = GENFLAM ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = GENFLAM ;
       wr_snfitsio_fillTable ( ptrColnum, "SIM_FLAM", itype );  
     }
 
     if ( GENSPEC.USE_WARP ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_1I = (int)(WARP*1000.0 + 0.5) ;
+      WR_SNFITSIO_TABLEVAL[itype].value_I = (int)(WARP*1000.0 + 0.5) ;
       wr_snfitsio_fillTable ( ptrColnum, "SIM_WARP", itype ) ;  
     }
 
@@ -4368,7 +4399,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   rd_snfitsio_private();
 
   // check optional NZPHOT_Q key (Feb 2022)
-  rd_snfitsio_zphot_q();
+  if ( !REFAC_DATA_FLAG ) { rd_snfitsio_zphot_q(); }
 
   // - - - - - - - - - - -
 
@@ -4647,6 +4678,8 @@ void rd_snfitsio_zphot_q(void) {
 
   // Created Feb 10 2022
   // read optional zphot quantile percentiles from global header.
+  //
+  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
 
   fitsfile *fp ;
   int itype, istat, N_Q, NFIND_KEY=0, ivar, PCT ;
@@ -4659,6 +4692,8 @@ void rd_snfitsio_zphot_q(void) {
   itype   = ITYPE_SNFITSIO_HEAD ;
   fp      = fp_rd_snfitsio[itype] ;
 
+  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
+
   if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) { return; } // Sep 2023
 
   istat = 0;
@@ -4670,6 +4705,8 @@ void rd_snfitsio_zphot_q(void) {
 
   // - - - - - -
   SNDATA.HOSTGAL_NZPHOT_Q = N_Q ;  
+
+  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
 
   // read list of percentiles from keys of the form
   // PERCENTILE_ZPHOT_Q## 
@@ -4689,11 +4726,14 @@ void rd_snfitsio_zphot_q(void) {
     }
   }
 
+  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
+
   if ( NFIND_KEY != N_Q ) {
     sprintf(c1err,"Found %d PERCENTILE_ZPHOT_Q* keys", NFIND_KEY);
     sprintf(c2err,"but expected to fid NZPHOT_Q = %d", N_Q);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
 
   return;
 } // end rd_snfitsio_zphot_q
@@ -4836,7 +4876,7 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
     snfitsio_errorCheck(c1err, istat);
 
     // keep track of how many header parameters are of each form
-    iform = formIndex_snfitsio(ptrTmp);
+    iform = formIndex_snfitsio(ptrTmp, fnam);
     RD_SNFITSIO_TABLEDEF[itype].iform[icol] = iform ;
 
     RD_SNFITSIO_TABLEVAL[itype].NPAR[iform]++ ;
@@ -4902,19 +4942,19 @@ void rd_snfitsio_free(int ifile, int itype ) {
 	
 	free ( RD_SNFITSIO_TABLEVAL_A[itype][ipar]  ) ;
       }     
-      else if ( iform == IFORM_1J ) {
+      else if ( iform == IFORM_J ) {
 	free ( RD_SNFITSIO_TABLEVAL_1J[itype][ipar] ) ;
       }
-      else if ( iform == IFORM_1I ) {
+      else if ( iform == IFORM_I ) {
 	free ( RD_SNFITSIO_TABLEVAL_1I[itype][ipar] ) ;
       }
-      else if ( iform == IFORM_1E ) {
+      else if ( iform == IFORM_E ) {
 	free ( RD_SNFITSIO_TABLEVAL_1E[itype][ipar] ) ;
       }
-      else if ( iform == IFORM_1D ) {
+      else if ( iform == IFORM_D ) {
 	free ( RD_SNFITSIO_TABLEVAL_1D[itype][ipar] ) ;
       }
-      else if ( iform == IFORM_1K ) {
+      else if ( iform == IFORM_K ) {
 	free ( RD_SNFITSIO_TABLEVAL_1K[itype][ipar] ) ;
       }
       
@@ -4993,7 +5033,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
     }
 
-    else if ( iform == IFORM_1J ) {
+    else if ( iform == IFORM_J ) {
       sizeof_mem = sizeof(int*);
       sizeof_MEM = sizeof(int);
       mem = (npar+1)      * sizeof_mem;
@@ -5006,7 +5046,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       }
     }
     
-    else if ( iform == IFORM_1I ) {
+    else if ( iform == IFORM_I ) {
       sizeof_mem = sizeof(short*);
       sizeof_MEM = sizeof(short);
       mem  = (npar+1)       * sizeof_mem;
@@ -5018,7 +5058,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       }
     }
     
-    else if ( iform == IFORM_1E ) {
+    else if ( iform == IFORM_E ) {
       sizeof_mem = sizeof(float*);
       sizeof_MEM = sizeof(float);
       mem = (npar+1)       * sizeof_mem;
@@ -5030,7 +5070,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       }
     }
 
-    else if ( iform == IFORM_1D ) {
+    else if ( iform == IFORM_D ) {
       sizeof_mem = sizeof(double*);
       sizeof_MEM = sizeof(double);
       mem = (npar+1)       * sizeof_mem ;
@@ -5042,7 +5082,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       }
     }
 
-    else if ( iform == IFORM_1K ) {
+    else if ( iform == IFORM_K ) {
       sizeof_mem = sizeof(long long*);
       sizeof_MEM = sizeof(long long);
       mem = (npar+1)      * sizeof_mem;
@@ -5118,28 +5158,28 @@ void rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow) {
 		      &RD_SNFITSIO_TABLEVAL_A[itype][ipar][1], 
 		      &anynul, &istat );
   }
-  else if ( iform == IFORM_1J ) {
+  else if ( iform == IFORM_J ) {
     fits_read_col_int(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_J,
 		      &RD_SNFITSIO_TABLEVAL_1J[itype][ipar][1], 
 		      &anynul, &istat );
   }
-  else if ( iform == IFORM_1I ) {
+  else if ( iform == IFORM_I ) {
     // usht -> sht (Feb 20 2013)
     fits_read_col_sht(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_I,
 		      &RD_SNFITSIO_TABLEVAL_1I[itype][ipar][1], 
 		      &anynul, &istat );
   }  
-  else if ( iform == IFORM_1E ) {
+  else if ( iform == IFORM_E ) {
     fits_read_col_flt(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_E,
 		      &RD_SNFITSIO_TABLEVAL_1E[itype][ipar][1], 
 		      &anynul, &istat );
   }
-  else if ( iform == IFORM_1D ) {
+  else if ( iform == IFORM_D ) {
     fits_read_col_dbl(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_D,
 		      &RD_SNFITSIO_TABLEVAL_1D[itype][ipar][1], 
 		      &anynul, &istat );    
   }
-  else if ( iform == IFORM_1K ) {
+  else if ( iform == IFORM_K ) {
     fits_read_col_lnglng(fp, icol, FIRSTROW, FIRSTELEM, NROW, NULL_K,
 		      &RD_SNFITSIO_TABLEVAL_1K[itype][ipar][1], 
 		      &anynul, &istat );
@@ -5184,7 +5224,7 @@ void rd_snfitsio_head(int ifile) {
 
   // find largest NOBS = MXOBS_SNFITSIO
   OPTMASK = OPTMASK_RD_SNFITSIO + OPTMASK_ABORT_SNFITSIO ;
-  ipar = IPARFORM_SNFITSIO(OPTMASK, IFORM_1J, "NOBS", itype) ;
+  ipar = IPARFORM_SNFITSIO(OPTMASK, IFORM_J, "NOBS", itype) ;
   MXOBS_SNFITSIO = 0 ;
   for ( isn = 1; isn <= NSNLC; isn++ ) {
     NOBS = RD_SNFITSIO_TABLEVAL_1J[itype][ipar][isn] ;
@@ -5616,43 +5656,43 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
 
 
 // ==================================
-int formIndex_snfitsio(char *form) {
+int formIndex_snfitsio(char *form, char *callFun) {
 
   // Return index corresponding to the input table form.
   // Input *form can be "1D", "12A", etc ...
   
   int  LFORM ;
   char lastchar[2];
-  char fnam[] = "formIndex_snfitsio" ;
-
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "formIndex_snfitsio", fnam);
   // ----------- BEGIN ------------
 
   LFORM = strlen(form);
-  sprintf(lastchar, "%c", *(form+LFORM-1) );
+  sprintf(lastchar, "%c", form[LFORM-1] );
 
-  if ( strcmp(lastchar,"A") == 0 ) {
+  if ( lastchar[0] == 'A'  ) {
     return IFORM_A ;
   }
-  else if ( strcmp(form,"1J") == 0 ) {
-    return IFORM_1J ;
+  else if ( lastchar[0] == 'J' ) {
+    return IFORM_J ;
   }
-  else if ( strcmp(form,"1I") == 0 ) {
-    return IFORM_1I ;
+  else if ( lastchar[0] == 'I' ) {
+    return IFORM_I ;
   }
-  else if ( strcmp(form,"1E") == 0 ) {
-    return IFORM_1E ;
+  else if ( lastchar[0] == 'E' ) {
+    return IFORM_E ;
   }
   else if ( REFAC_DATA_FLAG && strcmp(form,"11E") == 0 ) { // .xyz Apr 2026 hack
-    return IFORM_1E ;
+    return IFORM_E ;
   }
-  else if ( strcmp(form,"1D") == 0 ) {
-    return IFORM_1D ;
+  else if ( lastchar[0] == 'D' ) {
+    return IFORM_D ;
   }
-  else if ( strcmp(form,"1K") == 0 ) {
-    return IFORM_1K ;
+  else if ( lastchar[0] == 'K'  ) {
+    return IFORM_K ;
   }
   else {
-    sprintf(c1err,"Unrecognized fits-form '%s'", form);
+    sprintf(c1err,"Unrecognized fits-form '%s'  (lastchar='%s')", form, lastchar);
     sprintf(c2err,"Check fits table.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
@@ -5859,7 +5899,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // if type is PHOT then read the epoch range from the fits file.
   if ( itype == ITYPE_SNFITSIO_PHOT ) {
     // PHOT file
-    IPTR = RD_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_HEAD].IPARINV[IFORM_1J] ; 
+    IPTR = RD_SNFITSIO_TABLEVAL[ITYPE_SNFITSIO_HEAD].IPARINV[IFORM_J] ; 
 
     iparRow  = IPTR[IPAR_SNFITSIO_PTROBS_MIN] ; 
     firstRow = RD_SNFITSIO_TABLEVAL_1J[ITYPE_SNFITSIO_HEAD][iparRow][isn_file]; 
@@ -5930,23 +5970,23 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
 	{ sprintf(SNDATA.FIELDNAME[NSTORE+1],"%s", C_VAL); }
 
     }
-    else if ( iform == IFORM_1J ) { 
+    else if ( iform == IFORM_J ) { 
       J_VAL = RD_SNFITSIO_TABLEVAL_1J[itype][ipar][J]; 
       parList[NSTORE] = (double)J_VAL ;
     }
-    else if ( iform == IFORM_1I ) { 
+    else if ( iform == IFORM_I ) { 
       J_VAL = (int)RD_SNFITSIO_TABLEVAL_1I[itype][ipar][J]; 
       parList[NSTORE] = (double)J_VAL ;
     }
-    else if ( iform == IFORM_1E ) { 
+    else if ( iform == IFORM_E ) { 
       E_VAL = RD_SNFITSIO_TABLEVAL_1E[itype][ipar][J]; 
       parList[NSTORE] = (double)E_VAL ;
     }
-    else if ( iform == IFORM_1D ) { 
+    else if ( iform == IFORM_D ) { 
       D_VAL = RD_SNFITSIO_TABLEVAL_1D[itype][ipar][J]; 
       parList[NSTORE] = D_VAL ;
     }
-    else if ( iform == IFORM_1K ) { 
+    else if ( iform == IFORM_K ) { 
       K_VAL = RD_SNFITSIO_TABLEVAL_1K[itype][ipar][J]; 
       parList[NSTORE] = K_VAL ;
     }

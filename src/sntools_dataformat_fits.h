@@ -178,11 +178,11 @@ struct  {
 
 // index is type (0=HEAD or 1=PHOT)
 char     ***RD_SNFITSIO_TABLEVAL_A[MXTYPE_SNFITSIO] ; 
-int       **RD_SNFITSIO_TABLEVAL_1J[MXTYPE_SNFITSIO] ;
-short     **RD_SNFITSIO_TABLEVAL_1I[MXTYPE_SNFITSIO] ;
-float     **RD_SNFITSIO_TABLEVAL_1E[MXTYPE_SNFITSIO] ;
-double    **RD_SNFITSIO_TABLEVAL_1D[MXTYPE_SNFITSIO] ;
-long long **RD_SNFITSIO_TABLEVAL_1K[MXTYPE_SNFITSIO] ;
+int       **RD_SNFITSIO_TABLEVAL_J[MXTYPE_SNFITSIO] ;
+short     **RD_SNFITSIO_TABLEVAL_I[MXTYPE_SNFITSIO] ;
+float     **RD_SNFITSIO_TABLEVAL_E[MXTYPE_SNFITSIO] ;
+double    **RD_SNFITSIO_TABLEVAL_D[MXTYPE_SNFITSIO] ;
+long long **RD_SNFITSIO_TABLEVAL_K[MXTYPE_SNFITSIO] ;
 
 // define absolute head-par indices for required elements
 int IPAR_SNFITSIO_SNID ;
@@ -245,14 +245,19 @@ void wr_snfitsio_init_head(void);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
-void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype); 
-void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix, int itype);
+
+void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ); 
+void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix);
+void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, char *PREFIX, 
+				 char *SUFFIX_z, char *SUFFIX_val );
+void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES );
 
 void WR_SNFITSIO_UPDATE(void);
 void wr_snfitsio_update_head(void);
 void wr_snfitsio_update_phot(int ep);
 void wr_snfitsio_update_spec(int imjd);
-void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype );
+
+void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ); 
 void wr_snfitsio_fillTable_filters (int *COLNUM_INDX, char *PREFIX, int ITYPE, float *VAL) ;
 void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, double *VAL) ;
 
@@ -309,7 +314,9 @@ void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX,
 int   ifile_snfitsio(int isn);
 
 void  check_required_headkeys(int OPTMASK) ; 
-int   formIndex_snfitsio(char *form, char *callFun) ;
+// xxx mark int   formIndex_snfitsio(char *form, char *callFun) ;
+int   index_tform_snfitsio(char *form, char *callFun) ;
+int   nelem_tform_snfitsio(char *form, char *callFun) ;
 
 void SET_RDMASK_SNFITSIO(int N, int *mask) ;
 

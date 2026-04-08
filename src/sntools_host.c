@@ -10912,7 +10912,7 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   int  IVAR_GALID  = HOSTLIB.IVAR_GALID;
   int  IVAR_RA     = HOSTLIB.IVAR_RA ;
   int  IVAR_DEC    = HOSTLIB.IVAR_DEC ;
-  int  LDMP        = (igal_unsort == 3 );
+  int  LDMP        = 0; // (igal_unsort == 3 );
 
   double SEP_NBR_LIST[MXNNBR_STORE];
   int    IGAL_LIST[MXNNBR_STORE];

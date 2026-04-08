@@ -175,7 +175,9 @@ struct VERSION
 } VERSION_INFO ;
 
 
-#define MXBIN_HOSTGALz 41 // max z bins for zPHOT quantiles, LOGMASS[_ERR]
+#define MXBIN_HOSTGALz 41 // max z bins for HOSTGALz_DEF arrays
+#define MXBIN_HOSTGALz_QUANTILE 20
+
 typedef struct {
   int     NZ;
   float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)

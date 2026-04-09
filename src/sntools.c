@@ -8523,7 +8523,7 @@ int init_SNDATA_EVENT(void) {
   SNDATA.HOSTGAL_NMATCH[0] = 0;
   SNDATA.HOSTGAL_NMATCH[1] = 0;
   SNDATA.HOSTGAL_CONFUSION = -99.0;
-
+  
   for(igal=0; igal<MXHOSTGAL; igal++ ) {  
     SNDATA.HOSTGAL_OBJID[igal]        =  0 ;
     SNDATA.HOSTGAL_FLAG[igal]         =  0 ;
@@ -8554,8 +8554,13 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_ELLIPTICITY[igal]  = HOSTLIB_PROPERTY_UNDEFINED ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
+
     for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
       { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
+
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal]);
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS_ERR[igal]);
   }
 
 
@@ -8722,6 +8727,17 @@ int init_SNDATA_EVENT(void) {
   return SUCCESS ;
 
 }   // end of init_SNDATA_EVENT
+
+
+void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz) {
+  int j;
+  HOSTGALz->NZ = 0;
+  for (j=0; j < MXBIN_HOSTGALz; j++ ) {
+    HOSTGALz->Z_LIST[j]   = -9.0 ;
+    HOSTGALz->VAL_LIST[j] = -9.0 ;
+  }
+} // end init_SNDATA_HOSTGALz
+ 
 
 // =================================================
 void init_GENSPEC_GLOBAL(void) {

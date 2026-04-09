@@ -8528,7 +8528,7 @@
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
 
-      if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
+      if ( SNHOST_NZPHOT_Q(1) .le. 0 ) THEN
           c1err = 'zPDF quantiles requested for photo-z fit'
           c2err = 'but there are no zPDF quantiles in the data.'
           CALL MADABORT(FNAM, c1err, c2err)
@@ -13954,9 +13954,7 @@
 ! check for host photoZ
 
       Zhost    = SNHOST_ZPHOT(1)
-      NZPHOT_Q = SNHOST_NZPHOT_Q
-
-! xxx mark delete Dec 8 2025  DOFIT_PHOTOZ_HOST =   (Zhost > 0.0 ) .and. (PRIOR_ZERRSCALE .LT. 10.0)
+      NZPHOT_Q = SNHOST_NZPHOT_Q(1)
 
       DOFIT_PHOTOZ_HOST =  & 
            (Zhost > 0.0 .or. NZPHOT_Q > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)

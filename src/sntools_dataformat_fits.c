@@ -792,6 +792,7 @@ void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, char *PREFIX,
 } // end wr_snfitsio_addcol_HOSTGALz
 
 
+/* xxx mark delete 
 void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES ) {
 
   char fnam[] = "get_parnames_HOSTGALz" ;
@@ -801,6 +802,7 @@ void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char 
   sprintf(VARNAMES[2], "%s_%s",      PREFIX, SUFFIX_val);
 
 } // end get_parnames_HOSTGALz
+xxxxx */
 
 // ========================================
 void wr_snfitsio_init_phot(void) {
@@ -1936,14 +1938,14 @@ void wr_snfitsio_update_head(void) {
       get_parnames_HOSTGALz(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, 
 			    ptrNames); // return ptrNames
 
-      // xxxxx hack in values that sim or data will fill later xxxxxxx
+      /* xxxxx hack in values that sim or data will fill later xxxxxxx
       int iz, nbin_z = 11 + igal + (SNDATA.NOBS % 7);
       SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ = nbin_z;
       for(iz=0; iz < nbin_z; iz++ ) {  
 	SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST[iz]   = (float)(iz * 0.11) + .001*(float)igal;
 	SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST[iz] = (float)(iz * 10);
       }
-      // xxxxx end hack xxxxxxxx
+      // xxxxx end hack xxxxxxxx */
 
       LOC++ ;
       ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3388,7 +3390,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   char KEY_NAME_TRANSIENT[]     = "NAME_TRANSIENT"; 
   
   int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iq, N_Q ;
-  char PREFIX[20], KEY[40]; 
+  char PREFIX[20], PREFIXz[20], KEY[40]; 
   double D_OBJID;
 
   char fnam[] = "RD_SNFITSIO_EVENT";
@@ -3566,8 +3568,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     NGAL = MXHOSTGAL;
     for ( igal=0; igal < NGAL; igal++ ) {
-      sprintf(PREFIX,"HOSTGAL");
-      if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
+      sprintf(PREFIX,"HOSTGAL"); 
+      if ( igal > 0 ) {  sprintf(PREFIX,"HOSTGAL%d", igal+1);       }
+      sprintf(PREFIXz,"%sz", PREFIX);  
 
       sprintf(KEY,"%s_OBJID", PREFIX);
       j++ ;  NRD = RD_SNFITSIO_DBL(isn, KEY, &D_OBJID,
@@ -3667,34 +3670,37 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       // read optional zphot quantiles
 
       if ( REFAC_DATA_FLAG > 0 ) {
-	float ztmp[1000], pct[1000]; int iz, nbin_z, NRDz, NRDpct;
-	for(iz=0; iz<100; iz++ ) {  ztmp[iz]=-7.0; pct[iz]=-8.0; } // .xyz
 
+	char parNames[3][60];
+	char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
+	get_parnames_HOSTGALz(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, 
+			      ptrNames); // return ptrNames
+	int NRDz, NRDpct;
+	j++ ; NRDz = RD_SNFITSIO_INT(isn, ptrNames[0], &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ,
+				    &SNFITSIO_READINDX_HEAD[j]);
+
+	j++ ; NRDz = RD_SNFITSIO_FLT(isn, ptrNames[1], SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST,
+				    &SNFITSIO_READINDX_HEAD[j]);
+
+	j++ ; NRDpct = RD_SNFITSIO_FLT(isn, ptrNames[2], SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST,
+				    &SNFITSIO_READINDX_HEAD[j]);
+
+	/* xxx mark xxxx
 	printf(" xxx --------------------------------------------------------------- \n");
 	printf(" xxx --------------------------------------------------------------- \n");
-	printf(" xxx %s: DUMP for SNID = %s    igal=%d\n", fnam, SNDATA.CCID, igal);
-
-	sprintf(KEY, "%sz_NBIN_%s", PREFIX, SUFFIX_QUANTILE_ZPHOT );
-	printf(" xxx %s: read %s column \n", fnam, KEY); 
-	j++ ; NRDz = RD_SNFITSIO_INT(isn, KEY, &nbin_z,
-				    &SNFITSIO_READINDX_HEAD[j]);
-
-	sprintf(KEY, "%sz_%s", PREFIX, SUFFIX_QUANTILE_ZPHOT );
-	printf(" xxx %s: read %s column \n", fnam, KEY); 
-	j++ ; NRDz = RD_SNFITSIO_FLT(isn, KEY, ztmp,
-				    &SNFITSIO_READINDX_HEAD[j]);
-
-	sprintf(KEY, "%sz_%s", PREFIX, SUFFIX_QUANTILE_PERCENT );
-	printf(" xxx %s: read %s column \n", fnam, KEY); 
-	j++ ; NRDpct = RD_SNFITSIO_FLT(isn, KEY, pct,
-				    &SNFITSIO_READINDX_HEAD[j]);
-
+	printf(" xxx %s: HOSTGALz  DUMP for SNID = %s    igal=%d\n", fnam, SNDATA.CCID, igal);
+	printf(" xxx %s: parNames = %s | %s | %s \n", 
+	       fnam, ptrNames[0], ptrNames[1], ptrNames[2] );
+	int iz, nbin_z = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ;
 	printf(" xxx %s: nbin_z=%d  NRD(z,pct) = %d %d   igal=%d\n", 
 	       fnam, nbin_z, NRDz, NRDpct, igal);
 	for(iz=0; iz < nbin_z; iz++ ) {
-	  printf(" xxx %s: iz=%2d z=%.3f  pct=%6.2f \n", fnam, iz, ztmp[iz], pct[iz]);	  
+	  printf(" xxx %s: iz=%2d z=%.3f  pct=%6.2f \n", fnam, iz, 
+		 SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST[iz],
+		 SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST[iz] );
 	}
 	fflush(stdout);
+	// xxxxxxxxxxxxxx */
 
       }
       else {
@@ -5951,7 +5957,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   double D_VAL ;
   long long K_VAL ;
   
-  int LDMP =  ( strstr(parName,"HOSTGALz") != NULL || strstr(parName,"HOSTGAL2z") != NULL);
+  int LDMP = 0; // ( strstr(parName,"HOSTGALz") != NULL || strstr(parName,"HOSTGAL2z") != NULL);
 
   char fnam[] = "RD_SNFITSIO_PARVAL" ;
 

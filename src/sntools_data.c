@@ -118,6 +118,8 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
   bool ISKEY_ZPHOT_Q = ( strstr (key,"ZPHOT_Q")  != NULL ) ;
 
+  if ( REFAC_DATA_FLAG ) { ISKEY_ZPHOT_Q = false; }
+
   int ivar, NVAR, ipar, PCT ;
   char fnam[] = "copy_SNDATA_GLOBAL" ;
 
@@ -165,7 +167,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   }
 
   else if ( ISKEY_ZPHOT_Q ) {
-
+    // legacy
     if ( strcmp(key,STRING_NZPHOT_Q) == 0 ) {
       copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NZPHOT_Q );
     }
@@ -309,7 +311,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   int  ncmp_PySEDMODEL  = strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) ;
   int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar, q, PCT;
   double DVAL;
-  char PREFIX[40], KEY_TEST[60], cfilt[2] ;
+  char PREFIX[40], PREFIXz[40], KEY_TEST[60], cfilt[2] ;
   char fnam[] = "copy_SNDATA_HEAD" ;
 
   // ------------- BEGIN ------------
@@ -428,6 +430,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
     for(igal=0; igal < NGAL; igal++ ) {
       sprintf(PREFIX,"HOSTGAL");
       if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d",igal+1); }
+      sprintf(PREFIXz, "%sz", PREFIX);
 
       sprintf(KEY_TEST,"%s_OBJID", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
@@ -515,13 +518,30 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       }
 
       // - - - 
-      if ( REFAC_DATA_FLAG > 0 ) {
-	// data keys"
-	//HOSTGAL_ZPHOT_QUANTILE(z,nn) / HOSTGAL_ZPHOT_QUANTILE(val,nn)
-	//HOSTGAL2_ZPHOT_QUANTILE_[nn] / HOSTGAL2_ZPHOT_PCT_[nn]
-	//HOSTGAL_zLOGMASS / HOSTGAL_val_LOGMASS
-	//	copy_HOSTGALz(copyFlag, KEY, parVal, &SNDATA.HOSTGALz_ZPHOT_QUANTILE ); //.xyz
-	// copy_HOSTGALz(copyFlag, prefix, HOSTGALz_DEF *)
+      if ( REFAC_DATA_FLAG > 0 && strstr(key,"QUANTILE") != NULL ) {
+	char parNames[3][40];
+	char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
+	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ; ;
+	get_parnames_HOSTGALz(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ptrNames);
+
+	if ( strcmp(key,ptrNames[0]) == 0 ) {   
+	  copy_int(copyFlag, parVal, &HOSTGALz->NZ );  // read number of quantile bins
+	  //printf(" xxx ---------------------------------------- \n");
+	  //printf(" xxx %s: CID=%s igal=%d  NZ = %d \n", fnam, SNDATA.CCID, igal, HOSTGALz->NZ);
+	}
+	if ( strcmp(key,ptrNames[1]) == 0 ) {
+	  for(q=0; q < HOSTGALz->NZ; q++ ) {
+	     copy_flt(copyFlag, &parVal[q], &HOSTGALz->Z_LIST[q] );   // read zPhot grid
+	     //printf(" xxx %s: z[q=%2d] = %.4f \n", fnam, q, parVal[q] );
+	  }
+	}
+	if ( strcmp(key,ptrNames[2]) == 0 ) {
+	  for(q=0; q < HOSTGALz->NZ; q++ ) {
+	    copy_flt(copyFlag, &parVal[q], &HOSTGALz->VAL_LIST[q] );   // read percentile grid
+	    //printf(" xxx %s: pct[q=%2d] = %.4f \n", fnam, q, parVal[q] );
+	  }
+	}
+	fflush(stdout);
       }
       else {
 	// legacy
@@ -808,6 +828,17 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   return ;
 
 }  // end copy_SNDATA_HEAD
+
+
+void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES ) {
+
+  char fnam[] = "get_parnames_HOSTGALz" ;
+  // -------- BEGIN -----------  
+  sprintf(VARNAMES[0], "%s_NBIN_%s", PREFIX, SUFFIX_z);
+  sprintf(VARNAMES[1], "%s_%s",      PREFIX, SUFFIX_z);
+  sprintf(VARNAMES[2], "%s_%s",      PREFIX, SUFFIX_val);
+
+} // end get_parnames_HOSTGALz 
 
 
 void LOAD_VARNAME_ZPHOT_Q(char *PREFIX, int PCT, char *VARNAME) {

@@ -2,7 +2,6 @@
 !   ../util/convert_snana_f77_to_f90.py snana.car
 
 
-
 ! =====================================================================
   MODULE SNPAR
     IMPLICIT NONE
@@ -992,7 +991,7 @@
         ,SNHOST_CONFUSION              &  ! HC analog from Gupta 2016
         ,SNHOST_ZPHOT(MXSNHOST), SNHOST_ZPHOT_ERR(MXSNHOST)  & 
         ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)  & 
-        ,SNHOST_ZPHOT_PERCENTILE(MXZPHOT_Q)  & 
+        ,SNHOST_ZPHOT_PERCENTILE(MXSNHOST,MXZPHOT_Q)  & 
         ,SNHOST_QZPHOT_MEAN(MXSNHOST), SNHOST_QZPHOT_STD(MXSNHOST)  & 
         ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)  & 
         ,SNHOST_LOGMASS(MXSNHOST)  & 
@@ -1011,12 +1010,12 @@
           SNHOST8_RA(MXSNHOST)  & 
          ,SNHOST8_DEC(MXSNHOST)
 
-! quantites which do not depend on which host
+! 
     INTEGER*4  & 
-          SNHOST_NMATCH         &  ! number of host matches, e.g., d_DLR<4
-         ,SNHOST_NMATCH2        &  ! number of host matches, e.g., d_DLR<7
-         ,SNHOST_NZPHOT_Q       &  ! May 2022: number of zphot quantiles
-         ,SNHOST_FLAG(MXSNHOST)    ! May 21 2021: indicate problems with host
+          SNHOST_NMATCH             &  ! number of host matches, e.g., d_DLR<4
+         ,SNHOST_NMATCH2            &  ! number of host matches, e.g., d_DLR<7
+         ,SNHOST_NZPHOT_Q(MXSNHOST) &  ! May 2022: number of zphot quantiles
+         ,SNHOST_FLAG(MXSNHOST)        ! May 21 2021: indicate problems with host
 
     REAL  & 
          SNHOST_SBFLUXCAL_ERR(MXFILT_ALL)  & 
@@ -3495,21 +3494,25 @@
 
 ! -------------- BEGIN ---------------
 
+    if ( REFAC_DATA_FLAG > 0 ) RETURN  
+
+    ! below is legacy quantile storage with fixed percentiles in global header.
     CALL FETCH_SNDATA_WRAPPER("NZPHOT_Q",  & 
            ONE, DUMSTRING, DARRAY, OPT)
-    SNHOST_NZPHOT_Q = int(DARRAY(1))
+    SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
+    SNHOST_NZPHOT_Q(2) = int(DARRAY(1))
 
-    IF ( SNHOST_NZPHOT_Q .LE. 0 ) RETURN
+    IF ( SNHOST_NZPHOT_Q(1) .LE. 0 ) RETURN
 
-    IF( SNHOST_NZPHOT_Q > MXZPHOT_Q ) THEN
-       write(C1ERR,61) SNHOST_NZPHOT_Q, MXZPHOT_Q
+    IF( SNHOST_NZPHOT_Q(1) > MXZPHOT_Q ) THEN
+       write(C1ERR,61) SNHOST_NZPHOT_Q(1), MXZPHOT_Q
  61      format('NZPHOT_Q=',I4,' exceeds MXZPHOT_Q=',I4 )
        C2ERR = 'Check XXX_HEAD.FITS file'
        CALL MADABORT("RDGLOBAL_ZPHOT_Q", C1ERR, C2ERR)
     ENDIF
 ! ----------------------------------------------
 
-    DO 100 ivar = 1, SNHOST_NZPHOT_Q
+    DO 100 ivar = 1, SNHOST_NZPHOT_Q(1)
 
       q = ivar - 1 ! C index 0 to N-1
       write(cnum, '(I2.2)') q
@@ -3518,7 +3521,7 @@
            ONE, KEYWORD, DARRAY, OPTMASK_SNDATA_GLOBAL )
 
       PCT = INT(DARRAY(1))
-      SNHOST_ZPHOT_PERCENTILE(ivar) = SNGL(DARRAY(1))
+      SNHOST_ZPHOT_PERCENTILE(1,ivar) = SNGL(DARRAY(1))
 
 ! load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
       write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT
@@ -3527,7 +3530,7 @@
 
 100   CONTINUE
 
-    write(6,40) SNHOST_NZPHOT_Q
+    write(6,40) SNHOST_NZPHOT_Q(1)
 40    format(T5,'Found NZPHOT_Q = ', I3, ' quantiles for HOST-zPHOT')
     CALL FLUSH(6)
 
@@ -4004,7 +4007,8 @@
 ! May 21 2021: read HOSTGAL_FLAG
 ! May 11 2022: read ZPHOT_Q
 ! Dec 01 2025: read HOSTGAL_MAGERR
-
+! Apr 08 2026: read HOSTGALz array(s)
+      
     USE SNDATCOM
     USE SNLCINP_NML
     USE FILTCOM
@@ -4013,14 +4017,15 @@
 
     INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
 
-    INTEGER   LENPRE, ifilt, q
-    CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60
-    REAL*8    DARRAY(MXFILT_OBS), SB, MAG, zq
+    INTEGER   LENPRE, ifilt, q, NZPHOT_Q
+    CHARACTER PREFIX*20, PREFIXz*20, STRING*40, KEY*60, KEY_PREFIX*60
+    REAL*8    DARRAY(MXFILT_OBS), DARRAY2(MXFILT_OBS), SB, MAG, zq
     LOGICAL LTMP, LZQ
 
 ! -------------- BEGIN ----------
 
     CALL SET_HOSTGAL_PREFIX(IGAL,PREFIX,LENPRE)
+    PREFIXz = PREFIX(1:LENPRE) // 'z'  ! for HOSTGALz azrrays
 
 ! Start with items that only appear once;
 ! i.e., do not depend on host-match.
@@ -4083,21 +4088,40 @@
     CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
     SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
+    if ( REFAC_DATA_FLAG > 0 ) then
+       KEY    = PREFIXz(1:LENPRE+1) // '_NBIN_QUANTILE_ZPHOT'
+       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+       SNHOST_NZPHOT_Q(igal) = SNGL(DARRAY(1))
+    endif
+
 ! read ZPHOT_Q (May 2022)
-    if ( SNHOST_NZPHOT_Q > 0 ) then
-      DO q = 1, SNHOST_NZPHOT_Q
-        KEY = VARNAME_ZPHOT_Q(igal,q)
-        CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-        SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
-      ENDDO
+    NZPHOT_Q = SNHOST_NZPHOT_Q(igal) 
+    if ( NZPHOT_Q > 0 ) then
+      if ( REFAC_DATA_FLAG > 0 ) then
+         KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_ZPHOT'
+         CALL FETCH_SNDATA_WRAPPER(KEY, NZPHOT_Q, STRING, DARRAY,  OPT)
+         KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_PERCENT'
+         CALL FETCH_SNDATA_WRAPPER(KEY, NZPHOT_Q, STRING, DARRAY2, OPT)
+
+         print*,' xxx -------- igal = ', igal, KEY
+         DO q = 1, NZPHOT_Q
+            SNHOST_ZPHOT_Q(igal,q)          = SNGL(DARRAY(q))   ! .xyz
+            SNHOST_ZPHOT_PERCENTILE(igal,q) = SNGL(DARRAY2(q)) 
+            write(6,6789) q, SNHOST_ZPHOT_Q(igal,q), SNHOST_ZPHOT_PERCENTILE(igal,q)
+6789        format(' xxx RDHEAD_HOSTGAL: iz=',I3,'  z,pct = ', 2F9.3 )
+         ENDDO
+      else
+         ! legacy
+         DO q = 1, NZPHOT_Q
+            KEY = VARNAME_ZPHOT_Q(igal,q)
+            CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+            SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
+         ENDDO
+      endif
 
       SNHOST_QZPHOT_MEAN(igal) = -9.0
       SNHOST_QZPHOT_STD(igal)  = -9.0
 
-!          print*,' xxx ------------------------------------------- '
-!          print*,' xxx CID ,igal = ', SNLC_CCID, igal
-!          print*,' xxx SNHOST_ZPHOT_Q = ', SNHOST_ZPHOT_Q(igal,1:12)
-!          call flush(6)
     endif
 
     IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
@@ -10612,7 +10636,7 @@
               cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 ! Oct 2025: photo-z quantiles
-    NQ = SNHOST_NZPHOT_Q
+    NQ = SNHOST_NZPHOT_Q(1)
     IF ( NQ > 0 ) THEN
       do igal = 1, MXSNHOST
       do q = 1, NQ
@@ -15214,6 +15238,12 @@
        SNHOST_LOGsSFR_ERR(igal)   = -9999.0
        SNHOST_COLOR(igal)         = -9999.0
        SNHOST_COLOR_ERR(igal)     = -9999.0
+
+       SNHOST_NZPHOT_Q(igal)      = 0
+       do i = 1, MXZPHOT_Q
+          SNHOST_ZPHOT_Q(igal,i)          = -9.0
+          SNHOST_ZPHOT_PERCENTILE(igal,i) = -9.0
+       enddo
     enddo
 ! --------
 
@@ -17734,10 +17764,10 @@
 
 ! ------------- BEGIN ---------------
 
-    if ( SNHOST_NZPHOT_Q <= 0 ) RETURN
+    if ( SNHOST_NZPHOT_Q(1) <= 0 ) RETURN
 
-    do q = 1, SNHOST_NZPHOT_Q
-       ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(q)) / 100.  ! 0 <= PROB <= 1
+    do q = 1, SNHOST_NZPHOT_Q(1)
+       ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(1,q)) / 100.  ! 0 <= PROB <= 1
        ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
 
        if ( q > 1 .and. ZPHOT_Q(q) > -8.0 ) then
@@ -17763,7 +17793,7 @@
     IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
-    CALL init_zPDF_spline(SNHOST_NZPHOT_Q, ZPHOT_PROB, ZPHOT_Q,  &
+    CALL init_zPDF_spline(SNHOST_NZPHOT_Q(1), ZPHOT_PROB, ZPHOT_Q,  &
          SNLC_CCID(1:ISNLC_LENCCID)//char(0),  &
          METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
@@ -17883,8 +17913,8 @@
           SNHOST_ZPHOT = SNHOST_zPHOT + zshift
        endif
 
-       if ( SNHOST_NZPHOT_Q > 0 ) then
-          do q    = 1, SNHOST_NZPHOT_Q
+       if ( SNHOST_NZPHOT_Q(igal) > 0 ) then
+          do q    = 1, SNHOST_NZPHOT_Q(igal)
           do igal = 1, MXSNHOST
 	      SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
           enddo
@@ -23844,7 +23874,7 @@
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )
 
 ! 
-    if(SNHOST_NZPHOT_Q > 0) then
+    if(SNHOST_NZPHOT_Q(1) > 0) then
        VARLIST =  PREFIX(1:LP) // 'QZPHOT:F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_QZPHOT_MEAN(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )
        VARLIST =  PREFIX(1:LP) // 'QZPHOTSTD:F' // char(0)

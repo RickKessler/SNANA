@@ -250,7 +250,7 @@ void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype );
 void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix);
 void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, char *PREFIX, 
 				 char *SUFFIX_z, char *SUFFIX_val );
-void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES );
+// xxx mark void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES );
 
 void WR_SNFITSIO_UPDATE(void);
 void wr_snfitsio_update_head(void);

@@ -25760,7 +25760,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
 
       if ( REFAC_DATA_FLAG ) 
-	{ SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].NZ = HOSTLIB.NZPHOT_Q ; }
+	{ SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].NZ = HOSTLIB.NZPHOT_Q ; 	}
 
       // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
       for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++){
@@ -25768,8 +25768,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 	double pct  = HOSTLIB.PERCENTILE_ZPHOT_Q[j]; 
 
 	if ( REFAC_DATA_FLAG ) {
-	  SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].Z_LIST[j]   = zq;   // REFAC
-	  SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].VAL_LIST[j] = pct;  // REFAC
+	  SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].Z_LIST[j]   = zq;   
+	  SNDATA.HOSTGALz_ZPHOT_QUANTILE[m].VAL_LIST[j] = pct;
 	}
 	else {
 	  SNDATA.HOSTGAL_ZPHOT_Q[m][j] = zq ;   // legacy storage

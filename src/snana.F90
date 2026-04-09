@@ -3500,7 +3500,7 @@
     CALL FETCH_SNDATA_WRAPPER("NZPHOT_Q",  & 
            ONE, DUMSTRING, DARRAY, OPT)
     SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
-    SNHOST_NZPHOT_Q(2) = int(DARRAY(1))
+    SNHOST_NZPHOT_Q(2) = 0
 
     IF ( SNHOST_NZPHOT_Q(1) .LE. 0 ) RETURN
 
@@ -4096,6 +4096,7 @@
 
 ! read ZPHOT_Q (May 2022)
     NZPHOT_Q = SNHOST_NZPHOT_Q(igal) 
+
     if ( NZPHOT_Q > 0 ) then
       if ( REFAC_DATA_FLAG > 0 ) then
          KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_ZPHOT'
@@ -15239,11 +15240,15 @@
        SNHOST_COLOR(igal)         = -9999.0
        SNHOST_COLOR_ERR(igal)     = -9999.0
 
-       SNHOST_NZPHOT_Q(igal)      = 0
-       do i = 1, MXZPHOT_Q
-          SNHOST_ZPHOT_Q(igal,i)          = -9.0
-          SNHOST_ZPHOT_PERCENTILE(igal,i) = -9.0
-       enddo
+       ! for REFAC, reset quantile info for each event
+       if ( REFAC_DATA_FLAG > 0 ) then
+          SNHOST_NZPHOT_Q(igal)      = 0
+          do i = 1, MXZPHOT_Q
+             SNHOST_ZPHOT_Q(igal,i)          = -9.0
+             SNHOST_ZPHOT_PERCENTILE(igal,i) = -9.0
+          enddo
+       endif
+
     enddo
 ! --------
 

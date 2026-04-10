@@ -25271,7 +25271,7 @@ void print_SALT2mu_HELP(void) {
     "",
     "zwin_vpec_check=0.01,0.05 # compute RMS(HR) for 0.01<z<0.05 using zHD and",
     "                          # again with vpec sign-flip; abort if sign-flip", 
-    "                          # RMS(HR) is smaller than no flip.",
+    "                          # RMS(HR) is smaller than with nominal vpec.",
     "zwin_vpec_check=0,0 # disable check on sign-flip.",
     "",
     "lensing_zpar=0.055  # add  z*lensing_zpar to sigma_int",

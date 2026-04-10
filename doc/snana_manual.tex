@@ -5020,46 +5020,69 @@ column with a comma-separated list of neighbors can be created with
    snlc_sim.exe <inputFile> +HOSTNBR
            or
    snlc_sim.exe <inputFile> +HOSTNBR   SEPNBR_MAX 10.0  NNBR_WRITE_MAX 10
+          or 
+   snlc_sim.exe  NOFILE  HOSTLIB_FILE <hostlib>  +HOSTNBR  SEPNBR_MAX 10.0 
 \end{verbatim}
 %
-The sim-input file must include a {\tt HOSTLIB\_FILE} key,
-but no other sim-input keys are required.
+For the first two command options, the sim-input file must include a {\tt HOSTLIB\_FILE} key,
+but no other sim-input keys are required. In the 3rd option, the {\tt NOFILE} arg 
+skips the input file and only uses command line args where \verb|HOSTLIB_FILE|
+must be is specified.
 The optional command-line arguments are 
-1) {\tt SEPNBR\_MAX}, the maximum angular separation between galaxies
+1) \verb|SEPNBR_MAX|, the maximum angular separation between galaxies
   (default: $10^{\prime\prime}$), and
-2) {\tt NNBR\_WRITE\_MAX}, the max number of neighbors to include
+2) \verb|NNBR_WRITE_MAX|, the max number of neighbors to include
   (default: 10).
 These commands work only on the command line, and do not work
 as sim-input keys. A new \hostlib\ is created with {\tt +HOSTNBR}
 extension, and the simulation quits without generating events.
-If Sersic profiles are included, running the simulation again with the 
-newly-created \hostlib\ results in computing DLR for the true galaxy and
-each neighbor galaxy, and ordering the galaxy matches by 
+
+The output \verb|[HOSTLIB]+HOSTNBR| file contains an additional 
+\verb|NBR_LIST| column that is a comma-separated list of row numbers
+for neighbors (e.g., 44,43324,878), or $-1$ if there are no neighbors.
+%
+Row numbers start at 1 (not 0), and to allow for easy verification
+the {\tt +HOSTNBR} option includes a screen-dump for several entries, 
+where the dump includes the row number and {\tt GALID}.
+%
+\verb|NBR_LIST| is read as a string, and internally split into integer
+row numbers. The reason for storing file row numbers, instead of {\tt GALID}s,
+is to enable a fast instant lookup in the internal {\tt HOSTLIB} table, 
+rather than a slow event-by-event search for {\tt GALID}s.
+{\it BEWARE not to alter \verb|[HOSTLIB]+HOSTNBR| (i.e. do not remove or add rows),
+otherwise the \verb|NBR_LIST| row numbers become invalid and the sim
+will likely abort on a crazy-large SN-galaxy separation.}
+To make modifications (i.e., remove pathological {\tt GALID} rows),
+modify the original {\tt HOSTLIB} and re-run the {\tt +HOSTNBR} command above
+to recreate the \verb|[HOSTLIB]+HOSTNBR| file.
+
+
+If Sersic profiles are included in the original \hostlib, 
+running the simulation again with the 
+newly-created \verb|[HOSTLIB]+HOSTNBR| file
+results in computing DLR for the true galaxy and
+for each neighbor galaxy; 
+the galaxy matches in the output data files are ordered by
 {\tt DDLR = DLR/Angsep}, 
 even if the smallest {\tt DDLR} is the wrong match.
 
-To find the galaxy neighbors quickly when using the output 
-{\tt HOSTLIB+NBR} in a simulation,
-the galaxy identifiers are \hostlib\ row numbers (start at row 1)
-rather than {\tt GALID}.
-To allow for easy verification, the {\tt +HOSTNBR} option includes a 
-screen-dump for several entries,
-where the dump includes both row number and {\tt GALID}.
 
-{\tt SIM\_HOSTLIB\_GALID} is the true galaxy ID, and is in 
-output data files and output tables created by analysis codes.
+\verb|SIM_HOSTLIB_GALID| is the true galaxy ID, and is stored in 
+output data files and the output tables created by analysis codes.
 An incorrect host-match is flagged by
-{\tt SIM\_HOSTLIB\_GALID}$\ne${\tt HOSTGAL\_OBJID};
+\verb|SIM_HOSTLIB_GALID|$\ne$\verb|HOSTGAL_OBJID|;
 in this case, it is likely that
-{\tt SIM\_HOSTLIB\_GALID = HOSTGAL2\_OBJID}.
+\verb|SIM_HOSTLIB_GALID = HOSTGAL2_OBJID|.
 To reject host-matches with a {\tt DDLR} cut
 (\S\ref{sss:hostlib_options}),
-set sim-input key ``{\tt HOSTLIB\_MAXDDLR: <cutval>}.''  
+set sim-input key ``\verb|HOSTLIB_MAXDDLR: <cutval>|''  
+where default cut is 4.
 For analysis, host information can be added to TEXT-formatted
-tables (\S\ref{subsec:anavar}) using 
+output tables (\S\ref{subsec:anavar}) using 
 \begin{verbatim}
        SNTABLE_LIST = 'SNANA(text:host) FITRES(text:host)'
 \end{verbatim}
+
 
 % ------------------------------------
 \subsubsection{Append Arbitray Columns to {\tt HOSTLIB} ({\tt +HOSTAPPEND})}

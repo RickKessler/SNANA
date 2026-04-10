@@ -23632,7 +23632,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c: set default INPUTS.REFAC_SEARCHEFF_MAP=1 to release
         refactor from previous versions for SPEC_FILE and zHOST_FILE.
         See https://github.com/RickKessler/SNANA/issues/1619
-        
+
+   Add REFAC_DATA_FLAG input to snlc_sim.exe and snana.exe/snlc_fit.exe 
+   to begin adding z-dependent grids to data stream:
+      HOSTGALz_ZPHOT_QUANTILE
+      HOSTGALz_LOGMASS
+      HOSTGALz_LOGMASS_ERR
+   First goal is to replace original fixed-length quantiles (NZPHOT_Q=11) 
+   with HOSTGALz_ZPHOT_QUANTILE structure, which allow aribtray NZPHOT_Q 
+   for each event and each NBR host, and allows aribtrary PERCENT grid as well.
+   A tricker task is how to define vectors in the OVERRIDE file.
+
          *****  USEFUL(v12_01e) *****
 
 
@@ -23642,14 +23652,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + subtle bug fix in store_PARSE_WORDS to work with newly released
        refactor.
 
-   Add REFAC_DATA_FLAG input to snlc_sim.exe and snana.exe to begin
-   adding z-dependent grids to data stream:
-      HOSTGALz_ZPHOT_QUANTILE
-      HOSTGALz_LOGMASS
-      HOSTGALz_LOGMASS_ERR
-
   create_covariance.py:
-     fix to work without biasCor by adding nbin_z arg;
+     fix to work without biasCor by adding --nbin_z arg so that user
+     can define number of z-bins rather than BiasCor defining this.
 
   sntools_dataformat_text.c:
     + fix awful bug and read SIM_WGT_POPULATION so that text formatted                             

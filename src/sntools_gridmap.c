@@ -254,7 +254,7 @@ void malloc_GRIDMAP(int OPT, GRIDMAP_DEF *gridmap, int NFUN, int NDIM, int MAPSI
   int I8p = sizeof(double*) ;
   float MEMORY = 0.0 ;
   long long int MEMI, MEMD ;
-  char string[40];
+  char string[100];
   char fnam[] = "malloc_GRIDMAP";
 
   // ---------------- BEGIN ----------- 

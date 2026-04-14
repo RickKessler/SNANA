@@ -248,9 +248,10 @@ void wr_snfitsio_addCol(char *tform, char *name, int  itype);
 
 void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ); 
 void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix);
-void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, char *PREFIX, 
-				 char *SUFFIX_z, char *SUFFIX_val );
-// xxx mark void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES );
+void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz );
+void check_NZ_HOSTGALz_snfitszio(int MXBIN, int NZ0, int NZ1, 
+				 char *VARNAME0, char *VARNAME1, char *callFun);
+int  NZ_HOSTGALz_snfitsio(int MXBIN, float *Z_LIST);
 
 void WR_SNFITSIO_UPDATE(void);
 void wr_snfitsio_update_head(void);

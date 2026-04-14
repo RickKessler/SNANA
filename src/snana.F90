@@ -2546,17 +2546,6 @@
        CALL RD_OVERRIDE_INIT(OVERRIDE_PATH(1:LEN_PATH)//char(0), REQ_DOC, LEN_PATH)
     endif
 
-! xxxxxxxxxxx mark delete Mar 20 2026 xxxxxxxxx
-!    IF ( LENF_DATA > 0 .AND. ISDATA ) THEN
-!     STR_TMP = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
-!     CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_DATA)
-!    ENDIF
-!    IF ( LENF_SIM > 0 .AND. LSIM_SNANA ) THEN
-!      STR_TMP = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
-!      CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_SIM)
-!    ENDIF
-! xxxxxxxxxx end mark xxxxxxxxx
-
     ! - - - - - -
     LEN_PRIV = INDEX(PRIVATE_VARNAME_READLIST,' ') -1
     IF ( LEN_PRIV > 0 ) THEN
@@ -4104,11 +4093,11 @@
          KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_PERCENT'
          CALL FETCH_SNDATA_WRAPPER(KEY, NZPHOT_Q, STRING, DARRAY2, OPT)
 
-         print*,' xxx -------- igal = ', igal, KEY
+         !print*,' xxx -------- igal = ', igal, KEY
          DO q = 1, NZPHOT_Q
             SNHOST_ZPHOT_Q(igal,q)          = SNGL(DARRAY(q))   ! .xyz
             SNHOST_ZPHOT_PERCENTILE(igal,q) = SNGL(DARRAY2(q)) 
-            write(6,6789) q, SNHOST_ZPHOT_Q(igal,q), SNHOST_ZPHOT_PERCENTILE(igal,q)
+            !write(6,6789) q, SNHOST_ZPHOT_Q(igal,q), SNHOST_ZPHOT_PERCENTILE(igal,q)
 6789        format(' xxx RDHEAD_HOSTGAL: iz=',I3,'  z,pct = ', 2F9.3 )
          ENDDO
       else
@@ -4120,8 +4109,8 @@
          ENDDO
       endif
 
-      SNHOST_QZPHOT_MEAN(igal) = -9.0
-      SNHOST_QZPHOT_STD(igal)  = -9.0
+      !xxx mark SNHOST_QZPHOT_MEAN(igal) = -9.0
+      !xxx mark SNHOST_QZPHOT_STD(igal)  = -9.0
 
     endif
 
@@ -15240,6 +15229,8 @@
        SNHOST_COLOR(igal)         = -9999.0
        SNHOST_COLOR_ERR(igal)     = -9999.0
 
+       SNHOST_QZPHOT_MEAN(igal) = -9.0
+       SNHOST_QZPHOT_STD(igal)  = -9.0
        ! for REFAC, reset quantile info for each event
        if ( REFAC_DATA_FLAG > 0 ) then
           SNHOST_NZPHOT_Q(igal)      = 0
@@ -16933,7 +16924,7 @@
 
 ! local variables
 
-    INTEGER IFILT_OBS, ISTAT, L, L2
+    INTEGER IFILT_OBS, ISTAT, L, L2, NROW_MATCH
     REAL*8 MJD, DVAL
     REAL*4 MAGCOR, FCOR
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
@@ -16942,6 +16933,7 @@
     REAL, PARAMETER :: MAGCOR_CRAZY = 0.2
 
 ! function
+    INTEGER  SNTABLE_AUTOSTORE_READ
     EXTERNAL SNTABLE_AUTOSTORE_READ
 ! --------------- BEGIN -----------------
 
@@ -16960,15 +16952,15 @@
 
     cVARNAME = 'MAGCOR' // char(0)
 
-    CALL SNTABLE_AUTOSTORE_READ(STR_EPID1, cVARNAME, ISTAT,  & 
-                       DVAL,cDUM, 60,10,10 )
+    NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID1, cVARNAME, ISTAT,  & 
+         DVAL,cDUM, 60,10,10 )
 
 ! if no MAGCOR, then try again with IAUC name
     IF ( ISTAT .NE. 0 ) THEN
       L2  = INDEX(SNLC_NAME_IAUC,' ') - 1
       WRITE(STR_EPID2,40) SNLC_NAME_IAUC(1:L2), MJD, BAND, char(0)
-      CALL SNTABLE_AUTOSTORE_READ(STR_EPID2, cVARNAME, ISTAT,  & 
-                       DVAL,cDUM, 60,10,10 )
+      NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID2, cVARNAME, ISTAT,  & 
+           DVAL,cDUM, 60,10,10 )
     ENDIF
 
     IF ( ISTAT .EQ. 0 ) then
@@ -17798,6 +17790,7 @@
     IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
+    IPRINT = 1 ! xxx REMOVE
     CALL init_zPDF_spline(SNHOST_NZPHOT_Q(1), ZPHOT_PROB, ZPHOT_Q,  &
          SNLC_CCID(1:ISNLC_LENCCID)//char(0),  &
          METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &

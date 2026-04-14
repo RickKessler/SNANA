@@ -6748,7 +6748,7 @@ void read_data_override(void) {
   // and replace value.
 
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int istat, isn;
+  int istat, isn, NROW_MATCH;
   bool  override_zhd, override_zhderr;
   double dval;    char *name, cval[20] ;
   double zhd_over, zhderr_over, dl, zhel_over, zhd_orig, zhel_orig ;
@@ -6766,7 +6766,7 @@ void read_data_override(void) {
 
       name    = INFO_DATA.TABLEVAR.name[isn];
       varName = INFO_DATA.VARNAMES_OVERRIDE[ivar_over];
-      SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval );      
+      NROW_MATCH = SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval );      
 
       // xxxxxxx
       if ( istat == -99990 ) {

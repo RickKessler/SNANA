@@ -924,7 +924,6 @@ void append_HOSTLIB_STOREPAR(void) {
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.
 
   int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
-  //  REFAC_SEARCHEFF = 0 ; // xxx REMOVE
 
   if ( REFAC_SEARCHEFF ) {    
     char **VARNAMES_RAW;
@@ -9227,7 +9226,6 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
     IVAR_Q = IVAR_Q0 + q;
     zq  = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
   }
-
 
   // Correct for zSN/zGAL ratio, but don't bother correcting 
   // if zq=-9 (no match)

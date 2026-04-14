@@ -182,6 +182,8 @@ typedef struct {
   int     NZ;
   float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)
   float   VAL_LIST[MXBIN_HOSTGALz] ;   // value list
+
+  char    VARNAME_NZ[60], VARNAME_Z[60], VARNAME_VAL[60]; // column names for data stream
 } HOSTGALz_DEF ;
 
 // define main SNDATA data structure

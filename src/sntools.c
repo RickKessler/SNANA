@@ -8396,7 +8396,11 @@ int  init_SNPATH(void) {
 // ================================
 int init_SNDATA_GLOBAL(void) {
 
-  int ifilt, ep, j ;
+  // one-time init of global variables
+  //
+  // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
+
+  int ifilt, ep, j, igal ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGINN -------------
@@ -8445,12 +8449,27 @@ int init_SNDATA_GLOBAL(void) {
 
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
   SNDATA.HOSTGAL_USEMASK      = 0;
-  SNDATA.HOSTGAL_NZPHOT_Q    = 0;
+
+
+  // init HOSTGALz stucture for refactor (note that REFAC_DATA_FLAG isn't set yet)
+  for(igal=0; igal < MXHOSTGAL; igal++ ) {
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], 
+			 igal, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], 
+			 igal, SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS_ERR[igal], 
+			 igal, SUFFIX_LOGMASS_ERR_ZGRID, SUFFIX_LOGMASS_ERR_VALGRID);
+  }
+
+
+  // init legacy quantile storage
+  SNDATA.HOSTGAL_NZPHOT_Q     = 0;
   for(j=0; j < MXBIN_ZPHOT_Q; j++)  { 
     SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[j]  = -99.0;  
     SNDATA.HOSTGAL_ZPHOT_Q[0][j]          = -99.0;
     SNDATA.HOSTGAL_ZPHOT_Q[1][j]          = -99.0;
   } 
+
 
   return(SUCCESS);
 
@@ -8558,9 +8577,12 @@ int init_SNDATA_EVENT(void) {
     for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
       { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
 
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal]);
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS_ERR[igal]);
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], 
+			 igal, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], 
+			 igal, SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS_ERR[igal], 
+			 igal, SUFFIX_LOGMASS_ERR_ZGRID, SUFFIX_LOGMASS_ERR_VALGRID);
   }
 
 
@@ -8729,14 +8751,83 @@ int init_SNDATA_EVENT(void) {
 }   // end of init_SNDATA_EVENT
 
 
-void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz) {
+void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX,char *PREFIXz) {
+
+  char fnam[] = "get_SNDATA_HOSTGAL_PREFIX";
+  // ---------- BEGIN -----------
+
+  // For input igal, return PREFIX and PREFIXz for data varnames related to HOSTs.
+  if ( igal == 0 ) 
+    { sprintf(PREFIX,"HOSTGAL"); }
+  else
+    { sprintf(PREFIX,"HOSTGAL%d", igal+1); } // e.g. HOSTGAL2, HOSTGAL3 ...
+
+
+  // e.g. PREFIX = HOSTGAL  -> PREFIXz = HOSTGALz
+  //      PREFIX = HOSTGAL2 -> PREFIXz = HOSTGAL2z
+  sprintf(PREFIXz, "%sz", PREFIX); 
+  return;
+
+} // end get_SNDATA_HOSTGAL_PREFIX
+
+void get_SNDATA_HOSTGALz_VARNAMES(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES ) {
+  char fnam[] = "get_SNDATA_HOSTGALz_VARNAMES" ;
+  // -------- BEGIN -----------     
+  sprintf(VARNAMES[0], "%s_NBIN_%s", PREFIX, SUFFIX_z);
+  sprintf(VARNAMES[1], "%s_%s",      PREFIX, SUFFIX_z);
+  sprintf(VARNAMES[2], "%s_%s",      PREFIX, SUFFIX_val);
+} // end get_SNDATA_HOSTGALz_VARNAMES
+
+void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *SUFFIX_z, char *SUFFIX_val ) {
   int j;
+  char PREFIX[20], PREFIXz[20], varNames[3][60];
+  char *ptrNames[3] = { varNames[0], varNames[1], varNames[2] } ;
+  // ------------ BEGIN ----------
+
+  get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
+  get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_z, SUFFIX_val, ptrNames);
+
+  // store data column names
+  sprintf(HOSTGALz->VARNAME_NZ,  "%s", ptrNames[0] ); // e.g, HOSTGAL_NBIN_XXX
+  sprintf(HOSTGALz->VARNAME_Z,   "%s", ptrNames[1] ); // e.g. HOSTGAL_ZZZ  (name of redshift)
+  sprintf(HOSTGALz->VARNAME_VAL, "%s", ptrNames[2] ); // e.g. HOSTGAL_VVVV (name of values)
+
   HOSTGALz->NZ = 0;
   for (j=0; j < MXBIN_HOSTGALz; j++ ) {
     HOSTGALz->Z_LIST[j]   = -9.0 ;
     HOSTGALz->VAL_LIST[j] = -9.0 ;
   }
 } // end init_SNDATA_HOSTGALz
+
+void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
+
+  // Created Apri 2026
+  // Generic dump utility for HOSTGALz object.
+
+  int iz, NZ = HOSTGALz->NZ;
+  char *VARNAME_z   = HOSTGALz->VARNAME_Z;
+  char *VARNAME_val = HOSTGALz->VARNAME_VAL;
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "dump_SNDATA_HOSTGALz", fnam);
+  // -------- BEGIN ----------
+
+  printf("\n");
+  printf(" xxx ------------------------------------------------------------------- \n");
+  printf(" xxx %s : \n", fnam );
+  printf(" xxx    SNID=%s  igal=%d  GALID=%lld \n", 
+	 SNDATA.CCID, igal, SNDATA.HOSTGAL_OBJID[igal]);
+  printf(" xxx    HOSTGALz VARNAME(z,val) is '%s'  '%s'\n", VARNAME_z,  VARNAME_val);
+  for (iz=0; iz < NZ; iz++ ) {
+    printf(" xxx       iz=%2d  z=%7.4f  val=%8.3f \n", 
+	   iz, HOSTGALz->Z_LIST[iz], HOSTGALz->VAL_LIST[iz] );
+  }
+
+  printf(" xxx DONE with %s\n", fnam );
+
+  fflush(stdout);
+  return;
+
+} // end dump_SNDATA_HOSTGALz
  
 
 // =================================================

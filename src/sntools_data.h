@@ -14,17 +14,21 @@ struct {
   bool USE;
   int NFILE; // number of override files
   int NVAR;  // number of override variables
-  int N_PER_VAR[IVARMAX_OVERRIDE] ;
+  int NTOT_PER_VAR[IVARMAX_OVERRIDE] ; // tot overrides per IVAR
+  int NRD_PER_VAR[IVARMAX_OVERRIDE];   // NRD per IVAR per event
 
   int NMATCH_by_CID, NMATCH_by_GALID;
   char VARNAME_MATCH[40];  // e.g., CID, SNID, GALID ...
 
   // logicals to decide if zCMB or zHEL needs to be recomputed.
-  bool FOUND_zCMB, FOUND_zHEL, FOUND_HOSTGAL_ZPHOT ;
-  int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023)
-  char **VARLIST_ZPHOT_Q;
+  int  IVAR_zCMB, IVAR_zHEL;
+  int  IVAR_HOSTGAL_ZPHOT[MXHOSTGAL], IVAR_HOSTGAL_ZPHOT_ERR[MXHOSTGAL];
+  int  IVAR_HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL] ;
 
-  bool FOUND_NAME_IAUC, FOUND_NAME_TRANSIENT; // July 2024
+  int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023) LEGACY
+  char **VARLIST_ZPHOT_Q; // LEGACY
+
+  int IVAR_NAME_IAUC, IVAR_NAME_TRANSIENT; 
 
   // define variables to monitor what variable(s) are actually over-written.
   // If no vars are over-written, abort with error message 
@@ -34,8 +38,12 @@ struct {
   char ID_LAST[40]; // last CID or GALID passed; used to count NUSE_OVERRIDE
 
   int   N_HOSTGAL_PHOTOZ_REPLACE;
-  float ORIG_HOSTGAL_PHOTOZ[4], ORIG_HOSTGAL_PHOTOZ_ERR[4]; // for special REDSHIFT_FINAL update
 
+  // for special REDSHIFT_FINAL update
+  float ORIG_HOSTGAL_PHOTOZ[MXHOSTGAL], ORIG_HOSTGAL_PHOTOZ_ERR[MXHOSTGAL]; 
+  float ORIG_HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL][MXBIN_HOSTGALz_QUANTILE];
+
+  bool IS_SIM;
 } RD_OVERRIDE;
 
 
@@ -57,7 +65,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key,
                      int NVAL,char *stringVal, double *parVal);
 int  select_MJD_SNDATA(double *CUTWIN_MJD);
 void host_property_list_sndata(char *HOST_PROPERTY_LIST);
-void LOAD_VARNAME_ZPHOT_Q(char *PREFIX, int PCT, char *VARNAME) ; 
+void LOAD_VARNAME_ZPHOT_Q_LEGACY(char *PREFIX, int PCT, char *VARNAME) ; 
 
 void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal);
 
@@ -67,17 +75,19 @@ void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
 void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
 void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
 void copy_HOSTGALz(int copyFlag, char *PREFIX, HOSTGALz_DEF *HOSTGALz);
-void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES ) ;
 
 bool IS_SIMKEY_SNDATA(char *key);
 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA);
 int  RD_OVERRIDE_FETCH(char *CCID, long long int GALID, char *VARNAME, double *DVAL, char *STRVAL);
-void RD_OVERRIDE_POSTPROC(void); 
+void RD_OVERRIDE_STORE_ORIG(int IVAR);
+void RD_OVERRIDE_POSTPROC(void); // special updates for redshift variables
+
 void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST);
 void rd_override_append(void);
-void rd_override_zcalc(void);
-void rd_override_zphot_q(int OPT);
+void rd_override_zspec(void);
+void rd_override_zphot(int igal);
+void rd_override_zphot_legacy(void);
 void rd_override_name(void);
 
 void rd_override_check_mistake(char *varname_mistake, char *varname_correct);
@@ -100,4 +110,13 @@ void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
 
 void rd_override_init__(char *OVERRIDE_FILE, int *REQUIRE_DOCANA);
 
-// end 
+
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+// @@@@@@@  LEGACY_QUANTILE_FUNCTIONS @@@@@@@@@@@@
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+void rd_override_zphot_legacy(void);
+void rd_override_zphot_q_legacy(int OPT);
+void LOAD_VARNAME_ZPHOT_Q_LEGACY(char *PREFIX, int PCT, char *VARNAME) ; 
+
+// end:

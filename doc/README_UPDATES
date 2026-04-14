@@ -23666,4 +23666,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        and fixed here  https://github.com/RickKessler/SNANA/issues/1636
 
 
+   sntools_output.cpp
+     + change void SNTABLE_AUTOSTORE_READ to int function that returns
+       number or rows matching CID; allows parsing things like a light curve
+       or quantiles.
+
 END: 

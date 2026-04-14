@@ -48,6 +48,9 @@ VARNAME_DEC      = 'dec'
 DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
 DIFFSKY_ANGLE_PREFIX = "psi"
 
+# columns computed at the pandas level (after HDF5→pandas conversion); excluded from HDF5 select
+ADDCOL_PD_NAMES = ['logsfr_obs']
+
 # ============================
 def setup_logging():
     #logging.basicConfig(level=logging.DEBUG,
@@ -276,45 +279,7 @@ def addcol_sersic_sizes(cat_inp, config):
     # end addcol_sersic_sizes
 
 
-def addcol_logsfr(cat_inp, config):
-
-    # add logsfr column computed from logssfr and logmass
-
-    t0 = time.time()
-    
-    # To be modified ; below needs to be complete re-written
-    n_row   = len(cat_inp)
-    cat_out = cat_inp
-
-    colnames_to_sum = [ 'logssfr_obs', 'logsm_obs' ]
-    colname_add     = 'logsfr_obs'
-    
-    hostlib_varname_dict = config['hostlib_varname_dict']
-    cat_var_list         = list(hostlib_varname_dict.keys())
-
-    logging.info('') 
-    logging.info(f"Append {colname_add} = {' + '.join(colnames_to_sum)} ")
-
-    
-    addcol_dict = {}
-    v_new = np.array( [0.]*n_row )
-    
-    for v in colnames_to_sum:
-        v_new += cat_out.select([v]).get_data().value
-
-    addcol_dict[f"{colname_add}"] = v_new
-
-    # - - - -
-    #sys.exit("\n xxx DEBUG STOP")
-    
-    if len(addcol_dict) > 0 :
-        cat_out = cat_out.with_new_columns(**addcol_dict)
-
-    print_proc_time(t0, "ADDCOL_LOGSFR", None)            
-    #sys.exit(f"\n xxx addcol_dict = \n{addcol_dict} ")
-
-    return cat_out
-    # end addcol_logsfr
+# logsfr_obs = logssfr_obs + logsm_obs is computed at the pandas level in add_col_pd
 
 
 
@@ -390,18 +355,39 @@ def inject_mag_columns(df_cat, config):
 
     logging.info(f"  inject_mag_columns: merged mags for {n_before - n_missing:,}/{n_before:,} galaxies")
 
-    # Compute mag errors from MAG_5SIG
+    return df_cat
+
+
+def add_col_pd(df_cat, config):
+    """Add columns via simple pandas arithmetic (after HDF5→pandas conversion).
+    Called after inject_mag_columns so mag values are present in both modes."""
+
+    logging.info('')
+    logging.info('========== COMPUTE/APPEND COLUMNS (pandas) ===============')
+
+    t0 = time.time()
+
+    # logsfr = logssfr + logmass
+    logging.info("  Append logsfr_obs = logssfr_obs + logsm_obs")
+    df_cat['logsfr_obs'] = df_cat['logssfr_obs'] + df_cat['logsm_obs']
+
+    print_proc_time(t0, "ADDCOL_LOGSFR", None)
+
+    # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes)
     MAG_5SIG = config.get(KEY_MAG_5SIG, [])
     if MAG_5SIG:
-        logging.info("  inject_mag_columns: computing mag errors from MAG_5SIG")
+        t0 = time.time()
+        logging.info('  Append mag error columns:')
         for row in MAG_5SIG:
             band     = row.split()[0]
             band_err = band + '_err'
             m5sig    = float(row.split()[1])
             powm5    = 0.2 * math.pow(10.0, -0.2 * m5sig)
+            logging.info(f"\t append {band_err} using m5sig = {m5sig}")
             df_cat[band_err] = powm5 * np.power(10.0, 0.2 * df_cat[band].values)
+        print_proc_time(t0, "ADDCOL_MAGERR", None)
 
-    return df_cat
+    return df_cat  # end add_col_pd
 
 
 def check_Sersic_definitions(config):
@@ -454,70 +440,29 @@ def get_Sersic_list(config):
     return sersic_list_dict
 
 
-def addcol_mag_errors(cat_inp, config):
+# mag errors are computed at the pandas level in add_col_pd
 
-    # if MAG_5SIG is defined, add columns with mag errors
-    
-    cat_out = cat_inp
-    MAG_5SIG = config.setdefault(KEY_MAG_5SIG,None)
-
-    if not MAG_5SIG:  return cat_out
+def add_col_diffsky(cat_inp, config):
+    """Add columns that require the HDF5/opencatalogs API (distances, Sersic geometry, GALID).
+    Simple arithmetic columns (logsfr, mag errors) are deferred to add_col_pd."""
 
     logging.info('')
-    logging.info('Append mag error columns:')
-
-    t0 = time.time()
-    
-    mag_err_dict = {}
-    for row in MAG_5SIG:
-        str_band     = row.split()[0]
-        str_band_err = str_band + '_err'
-        m5sig        = float(row.split()[1])
-        powm5        = 0.2*math.pow(10.0,-0.2*m5sig)
-
-        logging.info(f"\t append {str_band_err} using m5sig = {m5sig}")
-
-        mag_np = cat_out.select([str_band]).get_data().value  # value or values ???
-        mag_err_np     = powm5*np.power(10.0,+0.2*mag_np)
-        mag_err_dict[f"{str_band_err}"] = mag_err_np
-
-    # append the mag err columns
-    cat_out = cat_out.with_new_columns(**mag_err_dict)    
-
-    del m5sig; del powm5
-    del mag_np; del mag_err_np; del mag_err_dict
-    
-    print_proc_time(t0, "ADDCOL_MAGERR", None)
-    
-    return cat_out
-
-def addcol_driver(cat_inp, config):
-
-    logging.info('')
-    logging.info('========== COMPUTE/APPEND COLUMNS ===============')
+    logging.info('========== COMPUTE/APPEND COLUMNS (HDF5) ===============')
 
     cat_out = cat_inp
-    
+
     # add GALID tag
     cat_out = addcol_galid(cat_out, config)
 
-    cat_out  = addcol_distances(cat_out, config)
-    
+    cat_out = addcol_distances(cat_out, config)
+
     # add sersic indices
     cat_out = addcol_sersic_indices(cat_out, config)
 
     # add sersic angular sizes computed from physical sizes
     cat_out = addcol_sersic_sizes(cat_out, config)
 
-    # add logsfr = logssfr + logmass
-    cat_out = addcol_logsfr(cat_out, config)        
-    
-    # check option to add and compute mag_error for each band
-    # (skipped when OVERRIDE_FILE is set — mag bands not in HDF5, errors computed post-merge)
-    if KEY_OVERRIDE_FILE not in config:
-        cat_out = addcol_mag_errors(cat_out, config)
-
-    return cat_out  # end addcol_driver
+    return cat_out  # end add_col_diffsky
 
 
 def read_galaxy_cat(args, config):
@@ -816,6 +761,9 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     hostlib_varname_dict = config['hostlib_varname_dict']
     cat_var_list         = list(hostlib_varname_dict.keys())
 
+    # exclude columns computed at pandas level — not present in HDF5 catalog
+    cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
+
     if KEY_OVERRIDE_FILE in config:
         # Exclude mag band columns and their errors — not in HDF5, will be injected from parquet
         mag_bands    = _get_mag_bands(config)
@@ -1074,8 +1022,8 @@ if __name__ == "__main__":
     # apply cuts
     galaxy_cat  = apply_cuts(galaxy_cat, config)
 
-    # add columns computed from other columns
-    galaxy_cat = addcol_driver(galaxy_cat, config)
+    # add columns that need the HDF5/opencatalogs API (distances, Sersic geometry, GALID)
+    galaxy_cat = add_col_diffsky(galaxy_cat, config)
 
     logging.info('==================================================')
     logging.info('')
@@ -1085,6 +1033,9 @@ if __name__ == "__main__":
     if KEY_OVERRIDE_FILE in config:
         # Inject pre-computed mags from parquet; join on core_tag ↔ serial_tag (both int64)
         df_cat = inject_mag_columns(df_cat, config)
+
+    # add columns via pandas arithmetic (logsfr, mag errors) — works in both modes
+    df_cat = add_col_pd(df_cat, config)
 
     # figure out coordinate range for each hostlib
     config['hostlib_dict'] = get_coord_ranges(df_cat, config)

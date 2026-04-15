@@ -1698,8 +1698,11 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   // Aug 2025; abort if none of the override variables are used.
   NEW_ID = ( strcmp(RD_OVERRIDE.ID_LAST,ID_LOCAL) != 0 );
   if ( NEW_ID ) {
-    printf(" xxx %s: NEW_ID for ID_LOCAL(LAST,NOW) = %s , %s (CID=%s)\n", 
-	   fnam, RD_OVERRIDE.ID_LAST, ID_LOCAL, SNDATA.CCID);
+
+    if ( REFAC_DATA_FLAG ) 
+      { printf(" xxx %s: NEW_ID for ID_LOCAL(LAST,NOW) = %s , %s (CID=%s)\n", 
+	       fnam, RD_OVERRIDE.ID_LAST, ID_LOCAL, SNDATA.CCID); }
+
     if ( RD_OVERRIDE.NEVT > 0 && RD_OVERRIDE.NVAR_USE == 0 ) {
       print_preAbort_banner(fnam);
       printf("\t RD_OVERRIDE.NEVT     = %d \n", RD_OVERRIDE.NEVT);
@@ -1716,7 +1719,6 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
     for(ivar=0; ivar < IVARMAX_OVERRIDE; ivar++ ) { RD_OVERRIDE.NRD_PER_VAR[ivar] = 0 ; }
 
-
   } 
   sprintf(RD_OVERRIDE.ID_LAST, "%s", ID_LOCAL);  // update last CID or GALID
 
@@ -1726,9 +1728,11 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   RD_OVERRIDE.NVAR_USE++ ; // for monitor only
 
   // xxxxxxxxxxxxxxxxxxx .xyz
-  printf(" xxx %s: CID=%s  GALID=%lld  VARNAME='%s'  IVAR=%d  NVAR_USE=%d\n", 
-	 fnam, SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], VARNAME, IVAR, RD_OVERRIDE.NVAR_USE); 
-  fflush(stdout);
+  if ( REFAC_DATA_FLAG ) {
+    printf(" xxx %s: CID=%s  GALID=%lld  VARNAME='%s'  IVAR=%d  NVAR_USE=%d\n", 
+	   fnam, SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], VARNAME, IVAR, RD_OVERRIDE.NVAR_USE); 
+    fflush(stdout);
+  }
   // xxxxxxxxxxxxxx
 
 

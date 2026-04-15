@@ -962,7 +962,6 @@ void init_SIMSED_PATH(void) {
     fflush(stdout);
   }
   
-  printf(" xxx %s: done here. \n", fnam);
   fflush(stdout);
 
 } // end of init_SIMSED_PATH

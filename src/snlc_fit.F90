@@ -1390,12 +1390,12 @@
 
     CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_PEAKMJD(1)
     CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_PEAKMJD(2)
-    CUTWIN_FITPAR(1,IPAR_SHAPE) = FITWIN_SHAPE(1)
-    CUTWIN_FITPAR(2,IPAR_SHAPE) = FITWIN_SHAPE(2)
-    CUTWIN_FITPAR(1,IPAR_AV)    = FITWIN_COLOR(1)
-    CUTWIN_FITPAR(2,IPAR_AV)    = FITWIN_COLOR(2)
-    CUTWIN_FITPAR(1,IPAR_ZPHOT) = FITWIN_ZPHOT(1)
-    CUTWIN_FITPAR(2,IPAR_ZPHOT) = FITWIN_ZPHOT(2)
+    CUTWIN_FITPAR(1,IPAR_SHAPE)   = FITWIN_SHAPE(1)
+    CUTWIN_FITPAR(2,IPAR_SHAPE)   = FITWIN_SHAPE(2)
+    CUTWIN_FITPAR(1,IPAR_AV)      = FITWIN_COLOR(1)
+    CUTWIN_FITPAR(2,IPAR_AV)      = FITWIN_COLOR(2)
+    CUTWIN_FITPAR(1,IPAR_ZPHOT)   = FITWIN_ZPHOT(1)
+    CUTWIN_FITPAR(2,IPAR_ZPHOT)   = FITWIN_ZPHOT(2)
 
 ! cuts on offDiag cov already set since it's the same cut on each element.
 ! Here set diagonal cuts for each fitPar.
@@ -2140,7 +2140,7 @@
        SHAPE   = FITVAL(IPAR_SHAPE,ITER)
        COLOR   = FITVAL(IPAR_COLOR,ITER)
        IF( FITPROB < FITWIN_PROB_ITER1(1) .or.  & 
-             FITPROB > FITWIN_PROB_ITER1(2) ) THEN
+            FITPROB > FITWIN_PROB_ITER1(2) ) THEN
            ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
        ENDIF
        IF( SHAPE < FITWIN_SHAPE_ITER1(1) .or.  & 
@@ -3570,16 +3570,6 @@
 ! -------------------------
 
 800   CONTINUE
-
-! xxxxxx mark delete July 23 2024 xxxxxxxxxxxx
-! check FITPROB on 1st iter (apr 2024)
-!      IF ( ITER==1 ) THEN
-!         FITPROB = FITPROBCHI2_STORE(1)
-!         IF( FITPROB < FITWIN_PROB_ITER1(1) ) THEN
-!             ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
-!         ENDIF
-!      ENDIF
-! xxxxxxxxxxxxxxxxxxx
 
 ! after 1st iteration, SKIP SN if photoz no longer respects z-range for each filter.
     IF ( ITER > 1 .OR. LREPEAT_ITER ) THEN
@@ -6799,11 +6789,11 @@
     ENDDO
 
     DO i = 1, 2
-      FITWIN_ZPULL(i)      = CUTINI(i)
-      FITWIN_ZPHOT(i)      = CUTINI(i)
-      FITWIN_COLOR(i)      = CUTINI(i)
-      FITWIN_SHAPE(i)      = CUTINI(i)
-      FITWIN_PROB(i)       = CUTINI(i)
+      FITWIN_ZPULL(i)        = CUTINI(i)
+      FITWIN_ZPHOT(i)        = CUTINI(i)
+      FITWIN_COLOR(i)        = CUTINI(i)
+      FITWIN_SHAPE(i)        = CUTINI(i)
+      FITWIN_PROB(i)         = CUTINI(i)
       FITWIN_PROB_ITER1(i)   = CUTINI(i)
       FITWIN_SHAPE_ITER1(i)  = CUTINI(i)
       FITWIN_COLOR_ITER1(i)  = CUTINI(i)
@@ -10003,9 +9993,9 @@
 	 endif ! end USE_INIVAL_SNCID_FILE
 
 	 if ( USE_PRIOR_SNCID_FILE ) then
-          INIVAL(IPAR) = DVAL
-          PRIOR_VAL = DVAL
-          PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
+            INIVAL(IPAR) = DVAL
+            PRIOR_VAL = DVAL
+            PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
 	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = PRIOR_VAL     ! Gauss mean
 	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = PRIOR_ERR     ! Gauss sigma
 
@@ -10018,7 +10008,6 @@
 	endif
 
  50   CONTINUE
-
 
  44     format(T8, A14, ' : ', G10.3,  & 
                   ' from list file: CID=', A10, 3x, A)
@@ -12741,7 +12730,6 @@
 ! 
 ! ------------------------------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -12782,27 +12770,32 @@
 
 ! ----------------- BEGIN ----------------
 
-    LVBOSE = STDOUT_UPDATE  ! Jun 2024
+    LVBOSE = STDOUT_UPDATE 
 
     CCID = SNLC_CCID
-    LCID = ISNLC_LENCCID  ! INDEX(CCID,' ')
+    LCID = ISNLC_LENCCID  
 
     if ( LVBOSE ) then
        write(BANNER,20) CCID(1:LCID)
-20       format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
+20     format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
        CALL PRBANNER(BANNER)
     endif
 
     LCUTS = .TRUE.  ! init output argument
 
 ! Jan 4 2021
-! check option to use SNCID list and skip cuts ... but always
-! reject events that are pegged to the edge of the shape prior range
+! check option to use SNCID list (for event syncing to FITOPT000)
+! and skip cuts ... 
+! but always reject events that are pegged to the edge of the shape prior range
+! Apr 14 2026 ... and apply FITPROB cut at 10% if user cut
     if ( USE_SNCID_FILE  ) THEN
        xval = LCVAL_STORE(ipar_shape)
        if ( xval < PRIOR_SHAPE_RANGE(1) + 0.05 ) LCUTS = .FALSE.
        if ( xval > PRIOR_SHAPE_RANGE(2) - 0.05 ) LCUTS = .FALSE.
-       RETURN
+
+       xval = LCPROBCHI2_STORE(1)
+       if ( xval < FITWIN_PROB(1)/10.0 ) LCUTS = .FALSE.  ! Aor 14 2026
+       RETURN 
     endif
 
     DOFIT_SPECZ = .NOT. DOFIT_PHOTOZ
@@ -13007,8 +13000,8 @@
 ! Cut on fit prob
 
     xval = LCPROBCHI2_STORE(1)
-    LTMP = xval .GE.  fitwin_prob(1) .and.  & 
-             xval .LE.  fitwin_prob(2)
+    LTMP = xval .GE.  FITWIN_PROB(1) .and.  &   ! .xyz
+           xval .LE.  FITWIN_PROB(2)
 
     if ( LTMP ) then
        write(CLINE,161) 'FITPROB', xval, 'PASSES'

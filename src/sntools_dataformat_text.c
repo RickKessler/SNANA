@@ -629,7 +629,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
   bool IS_SIM  = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
 
-  int N_Q, ifilt, ifilt_obs, NTMP, igal, NGAL, j;
+  int N_Q=0, ifilt, ifilt_obs, NTMP, igal, NGAL, j;
 
   char PREFIX[20] = "HOSTGAL", PREFIXz[20] = "HOSTGALz" ; 
   char filtlist[MXFILTINDX], ctmp[100], KEY[60] ;
@@ -850,13 +850,13 @@ void wr_dataformat_text_HOSTGALz(FILE *fp, HOSTGALz_DEF *HOSTGALz) {
   char fnam[] = "wr_dataformat_text_HOSTGALz" ;
 
   // ------------- BEGIN ----------
-
+  
   fprintf(fp,"%s:  %d \n", HOSTGALz->VARNAME_NZ, HOSTGALz->NZ);
   if ( NZ > 0 ) {
     sprintf(line_z,   "%s: ", HOSTGALz->VARNAME_Z);
     sprintf(line_val, "%s: ", HOSTGALz->VARNAME_VAL);
     for(iz=0; iz < NZ; iz++ ) {
-      sprintf(cval, "%.4f ", HOSTGALz->Z_LIST[iz]   );  strcat(line_z,cval); 
+      sprintf(cval, "%.5f ", HOSTGALz->Z_LIST[iz]   );  strcat(line_z,cval); 
       sprintf(cval, "%.2f ", HOSTGALz->VAL_LIST[iz] );  strcat(line_val,cval); 
     }
     fprintf(fp,"%s\n", line_z) ; 
@@ -1647,6 +1647,7 @@ void  rd_sntextio_global(void) {
     }
 
     else if (IS_ZPHOT_Q && !REFAC_DATA_FLAG ) {
+      // legacy write
       if ( strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 )
 	{ iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.HOSTGAL_NZPHOT_Q, fnam ) ; }
 
@@ -2236,7 +2237,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   int    IVAL;
   float  FVAL, FVAL_ERR ;
   double DVAL=-9.0, DVAL_ERR=-9.0; 
-  bool   IS_PRIVATE, PLUS_MINUS = false ;  
+  bool   IS_PRIVATE, IS_HOSTGALz, PLUS_MINUS = false ;  
   char word0[100], word1_val[100], word2_pm[100],  word3_err[100];
   char PREFIX[40], PREFIXz[40], KEY[80], KEY_ERR[80], KEY_TEST[80], ARG_TMP[80];
   char STRVAL[40];
@@ -2254,6 +2255,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   IS_PRIVATE =  
     strncmp(word0,"PRIVATE",7) == 0  &&  strstr(word0,COLON) != NULL ;
+
+  IS_HOSTGALz = 
+    ( strstr(word0,"QUANTILE") != NULL ) || (strstr(word0,"LOGMASS") != NULL ) ;
 
   ncmp_PySEDMODEL  = strncmp(word0,PySEDMODEL_NAME,len_PySEDMODEL) ;
 
@@ -2480,7 +2484,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_SPECZ_ERR[igal]=FVAL_ERR; }	
       }
 
-      if ( REFAC_DATA_FLAG ) {
+      if ( REFAC_DATA_FLAG && IS_HOSTGALz ) {
 	N_Q = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
 	iwd = iwd0 + N_Q;
       }
@@ -2855,23 +2859,27 @@ int rd_sntextio_SNDATA_HOSTGALz(int iwd0, char *KEY, HOSTGALz_DEF *HOSTGALz) {
   // Function returns number of values read.
 
   int langC = LANGFLAG_PARSE_WORDS_C;
-  int  NRD = 0;
+  int  NRD = 0, LENKEY = strlen(KEY);
+  char KEY_noColon[60];
   float fval;
   char fnam[] = "rd_sntextio_SNDATA_HOSTGALz" ;
 
   // ------------- BEGIN -------------
 
-  if ( strcmp(KEY,HOSTGALz->VARNAME_NZ) == 0 ) {
+  sprintf(KEY_noColon,"%s", KEY); 
+  KEY_noColon[LENKEY-1] = 0; // remove colon
+
+  if ( strcmp(KEY_noColon,HOSTGALz->VARNAME_NZ) == 0 ) {
     // check  number of z-bins
     get_PARSE_WORD_INT(langC, iwd0+1, &HOSTGALz->NZ, fnam );
     NRD = 1;
   }
-  else if ( strcmp(KEY,HOSTGALz->VARNAME_Z) == 0 ) {
+  else if ( strcmp(KEY_noColon,HOSTGALz->VARNAME_Z) == 0 ) {
     // check redshift list
     NRD = HOSTGALz->NZ;
     get_PARSE_WORD_NFLT(langC, NRD, iwd0+1, HOSTGALz->Z_LIST, fnam);     
   }
-  else if ( strcmp(KEY,HOSTGALz->VARNAME_VAL) == 0 ) {
+  else if ( strcmp(KEY_noColon,HOSTGALz->VARNAME_VAL) == 0 ) {
     // check value list
     NRD = HOSTGALz->NZ;
     get_PARSE_WORD_NFLT(langC, NRD, iwd0+1, HOSTGALz->VAL_LIST, fnam);     

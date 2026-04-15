@@ -373,7 +373,7 @@ struct SNDATA {
   float   HOSTGAL_COLOR_OBS[MXHOSTGAL] ;
   float   HOSTGAL_COLOR_ERR[MXHOSTGAL] ;
 
-  long long HOSTGAL_OBJID2[MXHOSTGAL] ;
+  long long HOSTGAL_OBJID2[MXHOSTGAL] ; // alternate ID for galaxy (not 2nd host)
   long long HOSTGAL_OBJID_UNIQUE[MXHOSTGAL] ;
   float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;
   float   HOSTGAL_SQRADIUS[MXHOSTGAL] ;

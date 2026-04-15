@@ -3668,7 +3668,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	// reading FITS file and also for OVERRIDE; pad -9 values are ignored.
 	HOSTGALz->NZ = NZ_HOSTGALz_snfitsio(MXBIN, HOSTGALz->Z_LIST);
 
-	int LDMP = (igal==0);
+	int LDMP = 0 ; // (igal==0);
 	if ( LDMP ) { dump_SNDATA_HOSTGALz(HOSTGALz, igal, fnam); }
 
       }

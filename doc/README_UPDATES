@@ -23671,4 +23671,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        number or rows matching CID; allows parsing things like a light curve
        or quantiles.
 
+   snlc_fit.F90
+      when using SNCID_LIST_FILE for syst shift, apply FITPROB cut at
+      10% of FITWIN_PROB(1) to remove rare catastrophic fits for 
+      small systematic shift.
+
+
 END: 

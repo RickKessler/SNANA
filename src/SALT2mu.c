@@ -3388,6 +3388,7 @@ void check_vpec_sign(void) {
   double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[2], sgn_flip ;
   double zHD, zHDERR, zCMB, zHD_tmp, vpec, zpec;
   double mB, x1, c, mumodel, mures, dl, mu ;
+  int LDMP = 0 ;
   char fnam[] = "check_vpec_sign" ;
 
   // ------- BEGIN -------
@@ -3448,7 +3449,13 @@ void check_vpec_sign(void) {
       
       SUM_MURES[i]   += mures ;
       SUM_SQMURES[i] += (mures*mures) ;
-    }
+
+      if ( LDMP && i == 0 && fabs(mures)>0.5 ) {
+	char *name = INFO_DATA.TABLEVAR.name[isn] ;
+	printf(" xxx %s: i=%3d  CID=%10s  mures=%8.3f \n", fnam, i, name, mures);
+	fflush(stdout);
+      }
+    } // end loop over vpec(nominal) and vpec(flip)
 
   } // end isn loop
 
@@ -3473,7 +3480,7 @@ void check_vpec_sign(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-  //  debugexit(fnam);
+  if ( LDMP ) {  debugexit(fnam); }
 
   return ;
 

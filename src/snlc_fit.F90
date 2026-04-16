@@ -8391,11 +8391,11 @@
 
     INTEGER  & 
          iter   &  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
-         ,IERR ! (O) error flag
+         ,IERR     ! (O) error flag
 
 ! local var
 
-    INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
+    INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK, NQ
     LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
     REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
     REAL*8 ztmp_min, ztmp_max
@@ -8404,15 +8404,14 @@
     CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
     REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
+    REAL*8 MEAN, STD
+
+    CHARACTER FNAM*14
 
 ! FCNSNLC args
 
-    INTEGER IFLAG, q, IERR_ZPDF
-    REAL*8  & 
-          GRAD(MXFITPAR)  & 
-         ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT  & 
-         ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
-    CHARACTER FNAM*14
+    INTEGER IFLAG
+    REAL*8  GRAD(MXFITPAR), CHI2GUESS, CHI2 
     REAL*8 GET_DIST8, USRFUN
     LOGICAL LEGACY
     EXTERNAL USRFUN, init_zPDF_spline
@@ -8517,8 +8516,13 @@
 
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
+       IF ( REFAC_DATA_FLAG > 0 ) then
+          NQ = SNHOSTz_ZPHOT_QUANTILE(1)%NZ
+       else
+          NQ = SNHOST_NZPHOT_Q(1) 
+       endif
 
-      if ( SNHOST_NZPHOT_Q(1) .le. 0 ) THEN
+      if ( NQ .le. 0 ) THEN
           c1err = 'zPDF quantiles requested for photo-z fit'
           c2err = 'but there are no zPDF quantiles in the data.'
           CALL MADABORT(FNAM, c1err, c2err)
@@ -13947,7 +13951,12 @@
 ! check for host photoZ
 
       Zhost    = SNHOST_ZPHOT(1)
-      NZPHOT_Q = SNHOST_NZPHOT_Q(1)
+
+      if ( REFAC_DATA_FLAG > 0 ) then
+         NZPHOT_Q = SNHOSTz_ZPHOT_QUANTILE(1)%NZ
+      else
+         NZPHOT_Q = SNHOST_NZPHOT_Q(1)
+      endif
 
       DOFIT_PHOTOZ_HOST =  & 
            (Zhost > 0.0 .or. NZPHOT_Q > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)

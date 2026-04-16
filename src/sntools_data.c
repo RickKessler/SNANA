@@ -116,8 +116,8 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   bool ISKEY_SIMSED  = ( strncmp(key,"SIMSED",6)  == 0 ) ;
   bool ISKEY_LCLIB   = ( strncmp(key,"LCLIB",5)   == 0 ) ;
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
-  bool ISKEY_ZPHOT_Q = ( strstr (key,"ZPHOT_Q")  != NULL ) ;
 
+  bool ISKEY_ZPHOT_Q = ( strstr (key,"ZPHOT_Q")  != NULL ) ; // legacy
   if ( REFAC_DATA_FLAG ) { ISKEY_ZPHOT_Q = false; }
 
   int ivar, NVAR, ipar, PCT ;
@@ -315,6 +315,11 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   char fnam[] = "copy_SNDATA_HEAD" ;
 
   // ------------- BEGIN ------------
+
+  /* xxx
+  if ( REFAC_DATA_FLAG ) 
+    { printf(" xxx %s: copyFlag=%2d  key = %s \n", fnam, copyFlag, key); fflush(stdout); }
+  xxx */
 
   if ( copyFlag < 0 ) 
     { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
@@ -518,24 +523,30 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
       // - - - 
       if ( REFAC_DATA_FLAG > 0 && strstr(key,"QUANTILE") != NULL ) {
-	char parNames[3][40];
-	char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
-	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ; ;
-	get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ptrNames);
 
-	if ( strcmp(key,ptrNames[0]) == 0 ) {   
+	/* xxxxxxxxxxx  mark delete 
+	char parNames[4][40];
+	char *ptrNames[4] = { parNames[0], parNames[1], parNames[2], parNames[3] } ;
+	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ; ;
+	get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "",
+				     ptrNames);
+		 xxxxxxxx end mark */
+
+	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];
+		
+	if ( strcmp(key,HOSTGALz->VARNAME_NZ) == 0 ) {   
 	  copy_int(copyFlag, parVal, &HOSTGALz->NZ );  // read number of quantile bins
 	  //printf(" xxx ---------------------------------------- \n");
 	  //printf(" xxx %s: CID=%s igal=%d  NZ = %d \n", fnam, SNDATA.CCID, igal, HOSTGALz->NZ);
 	}
-	if ( strcmp(key,ptrNames[1]) == 0 ) {
+	else if ( strcmp(key,HOSTGALz->VARNAME_Z) == 0 ) {
 	  for(q=0; q < HOSTGALz->NZ; q++ ) {
 	     copy_flt(copyFlag, &parVal[q], &HOSTGALz->Z_LIST[q] );   // read zPhot grid
 	     // xxx mark RD_OVERRIDE.ORIG_HOSTGALz_ZPHOT_QUANTILE[igal][q] = HOSTGALz->Z_LIST[q];
-	     //printf(" xxx %s: CID=%s  z[q=%2d] = %.4f \n", fnam, SNDATA.CCID, q, HOSTGALz->Z_LIST[q] );
+	     //printf(" xxx %s: CID=%s z[q=%2d]=%.4f \n", fnam, SNDATA.CCID, q, HOSTGALz->Z_LIST[q]);
 	  }
 	}
-	if ( strcmp(key,ptrNames[2]) == 0 ) {
+	else if ( strcmp(key,HOSTGALz->VARNAME_VAL) == 0 ) {
 	  for(q=0; q < HOSTGALz->NZ; q++ ) {
 	    copy_flt(copyFlag, &parVal[q], &HOSTGALz->VAL_LIST[q] );   // read percentile grid
 	    //printf(" xxx %s: pct[q=%2d] = %.4f \n", fnam, q, parVal[q] );
@@ -1359,10 +1370,6 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   char **file_list, *ptrFile, *VARNAME_MATCH, VARNAME[60], PREFIX[40], PREFIXz[40] ;
   char TABLE_NAME[] = "OVERRIDE" ;
   char VARLIST[]    = "ALL" ;
-
-  char parNames[3][60];
-  char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
-
   char fnam[]       = "RD_OVERRIDE_INIT" ;
 
   // ----------- BEGIN -----------
@@ -1486,10 +1493,18 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
       RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT_ERR[igal] = IVAR;
     }
 
-    get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT,
+    /* xxx mark delete xxx
+    char parNames[4][60];
+    char *ptrNames[4] = { parNames[0], parNames[1], parNames[2], parNames[3] } ;
+    get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "",
 			  ptrNames); // return ptrNames 
-    if ( EXIST_VARNAME_AUTOSTORE(ptrNames[1]) ) {
-      IVAR = IVAR_VARNAME_AUTOSTORE(ptrNames[1], &ICAST ) ;
+    xxxx */
+
+    char *ptr_varname = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VARNAME_Z ; // .xyz
+    if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
+      // xxx mark IVAR = IVAR_VARNAME_AUTOSTORE(ptrNames[1], &ICAST ) ;
+      IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
+      printf(" xxx %s: IVAR = %d \n", fnam, IVAR);
       RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal] = IVAR;
     }
 
@@ -1523,7 +1538,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
 
 
   RD_OVERRIDE.NVAR_USE    = 0;
-  RD_OVERRIDE.ID_LAST[0]  = 0; // Aug 8 2025
+  RD_OVERRIDE.ID_LAST[0]  = 0; 
+  RD_OVERRIDE.CID_LAST[0] = 0; 
   RD_OVERRIDE.NEVT        = 0; 
   RD_OVERRIDE.N_HOSTGAL_PHOTOZ_REPLACE = 0 ;
 
@@ -1667,9 +1683,11 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   // Sep  29 2025: pass GALID and check option to match by GALID (HOSTGAL_OBJID) instead of by CID
   // Apr  11 2026: return DVAL array and return array length
 
-  bool NEW_ID, FOUND_VARNAME ;
+  bool NEW_ID, NEW_CID, FOUND_VARNAME ;
   int  ISTAT, NRD, IVAR, NTMP, ICAST, NTOT_PER_VAR, ivar ;
-  char ID_LOCAL[40];
+  char ID_LOCAL[40], CID_LOCAL[40];
+
+  int LDMP = 0 ;
   char fnam[] = "RD_OVERRIDE_FETCH";
 
   // ----------- BEGIN -----------
@@ -1678,6 +1696,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
   // - - - - - -
   ID_LOCAL[0] = 0 ;
+  sprintf(CID_LOCAL,"%s", CID);
   if ( RD_OVERRIDE.NMATCH_by_CID > 0 ) 
     { sprintf(ID_LOCAL,"%s", CID);  }
   else if ( GALID != 0 )
@@ -1695,13 +1714,24 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
   }
 
-  // Aug 2025; abort if none of the override variables are used.
-  NEW_ID = ( strcmp(RD_OVERRIDE.ID_LAST,ID_LOCAL) != 0 );
+  // check for NEW_ID. Always require NEW_CID, even if matching by GALID.
+  // For latter, different GALIDs from multiple hosts may be called for
+  // same event
+  NEW_CID = ( strcmp(RD_OVERRIDE.CID_LAST, CID_LOCAL) != 0 );
+  NEW_ID  = ( strcmp(RD_OVERRIDE.ID_LAST,  ID_LOCAL ) != 0 ) && NEW_CID;
+
   if ( NEW_ID ) {
 
     if ( REFAC_DATA_FLAG ) 
-      { printf(" xxx %s: NEW_ID for ID_LOCAL(LAST,NOW) = %s , %s (CID=%s)\n", 
-	       fnam, RD_OVERRIDE.ID_LAST, ID_LOCAL, SNDATA.CCID); }
+
+      if ( LDMP ) {
+	printf(" xxx %s: NEW_ID for ID_LOCAL(LAST,NOW) = %s , %s (CID=%s)\n", 
+	       fnam, RD_OVERRIDE.ID_LAST, ID_LOCAL, SNDATA.CCID); 
+	printf(" xxx %s: VARNAME='%s'  IVAR=%d  FOUND_VARNAME=%d \n",
+	       fnam, VARNAME, IVAR, FOUND_VARNAME);
+	printf(" xxx %s: NEVT=%d  NVAR_USE=%d \n", fnam, RD_OVERRIDE.NEVT, RD_OVERRIDE.NVAR_USE);
+	fflush(stdout);
+      }
 
     if ( RD_OVERRIDE.NEVT > 0 && RD_OVERRIDE.NVAR_USE == 0 ) {
       print_preAbort_banner(fnam);
@@ -1720,20 +1750,20 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
     for(ivar=0; ivar < IVARMAX_OVERRIDE; ivar++ ) { RD_OVERRIDE.NRD_PER_VAR[ivar] = 0 ; }
 
   } 
-  sprintf(RD_OVERRIDE.ID_LAST, "%s", ID_LOCAL);  // update last CID or GALID
+  sprintf(RD_OVERRIDE.ID_LAST,  "%s", ID_LOCAL );  // update last CID or GALID
+  sprintf(RD_OVERRIDE.CID_LAST, "%s", CID_LOCAL);  // update last CID 
 
   // --------
 
   if ( !FOUND_VARNAME ) { return 0; }
   RD_OVERRIDE.NVAR_USE++ ; // for monitor only
 
-  // xxxxxxxxxxxxxxxxxxx .xyz
-  if ( REFAC_DATA_FLAG ) {
+
+  if ( REFAC_DATA_FLAG && LDMP ) {
     printf(" xxx %s: CID=%s  GALID=%lld  VARNAME='%s'  IVAR=%d  NVAR_USE=%d\n", 
 	   fnam, SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], VARNAME, IVAR, RD_OVERRIDE.NVAR_USE); 
     fflush(stdout);
   }
-  // xxxxxxxxxxxxxx
 
 
   // read from override table; ISTAT and DVAL are returned
@@ -1895,10 +1925,12 @@ void rd_override_zphot(int igal) {
   //
   double RA  = SNDATA.RA_AVG ;
   double DEC = SNDATA.DEC_AVG ;
+  char *CCID = SNDATA.CCID;
 
   int IVAR_HOSTGAL_ZPHOT   = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal];
   int IVAR_HOSTGAL_ZPHOT_Q = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal];
  
+
   bool FOUND_ZPHOT      = false; // for current igal
   bool FOUND_ZPHOT_Q    = false;
   bool FOUND0_ZPHOT     = false; // for igal=0
@@ -1999,16 +2031,9 @@ void rd_override_zphot(int igal) {
     char STRDUM[20];
     int iz, NRD;
     
-    // xxxxxxxxxx
-    printf(" xxx %s: MATCH_NBR_by_GALID  igal=%d  GALID=%lld\n", 
-	   fnam, igal, GALID); fflush(stdout);
-    // xxxxxxxxx
-
-    // always read from HOSTGALz names corresponding to igal=0
-    NRD = RD_OVERRIDE_FETCH(NULLSTRING, GALID, HOSTGAL0z->VARNAME_Z, DZ_LIST,    STRDUM ) ;
-    printf(" xxx %s: NRD(%s) = %d \n", fnam, HOSTGAL0z->VARNAME_Z, NRD);
-    NRD = RD_OVERRIDE_FETCH(NULLSTRING, GALID, HOSTGAL0z->VARNAME_VAL, DVAL_LIST,  STRDUM ) ;
-    printf(" xxx %s: NRD(%s) = %d \n", fnam, HOSTGAL0z->VARNAME_VAL, NRD); fflush(stdout);
+    // always read from HOSTGALz OVERRIDE names corresponding to igal=0
+    NRD = RD_OVERRIDE_FETCH(CCID, GALID, HOSTGAL0z->VARNAME_Z, DZ_LIST,    STRDUM ) ;
+    NRD = RD_OVERRIDE_FETCH(CCID, GALID, HOSTGAL0z->VARNAME_VAL, DVAL_LIST,  STRDUM ) ;
 
     // but store in HOSTGALz corresponding to current igal
     HOSTGALz->NZ = NRD;

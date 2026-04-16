@@ -961,9 +961,191 @@
 
   END MODULE PRIVCOM
 
+  MODULE SNHOSTzCOM
+    USE SNPAR
+    IMPLICIT NONE
+    ! define TYPE for z-dependent vectors
+    INTEGER, PARAMETER  ::   MXBIN_SNHOSTz = 40
+    TYPE :: SNHOSTz_DEF
+       CHARACTER(LEN=40) :: VARNAME_NZ    ! name of NZ variable in data stream
+       CHARACTER(LEN=40) :: VARNAME_Z     ! name of Z_LIST variable in data stream
+       CHARACTER(LEN=40) :: VARNAME_VAL   ! name of VAL_LIST variable in data stream
+       CHARACTER(LEN=40) :: VARNAME_VAL2  ! name of optional 2nd array
+
+       INTEGER :: NZ                        ! number of z bins
+       REAL    :: Z_LIST(MXBIN_SNHOSTz)     ! array of z-grid values
+       REAL    :: VAL_LIST(MXBIN_SNHOSTz)   ! array of z-dependent values
+       REAL    :: VAL2_LIST(MXBIN_SNHOSTz)  ! optional 2nd array (e.g., errors on VAL_LIST)
+    END TYPE SNHOSTz_DEF
+    
+    TYPE(SNHOSTz_DEF) :: SNHOSTz_ZPHOT_QUANTILE(MXSNHOST)
+    TYPE(SNHOSTz_DEF) :: SNHOSTz_LOGMASS(MXSNHOST)
+
+  CONTAINS
+      
+    SUBROUTINE INIT_SNHOSTz(SNHOSTz, igal, SUFFIX_Z, SUFFIX_VAL, SUFFIX_VAL2)
+
+      ! Created Apr 2026
+      ! igal  : host gal sparse index 1... MXSNHOST
+      ! SUFFIX_Z  : suffix in data stream varname for redshift grid
+      ! SUFFIX_VAL: suffix in data stream varname for value grid
+
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+      INTEGER igal
+      CHARACTER SUFFIX_Z*(*), SUFFIX_VAL*(*), SUFFIX_VAL2*(*)
+
+      ! local
+      INTEGER iz, LENPRE
+      CHARACTER PREFIX*20, PREFIXz*20
+
+      ! -------- BEGIN --------
+
+      CALL SET_HOSTGAL_PREFIX(igal, PREFIX, LENPRE)
+      PREFIXz = PREFIX(1:LENPRE) // 'z'
+      SNHOSTz%VARNAME_NZ  = PREFIXz(1:LENPRE+1) // '_NBIN_' // SUFFIX_Z
+      SNHOSTz%VARNAME_Z   = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_Z
+      SNHOSTz%VARNAME_VAL = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_VAL
+
+      if ( INDEX(SUFFIX_VAL2,' ') > 2 ) then
+         SNHOSTz%VARNAME_VAL2 = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_VAL2
+      else
+         SNHOSTz%VARNAME_VAL2 = ''
+      endif
+
+      SNHOSTz%NZ = 0
+      DO iz = 1, MXBIN_SNHOSTz
+         SNHOSTz%Z_LIST(iz)     = -9.0
+         SNHOSTz%VAL_LIST(iz)   = -9.0
+         SNHOSTz%VAL2_LIST(iz)  = -9.0
+      ENDDO
+      
+      RETURN
+    END SUBROUTINE INIT_SNHOSTz
+
+    SUBROUTINE DUMP_SNHOSTz(SNHOSTz)
+      ! Created Apr 2026
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+
+      ! local
+      INTEGER iz
+      ! -------- BEGIN --------
+
+      print*,' xxx -------- DUMP_SNHOSTz ------------'
+      print*,' xxx Data stream varnames: '
+      print*,' xxx ', SNHOSTz%VARNAME_NZ
+      print*,' xxx ', SNHOSTz%VARNAME_Z
+      print*,' xxx ', SNHOSTz%VARNAME_VAL
+
+      DO iz = 1, SNHOSTz%NZ
+         write(6,40) iz, SNHOSTz%Z_LIST(iz), SNHOSTz%VAL_LIST(iz)
+40       format(T5, 'xxx     iz=',I2, 3x, 'z=', F7.4, 4x, 'VAL=', F8.2 )
+      ENDDO
+      call flush(6)
+
+      RETURN
+    END SUBROUTINE DUMP_SNHOSTz
+
+    SUBROUTINE SHIFT_SNHOSTz(SNHOSTz, zSHIFT)
+      ! Created Apr 2026
+      ! shift all of the Z_LIST by input zSHIFT
+
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+      REAL zSHIFT           ! (I) input z-shift
+
+      INTEGER iz ! local var
+      ! --------- BEGIN ---------
+      DO iz = 1, SNHOSTz%NZ
+         SNHOSTz%Z_LIST(iz) = SNHOSTz%Z_LIST(iz) + zSHIFT
+      ENDDO
+
+      RETURN
+
+    END SUBROUTINE SHIFT_SNHOSTz
+
+    SUBROUTINE FETCH_SNHOSTz_WRAPPER(SNHOSTz, OPT)
+
+      ! created Apr 2026
+      ! Read and load z-vector variable for SNHOSTz:
+      ! NZ = nunber of z bin
+      ! Z_LIST   : grid of redshift values
+      ! VAL_LIST : grid of values for each redshift
+
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+      INTEGER OPT
+
+      ! local var
+      INTEGER NZ, iz
+      CHARACTER KEY*40, STRING*20
+      REAL*8    DARRAY(MXBIN_SNHOSTz), DARRAY2(MXBIN_SNHOSTz)
+      KEY    = SNHOSTz%VARNAME_NZ
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      NZ = INT(DARRAY(1))
+
+      KEY = SNHOSTz%VARNAME_Z
+      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY,  OPT)
+      KEY = SNHOSTz%VARNAME_VAL
+      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY2, OPT)
+
+      ! load values to TYPE object
+      SNHOSTz%NZ = NZ
+      DO iz = 1, NZ
+         SNHOSTz%Z_LIST(iz)     = SNGL( DARRAY(iz)  ) 
+         SNHOSTz%VAL_LIST(iz)   = SNGL( DARRAY2(iz) ) 
+      ENDDO
+
+      RETURN
+    END SUBROUTINE FETCH_SNHOSTz_WRAPPER
+
+  ! ==============================================
+    SUBROUTINE copy_SNDATA_SNHOSTz(SNHOSTz, COPYFLAG)
+
+    ! Created Apr 14 2026
+    ! utility to copy SNHOSTz vector information to SNDATA struct.
+
+    TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz  ! (I)
+    INTEGER COPYFLAG    ! (I) determines direction of copy (to/from SNDATA struct)
+
+    ! local args
+    INTEGER   NQ, q, LENPRE, LEN_KEY, LEN_STR, NARG
+    CHARACTER cKEY*40, cSTRING*20
+    REAL*8    DVAL(MXZPHOT_Q)
+
+    ! ---------- BEGIN -----------
+
+    LEN_KEY = 40
+    LEN_STR = 20
+    NARG    = 1
+    NQ      = SNHOSTz%NZ
+    
+    LEN_KEY = index(SNHOSTz%VARNAME_NZ,' ') - 1
+    cKEY    = SNHOSTz%VARNAME_NZ(1:LEN_KEY) // char(0)
+    DVAL(1) = DBLE(NQ)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+    LEN_KEY = index(SNHOSTz%VARNAME_Z,' ') - 1
+    cKEY    = SNHOSTz%VARNAME_Z(1:LEN_KEY) // char(0)
+    do q = 1, NQ
+       DVAL(q) = DBLE( SNHOSTz%Z_LIST(q) )
+    enddo
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NQ, cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+    LEN_KEY = index(SNHOSTz%VARNAME_VAL,' ') - 1
+    cKEY    = SNHOSTz%VARNAME_VAL(1:LEN_KEY) // char(0)
+    do q = 1, NQ
+       DVAL(q) = DBLE( SNHOSTz%VAL_LIST(q) )
+    enddo
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NQ, cSTRING, DVAL, LEN_KEY, LEN_STR)
+    
+    RETURN
+
+  END SUBROUTINE copy_SNDATA_SNHOSTz
+
+  END MODULE SNHOSTzCOM
+
 ! =====================================================================
   MODULE SNHOSTCOM
     USE SNPAR
+    USE SNHOSTzCOM
     IMPLICIT NONE
 
 ! Host galaxy parameters.
@@ -1022,8 +1204,9 @@
         ,SNHOST_SBMAG(MXFILT_ALL)        ! surface brightness mag/asec^2
 
 
-
   END MODULE SNHOSTCOM
+
+
 
 ! =====================================================================
   MODULE SIMLIBCOM
@@ -2253,7 +2436,7 @@
 
     ISTAGE_SNANA = 0
 
-! init some variables
+! one-time init for some variables
     CALL INIT_SNVAR()
 
     CALL WARN_OLDINPUTS("init"//char(0), 0);
@@ -3468,6 +3651,7 @@
 ! Read/parse names host galaxy photo-z quantiles that determine
 ! column names. E.g., percentile 20 means HOSTGAL_ZPHOT_Q020 exists.
 ! 
+    ! @@@@@ LEGACY @@@@@
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -3480,16 +3664,20 @@
     INTEGER   IVAR, q, PCT
     REAL*8    DARRAY(MXZPHOT_Q)
     CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*80
+    ! @@@@@ LEGACY @@@@@
 
 ! -------------- BEGIN ---------------
 
     if ( REFAC_DATA_FLAG > 0 ) RETURN  
 
     ! below is legacy quantile storage with fixed percentiles in global header.
+
     CALL FETCH_SNDATA_WRAPPER("NZPHOT_Q",  & 
            ONE, DUMSTRING, DARRAY, OPT)
     SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
     SNHOST_NZPHOT_Q(2) = 0
+
+    ! @@@@@ LEGACY @@@@@
 
     IF ( SNHOST_NZPHOT_Q(1) .LE. 0 ) RETURN
 
@@ -3500,6 +3688,7 @@
        CALL MADABORT("RDGLOBAL_ZPHOT_Q", C1ERR, C2ERR)
     ENDIF
 ! ----------------------------------------------
+    ! @@@@@ LEGACY @@@@@
 
     DO 100 ivar = 1, SNHOST_NZPHOT_Q(1)
 
@@ -3512,6 +3701,8 @@
       PCT = INT(DARRAY(1))
       SNHOST_ZPHOT_PERCENTILE(1,ivar) = SNGL(DARRAY(1))
 
+      ! @@@@@ LEGACY @@@@@
+
 ! load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
       write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT
       write(VARNAME_ZPHOT_Q(2,ivar),102) 'HOSTGAL2', PCT
@@ -3522,6 +3713,8 @@
     write(6,40) SNHOST_NZPHOT_Q(1)
 40    format(T5,'Found NZPHOT_Q = ', I3, ' quantiles for HOST-zPHOT')
     CALL FLUSH(6)
+
+    ! @@@@@ LEGACY @@@@@
 
     RETURN
   END SUBROUTINE RDGLOBAL_ZPHOT_Q
@@ -4078,43 +4271,26 @@
     SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
     if ( REFAC_DATA_FLAG > 0 ) then
-       KEY    = PREFIXz(1:LENPRE+1) // '_NBIN_QUANTILE_ZPHOT'
-       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-       SNHOST_NZPHOT_Q(igal) = SNGL(DARRAY(1))
+       ! read  Z_LIST and PERCENT_LIST and store in SNHOSTz_ZPHOT_QUANTILE TYPE
+       CALL FETCH_SNHOSTz_WRAPPER(SNHOSTz_ZPHOT_QUANTILE(igal), OPT )
+       !CALL DUMP_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal))
+       IF ( SNHOSTz_ZPHOT_QUANTILE(igal)%NZ > 0 ) EXIST_SNHOST_ZPHOT = .TRUE.
     endif
 
-! read ZPHOT_Q (May 2022)
-    NZPHOT_Q = SNHOST_NZPHOT_Q(igal) 
-
-    if ( NZPHOT_Q > 0 ) then
-      if ( REFAC_DATA_FLAG > 0 ) then
-         KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_ZPHOT'
-         CALL FETCH_SNDATA_WRAPPER(KEY, NZPHOT_Q, STRING, DARRAY,  OPT)
-         KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_PERCENT'
-         CALL FETCH_SNDATA_WRAPPER(KEY, NZPHOT_Q, STRING, DARRAY2, OPT)
-
-         !print*,' xxx -------- igal = ', igal, KEY
-         DO q = 1, NZPHOT_Q
-            SNHOST_ZPHOT_Q(igal,q)          = SNGL(DARRAY(q))   ! .xyz
-            SNHOST_ZPHOT_PERCENTILE(igal,q) = SNGL(DARRAY2(q)) 
-            !write(6,6789) q, SNHOST_ZPHOT_Q(igal,q), SNHOST_ZPHOT_PERCENTILE(igal,q)
-6789        format(' xxx RDHEAD_HOSTGAL: iz=',I3,'  z,pct = ', 2F9.3 )
-         ENDDO
-      else
-         ! legacy
+    if ( REFAC_DATA_FLAG == 0 ) then
+       ! LEGACY : read ZPHOT_Q (May 2022) 
+       NZPHOT_Q = SNHOST_NZPHOT_Q(igal)   ! store at RDGLOBAL stage
+       if ( NZPHOT_Q > 0 ) then
          DO q = 1, NZPHOT_Q
             KEY = VARNAME_ZPHOT_Q(igal,q)
             CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
             SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
          ENDDO
       endif
-
-      !xxx mark SNHOST_QZPHOT_MEAN(igal) = -9.0
-      !xxx mark SNHOST_QZPHOT_STD(igal)  = -9.0
-
+      IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
     endif
 
-    IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
+
 ! - - - -
 
     KEY    = PREFIX(1:LENPRE)//'_SPECZ'
@@ -10545,9 +10721,9 @@
     IMPLICIT NONE
 
     INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
-    INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ, q, igal, LENV 
+    INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ0, NQ, q, igal, LENV, LENPRE
     REAL*8 DVAL(MXEPOCH)
-    CHARACTER cKEY*20, cSTRING*20, cfilt*2
+    CHARACTER cKEY*40, cSTRING*20, cfilt*2, PREFIX*20, PREFIXz*20
     EXTERNAL COPY_SNDATA_HEAD
 
 ! -------------- BEGIN ----------
@@ -10555,27 +10731,24 @@
     NARG     =  1
     NOBS     =  ISNLC_NEWMJD_FOUND
     COPYFLAG = +1
-    LEN_KEY  = 20
+    LEN_KEY  = 40
     LEN_STR  = 20
     cSTRING  = "DUMMY" // char(0)
 
     IF ( OPT_SETPKMJD > 0 ) THEN
       cKEY     = "PEAKMJD" // char(0)
       DVAL(1)     = DBLE(SNLC_SEARCH_PEAKMJD)
-      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
     IF ( OPT_MWEBV > 0 ) THEN
       cKEY     = "MWEBV" // char(0)
       DVAL(1)  = DBLE(SNLC_MWEBV)
-      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "MWEBV_ERR" // char(0)
       DVAL(1)  = DBLE(SNLC_MWEBV_ERR)
-      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 ! write MWXT mag as diagnostic (not used)
       do ifilt     = 1, NFILTDEF_SURVEY
@@ -10583,8 +10756,7 @@
          cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
          cKEY      = 'MWXT_MAG_' // cfilt(1:1) // char(0)
          DVAL(1)   = SNLC_MWXT_MAG(ifilt)
-         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-                 cSTRING, DVAL, LEN_KEY, LEN_STR)
+         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
       end do
 
     ENDIF
@@ -10595,50 +10767,48 @@
 ! zCMB
     cKEY     = "REDSHIFT_CMB" // char(0)
     DVAL(1)  = DBLE(SNLC_zCMB)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
     cKEY     = "REDSHIFT_CMB_ERR" // char(0)
     DVAL(1)  = DBLE(SNLC_zCMB_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 ! zHELIO
     cKEY     = "REDSHIFT_HELIO" // char(0)
     DVAL(1)  = DBLE(SNLC_zHELIO)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
     cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
     DVAL(1)  = DBLE(SNLC_zHELIO_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 ! VPEC
     cKEY     = "VPEC" // char(0)
     DVAL(1)  = DBLE(SNLC_VPEC)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
     cKEY     = "VPEC_ERR" // char(0)
     DVAL(1)  = DBLE(SNLC_VPEC_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
-! Oct 2025: photo-z quantiles
-    NQ = SNHOST_NZPHOT_Q(1)
-    IF ( NQ > 0 ) THEN
-      do igal = 1, MXSNHOST
-      do q = 1, NQ
-         LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
-         cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
-         DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
-         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
-      enddo
-      enddo
-    ENDIF
-
+! Oct 2025: copy photo-z quantiles back to SNDATA struct
+    if ( REFAC_DATA_FLAG > 0 ) then
+       do igal = 1, MXSNHOST
+          CALL copy_SNDATA_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), COPYFLAG)
+       enddo
+    else
+       ! legacy
+       NQ = SNHOST_NZPHOT_Q(1)
+       if ( NQ > 0 ) then
+          do q = 1, NQ
+             LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
+             cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
+             DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
+             CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+          enddo
+       endif
+    endif
+    
 ! check option to exclude PRIVATE variables from output.
 ! Do NOT modify NVAR_PRIVATE.
     IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
@@ -10711,6 +10881,7 @@
 
     RETURN
   END SUBROUTINE copy_SNDATA_MISC
+
 
 ! =========================================
     SUBROUTINE WRITE_REFORMAT_IGNORE()
@@ -15231,13 +15402,14 @@
 
        SNHOST_QZPHOT_MEAN(igal) = -9.0
        SNHOST_QZPHOT_STD(igal)  = -9.0
+
        ! for REFAC, reset quantile info for each event
        if ( REFAC_DATA_FLAG > 0 ) then
-          SNHOST_NZPHOT_Q(igal)      = 0
-          do i = 1, MXZPHOT_Q
-             SNHOST_ZPHOT_Q(igal,i)          = -9.0
-             SNHOST_ZPHOT_PERCENTILE(igal,i) = -9.0
-          enddo
+          CALL INIT_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), igal, &
+               "QUANTILE_ZPHOT", "QUANTILE_PERCENT", "" )
+
+          CALL INIT_SNHOSTz(SNHOSTz_LOGMASS(igal), igal, &
+               "LOGMASS_ZGRID", "LOGMASS_VALGRID", "LOGMASS_ERRGRID" )
        endif
 
     enddo
@@ -15431,7 +15603,6 @@
 
     RETURN
   END SUBROUTINE INIT_SNLC
-
 
 ! =======================================
     SUBROUTINE INIT_CUTMASK ( IERR )
@@ -17743,7 +17914,9 @@
 ! If there are host photot-z quanitiles, compute MEAN and STDDEV
 !  [code moved from snlc_fit.F90 to here so that MEAN and STDDEV
 !    appear in SNANA table without having to do LC fit]
-
+!
+! Apr 15 2026: start using new SNHOSTz_DEF TYPE
+!
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -17755,23 +17928,36 @@
 ! local var
     INTEGER*8 :: GALID
     CHARACTER*(MXCHAR_CCID)  CCID
-    INTEGER   :: q, LM, IERR_ZPDF, IPRINT
+    INTEGER   :: NQ, q, LM, IERR_ZPDF, IPRINT, IGAL
     REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
 
 ! ------------- BEGIN ---------------
 
-    if ( SNHOST_NZPHOT_Q(1) <= 0 ) RETURN
+    if ( REFAC_DATA_FLAG > 0 ) then
+       NQ = SNHOSTz_ZPHOT_QUANTILE(1)%NZ
+    else
+       NQ = SNHOST_NZPHOT_Q(1)
+    endif
+   
+    if ( NQ <= 0 ) RETURN
 
-    do q = 1, SNHOST_NZPHOT_Q(1)
-       ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(1,q)) / 100.  ! 0 <= PROB <= 1
-       ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
+    IGAL = 1  ! default is closest host, but may add option later to used 2nd host
+
+    do q = 1, NQ
+       if ( REFAC_DATA_FLAG > 0 ) then
+          ZPHOT_PROB(q) = DBLE(SNHOSTz_ZPHOT_QUANTILE(IGAL)%VAL_LIST(q)) / 100.  ! 0 <= PROB <= 1
+          ZPHOT_Q(q)    = DBLE(SNHOSTz_ZPHOT_QUANTILE(IGAL)%Z_LIST(q))
+       else
+          ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(IGAL,q)) / 100.  ! 0 <= PROB <= 1
+          ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(IGAL,q))
+       endif
 
        if ( q > 1 .and. ZPHOT_Q(q) > -8.0 ) then
           BIGGER_z = ZPHOT_Q(q) > ZPHOT_Q(q-1) 
           if ( .not. BIGGER_z ) then
              CCID   = SNLC_CCID
-             GALID = SNHOST_OBJID(1)
+             GALID = SNHOST_OBJID(IGAL)
              write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
 61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I12 )
              C2ERR = 'ZPHOT_Q must be monotonically increasing'
@@ -17790,8 +17976,7 @@
     IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
-    IPRINT = 1 ! xxx REMOVE
-    CALL init_zPDF_spline(SNHOST_NZPHOT_Q(1), ZPHOT_PROB, ZPHOT_Q,  &
+    CALL init_zPDF_spline(NQ, ZPHOT_PROB, ZPHOT_Q,  &
          SNLC_CCID(1:ISNLC_LENCCID)//char(0),  &
          METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
@@ -17911,13 +18096,19 @@
           SNHOST_ZPHOT = SNHOST_zPHOT + zshift
        endif
 
-       if ( SNHOST_NZPHOT_Q(igal) > 0 ) then
+       if ( REFAC_DATA_FLAG > 0 ) then
+          do igal = 1, MXSNHOST
+             CALL SHIFT_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), zshift )
+          enddo
+       else
+          ! legacy
           do q    = 1, SNHOST_NZPHOT_Q(igal)
           do igal = 1, MXSNHOST
 	      SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
           enddo
           enddo
        endif
+
     ENDIF
 
     IF ( zshift .NE. -9.0 ) THEN

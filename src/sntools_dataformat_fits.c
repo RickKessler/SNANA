@@ -772,7 +772,6 @@ void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz ) {
   get_SNDATA_HOSTGALz_VARNAMES(PREFIX, SUFFIX_z, SUFFIX_val, parNames); // return parNames
   xxxx */
 
-
   // add column for number of z bins
   sprintf(tform,"1I");
   wr_snfitsio_addCol(tform, HOSTGALz->VARNAME_NZ, itype );    
@@ -3647,22 +3646,25 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ;
 	int MXBIN = MXBIN_HOSTGALz_QUANTILE;
 
-	char parNames[3][60];
-	char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
-	get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, 
+	/* xxx mark delete 
+	char parNames[4][60];
+	char *ptrNames[4] = { parNames[0], parNames[1], parNames[2], parNames[3] } ;
+	get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "",
 				     ptrNames); // return ptrNames
+	xxxxxx end mark */
 
-	j++ ; NRD = RD_SNFITSIO_INT(isn, ptrNames[0], &NZ,     // read, but ignore
+	j++ ; NRD = RD_SNFITSIO_INT(isn, HOSTGALz->VARNAME_NZ, &NZ,     // read, but ignore
 				    &SNFITSIO_READINDX_HEAD[j]);
 
-	j++ ; NZ0 = RD_SNFITSIO_FLT(isn, ptrNames[1], HOSTGALz->Z_LIST,
+	j++ ; NZ0 = RD_SNFITSIO_FLT(isn, HOSTGALz->VARNAME_Z, HOSTGALz->Z_LIST,
 				    &SNFITSIO_READINDX_HEAD[j]);
 
-	j++ ; NZ1 = RD_SNFITSIO_FLT(isn, ptrNames[2], HOSTGALz->VAL_LIST,
+	j++ ; NZ1 = RD_SNFITSIO_FLT(isn, HOSTGALz->VARNAME_VAL, HOSTGALz->VAL_LIST,
 				    &SNFITSIO_READINDX_HEAD[j]);
 
 	// abort if NZ0 and NZ1 are not the same
-	check_NZ_HOSTGALz_snfitszio(MXBIN, NZ0, NZ1, parNames[1], parNames[2], fnam);
+	check_NZ_HOSTGALz_snfitszio(MXBIN, NZ0, NZ1, 
+				    HOSTGALz->VARNAME_Z, HOSTGALz->VARNAME_VAL, fnam);
 
 	// set NZ to number of non-negative Z_LIST values so that it works 
 	// reading FITS file and also for OVERRIDE; pad -9 values are ignored.
@@ -4521,7 +4523,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     SNFITSIO_SPECTRA_FLAG = false ;
     sprintf(rd_snfitsFile[ifile][itype],"NONE");
   }
-
 
   // check optional PRIVATE header keys.
   rd_snfitsio_private();

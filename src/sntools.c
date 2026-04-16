@@ -8453,12 +8453,10 @@ int init_SNDATA_GLOBAL(void) {
 
   // init HOSTGALz stucture for refactor (note that REFAC_DATA_FLAG isn't set yet)
   for(igal=0; igal < MXHOSTGAL; igal++ ) {
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], 
-			 igal, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT );
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], 
-			 igal, SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID );
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS_ERR[igal], 
-			 igal, SUFFIX_LOGMASS_ERR_ZGRID, SUFFIX_LOGMASS_ERR_VALGRID);
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], igal,
+			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "" );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal,
+			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
 
@@ -8577,12 +8575,10 @@ int init_SNDATA_EVENT(void) {
     for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
       { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
 
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], 
-			 igal, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT );
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], 
-			 igal, SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID );
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS_ERR[igal], 
-			 igal, SUFFIX_LOGMASS_ERR_ZGRID, SUFFIX_LOGMASS_ERR_VALGRID);
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], igal,
+			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal,
+			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
 
@@ -8770,32 +8766,56 @@ void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX,char *PREFIXz) {
 
 } // end get_SNDATA_HOSTGAL_PREFIX
 
-void get_SNDATA_HOSTGALz_VARNAMES(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES ) {
+/* xxxxxxx mark delete 
+void get_SNDATA_HOSTGALz_VARNAMES(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, 
+				  char *SUFFIX_val2, char **VARNAMES ) {
   char fnam[] = "get_SNDATA_HOSTGALz_VARNAMES" ;
   // -------- BEGIN -----------     
   sprintf(VARNAMES[0], "%s_NBIN_%s", PREFIX, SUFFIX_z);
   sprintf(VARNAMES[1], "%s_%s",      PREFIX, SUFFIX_z);
   sprintf(VARNAMES[2], "%s_%s",      PREFIX, SUFFIX_val);
-} // end get_SNDATA_HOSTGALz_VARNAMES
 
-void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *SUFFIX_z, char *SUFFIX_val ) {
+  if ( strlen(SUFFIX_val2) > 0 ) 
+    { sprintf(VARNAMES[3], "%s_%s",      PREFIX, SUFFIX_val2); }
+  else 
+    { VARNAMES[3][0] = 0 ; }
+
+} // end get_SNDATA_HOSTGALz_VARNAMES
+xxxxxx end mark */
+
+
+void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, 
+			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2 ) {
   int j;
-  char PREFIX[20], PREFIXz[20], varNames[3][60];
-  char *ptrNames[3] = { varNames[0], varNames[1], varNames[2] } ;
+  char PREFIX[20], PREFIXz[20], varNames[4][60];
+  char *ptrNames[4] = { varNames[0], varNames[1], varNames[2], varNames[3] } ;
   // ------------ BEGIN ----------
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
-  get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_z, SUFFIX_val, ptrNames);
 
+  /* xxxxxxxxx mark
+  get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_z, SUFFIX_val, SUFFIX_val2, ptrNames);
   // store data column names
-  sprintf(HOSTGALz->VARNAME_NZ,  "%s", ptrNames[0] ); // e.g, HOSTGAL_NBIN_XXX
-  sprintf(HOSTGALz->VARNAME_Z,   "%s", ptrNames[1] ); // e.g. HOSTGAL_ZZZ  (name of redshift)
-  sprintf(HOSTGALz->VARNAME_VAL, "%s", ptrNames[2] ); // e.g. HOSTGAL_VVVV (name of values)
+  sprintf(HOSTGALz->VARNAME_NZ,   "%s", ptrNames[0] ); // e.g, HOSTGAL_NBIN_XXX
+  sprintf(HOSTGALz->VARNAME_Z,    "%s", ptrNames[1] ); // e.g. HOSTGAL_ZZZ  (name of redshift)
+  sprintf(HOSTGALz->VARNAME_VAL,  "%s", ptrNames[2] ); // e.g. HOSTGAL_VVVV (name of values)
+  sprintf(HOSTGALz->VARNAME_VAL2, "%s", ptrNames[3] ); 
+  xxxxxx end mark */
+
+  sprintf(HOSTGALz->VARNAME_NZ,  "%s_NBIN_%s", PREFIXz, SUFFIX_z);
+  sprintf(HOSTGALz->VARNAME_Z,   "%s_%s",      PREFIXz, SUFFIX_z);
+  sprintf(HOSTGALz->VARNAME_VAL, "%s_%s",      PREFIXz, SUFFIX_val);
+
+  if ( strlen(SUFFIX_val2) > 0 ) 
+    { sprintf(HOSTGALz->VARNAME_VAL2, "%s_%s",  PREFIXz, SUFFIX_val2); }
+  else 
+    { HOSTGALz->VARNAME_VAL2[0] = 0 ; }
 
   HOSTGALz->NZ = 0;
   for (j=0; j < MXBIN_HOSTGALz; j++ ) {
-    HOSTGALz->Z_LIST[j]   = -9.0 ;
-    HOSTGALz->VAL_LIST[j] = -9.0 ;
+    HOSTGALz->Z_LIST[j]    = -9.0 ;
+    HOSTGALz->VAL_LIST[j]  = -9.0 ;
+    HOSTGALz->VAL2_LIST[j] = -9.0 ;
   }
 } // end init_SNDATA_HOSTGALz
 
@@ -8805,8 +8825,9 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
   // Generic dump utility for HOSTGALz object.
 
   int iz, NZ = HOSTGALz->NZ;
-  char *VARNAME_z   = HOSTGALz->VARNAME_Z;
-  char *VARNAME_val = HOSTGALz->VARNAME_VAL;
+  char *VARNAME_z    = HOSTGALz->VARNAME_Z;
+  char *VARNAME_val  = HOSTGALz->VARNAME_VAL;
+  char *VARNAME_val2 = HOSTGALz->VARNAME_VAL2;
   char fnam[200];
   concat_callfun_plus_fnam(callFun, "dump_SNDATA_HOSTGALz", fnam);
   // -------- BEGIN ----------
@@ -8816,7 +8837,8 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
   printf(" xxx %s : \n", fnam );
   printf(" xxx    SNID=%s  igal=%d  GALID=%lld \n", 
 	 SNDATA.CCID, igal, SNDATA.HOSTGAL_OBJID[igal]);
-  printf(" xxx    HOSTGALz VARNAME(z,val) is '%s'  '%s'\n", VARNAME_z,  VARNAME_val);
+  printf(" xxx    HOSTGALz VARNAME(z,val,val2) is '%s'  '%s'  '%s \n", 
+	 VARNAME_z,  VARNAME_val, VARNAME_val2 );
   for (iz=0; iz < NZ; iz++ ) {
     printf(" xxx       iz=%2d  z=%7.4f  val=%8.3f \n", 
 	   iz, HOSTGALz->Z_LIST[iz], HOSTGALz->VAL_LIST[iz] );

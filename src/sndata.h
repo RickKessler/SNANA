@@ -122,8 +122,7 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 #define SUFFIX_QUANTILE_PERCENT     "QUANTILE_PERCENT"
 #define SUFFIX_LOGMASS_ZGRID        "LOGMASS_ZGRID"
 #define SUFFIX_LOGMASS_VALGRID      "LOGMASS_VALGRID"
-#define SUFFIX_LOGMASS_ERR_ZGRID    "LOGMASS_ERR_ZGRID"
-#define SUFFIX_LOGMASS_ERR_VALGRID  "LOGMASS_ERR_VALGRID"
+#define SUFFIX_LOGMASS_ERRGRID      "LOGMASS_ERRGRID"
 
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
@@ -175,15 +174,20 @@ struct VERSION
 } VERSION_INFO ;
 
 
-#define MXBIN_HOSTGALz 41 // max z bins for HOSTGALz_DEF arrays
+#define MXBIN_HOSTGALz 40 // max z bins for HOSTGALz_DEF arrays
 #define MXBIN_HOSTGALz_QUANTILE 20
 
 typedef struct {
-  int     NZ;
+  int     NZ;                          // number of redshift bins
   float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)
   float   VAL_LIST[MXBIN_HOSTGALz] ;   // value list
+  float   VAL2_LIST[MXBIN_HOSTGALz] ;   // optional 2nd value (e.g, uncertainty on value
 
-  char    VARNAME_NZ[60], VARNAME_Z[60], VARNAME_VAL[60]; // column names for data stream
+  // column names for data stream
+  char    VARNAME_NZ[60];
+  char    VARNAME_Z[60];
+  char    VARNAME_VAL[60], VARNAME_VAL2[60]; 
+
 } HOSTGALz_DEF ;
 
 // define main SNDATA data structure

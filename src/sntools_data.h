@@ -35,7 +35,8 @@ struct {
   int  NEVT;     // number of events with unique CID or GALID
   int  NVAR_USE; // number of override variables used (Aug 2025)
 
-  char ID_LAST[40]; // last CID or GALID passed; used to count NUSE_OVERRIDE
+  char CID_LAST[40]; // always store last CID
+  char ID_LAST[40];  // last CID or GALID passed; used to count NUSE_OVERRIDE
 
   int   N_HOSTGAL_PHOTOZ_REPLACE;
 

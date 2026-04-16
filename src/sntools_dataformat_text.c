@@ -856,7 +856,7 @@ void wr_dataformat_text_HOSTGALz(FILE *fp, HOSTGALz_DEF *HOSTGALz) {
     sprintf(line_z,   "%s: ", HOSTGALz->VARNAME_Z);
     sprintf(line_val, "%s: ", HOSTGALz->VARNAME_VAL);
     for(iz=0; iz < NZ; iz++ ) {
-      sprintf(cval, "%.5f ", HOSTGALz->Z_LIST[iz]   );  strcat(line_z,cval); 
+      sprintf(cval, "%.4f ", HOSTGALz->Z_LIST[iz]   );  strcat(line_z,cval); 
       sprintf(cval, "%.2f ", HOSTGALz->VAL_LIST[iz] );  strcat(line_val,cval); 
     }
     fprintf(fp,"%s\n", line_z) ; 

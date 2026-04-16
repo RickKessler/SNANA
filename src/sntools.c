@@ -8793,23 +8793,15 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal,
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
 
-  /* xxxxxxxxx mark
-  get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_z, SUFFIX_val, SUFFIX_val2, ptrNames);
-  // store data column names
-  sprintf(HOSTGALz->VARNAME_NZ,   "%s", ptrNames[0] ); // e.g, HOSTGAL_NBIN_XXX
-  sprintf(HOSTGALz->VARNAME_Z,    "%s", ptrNames[1] ); // e.g. HOSTGAL_ZZZ  (name of redshift)
-  sprintf(HOSTGALz->VARNAME_VAL,  "%s", ptrNames[2] ); // e.g. HOSTGAL_VVVV (name of values)
-  sprintf(HOSTGALz->VARNAME_VAL2, "%s", ptrNames[3] ); 
-  xxxxxx end mark */
-
   sprintf(HOSTGALz->VARNAME_NZ,  "%s_NBIN_%s", PREFIXz, SUFFIX_z);
   sprintf(HOSTGALz->VARNAME_Z,   "%s_%s",      PREFIXz, SUFFIX_z);
   sprintf(HOSTGALz->VARNAME_VAL, "%s_%s",      PREFIXz, SUFFIX_val);
 
-  if ( strlen(SUFFIX_val2) > 0 ) 
+  HOSTGALz->USE_VAL2 = ( strlen(SUFFIX_val2) > 0 ) ;
+  if ( HOSTGALz->USE_VAL2 ) 
     { sprintf(HOSTGALz->VARNAME_VAL2, "%s_%s",  PREFIXz, SUFFIX_val2); }
   else 
-    { HOSTGALz->VARNAME_VAL2[0] = 0 ; }
+    {   HOSTGALz->VARNAME_VAL2[0] = 0 ; }
 
   HOSTGALz->NZ = 0;
   for (j=0; j < MXBIN_HOSTGALz; j++ ) {

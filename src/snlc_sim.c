@@ -4167,10 +4167,44 @@ int parse_input_LENS(char **WORDS, int keySource) {
 
 } // end parse_input_LENS
 
+void check_parse_args_for_COLON(int ncheck, char **WORDS) {
+
+  // Created Apr 2026
+  // WORDS[0] is current key, and check next "ncheck" args for colon.
+  // abort on colon in any arg, as this likely means that there are
+  // not enough arguments and parser read next key instead of next arg.
+  //
+  // Eg. suppose inputs file has
+  // CUTWIN_SNRMAX: 5 ugriz 4    # <=== missing 2 args
+  // SMEARFLAG_FLUX: 1
+  //
+  // CUTWIN_SNRMAX should have 5 args, so the 4th arg is incorrect 'SMEARFLAG_FLUX:'
+  // This function identifies the bad argument and aborts.
+  //
+  int i;
+  char *KEY = WORDS[0];
+  char fnam[] = "check_parse_args_for_COLON";
+
+  // --------- BEGIN ----------
+
+  for(i=1; i <= ncheck; i++ ) { // skip WORDS[0] that os primary key
+    if ( strstr(WORDS[i],COLON) != NULL )  {
+      sprintf(c1err, "%s key has invalid arg[%d] = '%s' that is likely the", 
+	      KEY, i, WORDS[i]);
+      sprintf(c2err, "next KEY in input file; check %s arguments in manual.", KEY);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
+    }
+  }
+  return;
+} // end check_parse_args_for_COLON
+
 // ================================================
 int  parse_input_CUTWIN(char **WORDS, int keySource ) {
 
+  // Apr 2026: read all args into single line string to avoid reading key in next line
+
   int  NCUT, N=0;
+  char line[MXPATHLEN];
   char fnam[] = "parse_input_CUTWIN" ;
 
   // ---------- BEGIN ----------
@@ -4180,46 +4214,56 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
    return(N) ;
  }
  else if ( keyMatchSim(1, "EPCUTWIN_LAMREST", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_LAMREST[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_LAMREST[1] );
  } 
  else if ( keyMatchSim(1, "EPCUTWIN_SNRMIN", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_SNRMIN[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.EPCUTWIN_SNRMIN[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_REDSHIFT CUTWIN_REDSHIFT_TRUE", 
 		       WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_TRUE[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_REDSHIFT_FINAL", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_REDSHIFT_FINAL[1] );
  } 
  else if ( keyMatchSim(1, "CUTWIN_HOST_PHOTOZ CUTWIN_HOST_ZPHOT",
 		       WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_HOST_ZPHOT[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_HOST_ZPHOT[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_TRESTMIN", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMIN[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMIN[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_TRESTMAX", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMAX[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TRESTMAX[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_TGAPMAX", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TGAPMAX[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_TGAPMAX[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_T0GAPMAX", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_T0GAPMAX[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_T0GAPMAX[1] );
  }
  else if ( keyMatchSim(MXCUTWIN_SNRMAX, "CUTWIN_SNRMAX", WORDS[0],keySource)) {
    INPUTS.NCUTWIN_SNRMAX++ ;  // should refactor later to start at zero, not 1
    NCUT = INPUTS.NCUTWIN_SNRMAX ;
+   check_parse_args_for_COLON(5, WORDS); 
    N++ ; sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_SNRMAX[NCUT][0]       );
    N++ ; sscanf(WORDS[N], "%s", INPUTS.CUTWIN_SNRMAX_FILTERS[NCUT]   );
    N++ ; sscanf(WORDS[N], "%s", INPUTS.CUTWIN_SNRMAX_LOGIC[NCUT]     );
@@ -4227,19 +4271,23 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
    N++ ; sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_SNRMAX_TREST[NCUT][1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_NEPOCH", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_NEPOCH[0] );   // NOBS cut
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_NEPOCH[1] );   // SNRMIN cut
  }
  else if ( keyMatchSim(1, "CUTWIN_NOBSDIF", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOBSDIF[0] ); 
    N++;  sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOBSDIF[1] ); 
  }
  else if ( keyMatchSim(1, "CUTWIN_MJDDIF", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MJDDIF[0] ); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MJDDIF[1] ); 
  }
  else if ( keyMatchSim(1, "CUTWIN_NOBS_SATURATE", WORDS[0],keySource)) {
    NCUT = INPUTS.NCUTWIN_SATURATE;
+   check_parse_args_for_COLON(3, WORDS); 
    N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_SATURATE_NOBS[NCUT][0] );
    N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_SATURATE_NOBS[NCUT][1] );
    N++ ; sscanf(WORDS[N], "%s",  INPUTS.CUTWIN_SATURATE_FILTERS[NCUT] );
@@ -4247,32 +4295,38 @@ int  parse_input_CUTWIN(char **WORDS, int keySource ) {
  }
  else if ( keyMatchSim(1, "CUTWIN_NOBS_NOSATURATE", WORDS[0],keySource)) {
    NCUT = INPUTS.NCUTWIN_NOSATURATE;
+   check_parse_args_for_COLON(3, WORDS); 
    N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOSATURATE_NOBS[NCUT][0] );
    N++ ; sscanf(WORDS[N], "%d", &INPUTS.CUTWIN_NOSATURATE_NOBS[NCUT][1] );
    N++ ; sscanf(WORDS[N], "%s",  INPUTS.CUTWIN_NOSATURATE_FILTERS[NCUT] );
    INPUTS.NCUTWIN_NOSATURATE++ ;
  }
  else if ( keyMatchSim(1, "CUTWIN_MWEBV", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MWEBV[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_MWEBV[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_PEAKMAG", WORDS[0],keySource)) {
    // PEAKMAG cut on brightest epoch only
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_PEAKMAG_ALL", WORDS[0],keySource)) {
    // require ALL filters to satisfy PEAKMAG cut
+   check_parse_args_for_COLON(2, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[0] );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_PEAKMAG_ALL[1] );
  }
  else if ( keyMatchSim(1, "CUTWIN_PEAKMAG_BYFIELD", WORDS[0],keySource)) {
    INPUTS.NCUTWIN_PEAKMAG_BYFIELD++ ;  NCUT = INPUTS.NCUTWIN_PEAKMAG_BYFIELD;
+   check_parse_args_for_COLON(3, WORDS); 
    N++;  sscanf(WORDS[N], "%f",  &INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][0] );
    N++;  sscanf(WORDS[N], "%f",  &INPUTS.CUTWIN_PEAKMAG_BYFIELD[NCUT][1] );
    N++;  sscanf(WORDS[N], "%s",  INPUTS.CUTWIN_BYFIELDLIST[NCUT] );
  }
  else if ( keyMatchSim(1, "CUTWIN_EPOCHS_SNRMIN", WORDS[0],keySource)) {
+   check_parse_args_for_COLON(3, WORDS); 
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_EPOCHS_SNRMIN );
    N++;  sscanf(WORDS[N], "%f", &INPUTS.CUTWIN_EPOCHS_TRANGE[1] );
    N++;  sscanf(WORDS[N], "%s", INPUTS.CUTWIN_EPOCHS_FILTERS );

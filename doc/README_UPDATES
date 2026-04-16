@@ -23676,5 +23676,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       10% of FITWIN_PROB(1) to remove rare catastrophic fits for 
       small systematic shift.
 
+   snlc_sim.c: 
+    + add new utility check_parse_args_for_COLON(..) to abort if any
+      arguments contain a ':' which means a key has been read 
+      (intead of required arg) by mistake.
+      This utility has been added for all keys in parse_input_CUTWIN(),
+      and over time this utility should be added to more keys with
+      many args that could lead to user-input mistakes.
+
 
 END: 

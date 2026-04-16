@@ -802,6 +802,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     if ( REFAC_DATA_FLAG > 0 ) {
       // Apr 13 2026: write HOSTGALz fields
       wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
+      wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_LOGMASS[igal]);
     }
 
   } // end igal loop
@@ -846,21 +847,25 @@ void wr_dataformat_text_HOSTGALz(FILE *fp, HOSTGALz_DEF *HOSTGALz) {
   //   HOSTGALZ_[varname_val]:  <list of values>
   //
   int iz, NZ = HOSTGALz->NZ;
-  char line_z[MXPATHLEN], line_val[MXPATHLEN], cval[20];
+  char line_z[MXPATHLEN], line_val[MXPATHLEN], line_val2[MXPATHLEN], cval[20];
   char fnam[] = "wr_dataformat_text_HOSTGALz" ;
 
   // ------------- BEGIN ----------
   
   fprintf(fp,"%s:  %d \n", HOSTGALz->VARNAME_NZ, HOSTGALz->NZ);
+
   if ( NZ > 0 ) {
-    sprintf(line_z,   "%s: ", HOSTGALz->VARNAME_Z);
-    sprintf(line_val, "%s: ", HOSTGALz->VARNAME_VAL);
+    sprintf(line_z,    "%s: ", HOSTGALz->VARNAME_Z);
+    sprintf(line_val,  "%s: ", HOSTGALz->VARNAME_VAL);
+    sprintf(line_val2, "%s: ", HOSTGALz->VARNAME_VAL2);
     for(iz=0; iz < NZ; iz++ ) {
       sprintf(cval, "%.4f ", HOSTGALz->Z_LIST[iz]   );  strcat(line_z,cval); 
       sprintf(cval, "%.2f ", HOSTGALz->VAL_LIST[iz] );  strcat(line_val,cval); 
+      sprintf(cval, "%.2f ", HOSTGALz->VAL2_LIST[iz]);  strcat(line_val2,cval); 
     }
     fprintf(fp,"%s\n", line_z) ; 
     fprintf(fp,"%s\n", line_val) ; 
+    if ( HOSTGALz->USE_VAL2 ) { fprintf(fp,"%s\n", line_val2) ; }
   }
 
   fprintf(fp,"\n");
@@ -3325,7 +3330,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   else if ( strcmp(word0,"SPECTRUM_MJD:") == 0 ) {
     iwd++ ;  get_PARSE_WORD_DBL(langC, iwd, &MJD, fnam );
     GENSPEC.MJD_LIST[ISPEC] = MJD ;
-    // xxx mark GENSPEC.TOBS_LIST[ISPEC]= MJD - SNDATA.SEARCH_PEAKMJD ; // Oct 29 2025: for comment field only
+
     if ( MJD > 0.0 ) 
       { GENSPEC.IS_HOST[ISPEC] = 0 ; } // is SN spectrum
     else

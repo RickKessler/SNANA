@@ -261,6 +261,7 @@ void wr_snfitsio_update_spec(int imjd);
 void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ); 
 void wr_snfitsio_fillTable_filters (int *COLNUM_INDX, char *PREFIX, int ITYPE, float *VAL) ;
 void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, double *VAL) ;
+void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int ITYPE, HOSTGALz_DEF *HOSTGALz);
 
 void WR_SNFITSIO_END(int OPTMASK);
 
@@ -308,6 +309,8 @@ int RD_SNFITSIO_INT(int isn, char *parName, int    *parList, int *ipar);
 int RD_SNFITSIO_SHT(int isn, char *parName, short int *parList, int *ipar);
 int RD_SNFITSIO_FLT(int isn, char *parName, float  *parList, int *ipar);
 int RD_SNFITSIO_DBL(int isn, char *parName, double *parList, int *ipar);
+int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz);
+
 int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
 void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
 			  double *FLAM, double *FLAMERR, double *GENFLAM);

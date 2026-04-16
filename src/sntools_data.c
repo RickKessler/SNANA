@@ -446,15 +446,12 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
       sprintf(KEY_TEST,"%s_PHOTOZ", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) { 
-	// xxx mark RD_OVERRIDE.ORIG_HOSTGAL_PHOTOZ[igal] = SNDATA.HOSTGAL_PHOTOZ[igal];
 	copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ[igal] ); 
       } 
 
       sprintf(KEY_TEST,"%s_PHOTOZ_ERR", PREFIX); 
-      if ( strcmp(key,KEY_TEST) == 0 ) {
-	// xxx mark RD_OVERRIDE.ORIG_HOSTGAL_PHOTOZ_ERR[igal] = SNDATA.HOSTGAL_PHOTOZ_ERR[igal];
-	copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] ); 
-      } 
+      if ( strcmp(key,KEY_TEST) == 0 ) 
+	{ copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_PHOTOZ_ERR[igal] );   } 
 
       sprintf(KEY_TEST,"%s_SPECZ", PREFIX); 
       if ( strcmp(key,KEY_TEST) == 0 ) 
@@ -524,33 +521,18 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       // - - - 
       if ( REFAC_DATA_FLAG > 0 && strstr(key,"QUANTILE") != NULL ) {
 
-	/* xxxxxxxxxxx  mark delete 
-	char parNames[4][40];
-	char *ptrNames[4] = { parNames[0], parNames[1], parNames[2], parNames[3] } ;
-	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ; ;
-	get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "",
-				     ptrNames);
-		 xxxxxxxx end mark */
-
 	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];
 		
-	if ( strcmp(key,HOSTGALz->VARNAME_NZ) == 0 ) {   
-	  copy_int(copyFlag, parVal, &HOSTGALz->NZ );  // read number of quantile bins
-	  //printf(" xxx ---------------------------------------- \n");
-	  //printf(" xxx %s: CID=%s igal=%d  NZ = %d \n", fnam, SNDATA.CCID, igal, HOSTGALz->NZ);
-	}
+	if ( strcmp(key,HOSTGALz->VARNAME_NZ) == 0 ) 
+	  { copy_int(copyFlag, parVal, &HOSTGALz->NZ ); }  // read number of quantile bins
+
 	else if ( strcmp(key,HOSTGALz->VARNAME_Z) == 0 ) {
-	  for(q=0; q < HOSTGALz->NZ; q++ ) {
-	     copy_flt(copyFlag, &parVal[q], &HOSTGALz->Z_LIST[q] );   // read zPhot grid
-	     // xxx mark RD_OVERRIDE.ORIG_HOSTGALz_ZPHOT_QUANTILE[igal][q] = HOSTGALz->Z_LIST[q];
-	     //printf(" xxx %s: CID=%s z[q=%2d]=%.4f \n", fnam, SNDATA.CCID, q, HOSTGALz->Z_LIST[q]);
-	  }
+	  for(q=0; q < HOSTGALz->NZ; q++ ) 
+	    { copy_flt(copyFlag, &parVal[q], &HOSTGALz->Z_LIST[q] ); }  // read zPhot grid	  
 	}
 	else if ( strcmp(key,HOSTGALz->VARNAME_VAL) == 0 ) {
-	  for(q=0; q < HOSTGALz->NZ; q++ ) {
-	    copy_flt(copyFlag, &parVal[q], &HOSTGALz->VAL_LIST[q] );   // read percentile grid
-	    //printf(" xxx %s: pct[q=%2d] = %.4f \n", fnam, q, parVal[q] );
-	  }
+	  for(q=0; q < HOSTGALz->NZ; q++ ) 
+	    { copy_flt(copyFlag, &parVal[q], &HOSTGALz->VAL_LIST[q] ); }  // read percentile grid
 	}
 	fflush(stdout);
       }
@@ -1493,18 +1475,10 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
       RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT_ERR[igal] = IVAR;
     }
 
-    /* xxx mark delete xxx
-    char parNames[4][60];
-    char *ptrNames[4] = { parNames[0], parNames[1], parNames[2], parNames[3] } ;
-    get_SNDATA_HOSTGALz_VARNAMES(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "",
-			  ptrNames); // return ptrNames 
-    xxxx */
 
     char *ptr_varname = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VARNAME_Z ; // .xyz
     if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
-      // xxx mark IVAR = IVAR_VARNAME_AUTOSTORE(ptrNames[1], &ICAST ) ;
       IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
-      printf(" xxx %s: IVAR = %d \n", fnam, IVAR);
       RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal] = IVAR;
     }
 

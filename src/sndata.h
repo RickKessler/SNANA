@@ -182,6 +182,7 @@ typedef struct {
   float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)
   float   VAL_LIST[MXBIN_HOSTGALz] ;   // value list
   float   VAL2_LIST[MXBIN_HOSTGALz] ;   // optional 2nd value (e.g, uncertainty on value
+  bool    USE_VAL2;    // flag for optional VAL2 (to avoid repeat check on VARNAME_VAL2)
 
   // column names for data stream
   char    VARNAME_NZ[60];

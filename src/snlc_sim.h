@@ -1951,6 +1951,8 @@ void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
 
+void   check_parse_args_for_COLON(int ncheck, char **WORDS);
+
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 
 // xxx mark del Aug 11 2025 void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE);

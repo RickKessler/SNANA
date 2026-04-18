@@ -23684,5 +23684,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       and over time this utility should be added to more keys with
       many args that could lead to user-input mistakes.
 
+   + new sim input GENRANGE_PEAKMJD_EXCLUDE: xx yy
+     to allow for big gaps; e.g., between two seasons or between
+     pilot and main survey.
 
 END: 

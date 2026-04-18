@@ -830,6 +830,8 @@ void set_user_defaults(void) {
 
   INPUTS.GENRANGE_PEAKMJD[0] = 0.0 ;
   INPUTS.GENRANGE_PEAKMJD[1] = 0.0 ;
+  INPUTS.GENRANGE_PEAKMJD_EXCLUDE[0] = 0.0;
+  INPUTS.GENRANGE_PEAKMJD_EXCLUDE[1] = 0.0;
   INPUTS.MJD_EXPLODE         = 0.0 ;
   INPUTS_SEDMODEL.OPTMASK_T0SHIFT_EXPLODE  = -9   ;
   INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX         = -9.0 ;
@@ -2197,6 +2199,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"GENRANGE_PEAKMJD", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMJD[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMJD[1] );
+  }
+  else if ( keyMatchSim(1,"GENRANGE_PEAKMJD_EXCLUDE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMJD_EXCLUDE[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_PEAKMJD_EXCLUDE[1] );
   }
   else if ( keyMatchSim(1,"GENSIGMA_PEAKMJD GENSIGMA_SEARCH_PEAKMJD", 
 			WORDS[0],keySource) ) {
@@ -8808,7 +8814,7 @@ void init_DNDZ_Rate(void) {
 
   double Z0, Z1, Z_AVG, ZVtmp[2], ZVint[2], ZVOL, VT;
   double dOmega, dOmega_user, dth, dphi, sin0, sin1;
-  double delMJD, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum;
+  double delMJD, delMJD_EXCLUDE, Tyear, Tcomoving, SNsum, PEC1Asum, TOTsum;
   double ztmp, rtmp, rtmp1, rtmp2, FRAC_PEC1A, dVdz_tmp;
 
   int i, iz, OPT_DVDZ ;
@@ -8880,7 +8886,11 @@ void init_DNDZ_Rate(void) {
 
 
   // get time in years
-  delMJD    = INPUTS.GENRANGE_PEAKMJD[1] - INPUTS.GENRANGE_PEAKMJD[0] ;
+  double *GENMJD  = INPUTS.GENRANGE_PEAKMJD;
+  double *GENMJDX = INPUTS.GENRANGE_PEAKMJD_EXCLUDE ;
+  delMJD_EXCLUDE = GENMJDX[1] - GENMJDX[0];   // Apr 2026
+  delMJD         = GENMJD[1]  - GENMJD[0] - delMJD_EXCLUDE;
+
   Tyear     = delMJD / 365.0 ;
   Tcomoving = Tyear / ( 1.0 + Z_AVG ) ;
   VT        = ZVOL * Tcomoving ;
@@ -16818,9 +16828,14 @@ double gen_peakmjd(void) {
   //              key is set.
   //
   // Aug 17 2023: check SIMLIB_MSKOPT_IDEAL_GRID option
+  // Apr 19 2026: check INPUTS.GENRANGE_PEAKMJD_EXCLUDE
 
   int USE_IDEAL_GRID  = INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_IDEAL_GRID;
   double PKMJD=-9.0 , MJD[2];
+  double *GENPKMJD         = INPUTS.GENRANGE_PEAKMJD;
+  double *GENPKMJD_EXCLUDE = INPUTS.GENRANGE_PEAKMJD_EXCLUDE;
+  bool    CHECK_PKMJD_EXCLUDE = ( GENPKMJD_EXCLUDE[1] > 0.0  );
+
   int    NSKIP_RANGE, NSKIP_MJD, i ;
   char   fnam[] = "gen_peakmjd" ;
 
@@ -16842,7 +16857,14 @@ double gen_peakmjd(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
-  PKMJD = getRan_Flat (1,INPUTS.GENRANGE_PEAKMJD );
+  bool VALID_PKMJD = false;
+  while ( !VALID_PKMJD ) {
+    PKMJD = getRan_Flat (1, GENPKMJD ); // .xyz
+    VALID_PKMJD = true;
+    if ( CHECK_PKMJD_EXCLUDE ) {
+      if ( PKMJD > GENPKMJD_EXCLUDE[0] && PKMJD < GENPKMJD_EXCLUDE[1] ) { VALID_PKMJD = false; }
+    }
+  }
 
   // check for MJD-ranges to skip
   for ( i=0; i < NSKIP_RANGE ; i++ ) {
@@ -17726,8 +17748,11 @@ double SNcount_model(double zMIN, double zMAX, RATEPAR_DEF *RATEPAR ) {
   }
 
   // tack on factors for solid angle and time-window.
+  double *GENMJD  = INPUTS.GENRANGE_PEAKMJD ;
+  double *GENMJDX = INPUTS.GENRANGE_PEAKMJD_EXCLUDE ; // April 2026
+
   double dOmega = INPUTS.SOLID_ANGLE ;
-  double delMJD = INPUTS.GENRANGE_PEAKMJD[1] - INPUTS.GENRANGE_PEAKMJD[0] ;
+  double delMJD = ( GENMJD[1] - GENMJD[0] ) - ( GENMJDX[1] - GENMJDX[0] ) ;
   double Tyear  = delMJD / 365.0 ;
 
   SNsum *= ( dOmega * Tyear * dz) ;

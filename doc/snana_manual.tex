@@ -6330,9 +6330,11 @@ For all models, the default light-curve time window is
 defined by its time of peak brightnes, or {\tt PEAKMJD}.
 In particular, the sim-input key 
 \begin{verbatim}
-   GENRANGE_PEAKMJD: <MJDmin>  <MJDmax>
+   GENRANGE_PEAKMJD:          <MJDmin>  <MJDmax>   # required
+   GENRANGE_PEAKMJD_EXCLUDE:  <MJDmin>  <MJDmax>   # optional
 \end{verbatim}
-specifies an MJD window to randomly generate {\tt PEAKMJD}.
+specifies an MJD window to randomly generate {\tt PEAKMJD},
+along with an optional window to exclude.
 
 For triggered events, 
 such as from gravity waves (LIGO) or neutrinos (ICECUBE),

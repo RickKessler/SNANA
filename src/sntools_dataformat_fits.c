@@ -4096,20 +4096,18 @@ int rd_snfitsio_event__(int *OPT, int *isn )
 { return RD_SNFITSIO_EVENT(*OPT,*isn); }
 
 
+/* xxxxxxxxxx nark delete xxxxxxxxx
 int NZ_HOSTGALz_snfitsio(int MXBIN, float *Z_LIST) {
-
   // Return number of Z_LIST redshifts that are >=0.
-  
   int  iz, NZ = 0 ;
   char fnam[] = "NZ_HOSTGALz_snfitsio";
-
   // ------------ BEGIN -------------
-
   for(iz=0; iz < MXBIN; iz++ ) {
     if ( Z_LIST[iz] >= 0.0 ) { NZ++; }  else { break; }
   }
   return NZ;
 } // end NZ_HOSTGALz_snfitsio
+xxxxxxx end mark xxxxxxxx */
 
 void check_NZ_HOSTGALz_snfitszio(int MXBIN, int NZ0, int NZ1, 
 				 char *VARNAME0, char *VARNAME1, char *callFun) {
@@ -6267,7 +6265,7 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   
   // set NZ to number of non-negative Z_LIST values so that it works 
   // reading FITS file and also for OVERRIDE; pad -9 values are ignored.
-  HOSTGALz->NZ = NZ_HOSTGALz_snfitsio(MXBIN, HOSTGALz->Z_LIST);
+  HOSTGALz->NZ = NZ_HOSTGALz(MXBIN, HOSTGALz->Z_LIST);
 
   int LDMP = 0 ; // (igal==0);
   if ( LDMP ) { dump_SNDATA_HOSTGALz(HOSTGALz, igal, fnam); }

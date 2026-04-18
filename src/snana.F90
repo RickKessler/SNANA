@@ -374,9 +374,10 @@
          ,EXIST_FILT(MXFILT_OBS)   &  ! T => at least one point per filt
          ,FOUND_SURVEY  & 
          ,FORMAT_TEXT     &  ! ascii/txt for input data
-         ,FORMAT_FITS     &  ! snfitsio for input data.
-         ,SIM_COMPACT_noFLUXCAL  ! if SIM_WRITE_MASK & 4096 (Feb 2026)
-
+         ,FORMAT_FITS     &  ! snfitsio for input data
+         ,OVERRIDE_ZPHOT_QUANTILES & ! true of HEADER_OVERRIDE_FILE includes ZPHOT quantiles
+         ,SIM_COMPACT_noFLUXCAL      ! if SIM_WRITE_MASK & 4096 (Feb 2026)
+    
     INTEGER N_SNLC_PLOT
     LOGICAL MADE_LCPLOT  ! SAVE:  T if LC plot was made
 
@@ -2672,6 +2673,7 @@
 ! 
 ! Feb 2026: remove ENVreplace calls since ENVreplace is called in RD_OVERRIDE_INIT.
 ! Mar 2026: refactor to pass either file list or folder name
+! Apr 2026: call ISRD_OVERRIDE_VARNAME to check if quantiles are on override list
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -2679,10 +2681,11 @@
 
     INTEGER LEN_PATH, LEN_PRIV, REQ_DOC, NPATH
     LOGICAL ISDATA
-    CHARACTER STR_TMP*(MXFILE_LIST*MXCHAR_FILENAME)
+    CHARACTER STR_TMP*(MXFILE_LIST*MXCHAR_FILENAME), VARNAME*60
     CHARACTER OVERRIDE_PATH*(MXFILE_LIST*MXCHAR_FILENAME) ! file list or folder
 
-    LOGICAL IGNOREFILE_fortran  ! function
+    
+    LOGICAL IGNOREFILE_fortran, ISRD_OVERRIDE_VARNAME  ! function
 
 ! ------------ BEGIN -----------
 
@@ -2727,6 +2730,11 @@
        LEN_PATH = INDEX(OVERRIDE_PATH,' ') - 1
        REQ_DOC = 1  ! require DOCANA
        CALL RD_OVERRIDE_INIT(OVERRIDE_PATH(1:LEN_PATH)//char(0), REQ_DOC, LEN_PATH)
+
+       ! check if quantiles are in override to ensure adding mean & stddev to plot table
+       VARNAME = 'HOSTGALz_QUANTILE_ZPHOT' // char(0)
+       OVERRIDE_ZPHOT_QUANTILES = ISRD_OVERRIDE_VARNAME(VARNAME, 40)
+       print*,' xxx OVERRIDE_ZPHOT_QUANTILES = ', OVERRIDE_ZPHOT_QUANTILES
     endif
 
     ! - - - - - -
@@ -8310,7 +8318,6 @@
 ! 
     USE SNPAR
     USE SNCUTS
-! CDE,CTRLCOM.
     USE SNLCINP_NML
 
     IMPLICIT NONE
@@ -10686,7 +10693,8 @@
     SUBROUTINE copy_SNDATA_MISC()
 
 ! Created Mar 14 2021
-! Update the following SNDATA struct variables for re-writting in FITS or TEXT format:
+! Update SNDATA struct variables that could be modified here in snana.exe;
+! for re-writting in FITS or TEXT format with changes from original data file:
 ! 
 !   + PEAKMJD                ( if OPT_SETPKMJD > 0)
 !   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
@@ -10793,10 +10801,15 @@
 ! Oct 2025: copy photo-z quantiles back to SNDATA struct
     if ( REFAC_DATA_FLAG > 0 ) then
        do igal = 1, MXSNHOST
-          CALL copy_SNDATA_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), COPYFLAG)
+          ! no need to copy override quantiles that are not modified here 
+          ! ?? not needed ?? CALL copy_SNDATA_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), COPYFLAG)
+
+          ! maybe set SNHOST_ZPHOT[_ERR] to MEAN and STD ... and copy back to SNDATA struct,
+          ! Should this be automatic, or require OVERRIDE to change it?
+          ! Automation problem may not allow alternate zPHOT_[ERR] options ?
        enddo
     else
-       ! legacy
+       ! legacy ... this may have never been needed
        NQ = SNHOST_NZPHOT_Q(1)
        if ( NQ > 0 ) then
           do q = 1, NQ
@@ -10813,8 +10826,7 @@
     IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
       cKEY     = "NVAR_PRIVATE"  // char(0)
       DVAL(1)  = -1.0   ! -1 means disable to avoid abort on NVAR change
-      CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG,  & 
-                cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
 ! ----
@@ -10823,15 +10835,13 @@
     IF ( DOFUDGE_FLUXERRMODEL .or. FUDGE_MAG_ERROR.NE.'') THEN
        cKEY  = "FLUXCALERR" // char(0)
        DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL_ERRTOT(o) ; END DO
-       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
     IF ( NSTORE_MAGCOR > 0 ) THEN
        cKEY  = "FLUXCAL" // char(0)
        DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL(o) ; END DO
-       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
 ! Apr 19 2025: check modifying band name
@@ -10860,20 +10870,17 @@
     if ( PHOTFLAG_TRIGGER > 0 ) then
        cKEY = "MJD_TRIGGER" // char(0)
        DVAL(1) = SNLC8_MJD_TRIGGER
-       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,  & 
-               cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     endif
 
     if ( PHOTFLAG_DETECT > 0 ) then
        cKEY = "MJD_DETECT_FIRST" // char(0)
        DVAL(1) = SNLC8_MJD_DETECT_FIRST
-       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,  & 
-               cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
        cKEY = "MJD_DETECT_LAST" // char(0)
        DVAL(1) = SNLC8_MJD_DETECT_LAST
-       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,  & 
-               cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     endif
 
 ! - - - - -
@@ -17783,7 +17790,7 @@
     USE SNLCINP_NML
 
     IMPLICIT NONE
-    INTEGER IERR
+    INTEGER IERR, igal
 
 ! -------------- BEGIN ----------
 
@@ -17794,8 +17801,12 @@
        return
     endif
 
-! Nov 30 2025: if there are quantiles, compute MEAN and STDDEV 
-    CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT,IERR)
+! if there are quantiles, compute MEAN and STDDEV.
+! Loop backwards so that IGAL=1 is last and preserved 
+! for LCFIT
+    do IGAL = SNHOST_NMATCH2, 1, -1
+       CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT, IGAL, IERR)
+    enddo
 
 ! Check option to use host photo-z as redshift.
     CALL SET_SNHOST_ZPHOT()
@@ -17907,7 +17918,7 @@
 
 
 ! =============================================
-    SUBROUTINE SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES,IERR)
+    SUBROUTINE SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IGAL, IERR)
 !
 ! Created Nov 30 2025:
 ! If there are host photot-z quanitiles, compute MEAN and STDDEV
@@ -17915,33 +17926,33 @@
 !    appear in SNANA table without having to do LC fit]
 !
 ! Apr 15 2026: start using new SNHOSTz_DEF TYPE
-!
+! Apr 16 2026: pass IGAL as argument
+
     USE SNDATCOM
     USE SNLCINP_NML
 
     IMPLICIT NONE
 
     CHARACTER :: METHOD_SPLINE_QUANTILES*(*)  ! (I) method to interpolate PDF
+    INTEGER   :: IGAL                         ! (I) sparse host index
     INTEGER   :: IERR                         ! (O) return error code (0 = no error)
 
 ! local var
     INTEGER*8 :: GALID
     CHARACTER*(MXCHAR_CCID)  CCID
-    INTEGER   :: NQ, q, LM, IERR_ZPDF, IPRINT, IGAL
+    INTEGER   :: NQ, q, LM, IERR_ZPDF, IPRINT
     REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
 
 ! ------------- BEGIN ---------------
 
     if ( REFAC_DATA_FLAG > 0 ) then
-       NQ = SNHOSTz_ZPHOT_QUANTILE(1)%NZ
+       NQ = SNHOSTz_ZPHOT_QUANTILE(IGAL)%NZ
     else
-       NQ = SNHOST_NZPHOT_Q(1)
+       NQ = SNHOST_NZPHOT_Q(IGAL)
     endif
    
     if ( NQ <= 0 ) RETURN
-
-    IGAL = 1  ! default is closest host, but may add option later to used 2nd host
 
     do q = 1, NQ
        if ( REFAC_DATA_FLAG > 0 ) then
@@ -17958,12 +17969,12 @@
              CCID   = SNLC_CCID
              GALID = SNHOST_OBJID(IGAL)
              write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
-61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I12 )
+61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I16 )
              C2ERR = 'ZPHOT_Q must be monotonically increasing'
              if ( ABORT_ON_BADQZPHOT ) then
                 CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
              else
-                print*,' WARNING: ', C1ERR
+                print*,' SET_SNHOST_QZPHOT WARNING: ', C1ERR
                 call flush(6)
              endif
 
@@ -17976,13 +17987,13 @@
     if ( STDOUT_UPDATE ) IPRINT = 1
 
     CALL init_zPDF_spline(NQ, ZPHOT_PROB, ZPHOT_Q,  &
-         SNLC_CCID(1:ISNLC_LENCCID)//char(0),  &
-         METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &
+         SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
+         METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
 
     if (IERR .EQ. 0 ) then
-       SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
-       SNHOST_QZPHOT_STD(1)  = STD
+       SNHOST_QZPHOT_MEAN(IGAL) = MEAN ! store mean & std in 4 byte global
+       SNHOST_QZPHOT_STD(IGAL)  = STD
     endif
 
     return
@@ -18007,7 +18018,7 @@
     REAL*8 zhelio_zcmb_translator ! function
 ! -------------- BEGIN ----------------
 
-    LZPH  = (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ)
+    LZPH  = (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ)  ! redundant logicals
     LQZPH = (USE_SNHOST_QZPHOT)  ! quantiles
 
     IF ( LZPH ) then
@@ -18017,8 +18028,6 @@
     else
        return
     endif
-
-    ! xxx mark IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
 
     if ( .not. EXIST_SNHOST_ZPHOT ) then
         C1ERR = 'Cannot USE_HOSTGAL_PHOTOZ for CID='//SNLC_CCID
@@ -24067,7 +24076,7 @@
     else
        NQ = SNHOST_NZPHOT_Q(1) 
     endif
-    if( NQ > 0 ) then
+    if( NQ > 0 .or. OVERRIDE_ZPHOT_QUANTILES ) then
        VARLIST =  PREFIX(1:LP) // 'QZPHOT:F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_QZPHOT_MEAN(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )
        VARLIST =  PREFIX(1:LP) // 'QZPHOTSTD:F' // char(0)

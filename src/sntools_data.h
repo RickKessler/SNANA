@@ -75,13 +75,14 @@ void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
 void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
 void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
 void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
-void copy_HOSTGALz(int copyFlag, char *PREFIX, HOSTGALz_DEF *HOSTGALz);
 
 bool IS_SIMKEY_SNDATA(char *key);
 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA);
 int  RD_OVERRIDE_FETCH(char *CCID, long long int GALID, char *VARNAME, double *DVAL, char *STRVAL);
 void RD_OVERRIDE_POSTPROC(void); // special updates for redshift variables
+bool ISRD_OVERRIDE_VARNAME(char *VARNAME);
+bool isrd_override_varname__(char *VARNAME);
 
 void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST);
 void rd_override_append(void);
@@ -89,6 +90,7 @@ void rd_override_zspec(void);
 void rd_override_zphot(int igal);
 void rd_override_zphot_legacy(void);
 void rd_override_name(void);
+void rd_override_hostgal2z(int igal, HOSTGALz_DEF *HOSTGAL0z, HOSTGALz_DEF *HOSTGALz);
 
 void rd_override_check_mistake(char *varname_mistake, char *varname_correct);
 

@@ -8844,6 +8844,18 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
 } // end dump_SNDATA_HOSTGALz
  
 
+int NZ_HOSTGALz(int MXBIN, float *Z_LIST) {  
+
+  // Return number of Z_LIST redshifts that are >=0
+  int  iz, NZ = 0 ; 
+  char fnam[] = "NZ_HOSTGALz_snfitsio";
+  // ------------ BEGIN ------------- 
+  for(iz=0; iz < MXBIN; iz++ ) { 
+    if ( Z_LIST[iz] >= 0.0 ) { NZ++; }  else { break; }
+  }  
+  return NZ;  
+} // end NZ_HOSTGALz
+
 // =================================================
 void init_GENSPEC_GLOBAL(void) {
   int ispec;

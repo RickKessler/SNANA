@@ -542,7 +542,7 @@ void set_SNDATA_FILTER(char *filter_list);
 void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2) ;
 void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) ;
 void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX, char *PREFIXz);
-// xxx mark void get_SNDATA_HOSTGALz_VARNAMES(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2, char **VARNAMES ) ;
+int  NZ_HOSTGALz(int MXBIN, float *Z_LIST);
 
 void init_GENSPEC_GLOBAL(void) ;
 void init_GENSPEC_EVENT(int ISPEC, int NBLAM);

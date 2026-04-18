@@ -78,10 +78,6 @@ void copy_str(int copyFlag, char *STR0, char *STR1) {
   else                  { sprintf(STR0, "%s", STR1); }
 }
 
-void copy_HOSTGALz(int copyFlag, char *PREFIX, HOSTGALz_DEF *HOSTGALz) {
-
-} // 
-
 // ===================================================
 void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL, 
 			char *stringVal, double *parVal ) {
@@ -1476,7 +1472,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     }
 
 
-    char *ptr_varname = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VARNAME_Z ; // .xyz
+    char *ptr_varname = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VARNAME_Z ; 
     if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
       IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
       RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal] = IVAR;
@@ -1527,6 +1523,17 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   return ;
 
 } // end RD_OVERRIDE_INIT
+
+bool ISRD_OVERRIDE_VARNAME(char *VARNAME) {
+  bool ISOV = false;
+  int  IVAR = -9, ICAST;
+  // Return True of this VARNAME is on override list
+  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST ) ;
+  ISOV = (IVAR>=0 );
+  return ISOV;
+} // end ISRD_OVERRIDE_VARNAME
+bool isrd_override_varname__(char *VARNAME) { return ISRD_OVERRIDE_VARNAME(VARNAME); }
+
 
 void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
 
@@ -1881,7 +1888,7 @@ void rd_override_zspec(void) {
 
 } // end rd_override_zspec
 
-
+// ============================================
 void rd_override_zphot(int igal) {
 
   // Created Apri 2026
@@ -1904,7 +1911,6 @@ void rd_override_zphot(int igal) {
   int IVAR_HOSTGAL_ZPHOT   = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal];
   int IVAR_HOSTGAL_ZPHOT_Q = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal];
  
-
   bool FOUND_ZPHOT      = false; // for current igal
   bool FOUND_ZPHOT_Q    = false;
   bool FOUND0_ZPHOT     = false; // for igal=0
@@ -1989,41 +1995,128 @@ void rd_override_zphot(int igal) {
   // - - - - - - - - -
   // for sim quantile override, scale by zPHOT_SCALE_SIM;
   // for data quantile override, do nothing.
-  if ( RD_OVERRIDE.IS_SIM && FOUND_ZPHOT_Q ) {
 
+  if ( RD_OVERRIDE.IS_SIM && FOUND_ZPHOT_Q ) {
+    // here on igal=0
     // beware that HOSTGALz->NZ is still zero, so loop over max number of z bins
+    
     for(iz=0; iz < MXBIN_HOSTGALz_QUANTILE; iz++ ) 
       { HOSTGALz->Z_LIST[iz] *= zPHOT_SCALE_SIM ; } // do what the sim would have done.
   }
 
   // if event is matched by nearest GALID, check NBR host(s) even if they
   // are not explicitly defined in OVERRIDE file
-  //  BEWARE: NOT TESTED (4.14.2026)
-  if ( MATCH_NBR_by_GALID  ) { 
-    long long int GALID = SNDATA.HOSTGAL_OBJID[igal];
-    double DZ_LIST[MXBIN_HOSTGALz_QUANTILE], DVAL_LIST[MXBIN_HOSTGALz_QUANTILE];
-    char STRDUM[20];
-    int iz, NRD;
-    
-    // always read from HOSTGALz OVERRIDE names corresponding to igal=0
-    NRD = RD_OVERRIDE_FETCH(CCID, GALID, HOSTGAL0z->VARNAME_Z, DZ_LIST,    STRDUM ) ;
-    NRD = RD_OVERRIDE_FETCH(CCID, GALID, HOSTGAL0z->VARNAME_VAL, DVAL_LIST,  STRDUM ) ;
+  if ( MATCH_NBR_by_GALID  ) 
+    { rd_override_hostgal2z(igal, HOSTGAL0z, HOSTGALz); }
 
-    // but store in HOSTGALz corresponding to current igal
-    HOSTGALz->NZ = NRD;
-    if ( NRD > 0 ) {
-      for(iz=0; iz < NRD; iz++ ) {
-	HOSTGALz->Z_LIST[iz]   = (float)DZ_LIST[iz]  * zPHOT_SCALE_SIM ; // 1 for data 
-	HOSTGALz->VAL_LIST[iz] = (float)DVAL_LIST[iz]; 
-      }
-    } // end NRD>0
-  } // end MATCH
+  // for quantiles, update PHOTOZ[_ERR] = MEAN[STDDEV], unless zPHOT[ERR]
+  // is already on the override list. MEAN and STD are computed only
+  // from the grid points, and can differ slightly from the snana.exe
+  // computation using splines and a finer grid. The snana.exe computation
+  // overrides this compuation.
+  // Note confusing logic: FOUND0_ZPHOT_Q means that quantile override exists 
+  // for igal=0, but current igal=1
+  bool UPD_ZPHOT_Q = (FOUND0_ZPHOT_Q || igal==0) && !FOUND_ZPHOT ;
 
+  /* xxxxxxxxx mark delete xxxxxxxxx
+  printf(" xxx -------------------- \n");
+  printf(" xxx %s: CID=%s  igal=%d  \n", fnam, SNDATA.CCID, igal);
+  printf(" xxx %s: FOUND0_ZPHOT_Q=%d  FOUND_ZPHOT_Q=%d  FOUND_ZPHOT=%d \n", 
+	 fnam, FOUND0_ZPHOT_Q, FOUND_ZPHOT_Q, FOUND_ZPHOT);
+  printf(" xxx %s: MATCH_NBR_by_GALID=%d  UPD_ZPHOT_Q=%d \n", 
+	 fnam, MATCH_NBR_by_GALID, UPD_ZPHOT_Q);
+  xxxxxxxxxx end mark xxxxxxxxx */
+
+  if ( UPD_ZPHOT_Q ) {
+    double sumz = 0.0, sumzsq=0.0, sumPz = 0.0, z, Pz, mean, std ;
+    for(iz=0; iz < HOSTGALz->NZ; iz++ ) {
+      z = HOSTGALz->Z_LIST[iz];
+      if ( iz == 0 ) 
+	{ Pz = HOSTGALz->VAL_LIST[0] ; }
+      else if ( iz == HOSTGALz->NZ-1 ) 
+	{ Pz = HOSTGALz->VAL_LIST[iz] - HOSTGALz->VAL_LIST[iz-1]; }
+      else
+	{ Pz = 0.5*( HOSTGALz->VAL_LIST[iz+1] - HOSTGALz->VAL_LIST[iz-1]) ; }
+
+      sumz   += Pz * z ;
+      sumzsq += Pz * z * z ;
+      sumPz  += Pz;
+    }
+    if ( sumPz > 0.0 ) {
+      int N_effective = (int)(sumPz + 0.5);
+      mean = sumz / (double)N_effective ;
+      std  = STD_from_SUMS(N_effective, sumz, sumzsq);
+      SNDATA.HOSTGAL_PHOTOZ[igal]     = (float)mean ;
+      SNDATA.HOSTGAL_PHOTOZ_ERR[igal] = (float)std;
+      printf(" xxx %s: CID=%s  igal=%d  mean=%.3f  std=%.3f \n",
+	     fnam, SNDATA.CCID, igal, mean, std); fflush(stdout);
+    }
+  }
   return ;
 
 } // end rd_override_zphot
 
 
+void rd_override_hostgal2z(int igal, HOSTGALz_DEF *HOSTGAL0z, HOSTGALz_DEF *HOSTGALz) {
+
+  // Created Apr 2026
+  // Override igal>0 hosts using igal=0 override info;
+  // this avoids the need for duplicate OVERRIDE files.
+  // Although function name has "hostgal2z", it should work
+  // for hostgal3z, hostgal4z, etc ... if MXHOSTGAL is increased.
+  //
+  // Inputs:
+  //   igal      : sparse galaxy index (must be >0)
+  //   HOSTGAL0z : HOSTGALz object for igal=0 (nearest host)
+  //
+  //  Output:
+  //   HOSTGALz  : HOSTGALz object for other nearby host indicated by igal.
+  //
+  if ( igal == 0 ) { return; }  // only makes sense if igal>0
+
+  char *CCID          = SNDATA.CCID;
+  long long int GALID = SNDATA.HOSTGAL_OBJID[igal];
+  bool USE_VAL2       = HOSTGAL0z->USE_VAL2 ;
+
+  double DZ_LIST[MXBIN_HOSTGALz];
+  double DVAL_LIST[MXBIN_HOSTGALz], DVAL2_LIST[MXBIN_HOSTGALz];
+  // xxx mark   double zSCALE_SIM = 1.0 ;
+  char STRDUM[20];
+  int  iz, NRD, NZ;
+  char fnam[] = "rd_override_hostgal2z" ;
+
+  // ------------ BEGIN -------------
+
+  // always read from HOSTGALz OVERRIDE names corresponding to igal=0 ...
+  NRD = RD_OVERRIDE_FETCH(CCID, GALID, HOSTGAL0z->VARNAME_Z,   DZ_LIST,    STRDUM ) ;
+  NRD = RD_OVERRIDE_FETCH(CCID, GALID, HOSTGAL0z->VARNAME_VAL, DVAL_LIST,  STRDUM ) ;
+
+  if ( USE_VAL2 ) 
+    {  NRD = RD_OVERRIDE_FETCH(CCID, GALID, HOSTGAL0z->VARNAME_VAL2, DVAL2_LIST, STRDUM ); }
+
+  // ... but store in HOSTGALz corresponding to current igal
+  if ( NRD > 0 ) {
+
+    /* xxxxxxx mark delete 
+    if ( RD_OVERRIDE.IS_SIM )  // do what sim would have done 
+      { zSCALE_SIM = SNDATA.SIM_REDSHIFT_HELIO / SNDATA.SIM_REDSHIFT_HOST ;  }
+    xxxxxxxxx end mark xxxxxxx */
+
+    for(iz=0; iz < NRD; iz++ ) {
+      HOSTGALz->Z_LIST[iz]   = (float)DZ_LIST[iz] ; // xxx NO: * zSCALE_SIM ; // 1 for data 
+      HOSTGALz->VAL_LIST[iz] = (float)DVAL_LIST[iz]; 
+      if ( USE_VAL2 ) { HOSTGALz->VAL2_LIST[iz] = (float)DVAL2_LIST[iz]; }
+    }
+
+    // count NZ with z>=0 (avoid possible pad values of -9)
+    HOSTGALz->NZ = NZ_HOSTGALz(MXBIN_HOSTGALz, HOSTGALz->Z_LIST);  
+  } // end NRD>0
+  else {
+    HOSTGALz->NZ = 0 ;
+  }
+
+  return;
+} // end rd_override_hostgal2z
 
 // =================================
 void rd_override_name(void) {
@@ -2116,7 +2209,7 @@ void rd_override_zphot_legacy(void) {
   bool UPD1_zFINAL, UPD2_zFINAL ;
 
   // update REDSHIFT_FINAL if current REDSHIFT_FINAL[HELIO] are not defined (-9),
-  // or if REDSHIFT_HELIO is already equal to the old HOSTGAL_PHOTOZ value. .xyz
+  // or if REDSHIFT_HELIO is already equal to the old HOSTGAL_PHOTOZ value. 
   UPD1_zFINAL = ( zHEL_ORIG < 0.0 );
   UPD2_zFINAL = ( fabs(zHEL_ORIG-zPHOT_ORIG)<1.0E-4  && 
 		  fabs(zHELERR_ORIG-zPHOTERR_ORIG)<1.0E-3 );

@@ -8528,14 +8528,18 @@
           CALL MADABORT(FNAM, c1err, c2err)
       endif
 
-      CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
+      ! xxx mark delete 4.17.2026 CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
+
       MEAN = SNHOST_QZPHOT_MEAN(1) 
       STD  = SNHOST_QZPHOT_STD(1)  
 
-      if (IERR_ZPDF .NE. 0 ) then
-	   IERR = ERRFLAG_FITPREP_QUANTILES
-	   return
-      endif
+      ! xxxxxxx mark delete Apr 17 2026 xxxxxxxx
+      !if (IERR_ZPDF .NE. 0 ) then
+      ! IERR = ERRFLAG_FITPREP_QUANTILES
+      !return
+      !endif
+      ! xxxxxxx end mark xxxxxxx
+
 
 !     initialize at Q50
       INIVAL(ipar) = MEAN

@@ -801,7 +801,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
     if ( REFAC_DATA_FLAG > 0 ) {
       // Apr 13 2026: write HOSTGALz fields
-      wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
+      wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
       wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_LOGMASS[igal]);
     }
 
@@ -2490,7 +2490,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       }
 
       if ( REFAC_DATA_FLAG && IS_HOSTGALz ) {
-	NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
+	NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
 	iwd = iwd0 + NZ;
 
 	NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_LOGMASS[igal]);

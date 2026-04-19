@@ -8517,9 +8517,9 @@
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
        IF ( REFAC_DATA_FLAG > 0 ) then
-          NQ = SNHOSTz_ZPHOT_QUANTILE(1)%NZ
+          NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
        else
-          NQ = SNHOST_NZPHOT_Q(1) 
+          NQ = SNHOST_NZPHOT_Q(1)   ! legacy
        endif
 
       if ( NQ .le. 0 ) THEN
@@ -13938,7 +13938,7 @@
         iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
 
 ! local
-    INTEGER NZPHOT_Q
+    INTEGER NQZPHOT
     REAL Zhost
 
 ! ---------------- BEGIN ---------------
@@ -13957,13 +13957,13 @@
       Zhost    = SNHOST_ZPHOT(1)
 
       if ( REFAC_DATA_FLAG > 0 ) then
-         NZPHOT_Q = SNHOSTz_ZPHOT_QUANTILE(1)%NZ
+         NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
       else
-         NZPHOT_Q = SNHOST_NZPHOT_Q(1)
+         NQZPHOT = SNHOST_NZPHOT_Q(1) ! legacy
       endif
 
       DOFIT_PHOTOZ_HOST =  & 
-           (Zhost > 0.0 .or. NZPHOT_Q > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
+           (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
 
       DOFIT_PHOTOZ_noHOST = .NOT. DOFIT_PHOTOZ_HOST
 

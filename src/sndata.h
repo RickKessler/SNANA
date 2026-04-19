@@ -39,7 +39,7 @@
 #define MXHOSTGAL      2 // max number of matched hosts to write out
 #define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
-#define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100)
+#define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100) // xxx legacy
 #define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
 #define ZEROPOINT_FLUXCAL_SNANA_ORIG  27.5
 #define ZEROPOINT_FLUXCAL_nJy         31.4
@@ -113,9 +113,10 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 #define MXLEN_VERSION         72  // max length of VERSION name
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
 
+// xxxxx legacy names
 #define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
 #define STRING_NZPHOT_Q "NZPHOT_Q"
-
+// xxxxxxx
 
 // define suffixes for refactoed data stream with z-dependent quantities
 #define SUFFIX_QUANTILE_ZPHOT       "QUANTILE_ZPHOT"    // append to HOSTGALz or HOSTGALz2
@@ -354,14 +355,16 @@ struct SNDATA {
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
 
-  // .xyz
-  HOSTGALz_DEF HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL] ;
+  // Apr 2026: new z-vectors for hostgal
+  HOSTGALz_DEF HOSTGALz_QUANTILE_ZPHOT[MXHOSTGAL] ;
   HOSTGALz_DEF HOSTGALz_LOGMASS[MXHOSTGAL] ;
-  HOSTGALz_DEF HOSTGALz_LOGMASS_ERR[MXHOSTGAL] ;
 
+
+  // xxxxxxx legacy quantile variables xxxxxxxxxxxxx
   float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
   int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles
   int     HOSTGAL_NZPHOT_Q ;
+  // xxxxxxxxxxxxxxxxxx  end legacy xxxxxxxxx
 
   float  *PTR_HOSTGAL_PROPERTY_TRUE[MXHOSTGAL_PROPERTY];
   float  *PTR_HOSTGAL_PROPERTY_OBS[MXHOSTGAL_PROPERTY];

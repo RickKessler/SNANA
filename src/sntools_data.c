@@ -540,7 +540,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
       // - - - 
       if ( REFAC_DATA_FLAG > 0 && strstr(key,"QUANTILE") != NULL ) {
-	HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];		
+	HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];		
 	copy_HOSTGALz(copyFlag, key, parVal, HOSTGALz) ;
       }
       else {
@@ -1450,10 +1450,12 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   RD_OVERRIDE.IVAR_zHEL = -9 ; 
 
   RD_OVERRIDE.NZPHOT_Q   = 0 ; // LEGACY
+
+
   for(igal=0; igal < MXHOSTGAL; igal++ ) {
     RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal]           = -9 ;
     RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT_ERR[igal]       = -9 ;
-    RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal] = -9 ;
+    RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[igal] = -9 ;
     RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[igal]        = -9 ;
   }
 
@@ -1490,10 +1492,10 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     }
 
 
-    ptr_varname = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VARNAME_Z ; 
+    ptr_varname = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].VARNAME_Z ; 
     if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
       IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
-      RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal] = IVAR;
+      RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[igal] = IVAR;
     }
 
     ptr_varname = SNDATA.HOSTGALz_LOGMASS[igal].VARNAME_Z ; 
@@ -1521,7 +1523,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   rd_override_check_mistake("HOSTGAL_ZSPEC_ERR", "HOSTGAL_SPECZ_ERR");
 
 
-  if ( EXIST_VARNAME_AUTOSTORE(STRING_NZPHOT_Q) ) { // May 2023 
+  if ( EXIST_VARNAME_AUTOSTORE(STRING_NZPHOT_Q) ) { // legacy
     rd_override_zphot_q_legacy(1);
   }  
        
@@ -1936,30 +1938,30 @@ void rd_override_zphot(int igal) {
   char *CCID = SNDATA.CCID;
 
   int  IVAR_HOSTGAL_ZPHOT    = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal];
-  int  IVAR_HOSTGAL_ZPHOT_Q  = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal];
+  int  IVAR_HOSTGAL_QZPHOT   = RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[igal];
   int  IVAR0_HOSTGAL_ZPHOT   = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[0];
-  int  IVAR0_HOSTGAL_ZPHOT_Q = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[0];
+  int  IVAR0_HOSTGAL_QZPHOT  = RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[0];
 
   bool FOUND_ZPHOT      = false; // for current igal
-  bool FOUND_ZPHOT_Q    = false;
+  bool FOUND_QZPHOT     = false;
   bool FOUND0_ZPHOT     = false; // for igal=0
-  bool FOUND0_ZPHOT_Q   = false;
+  bool FOUND0_QZPHOT    = false;
 
   bool MATCH_NBR_by_GALID  = (RD_OVERRIDE.NMATCH_by_GALID > 0 && igal > 0);
   bool FOUND_ANY_ZPHOT = false;
 
-  HOSTGALz_DEF  *HOSTGAL0z = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[0];
-  HOSTGALz_DEF  *HOSTGALz  = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];
+  HOSTGALz_DEF  *HOSTGAL0z = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[0];
+  HOSTGALz_DEF  *HOSTGALz  = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
 
   if ( IVAR_HOSTGAL_ZPHOT >= 0 ) 
     { FOUND_ZPHOT   = RD_OVERRIDE.NRD_PER_VAR[IVAR_HOSTGAL_ZPHOT]   > 0 ; }
-  if ( IVAR_HOSTGAL_ZPHOT_Q >= 0 ) 
-    { FOUND_ZPHOT_Q = RD_OVERRIDE.NRD_PER_VAR[IVAR_HOSTGAL_ZPHOT_Q] > 0 ; }
+  if ( IVAR_HOSTGAL_QZPHOT >= 0 ) 
+    { FOUND_QZPHOT = RD_OVERRIDE.NRD_PER_VAR[IVAR_HOSTGAL_QZPHOT] > 0 ; }
 
   if ( IVAR0_HOSTGAL_ZPHOT >= 0 ) 
     { FOUND0_ZPHOT   = RD_OVERRIDE.NRD_PER_VAR[IVAR0_HOSTGAL_ZPHOT]   > 0 ; }
-  if ( IVAR0_HOSTGAL_ZPHOT_Q >= 0 ) 
-    { FOUND0_ZPHOT_Q = RD_OVERRIDE.NRD_PER_VAR[IVAR0_HOSTGAL_ZPHOT_Q] > 0 ; }
+  if ( IVAR0_HOSTGAL_QZPHOT >= 0 ) 
+    { FOUND0_QZPHOT = RD_OVERRIDE.NRD_PER_VAR[IVAR0_HOSTGAL_QZPHOT] > 0 ; }
 
   int iz;
   double zCMB, zPHOT_SCALE_SIM = 1.0;
@@ -1973,11 +1975,11 @@ void rd_override_zphot(int igal) {
     return;
   }
 
-  if ( FOUND_ZPHOT   )  { FOUND_ANY_ZPHOT = true; }
-  if ( FOUND_ZPHOT_Q )  { FOUND_ANY_ZPHOT = true; }
+  if ( FOUND_ZPHOT  )  { FOUND_ANY_ZPHOT = true; }
+  if ( FOUND_QZPHOT )  { FOUND_ANY_ZPHOT = true; }
   if ( MATCH_NBR_by_GALID ) {
-    if ( FOUND0_ZPHOT   ) { FOUND_ANY_ZPHOT = true; }
-    if ( FOUND0_ZPHOT_Q ) { FOUND_ANY_ZPHOT = true; }
+    if ( FOUND0_ZPHOT  ) { FOUND_ANY_ZPHOT = true; }
+    if ( FOUND0_QZPHOT ) { FOUND_ANY_ZPHOT = true; }
   }
 
   if ( !FOUND_ANY_ZPHOT ) { return; }
@@ -2021,7 +2023,7 @@ void rd_override_zphot(int igal) {
   // for sim quantile override, scale by zPHOT_SCALE_SIM;
   // for data quantile override, do nothing.
 
-  if ( RD_OVERRIDE.IS_SIM && FOUND_ZPHOT_Q ) {
+  if ( RD_OVERRIDE.IS_SIM && FOUND_QZPHOT ) {
     // here on igal=0
     // beware that HOSTGALz->NZ is still zero, so loop over max number of z bins
     
@@ -2039,20 +2041,11 @@ void rd_override_zphot(int igal) {
   // from the grid points, and can differ slightly from the snana.exe
   // computation using splines and a finer grid. The snana.exe computation
   // overrides this compuation.
-  // Note confusing logic: FOUND0_ZPHOT_Q means that quantile override exists 
+  // Note confusing logic: FOUND0_QZPHOT means that quantile override exists 
   // for igal=0, but current igal=1
-  bool UPD_ZPHOT_Q = (FOUND0_ZPHOT_Q  && !FOUND_ZPHOT ) ;
+  bool UPD_QZPHOT = (FOUND0_QZPHOT  && !FOUND_ZPHOT ) ;
 
-  /* xxxxxxxxx mark delete xxxxxxxxx
-  printf(" xxx -------------------- \n");
-  printf(" xxx %s: CID=%s  igal=%d  \n", fnam, SNDATA.CCID, igal);
-  printf(" xxx %s: FOUND0_ZPHOT_Q=%d  FOUND_ZPHOT_Q=%d  FOUND_ZPHOT=%d \n", 
-	 fnam, FOUND0_ZPHOT_Q, FOUND_ZPHOT_Q, FOUND_ZPHOT);
-  printf(" xxx %s: MATCH_NBR_by_GALID=%d  UPD_ZPHOT_Q=%d \n", 
-	 fnam, MATCH_NBR_by_GALID, UPD_ZPHOT_Q);
-  xxxxxxxxxx end mark xxxxxxxxx */
-
-  if ( UPD_ZPHOT_Q ) {
+  if ( UPD_QZPHOT ) {
     double sumz = 0.0, sumzsq=0.0, sumPz = 0.0, z, Pz, mean, std ;
     for(iz=0; iz < HOSTGALz->NZ; iz++ ) {
       z = HOSTGALz->Z_LIST[iz];

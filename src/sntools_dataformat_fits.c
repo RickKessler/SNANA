@@ -399,7 +399,7 @@ void wr_snfitsio_init_head(void) {
 
   // add zPHOT quantiles
   if ( REFAC_DATA_FLAG > 0 ) {
-    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[0] );
+    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[0] );
     wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[0] );
   }
   else {
@@ -449,7 +449,7 @@ void wr_snfitsio_init_head(void) {
 
     // add zPHOT quantiles
     if ( REFAC_DATA_FLAG > 0 ) {
-      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[1] );
+      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[1] );
       wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[1] );
     }
     else {
@@ -1918,7 +1918,7 @@ void wr_snfitsio_update_head(void) {
     if ( REFAC_DATA_FLAG > 0 ) {
       HOSTGALz_DEF *HOSTGALz;
 
-      HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];
+      HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
       wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
 
       HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
@@ -3674,7 +3674,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       if ( REFAC_DATA_FLAG > 0 ) {
 	HOSTGALz_DEF *HOSTGALz;
 
-	HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ;
+	HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal] ;
 	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
 
 	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal] ;

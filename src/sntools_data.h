@@ -23,7 +23,7 @@ struct {
   // logicals to decide if zCMB or zHEL needs to be recomputed.
   int  IVAR_zCMB, IVAR_zHEL;
   int  IVAR_HOSTGAL_ZPHOT[MXHOSTGAL], IVAR_HOSTGAL_ZPHOT_ERR[MXHOSTGAL];
-  int  IVAR_HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL] ;
+  int  IVAR_HOSTGALz_QUANTILE_ZPHOT[MXHOSTGAL] ;
   int  IVAR_HOSTGALz_LOGMASS[MXHOSTGAL] ;
 
   int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023) LEGACY

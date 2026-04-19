@@ -979,7 +979,7 @@
        REAL    :: VAL2_LIST(MXBIN_SNHOSTz)  ! optional 2nd array (e.g., errors on VAL_LIST)
     END TYPE SNHOSTz_DEF
     
-    TYPE(SNHOSTz_DEF) :: SNHOSTz_ZPHOT_QUANTILE(MXSNHOST)
+    TYPE(SNHOSTz_DEF) :: SNHOSTz_QUANTILE_ZPHOT(MXSNHOST)
     TYPE(SNHOSTz_DEF) :: SNHOSTz_LOGMASS(MXSNHOST)
 
   CONTAINS
@@ -3405,7 +3405,7 @@
 
     CALL RDGLOBAL_PRIVATE(OPT)
 
-    CALL RDGLOBAL_ZPHOT_Q(OPT) 
+    CALL RDGLOBAL_ZPHOT_Q(OPT)  ! legacy 
 
     IF ( LSIM_SNANA ) THEN
        CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE", ONE, SIMLIB_FILENAME, DARRAY, OPT)
@@ -4206,7 +4206,7 @@
 
     INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
 
-    INTEGER   LENPRE, ifilt, q, NZPHOT_Q
+    INTEGER   LENPRE, ifilt, q, NQZPHOT
     CHARACTER PREFIX*20, PREFIXz*20, STRING*40, KEY*60, KEY_PREFIX*60
     REAL*8    DARRAY(MXFILT_OBS), DARRAY2(MXFILT_OBS), SB, MAG, zq
     LOGICAL LTMP, LZQ
@@ -4278,16 +4278,16 @@
     SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
     if ( REFAC_DATA_FLAG > 0 ) then
-       ! read  Z_LIST and PERCENT_LIST and store in SNHOSTz_ZPHOT_QUANTILE TYPE
-       CALL FETCH_SNHOSTz_WRAPPER(SNHOSTz_ZPHOT_QUANTILE(igal), OPT )
-       IF ( SNHOSTz_ZPHOT_QUANTILE(igal)%NZ > 0 ) EXIST_SNHOST_ZPHOT = .TRUE.
+       ! read  Z_LIST and PERCENT_LIST and store in SNHOSTz_QUANTILE_ZPHOT TYPE
+       CALL FETCH_SNHOSTz_WRAPPER(SNHOSTz_QUANTILE_ZPHOT(igal), OPT )
+       IF ( SNHOSTz_QUANTILE_ZPHOT(igal)%NZ > 0 ) EXIST_SNHOST_ZPHOT = .TRUE.
     endif
 
     if ( REFAC_DATA_FLAG == 0 ) then
        ! LEGACY : read ZPHOT_Q (May 2022) 
-       NZPHOT_Q = SNHOST_NZPHOT_Q(igal)   ! store at RDGLOBAL stage
-       if ( NZPHOT_Q > 0 ) then
-         DO q = 1, NZPHOT_Q
+       NQZPHOT = SNHOST_NZPHOT_Q(igal)   ! store at RDGLOBAL stage
+       if ( NQZPHOT > 0 ) then
+         DO q = 1, NQZPHOT
             KEY = VARNAME_ZPHOT_Q(igal,q)
             CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
             SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
@@ -10801,7 +10801,7 @@
     if ( REFAC_DATA_FLAG > 0 ) then
        do igal = 1, MXSNHOST
           ! no need to copy override quantiles that are not modified here 
-          ! ?? not needed ?? CALL copy_SNDATA_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), COPYFLAG)
+          ! ?? not needed ?? CALL copy_SNDATA_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), COPYFLAG)
 
           ! maybe set SNHOST_ZPHOT[_ERR] to MEAN and STD ... and copy back to SNDATA struct,
           ! Should this be automatic, or require OVERRIDE to change it?
@@ -15410,7 +15410,7 @@
 
        ! for REFAC, reset quantile info for each event
        if ( REFAC_DATA_FLAG > 0 ) then
-          CALL INIT_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), igal, &
+          CALL INIT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), igal, &
                "QUANTILE_ZPHOT", "QUANTILE_PERCENT", "" )
 
           CALL INIT_SNHOSTz(SNHOSTz_LOGMASS(igal), igal, &
@@ -17940,13 +17940,13 @@
     INTEGER*8 :: GALID
     CHARACTER*(MXCHAR_CCID)  CCID
     INTEGER   :: NQ, q, LM, IERR_ZPDF, IPRINT
-    REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
+    REAL*8    :: QZPHOT(MXZPHOT_Q), QPROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
 
 ! ------------- BEGIN ---------------
 
     if ( REFAC_DATA_FLAG > 0 ) then
-       NQ = SNHOSTz_ZPHOT_QUANTILE(IGAL)%NZ
+       NQ = SNHOSTz_QUANTILE_ZPHOT(IGAL)%NZ
     else
        NQ = SNHOST_NZPHOT_Q(IGAL)
     endif
@@ -17955,21 +17955,21 @@
 
     do q = 1, NQ
        if ( REFAC_DATA_FLAG > 0 ) then
-          ZPHOT_PROB(q) = DBLE(SNHOSTz_ZPHOT_QUANTILE(IGAL)%VAL_LIST(q)) / 100.  ! 0 <= PROB <= 1
-          ZPHOT_Q(q)    = DBLE(SNHOSTz_ZPHOT_QUANTILE(IGAL)%Z_LIST(q))
+          QPROB(q)    = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%VAL_LIST(q)) / 100.  ! 0 <= PROB <= 1
+          QZPHOT(q)   = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%Z_LIST(q))
        else
-          ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(IGAL,q)) / 100.  ! 0 <= PROB <= 1
-          ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(IGAL,q))
+          QPROB(q)    = DBLE(SNHOST_ZPHOT_PERCENTILE(IGAL,q)) / 100.  ! 0 <= PROB <= 1
+          QZPHOT(q)   = DBLE(SNHOST_ZPHOT_Q(IGAL,q))
        endif
 
-       if ( q > 1 .and. ZPHOT_Q(q) > -8.0 ) then
-          BIGGER_z = ZPHOT_Q(q) > ZPHOT_Q(q-1) 
+       if ( q > 1 .and. QZPHOT(q) > -8.0 ) then
+          BIGGER_z = QZPHOT(q) > QZPHOT(q-1) 
           if ( .not. BIGGER_z ) then
              CCID   = SNLC_CCID
              GALID = SNHOST_OBJID(IGAL)
-             write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
-61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I16 )
-             C2ERR = 'ZPHOT_Q must be monotonically increasing'
+             write(C1ERR,61) q-1, q, QZPHOT(q-1), QZPHOT(q), CCID(1:ISNLC_LENCCID), GALID
+61           format('QZPHOT(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I16 )
+             C2ERR = 'QZPHOT must be monotonically increasing'
              if ( ABORT_ON_BADQZPHOT ) then
                 CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
              else
@@ -17985,7 +17985,7 @@
     IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
-    CALL init_zPDF_spline(NQ, ZPHOT_PROB, ZPHOT_Q,  &
+    CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
          SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
          METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
@@ -18105,7 +18105,7 @@
 
        if ( REFAC_DATA_FLAG > 0 ) then
           do igal = 1, MXSNHOST
-             CALL SHIFT_SNHOSTz(SNHOSTz_ZPHOT_QUANTILE(igal), zshift )
+             CALL SHIFT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), zshift )
           enddo
        else
           ! legacy
@@ -24071,7 +24071,7 @@
 
 
     if ( REFAC_DATA_FLAG > 0 ) then
-       NQ = SNHOSTz_ZPHOT_QUANTILE(1)%NZ
+       NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
     else
        NQ = SNHOST_NZPHOT_Q(1) 
     endif

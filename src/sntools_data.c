@@ -78,6 +78,29 @@ void copy_str(int copyFlag, char *STR0, char *STR1) {
   else                  { sprintf(STR0, "%s", STR1); }
 }
 
+void copy_HOSTGALz(int copyFlag, char *key, double *parVal, HOSTGALz_DEF *HOSTGALz) {
+
+  int NZ = HOSTGALz->NZ;
+  int iz;
+  char fnam[] = "copy_HOSTGALz" ;
+
+  // ---------- BEGIN --------------
+
+  if ( strcmp(key,HOSTGALz->VARNAME_NZ) == 0 ) 
+    { copy_int(copyFlag, parVal, &HOSTGALz->NZ ); }  // read number of quantile bins
+  
+  else if ( strcmp(key,HOSTGALz->VARNAME_Z) == 0 ) {
+    for(iz=0; iz < NZ; iz++ ) 
+      { copy_flt(copyFlag, &parVal[iz], &HOSTGALz->Z_LIST[iz] ); }  // read zPhot grid	  
+  }
+  else if ( strcmp(key,HOSTGALz->VARNAME_VAL) == 0 ) {
+    for(iz=0; iz < NZ; iz++ ) 
+      { copy_flt(copyFlag, &parVal[iz], &HOSTGALz->VAL_LIST[iz] ); }  // read percentile grid
+  }
+  fflush(stdout);
+
+} // end copy_HOSTGALz
+
 // ===================================================
 void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL, 
 			char *stringVal, double *parVal ) {
@@ -307,6 +330,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   int  ncmp_PySEDMODEL  = strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) ;
   int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar, q, PCT;
   double DVAL;
+  HOSTGALz_DEF *HOSTGALz;
   char PREFIX[40], PREFIXz[40], KEY_TEST[60], cfilt[2] ;
   char fnam[] = "copy_SNDATA_HEAD" ;
 
@@ -516,21 +540,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
       // - - - 
       if ( REFAC_DATA_FLAG > 0 && strstr(key,"QUANTILE") != NULL ) {
-
-	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];
-		
-	if ( strcmp(key,HOSTGALz->VARNAME_NZ) == 0 ) 
-	  { copy_int(copyFlag, parVal, &HOSTGALz->NZ ); }  // read number of quantile bins
-
-	else if ( strcmp(key,HOSTGALz->VARNAME_Z) == 0 ) {
-	  for(q=0; q < HOSTGALz->NZ; q++ ) 
-	    { copy_flt(copyFlag, &parVal[q], &HOSTGALz->Z_LIST[q] ); }  // read zPhot grid	  
-	}
-	else if ( strcmp(key,HOSTGALz->VARNAME_VAL) == 0 ) {
-	  for(q=0; q < HOSTGALz->NZ; q++ ) 
-	    { copy_flt(copyFlag, &parVal[q], &HOSTGALz->VAL_LIST[q] ); }  // read percentile grid
-	}
-	fflush(stdout);
+	HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];		
+	copy_HOSTGALz(copyFlag, key, parVal, HOSTGALz) ;
       }
       else {
 	// legacy
@@ -542,6 +553,11 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	    { copy_flt(copyFlag, parVal, &SNDATA.HOSTGAL_ZPHOT_Q[igal][q]);  } 
 	  }
 	} // end PREFIX_ZPHOT_Q
+      }
+
+      if ( REFAC_DATA_FLAG > 0 && strstr(key,"LOGMASS") != NULL ) {
+	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];	     
+	copy_HOSTGALz(copyFlag, key, parVal, HOSTGALz) ;
       }
 
       // - - - -
@@ -1345,7 +1361,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
 
   int NROW, ivar, igal, ifile, ICAST, NFILE = 0;
   int OPTMASK_SNTABLE = 4;           // append next file
-  char **file_list, *ptrFile, *VARNAME_MATCH, VARNAME[60], PREFIX[40], PREFIXz[40] ;
+  char **file_list, *ptrFile, *VARNAME_MATCH, *ptr_varname;
+  char VARNAME[60], PREFIX[40], PREFIXz[40] ;
   char TABLE_NAME[] = "OVERRIDE" ;
   char VARLIST[]    = "ALL" ;
   char fnam[]       = "RD_OVERRIDE_INIT" ;
@@ -1437,6 +1454,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal]           = -9 ;
     RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT_ERR[igal]       = -9 ;
     RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal] = -9 ;
+    RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[igal]        = -9 ;
   }
 
   RD_OVERRIDE.IVAR_NAME_IAUC      = -9 ;
@@ -1472,10 +1490,16 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     }
 
 
-    char *ptr_varname = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VARNAME_Z ; 
+    ptr_varname = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VARNAME_Z ; 
     if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
       IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
       RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal] = IVAR;
+    }
+
+    ptr_varname = SNDATA.HOSTGALz_LOGMASS[igal].VARNAME_Z ; 
+    if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
+      IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
+      RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[igal] = IVAR;
     }
 
   } // end igal
@@ -1793,6 +1817,9 @@ void RD_OVERRIDE_POSTPROC(void) {
   rd_override_zspec();
   for(igal=0; igal< MXHOSTGAL; igal++ )  { rd_override_zphot(igal); }
 
+  // check to override logmass grid for nbr hosts
+  for(igal=0; igal< MXHOSTGAL; igal++ )  { rd_override_logmass_grid(igal); }
+
   // May 2023: check zPHOT quantile LEGACY
   if ( RD_OVERRIDE.NZPHOT_Q > 0 )  { rd_override_zphot_q_legacy(2); }
 
@@ -1908,9 +1935,11 @@ void rd_override_zphot(int igal) {
   double DEC = SNDATA.DEC_AVG ;
   char *CCID = SNDATA.CCID;
 
-  int IVAR_HOSTGAL_ZPHOT   = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal];
-  int IVAR_HOSTGAL_ZPHOT_Q = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal];
- 
+  int  IVAR_HOSTGAL_ZPHOT    = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal];
+  int  IVAR_HOSTGAL_ZPHOT_Q  = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[igal];
+  int  IVAR0_HOSTGAL_ZPHOT   = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[0];
+  int  IVAR0_HOSTGAL_ZPHOT_Q = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[0];
+
   bool FOUND_ZPHOT      = false; // for current igal
   bool FOUND_ZPHOT_Q    = false;
   bool FOUND0_ZPHOT     = false; // for igal=0
@@ -1927,14 +1956,10 @@ void rd_override_zphot(int igal) {
   if ( IVAR_HOSTGAL_ZPHOT_Q >= 0 ) 
     { FOUND_ZPHOT_Q = RD_OVERRIDE.NRD_PER_VAR[IVAR_HOSTGAL_ZPHOT_Q] > 0 ; }
 
-  if ( MATCH_NBR_by_GALID ) {
-    int  IVAR0_HOSTGAL_ZPHOT   = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[0];
-    int  IVAR0_HOSTGAL_ZPHOT_Q = RD_OVERRIDE.IVAR_HOSTGALz_ZPHOT_QUANTILE[0];
-    if ( IVAR0_HOSTGAL_ZPHOT >= 0 ) 
-      { FOUND0_ZPHOT   = RD_OVERRIDE.NRD_PER_VAR[IVAR0_HOSTGAL_ZPHOT]   > 0 ; }
-    if ( IVAR0_HOSTGAL_ZPHOT_Q >= 0 ) 
-      { FOUND0_ZPHOT_Q = RD_OVERRIDE.NRD_PER_VAR[IVAR0_HOSTGAL_ZPHOT_Q] > 0 ; }
-  }
+  if ( IVAR0_HOSTGAL_ZPHOT >= 0 ) 
+    { FOUND0_ZPHOT   = RD_OVERRIDE.NRD_PER_VAR[IVAR0_HOSTGAL_ZPHOT]   > 0 ; }
+  if ( IVAR0_HOSTGAL_ZPHOT_Q >= 0 ) 
+    { FOUND0_ZPHOT_Q = RD_OVERRIDE.NRD_PER_VAR[IVAR0_HOSTGAL_ZPHOT_Q] > 0 ; }
 
   int iz;
   double zCMB, zPHOT_SCALE_SIM = 1.0;
@@ -2016,7 +2041,7 @@ void rd_override_zphot(int igal) {
   // overrides this compuation.
   // Note confusing logic: FOUND0_ZPHOT_Q means that quantile override exists 
   // for igal=0, but current igal=1
-  bool UPD_ZPHOT_Q = (FOUND0_ZPHOT_Q || igal==0) && !FOUND_ZPHOT ;
+  bool UPD_ZPHOT_Q = (FOUND0_ZPHOT_Q  && !FOUND_ZPHOT ) ;
 
   /* xxxxxxxxx mark delete xxxxxxxxx
   printf(" xxx -------------------- \n");
@@ -2048,14 +2073,36 @@ void rd_override_zphot(int igal) {
       std  = STD_from_SUMS(N_effective, sumz, sumzsq);
       SNDATA.HOSTGAL_PHOTOZ[igal]     = (float)mean ;
       SNDATA.HOSTGAL_PHOTOZ_ERR[igal] = (float)std;
-      printf(" xxx %s: CID=%s  igal=%d  mean=%.3f  std=%.3f \n",
-	     fnam, SNDATA.CCID, igal, mean, std); fflush(stdout);
     }
   }
   return ;
 
 } // end rd_override_zphot
 
+
+void rd_override_logmass_grid(int igal) {
+
+  // Created Apri 2026
+  // if matching by GALID, and LOGMASS grid override is enabled only for nearest host,
+  // automatically match other NBR hosts by GALID.
+  // This trick avoids multiple override files to match each host.
+
+  bool MATCH_NBR_by_GALID    = (RD_OVERRIDE.NMATCH_by_GALID > 0 && igal > 0);
+  int  IVAR_HOSTGAL_LOGMASS  = RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[igal];
+  int  IVAR0_HOSTGAL_LOGMASS = RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[0];
+
+  char fnam[] = "rd_override_logmass_grid" ;
+
+  // ------------- BEGIN ----------
+  if ( MATCH_NBR_by_GALID && IVAR0_HOSTGAL_LOGMASS > 0 ) {
+    HOSTGALz_DEF *HOSTGAL0z  = &SNDATA.HOSTGALz_LOGMASS[0];
+    HOSTGALz_DEF *HOSTGALz   = &SNDATA.HOSTGALz_LOGMASS[igal];
+    rd_override_hostgal2z(igal, HOSTGAL0z, HOSTGALz); 
+  }
+
+  return;
+
+} // end rd_override_logmass_grid
 
 void rd_override_hostgal2z(int igal, HOSTGALz_DEF *HOSTGAL0z, HOSTGALz_DEF *HOSTGALz) {
 

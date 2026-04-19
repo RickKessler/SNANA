@@ -400,6 +400,7 @@ void wr_snfitsio_init_head(void) {
   // add zPHOT quantiles
   if ( REFAC_DATA_FLAG > 0 ) {
     wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[0] );
+    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[0] );
   }
   else {
     // legacy
@@ -449,6 +450,7 @@ void wr_snfitsio_init_head(void) {
     // add zPHOT quantiles
     if ( REFAC_DATA_FLAG > 0 ) {
       wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[1] );
+      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[1] );
     }
     else {
       // legacy
@@ -1912,9 +1914,14 @@ void wr_snfitsio_update_head(void) {
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
-    // HOSTGAL QUANTILES (Jan 2022) 
+    // HOSTGAL QUANTILES & LOGMASS
     if ( REFAC_DATA_FLAG > 0 ) {
-      HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];
+      HOSTGALz_DEF *HOSTGALz;
+
+      HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal];
+      wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
+
+      HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
       wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
     }
     else {
@@ -3665,7 +3672,12 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
       // read optional zphot quantiles
       if ( REFAC_DATA_FLAG > 0 ) {
-	HOSTGALz_DEF *HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ;
+	HOSTGALz_DEF *HOSTGALz;
+
+	HOSTGALz = &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal] ;
+	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
+
+	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal] ;
 	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
       }
       else {
@@ -4096,27 +4108,14 @@ int rd_snfitsio_event__(int *OPT, int *isn )
 { return RD_SNFITSIO_EVENT(*OPT,*isn); }
 
 
-/* xxxxxxxxxx nark delete xxxxxxxxx
-int NZ_HOSTGALz_snfitsio(int MXBIN, float *Z_LIST) {
-  // Return number of Z_LIST redshifts that are >=0.
-  int  iz, NZ = 0 ;
-  char fnam[] = "NZ_HOSTGALz_snfitsio";
-  // ------------ BEGIN -------------
-  for(iz=0; iz < MXBIN; iz++ ) {
-    if ( Z_LIST[iz] >= 0.0 ) { NZ++; }  else { break; }
-  }
-  return NZ;
-} // end NZ_HOSTGALz_snfitsio
-xxxxxxx end mark xxxxxxxx */
-
-void check_NZ_HOSTGALz_snfitszio(int MXBIN, int NZ0, int NZ1, 
-				 char *VARNAME0, char *VARNAME1, char *callFun) {
+void check_NZ_HOSTGALz_snfitsio(int MXBIN, int NZ0, int NZ1, 
+				char *VARNAME0, char *VARNAME1, char *callFun) {
 
   bool BAD_NZ_HIGH = (NZ0 > MXBIN);
   bool BAD_NZ0_NZ1 = (NZ0 != NZ1 );
 
   char fnam[200];
-  concat_callfun_plus_fnam(callFun, "check_NZ_HOSTGALz_snfitszio", fnam);
+  concat_callfun_plus_fnam(callFun, "check_NZ_HOSTGALz_snfitsio", fnam);
 
 
   if ( BAD_NZ_HIGH || BAD_NZ0_NZ1 ) {
@@ -4129,14 +4128,14 @@ void check_NZ_HOSTGALz_snfitszio(int MXBIN, int NZ0, int NZ1,
       sprintf(c2err,"Data stream or HEADER_OVERRIDE_FILE is messed up.");
     }
     else if ( BAD_NZ_HIGH ) {
-      sprintf(c1err,"HOSTGALz->NZ = %d exceeds bound MXBIN=%d", NZ0, MXBIN);
+      sprintf(c1err,"NZ = %d exceeds bound MXBIN=%d", NZ0, MXBIN);
       sprintf(c2err,"Check size of HOSTGALz array");
     }
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 
   }
   
-} // end  check_NZ_HOSTGALz_snfitszio
+} // end  check_NZ_HOSTGALz_snfitsio
 
 // ===============================================
 void RD_SNFITSIO_CLOSE(char *version) {
@@ -6235,7 +6234,8 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   //
   int j = *jcol;
   int NZ, NZ0, NZ1, NZ2, NRD = 0;
-  int MXBIN = MXBIN_HOSTGALz_QUANTILE;
+  //  int MXBIN   = MXBIN_HOSTGALz_QUANTILE;
+  int MXBIN   = HOSTGALz->MXZ;
   char fnam[] = "RD_SNFITSIO_HOSTGALz" ;
 
   // ------------- BEGIN -----------------
@@ -6250,16 +6250,16 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
 			      &SNFITSIO_READINDX_HEAD[j]);
 
   // abort if NZ0 and NZ1 are not the same
-  check_NZ_HOSTGALz_snfitszio(MXBIN, NZ0, NZ1, 
-			      HOSTGALz->VARNAME_Z, HOSTGALz->VARNAME_VAL, fnam);
+  check_NZ_HOSTGALz_snfitsio(MXBIN, NZ0, NZ1, 
+			     HOSTGALz->VARNAME_Z, HOSTGALz->VARNAME_VAL, fnam);
   
   if ( HOSTGALz->USE_VAL2 ) {
     j++ ; NZ2 = RD_SNFITSIO_FLT(isn, HOSTGALz->VARNAME_VAL2, HOSTGALz->VAL2_LIST,
 				&SNFITSIO_READINDX_HEAD[j]);
 
     // abort if NZ0 and NZ2 are not the same
-    check_NZ_HOSTGALz_snfitszio(MXBIN, NZ0, NZ2, 
-				HOSTGALz->VARNAME_Z, HOSTGALz->VARNAME_VAL2, fnam);
+    check_NZ_HOSTGALz_snfitsio(MXBIN, NZ0, NZ2, 
+			       HOSTGALz->VARNAME_Z, HOSTGALz->VARNAME_VAL2, fnam);
   }
 
   
@@ -6274,6 +6274,7 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   return NZ0;
 
 } // end RD_SNFITSIO_HOSTGALz
+
 
 int rd_snfitsio_str__(int *isn, char *parName, char *parString, int *iptr) {
   return RD_SNFITSIO_STR(*isn, parName, parString, iptr);

@@ -2734,7 +2734,6 @@
        ! check if quantiles are in override to ensure adding mean & stddev to plot table
        VARNAME = 'HOSTGALz_QUANTILE_ZPHOT' // char(0)
        OVERRIDE_ZPHOT_QUANTILES = ISRD_OVERRIDE_VARNAME(VARNAME, 40)
-       print*,' xxx OVERRIDE_ZPHOT_QUANTILES = ', OVERRIDE_ZPHOT_QUANTILES
     endif
 
     ! - - - - - -

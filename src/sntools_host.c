@@ -204,7 +204,6 @@ void INIT_HOSTLIB(void) {
   sortz_HOSTLIB();
 
   // abort if any GALID+ZTRUE pair appears more than once
-
   check_duplicate_GALID();
   
   // set redshift pointers for faster lookup

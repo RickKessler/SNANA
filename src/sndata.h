@@ -178,6 +178,7 @@ struct VERSION
 #define MXBIN_HOSTGALz_QUANTILE 20
 
 typedef struct {
+  int     MXZ ;                        // max number of z-bins
   int     NZ;                          // number of redshift bins
   float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)
   float   VAL_LIST[MXBIN_HOSTGALz] ;   // value list

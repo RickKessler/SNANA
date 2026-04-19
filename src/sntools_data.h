@@ -24,6 +24,7 @@ struct {
   int  IVAR_zCMB, IVAR_zHEL;
   int  IVAR_HOSTGAL_ZPHOT[MXHOSTGAL], IVAR_HOSTGAL_ZPHOT_ERR[MXHOSTGAL];
   int  IVAR_HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL] ;
+  int  IVAR_HOSTGALz_LOGMASS[MXHOSTGAL] ;
 
   int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023) LEGACY
   char **VARLIST_ZPHOT_Q; // LEGACY
@@ -75,6 +76,7 @@ void copy_lli(int copyFlag, double *DVAL0, long long  *IVAL1) ;
 void copy_flt(int copyFlag, double *DVAL0, float  *FVAL1) ;
 void copy_dbl(int copyFlag, double *DVAL0, double *DVAL1) ;
 void copy_str(int copyFlag, char   *STR0,  char   *STR1 );
+void copy_HOSTGALz(int copyFlag, char *key, double *DVAL, HOSTGALz_DEF *HOSTGALz);
 
 bool IS_SIMKEY_SNDATA(char *key);
 
@@ -89,6 +91,7 @@ void rd_override_append(void);
 void rd_override_zspec(void);
 void rd_override_zphot(int igal);
 void rd_override_zphot_legacy(void);
+void rd_override_logmass_grid(int igal);
 void rd_override_name(void);
 void rd_override_hostgal2z(int igal, HOSTGALz_DEF *HOSTGAL0z, HOSTGALz_DEF *HOSTGALz);
 

@@ -23688,4 +23688,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      to allow for big gaps; e.g., between two seasons or between
      pilot and main survey.
 
+   quick_commands.py
+     --table_file_dupl has optional 2nd arg = column name to check for duplicates.
+     E.g.
+          quick_commands.py --table_file_dupl FITOPT001.FITRES  HOST_OBJID
+     will check for duplicate HOST_OBJID.
+
 END: 

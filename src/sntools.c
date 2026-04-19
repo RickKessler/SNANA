@@ -8453,9 +8453,9 @@ int init_SNDATA_GLOBAL(void) {
 
   // init HOSTGALz stucture for refactor (note that REFAC_DATA_FLAG isn't set yet)
   for(igal=0; igal < MXHOSTGAL; igal++ ) {
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], igal,
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], igal, MXBIN_HOSTGALz_QUANTILE,
 			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "" );
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal,
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal, MXBIN_HOSTGALz,
 			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
@@ -8575,9 +8575,9 @@ int init_SNDATA_EVENT(void) {
     for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
       { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
 
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], igal,
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal], igal, MXBIN_HOSTGALz_QUANTILE,
 			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal,
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal, MXBIN_HOSTGALz,
 			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
@@ -8784,7 +8784,7 @@ void get_SNDATA_HOSTGALz_VARNAMES(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val
 xxxxxx end mark */
 
 
-void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, 
+void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN, 
 			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2 ) {
   int j;
   char PREFIX[20], PREFIXz[20], varNames[4][60];
@@ -8793,6 +8793,7 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal,
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
 
+  HOSTGALz->MXZ = MXBIN;
   sprintf(HOSTGALz->VARNAME_NZ,  "%s_NBIN_%s", PREFIXz, SUFFIX_z);
   sprintf(HOSTGALz->VARNAME_Z,   "%s_%s",      PREFIXz, SUFFIX_z);
   sprintf(HOSTGALz->VARNAME_VAL, "%s_%s",      PREFIXz, SUFFIX_val);

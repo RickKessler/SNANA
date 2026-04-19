@@ -2238,7 +2238,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   int    iwd0      = *iwd_file ; // never changes
   int    iwd       = *iwd_file ; // iwd increments
   int    igal, ivar, NVAR, ipar, NPAR, ifilt, ifilt_obs;
-  int    NRD, NRD_ERR, len_word0, N_Q ;
+  int    NRD, NRD_ERR, len_word0, N_Q, NZ ;
   int    IVAL;
   float  FVAL, FVAL_ERR ;
   double DVAL=-9.0, DVAL_ERR=-9.0; 
@@ -2490,8 +2490,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       }
 
       if ( REFAC_DATA_FLAG && IS_HOSTGALz ) {
-	N_Q = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
-	iwd = iwd0 + N_Q;
+	NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
+	iwd = iwd0 + NZ;
+
+	NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_LOGMASS[igal]);
+	iwd = iwd0 + NZ;
       }
       else {
 	// legacy

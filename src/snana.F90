@@ -24,7 +24,7 @@
         ,MXFIELD_OVP = 12          &  ! max number of overlapping fields
         ,MXSEASON    = 100         &  ! max number of seasons
         ,MXSNHOST    = 2           &  ! max number of host matches to read/write
-        ,MXZPHOT_Q   = 20          &  ! max number of zphot quantiles (May 2022)
+        ,MXZPHOT_Q   = 20          &  ! max number of zphot quantiles (May 2022) LEGACY
         ,MXVAR_PRIVATE = 40        &  ! max number of private variables
         ,MXCUT_PRIVATE = 10         &  ! max number of cuts on private var
         ,MXVAR_TERSE   = 30        &  ! max number of text-data  columms
@@ -375,7 +375,7 @@
          ,FOUND_SURVEY  & 
          ,FORMAT_TEXT     &  ! ascii/txt for input data
          ,FORMAT_FITS     &  ! snfitsio for input data
-         ,OVERRIDE_ZPHOT_QUANTILES & ! true of HEADER_OVERRIDE_FILE includes ZPHOT quantiles
+         ,OVERRIDE_ZPHOT_QUANTILES & ! true if HEADER_OVERRIDE_FILE includes ZPHOT quantiles
          ,SIM_COMPACT_noFLUXCAL      ! if SIM_WRITE_MASK & 4096 (Feb 2026)
     
     INTEGER N_SNLC_PLOT

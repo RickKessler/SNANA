@@ -23635,13 +23635,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    Add REFAC_DATA_FLAG input to snlc_sim.exe and snana.exe/snlc_fit.exe 
    to begin adding z-dependent grids to data stream:
-      HOSTGALz_ZPHOT_QUANTILE
+      HOSTGALz_QUANTILE_ZHOT
       HOSTGALz_LOGMASS
-      HOSTGALz_LOGMASS_ERR
    First goal is to replace original fixed-length quantiles (NZPHOT_Q=11) 
-   with HOSTGALz_ZPHOT_QUANTILE structure, which allow aribtray NZPHOT_Q 
-   for each event and each NBR host, and allows aribtrary PERCENT grid as well.
-   A tricker task is how to define vectors in the OVERRIDE file.
+   with HOSTGALz_QUANTILE_ZPHOT structure, which allow aribtray NZPHOT_Q 
+   for each event and each NBR host, and allows aribtrary PERCENT grid as well
+   (i.e., PERCENT grid need not be uniform). Second goal is to add HOSTGALz_LOGMASS
+   grid that includes ZGRID[iz], VALGRID[iz], ERRGRID[iz].
 
          *****  USEFUL(v12_01e) *****
 

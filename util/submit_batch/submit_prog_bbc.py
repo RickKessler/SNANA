@@ -169,6 +169,8 @@ TAG_REJECT_STAGE_BIASCOR0    = "BIASCOR0"  # check events rejected from biasCor 
 KEY_ROW               = "ROW:"
 
 KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
+KEY_SIMFILE_BIASCOR   = 'SIMFILE_BIASCOR' # RCC
+KEY_SIMFILE_CCPRIOR   = 'SIMFILE_CCPRIOR'
 BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 
 #  Allow either of two keys
@@ -863,10 +865,7 @@ class BBC(Program):
             # original FITRES file
             fitopt_map = FITOPT_MAP[fitopt_num].split()
             fitopt_num_outlist_map.append(fitopt_map)
-            n_fitopt    += 1
-            
-
-        #print(f"\n xxx map = {fitopt_num_outlist_map} \n")
+            n_fitopt    += 1 
 
         # - - - - - - - - - 
         logging.info(f"\n Prepare output FITOPT list:")
@@ -889,9 +888,51 @@ class BBC(Program):
         # prepare FITOPT_OUT_LIST table for SUBMIT.INFO file
         self.make_FITOPT_OUT_LIST()
 
+        # check for simfile(s) to replace default (Apr 2026)
+        replace_fitopt_simfile_biascor_dict = \
+                self.replace_fitopt_simfile(fitopt_num_outlist, KEY_SIMFILE_BIASCOR)
+        replace_fitopt_simfile_ccprior_dict = \
+                self.replace_fitopt_simfile(fitopt_num_outlist, KEY_SIMFILE_CCPRIOR)
+        #print(f"\n xxx replace_fitopt_simfile_biascor_dict \n{replace_fitopt_simfile_biascor_dict} \n")
+        #print(f"\n xxx replace_fitopt_simfile_ccprior_dict \n{replace_fitopt_simfile_ccprior_dict} \n")
+        #sys.exit(f"\n xxx map = {fitopt_num_outlist} \n") #RCC
+        self.config_prep['replace_fitopt_simfile_biascor_dict'] = replace_fitopt_simfile_biascor_dict
+        self.config_prep['replace_fitopt_simfile_ccprior_dict'] = replace_fitopt_simfile_ccprior_dict
 
         return
         # end bbc_prep_fitopt_outlist(self)
+
+    def replace_fitopt_simfile(self, fitopt_num_list, keyname_simfile):
+
+        # Created Apr 2026 by R.Chen and R.Kessler
+        # return dictionary where each key is a fitopt in fitopt_num_list (e.g., FITOPT003)
+        # and keyname_simfile is the key in the input CONFIG block that connects
+        # FITOPT label to a biascor to REPLACE the nominal biascor.
+        # Note that FITOPT num strings can change if user moves things around in
+        # th FITOPT yaml input for pippin, but the label is assumed to always be
+        # the same.
+
+        replace_dict = {}  # init output
+
+        CONFIG        = self.config_yaml['CONFIG']
+        simfile_dict  = CONFIG.setdefault(keyname_simfile,None)
+        if not simfile_dict: return replace_dict
+
+        FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST'] 
+        n_replace = 0
+        fitopt_num_replace_list = []
+        for row in FITOPT_OUT_LIST:
+            fitopt_num = row[0]
+            label      = row[2]
+            #print(f"\t xxx {fitopt_num} -> {label}")
+            if label in simfile_dict:
+                replace_dict[fitopt_num] = simfile_dict[label]
+                n_replace += 1
+                print(f"\t replace {keyname_simfile} for {fitopt_num} / {label}")
+            else:
+                replace_dict[fitopt_num] = None
+
+        return replace_dict 
 
     def make_FITOPT_OUT_LIST(self):
 

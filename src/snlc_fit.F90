@@ -8519,7 +8519,7 @@
        NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
        if ( NQ .le. 0 ) THEN
-          c1err = 'zPDF quantiles requested for photo-z fit'
+          c1err = 'zPDF quantiles requested for photo-z fit to CID=' // SNLC_CCID
           c2err = 'but there are no zPDF quantiles in the data.'
           CALL MADABORT(FNAM, c1err, c2err)
        endif

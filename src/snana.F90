@@ -4067,7 +4067,7 @@
 ! - - - - - - - - - - - - - - - - - - - - - - - - - -
 ! Convert CCID to integer CID, and check if this CCID is selected.
     CALL PARSE_CID( SNLC_CCID, SNLC_NAME_IAUC,     &  ! inputs
-                        CID, USECID)                ! returns args
+                        CID, USECID)                  ! returns args
     SNLC_CID  = CID   ! load integer CID
     if ( .NOT. USECID ) then
        ISTAT = ISTAT_SKIP;  RETURN
@@ -14306,13 +14306,6 @@
 ! Convert character string CCID into integer CID.
 ! Returns logical USECID=T if this CID should be processed.
 ! 
-! 
-! Jul 28 2014; allow ABORT_ON_DUPLCID=F to count duplicates without aborting
-! 
-! Jul 31 2015: move GET_INTERP_MJDLIST call before LCIDSELECT call
-! 
-! Dec 2 2015: pass IAUC arg.
-! 
 ! ---------------------
 
 
@@ -14481,7 +14474,7 @@
 ! 
 ! ---------------------
 
-
+    USE SNPAR
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -14493,8 +14486,9 @@
 
 ! ----------- BEGIN -------------
 
+! .xyz
     CID = -1 ; IERR=0
-    read( ccid, 20 , iostat = IERR ) CID
+    read( ccid, 20 , iostat = IERR ) CID  
 20    format(I10)    ! was I8
 
     IF ( IERR .EQ. 0 ) THEN  ! CCID is an integer

@@ -2139,13 +2139,15 @@ void rd_override_qzphot_implicit(int OPT, int IGAL) {
   } 
   else if ( OPT == 2 ) {
 
+    NQZPHOT  = RD_OVERRIDE.NQZPHOT_IMPLICIT ;
+    if ( NQZPHOT <= 0 ) { return; }
+
     double zq, PCT_LIST[MXBIN_HOSTGALz];
     int    NQ_VALID = 0 ;
     char   *CCID        =  SNDATA.CCID;
     long long int GALID = SNDATA.HOSTGAL_OBJID[IGAL];
     
 
-    NQZPHOT  = RD_OVERRIDE.NQZPHOT_IMPLICIT ;
     for(q=0; q < NQZPHOT; q++ ) {
       varName = RD_OVERRIDE.VARLIST_QZPHOT_IMPLICIT[q];
       NRD = RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq

@@ -375,7 +375,7 @@
          ,FOUND_SURVEY  & 
          ,FORMAT_TEXT     &  ! ascii/txt for input data
          ,FORMAT_FITS     &  ! snfitsio for input data
-         ,OVERRIDE_ZPHOT_QUANTILES & ! true if HEADER_OVERRIDE_FILE includes ZPHOT quantiles
+         ,OVERRIDE_QUANTILE_ZPHOT & ! true if HEADER_OVERRIDE_FILE includes ZPHOT quantiles
          ,SIM_COMPACT_noFLUXCAL      ! if SIM_WRITE_MASK & 4096 (Feb 2026)
     
     INTEGER N_SNLC_PLOT
@@ -966,7 +966,8 @@
     USE SNPAR
     IMPLICIT NONE
     ! define TYPE for z-dependent vectors
-    INTEGER, PARAMETER  ::   MXBIN_SNHOSTz = 40
+    INTEGER, PARAMETER  ::   MXBIN_SNHOSTz          = 40
+    INTEGER, PARAMETER  ::   MXBIN_SNHOSTz_QUANTILE = 20
     TYPE :: SNHOSTz_DEF
        CHARACTER(LEN=40) :: VARNAME_NZ    ! name of NZ variable in data stream
        CHARACTER(LEN=40) :: VARNAME_Z     ! name of Z_LIST variable in data stream
@@ -1166,15 +1167,15 @@
 
     INTEGER*8  SNHOST_OBJID(MXSNHOST)    ! int id
     REAL*8    DSNHOST_OBJID(MXSNHOST)   ! for tables only
-    CHARACTER VARNAME_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)*40
+    CHARACTER VARNAME_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)*40  ! LEGACY/obsolete
 
     REAL  & 
          SNHOST_ANGSEP(MXSNHOST)       &  ! SN-host sep, arcsec
         ,SNHOST_DDLR(MXSNHOST)         &  ! SNSEP/DLR
         ,SNHOST_CONFUSION              &  ! HC analog from Gupta 2016
         ,SNHOST_ZPHOT(MXSNHOST), SNHOST_ZPHOT_ERR(MXSNHOST)  & 
-        ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)  & 
-        ,SNHOST_ZPHOT_PERCENTILE(MXSNHOST,MXZPHOT_Q)  & 
+        !xxx mark ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)  & 
+        !xxx mark ,SNHOST_ZPHOT_PERCENTILE(MXSNHOST,MXZPHOT_Q)  & 
         ,SNHOST_QZPHOT_MEAN(MXSNHOST), SNHOST_QZPHOT_STD(MXSNHOST)  & 
         ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)  & 
         ,SNHOST_LOGMASS(MXSNHOST)  & 
@@ -1197,7 +1198,7 @@
     INTEGER*4  & 
           SNHOST_NMATCH             &  ! number of host matches, e.g., d_DLR<4
          ,SNHOST_NMATCH2            &  ! number of host matches, e.g., d_DLR<7
-         ,SNHOST_NZPHOT_Q(MXSNHOST) &  ! May 2022: number of zphot quantiles
+         ! xxx mark ,SNHOST_NZPHOT_Q(MXSNHOST) &  ! May 2022: number of zphot quantiles
          ,SNHOST_FLAG(MXSNHOST)        ! May 21 2021: indicate problems with host
 
     REAL  & 
@@ -2733,7 +2734,7 @@
 
        ! check if quantiles are in override to ensure adding mean & stddev to plot table
        VARNAME = 'HOSTGALz_QUANTILE_ZPHOT' // char(0)
-       OVERRIDE_ZPHOT_QUANTILES = ISRD_OVERRIDE_VARNAME(VARNAME, 40)
+       OVERRIDE_QUANTILE_ZPHOT = ISRD_OVERRIDE_VARNAME(VARNAME, 40)
     endif
 
     ! - - - - - -
@@ -3668,8 +3669,8 @@
 
     INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
 
-    INTEGER   IVAR, q, PCT
-    REAL*8    DARRAY(MXZPHOT_Q)
+    INTEGER   ivar, q, PCT, NZ
+    REAL*8    DARRAY(MXBIN_SNHOSTz_QUANTILE)
     CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*80
     ! @@@@@ LEGACY @@@@@
 
@@ -3681,23 +3682,26 @@
 
     CALL FETCH_SNDATA_WRAPPER("NZPHOT_Q",  & 
            ONE, DUMSTRING, DARRAY, OPT)
-    SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
-    SNHOST_NZPHOT_Q(2) = 0
+    NZ = int(DARRAY(1))
+    SNHOSTz_QUANTILE_ZPHOT(1)%NZ = NZ
+    SNHOSTz_QUANTILE_ZPHOT(2)%NZ = 0
+    !xxx mark SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
+    !xxx mark SNHOST_NZPHOT_Q(2) = 0
 
     ! @@@@@ LEGACY @@@@@
 
-    IF ( SNHOST_NZPHOT_Q(1) .LE. 0 ) RETURN
+    IF ( NZ .LE. 0 ) RETURN 
 
-    IF( SNHOST_NZPHOT_Q(1) > MXZPHOT_Q ) THEN
-       write(C1ERR,61) SNHOST_NZPHOT_Q(1), MXZPHOT_Q
- 61      format('NZPHOT_Q=',I4,' exceeds MXZPHOT_Q=',I4 )
+    IF( NZ > MXBIN_SNHOSTz_QUANTILE ) THEN
+       write(C1ERR,61) NZ, MXBIN_SNHOSTz_QUANTILE
+ 61      format('NZQ=',I4,' exceeds MXBIN_SNHOSTz_QUANTILE=',I4 )
        C2ERR = 'Check XXX_HEAD.FITS file'
        CALL MADABORT("RDGLOBAL_ZPHOT_Q", C1ERR, C2ERR)
     ENDIF
 ! ----------------------------------------------
     ! @@@@@ LEGACY @@@@@
 
-    DO 100 ivar = 1, SNHOST_NZPHOT_Q(1)
+    DO 100 ivar = 1, NZ
 
       q = ivar - 1 ! C index 0 to N-1
       write(cnum, '(I2.2)') q
@@ -3706,19 +3710,20 @@
            ONE, KEYWORD, DARRAY, OPTMASK_SNDATA_GLOBAL )
 
       PCT = INT(DARRAY(1))
-      SNHOST_ZPHOT_PERCENTILE(1,ivar) = SNGL(DARRAY(1))
+      SNHOSTz_QUANTILE_ZPHOT(1)%VAL_LIST(ivar) = SNGL(DARRAY(1))
+      ! xxx mark SNHOST_ZPHOT_PERCENTILE(1,ivar) = SNGL(PCT)
 
       ! @@@@@ LEGACY @@@@@
 
 ! load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
-      write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT
+      write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT  ! 
       write(VARNAME_ZPHOT_Q(2,ivar),102) 'HOSTGAL2', PCT
 102     format(A,'_ZPHOT_Q', I3.3)
 
 100   CONTINUE
 
-    write(6,40) SNHOST_NZPHOT_Q(1)
-40    format(T5,'Found NZPHOT_Q = ', I3, ' quantiles for HOST-zPHOT')
+    write(6,40) NZ
+40    format(T5,'Found NZ = ', I3, ' quantiles for HOST-zPHOT')
     CALL FLUSH(6)
 
     ! @@@@@ LEGACY @@@@@
@@ -4285,12 +4290,13 @@
 
     if ( REFAC_DATA_FLAG == 0 ) then
        ! LEGACY : read ZPHOT_Q (May 2022) 
-       NQZPHOT = SNHOST_NZPHOT_Q(igal)   ! store at RDGLOBAL stage
+       NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(igal)%NZ   ! stored at RDGLOBAL stage
        if ( NQZPHOT > 0 ) then
          DO q = 1, NQZPHOT
             KEY = VARNAME_ZPHOT_Q(igal,q)
             CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-            SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
+            SNHOSTz_QUANTILE_ZPHOT(igal)%Z_LIST(q) = SNGL(DARRAY(1))
+            ! xxx mark SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
          ENDDO
       endif
       IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
@@ -10797,29 +10803,32 @@
     DVAL(1)  = DBLE(SNLC_VPEC_ERR)
     CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
+! xxxxxxx mark delete Apr 20 2026 xxxxxxxx
 ! Oct 2025: copy photo-z quantiles back to SNDATA struct
     if ( REFAC_DATA_FLAG > 0 ) then
-       do igal = 1, MXSNHOST
+       !do igal = 1, MXSNHOST
           ! no need to copy override quantiles that are not modified here 
           ! ?? not needed ?? CALL copy_SNDATA_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), COPYFLAG)
 
           ! maybe set SNHOST_ZPHOT[_ERR] to MEAN and STD ... and copy back to SNDATA struct,
           ! Should this be automatic, or require OVERRIDE to change it?
           ! Automation problem may not allow alternate zPHOT_[ERR] options ?
-       enddo
+       !enddo
     else
        ! legacy ... this may have never been needed
-       NQ = SNHOST_NZPHOT_Q(1)
-       if ( NQ > 0 ) then
-          do q = 1, NQ
-             LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
-             cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
-             DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
-             CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
-          enddo
-       endif
+       !NQ = SNHOST_NZPHOT_Q(1)
+       !if ( NQ > 0 ) then
+       !   do q = 1, NQ
+       !      LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
+       !      cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
+       !      DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
+       !      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       !   enddo
+       !endif
     endif
-    
+    ! xxxxxxxx end mark xxxxxxx
+
+
 ! check option to exclude PRIVATE variables from output.
 ! Do NOT modify NVAR_PRIVATE.
     IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
@@ -17945,22 +17954,15 @@
 
 ! ------------- BEGIN ---------------
 
-    if ( REFAC_DATA_FLAG > 0 ) then
-       NQ = SNHOSTz_QUANTILE_ZPHOT(IGAL)%NZ
-    else
-       NQ = SNHOST_NZPHOT_Q(IGAL)
-    endif
+
+    NQ = SNHOSTz_QUANTILE_ZPHOT(IGAL)%NZ
    
     if ( NQ <= 0 ) RETURN
 
     do q = 1, NQ
-       if ( REFAC_DATA_FLAG > 0 ) then
-          QPROB(q)    = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%VAL_LIST(q)) / 100.  ! 0 <= PROB <= 1
-          QZPHOT(q)   = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%Z_LIST(q))
-       else
-          QPROB(q)    = DBLE(SNHOST_ZPHOT_PERCENTILE(IGAL,q)) / 100.  ! 0 <= PROB <= 1
-          QZPHOT(q)   = DBLE(SNHOST_ZPHOT_Q(IGAL,q))
-       endif
+
+       QPROB(q)    = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%VAL_LIST(q)) / 100.  ! 0 <= PROB <= 1
+       QZPHOT(q)   = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%Z_LIST(q))
 
        if ( q > 1 .and. QZPHOT(q) > -8.0 ) then
           BIGGER_z = QZPHOT(q) > QZPHOT(q-1) 
@@ -18103,18 +18105,20 @@
           SNHOST_ZPHOT = SNHOST_zPHOT + zshift
        endif
 
-       if ( REFAC_DATA_FLAG > 0 ) then
+       ! xxx mark if ( REFAC_DATA_FLAG > 0 ) then 
           do igal = 1, MXSNHOST
              CALL SHIFT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), zshift )
           enddo
-       else
+          ! xxxxxxxxxxx mark delete Apr 2026 xxxxxxxx
+       !else
           ! legacy
-          do q    = 1, SNHOST_NZPHOT_Q(igal)
-          do igal = 1, MXSNHOST
-	      SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
-          enddo
-          enddo
-       endif
+          !do q    = 1, SNHOST_NZPHOT_Q(igal)
+          !do igal = 1, MXSNHOST
+	  !    SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
+          !enddo
+          !enddo
+       !endif
+          ! xxxxxxxxx end mark xxxxx
 
     ENDIF
 
@@ -24070,12 +24074,8 @@
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )
 
 
-    if ( REFAC_DATA_FLAG > 0 ) then
-       NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
-    else
-       NQ = SNHOST_NZPHOT_Q(1) 
-    endif
-    if( NQ > 0 .or. OVERRIDE_ZPHOT_QUANTILES ) then
+    NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
+    if( NQ > 0 .or. OVERRIDE_QUANTILE_ZPHOT ) then
        VARLIST =  PREFIX(1:LP) // 'QZPHOT:F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_QZPHOT_MEAN(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )
        VARLIST =  PREFIX(1:LP) // 'QZPHOTSTD:F' // char(0)

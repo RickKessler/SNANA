@@ -8516,30 +8516,16 @@
 
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
-       IF ( REFAC_DATA_FLAG > 0 ) then
-          NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
-       else
-          NQ = SNHOST_NZPHOT_Q(1)   ! legacy
-       endif
+       NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
-      if ( NQ .le. 0 ) THEN
+       if ( NQ .le. 0 ) THEN
           c1err = 'zPDF quantiles requested for photo-z fit'
           c2err = 'but there are no zPDF quantiles in the data.'
           CALL MADABORT(FNAM, c1err, c2err)
-      endif
-
-      ! xxx mark delete 4.17.2026 CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
+       endif
 
       MEAN = SNHOST_QZPHOT_MEAN(1) 
       STD  = SNHOST_QZPHOT_STD(1)  
-
-      ! xxxxxxx mark delete Apr 17 2026 xxxxxxxx
-      !if (IERR_ZPDF .NE. 0 ) then
-      ! IERR = ERRFLAG_FITPREP_QUANTILES
-      !return
-      !endif
-      ! xxxxxxx end mark xxxxxxx
-
 
 !     initialize at Q50
       INIVAL(ipar) = MEAN
@@ -13956,11 +13942,8 @@
 
       Zhost    = SNHOST_ZPHOT(1)
 
-      if ( REFAC_DATA_FLAG > 0 ) then
-         NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
-      else
-         NQZPHOT = SNHOST_NZPHOT_Q(1) ! legacy
-      endif
+
+      NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
       DOFIT_PHOTOZ_HOST =  & 
            (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)

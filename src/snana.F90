@@ -5933,7 +5933,7 @@
     RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
     RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
     RESTORE_DES5YR        = .FALSE. ! May 28 2025
-    REFAC_DATA_FLAG       = 0       ! Apr 03 2026
+    REFAC_DATA_FLAG       = 1       ! Apr 03 2026
 
     REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 

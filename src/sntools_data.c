@@ -128,6 +128,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   // Apr 24 2021: add SIM_BIASCOR_MASK
   // Oct 08 2021: add SIM_MODEL_INDEX
   // Oct 11 2022: fix bug reading SIM_HOSTLIB params
+  // Apr 20 2026: no longer reader PHOT PERCENTILES from global header
 
   bool ISKEY_PRIVATE = ( strstr (key,"PRIVATE")   != NULL ) ;
   bool ISKEY_BYOSED  = ( strncmp(key,"BYOSED",6)  == 0 ) ;
@@ -136,8 +137,10 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   bool ISKEY_LCLIB   = ( strncmp(key,"LCLIB",5)   == 0 ) ;
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
 
+  /* xxxxxxxxxxx mark  xxxxx
   bool ISKEY_ZPHOT_Q = ( strstr (key,"ZPHOT_Q")  != NULL ) ; // legacy
   if ( REFAC_DATA_FLAG ) { ISKEY_ZPHOT_Q = false; }
+  xxxxxxx end mark xxxxx */
 
   int ivar, NVAR, ipar, PCT ;
   char fnam[] = "copy_SNDATA_GLOBAL" ;
@@ -185,6 +188,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
     }
   }
 
+  /* xxxxxxxx mark delete xxxxxxxxx
   else if ( ISKEY_ZPHOT_Q ) {
     // legacy
     if ( strcmp(key,STRING_NZPHOT_Q) == 0 ) {
@@ -197,6 +201,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       copy_int(copyFlag, parVal, &PCT ); 
     }
   }
+  xxxxxxx end mark xxxxx*/
 
   else if ( ISKEY_SIMSED  ) {
 
@@ -543,6 +548,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];		
 	copy_HOSTGALz(copyFlag, key, parVal, HOSTGALz) ;
       }
+
+      /* xxxxxxx mark delete xxxxxxxx
       else {
 	// legacy
 	if ( strstr(key,PREFIX_ZPHOT_Q) != NULL ) {
@@ -554,6 +561,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 	  }
 	} // end PREFIX_ZPHOT_Q
       }
+      xxxxxxxx end mark xxxxxxx*/
 
       if ( REFAC_DATA_FLAG > 0 && strstr(key,"LOGMASS") != NULL ) {
 	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];	     
@@ -1523,10 +1531,12 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   rd_override_check_mistake("HOSTGAL_ZSPEC_ERR", "HOSTGAL_SPECZ_ERR");
 
 
+  /* xxxxx mark delete xxxxxxxx
   if ( EXIST_VARNAME_AUTOSTORE(STRING_NZPHOT_Q) ) { // legacy
     rd_override_zphot_q_legacy(1);
   }  
-       
+  xxxxxxxxx end mark xxxxxxx */
+
   // if both zCMB and zHEL are on header-override list,
   // turn them off since there is no need to POST-PROCESS.
   if ( RD_OVERRIDE.IVAR_zCMB >=0  && RD_OVERRIDE.IVAR_zHEL >= 0 ) 
@@ -1823,7 +1833,7 @@ void RD_OVERRIDE_POSTPROC(void) {
   for(igal=0; igal< MXHOSTGAL; igal++ )  { rd_override_logmass_grid(igal); }
 
   // May 2023: check zPHOT quantile LEGACY
-  if ( RD_OVERRIDE.NZPHOT_Q > 0 )  { rd_override_zphot_q_legacy(2); }
+  // xxx mark delete  if ( RD_OVERRIDE.NZPHOT_Q > 0 )  { rd_override_zphot_q_legacy(2); }
 
   // check NAME_IAUC or NAME_TRANSIENT column when
   // these variables don't exist in original file.
@@ -1969,11 +1979,13 @@ void rd_override_zphot(int igal) {
 
   // ---------- BEGIN -------------
 
+  /* xxxxxx mark delete xxxxxxx
   // check legacy feature
   if ( !REFAC_DATA_FLAG ) { 
     if ( igal == 0 ) { rd_override_zphot_legacy(); }
     return;
   }
+  xxxxxxxx end mark xxxxxxx */
 
   if ( FOUND_ZPHOT  )  { FOUND_ANY_ZPHOT = true; }
   if ( FOUND_QZPHOT )  { FOUND_ANY_ZPHOT = true; }
@@ -2216,6 +2228,7 @@ void rd_private_init__(char *PRIVATE_VARNAME_LIST)
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
+/* xxxxxx mark delete Apr 2026
 
 void rd_override_zphot_legacy(void) {
 
@@ -2379,3 +2392,6 @@ void rd_override_zphot_q_legacy(int OPT) {
 void LOAD_VARNAME_ZPHOT_Q_LEGACY(char *PREFIX, int PCT, char *VARNAME) {
   sprintf(VARNAME,"%s_%s%3.3d", PREFIX, PREFIX_ZPHOT_Q, PCT);
 }
+
+xxxxxxxxxxxx end mark xxxxxxxxxx */
+

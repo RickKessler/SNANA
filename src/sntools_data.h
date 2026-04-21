@@ -116,6 +116,8 @@ void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
 void rd_override_init__(char *OVERRIDE_FILE, int *REQUIRE_DOCANA);
 
 
+/* xxxxxxxxxx mark delete xxxxxx
+
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // @@@@@@@  LEGACY_QUANTILE_FUNCTIONS @@@@@@@@@@@@
 // @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -123,5 +125,7 @@ void rd_override_init__(char *OVERRIDE_FILE, int *REQUIRE_DOCANA);
 void rd_override_zphot_legacy(void);
 void rd_override_zphot_q_legacy(int OPT);
 void LOAD_VARNAME_ZPHOT_Q_LEGACY(char *PREFIX, int PCT, char *VARNAME) ; 
+
+xxxxxxx end mark xxxxxxxxx */
 
 // end:

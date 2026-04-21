@@ -712,7 +712,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_ZHEL       = true;
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
-  INPUTS.REFAC_DATA_FLAG        = 0 ;
+  INPUTS.REFAC_DATA_FLAG        = 1 ;
   NLINE_RATE_INFO   = 0;
 
   INPUTS.TIME_START[0] = 0 ;
@@ -16003,6 +16003,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.ZPHOT_ERR ;
   NVAR_SIMGEN_DUMP++ ;
 
+  /* xxxxxxxx need to re-write Apr 20 2026 xxxxxxxx
   // Aug 2022: if forcing Gauss quantiles and ZPHOT_Q[nnn] are not
   //   in the HOSTLIB, add these variables here for SIMGEN_DUMP
   bool  USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
@@ -16015,6 +16016,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
       NVAR_SIMGEN_DUMP++ ;
     }
   }
+  xxxxxxxxx end mark */
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALSNSEP") ;   // host-SN separation, arcsec
@@ -25470,7 +25472,6 @@ void zsource_to_SNDATA(int FLAG){
   // to clearly indicate the sources of redshift in the datafile
   // This variable works for both simulation and real data
 
-
   bool FOUND_zHOST_SPEC = (GENLC.REDSHIFT_FLAG == REDSHIFT_FLAG_HOSTSPEC) ; 
   double ztmp, ztmp_err; 
   char fnam[] = "zsource_to_SNDATA" ;
@@ -25486,17 +25487,23 @@ void zsource_to_SNDATA(int FLAG){
     SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_PHOT  ;
   }
 
-  int N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
+  /* xxx mark delete xxxx
+  int N_Q    = SNDATA.HOSTGAL_NZPHOT_Q;
   double zq0 = SNDATA.HOSTGAL_ZPHOT_Q[0][0]; // First [0] dlr match index and second [0] quantile index
-  if (N_Q > 0 && zq0 >= 0.){
-    SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_QUANTILE;
-  }
+  xxxx end mark */
+
+  int igal=0, iz=0, N_Q = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ;
+  double zq0 = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].Z_LIST[iz];
+  if (N_Q > 0 && zq0 >= 0. ) 
+    { SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_QUANTILE;  }
 
   if ( GENLC.REDSHIFT_FLAG == REDSHIFT_FLAG_SNSPEC ){
     SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZSN_SPEC;
   }
 
-}
+  return;
+
+} // end zsource_to_SNDATA
   
 // *********************************
 void coords_to_SNDATA(int FLAG) {
@@ -25685,7 +25692,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   //
 
 
-  int    N_Q = HOSTLIB.NZPHOT_Q;
   int    IMATCH_TRUE_SORT = SNHOSTGAL.IMATCH_TRUE_SORT;
 
   int    NPAR, ipar, nbr, OVP, ifilt, NMATCH, NMATCH2, m, j, PCT ;
@@ -25709,15 +25715,17 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     // one-time init before output files are initialized.
     // set counters and par-names.
 
-    SNDATA.SIM_HOSTLIB_MSKOPT = 
-      INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
+    SNDATA.SIM_HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
-
+    /* xxxx mark delete
     SNDATA.HOSTGAL_NZPHOT_Q = N_Q;
     for(ipar=0; ipar < N_Q; ipar++ ) { 
       PCT  = HOSTLIB.PERCENTILE_ZPHOT_Q[ipar]; // e.g, 10 -> 10th percentile
       SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] = PCT;        // legacy
     }
+    xxxx end mark xxxx */
+
+
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;
@@ -25774,8 +25782,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   if ( ifilt_obs == 0 ) {
     
     // Nov 2019: test multiple host matches with NBR_LIST in HOSTLIB
-    // xxx mark 2/2026    SNDATA.HOSTGAL_NMATCH[0] = NMATCH;
-    // xxx mark SNDATA.HOSTGAL_NMATCH[1] = NMATCH2 ;
 
     SNDATA.HOSTGAL_NMATCH[0] = SNHOSTGAL.NNBR_DDLRCUT; // bug fix, Feb 9 2026
     SNDATA.HOSTGAL_NMATCH[1] = SNHOSTGAL.NNBR_DDLRCUT2 ;
@@ -25839,20 +25845,24 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
 
       if ( REFAC_DATA_FLAG ) 
-	{ SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ = HOSTLIB.NZPHOT_Q ; 	}
+	{ SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ = HOSTLIB.NQZPHOT ; 	}
 
       // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
-      for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++){
-	double zq   = SNHOSTGAL_DDLR_SORT[m].ZPHOT_Q[j] ;
-	double pct  = HOSTLIB.PERCENTILE_ZPHOT_Q[j]; 
+      for(j=0; j<SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ; j++){
+	double zq   = SNHOSTGAL_DDLR_SORT[m].QZPHOT[j] ;
+	double pct  = SNHOSTGAL_DDLR_SORT[m].QPERCENTILE[j] ;
+	// xxx mark	double pct  = HOSTLIB.QPERCENTILE[j]; 
 
 	if ( REFAC_DATA_FLAG ) {
 	  SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
 	  SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
 	}
+	/* xxxxxxx mark delete 
 	else {
 	  SNDATA.HOSTGAL_ZPHOT_Q[m][j] = zq ;   // legacy storage
 	}
+	xxxxxxx end mark xxxxxx */
+
       }
 
     }

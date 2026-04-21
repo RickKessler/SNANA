@@ -39,7 +39,7 @@
 #define MXHOSTGAL      2 // max number of matched hosts to write out
 #define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
-#define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100) // xxx legacy
+// xxx mark #define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100) // xxx legacy
 #define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
 #define ZEROPOINT_FLUXCAL_SNANA_ORIG  27.5
 #define ZEROPOINT_FLUXCAL_nJy         31.4
@@ -360,11 +360,11 @@ struct SNDATA {
   HOSTGALz_DEF HOSTGALz_LOGMASS[MXHOSTGAL] ;
 
 
-  // xxxxxxx legacy quantile variables xxxxxxxxxxxxx
+  /* xxxxxxx legacy quantile variables xxxxxxxxxxxxx
   float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
   int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles
   int     HOSTGAL_NZPHOT_Q ;
-  // xxxxxxxxxxxxxxxxxx  end legacy xxxxxxxxx
+  // xxxxxxxxxxxxxxxxxx  end legacy xxxxxxxxx */
 
   float  *PTR_HOSTGAL_PROPERTY_TRUE[MXHOSTGAL_PROPERTY];
   float  *PTR_HOSTGAL_PROPERTY_OBS[MXHOSTGAL_PROPERTY];

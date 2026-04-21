@@ -8460,6 +8460,7 @@ int init_SNDATA_GLOBAL(void) {
   }
 
 
+  /* xxxxxxx mark delete xxxxxxx
   // init legacy quantile storage
   SNDATA.HOSTGAL_NZPHOT_Q     = 0;
   for(j=0; j < MXBIN_ZPHOT_Q; j++)  { 
@@ -8467,7 +8468,7 @@ int init_SNDATA_GLOBAL(void) {
     SNDATA.HOSTGAL_ZPHOT_Q[0][j]          = -99.0;
     SNDATA.HOSTGAL_ZPHOT_Q[1][j]          = -99.0;
   } 
-
+  xxxxxxxx end mark xxxxxx */
 
   return(SUCCESS);
 
@@ -8572,8 +8573,10 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
 
+    /* xxxxxxxx mark delete 
     for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
       { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
+    xxxxxxx end mark */
 
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
 			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );

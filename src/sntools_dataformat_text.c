@@ -647,6 +647,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 
   
 
+  /* xxxxxxx mark delete xxxxxxxxx
   if ( !REFAC_DATA_FLAG ) {
     N_Q      = SNDATA.HOSTGAL_NZPHOT_Q; // legacy key
     if ( N_Q > 0 ) {
@@ -654,6 +655,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      PREFIX, STRING_NZPHOT_Q, N_Q );
     }
   }
+  xxxxxxxxx end mark xxxxx*/
 
   // - - - - - -
   NGAL = SNDATA.HOSTGAL_NMATCH[1];
@@ -681,6 +683,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
 
+    /* xxxxxxx mark delete xxxxxxxxxx
     if ( N_Q > 0 && !REFAC_DATA_FLAG ) {
       // legacy
       float *zq = SNDATA.HOSTGAL_ZPHOT_Q[igal];
@@ -696,6 +699,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
       fprintf(fp, "\n");
       fflush(fp);
     }
+    xxxxxxxx end mark xxxxxx*/
 
     if ( !RDTEXT || SNDATA.HOSTGAL_SPECZ[igal] > 0.0 ) {
       fprintf(fp, "%s_SPECZ:       %.5f  +- %.5f \n", PREFIX,
@@ -1651,6 +1655,7 @@ void  rd_sntextio_global(void) {
       copy_keyword_nocolon(word0,SNDATA.PRIVATE_KEYWORD[NVAR]);
     }
 
+    /* xxxxxxxx end mark xxxxxxxxxx
     else if (IS_ZPHOT_Q && !REFAC_DATA_FLAG ) {
       // legacy write
       if ( strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 )
@@ -1662,7 +1667,7 @@ void  rd_sntextio_global(void) {
 	  { iwd++; get_PARSE_WORD_INT(langC,iwd,&SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q],fnam); }
       }
     }
-
+    xxxxxxxxx end mark xxxxxxxxxx */
 
     else if ( IS_HOSTLIB ) { 
       NPAR = SNDATA.NPAR_SIM_HOSTLIB;
@@ -2184,15 +2189,15 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
 
   // - - - - - 
   // temp code to check reading of ZPHOT quantiles
-  int LDMP_Q = 0 ;
-  if ( LDMP_Q && SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {
-    int ivar, pct;  float zq;
+  int LDMP_Q = 0, igal=0, NZ= SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ ;
+  if ( LDMP_Q && NZ > 0 ) {
+    int iz, pct;  float zq;
     printf(" xxx ------------------------------- \n");
-    printf(" xxx %s: ZPHOT_Q DUMP for CID=%s \n", fnam, SNDATA.CCID);
-    for(ivar=0; ivar < SNDATA.HOSTGAL_NZPHOT_Q; ivar++ ) {
-      zq  = SNDATA.HOSTGAL_ZPHOT_Q[0][ivar];
-      pct = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar];
-      printf(" xxx %s: ZPHOT_Q[%d] = %.4f \n", fnam, pct, zq);
+    printf(" xxx %s: QUANTILE_ZPHOT DUMP for CID=%s \n", fnam, SNDATA.CCID);
+    for(iz=0; iz < NZ; iz++ ) {
+      zq  = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].Z_LIST[iz];
+      pct = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].VAL_LIST[iz] ;
+      printf(" xxx %s: QZPHOT[%2d] = %.4f  QPERCENT = %d\n", fnam, iz, zq, pct);
       fflush(stdout);
     }
   }
@@ -2449,6 +2454,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       iwd = iwd0 + NFILT;
     } 
 
+    /* xxxxxx end mark xxxxxx
     else if ( !REFAC_DATA_FLAG && strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 ) {
       SNDATA.HOSTGAL_NZPHOT_Q = IVAL ;
     }
@@ -2461,7 +2467,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       for(ivar=0; ivar < N_Q; ivar++ ) 
 	{ SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar] = (int)fval_tmp[ivar]; }
     }
-    
+    xxxxxxxxxx end mark xxxxxxx */
 
     // - - - - - 
     for(igal=0; igal < MXHOSTGAL; igal++ ) {
@@ -2489,13 +2495,15 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_SPECZ_ERR[igal]=FVAL_ERR; }	
       }
 
-      if ( REFAC_DATA_FLAG && IS_HOSTGALz ) {
-	NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
-	iwd = iwd0 + NZ;
+      // xxx mark if ( REFAC_DATA_FLAG && IS_HOSTGALz ) {
+      NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
+      iwd = iwd0 + NZ;
+      
+      NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_LOGMASS[igal]);
+      iwd = iwd0 + NZ;
+      // xxx mark }
 
-	NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_LOGMASS[igal]);
-	iwd = iwd0 + NZ;
-      }
+      /* xxxx mark delete xxxxxx
       else {
 	// legacy
 	sprintf(KEY_TEST,"%s_%s:", PREFIX, PREFIX_ZPHOT_Q); 
@@ -2504,6 +2512,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	  get_PARSE_WORD_NFLT(langC,N_Q,iwd0+1, SNDATA.HOSTGAL_ZPHOT_Q[igal], fnam);
 	}
       }
+      xxxxxxx end mark xxxxxxx */
 
       sprintf(KEY_TEST,"%s_RA:", PREFIX); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {

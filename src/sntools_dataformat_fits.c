@@ -402,6 +402,8 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[0] );
     wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[0] );
   }
+
+  /* xxxxxx mark delete xxxxxxx
   else {
     // legacy
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
@@ -410,7 +412,7 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E", parName, itype );
     }
   }
-  
+  xxxxxxx end mark xxxxxx */
 
   // - - - - - 
   if ( SNFITSIO_HOSTGAL2_FLAG ) {
@@ -452,6 +454,8 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[1] );
       wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[1] );
     }
+
+    /* xxxxxxxx mark delete
     else {
       // legacy
       for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
@@ -460,7 +464,8 @@ void wr_snfitsio_init_head(void) {
 	wr_snfitsio_addCol( "1E", parName, itype );
       }
     }
- 
+    xxxxxxx end mark xxxxxxxx */
+
   }  // end of 2nd-HOSTGAL block
 
   // - - - -
@@ -1161,7 +1166,7 @@ void wr_snfitsio_create(int itype ) {
 
 
     //write number of Q quantiles
-    if ( !REFAC_DATA_FLAG ) { wr_snfitsio_global_zphot_q(fp); } // legacy
+    // xxx mark    if ( !REFAC_DATA_FLAG ) { wr_snfitsio_global_zphot_q(fp); } // legacy
 
   }
 
@@ -1447,6 +1452,7 @@ void wr_snfitsio_global_private(fitsfile *fp) {
 
 } // end wr_snfitsio_global_private
 
+/* xxxxxxxxx mark delete xxxxxx
 // =================================================
 void wr_snfitsio_global_zphot_q(fitsfile *fp) {
 
@@ -1486,6 +1492,7 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
   return;
 
 } // end wr_snfitsio_zphot_q
+xxxxxxxxxx end mark xxxxxxx */
 
 
 // ==================================
@@ -1924,6 +1931,8 @@ void wr_snfitsio_update_head(void) {
       HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
       wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
     }
+
+    /* xxxxxxx mark delete xxxxxxx
     else {
       // legacy
       for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
@@ -1934,6 +1943,8 @@ void wr_snfitsio_update_head(void) {
 	wr_snfitsio_fillTable ( ptrColnum, parName, itype );
       }
     }
+    xxxxxxxxx end mark xxxxxxx */
+
 
     
   } // end igal
@@ -3680,6 +3691,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal] ;
 	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
       }
+
+      /* xxxxxxxxxxx end mark xxxxxxxxxxxxxx
       else {
 	// legacy
 	N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
@@ -3690,7 +3703,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	  j++ ; NRD = RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
 	}
       }
-      
+      xxxxxxxxxxxx end mark xxxxxxxxxx */
 
     } // end igal 
 
@@ -4515,7 +4528,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   rd_snfitsio_private();
 
   // check optional NZPHOT_Q key (Feb 2022)
-  if ( !REFAC_DATA_FLAG ) { rd_snfitsio_zphot_q(); }
+  // xxxxxxx mark   if ( !REFAC_DATA_FLAG ) { rd_snfitsio_zphot_q(); }
 
   // - - - - - - - - - - -
 
@@ -4789,6 +4802,7 @@ void rd_snfitsio_simkeys(void) {
 } // end of  rd_snfitsio_simkeys
 
 
+/* xxxxxxx mark delete xxxxxxxxx
 // ==========================
 void rd_snfitsio_zphot_q(void) {
 
@@ -4853,6 +4867,7 @@ void rd_snfitsio_zphot_q(void) {
 
   return;
 } // end rd_snfitsio_zphot_q
+xxxxxxxxxx end mark xxxxxxx */
 
 // ==========================
 void rd_snfitsio_private(void) {

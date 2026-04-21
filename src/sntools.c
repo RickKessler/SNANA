@@ -3916,7 +3916,7 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   //
   //  Output
   //    *n_item   : number of items in *item
-  //    arrayList : array of individual items
+  //    arrayList : array of individual items (note malloc done here)
   //
   // Oct 2023: update to work for space-sep or comma sep strings
   //
@@ -8859,6 +8859,31 @@ int NZ_HOSTGALz(int MXBIN, float *Z_LIST) {
   }  
   return NZ;  
 } // end NZ_HOSTGALz
+
+
+void compute_implicit_percentiles(int NBIN_TOT, int NBIN_VALID, double *PCT_LIST) {
+
+  // Created Apr 21 2026
+  // Compute and store NBIN_VALID quantile percentages;
+  // e.g., NBIN_VALID=11 -> store 0, 10, 20 ... 90, 100.
+  // If NBIN_TOT > NBIN_VALID, pad remaining PCT_LIST values with -9.
+
+  double XN_VALID = (double)NBIN_VALID;
+  double qbin = 100.0/(XN_VALID - 1.0); // equal percentile bin size
+  double pct;
+  int q;
+ 
+ for(q=0; q < NBIN_TOT; q++ ) {
+   if ( q < NBIN_VALID ) 
+     { pct = qbin*(double)q; } 
+   else 
+     { pct = -9.0; }
+
+   PCT_LIST[q] = pct;
+  }
+ 
+  return;
+} // end compute_implicit_percentiles
 
 // =================================================
 void init_GENSPEC_GLOBAL(void) {

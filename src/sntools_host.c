@@ -4973,7 +4973,9 @@ void init_HOSTLIB_QUANTILE_ZPHOT(void) {
   // only prints information to stdout.
   // If force-Gauss option is set, this function initializes
   // Gaussian integrals at percentile values.
-
+  //
+  // Apr 21 2026: BROKEN ... needs fix consistent with recent refactor
+  //
   int  N_Q        = HOSTLIB.NQZPHOT ;
   int  USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
   int  q, qbin, percentile;
@@ -4984,18 +4986,8 @@ void init_HOSTLIB_QUANTILE_ZPHOT(void) {
   // if Gaussian quantile is requested without any quantiles in the
   // HOSTLIB, force 11 quantiles.
   if ( USE_QGAUSS && N_Q == 0 ) {
-    N_Q = HOSTLIB.NQZPHOT = 11; // 0, 10, 20 ..... 100
+    N_Q = HOSTLIB.NQZPHOT = 11;    // 0, 10, 20 ..... 100
   }
-
-
-  /* xxx mark delete ; compute percentiles for each event
-  qbin = 100/(N_Q - 1);
-  for(q=0; q < N_Q; q++ ) {
-    percentile = q * qbin;
-    HOSTLIB.PERCENTILE_QZPHOT[q] = percentile ;
-    sprintf(HOSTLIB.VARNAME_QZPHOT[q], "QZPHOT%2.2d", q);
-  }
-  xxxx end mark */
 
   if ( N_Q == 0 ) { return; }
 
@@ -9113,19 +9105,30 @@ void SORT_SNHOST_byDDLR(void) {
     
     // - - - - - - -
     if ( IVAR_Q0 > 0 || USE_QGAUSS ) {
+      // first fetch the z values and count number of valid values
+      // in case this galaxy has fewer quantiles than the max.
       int NQ_VALID = 0 ;
       for (q = 0; q < HOSTLIB.NQZPHOT; q++) {
 	zq = GEN_SNHOST_QUANTILE_ZPHOT(IGAL,q);
 	SNHOSTGAL_DDLR_SORT[i].QZPHOT[q] = zq; 
-	if (zq >= 0.0 ) { NQ_VALID++ ; } 
+	if ( zq >= 0.0 ) { NQ_VALID++ ; } 
       }
 
-      // compute percentiles for this NBR
+      // compute percentiles for this NBR; percentile bin is recomputed for each event/nbr.
+      compute_implicit_percentiles( HOSTLIB.NQZPHOT, NQ_VALID, 
+				    SNHOSTGAL_DDLR_SORT[i].QPERCENTILE ); // <== returned
+
+      /* xxx mark delete 
       double DNQ_VALID = (double)NQ_VALID ;
       double qbin      = 100.0/(DNQ_VALID - 1.0);
-      for(q=0; q < NQ_VALID; q++ ) {
-	SNHOSTGAL_DDLR_SORT[i].QPERCENTILE[q] = q*qbin ;   // 0 to 100
+      double pct ;
+      for(q=0; q < HOSTLIB.NQZPHOT; q++ ) {
+	pct = q*qbin ;      // 0 to 100
+	if ( q < NQ_VALID ) { pct = q*qbin; }   else { pct = -9.0; }
+	SNHOSTGAL_DDLR_SORT[i].QPERCENTILE[q] = pct; 
       }
+      xxxxxxx end mark xxxxx */ 
+
     }
 
     for (ivar=0; ivar<N_HOSTGAL_PROPERTY; ivar++){

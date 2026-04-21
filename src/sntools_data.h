@@ -10,6 +10,10 @@ int REFAC_DATA_FLAG ;  // Apr 3 2026: refactor to store LOGMASS[_ERR] in z-bins
 #define MXFILE_OVERRIDE   10
 #define IVARMAX_OVERRIDE  200  // max IVAR;  can be large even with only 1 override var
 
+// define two different quantile formats for override
+#define QFORMAT_OVERRIDE_IMPLICIT   1  // specify zq list for each GALID; PERCENTILES are IMPLCICITLY computed
+#define QFORMAT_OVERRIDE_EXPLICIT   2  // specify EXPLCIIT zq and PERCENT for each GALID
+
 struct {
   bool USE;
   int NFILE; // number of override files
@@ -26,8 +30,9 @@ struct {
   int  IVAR_HOSTGALz_QUANTILE_ZPHOT[MXHOSTGAL] ;
   int  IVAR_HOSTGALz_LOGMASS[MXHOSTGAL] ;
 
-  int  NZPHOT_Q ; // number of ZPHOT_Q[nnn] quantiles (May 2023) LEGACY
-  char **VARLIST_ZPHOT_Q; // LEGACY
+  int QFORMAT; // quantile format
+  int NQZPHOT_IMPLICIT;  // fixed number of quantile columns in override
+  char **VARLIST_QZPHOT_IMPLICIT; 
 
   int IVAR_NAME_IAUC, IVAR_NAME_TRANSIENT; 
 
@@ -90,6 +95,7 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST);
 void rd_override_append(void);
 void rd_override_zspec(void);
 void rd_override_zphot(int igal);
+void rd_override_qzphot_implicit(int OPT, int IGAL);
 void rd_override_zphot_legacy(void);
 void rd_override_logmass_grid(int igal);
 void rd_override_name(void);

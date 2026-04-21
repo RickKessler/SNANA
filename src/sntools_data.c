@@ -1457,8 +1457,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   RD_OVERRIDE.IVAR_zCMB = -9 ;
   RD_OVERRIDE.IVAR_zHEL = -9 ; 
 
-  RD_OVERRIDE.NZPHOT_Q   = 0 ; // LEGACY
-
+  // xxx mark  RD_OVERRIDE.NZPHOT_Q   = 0 ; // LEGACY
 
   for(igal=0; igal < MXHOSTGAL; igal++ ) {
     RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal]           = -9 ;
@@ -1499,7 +1498,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
       RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT_ERR[igal] = IVAR;
     }
 
-
+    // read one row per "GALID z percent" 
     ptr_varname = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].VARNAME_Z ; 
     if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
       IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
@@ -1513,6 +1512,11 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     }
 
   } // end igal
+
+
+  // check for implicit quantile zphot-list per GALID
+  rd_override_qzphot_implicit(1, -9);
+  
 
   if ( EXIST_VARNAME_AUTOSTORE("NAME_IAUC") ) 
     { RD_OVERRIDE.IVAR_NAME_IAUC = IVAR_VARNAME_AUTOSTORE("NAME_IAUC", &ICAST ); }
@@ -1530,12 +1534,6 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   rd_override_check_mistake("HOSTGAL_ZSPECERR" , "HOSTGAL_SPECZ_ERR");
   rd_override_check_mistake("HOSTGAL_ZSPEC_ERR", "HOSTGAL_SPECZ_ERR");
 
-
-  /* xxxxx mark delete xxxxxxxx
-  if ( EXIST_VARNAME_AUTOSTORE(STRING_NZPHOT_Q) ) { // legacy
-    rd_override_zphot_q_legacy(1);
-  }  
-  xxxxxxxxx end mark xxxxxxx */
 
   // if both zCMB and zHEL are on header-override list,
   // turn them off since there is no need to POST-PROCESS.
@@ -1827,7 +1825,14 @@ void RD_OVERRIDE_POSTPROC(void) {
 
   // check for redshift_helio update that forces zcmb to also change.
   rd_override_zspec();
-  for(igal=0; igal< MXHOSTGAL; igal++ )  { rd_override_zphot(igal); }
+
+  // check implicit quantile option (zq list per GALID)
+
+
+  for(igal=0; igal< MXHOSTGAL; igal++ )  { 
+    rd_override_qzphot_implicit(2,igal); // fill SNDATA.HOSTGALz as if EXPLICIT format 
+    rd_override_zphot(igal); 
+  }
 
   // check to override logmass grid for nbr hosts
   for(igal=0; igal< MXHOSTGAL; igal++ )  { rd_override_logmass_grid(igal); }
@@ -1947,6 +1952,7 @@ void rd_override_zphot(int igal) {
   double DEC = SNDATA.DEC_AVG ;
   char *CCID = SNDATA.CCID;
 
+
   int  IVAR_HOSTGAL_ZPHOT    = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal];
   int  IVAR_HOSTGAL_QZPHOT   = RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[igal];
   int  IVAR0_HOSTGAL_ZPHOT   = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[0];
@@ -1978,6 +1984,7 @@ void rd_override_zphot(int igal) {
   char fnam[] = "rd_override_zphot" ;
 
   // ---------- BEGIN -------------
+
 
   /* xxxxxx mark delete xxxxxxx
   // check legacy feature
@@ -2083,6 +2090,84 @@ void rd_override_zphot(int igal) {
   return ;
 
 } // end rd_override_zphot
+
+
+// =============================================
+void rd_override_qzphot_implicit(int OPT, int IGAL) {
+
+  // Input:
+  //  OPT=1 --> init by determining NQZPHOT_IMPLICIT
+  //  OPT=2 --> read qzphot values and store in SNDATA.HOSTGALz 
+  //       as if EXPLICIT format was used.
+  //
+  //  IGAL = 0,1... is sparse galaxy index to fetch GALID (for OPT=2 only)
+
+  int  NQZPHOT, NQ_OBSOLETE, PCT, q, NRD ;
+  char PREFIX_QZPHOT[]   = "QZPHOT" ;
+  char PREFIX_OBSOLETE[] = "HOSTGAL_ZPHOT_Q" ;
+  char PREFIX[60], *varName, STRDUM[60] ;
+  char fnam[] = "rd_override_qzphot_implicit" ;
+
+  // ------------- BEGIN -------------
+    
+  if ( OPT == 1 ) {
+    char *VARSTRING = (char*) malloc(500*sizeof(char));
+
+    
+    NQ_OBSOLETE = NVAR_MATCH_AUTOSTORE(PREFIX_OBSOLETE, VARSTRING);
+    if ( NQ_OBSOLETE > 0 ) {
+      sprintf(c1err,"Found %d obsolete OVERRIDE colums with '%s' prefix; ", NQ_OBSOLETE, PREFIX_OBSOLETE);
+      sprintf(c2err,"Replace with QZPHOT00 QZPHOT01 ... QZPHOT%2.2d", NQ_OBSOLETE-1);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    NQZPHOT = NVAR_MATCH_AUTOSTORE(PREFIX_QZPHOT, VARSTRING); // implicit NZPHOT_Q = number of ZPHOT vars
+    RD_OVERRIDE.NQZPHOT_IMPLICIT  = NQZPHOT ;
+
+    if ( NQZPHOT == 0 ) { return ; }
+    
+    parse_commaSepList(fnam, VARSTRING, MXBIN_HOSTGALz_QUANTILE, 60,
+		       &NQZPHOT, &RD_OVERRIDE.VARLIST_QZPHOT_IMPLICIT ); // <== returned
+
+    printf("\n  Prepare %d IMPLICIT quantile overrides per GALID: %s ... %s\n", 
+	   NQZPHOT, RD_OVERRIDE.VARLIST_QZPHOT_IMPLICIT[0], RD_OVERRIDE.VARLIST_QZPHOT_IMPLICIT[NQZPHOT-1]);
+    
+    free(VARSTRING);    
+    fflush(stdout);
+    //debugexit(fnam);
+
+  } 
+  else if ( OPT == 2 ) {
+
+    double zq, PCT_LIST[MXBIN_HOSTGALz];
+    int    NQ_VALID = 0 ;
+    char   *CCID        =  SNDATA.CCID;
+    long long int GALID = SNDATA.HOSTGAL_OBJID[IGAL];
+    
+
+    NQZPHOT  = RD_OVERRIDE.NQZPHOT_IMPLICIT ;
+    for(q=0; q < NQZPHOT; q++ ) {
+      varName = RD_OVERRIDE.VARLIST_QZPHOT_IMPLICIT[q];
+      NRD = RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq
+      if ( NRD == 0 ) { zq = -9.0; }
+      if ( zq >= 0.0 ) { NQ_VALID++ ; }
+      SNDATA.HOSTGALz_QUANTILE_ZPHOT[IGAL].Z_LIST[q] = zq;
+
+      //printf(" xxx %s: cid=%s  igal=%d  GALID=%lld  q=%d  z=%.4f NRD=%d\n",
+      //     fnam, SNDATA.CCID, IGAL, GALID, q, zq, NRD); fflush(stdout);
+    }
+
+    SNDATA.HOSTGALz_QUANTILE_ZPHOT[IGAL].NZ = NQ_VALID;
+    compute_implicit_percentiles(NQZPHOT, NQ_VALID, PCT_LIST); // <== return PCT_LIST
+    for(q=0; q < NQZPHOT; q++ ) 
+      { SNDATA.HOSTGALz_QUANTILE_ZPHOT[IGAL].VAL_LIST[q] = PCT_LIST[q]; } 
+
+
+  }  // end OPT if block
+
+  return ;
+
+} // end rd_override_qzphot_implicit
 
 
 void rd_override_logmass_grid(int igal) {

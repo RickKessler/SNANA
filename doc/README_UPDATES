@@ -23694,4 +23694,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
           quick_commands.py --table_file_dupl FITOPT001.FITRES  HOST_OBJID
      will check for duplicate HOST_OBJID.
 
+  SWITCH to REFAC_DATA_FLAG=1, and no going back:
+     TASK087_SIMFIT_DES5YR_QZPHOT5   :  mis-match (REF != TEST)
+		==> REF:  ZPHOT-72 = 0.66770 +/- 0.5237E-02(P)
+		==> TEST: ZPHOT-72 = 0.66767 +/- 0.1379E-01(P)
+     TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
+		==> REF:  ZPHOT-72 = 0.65832 +/- 0.8917E-02(P)
+		==> TEST: ZPHOT-72 = 0.65796 +/- 0.5290E-02(P)
 END: 

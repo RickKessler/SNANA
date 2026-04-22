@@ -23709,9 +23709,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sntools_genPDF.c: abort if any varname has SIM_ prefix
 
    TO-DO LIST:
-     - increase MXCHAR_CCID for big LSST object IDs: 
-          snana.F90, sndata.h 
-     - MXHOSTGAL = 2 --> 3
+     + increase MXCHAR_CCID for big LSST object IDs:  snana.F90, sndata.h 
+     - MXHOSTGAL                 = 2 --> 3
      - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4
 
 END: 

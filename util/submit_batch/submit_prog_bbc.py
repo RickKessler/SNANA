@@ -173,7 +173,7 @@ TAG_REJECT_STAGE_BIASCOR0    = "BIASCOR0"  # check events rejected from biasCor 
 KEY_ROW               = "ROW:"
 
 KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
-KEY_SIMFILE_BIASCOR   = 'SIMFILE_BIASCOR' # RCC
+KEY_SIMFILE_BIASCOR   = 'SIMFILE_BIASCOR' 
 KEY_SIMFILE_CCPRIOR   = 'SIMFILE_CCPRIOR'
 BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 
@@ -919,7 +919,7 @@ class BBC(Program):
         replace_dict = {}  # init output
 
         CONFIG        = self.config_yaml['CONFIG']
-        simfile_dict  = CONFIG.setdefault(keyname_simfile,None)
+        simfile_dict  = CONFIG.setdefault(keyname_simfile,None) 
         if not simfile_dict: return replace_dict
 
         FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST'] 
@@ -928,9 +928,12 @@ class BBC(Program):
         for row in FITOPT_OUT_LIST:
             fitopt_num = row[0]
             label      = row[2]
+            msgerr = [' ', f'Check {keyname_simfile} for {fitopt_num} / {label} file', ' ' ] 
             #print(f"\t xxx {fitopt_num} -> {label}")
             if label in simfile_dict:
+                #simfile_dict[label] += '_xxx' # xxx REMOVE
                 replace_dict[fitopt_num] = simfile_dict[label]
+                self.check_file_exists(simfile_dict[label],msgerr)
                 n_replace += 1
                 print(f"\t replace {keyname_simfile} for {fitopt_num} / {label}")
             else:
@@ -1922,6 +1925,9 @@ class BBC(Program):
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
 
+        replace_simfile_biascor = self.config_prep['replace_fitopt_simfile_biascor_dict'][fitopt_num]
+        replace_simfile_ccprior = self.config_prep['replace_fitopt_simfile_ccprior_dict'][fitopt_num]
+        
         # check option to use different code (JOBNAME)
         if 'JOBNAME' in muopt_arg :
             program = os.path.expandvars(muopt_arg.split()[1])
@@ -1958,6 +1964,12 @@ class BBC(Program):
         if USE_INPDIR:
             version_datafile = version + self.suffix_splitran(n_splitran,1)
             arg_list.append(f"  datafile=../{version_datafile}/{input_ff}")
+
+        # 4.22.2026 - check option to override default simfiles based on FITOPT (for PASTRY);
+        if replace_simfile_biascor :
+            arg_list.append(f"   simfile_biascor={replace_simfile_biascor}")
+        if replace_simfile_ccprior :
+            arg_list.append(f"   simfile_ccprior={replace_simfile_ccprior}")
 
         arg_list.append(f"  write_yaml=1")
 

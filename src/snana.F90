@@ -139,7 +139,7 @@
         ,MODEL_LCLIB      = 12  & 
         ,MODEL_FIXMAG     = 20  & 
         ,MXMODEL_INDEX    = 20  & 
-        ,MXCHAR_CCID       = 20    &  ! max len of CCID string (i.e, SN name)
+        ,MXCHAR_CCID       = 32    &  ! max len of CCID string (i.e, SN name)
         ,MXCHAR_VERSION    = 72    &  ! max len of VERSION_PHOTOMETRY
         ,MXCHAR_SURVEY     = 40    &  ! max len of SURVEY_NAME
         ,MXCHAR_PATH       = 160   &  ! max len of path
@@ -13874,7 +13874,8 @@
 ! a different CID in each case. For integer
 ! CIDs (like SDSS), the CID is always the same.
 ! 
-! 
+! For int CID > 1 billion, treat it like a string (e.g., LSST alerts)
+!
 ! ---------------------
 
     USE SNPAR
@@ -13889,15 +13890,15 @@
 
 ! ----------- BEGIN -------------
 
-! .xyz
-    CID = -1 ; IERR=0
+    LCHAR = INDEX ( CCID, ' ' ) - 1
+    CID   = -1 ; IERR=0
     read( ccid, 20 , iostat = IERR ) CID  
 20    format(I10)    ! was I8
 
-    IF ( IERR .EQ. 0 ) THEN  ! CCID is an integer
+    IF ( IERR == 0 .and. LCHAR < 10) THEN  ! CCID is an integer
        SNLC_CASTCID = 'INT'
     ELSE
-       LCHAR = INDEX ( CCID, ' ' ) - 1
+
        CID   = ABSO_INDEX
        SNLC_CASTCID = 'CHAR'
     ENDIF

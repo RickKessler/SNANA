@@ -19,6 +19,7 @@
   Sep 30 2023: MXSPECTRA -> 2000 (was 1000); for Roman+LSST SED TRUE
   Jul 26 2024: define TRANSIENT_NAME and move MXCHAR_CCID here (from sntools_output.h)
   Nov 20 2024: defie MXCHAR_FIELDNAME and MXCHAR_FILTNAME
+  Apr    2026: add HOSTGALz_DEF, and MXCHAR_CCID = 20 > 32 
 
 *****************************************************/
 
@@ -105,7 +106,7 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 
 //  disk pointers defined in init_SNDATA
 
-#define MXCHAR_CCID       20  // should be same as MXCHAR_CCID in snana.car
+#define MXCHAR_CCID       32  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_FIELDNAME  20
 #define MXCHAR_FILTNAME   20
 

@@ -8831,11 +8831,12 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
   printf("\n");
   printf(" xxx ------------------------------------------------------------------- \n");
   printf(" xxx %s : \n", fnam );
-  printf(" xxx    SNID=%s  igal=%d  GALID=%lld \n", 
-	 SNDATA.CCID, igal, SNDATA.HOSTGAL_OBJID[igal]);
+  printf(" xxx    SNID=%s  igal=%d  GALID=%lld    NZ=%d\n", 
+	 SNDATA.CCID, igal, SNDATA.HOSTGAL_OBJID[igal], NZ );
   printf(" xxx    HOSTGALz VARNAME(z,val,val2) is '%s'  '%s'  '%s \n", 
 	 VARNAME_z,  VARNAME_val, VARNAME_val2 );
   for (iz=0; iz < NZ; iz++ ) {
+    if ( iz > MXBIN_HOSTGALz_QUANTILE ) { break; }
     printf(" xxx       iz=%2d  z=%7.4f  val=%8.3f \n", 
 	   iz, HOSTGALz->Z_LIST[iz], HOSTGALz->VAL_LIST[iz] );
   }

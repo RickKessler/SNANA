@@ -17208,10 +17208,14 @@
     endif
 
 ! if there are quantiles, compute MEAN and STDDEV.
-! Loop backwards so that IGAL=1 is last and preserved 
-! for LCFIT
+! Loop backwards so that IGAL=1 is last and preserved for LCFIT
+! Beware that SNHOST_NMATCH2 can exceed MXSNHOST
+! (number of stored matches).
+
     do IGAL = SNHOST_NMATCH2, 1, -1
-       CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT, IGAL, IERR)
+       if ( IGAL <= MXSNHOST ) then
+          CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT, IGAL, IERR)
+       endif
     enddo
 
 ! Check option to use host photo-z as redshift.
@@ -17350,8 +17354,10 @@
     REAL*8    :: QZPHOT(MXZPHOT_Q), QPROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
 
+    CHARACTER FNAM*20
 ! ------------- BEGIN ---------------
 
+    FNAM = 'SET_SNHOST_QZPHOT'
 
     NQ = SNHOSTz_QUANTILE_ZPHOT(IGAL)%NZ
    
@@ -17367,13 +17373,17 @@
           if ( .not. BIGGER_z ) then
              CCID   = SNLC_CCID
              GALID = SNHOST_OBJID(IGAL)
-             write(C1ERR,61) q-1, q, QZPHOT(q-1), QZPHOT(q), CCID(1:ISNLC_LENCCID), GALID
-61           format('QZPHOT(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I16 )
+             CALL PRINT_PREABORT_BANNER(FNAM//char(0), 40)
+             print*,'   CID   = ', CCID(1:ISNLC_LENCCID)
+             print*,'   IGAL, GALID = ', igal, GALID
+             print*,'   NQZPHOT     = ', NQ
+             write(C1ERR,61) q-1, q, QZPHOT(q-1), QZPHOT(q)
+61           format('QZPHOT(',I2,',',I2,') = ', 2F8.3 )
              C2ERR = 'QZPHOT must be monotonically increasing'
              if ( ABORT_ON_BADQZPHOT ) then
-                CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
+                CALL MADABORT(FNAM, c1err, c2err )
              else
-                print*,' SET_SNHOST_QZPHOT WARNING: ', C1ERR
+                print*,' FNAM WARNING: ', C1ERR
                 call flush(6)
              endif
 

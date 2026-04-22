@@ -6287,7 +6287,7 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   // reading FITS file and also for OVERRIDE; pad -9 values are ignored.
   HOSTGALz->NZ = NZ_HOSTGALz(MXBIN, HOSTGALz->Z_LIST);
 
-  int LDMP = 0 ; // (igal==0);
+  int LDMP = ( strcmp(SNDATA.CCID,"3488709") == 0 );
   if ( LDMP ) { dump_SNDATA_HOSTGALz(HOSTGALz, igal, fnam); }
   
   *jcol = j;

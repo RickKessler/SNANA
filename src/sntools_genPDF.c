@@ -27,6 +27,8 @@
   Jun 4 2025: enable reading GEN[PEAK,SIGMA,RANGE]_SALT2c so that asyn Gauss
               profile can go into genPDF map file.
 
+  Apr 22 2026: abort if VARNAME has SIM_ prefix
+
  ****************************************************/
 
 #ifndef USE_SUBPROCESS
@@ -174,6 +176,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   }
   else  { 
     fp = snana_openTextFile(1, PATH, fileName, fileName_full, &gzipFlag); 
+    sprintf(GENPDF_FILE, "%s", fileName_full); // store global 
   }
 
 
@@ -188,7 +191,6 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     // check for asymmetric gaussian for alpha,beta
-    //if ( strstr(c_get,"SALT2") != NULL ) {  // SALT2 is in c_get
     fgets(LINE,200,fp);
 
     if ( commentchar(c_get) ) { continue; }
@@ -495,9 +497,17 @@ void checkAbort_VARNAME_GENPDF(char *varName) {
   // Abort on easy/common mistake
 
   char fnam[] = "checkAbort_VARNAME_GENPDF" ;
+  // -------- BEGIN --------
   if ( strcmp(varName,"c")==0 || strcmp(varName,"x1") == 0 ) {
     sprintf(c1err,"Invalid GENPDF variable '%s'", varName);
     sprintf(c2err,"Try 'SALT2%s' instead", varName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+
+  if (strstr(varName,"SIM_") != NULL ) {  // Apr 22 2026
+    sprintf(c1err,"Invalid GENPDF variable '%s'", varName);
+    sprintf(c2err,"Try removing SIM_ prefix");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -557,12 +567,13 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
 } // end funVal_genPDF
 
 // =====================================================
-double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
+double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID) {
 	
   // Return random number from GENPDF map corresponding to input *parName.
   // If *parName does not match a GENPDF map, use input *GENGAUSS instead.
   // 
   // Dec 2023: implement PROB_EXPON_REWGT
+  // Apr 22 2026: add CID arg for LDMP/diagnostics
 
   int    KEYSOURCE_GENGAUSS = GENGAUSS->KEYSOURCE ;
   int    IGAL               = SNHOSTGAL.IGAL;
@@ -612,11 +623,11 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS) {
       }
 
       // - - - - - -
-      LDMP = 0; // (NCALL_GENPDF < 5 );
+      LDMP = 0 ; // (NCALL_GENPDF < 5 );
       if ( LDMP ) {
 	printf(" xxx \n");
-	printf(" xxx %s -------- (%.3f < %s < %.3f )--------------- \n", 
-	       fnam, VAL_RANGE[0], parName, VAL_RANGE[1] );	       
+	printf(" xxx %s -------- (%.3f < %s < %.3f   CID=%d)--------------- \n", 
+	       fnam, VAL_RANGE[0], parName, VAL_RANGE[1], CID );	       
       }
 
       while ( prob < prob_ref ) {

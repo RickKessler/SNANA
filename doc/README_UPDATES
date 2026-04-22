@@ -23701,4 +23701,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
 		==> REF:  ZPHOT-72 = 0.65832 +/- 0.8917E-02(P)
 		==> TEST: ZPHOT-72 = 0.65796 +/- 0.5290E-02(P)
+
+   snana.F90
+     + remove obsolete subroutines INIT_REFORMAT_SALT2 WRSALT2_2.
+       and remove SNLCINP OPT_REFORMAT_SALT2
+
+   sntools_genPDF.c: abort if any varname has SIM_ prefix
+
+   TO-DO LIST:
+     - increase MXCHAR_CCID for big LSST object IDs: 
+          snana.F90, sndata.h 
+     - MXHOSTGAL = 2 --> 3
+     - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4
+
 END: 

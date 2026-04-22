@@ -292,7 +292,7 @@ void wr_snfitsio_init_head(void) {
 
   fitsfile *fp;
 
-  char parName[80] ;
+  char parName[80], tform_snid[8] ;
   char TBLname[40] ;
   char fnam[] = "wr_snfitsio_init_head" ;
 
@@ -306,7 +306,9 @@ void wr_snfitsio_init_head(void) {
   if ( SNDATA.SUBSURVEY_FLAG )
     { wr_snfitsio_addCol("40A", "SUBSURVEY", itype); }
 
-  wr_snfitsio_addCol( "16A", "SNID", itype   ) ;  // required integer or string name
+  
+  sprintf(tform_snid,"%dA", MXCHAR_CCID);
+  wr_snfitsio_addCol(tform_snid, "SNID", itype   ) ;  // required integer or string name
 
   if ( !SNFITSIO_SIMFLAG_SNANA  ) {
     wr_snfitsio_addCol( "16A" ,"NAME_IAUC",      itype); // optional IAUC name
@@ -919,7 +921,7 @@ void wr_snfitsio_init_spec(void) {
   int itype, ncol, istat, ipar ;
 
   fitsfile *fp;
-  char TBLname[40] ;
+  char TBLname[40], tform_snid[8] ;
   char fnam[] = "wr_snfitsio_init_spec" ;
 
   // --------------- BEGIN ---------------
@@ -940,7 +942,10 @@ void wr_snfitsio_init_spec(void) {
   // -----------------
   // create table for spectra fluxes 
   sprintf(TBLname, "%s", "SPECTRO_HEADER" );
-  wr_snfitsio_addCol( "16A", "SNID",        itype   ) ; 
+
+  sprintf(tform_snid,"%dA", MXCHAR_CCID);
+  wr_snfitsio_addCol( tform_snid, "SNID",   itype   ) ; 
+
   wr_snfitsio_addCol( "1D",  "MJD",         itype   ) ;  
   wr_snfitsio_addCol( "1D",  "Texpose",     itype   ) ;
   wr_snfitsio_addCol( "20A", "INSTRUMENT",  itype   ) ;

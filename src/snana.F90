@@ -1703,7 +1703,6 @@
         ,OPT_YAML              &  ! I: 1=> write YAML out even if not batch job
         ,OPT_REFORMAT_TEXT     &  ! I: 1=> re-write SNDATA files in text format; see manual options
         ,OPT_REFORMAT_FITS     &  ! I: 1=> re-write in FITSformat (data only); see manual options
-        ,OPT_REFORMAT_SALT2    &  ! I: 1=> re-write SNDATA files in SALT2 format
         ,OPT_REFORMAT_SPECTRA  &  ! I: 1=> 3-col text: lam, Flam, Flamerr (ignore photometry)
         ,OPTSIM_LCWIDTH        &  ! I: 1=> option to compute LC width
         ,DEBUG_FLAG            &  ! I: for internal debug
@@ -1829,7 +1828,7 @@
           , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT  & 
           , OPT_YAML  & 
           , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT  & 
-          , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS  & 
+          , REFORMAT_KEYS, OPT_REFORMAT_FITS  & 
           , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE  & 
           , rootfile_out, textfile_prefix  & 
           , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT  & 
@@ -5693,7 +5692,6 @@
     PRIVATE_DATA_PATH  = ' '
     FILTER_UPDATE_PATH = ' '
     OPT_YAML              = 0
-    OPT_REFORMAT_SALT2    = 0
     OPT_REFORMAT_TEXT     = 0
     OPT_REFORMAT_FITS     = 0
     OPT_REFORMAT_SPECTRA  = 0
@@ -6695,7 +6693,6 @@
     FNAM = 'INIT_SNTABLE_OPTIONS'
 
 ! if reformating option is set, turn off all table output
-    IF ( OPT_REFORMAT_SALT2 > 0 ) SNTABLE_LIST = ' '
     IF ( OPT_REFORMAT_FITS  > 0 ) SNTABLE_LIST = ' '
     IF ( OPT_REFORMAT_TEXT  > 0 ) SNTABLE_LIST = ' '
 
@@ -7340,10 +7337,6 @@
        else if ( MATCH_NMLKEY('OPT_REFORMAT_SPECTRA',  & 
                    1, iArg, ARGLIST) ) then
            READ(ARGLIST(1),*) OPT_REFORMAT_SPECTRA
-
-       else if ( MATCH_NMLKEY('OPT_REFORMAT_SALT2',  & 
-                    1, iArg, ARGLIST) ) then
-           READ(ARGLIST(1),*) OPT_REFORMAT_SALT2
 
        else if ( MATCH_NMLKEY('REFORMAT_KEYS',  & 
                     1, iArg, ARGLIST) ) then
@@ -10062,8 +10055,7 @@
 
     ENDIF
 
-    REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0  & 
-            .or. OPT_REFORMAT_SALT2>0
+    REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0
 
     REFORMAT_SPECTRA_ONLY = (OPT_REFORMAT_SPECTRA > 0 )
 
@@ -10108,9 +10100,6 @@
        CALL INIT_REFORMAT_TEXT()
     ENDIF
 
-    IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
-       CALL INIT_REFORMAT_SALT2()
-    ENDIF
 
     IF ( OPT_REFORMAT_SPECTRA > 0 ) THEN
        CALL INIT_REFORMAT_SPECTRA_ONLY()
@@ -10190,255 +10179,6 @@
     RETURN
   END SUBROUTINE INIT_REFORMAT_TEXT
 
-! ====================================
-    SUBROUTINE INIT_REFORMAT_SALT2
-! -----------------------------------------------
-! Nov 2011 R.Kessler
-! 
-! Initialization for translating SNANA formatted data
-! into SALT2-formatted data. The input options are fed
-! vis &SNLCINP namelist string
-! 
-!  &SNLCINP
-!     ...
-!   REFORMAT_KEYS =
-!   '@INSTRUMENT <instr> @MAGSYS <magsys> @PREFIX <prefix> @REPLACE <f1> <f2>
-!     ...
-!  &END
-! 
-! where @INSTRUMENT and @MAGSYS are required and the others are optional.
-! Definition of above keys
-! 
-! @INSTRUMENT = name of telescope or survey defined by SALT2
-! @MAGSYS     = mag system defined by SALT2 (i.e, AB, VEGA ...)
-! @PREFIX     = file-name prefix (default prefix is name of survey)
-! @REPLACE    = replace filter list <f1> with <f2>. For example,
-!               if f1 = UGRIZ and f2 = ugriz, then U -> u, G -> g,
-!               etc in the output SALT2 files.
-! 
-! 
-! ------------------------------
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-    USE FILTCOM
-    USE WRS2COM
-
-    IMPLICIT NONE
-
-    INTEGER iwd, NWD, ifilt, NTMP, IFILT_OBS, IFILT_TMP(2)
-    INTEGER LL, LL0, LL1, LL2, MSKOPT
-    character  & 
-         cwd*(MXCHAR_FILEWORD-2)  & 
-        ,cwd1*(MXCHAR_FILEWORD-2)  & 
-        ,cwd2*(MXCHAR_FILEWORD-2)  & 
-        ,ctmp*(MXCHAR_FILEWORD-2)  & 
-        ,cfilt(2)*2, cfilt1*1  & 
-        ,cutvar_file*(MXCHAR_FILENAME)  & 
-        ,list_file*(MXCHAR_FILENAME)  & 
-        ,FNAM*30
-
-! function
-    INTEGER FILTINDX
-
-    INTEGER  STORE_PARSE_WORDS
-    EXTERNAL STORE_PARSE_WORDS
-! -------------------- BEGIN -------------------
-
-    FNAM = 'INIT_REFORMAT_SALT2'
-    CALL PRBANNER("INI_WRSALT2: Translate SNANA -> SALT2 format")
-
-    LL = INDEX(REFORMAT_KEYS,' ') -1
-    MSKOPT = MSKOPT_PARSE_WORDS_STRING
-    NWD = STORE_PARSE_WORDS(MSKOPT, REFORMAT_KEYS(1:LL)//char(0),  & 
-               FNAM//char(0), LL, 30)
-
-    NAMEof_SURVEY        = 'NULL'
-    NAMEof_INSTRUMENT    = 'NULL'
-    NAMEof_MAGSYS        = 'NULL'
-    NAMEof_PREFIX        =  SURVEY_NAME
-    NAMEof_REPLACE(1)    = 'NULL'
-    NAMEof_REPLACE(2)    = 'NULL'
-
-    NREPLACE = 0
-    NEWKEY = 0
-
-    DO ifilt = 1, MXFILT_ALL
-         IMAP_REPLACE(IFILT) = -9
-    ENDDO
-
-    DO iwd = 1, NWD
-
-      CALL get_PARSE_WORD_fortran(iwd+0, cwd,  LL0 )
-      CALL get_PARSE_WORD_fortran(iwd+1, cwd1, LL1 )
-
-      if ( cwd(1:LL0) .EQ. '@SURVEY' ) then
-        NAMEof_SURVEY = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@INSTRUMENT' ) then
-        NAMEof_INSTRUMENT = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@MAGSYS' ) then
-        NAMEof_MAGSYS = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@PREFIX' ) then
-        NAMEof_PREFIX = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@REPLACE' ) then
-         CALL get_PARSE_WORD_fortran(iwd+2, cwd2, LL2 )
-        NAMEof_REPLACE(1) = cwd1
-        NAMEof_REPLACE(2) = cwd2
-        NREPLACE    = INDEX(NAMEof_REPLACE(1), ' ' ) - 1
-      else if ( cwd(1:1) .EQ. '@' ) then
-        NEWKEY = NEWKEY + 1
-        NEWKEY_NAME(NEWKEY)(1:LL0-1) = cwd(2:LL0)
-        NEWKEY_ARG(NEWKEY)           = cwd1
-      endif
-
-    ENDDO
-
-    LEN_SURVEY  = INDEX(NAMEof_SURVEY,    ' ' ) - 1
-    LEN_INST    = INDEX(NAMEof_INSTRUMENT,' ' ) - 1
-    LEN_MAGSYS  = INDEX(NAMEof_MAGSYS,    ' ' ) - 1
-    LEN_PREFIX  = INDEX(NAMEof_PREFIX,    ' ' ) - 1
-
-! make sure that required keys are specified.
-
-    if ( NAMEof_INSTRUMENT .EQ. 'NULL' ) then
-      c1err = 'MUST specify @INSTRUMENT <instrument> in '
-      c2err = '&SNLCINP namelist string REFORMAT_KEYS'
-      CALL  MADABORT("WRSALT2_2", C1ERR, C2ERR)
-    endif
-    if ( NAMEof_MAGSYS .EQ. 'NULL' ) then
-      c1err = 'MUST specify @MAGSYS <magsys> in '
-      c2err = '&SNLCINP namelist string REFORMAT_KEYS'
-      CALL  MADABORT("WRSALT2_2", C1ERR, C2ERR)
-    endif
-
-! ----------
-! Check for filter-name substitutions;
-! i.e., UGRIZ -> ugriz for the SDSS
-
-    IF ( NREPLACE .GT. 0  ) THEN
-
-! abort if filter-strings have different length
-      NTMP   = INDEX(NAMEof_REPLACE(2), ' ' ) - 1
-      IF ( NREPLACE .NE. NTMP ) THEN
-        c1err = 'Filter @REPALCE strings have different length'
-        c2err = 'Cannot replace ' //  & 
-                    NAMEof_REPLACE(1)(1:NREPLACE) // ' with ' //  & 
-                    NAMEof_REPLACE(2)(1:NTMP)
-        CALL  MADABORT("WRSALT2_2", C1ERR, C2ERR)
-      ENDIF
-
-! create map between original filter and subst. filter
-
-      DO 55 ifilt = 1, NREPLACE
-         cfilt(1) = NAMEof_REPLACE(1)(ifilt:ifilt)
-         cfilt(2) = NAMEof_REPLACE(2)(ifilt:ifilt)
-         IFILT_TMP(1) = FILTINDX ( cfilt(1) )
-         IFILT_TMP(2) = FILTINDX ( cfilt(2) )
-         IMAP_REPLACE(IFILT_TMP(1)) = IFILT_TMP(2)
-
-         write(6,56) cfilt, IFILT_TMP
-56         format(t10,'Prepare @REPLACE map for ' , A2,' -> ', A2,  & 
-             '(', I2,' -> ', I2, ')' )
-
-55      CONTINUE
-    ENDIF
-
-! ----------------------------
-!  open list-file and leave it open.
-
-    LIST_FILE = NAMEof_PREFIX(1:LEN_PREFIX) // '.LIST'
-    print*,'   Open list-file: ', LIST_FILE(1:LEN_PREFIX+12)
-
-    OPEN( UNIT   = LUNSALT2  & 
-          , FILE   = LIST_FILE  & 
-          , STATUS = 'UNKNOWN'  & 
-                 )
-
-! ----------------------------
-! write cut-def file, then close it.
-
-    CUTVAR_FILE = NAMEof_PREFIX(1:LEN_PREFIX) // '_CUTVAR.LOG'
-    print*,'   Write cut-definitions to ' //  & 
-          CUTVAR_FILE(1:LEN_PREFIX+12)
-
-    OPEN( UNIT   = LUNTMP  & 
-          , FILE   = CUTVAR_FILE  & 
-          , STATUS = 'UNKNOWN'  & 
-                 )
-
-    write(LUNTMP,111) 'Z_HELIO   ',  & 
-             'heliocentric redshift'
-    write(LUNTMP,111) 'MWEBV     ',  & 
-             'Galactic E(B-V)'
-    write(LUNTMP,111) 'MWEBV_ERR     ',  & 
-             'error on Galactic E(B-V)'
-
-      write(ctmp,401) int(cutwin_trest(1)), int(cutwin_trest(2))
-401     format(I3,'<Trest<' , I3,' days')
-      write(LUNTMP,111) 'NOBS      ',  & 
-             'Nobs total with any S/N and ' // ctmp(1:20)
-      write(LUNTMP,111) 'TRESTMIN  ',  & 
-             'min Trest(days) relative to peak (any S/N)'
-      write(LUNTMP,111) 'TRESTMAX  ',  & 
-             'max Trest(days) relative to peak (any S/N)'
-
-      write(LUNTMP,111) 'T0GAPMAX  ',  & 
-             'max rest-frame gap (days) that overlaps peak epoch'
-
-      write(LUNTMP,111) 'SNRMAX    ',  & 
-             'max S/N among all observations'
-      write(LUNTMP,111) 'SNRMAX2   ',  & 
-             'max S/N excluding filter with SNRMAX'
-
-      write(LUNTMP,111) 'SNRMAX3   ',  & 
-             'max S/N excluding filters with SNRMAX   SNRMAX2'
-
-
-      write(LUNTMP,600) ' '
-      DO IFILT     = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-         ctmp      = 'SNRMAX_' // cfilt1
-         LL        = INDEX(ctmp,' ') - 1
-         write(LUNTMP,111) ctmp(1:10),  & 
-             'max S/N for indicated filter'
-      ENDDO
-
-    IF ( OPT_SETPKMJD > 0 ) THEN
-      write(LUNTMP,600) ' '
-      DO IFILT     = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-         ctmp      = 'ERRT0_' // cfilt1
-         LL        = INDEX(ctmp,' ') - 1
-         write(LUNTMP,111) ctmp(1:10),  & 
-             'fitted T0 error (days) for indicated filter'
-      ENDDO
-
-      write(LUNTMP,600) ' '
-      DO IFILT     = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-         ctmp      = 'ERRF0_' // cfilt1
-         LL        = INDEX(ctmp,' ') - 1
-         write(LUNTMP,111) ctmp(1:10),  & 
-             'ERR(F0)/F0 for indicated filter'
-      ENDDO
-
-    ENDIF
-
-111     format('@', A, ' : ', A)
-600     format(A)
-      CLOSE(UNIT=LUNTMP)
-
-    print*,' -----------------------------------------------'
-    print*,' '
-    RETURN
-  END SUBROUTINE INIT_REFORMAT_SALT2
 
 ! ====================================
     SUBROUTINE INIT_REFORMAT_SPECTRA_ONLY()
@@ -10682,10 +10422,6 @@
        endif
     ENDIF
 
-! check Julien's original SALT2 format (not SNANA format)
-    IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
-       CALL WRSALT2_2()
-    ENDIF
 
     IF ( REFORMAT_SPECTRA_ONLY ) THEN
       CALL WR_SPECTRA(IVERS)
@@ -11236,336 +10972,6 @@
     RETURN
   END SUBROUTINE END_REFORMAT
 
-
-! =========================================
-    SUBROUTINE WRSALT2_2()
-! 
-! Created July 30, 2010 by R.Kessler
-! Re-write SN data files into new SALT2 format with
-! one file per SN.
-! Output used by J. Guy's SALT2 'snfit' and 'pcafit' programs,
-! version 2.3.0 and higher.
-! Mainly used for SDSS data, and for simulations.
-! 
-! 
-! See &SNLCINP namelist variables
-!  OPT_REFORMAT_SALT2 = 2
-! 
-! so that arbitray keys can be specified.
-! 
-! 
-! Jan 25, 2013: use REAL*8 MJD8 instead of REAL*4 MJD to avoid
-!               round-off error.
-! 
-! May 20 2013: include RA and DEC in SALT2 files.
-! 
-! Jul 8 2013: write name of ascii SNDATA file ONLY for FORMAT_TEXT=T
-! 
-! Jul 17, 2013: write @FIELD  <list of fields>
-! 
-! Feb 25, 2014: remove logic with ITERSE_FLUXZPT
-! -----------------------------------------------
-
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-    USE FILTCOM
-    USE WRS2COM
-    USE PKMJDCOM
-
-    IMPLICIT NONE
-
-    INTEGER  & 
-         EPMIN, EPMAX, EP, NEWMJD  & 
-        ,IFILT, IFILT_OBS, IFILT_REPLACE  & 
-        ,LENCID, LS, IERR, CID, ikey, L1, L2, LL, i
-
-    REAL  & 
-         PEAKMJD, FLUX, FLUXERR  & 
-        ,ZP, ZPOFF, arg, Fscale, TMP, ERR
-
-
-    REAL*8  MJD8
-
-    LOGICAL LWR_FILT(MXFILT_OBS)
-
-    CHARACTER  & 
-         cfilt1*1,  ccid*(MXCHAR_CCID)  & 
-        ,salt2_file*(MXCHAR_FILENAME)  & 
-        ,SURVEY_NAME_LOCAL*(MXCHAR_FILEWORD)  & 
-        ,SIMFILE*(MXCHAR_FILENAME)  & 
-        ,ctmp*60
-
-! ------------ BEGIN -------------
-
-    CCID   = SNLC_CCID
-
-! if CCID is an integer, write in I6.6 (or I8.8) format
-    read( ccid, 25 , iostat = IERR ) CID
-25    format(I9)
-
-    IF ( IERR .EQ. 0  ) THEN
-       CALL CIDSTRING(CID,CCID,LENCID)
-    ENDIF
-
-!  ----------------------
-
-    LS  = INDEX(SURVEY_NAME,' ' ) - 1
-    LENCID = INDEX(CCID,' ' ) - 1
-
-    SALT2_FILE = NAMEof_PREFIX(1:LEN_PREFIX) // '_' //  & 
-                   CCID(1:LENCID) // '.DAT'
-
-     LL = INDEX(SALT2_FILE,' ') - 1
-     WRITE(LUNSALT2,700) SALT2_FILE(1:LL)
-700    FORMAT(A)
-
-    IF ( LSIM_SNANA ) THEN
-        PEAKMJD = SIM_PEAKMJD
-    ELSE
-        PEAKMJD = SNLC_SEARCH_PEAKMJD
-    ENDIF
-
-    OPEN(   UNIT   = LUNDAT  & 
-            , FILE   = SALT2_FILE  & 
-            , STATUS = 'UNKNOWN'  & 
-                 )
-
-    IF ( NAMEof_SURVEY(1:4) .EQ.  'NULL' ) then
-      SURVEY_NAME_LOCAL = SURVEY_NAME  ! SNANA survey name
-    ELSE
-      SURVEY_NAME_LOCAL = NAMEof_SURVEY ! user-specified survey name
-    ENDIF
-
-
-    ctmp = 'Translated into SALT2 format by SNANA ' // SNANA_VERSION
-    write(LUNDAT,120) ctmp
-    write(LUNDAT,120) ' '
-
-    write(LUNDAT,120) 'Required variables'
-    write(LUNDAT,11) 'SURVEY',   SURVEY_NAME_LOCAL
-    write(LUNDAT,11) 'SN',       CCID(1:LENCID)
-
-    write(LUNDAT,126) 'RA',    SNLC8_RA
-    write(LUNDAT,126) 'DEC',   SNLC8_DEC
-
-! ---- write field(s) - include all overlapping fields for this SN -----
-    write(LUNDAT,1220)
-    DO  i = 1, ISNLC_NFIELD_OVP
-       LL = INDEX( SNLC_FIELD_OVPLIST(i), ' ') - 1
-       write(LUNDAT,1230) SNLC_FIELD_OVPLIST(i)(1:LL)
-    ENDDO
-    write(LUNDAT,1240)
-
- 1220 FORMAT('@FIELD  ', $)
- 1230 FORMAT(A, '  ', $)
- 1240 FORMAT(' ')
-
-! ------------------------------------
-
-    write(LUNDAT,12) 'Z_HELIO',  SNLC_ZHELIO
-    write(LUNDAT,12) 'Z_CMB  ',  SNLC_ZCMB
-
-    write(LUNDAT,12) 'MWEBV  ',  SNLC_MWEBV
-    write(LUNDAT,12) 'MWEBV_ERR ',SNLC_MWEBV_ERR
-    write(LUNDAT,13) 'DayMax  ', PEAKMJD
-
-! --------------------------------------
-! add new keys, if any are given (Dec 2010)
-
-    DO 22 ikey = 1, NEWKEY
-       L1 = INDEX(NEWKEY_NAME(ikey),' ') - 1
-       L2 = INDEX(NEWKEY_ARG(ikey),' ') - 1
-       write(LUNDAT,11)  & 
-            NEWKEY_NAME(ikey)(1:L1), NEWKEY_ARG(ikey)(1:L2)
-22    CONTINUE
-
-
-! Set LWR_FILT logical array for filters to write out.
-! Use SNRMAX_FILT to determine if a filter is used.
-
-    DO IFILT     = 1, NFILTDEF_SURVEY
-       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-       TMP       = SNLC_SNRMAX_FILT(ifilt)
-       if ( TMP .NE. -9.0 ) then
-          LWR_FILT(IFILT_OBS) = .TRUE.
-       else
-          LWR_FILT(IFILT_OBS) = .FALSE.
-       endif
-    ENDDO
-
-! --------------------------------------
-! add extra cut variables (Sep 29 2010)
-
-    write(LUNDAT,120) ' '
-    write(LUNDAT,120) 'Analysis variables'
-    write(LUNDAT,30) 'SNTYPE   ',  ISNLC_TYPE
-    write(LUNDAT,30) 'NOBS     ',  ISNLC_NEPOCH_USE
-    write(LUNDAT,14) 'TRESTMIN ',  SNLC_TRESTMIN
-    write(LUNDAT,14) 'TRESTMAX ',  SNLC_TRESTMAX
-    write(LUNDAT,14) 'T0GAPMAX ',  SNLC_T0GAPMAX
-    write(LUNDAT,14) 'SNRMAX   ',  SNLC_SNRMAX_SORT(1)
-    write(LUNDAT,14) 'SNRMAX2  ',  SNLC_SNRMAX_SORT(2)
-    write(LUNDAT,14) 'SNRMAX3  ',  SNLC_SNRMAX_SORT(3)
-
-! write SNRMAX for each filter.
-    DO IFILT     = 1, NFILTDEF_SURVEY
-       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-       cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-       TMP       = SNLC_SNRMAX_FILT(ifilt)
-       if ( LWR_FILT(ifilt_obs) ) then
-          write(LUNDAT,114) 'SNRMAX_', cfilt1, TMP
-       endif
-
-    ENDDO
-
-114   format('@', A, A, 2x, F8.3)
-
-! to quanititative FoM, write error on flux and T0 for each band
-    IF ( OPT_SETPKMJD > 0 ) THEN
-
-      write(LUNDAT,120) ' '
-      write(LUNDAT,120) 'Fitted errors => exp(dT/T1)/[1+exp(dT/T2)]'
-      write(LUNDAT,120) 'ERRT0 => error on peak MJD'
-      write(LUNDAT,120) 'ERRF0 => ERROR(F0)/F0 where F0 = peak flux'
-
-
-      DO IFILT    = 1, NFILTDEF_SURVEY
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-        if ( LWR_FILT(ifilt_obs) ) then
-          ERR       = PKMJD_ERR(ifilt_obs)
-          write(LUNDAT,114) 'ERRT0_', cfilt1, ERR
-        endif
-      ENDDO
-        write(LUNDAT,12) 'ERRT0_MIN', PKMJD_ERRMIN
-        write(LUNDAT,12) 'ERRT0_WGT', PKMJD_ERRWGT
-
-      DO IFILT    = 1, NFILTDEF_SURVEY
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-        if ( LWR_FILT(ifilt_obs) ) then
-          ERR       = PKFLUX_ERR(ifilt_obs)/PKFLUX_FIT(ifilt_obs)
-          write(LUNDAT,114) 'ERRF0_', cfilt1, ERR
-        endif
-      ENDDO
-        write(LUNDAT,12) 'ERRF0_MIN', PKFLUX_ERRMIN
-        write(LUNDAT,12) 'ERRF0_WGT', PKFLUX_ERRWGT
-
-    ENDIF  ! end of OPT_SETPKMJD
-
-
-    IF ( LSIM_SNANA ) THEN
-      write(LUNDAT,120) ' '
-      write(LUNDAT,120) 'SIMULATION Parameters'
-
-! start with the exact name of the SNANA file that was translated
-      IF ( FORMAT_TEXT ) THEN
-        L1 = INDEX(VERSION_PHOTOMETRY(1),' ' ) - 1
-        L2 = INDEX(SNDATA_FILE_CURRENT,' ' ) - 1
-        SIMFILE = '$SNDATA_ROOT/SIM/' //  & 
-              VERSION_PHOTOMETRY(1)(1:L1) // '/' //  & 
-              SNDATA_FILE_CURRENT(1:L2)
-        LL = INDEX(SIMFILE,' ') - 1
-        WRITE(LUNDAT,11) 'SIM_SNANAFILE' , SIMFILE(1:LL)
-      ENDIF
-
-      write(LUNDAT,30)  'SIM_SNTYPE   ', SIM_GENTYPE
-      write(LUNDAT,30)  'SIM_TEMPLATE_INDEX  ', SIM_TEMPLATE_INDEX
-      write(LUNDAT,93)  'SIM_PEAKMJD  ', SIM_PEAKMJD
-      write(LUNDAT,12)  'SIM_MWEBV    ', SIM_MWEBV
-      write(LUNDAT,12)  'SIM_REDSHIFT ', SIM_REDSHIFT_CMB
-      write(LUNDAT,12)  'SIM_MU       ', SIM_DLMAG
-
-      IF ( SIM_TEMPLATE_INDEX .EQ. 0 ) THEN
-        write(LUNDAT,12)  'SIM_x0 ',    SIM_SALT2x0
-        write(LUNDAT,12)  'SIM_mb ',    SIM_SALT2mb
-        write(LUNDAT,12)  'SIM_x1 ',    SIM_SHAPEPAR
-        write(LUNDAT,12)  'SIM_c  ',    SIM_COLORPAR
-        write(LUNDAT,12)  'SIM_alpha ', SIM_SHAPELAW
-        write(LUNDAT,12)  'SIM_beta  ', SIM_COLORLAW
-      ENDIF
-
-      DO IFILT    = 1, NFILTDEF_SURVEY
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-        TMP       = SIM_PEAKMAG(ifilt)
-        write(LUNDAT,114) 'SIM_PEAKMAG_', cfilt1, TMP
-      ENDDO
-
-    ENDIF  ! end of LSIM_SNANA
-
-    write(LUNDAT,120) ' '
-    write(LUNDAT,120) '--------------------------------------'
-    write(LUNDAT,120) ' '
-
-! ---------------------------------------
-! define data columns
-    write(LUNDAT,20) 'Date'
-    write(LUNDAT,20) 'Flux'
-    write(LUNDAT,20) 'Fluxerr'
-    write(LUNDAT,20) 'ZP'
-    write(LUNDAT,20) 'Filter'
-    write(LUNDAT,20) 'MagSys'
-    write(LUNDAT,20) 'end'
-
-11    format('@', A, 2x, A)
-12    format('@', A, 2x, F8.5)
-13    format('@', A, 2x, F9.3, 2x, '1')
-14    format('@', A, 2x, F7.2)
-20    format('#', A, ' : ' )
-30    format('@', A, 2x, I5)
-93    format('@', A, 2x, F9.3)
-126   format('@', A, 2x, F12.6)
-
-120   format('# ! ', A )
-
-! write observations.
-
-    DO 301 NEWMJD = 1, ISNLC_NEWMJD_STORE
-        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-        EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-
-        DO 302 EP = EPMIN, EPMAX
-
-          IFILT_OBS     = ISNLC_IFILT_OBS(ep)
-          IFILT_REPLACE = IMAP_REPLACE(IFILT_OBS)
-
-!  skip obs that are cut in SNRECON (Jan 2, 2012)
-          if ( .not. LWR_FILT(ifilt_obs) ) GOTO 302
-
-
-          IF ( IFILT_REPLACE .GT. 0 ) THEN
-             cfilt1 = filtdef_string(ifilt_replace:ifilt_replace)
-          ELSE
-             cfilt1 = filtdef_string(ifilt_obs:ifilt_obs)
-          ENDIF
-
-          ZPOFF   = MAGOBS_SHIFT_ZP_FILT(ifilt_obs)
-          MJD8    = SNLC8_MJD(EP)
-
-          ZP  = SNGL(ZP_FLUXCAL) + ZPOFF
-          arg = 0.4*ZPOFF
-
-          Fscale  = 10.0**ARG
-
-! get fluxes in native system (i.e., undo AB offsets)
-          Flux    = Fscale * SNLC_FLUXCAL(EP)
-          Fluxerr = Fscale * SNLC_FLUXCAL_ERRTOT(EP)
-          WRITE(LUNDAT,330) MJD8, FLUX, FLUXERR, ZP  & 
-                , NAMEof_INSTRUMENT(1:LEN_INST)  & 
-                , cfilt1  & 
-                , NAMEof_MAGSYS(1:LEN_MAGSYS)
-
-302      CONTINUE  ! EP
-301   CONTINUE  ! NEWMJD
-
-330   FORMAT(F9.3, 2x, 2G14.6, 1x, F7.3, 3x,A,'::',A,1x,A )
-
-    CLOSE ( LUNDAT )
-
-    RETURN
-  END SUBROUTINE WRSALT2_2
 
 
 ! ============================
@@ -27272,10 +26678,6 @@
        PKMJDERR = 4.0
     endif
 
-
-    if ( OPT_REFORMAT_SALT2 .GT. 0 ) then
-       PKMJDERR = T0ERR
-    endif
 
 ! get error on peak flux from fit
 

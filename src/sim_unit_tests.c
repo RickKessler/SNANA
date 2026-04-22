@@ -612,7 +612,7 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     else if ( GENEXP.USE ) 
       { r   = getRan_GEN_EXP_HALFGAUSS(&GENEXP) ; }
     else if ( NMAP_GENPDF > 0 ) 
-      { r = getRan_genPDF(parName, &GENGAUSS); }
+      { r = getRan_genPDF(parName, &GENGAUSS, 99 ); }
 
     if ( r < range[0] || r > range[1] ) { continue; }
 

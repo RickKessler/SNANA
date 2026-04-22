@@ -55,7 +55,6 @@
 #define MXCHAR_FILENAME  300
 #define MXCHAR_VARLIST   2000  
 #define MXCHAR_VARNAME   60
-// xxx#define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_MODELNAME 32  // max length of model name (e.g., SALT2.Guy10)
 
 #define MXVAR_TABLE      800  // max number of variables in 1 table

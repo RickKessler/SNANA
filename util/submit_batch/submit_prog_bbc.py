@@ -104,6 +104,10 @@
 #       name appears in out dirs (see SNANA git issue 1603
 #
 # Mar 3 2026: write contents of INPFILE+ key into SUBMIT.INFO file; see INPFILE_LIST
+#
+# Apr 22 2026: implement CONFIG keys SIMFILE_BIASCOR and SIMFILE_CCPRIOR
+#              to override default simfile(s) based on FITOPT_LABEL
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob

@@ -7884,9 +7884,10 @@ void prep_dustFlags(void) {
   if ( INPUTS.GENPROFILE_AV.USE       ) { DO_AV = 1; }
   if ( INPUTS.GENPROFILE_EBV_HOST.USE ) { DO_AV = 1; }
   if ( DO_WV07  || DO_GRID            ) { DO_AV = 1; }
-  if ( IMAP_GENPDF(PARNAME_AV, &LOGPARAM ) >= 0 ) { DO_AV +=2; }
-  if ( IMAP_GENPDF(PARNAME_EBV,&LOGPARAM ) >= 0 ) { DO_AV +=4; }
+  if ( IMAP_GENPDF(PARNAME_AV,  &LOGPARAM ) >= 0 ) { DO_AV +=2; }
+  if ( IMAP_GENPDF(PARNAME_EBV, &LOGPARAM ) >= 0 ) { DO_AV +=4; }
   INPUTS.DOGEN_AV = DO_AV ; // store global for gen_modelPar_dust()
+
 
   // Jun 2023 - require dust sim for MLCS,snoopy,BayeSN
   if ( INDEX_GENMODEL == MODEL_MLCS2k2 ||
@@ -13771,7 +13772,7 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
       get_zvariation_GENGAUSS(ZCMB, snam, &INPUTS.GENGAUSS_SHAPEPAR);
 
     // pick random shape value from population at this redshift
-    shape = getRan_genPDF(snam, &GENGAUSS_ZVAR);
+    shape = getRan_genPDF(snam, &GENGAUSS_ZVAR, GENLC.CID);
 
     // load shape value into global GENLC struct
     GENLC.SHAPEPAR      = shape ; 
@@ -13850,18 +13851,18 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
 	get_zvariation_GENGAUSS(ZCMB,"SALT2c",&INPUTS.GENGAUSS_SALT2c);
 
       GENLC.SALT2c = 
-	getRan_genPDF("SALT2c", &GENGAUSS_ZVAR );
+	getRan_genPDF("SALT2c", &GENGAUSS_ZVAR, GENLC.CID );
     }
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2ALPHA",&INPUTS.GENGAUSS_SALT2ALPHA);
     GENLC.SALT2alpha =    // Nov 3 2021
-      getRan_genPDF("SALT2ALPHA", &GENGAUSS_ZVAR );
+      getRan_genPDF("SALT2ALPHA", &GENGAUSS_ZVAR, GENLC.CID );
 
     GENGAUSS_ZVAR = 
       get_zvariation_GENGAUSS(ZCMB,"SALT2BETA",&INPUTS.GENGAUSS_SALT2BETA);
     GENLC.SALT2beta =    // Nov 3 2021
-      getRan_genPDF("SALT2BETA", &GENGAUSS_ZVAR );
+      getRan_genPDF("SALT2BETA", &GENGAUSS_ZVAR, GENLC.CID );
 
     // 2/29/2016: optional  beta(c) polynomial 
     // 3/23/2020: refactor using GENPOLY tools
@@ -18017,11 +18018,11 @@ double gen_AV(void) {
   // Jun 2020: check for map in GENPDF_FILE
   if ( INPUTS.DOGEN_AV == 2 ) {   // flag to get AV from map
     GENGAUSS_NULL.USE = false ;
-    AV = getRan_genPDF(PARNAME_AV, &GENGAUSS_NULL); 
+    AV = getRan_genPDF(PARNAME_AV, &GENGAUSS_NULL, GENLC.CID); 
   }
   if ( INPUTS.DOGEN_AV == 4 ) {  // flag to get EBV from map
     GENGAUSS_NULL.USE = false ;
-    EBV_HOST = getRan_genPDF(PARNAME_EBV, &GENGAUSS_NULL); 
+    EBV_HOST = getRan_genPDF(PARNAME_EBV, &GENGAUSS_NULL, GENLC.CID); 
     AV       = EBV_HOST * RV ;
   }
 
@@ -18105,7 +18106,7 @@ double gen_RV(void) {
   GENGAUSS_ZVAR = 
     get_zvariation_GENGAUSS(ZCMB, PARNAME_RV, &INPUTS.GENGAUSS_RV); 
 
-  RV = getRan_genPDF(PARNAME_RV, &GENGAUSS_ZVAR); 
+  RV = getRan_genPDF(PARNAME_RV, &GENGAUSS_ZVAR, GENLC.CID); 
 
   return RV ;
 

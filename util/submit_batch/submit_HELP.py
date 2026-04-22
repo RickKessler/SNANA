@@ -375,6 +375,26 @@ HELP_CONFIG_BBC = f"""
   # (e.g., for downstream codes to parse);
   MUOPT000_LABEL:  MY_NOMINAL_LABEL
 
+
+  # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  # Option to override SIMFILE_BIASCOR and/or SIMFILE_CCPRIOR for specific
+  # FITOPT-systematics is keyed by the systematic label (see knn and dnf
+  # examples below), not the  generic FITOPTnnn string. The FITOPTnnn string 
+  # can change as systematics are added or re-shuffled, but the label should be robust.
+  # First use case was for DES-SN5YR re-analysis adding photo-z ; different
+  # photo-z trainings (e.g, knn and dnf) are reflected in both data and biasCor.
+  # Note that this option does NOT add more tasks like MUOPT, but instead
+  # alters the biasCor/CCprior for already specified tasks.
+
+  SIMFILE_BIASCOR: 
+    knn:  <name of biasCor fitres table>
+    dnf:  <name of biasCor fitres table>
+    etc ...
+  SIMFILE_CCPRIOR:
+    knn:  <name of CCprior fitres table>
+    dnf:  <name of CCprior fitres table>
+    etc ...
+
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   # Option to run wfit (fast, but ancient) as merge process. Useful
   # for quick cosmology cross-checks. To get help on argList,

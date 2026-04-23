@@ -8401,7 +8401,7 @@
     REAL*8 ztmp_min, ztmp_max
     REAL   t_start, t_end
     LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC,  LDMP_REFAC
-    CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
+    CHARACTER BANNER*100, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
     REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
     REAL*8 MEAN, STD
@@ -9498,7 +9498,7 @@
 
     LOGICAL LPRINT
     LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
-    CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
+    CHARACTER BANNER*100, CFILT*(MXFILT_ALL), cpar*20
 
     REAL  & 
          RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux  & 
@@ -10481,7 +10481,7 @@
         LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV  & 
        ,LMWXT
 
-    character BANNER*60, ccid*(MXCHAR_CCID), FNAM*12
+    character BANNER*80, ccid*(MXCHAR_CCID), FNAM*12
 
 ! functions
     INTEGER  & 
@@ -12753,7 +12753,7 @@
     LOGICAL LTMP, LTMP1, LTMP2, DOFIT_SPECZ, LVBOSE, LCOV
 
     CHARACTER  & 
-         BANNER*60  & 
+         BANNER*80  & 
         ,cfilt*1  & 
         ,CCID*(MXCHAR_CCID)  & 
         ,CLINE*72
@@ -14139,7 +14139,7 @@
         ,NTMP
 
     CHARACTER  & 
-         BANNER*60  & 
+         BANNER*80  & 
         ,CCID*(MXCHAR_CCID)  & 
         ,CCHI2(4)*8  & 
         ,CFILT(MXFILT_ALL)*1

@@ -1390,12 +1390,12 @@
 
     CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_PEAKMJD(1)
     CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_PEAKMJD(2)
-    CUTWIN_FITPAR(1,IPAR_SHAPE) = FITWIN_SHAPE(1)
-    CUTWIN_FITPAR(2,IPAR_SHAPE) = FITWIN_SHAPE(2)
-    CUTWIN_FITPAR(1,IPAR_AV)    = FITWIN_COLOR(1)
-    CUTWIN_FITPAR(2,IPAR_AV)    = FITWIN_COLOR(2)
-    CUTWIN_FITPAR(1,IPAR_ZPHOT) = FITWIN_ZPHOT(1)
-    CUTWIN_FITPAR(2,IPAR_ZPHOT) = FITWIN_ZPHOT(2)
+    CUTWIN_FITPAR(1,IPAR_SHAPE)   = FITWIN_SHAPE(1)
+    CUTWIN_FITPAR(2,IPAR_SHAPE)   = FITWIN_SHAPE(2)
+    CUTWIN_FITPAR(1,IPAR_AV)      = FITWIN_COLOR(1)
+    CUTWIN_FITPAR(2,IPAR_AV)      = FITWIN_COLOR(2)
+    CUTWIN_FITPAR(1,IPAR_ZPHOT)   = FITWIN_ZPHOT(1)
+    CUTWIN_FITPAR(2,IPAR_ZPHOT)   = FITWIN_ZPHOT(2)
 
 ! cuts on offDiag cov already set since it's the same cut on each element.
 ! Here set diagonal cuts for each fitPar.
@@ -2140,7 +2140,7 @@
        SHAPE   = FITVAL(IPAR_SHAPE,ITER)
        COLOR   = FITVAL(IPAR_COLOR,ITER)
        IF( FITPROB < FITWIN_PROB_ITER1(1) .or.  & 
-             FITPROB > FITWIN_PROB_ITER1(2) ) THEN
+            FITPROB > FITWIN_PROB_ITER1(2) ) THEN
            ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
        ENDIF
        IF( SHAPE < FITWIN_SHAPE_ITER1(1) .or.  & 
@@ -3570,16 +3570,6 @@
 ! -------------------------
 
 800   CONTINUE
-
-! xxxxxx mark delete July 23 2024 xxxxxxxxxxxx
-! check FITPROB on 1st iter (apr 2024)
-!      IF ( ITER==1 ) THEN
-!         FITPROB = FITPROBCHI2_STORE(1)
-!         IF( FITPROB < FITWIN_PROB_ITER1(1) ) THEN
-!             ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
-!         ENDIF
-!      ENDIF
-! xxxxxxxxxxxxxxxxxxx
 
 ! after 1st iteration, SKIP SN if photoz no longer respects z-range for each filter.
     IF ( ITER > 1 .OR. LREPEAT_ITER ) THEN
@@ -6799,11 +6789,11 @@
     ENDDO
 
     DO i = 1, 2
-      FITWIN_ZPULL(i)      = CUTINI(i)
-      FITWIN_ZPHOT(i)      = CUTINI(i)
-      FITWIN_COLOR(i)      = CUTINI(i)
-      FITWIN_SHAPE(i)      = CUTINI(i)
-      FITWIN_PROB(i)       = CUTINI(i)
+      FITWIN_ZPULL(i)        = CUTINI(i)
+      FITWIN_ZPHOT(i)        = CUTINI(i)
+      FITWIN_COLOR(i)        = CUTINI(i)
+      FITWIN_SHAPE(i)        = CUTINI(i)
+      FITWIN_PROB(i)         = CUTINI(i)
       FITWIN_PROB_ITER1(i)   = CUTINI(i)
       FITWIN_SHAPE_ITER1(i)  = CUTINI(i)
       FITWIN_COLOR_ITER1(i)  = CUTINI(i)
@@ -8401,28 +8391,27 @@
 
     INTEGER  & 
          iter   &  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
-         ,IERR ! (O) error flag
+         ,IERR     ! (O) error flag
 
 ! local var
 
-    INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
+    INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK, NQ
     LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
     REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
     REAL*8 ztmp_min, ztmp_max
     REAL   t_start, t_end
     LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC,  LDMP_REFAC
-    CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
+    CHARACTER BANNER*100, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
     REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
+    REAL*8 MEAN, STD
+
+    CHARACTER FNAM*14
 
 ! FCNSNLC args
 
-    INTEGER IFLAG, q, IERR_ZPDF
-    REAL*8  & 
-          GRAD(MXFITPAR)  & 
-         ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT  & 
-         ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
-    CHARACTER FNAM*14
+    INTEGER IFLAG
+    REAL*8  GRAD(MXFITPAR), CHI2GUESS, CHI2 
     REAL*8 GET_DIST8, USRFUN
     LOGICAL LEGACY
     EXTERNAL USRFUN, init_zPDF_spline
@@ -8527,21 +8516,16 @@
 
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
+       NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
-      if ( SNHOST_NZPHOT_Q(1) .le. 0 ) THEN
-          c1err = 'zPDF quantiles requested for photo-z fit'
+       if ( NQ .le. 0 ) THEN
+          c1err = 'zPDF quantiles requested for photo-z fit to CID=' // SNLC_CCID
           c2err = 'but there are no zPDF quantiles in the data.'
           CALL MADABORT(FNAM, c1err, c2err)
-      endif
+       endif
 
-      CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
       MEAN = SNHOST_QZPHOT_MEAN(1) 
       STD  = SNHOST_QZPHOT_STD(1)  
-
-      if (IERR_ZPDF .NE. 0 ) then
-	   IERR = ERRFLAG_FITPREP_QUANTILES
-	   return
-      endif
 
 !     initialize at Q50
       INIVAL(ipar) = MEAN
@@ -9514,7 +9498,7 @@
 
     LOGICAL LPRINT
     LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
-    CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
+    CHARACTER BANNER*100, CFILT*(MXFILT_ALL), cpar*20
 
     REAL  & 
          RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux  & 
@@ -10003,9 +9987,9 @@
 	 endif ! end USE_INIVAL_SNCID_FILE
 
 	 if ( USE_PRIOR_SNCID_FILE ) then
-          INIVAL(IPAR) = DVAL
-          PRIOR_VAL = DVAL
-          PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
+            INIVAL(IPAR) = DVAL
+            PRIOR_VAL = DVAL
+            PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
 	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = PRIOR_VAL     ! Gauss mean
 	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = PRIOR_ERR     ! Gauss sigma
 
@@ -10018,7 +10002,6 @@
 	endif
 
  50   CONTINUE
-
 
  44     format(T8, A14, ' : ', G10.3,  & 
                   ' from list file: CID=', A10, 3x, A)
@@ -10498,7 +10481,7 @@
         LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV  & 
        ,LMWXT
 
-    character BANNER*60, ccid*(MXCHAR_CCID), FNAM*12
+    character BANNER*80, ccid*(MXCHAR_CCID), FNAM*12
 
 ! functions
     INTEGER  & 
@@ -12741,7 +12724,6 @@
 ! 
 ! ------------------------------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -12771,7 +12753,7 @@
     LOGICAL LTMP, LTMP1, LTMP2, DOFIT_SPECZ, LVBOSE, LCOV
 
     CHARACTER  & 
-         BANNER*60  & 
+         BANNER*80  & 
         ,cfilt*1  & 
         ,CCID*(MXCHAR_CCID)  & 
         ,CLINE*72
@@ -12782,27 +12764,32 @@
 
 ! ----------------- BEGIN ----------------
 
-    LVBOSE = STDOUT_UPDATE  ! Jun 2024
+    LVBOSE = STDOUT_UPDATE 
 
     CCID = SNLC_CCID
-    LCID = ISNLC_LENCCID  ! INDEX(CCID,' ')
+    LCID = ISNLC_LENCCID  
 
     if ( LVBOSE ) then
        write(BANNER,20) CCID(1:LCID)
-20       format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
+20     format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
        CALL PRBANNER(BANNER)
     endif
 
     LCUTS = .TRUE.  ! init output argument
 
 ! Jan 4 2021
-! check option to use SNCID list and skip cuts ... but always
-! reject events that are pegged to the edge of the shape prior range
+! check option to use SNCID list (for event syncing to FITOPT000)
+! and skip cuts ... 
+! but always reject events that are pegged to the edge of the shape prior range
+! Apr 14 2026 ... and apply FITPROB cut at 10% if user cut
     if ( USE_SNCID_FILE  ) THEN
        xval = LCVAL_STORE(ipar_shape)
        if ( xval < PRIOR_SHAPE_RANGE(1) + 0.05 ) LCUTS = .FALSE.
        if ( xval > PRIOR_SHAPE_RANGE(2) - 0.05 ) LCUTS = .FALSE.
-       RETURN
+
+       xval = LCPROBCHI2_STORE(1)
+       if ( xval < FITWIN_PROB(1)/10.0 ) LCUTS = .FALSE.  ! Aor 14 2026
+       RETURN 
     endif
 
     DOFIT_SPECZ = .NOT. DOFIT_PHOTOZ
@@ -13007,8 +12994,8 @@
 ! Cut on fit prob
 
     xval = LCPROBCHI2_STORE(1)
-    LTMP = xval .GE.  fitwin_prob(1) .and.  & 
-             xval .LE.  fitwin_prob(2)
+    LTMP = xval .GE.  FITWIN_PROB(1) .and.  &   ! .xyz
+           xval .LE.  FITWIN_PROB(2)
 
     if ( LTMP ) then
        write(CLINE,161) 'FITPROB', xval, 'PASSES'
@@ -13937,7 +13924,7 @@
         iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
 
 ! local
-    INTEGER NZPHOT_Q
+    INTEGER NQZPHOT
     REAL Zhost
 
 ! ---------------- BEGIN ---------------
@@ -13954,10 +13941,12 @@
 ! check for host photoZ
 
       Zhost    = SNHOST_ZPHOT(1)
-      NZPHOT_Q = SNHOST_NZPHOT_Q(1)
+
+
+      NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
       DOFIT_PHOTOZ_HOST =  & 
-           (Zhost > 0.0 .or. NZPHOT_Q > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
+           (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
 
       DOFIT_PHOTOZ_noHOST = .NOT. DOFIT_PHOTOZ_HOST
 
@@ -14150,7 +14139,7 @@
         ,NTMP
 
     CHARACTER  & 
-         BANNER*60  & 
+         BANNER*80  & 
         ,CCID*(MXCHAR_CCID)  & 
         ,CCHI2(4)*8  & 
         ,CFILT(MXFILT_ALL)*1

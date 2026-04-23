@@ -539,7 +539,12 @@ int init_SNPATH(void);
 int init_SNDATA_EVENT(void) ;  // init SNDATA struct (for each event)
 int init_SNDATA_GLOBAL(void); // init SNDATA globals (one-time init)
 void set_SNDATA_FILTER(char *filter_list);
-void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz) ;
+void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN, 
+			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2) ;
+void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) ;
+void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX, char *PREFIXz);
+int  NZ_HOSTGALz(int MXBIN, float *Z_LIST);
+void compute_implicit_percentiles(int NBIN_TOT, int NBIN_VALID, double *PCT_LIST);
 
 void init_GENSPEC_GLOBAL(void) ;
 void init_GENSPEC_EVENT(int ISPEC, int NBLAM);

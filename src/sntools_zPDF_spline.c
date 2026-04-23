@@ -38,6 +38,7 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   // May 30 2024: return error_flag!=0  on bad quantiles instead of aborting;
   //              allows calling code to reject event and move on.
   //
+  // Apr 17 2026 RK - restore free(pdf_store); not sure why it was commented out ?
 
   char fnam[] = "init_zPDF_spline";
   double sum    = 0. ;
@@ -104,16 +105,6 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
     bool check_1 = percentile_list[i] > percentile_list[i-1];
     bool check_2 = zphot_q_list[i]    > zphot_q_list[i-1];
 
-    /* xxxxxxxxx  Mark delete, May 30, 2024 xxxxxxxxxxxxxx
-    if(  !(check_1 && check_2)) {
-      print_preAbort_banner(fnam);
-      dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);      
-      sprintf(c1err,"Quantile information is not monotonically increasing for CID=%s", cid);
-      sprintf(c2err,"Check both z and percentile in datafile");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-    xxxxxxxxxxxx end mark xxxxxxxxxxxx  */
-
     if ( !(check_1 && check_2)  ) {
       if ( verbose ) 
 	{ dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);  }
@@ -128,8 +119,7 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
     
   } // end loop over quantile percentages
 
-  
-  
+    
   // intialize spline
   gsl_spline_init(zPDF_spline.spline, zphot_q_list, percentile_list, N_Q);
 
@@ -146,10 +136,7 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
     if (pdf < 0.) {pdf = 0.0 ;} // avoid unphysical negative probability
     pdf_store[iz] =  pdf; iz++; 
     if ( pdf > pdf_max ) { pdf_max = pdf; }
-    if(LDMP) {
-      printf("XXX %s iz = %d, z = %le, pdf = %le \n",fnam,iz,z, pdf);
-      //printf("ZPDF %le %le  \n",z, pdf); // XXX
-    }
+    if ( LDMP) { printf("XXX %s iz = %d, z = %le, pdf = %le \n",fnam,iz,z, pdf); }
     sum     += z*pdf;
     sum_pdf += pdf;
   }
@@ -164,15 +151,14 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   if(LDMP) {
     printf("XXX %s sum = %le, sum_pdf = %le, sum_sq = %le \n",fnam,sum,sum_pdf,sum_sq);
   }
-  if(sum_sq > 0  && sum_pdf > 0){
-  *std_dev  = sqrt(sum_sq/sum_pdf);
+  if(sum_sq > 0  && sum_pdf > 0) {
+    *std_dev  = sqrt(sum_sq/sum_pdf);
   }
   else {*std_dev = 0.;}
 
-  if(LDMP) {
-  printf("XXX %s std = %le \n",fnam,*std_dev);
-  }
-  //free(pdf_store);
+  if ( LDMP) { printf("XXX %s std = %le \n",fnam,*std_dev);  }
+
+  free(pdf_store);
     
   zPDF_spline.pdf_max = pdf_max;
 

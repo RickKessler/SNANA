@@ -23632,7 +23632,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c: set default INPUTS.REFAC_SEARCHEFF_MAP=1 to release
         refactor from previous versions for SPEC_FILE and zHOST_FILE.
         See https://github.com/RickKessler/SNANA/issues/1619
-        
+
+   Add REFAC_DATA_FLAG input to snlc_sim.exe and snana.exe/snlc_fit.exe 
+   to begin adding z-dependent grids to data stream:
+      HOSTGALz_QUANTILE_ZHOT
+      HOSTGALz_LOGMASS
+   First goal is to replace original fixed-length quantiles (NZPHOT_Q=11) 
+   with HOSTGALz_QUANTILE_ZPHOT structure, which allow aribtray NZPHOT_Q 
+   for each event and each NBR host, and allows aribtrary PERCENT grid as well
+   (i.e., PERCENT grid need not be uniform). Second goal is to add HOSTGALz_LOGMASS
+   grid that includes ZGRID[iz], VALGRID[iz], ERRGRID[iz].
+
          *****  USEFUL(v12_01e) *****
 
 
@@ -23642,14 +23652,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + subtle bug fix in store_PARSE_WORDS to work with newly released
        refactor.
 
-   Add REFAC_DATA_FLAG input to snlc_sim.exe and snana.exe to begin
-   adding z-dependent grids to data stream:
-      HOSTGALz_ZPHOT_QUANTILE
-      HOSTGALz_LOGMASS
-      HOSTGALz_LOGMASS_ERR
-
   create_covariance.py:
-     fix to work without biasCor by adding nbin_z arg;
+     fix to work without biasCor by adding --nbin_z arg so that user
+     can define number of z-bins rather than BiasCor defining this.
 
   sntools_dataformat_text.c:
     + fix awful bug and read SIM_WGT_POPULATION so that text formatted                             
@@ -23660,5 +23665,52 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        bug added here  https://github.com/RickKessler/SNANA/issues/1615
        and fixed here  https://github.com/RickKessler/SNANA/issues/1636
 
+
+   sntools_output.cpp
+     + change void SNTABLE_AUTOSTORE_READ to int function that returns
+       number or rows matching CID; allows parsing things like a light curve
+       or quantiles.
+
+   snlc_fit.F90
+      when using SNCID_LIST_FILE for syst shift, apply FITPROB cut at
+      10% of FITWIN_PROB(1) to remove rare catastrophic fits for 
+      small systematic shift.
+
+   snlc_sim.c: 
+    + add new utility check_parse_args_for_COLON(..) to abort if any
+      arguments contain a ':' which means a key has been read 
+      (intead of required arg) by mistake.
+      This utility has been added for all keys in parse_input_CUTWIN(),
+      and over time this utility should be added to more keys with
+      many args that could lead to user-input mistakes.
+
+   + new sim input GENRANGE_PEAKMJD_EXCLUDE: xx yy
+     to allow for big gaps; e.g., between two seasons or between
+     pilot and main survey.
+
+   quick_commands.py
+     --table_file_dupl has optional 2nd arg = column name to check for duplicates.
+     E.g.
+          quick_commands.py --table_file_dupl FITOPT001.FITRES  HOST_OBJID
+     will check for duplicate HOST_OBJID.
+
+  SWITCH to REFAC_DATA_FLAG=1, and no going back:
+     TASK087_SIMFIT_DES5YR_QZPHOT5   :  mis-match (REF != TEST)
+		==> REF:  ZPHOT-72 = 0.66770 +/- 0.5237E-02(P)
+		==> TEST: ZPHOT-72 = 0.66767 +/- 0.1379E-01(P)
+     TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
+		==> REF:  ZPHOT-72 = 0.65832 +/- 0.8917E-02(P)
+		==> TEST: ZPHOT-72 = 0.65796 +/- 0.5290E-02(P)
+
+   snana.F90
+     + remove obsolete subroutines INIT_REFORMAT_SALT2 WRSALT2_2.
+       and remove SNLCINP OPT_REFORMAT_SALT2
+
+   sntools_genPDF.c: abort if any varname has SIM_ prefix
+
+   TO-DO LIST:
+     + increase MXCHAR_CCID for big LSST object IDs:  snana.F90, sndata.h 
+     - MXHOSTGAL                 = 2 --> 3
+     - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4
 
 END: 

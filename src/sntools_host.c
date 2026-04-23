@@ -182,7 +182,7 @@ void INIT_HOSTLIB(void) {
   else {
     // legacy mode
     open_HOSTLIB(&fp_hostlib);            // open and return file pointer
-    read_head_HOSTLIB_LEGACY(fp_hostlib); // read header info: VARNAMES, ...
+    // xxx mark    read_head_HOSTLIB_LEGACY(fp_hostlib); // read header info: VARNAMES, ...
     close_HOSTLIB(fp_hostlib);            // close HOSTLIB to rewind
   }
 
@@ -204,7 +204,6 @@ void INIT_HOSTLIB(void) {
   sortz_HOSTLIB();
 
   // abort if any GALID+ZTRUE pair appears more than once
-
   check_duplicate_GALID();
   
   // set redshift pointers for faster lookup
@@ -218,7 +217,7 @@ void INIT_HOSTLIB(void) {
   init_HOSTLIB_ZPHOTEFF();
 
   // check for zphot quantiles (Apr 2022)
-  init_HOSTLIB_ZPHOT_QUANTILE();
+  init_HOSTLIB_QUANTILE_ZPHOT();
 
   // prepare integral tables for Sersic profile(s).
   init_Sersic_VARNAMES();
@@ -375,7 +374,9 @@ void initvar_HOSTLIB(void) {
   SERSIC_TABLE.TABLEMEMORY    = 0 ;
 
   HOSTLIB.NFILT_MAGOBS = 0;
-  HOSTLIB.NZPHOT_Q = 0;
+
+  HOSTLIB.NQZPHOT = 0;
+
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )  
     { HOSTLIB.IVAR_MAGOBS[ifilt] = -9 ;  }
   sprintf(HOSTLIB.filterList, "%s", "" );
@@ -645,14 +646,18 @@ void init_OPTIONAL_HOSTVAR(void) {
     sprintf(cptr, "%s", nnam );    // index 
 
   }
-  for (j=0; j < MXBIN_ZPHOT_Q; j++){
-    cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
-    sprintf(cptr, "%s%d",    HOSTLIB_PREFIX_ZPHOT_Q, j); 
 
+  for (j=0; j < MXBIN_HOSTGALz_QUANTILE; j++) {
+    cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
+    sprintf(cptr, "QZPHOT%2.2d", j );  // refac Apr 20 2026
+  }
+
+  for (j=0; j < MXBIN_HOSTGALz_QUANTILE; j++){  // check for legacy keys ZPHOT_Q[nnn]
     // allow zero-padding ; e.g. ZPHOT_Q020
-    if ( j < 100 ) {
+    int PCT_LEGACY = j*10; 
+    if ( PCT_LEGACY <= 100 ) {
       cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
-      sprintf(cptr, "%s%3.3d", HOSTLIB_PREFIX_ZPHOT_Q, j); 
+      sprintf(cptr, "ZPHOT_Q%3.3d", PCT_LEGACY ); 
     }
   }
 
@@ -924,7 +929,6 @@ void append_HOSTLIB_STOREPAR(void) {
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.
 
   int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
-  //  REFAC_SEARCHEFF = 0 ; // xxx REMOVE
 
   if ( REFAC_SEARCHEFF ) {    
     char **VARNAMES_RAW;
@@ -2566,7 +2570,7 @@ void prep_head_HOSTLIB(void) {
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
   bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
-  int  LEN_PREFIX_ZPHOT_Q = strlen(HOSTLIB_PREFIX_ZPHOT_Q);
+  // xxx mark  int  LEN_PREFIX_QZPHOT = strlen("ZPHOT_Q");
 
   int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;
   int MATCH, NVAR_STORE_SNPAR=0, USE, IS_SNPAR, VBOSE ;
@@ -2601,16 +2605,19 @@ void prep_head_HOSTLIB(void) {
 	}
 
 	// check for quantiles
-	if ( strstr(c_var_all,HOSTLIB_PREFIX_ZPHOT_Q) != NULL ) {
-	  int   percentile, N_Q = HOSTLIB.NZPHOT_Q ;
-	  char *VARNAME         = HOSTLIB.VARNAME_ZPHOT_Q[N_Q];
-	  sscanf(&c_var_all[LEN_PREFIX_ZPHOT_Q], "%d", &percentile);   
+	if ( strstr(c_var_all,"ZPHOT_Q") != NULL ) {  // legacy key
+	  int   N_Q = HOSTLIB.NQZPHOT ;
+	  int   percentile      = N_Q * N_Q;
+	  char *VARNAME         = HOSTLIB.VARNAME_QZPHOT[N_Q]; //.xyz
+	  sprintf(VARNAME, "ZPHOT_Q%3.3d", percentile);
+	  HOSTLIB.NQZPHOT++ ;
+	}
 
-	  // HOSTLIB ZPHOT_Qnn may not include pad zeros, but output
-	  // VARNAME must include pad zeros.
-	  sprintf(VARNAME, "%s%3.3d", HOSTLIB_PREFIX_ZPHOT_Q, percentile);
-	  HOSTLIB.PERCENTILE_ZPHOT_Q[N_Q] = percentile ;
-	  HOSTLIB.NZPHOT_Q++ ;
+	if ( strstr(c_var_all,"QZPHOT") != NULL ) {  // refac key
+	  int   N_Q = HOSTLIB.NQZPHOT ;
+	  char *VARNAME         = HOSTLIB.VARNAME_QZPHOT[N_Q]; //.xyz
+	  sprintf(VARNAME, "QZPHOT%2.2d", N_Q);
+	  HOSTLIB.NQZPHOT++ ;
 	}
 
 	HOSTLIB.NVAR_STORE++ ;   
@@ -2700,7 +2707,7 @@ void prep_head_HOSTLIB(void) {
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_TRUE_MATCH, 0) ; 
   HOSTLIB.IVAR_ZPHOT        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT,      0) ; 
   HOSTLIB.IVAR_ZPHOT_ERR    = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT_ERR,  0);
-  HOSTLIB.IVAR_ZPHOT_Q0     = IVAR_HOSTLIB_PREFIX(HOSTLIB_PREFIX_ZPHOT_Q, 0);
+  HOSTLIB.IVAR_Q0ZPHOT      = IVAR_HOSTLIB_PREFIX("ZPHOT_Q", 0);
   HOSTLIB.IVAR_VPEC         = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC,       0) ; 
   HOSTLIB.IVAR_VPEC_ERR     = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC_ERR,   0);
   char c_var[60];
@@ -2834,6 +2841,8 @@ void prep_head_HOSTLIB(void) {
 
 } // end prep_head_HOSTLIB
 
+/* xxxxxxxx mark delete xxxxxxx
+
 // ============================================
 void read_head_HOSTLIB_LEGACY(FILE *fp) {
 
@@ -2893,7 +2902,6 @@ void read_head_HOSTLIB_LEGACY(FILE *fp) {
     // stop reading when first GAL: key is reached.
     if ( strcmp(c_get,"GAL:") == 0 )  {
       // rewind doesn't work for gzip file
-      // xxxx snana_rewind(fp, INPUTS.HOSTLIB_FILE, HOSTLIB.GZIPFLAG );  
 
       fseek(fp,-4,SEEK_CUR); //rewind to before 1st GAL key
       goto VARCHECK ; 
@@ -3252,8 +3260,11 @@ void read_head_HOSTLIB_LEGACY(FILE *fp) {
   // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
 
   return ;
-
+  
 } // end of read_head_HOSTLIB_LEGACY
+xxxxxxxx end mark xxxxxxxx*/
+
+
 
 // ==============================
 bool match_varname_HOSTLIB(char *varName0, char *varName1) {
@@ -4955,31 +4966,27 @@ double snmagshift_salt2gamma_HOSTLIB(long long int GALID) {
 
 
 // =======================================
-void init_HOSTLIB_ZPHOT_QUANTILE(void) {
+void init_HOSTLIB_QUANTILE_ZPHOT(void) {
 
   // Created Apr 19 2022 by R.Kess;er
   // For nominal usage of zphot quantiles in HOSTLIB, this function
   // only prints information to stdout.
   // If force-Gauss option is set, this function initializes
   // Gaussian integrals at percentile values.
-
-  int  N_Q        = HOSTLIB.NZPHOT_Q ;
+  //
+  // Apr 21 2026: BROKEN ... needs fix consistent with recent refactor
+  //
+  int  N_Q        = HOSTLIB.NQZPHOT ;
   int  USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
   int  q, qbin, percentile;
-  char fnam[] = "init_HOSTLIB_ZPHOT_QUANTILE" ;
+  char fnam[] = "init_HOSTLIB_QUANTILE_ZPHOT" ;
 
   // ------------ BEGIN ------------
 
   // if Gaussian quantile is requested without any quantiles in the
-  // HOSTLIB, force 10 quantiles.
+  // HOSTLIB, force 11 quantiles.
   if ( USE_QGAUSS && N_Q == 0 ) {
-    N_Q = HOSTLIB.NZPHOT_Q = 11; // 0, 10, 20 ..... 100
-    qbin = 100/(N_Q - 1);
-    for(q=0; q < N_Q; q++ ) {
-      percentile = q * qbin;
-      HOSTLIB.PERCENTILE_ZPHOT_Q[q] = percentile ;
-      sprintf(HOSTLIB.VARNAME_ZPHOT_Q[q], "%s%3.3d", PREFIX_ZPHOT_Q, percentile);
-    }
+    N_Q = HOSTLIB.NQZPHOT = 11;    // 0, 10, 20 ..... 100
   }
 
   if ( N_Q == 0 ) { return; }
@@ -4989,6 +4996,9 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
   // unit Gaussian
 
   if ( USE_QGAUSS ) {
+
+    // WARNING: need to re-write this section (Apr 20 2026)
+
     printf("\t Force %d Gaussian quantiles\n", N_Q ); fflush(stdout);
 
     int IVAR_ZPHOT     = HOSTLIB.IVAR_ZPHOT;
@@ -5012,7 +5022,7 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
 
       //  printf(" xxx %s: xsig = %8.5f, gint = %8.5f \n", fnam, xsig, gint);
       for ( q=0; q < N_Q; q++ ) {
-	gint_target =  (double)HOSTLIB.PERCENTILE_ZPHOT_Q[q]/100.0 ;
+	// xxx markgint_target =  (double)HOSTLIB.PERCENTILE_QZPHOT[q]/100.0 ;
 	if ( gint_target == 0.0 ) { gint_target = 0.001; }
 	if ( gint_target == 1.0 ) { gint_target = 0.999; }
 
@@ -5030,7 +5040,7 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
     int LDMP_QGAUSS = 0 ;
     if ( LDMP_QGAUSS ) {
       for ( q=0; q < N_Q; q++ ) {
-	percentile = HOSTLIB.PERCENTILE_ZPHOT_Q[q];
+	// xxxx	percentile = HOSTLIB.PERCENTILE_QZPHOT[q];
 	xsig       = xsig_store[q];
 	gint = GaussIntegral(xsigmin,xsig);
 	printf(" xxxx Gauss percentile =%3d -> NSIGMA = %8.5f  "
@@ -5043,21 +5053,24 @@ void init_HOSTLIB_ZPHOT_QUANTILE(void) {
   }  // end USE_QGAUSS
 
 
+  /* xxxxxxx mark delete xxxxxxx
   // list zphot quantiles
   char STRING_Q[200], str_q[40];
-  sprintf(STRING_Q,"ZPHOT_QUANTILES: ");
+  sprintf(STRING_Q,"QUANTILE_ZPHOT: ");
   for(q=0; q<N_Q; q++ ) {
-    percentile = HOSTLIB.PERCENTILE_ZPHOT_Q[q] ;
+    percentile = HOSTLIB.PERCENTILE_QZPHOT[q] ;
     sprintf(str_q,"%d ", percentile);
     strcat(STRING_Q, str_q);
   }
 
   printf("\t %s\n", STRING_Q);
   fflush(stdout);
+  xxxxxxx end mark */
+
 
   return;
 
-} // init_HOSTLIB_ZPHOT_QUANTILE
+} // init_HOSTLIB_QUANTILE_ZPHOT
 
 // =======================================
 void init_HOSTLIB_ZPHOTEFF(void) {
@@ -8866,8 +8879,8 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
       SNHOSTGAL_DDLR_SORT[i].MAG[ifilt]      = -9.0 ;
       SNHOSTGAL_DDLR_SORT[i].MAG_ERR[ifilt]  = -9.0 ;
     }
-    for(q=0; q < MXBIN_ZPHOT_Q; q++){
-      SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[q] = -9.0;
+    for(q=0; q < MXBIN_HOSTGALz_QUANTILE; q++){
+      SNHOSTGAL_DDLR_SORT[i].QZPHOT[q] = -9.0;
     }
   }
 
@@ -8973,7 +8986,7 @@ void SORT_SNHOST_byDDLR(void) {
   int  IVAR_DEC         = HOSTLIB.IVAR_DEC ;
   int  IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
   int  IVAR_ZPHOT_ERR   = HOSTLIB.IVAR_ZPHOT_ERR; 
-  int  IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
+  int  IVAR_Q0          = HOSTLIB.IVAR_Q0ZPHOT ;
   int  ORDER_SORT       = +1 ;     // increasing order
 
   bool DOSHIFT_GALCOORDS = ( IVAR_RA>0 && IVAR_DEC>0 &&  !LSN2GAL_RADEC );
@@ -9092,10 +9105,30 @@ void SORT_SNHOST_byDDLR(void) {
     
     // - - - - - - -
     if ( IVAR_Q0 > 0 || USE_QGAUSS ) {
-      for (q = 0; q < HOSTLIB.NZPHOT_Q; q++) {
-	zq = GEN_SNHOST_ZPHOT_QUANTILE(IGAL,q);
-	SNHOSTGAL_DDLR_SORT[i].ZPHOT_Q[q] = zq; 
+      // first fetch the z values and count number of valid values
+      // in case this galaxy has fewer quantiles than the max.
+      int NQ_VALID = 0 ;
+      for (q = 0; q < HOSTLIB.NQZPHOT; q++) {
+	zq = GEN_SNHOST_QUANTILE_ZPHOT(IGAL,q);
+	SNHOSTGAL_DDLR_SORT[i].QZPHOT[q] = zq; 
+	if ( zq >= 0.0 ) { NQ_VALID++ ; } 
       }
+
+      // compute percentiles for this NBR; percentile bin is recomputed for each event/nbr.
+      compute_implicit_percentiles( HOSTLIB.NQZPHOT, NQ_VALID, 
+				    SNHOSTGAL_DDLR_SORT[i].QPERCENTILE ); // <== returned
+
+      /* xxx mark delete 
+      double DNQ_VALID = (double)NQ_VALID ;
+      double qbin      = 100.0/(DNQ_VALID - 1.0);
+      double pct ;
+      for(q=0; q < HOSTLIB.NQZPHOT; q++ ) {
+	pct = q*qbin ;      // 0 to 100
+	if ( q < NQ_VALID ) { pct = q*qbin; }   else { pct = -9.0; }
+	SNHOSTGAL_DDLR_SORT[i].QPERCENTILE[q] = pct; 
+      }
+      xxxxxxx end mark xxxxx */ 
+
     }
 
     for (ivar=0; ivar<N_HOSTGAL_PROPERTY; ivar++){
@@ -9185,7 +9218,7 @@ void SORT_SNHOST_byDDLR(void) {
 } // SORT_SNHOST_byDDLR
 
 // ==========================================
-double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
+double GEN_SNHOST_QUANTILE_ZPHOT(int IGAL, int q) {
 
   // Created Apr 19 2022
   // For sparse zphot-quantile index q, return zPHOT value.
@@ -9198,13 +9231,13 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
   // Oct 4 2023: skip correction of zq<0 (to avoid confusion)
 
   int   USE_QGAUSS = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_ZPHOT_QGAUSS );
-  int   IVAR_Q0          = HOSTLIB.IVAR_ZPHOT_Q0 ;
+  int   IVAR_Q0          = HOSTLIB.IVAR_Q0ZPHOT ;
   int   IVAR_ZPHOT       = HOSTLIB.IVAR_ZPHOT; 
   int   IVAR_ZPHOT_ERR   = HOSTLIB.IVAR_ZPHOT_ERR; 
   int   IVAR_Q;
   double ZPHOT, ZPHOT_ERR, SIGMA_QGAUSS;
   double zq = 0.0 ;
-  char fnam[] = "GEN_SNHOST_ZPHOT_QUANTILE";
+  char fnam[] = "GEN_SNHOST_QUANTILE_ZPHOT";
 
   // ------ BEGIN -------
 
@@ -9228,7 +9261,6 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
     zq  = get_VALUE_HOSTLIB(IVAR_Q,IGAL) ;
   }
 
-
   // Correct for zSN/zGAL ratio, but don't bother correcting 
   // if zq=-9 (no match)
   if ( zq > 0.0 )
@@ -9236,7 +9268,7 @@ double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q) {
 
   return zq;
 
-} // end GEN_SNHOST_ZPHOT_QUANTILE
+} // end GEN_SNHOST_QUANTILE_ZPHOT
 
 // ================================= 
 void set_GALID_UNIQUE(int i){

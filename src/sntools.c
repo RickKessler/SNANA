@@ -3916,7 +3916,7 @@ void parse_commaSepList(char *item_name, char *item, int MAX_ITEM, int MXCHAR,
   //
   //  Output
   //    *n_item   : number of items in *item
-  //    arrayList : array of individual items
+  //    arrayList : array of individual items (note malloc done here)
   //
   // Oct 2023: update to work for space-sep or comma sep strings
   //
@@ -8396,7 +8396,11 @@ int  init_SNPATH(void) {
 // ================================
 int init_SNDATA_GLOBAL(void) {
 
-  int ifilt, ep, j ;
+  // one-time init of global variables
+  //
+  // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
+
+  int ifilt, ep, j, igal ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGINN -------------
@@ -8445,12 +8449,26 @@ int init_SNDATA_GLOBAL(void) {
 
   SNDATA.HOSTGAL_NFILT_MAGOBS = 0;
   SNDATA.HOSTGAL_USEMASK      = 0;
-  SNDATA.HOSTGAL_NZPHOT_Q    = 0;
+
+
+  // init HOSTGALz stucture for refactor (note that REFAC_DATA_FLAG isn't set yet)
+  for(igal=0; igal < MXHOSTGAL; igal++ ) {
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
+			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, "" );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal, MXBIN_HOSTGALz,
+			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
+  }
+
+
+  /* xxxxxxx mark delete xxxxxxx
+  // init legacy quantile storage
+  SNDATA.HOSTGAL_NZPHOT_Q     = 0;
   for(j=0; j < MXBIN_ZPHOT_Q; j++)  { 
     SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[j]  = -99.0;  
     SNDATA.HOSTGAL_ZPHOT_Q[0][j]          = -99.0;
     SNDATA.HOSTGAL_ZPHOT_Q[1][j]          = -99.0;
   } 
+  xxxxxxxx end mark xxxxxx */
 
   return(SUCCESS);
 
@@ -8555,12 +8573,15 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
 
+    /* xxxxxxxx mark delete 
     for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
       { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
+    xxxxxxx end mark */
 
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal]);
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal]);
-    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS_ERR[igal]);
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
+			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
+    init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal, MXBIN_HOSTGALz,
+			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
 
@@ -8729,15 +8750,141 @@ int init_SNDATA_EVENT(void) {
 }   // end of init_SNDATA_EVENT
 
 
-void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz) {
+void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX,char *PREFIXz) {
+
+  char fnam[] = "get_SNDATA_HOSTGAL_PREFIX";
+  // ---------- BEGIN -----------
+
+  // For input igal, return PREFIX and PREFIXz for data varnames related to HOSTs.
+  if ( igal == 0 ) 
+    { sprintf(PREFIX,"HOSTGAL"); }
+  else
+    { sprintf(PREFIX,"HOSTGAL%d", igal+1); } // e.g. HOSTGAL2, HOSTGAL3 ...
+
+
+  // e.g. PREFIX = HOSTGAL  -> PREFIXz = HOSTGALz
+  //      PREFIX = HOSTGAL2 -> PREFIXz = HOSTGAL2z
+  sprintf(PREFIXz, "%sz", PREFIX); 
+  return;
+
+} // end get_SNDATA_HOSTGAL_PREFIX
+
+/* xxxxxxx mark delete 
+void get_SNDATA_HOSTGALz_VARNAMES(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, 
+				  char *SUFFIX_val2, char **VARNAMES ) {
+  char fnam[] = "get_SNDATA_HOSTGALz_VARNAMES" ;
+  // -------- BEGIN -----------     
+  sprintf(VARNAMES[0], "%s_NBIN_%s", PREFIX, SUFFIX_z);
+  sprintf(VARNAMES[1], "%s_%s",      PREFIX, SUFFIX_z);
+  sprintf(VARNAMES[2], "%s_%s",      PREFIX, SUFFIX_val);
+
+  if ( strlen(SUFFIX_val2) > 0 ) 
+    { sprintf(VARNAMES[3], "%s_%s",      PREFIX, SUFFIX_val2); }
+  else 
+    { VARNAMES[3][0] = 0 ; }
+
+} // end get_SNDATA_HOSTGALz_VARNAMES
+xxxxxx end mark */
+
+
+void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN, 
+			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2 ) {
   int j;
+  char PREFIX[20], PREFIXz[20], varNames[4][60];
+  char *ptrNames[4] = { varNames[0], varNames[1], varNames[2], varNames[3] } ;
+  // ------------ BEGIN ----------
+
+  get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
+
+  HOSTGALz->MXZ = MXBIN;
+  sprintf(HOSTGALz->VARNAME_NZ,  "%s_NBIN_%s", PREFIXz, SUFFIX_z);
+  sprintf(HOSTGALz->VARNAME_Z,   "%s_%s",      PREFIXz, SUFFIX_z);
+  sprintf(HOSTGALz->VARNAME_VAL, "%s_%s",      PREFIXz, SUFFIX_val);
+
+  HOSTGALz->USE_VAL2 = ( strlen(SUFFIX_val2) > 0 ) ;
+  if ( HOSTGALz->USE_VAL2 ) 
+    { sprintf(HOSTGALz->VARNAME_VAL2, "%s_%s",  PREFIXz, SUFFIX_val2); }
+  else 
+    {   HOSTGALz->VARNAME_VAL2[0] = 0 ; }
+
   HOSTGALz->NZ = 0;
   for (j=0; j < MXBIN_HOSTGALz; j++ ) {
-    HOSTGALz->Z_LIST[j]   = -9.0 ;
-    HOSTGALz->VAL_LIST[j] = -9.0 ;
+    HOSTGALz->Z_LIST[j]    = -9.0 ;
+    HOSTGALz->VAL_LIST[j]  = -9.0 ;
+    HOSTGALz->VAL2_LIST[j] = -9.0 ;
   }
 } // end init_SNDATA_HOSTGALz
+
+void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
+
+  // Created Apri 2026
+  // Generic dump utility for HOSTGALz object.
+
+  int iz, NZ = HOSTGALz->NZ;
+  char *VARNAME_z    = HOSTGALz->VARNAME_Z;
+  char *VARNAME_val  = HOSTGALz->VARNAME_VAL;
+  char *VARNAME_val2 = HOSTGALz->VARNAME_VAL2;
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "dump_SNDATA_HOSTGALz", fnam);
+  // -------- BEGIN ----------
+
+  printf("\n");
+  printf(" xxx ------------------------------------------------------------------- \n");
+  printf(" xxx %s : \n", fnam );
+  printf(" xxx    SNID=%s  igal=%d  GALID=%lld    NZ=%d\n", 
+	 SNDATA.CCID, igal, SNDATA.HOSTGAL_OBJID[igal], NZ );
+  printf(" xxx    HOSTGALz VARNAME(z,val,val2) is '%s'  '%s'  '%s \n", 
+	 VARNAME_z,  VARNAME_val, VARNAME_val2 );
+  for (iz=0; iz < NZ; iz++ ) {
+    if ( iz > MXBIN_HOSTGALz_QUANTILE ) { break; }
+    printf(" xxx       iz=%2d  z=%7.4f  val=%8.3f \n", 
+	   iz, HOSTGALz->Z_LIST[iz], HOSTGALz->VAL_LIST[iz] );
+  }
+
+  printf(" xxx DONE with %s\n", fnam );
+
+  fflush(stdout);
+  return;
+
+} // end dump_SNDATA_HOSTGALz
  
+
+int NZ_HOSTGALz(int MXBIN, float *Z_LIST) {  
+
+  // Return number of Z_LIST redshifts that are >=0
+  int  iz, NZ = 0 ; 
+  char fnam[] = "NZ_HOSTGALz_snfitsio";
+  // ------------ BEGIN ------------- 
+  for(iz=0; iz < MXBIN; iz++ ) { 
+    if ( Z_LIST[iz] >= 0.0 ) { NZ++; }  else { break; }
+  }  
+  return NZ;  
+} // end NZ_HOSTGALz
+
+
+void compute_implicit_percentiles(int NBIN_TOT, int NBIN_VALID, double *PCT_LIST) {
+
+  // Created Apr 21 2026
+  // Compute and store NBIN_VALID quantile percentages;
+  // e.g., NBIN_VALID=11 -> store 0, 10, 20 ... 90, 100.
+  // If NBIN_TOT > NBIN_VALID, pad remaining PCT_LIST values with -9.
+
+  double XN_VALID = (double)NBIN_VALID;
+  double qbin = 100.0/(XN_VALID - 1.0); // equal percentile bin size
+  double pct;
+  int q;
+ 
+ for(q=0; q < NBIN_TOT; q++ ) {
+   if ( q < NBIN_VALID ) 
+     { pct = qbin*(double)q; } 
+   else 
+     { pct = -9.0; }
+
+   PCT_LIST[q] = pct;
+  }
+ 
+  return;
+} // end compute_implicit_percentiles
 
 // =================================================
 void init_GENSPEC_GLOBAL(void) {

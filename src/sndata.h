@@ -19,6 +19,7 @@
   Sep 30 2023: MXSPECTRA -> 2000 (was 1000); for Roman+LSST SED TRUE
   Jul 26 2024: define TRANSIENT_NAME and move MXCHAR_CCID here (from sntools_output.h)
   Nov 20 2024: defie MXCHAR_FIELDNAME and MXCHAR_FILTNAME
+  Apr    2026: add HOSTGALz_DEF, and MXCHAR_CCID = 20 > 32 
 
 *****************************************************/
 
@@ -39,7 +40,7 @@
 #define MXHOSTGAL      2 // max number of matched hosts to write out
 #define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
-#define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100)
+// xxx mark #define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100) // xxx legacy
 #define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
 #define ZEROPOINT_FLUXCAL_SNANA_ORIG  27.5
 #define ZEROPOINT_FLUXCAL_nJy         31.4
@@ -105,7 +106,7 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 
 //  disk pointers defined in init_SNDATA
 
-#define MXCHAR_CCID       20  // should be same as MXCHAR_CCID in snana.car
+#define MXCHAR_CCID       32  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_FIELDNAME  20
 #define MXCHAR_FILTNAME   20
 
@@ -113,17 +114,17 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 #define MXLEN_VERSION         72  // max length of VERSION name
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
 
+// xxxxx legacy names
 #define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
 #define STRING_NZPHOT_Q "NZPHOT_Q"
-
+// xxxxxxx
 
 // define suffixes for refactoed data stream with z-dependent quantities
 #define SUFFIX_QUANTILE_ZPHOT       "QUANTILE_ZPHOT"    // append to HOSTGALz or HOSTGALz2
 #define SUFFIX_QUANTILE_PERCENT     "QUANTILE_PERCENT"
 #define SUFFIX_LOGMASS_ZGRID        "LOGMASS_ZGRID"
 #define SUFFIX_LOGMASS_VALGRID      "LOGMASS_VALGRID"
-#define SUFFIX_LOGMASS_ERR_ZGRID    "LOGMASS_ERR_ZGRID"
-#define SUFFIX_LOGMASS_ERR_VALGRID  "LOGMASS_ERR_VALGRID"
+#define SUFFIX_LOGMASS_ERRGRID      "LOGMASS_ERRGRID"
 
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN];
@@ -175,13 +176,22 @@ struct VERSION
 } VERSION_INFO ;
 
 
-#define MXBIN_HOSTGALz 41 // max z bins for HOSTGALz_DEF arrays
+#define MXBIN_HOSTGALz 40 // max z bins for HOSTGALz_DEF arrays
 #define MXBIN_HOSTGALz_QUANTILE 20
 
 typedef struct {
-  int     NZ;
+  int     MXZ ;                        // max number of z-bins
+  int     NZ;                          // number of redshift bins
   float   Z_LIST[MXBIN_HOSTGALz] ;     // redshift list (note float, not double)
   float   VAL_LIST[MXBIN_HOSTGALz] ;   // value list
+  float   VAL2_LIST[MXBIN_HOSTGALz] ;   // optional 2nd value (e.g, uncertainty on value
+  bool    USE_VAL2;    // flag for optional VAL2 (to avoid repeat check on VARNAME_VAL2)
+
+  // column names for data stream
+  char    VARNAME_NZ[60];
+  char    VARNAME_Z[60];
+  char    VARNAME_VAL[60], VARNAME_VAL2[60]; 
+
 } HOSTGALz_DEF ;
 
 // define main SNDATA data structure
@@ -346,14 +356,16 @@ struct SNDATA {
   float   HOSTGAL_SPECZ[MXHOSTGAL] ;
   float   HOSTGAL_SPECZ_ERR[MXHOSTGAL] ;
 
-  // .xyz
-  HOSTGALz_DEF HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL] ;
+  // Apr 2026: new z-vectors for hostgal
+  HOSTGALz_DEF HOSTGALz_QUANTILE_ZPHOT[MXHOSTGAL] ;
   HOSTGALz_DEF HOSTGALz_LOGMASS[MXHOSTGAL] ;
-  HOSTGALz_DEF HOSTGALz_LOGMASS_ERR[MXHOSTGAL] ;
 
+
+  /* xxxxxxx legacy quantile variables xxxxxxxxxxxxx
   float   HOSTGAL_ZPHOT_Q[MXHOSTGAL][MXBIN_ZPHOT_Q] ;  // redshifts
   int     HOSTGAL_PERCENTILE_ZPHOT_Q[MXBIN_ZPHOT_Q] ;  // percentiles
   int     HOSTGAL_NZPHOT_Q ;
+  // xxxxxxxxxxxxxxxxxx  end legacy xxxxxxxxx */
 
   float  *PTR_HOSTGAL_PROPERTY_TRUE[MXHOSTGAL_PROPERTY];
   float  *PTR_HOSTGAL_PROPERTY_OBS[MXHOSTGAL_PROPERTY];
@@ -371,7 +383,7 @@ struct SNDATA {
   float   HOSTGAL_COLOR_OBS[MXHOSTGAL] ;
   float   HOSTGAL_COLOR_ERR[MXHOSTGAL] ;
 
-  long long HOSTGAL_OBJID2[MXHOSTGAL] ;
+  long long HOSTGAL_OBJID2[MXHOSTGAL] ; // alternate ID for galaxy (not 2nd host)
   long long HOSTGAL_OBJID_UNIQUE[MXHOSTGAL] ;
   float   HOSTGAL_ELLIPTICITY[MXHOSTGAL] ;
   float   HOSTGAL_SQRADIUS[MXHOSTGAL] ;

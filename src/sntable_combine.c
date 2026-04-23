@@ -349,7 +349,7 @@ void  sntable_combine_init(void) {
 // ============================================
 void  sntable_combine_fill(int irow) {
 
-  int ISTAT, iFile, NVAR, NVAR_TOT, ivar ,ICAST ;
+  int ISTAT, iFile, NVAR, NVAR_TOT, ivar ,ICAST, NROW_MATCH ;
   double DVAL;
   char CCID[MXCHAR_CCID], CVAL[40], *VARNAME ;
   //  char fnam[] = "sntable_combine_fill" ;
@@ -375,7 +375,7 @@ void  sntable_combine_fill(int irow) {
       ICAST   = SNTABLE_AUTOSTORE[iFile].ICAST_READ[ivar];
 
       DVAL = -3333.0 ; sprintf(CVAL,"NULL_COMBINE");
-      SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, &DVAL, CVAL );
+      NROW_MATCH = SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, &DVAL, CVAL );
 
       if ( ICAST == ICAST_C ) 
 	{ sprintf(OUTPUT.VAL_C[NVAR_TOT], "%s ", CVAL) ;  }
@@ -451,9 +451,10 @@ void testRead(void) {
   sprintf(CCID[NLIST],"8771181");  sprintf(varName[NLIST], "FIELD");
   NLIST++ ;
 
+  int NROW_MATCH;
   for(i=0; i < NLIST; i++ ) {
     DVAL=0; sprintf(CVAL,"NULL");
-    SNTABLE_AUTOSTORE_READ(CCID[i], varName[i], &istat, &DVAL, CVAL );
+    NROW_MATCH = SNTABLE_AUTOSTORE_READ(CCID[i], varName[i], &istat, &DVAL, CVAL );
     printf("   CCID = %10.10s   %16.16s = %.4f(%s)  (istat=%d)\n", 
 	   CCID[i], varName[i], DVAL, CVAL, istat);
     fflush(stdout);

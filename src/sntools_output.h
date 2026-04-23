@@ -55,7 +55,6 @@
 #define MXCHAR_FILENAME  300
 #define MXCHAR_VARLIST   2000  
 #define MXCHAR_VARNAME   60
-// xxx#define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_MODELNAME 32  // max length of model name (e.g., SALT2.Guy10)
 
 #define MXVAR_TABLE      800  // max number of variables in 1 table
@@ -351,7 +350,7 @@ struct SNTABLE_AUTOSTORE {
 // define LASTREAD structure to speed up AUTOSTORE lookup
 // when CCID is repeated.
 struct LASTREAD_AUTOSTORE  {
-  int  IFILE, IROW;
+  int  IFILE, IROW[2];
   char CCID[MXCHAR_CCID];
 } LASTREAD_AUTOSTORE ;
 
@@ -502,7 +501,7 @@ extern"C" {
   int sntable_autostore_init__(char *fileName, char *tableName, 
 			       char *varList,int *optMask);
 
-  void SNTABLE_AUTOSTORE_READ(char *CCID, char *varName, int *ISTAT, 
+  int SNTABLE_AUTOSTORE_READ(char *CCID, char *varName, int *ISTAT, 
 			      double *DVAL, char *CVAL );    // output value
   void sntable_autostore_read__(char *CCID, char *varName, int *ISTAT,
 				double *DVAL, char *CVAL);  // output value

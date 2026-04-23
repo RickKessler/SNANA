@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # Created Auguest 2022 by R.Kessler
-#
+# Apr 22 2026: few fixes for F90 
 # ========================
 
 import os, sys, argparse, glob, yaml
@@ -49,13 +49,13 @@ def get_args():
 def read_code_contents(code_file):
 
     if '.car' in code_file or '.f' or '.F90' in code_file:
-        lang = LANG_FORTRAN
+        lang         = LANG_FORTRAN
         comment_char = COMMENT_CHAR_FORTRAN
     elif '.c' in code_file or '.h' in code_file:
-        lang = LANG_C
+        lang         = LANG_C
         comment_char = COMMENT_CHAR_C
     elif '.py' in code_file:
-        lang = LANG_PYTHON
+        lang         = LANG_PYTHON
         comment_char = COMMENT_CHAR_PYTHON
     else:
         msgerr = "Unknown code language for {code_file}"
@@ -68,14 +68,17 @@ def read_code_contents(code_file):
         for line in f:
             line  = line.rstrip() 
             if len(line) == 0 : continue
-            if 'SUBROUTINE' in line: break
-            if '+KEEP' in line: nkeep += 1
+            if 'PROGRAM' in line and 'MAIN' in line: break
+            if '+KEEP'      in line: nkeep += 1
+            if 'END MODULE' in line: nmod += 1
             line_list.append(line)
     
     nline = len(line_list)
     print(f" Read {nline} code lines from {code_file}")
     print(f" Code language is {lang}")
     print(f" Comment char is {comment_char}")
+    if nmod > 0 :
+        print(f" Found {nmod} common block MODULEs")
     if nkeep > 0 :
         print(f" Found {nkeep} common block sections")
 
@@ -141,7 +144,10 @@ def print_inputs(args,config):
 
 if __name__ == "__main__":
 
-    args    = get_args()
+    command = ' '.join(sys.argv)
+    print(f"# command: {command} ")
+
+    args        = get_args()
     config      = {}
 
     code_contents, lang, comment_char = \

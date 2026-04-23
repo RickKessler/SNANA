@@ -24,7 +24,7 @@
         ,MXFIELD_OVP = 12          &  ! max number of overlapping fields
         ,MXSEASON    = 100         &  ! max number of seasons
         ,MXSNHOST    = 2           &  ! max number of host matches to read/write
-        ,MXZPHOT_Q   = 20          &  ! max number of zphot quantiles (May 2022)
+        ,MXZPHOT_Q   = 20          &  ! max number of zphot quantiles (May 2022) LEGACY
         ,MXVAR_PRIVATE = 40        &  ! max number of private variables
         ,MXCUT_PRIVATE = 10         &  ! max number of cuts on private var
         ,MXVAR_TERSE   = 30        &  ! max number of text-data  columms
@@ -139,7 +139,7 @@
         ,MODEL_LCLIB      = 12  & 
         ,MODEL_FIXMAG     = 20  & 
         ,MXMODEL_INDEX    = 20  & 
-        ,MXCHAR_CCID       = 20    &  ! max len of CCID string (i.e, SN name)
+        ,MXCHAR_CCID       = 32    &  ! max len of CCID string (i.e, SN name)
         ,MXCHAR_VERSION    = 72    &  ! max len of VERSION_PHOTOMETRY
         ,MXCHAR_SURVEY     = 40    &  ! max len of SURVEY_NAME
         ,MXCHAR_PATH       = 160   &  ! max len of path
@@ -374,9 +374,10 @@
          ,EXIST_FILT(MXFILT_OBS)   &  ! T => at least one point per filt
          ,FOUND_SURVEY  & 
          ,FORMAT_TEXT     &  ! ascii/txt for input data
-         ,FORMAT_FITS     &  ! snfitsio for input data.
-         ,SIM_COMPACT_noFLUXCAL  ! if SIM_WRITE_MASK & 4096 (Feb 2026)
-
+         ,FORMAT_FITS     &  ! snfitsio for input data
+         ,OVERRIDE_QUANTILE_ZPHOT & ! true if HEADER_OVERRIDE_FILE includes ZPHOT quantiles
+         ,SIM_COMPACT_noFLUXCAL      ! if SIM_WRITE_MASK & 4096 (Feb 2026)
+    
     INTEGER N_SNLC_PLOT
     LOGICAL MADE_LCPLOT  ! SAVE:  T if LC plot was made
 
@@ -961,9 +962,192 @@
 
   END MODULE PRIVCOM
 
+  MODULE SNHOSTzCOM
+    USE SNPAR
+    IMPLICIT NONE
+    ! define TYPE for z-dependent vectors
+    INTEGER, PARAMETER  ::   MXBIN_SNHOSTz          = 40
+    INTEGER, PARAMETER  ::   MXBIN_SNHOSTz_QUANTILE = 20
+    TYPE :: SNHOSTz_DEF
+       CHARACTER(LEN=40) :: VARNAME_NZ    ! name of NZ variable in data stream
+       CHARACTER(LEN=40) :: VARNAME_Z     ! name of Z_LIST variable in data stream
+       CHARACTER(LEN=40) :: VARNAME_VAL   ! name of VAL_LIST variable in data stream
+       CHARACTER(LEN=40) :: VARNAME_VAL2  ! name of optional 2nd array
+
+       INTEGER :: NZ                        ! number of z bins
+       REAL    :: Z_LIST(MXBIN_SNHOSTz)     ! array of z-grid values
+       REAL    :: VAL_LIST(MXBIN_SNHOSTz)   ! array of z-dependent values
+       REAL    :: VAL2_LIST(MXBIN_SNHOSTz)  ! optional 2nd array (e.g., errors on VAL_LIST)
+    END TYPE SNHOSTz_DEF
+    
+    TYPE(SNHOSTz_DEF) :: SNHOSTz_QUANTILE_ZPHOT(MXSNHOST)
+    TYPE(SNHOSTz_DEF) :: SNHOSTz_LOGMASS(MXSNHOST)
+
+  CONTAINS
+      
+    SUBROUTINE INIT_SNHOSTz(SNHOSTz, igal, SUFFIX_Z, SUFFIX_VAL, SUFFIX_VAL2)
+
+      ! Created Apr 2026
+      ! igal  : host gal sparse index 1... MXSNHOST
+      ! SUFFIX_Z  : suffix in data stream varname for redshift grid
+      ! SUFFIX_VAL: suffix in data stream varname for value grid
+
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+      INTEGER igal
+      CHARACTER SUFFIX_Z*(*), SUFFIX_VAL*(*), SUFFIX_VAL2*(*)
+
+      ! local
+      INTEGER iz, LENPRE
+      CHARACTER PREFIX*20, PREFIXz*20
+
+      ! -------- BEGIN --------
+
+      CALL SET_HOSTGAL_PREFIX(igal, PREFIX, LENPRE)
+      PREFIXz = PREFIX(1:LENPRE) // 'z'
+      SNHOSTz%VARNAME_NZ  = PREFIXz(1:LENPRE+1) // '_NBIN_' // SUFFIX_Z
+      SNHOSTz%VARNAME_Z   = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_Z
+      SNHOSTz%VARNAME_VAL = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_VAL
+
+      if ( INDEX(SUFFIX_VAL2,' ') > 2 ) then
+         SNHOSTz%VARNAME_VAL2 = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_VAL2
+      else
+         SNHOSTz%VARNAME_VAL2 = ''
+      endif
+
+      SNHOSTz%NZ = 0
+      DO iz = 1, MXBIN_SNHOSTz
+         SNHOSTz%Z_LIST(iz)     = -9.0
+         SNHOSTz%VAL_LIST(iz)   = -9.0
+         SNHOSTz%VAL2_LIST(iz)  = -9.0
+      ENDDO
+      
+      RETURN
+    END SUBROUTINE INIT_SNHOSTz
+
+    SUBROUTINE DUMP_SNHOSTz(SNHOSTz)
+      ! Created Apr 2026
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+
+      ! local
+      INTEGER iz
+      ! -------- BEGIN --------
+
+      print*,' xxx -------- DUMP_SNHOSTz ------------'
+      print*,' xxx Data stream varnames: '
+      print*,' xxx ', SNHOSTz%VARNAME_NZ
+      print*,' xxx ', SNHOSTz%VARNAME_Z
+      print*,' xxx ', SNHOSTz%VARNAME_VAL
+
+      DO iz = 1, SNHOSTz%NZ
+         write(6,40) iz, SNHOSTz%Z_LIST(iz), SNHOSTz%VAL_LIST(iz)
+40       format(T5, 'xxx     iz=',I2, 3x, 'z=', F7.4, 4x, 'VAL=', F8.2 )
+      ENDDO
+      call flush(6)
+
+      RETURN
+    END SUBROUTINE DUMP_SNHOSTz
+
+    SUBROUTINE SHIFT_SNHOSTz(SNHOSTz, zSHIFT)
+      ! Created Apr 2026
+      ! shift all of the Z_LIST by input zSHIFT
+
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+      REAL zSHIFT           ! (I) input z-shift
+
+      INTEGER iz ! local var
+      ! --------- BEGIN ---------
+      DO iz = 1, SNHOSTz%NZ
+         SNHOSTz%Z_LIST(iz) = SNHOSTz%Z_LIST(iz) + zSHIFT
+      ENDDO
+
+      RETURN
+
+    END SUBROUTINE SHIFT_SNHOSTz
+
+    SUBROUTINE FETCH_SNHOSTz_WRAPPER(SNHOSTz, OPT)
+
+      ! created Apr 2026
+      ! Read and load z-vector variable for SNHOSTz:
+      ! NZ = nunber of z bin
+      ! Z_LIST   : grid of redshift values
+      ! VAL_LIST : grid of values for each redshift
+
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
+      INTEGER OPT
+
+      ! local var
+      INTEGER NZ, iz
+      CHARACTER KEY*40, STRING*20
+      REAL*8    DARRAY(MXBIN_SNHOSTz), DARRAY2(MXBIN_SNHOSTz)
+      KEY    = SNHOSTz%VARNAME_NZ
+      CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
+      NZ = INT(DARRAY(1))
+
+      KEY = SNHOSTz%VARNAME_Z
+      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY,  OPT)
+      KEY = SNHOSTz%VARNAME_VAL
+      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY2, OPT)
+
+      ! load values to TYPE object
+      SNHOSTz%NZ = NZ
+      DO iz = 1, NZ
+         SNHOSTz%Z_LIST(iz)     = SNGL( DARRAY(iz)  ) 
+         SNHOSTz%VAL_LIST(iz)   = SNGL( DARRAY2(iz) ) 
+      ENDDO
+
+      RETURN
+    END SUBROUTINE FETCH_SNHOSTz_WRAPPER
+
+  ! ==============================================
+    SUBROUTINE copy_SNDATA_SNHOSTz(SNHOSTz, COPYFLAG)
+
+    ! Created Apr 14 2026
+    ! utility to copy SNHOSTz vector information to SNDATA struct.
+
+    TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz  ! (I)
+    INTEGER COPYFLAG    ! (I) determines direction of copy (to/from SNDATA struct)
+
+    ! local args
+    INTEGER   NQ, q, LENPRE, LEN_KEY, LEN_STR, NARG
+    CHARACTER cKEY*40, cSTRING*20
+    REAL*8    DVAL(MXZPHOT_Q)
+
+    ! ---------- BEGIN -----------
+
+    LEN_KEY = 40
+    LEN_STR = 20
+    NARG    = 1
+    NQ      = SNHOSTz%NZ
+    
+    LEN_KEY = index(SNHOSTz%VARNAME_NZ,' ') - 1
+    cKEY    = SNHOSTz%VARNAME_NZ(1:LEN_KEY) // char(0)
+    DVAL(1) = DBLE(NQ)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+    LEN_KEY = index(SNHOSTz%VARNAME_Z,' ') - 1
+    cKEY    = SNHOSTz%VARNAME_Z(1:LEN_KEY) // char(0)
+    do q = 1, NQ
+       DVAL(q) = DBLE( SNHOSTz%Z_LIST(q) )
+    enddo
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NQ, cSTRING, DVAL, LEN_KEY, LEN_STR)
+
+    LEN_KEY = index(SNHOSTz%VARNAME_VAL,' ') - 1
+    cKEY    = SNHOSTz%VARNAME_VAL(1:LEN_KEY) // char(0)
+    do q = 1, NQ
+       DVAL(q) = DBLE( SNHOSTz%VAL_LIST(q) )
+    enddo
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NQ, cSTRING, DVAL, LEN_KEY, LEN_STR)
+    
+    RETURN
+
+  END SUBROUTINE copy_SNDATA_SNHOSTz
+
+  END MODULE SNHOSTzCOM
+
 ! =====================================================================
   MODULE SNHOSTCOM
     USE SNPAR
+    USE SNHOSTzCOM
     IMPLICIT NONE
 
 ! Host galaxy parameters.
@@ -983,15 +1167,15 @@
 
     INTEGER*8  SNHOST_OBJID(MXSNHOST)    ! int id
     REAL*8    DSNHOST_OBJID(MXSNHOST)   ! for tables only
-    CHARACTER VARNAME_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)*40
+    CHARACTER VARNAME_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)*40  ! LEGACY/obsolete
 
     REAL  & 
          SNHOST_ANGSEP(MXSNHOST)       &  ! SN-host sep, arcsec
         ,SNHOST_DDLR(MXSNHOST)         &  ! SNSEP/DLR
         ,SNHOST_CONFUSION              &  ! HC analog from Gupta 2016
         ,SNHOST_ZPHOT(MXSNHOST), SNHOST_ZPHOT_ERR(MXSNHOST)  & 
-        ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)  & 
-        ,SNHOST_ZPHOT_PERCENTILE(MXSNHOST,MXZPHOT_Q)  & 
+        !xxx mark ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)  & 
+        !xxx mark ,SNHOST_ZPHOT_PERCENTILE(MXSNHOST,MXZPHOT_Q)  & 
         ,SNHOST_QZPHOT_MEAN(MXSNHOST), SNHOST_QZPHOT_STD(MXSNHOST)  & 
         ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)  & 
         ,SNHOST_LOGMASS(MXSNHOST)  & 
@@ -1014,7 +1198,7 @@
     INTEGER*4  & 
           SNHOST_NMATCH             &  ! number of host matches, e.g., d_DLR<4
          ,SNHOST_NMATCH2            &  ! number of host matches, e.g., d_DLR<7
-         ,SNHOST_NZPHOT_Q(MXSNHOST) &  ! May 2022: number of zphot quantiles
+         ! xxx mark ,SNHOST_NZPHOT_Q(MXSNHOST) &  ! May 2022: number of zphot quantiles
          ,SNHOST_FLAG(MXSNHOST)        ! May 21 2021: indicate problems with host
 
     REAL  & 
@@ -1022,8 +1206,9 @@
         ,SNHOST_SBMAG(MXFILT_ALL)        ! surface brightness mag/asec^2
 
 
-
   END MODULE SNHOSTCOM
+
+
 
 ! =====================================================================
   MODULE SIMLIBCOM
@@ -1518,7 +1703,6 @@
         ,OPT_YAML              &  ! I: 1=> write YAML out even if not batch job
         ,OPT_REFORMAT_TEXT     &  ! I: 1=> re-write SNDATA files in text format; see manual options
         ,OPT_REFORMAT_FITS     &  ! I: 1=> re-write in FITSformat (data only); see manual options
-        ,OPT_REFORMAT_SALT2    &  ! I: 1=> re-write SNDATA files in SALT2 format
         ,OPT_REFORMAT_SPECTRA  &  ! I: 1=> 3-col text: lam, Flam, Flamerr (ignore photometry)
         ,OPTSIM_LCWIDTH        &  ! I: 1=> option to compute LC width
         ,DEBUG_FLAG            &  ! I: for internal debug
@@ -1644,7 +1828,7 @@
           , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT  & 
           , OPT_YAML  & 
           , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT  & 
-          , OPT_REFORMAT_SALT2, REFORMAT_KEYS, OPT_REFORMAT_FITS  & 
+          , REFORMAT_KEYS, OPT_REFORMAT_FITS  & 
           , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE  & 
           , rootfile_out, textfile_prefix  & 
           , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT  & 
@@ -2213,9 +2397,6 @@
 
 
 
-
-
-
 ! =============================================
 ! =====================================================================
 ! =====================================================================
@@ -2253,7 +2434,7 @@
 
     ISTAGE_SNANA = 0
 
-! init some variables
+! one-time init for some variables
     CALL INIT_SNVAR()
 
     CALL WARN_OLDINPUTS("init"//char(0), 0);
@@ -2489,6 +2670,7 @@
 ! 
 ! Feb 2026: remove ENVreplace calls since ENVreplace is called in RD_OVERRIDE_INIT.
 ! Mar 2026: refactor to pass either file list or folder name
+! Apr 2026: call ISRD_OVERRIDE_VARNAME to check if quantiles are on override list
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -2496,10 +2678,11 @@
 
     INTEGER LEN_PATH, LEN_PRIV, REQ_DOC, NPATH
     LOGICAL ISDATA
-    CHARACTER STR_TMP*(MXFILE_LIST*MXCHAR_FILENAME)
+    CHARACTER STR_TMP*(MXFILE_LIST*MXCHAR_FILENAME), VARNAME*60
     CHARACTER OVERRIDE_PATH*(MXFILE_LIST*MXCHAR_FILENAME) ! file list or folder
 
-    LOGICAL IGNOREFILE_fortran  ! function
+    
+    LOGICAL IGNOREFILE_fortran, ISRD_OVERRIDE_VARNAME  ! function
 
 ! ------------ BEGIN -----------
 
@@ -2544,18 +2727,11 @@
        LEN_PATH = INDEX(OVERRIDE_PATH,' ') - 1
        REQ_DOC = 1  ! require DOCANA
        CALL RD_OVERRIDE_INIT(OVERRIDE_PATH(1:LEN_PATH)//char(0), REQ_DOC, LEN_PATH)
-    endif
 
-! xxxxxxxxxxx mark delete Mar 20 2026 xxxxxxxxx
-!    IF ( LENF_DATA > 0 .AND. ISDATA ) THEN
-!     STR_TMP = HEADER_OVERRIDE_FILE(1:LENF_DATA)//char(0)
-!     CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_DATA)
-!    ENDIF
-!    IF ( LENF_SIM > 0 .AND. LSIM_SNANA ) THEN
-!      STR_TMP = SIM_HEADER_OVERRIDE_FILE(1:LENF_SIM)//char(0)
-!      CALL RD_OVERRIDE_INIT(STR_TMP, REQ_DOC, LENF_SIM)
-!    ENDIF
-! xxxxxxxxxx end mark xxxxxxxxx
+       ! check if quantiles are in override to ensure adding mean & stddev to plot table
+       VARNAME = 'HOSTGALz_QUANTILE_ZPHOT' // char(0)
+       OVERRIDE_QUANTILE_ZPHOT = ISRD_OVERRIDE_VARNAME(VARNAME, 40)
+    endif
 
     ! - - - - - -
     LEN_PRIV = INDEX(PRIVATE_VARNAME_READLIST,' ') -1
@@ -3226,7 +3402,7 @@
 
     CALL RDGLOBAL_PRIVATE(OPT)
 
-    CALL RDGLOBAL_ZPHOT_Q(OPT) 
+    CALL RDGLOBAL_ZPHOT_Q(OPT)  ! legacy 
 
     IF ( LSIM_SNANA ) THEN
        CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE", ONE, SIMLIB_FILENAME, DARRAY, OPT)
@@ -3479,6 +3655,7 @@
 ! Read/parse names host galaxy photo-z quantiles that determine
 ! column names. E.g., percentile 20 means HOSTGAL_ZPHOT_Q020 exists.
 ! 
+    ! @@@@@ LEGACY @@@@@
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -3488,31 +3665,39 @@
 
     INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
 
-    INTEGER   IVAR, q, PCT
-    REAL*8    DARRAY(MXZPHOT_Q)
+    INTEGER   ivar, q, PCT, NZ
+    REAL*8    DARRAY(MXBIN_SNHOSTz_QUANTILE)
     CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*80
+    ! @@@@@ LEGACY @@@@@
 
 ! -------------- BEGIN ---------------
 
     if ( REFAC_DATA_FLAG > 0 ) RETURN  
 
     ! below is legacy quantile storage with fixed percentiles in global header.
+
     CALL FETCH_SNDATA_WRAPPER("NZPHOT_Q",  & 
            ONE, DUMSTRING, DARRAY, OPT)
-    SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
-    SNHOST_NZPHOT_Q(2) = 0
+    NZ = int(DARRAY(1))
+    SNHOSTz_QUANTILE_ZPHOT(1)%NZ = NZ
+    SNHOSTz_QUANTILE_ZPHOT(2)%NZ = 0
+    !xxx mark SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
+    !xxx mark SNHOST_NZPHOT_Q(2) = 0
 
-    IF ( SNHOST_NZPHOT_Q(1) .LE. 0 ) RETURN
+    ! @@@@@ LEGACY @@@@@
 
-    IF( SNHOST_NZPHOT_Q(1) > MXZPHOT_Q ) THEN
-       write(C1ERR,61) SNHOST_NZPHOT_Q(1), MXZPHOT_Q
- 61      format('NZPHOT_Q=',I4,' exceeds MXZPHOT_Q=',I4 )
+    IF ( NZ .LE. 0 ) RETURN 
+
+    IF( NZ > MXBIN_SNHOSTz_QUANTILE ) THEN
+       write(C1ERR,61) NZ, MXBIN_SNHOSTz_QUANTILE
+ 61      format('NZQ=',I4,' exceeds MXBIN_SNHOSTz_QUANTILE=',I4 )
        C2ERR = 'Check XXX_HEAD.FITS file'
        CALL MADABORT("RDGLOBAL_ZPHOT_Q", C1ERR, C2ERR)
     ENDIF
 ! ----------------------------------------------
+    ! @@@@@ LEGACY @@@@@
 
-    DO 100 ivar = 1, SNHOST_NZPHOT_Q(1)
+    DO 100 ivar = 1, NZ
 
       q = ivar - 1 ! C index 0 to N-1
       write(cnum, '(I2.2)') q
@@ -3521,18 +3706,23 @@
            ONE, KEYWORD, DARRAY, OPTMASK_SNDATA_GLOBAL )
 
       PCT = INT(DARRAY(1))
-      SNHOST_ZPHOT_PERCENTILE(1,ivar) = SNGL(DARRAY(1))
+      SNHOSTz_QUANTILE_ZPHOT(1)%VAL_LIST(ivar) = SNGL(DARRAY(1))
+      ! xxx mark SNHOST_ZPHOT_PERCENTILE(1,ivar) = SNGL(PCT)
+
+      ! @@@@@ LEGACY @@@@@
 
 ! load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
-      write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT
+      write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT  ! 
       write(VARNAME_ZPHOT_Q(2,ivar),102) 'HOSTGAL2', PCT
 102     format(A,'_ZPHOT_Q', I3.3)
 
 100   CONTINUE
 
-    write(6,40) SNHOST_NZPHOT_Q(1)
-40    format(T5,'Found NZPHOT_Q = ', I3, ' quantiles for HOST-zPHOT')
+    write(6,40) NZ
+40    format(T5,'Found NZ = ', I3, ' quantiles for HOST-zPHOT')
     CALL FLUSH(6)
+
+    ! @@@@@ LEGACY @@@@@
 
     RETURN
   END SUBROUTINE RDGLOBAL_ZPHOT_Q
@@ -3873,7 +4063,7 @@
 ! - - - - - - - - - - - - - - - - - - - - - - - - - -
 ! Convert CCID to integer CID, and check if this CCID is selected.
     CALL PARSE_CID( SNLC_CCID, SNLC_NAME_IAUC,     &  ! inputs
-                        CID, USECID)                ! returns args
+                        CID, USECID)                  ! returns args
     SNLC_CID  = CID   ! load integer CID
     if ( .NOT. USECID ) then
        ISTAT = ISTAT_SKIP;  RETURN
@@ -4017,7 +4207,7 @@
 
     INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
 
-    INTEGER   LENPRE, ifilt, q, NZPHOT_Q
+    INTEGER   LENPRE, ifilt, q, NQZPHOT
     CHARACTER PREFIX*20, PREFIXz*20, STRING*40, KEY*60, KEY_PREFIX*60
     REAL*8    DARRAY(MXFILT_OBS), DARRAY2(MXFILT_OBS), SB, MAG, zq
     LOGICAL LTMP, LZQ
@@ -4089,43 +4279,26 @@
     SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
     if ( REFAC_DATA_FLAG > 0 ) then
-       KEY    = PREFIXz(1:LENPRE+1) // '_NBIN_QUANTILE_ZPHOT'
-       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-       SNHOST_NZPHOT_Q(igal) = SNGL(DARRAY(1))
+       ! read  Z_LIST and PERCENT_LIST and store in SNHOSTz_QUANTILE_ZPHOT TYPE
+       CALL FETCH_SNHOSTz_WRAPPER(SNHOSTz_QUANTILE_ZPHOT(igal), OPT )
+       IF ( SNHOSTz_QUANTILE_ZPHOT(igal)%NZ > 0 ) EXIST_SNHOST_ZPHOT = .TRUE.
     endif
 
-! read ZPHOT_Q (May 2022)
-    NZPHOT_Q = SNHOST_NZPHOT_Q(igal) 
-
-    if ( NZPHOT_Q > 0 ) then
-      if ( REFAC_DATA_FLAG > 0 ) then
-         KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_ZPHOT'
-         CALL FETCH_SNDATA_WRAPPER(KEY, NZPHOT_Q, STRING, DARRAY,  OPT)
-         KEY = PREFIXz(1:LENPRE+1) // '_QUANTILE_PERCENT'
-         CALL FETCH_SNDATA_WRAPPER(KEY, NZPHOT_Q, STRING, DARRAY2, OPT)
-
-         print*,' xxx -------- igal = ', igal, KEY
-         DO q = 1, NZPHOT_Q
-            SNHOST_ZPHOT_Q(igal,q)          = SNGL(DARRAY(q))   ! .xyz
-            SNHOST_ZPHOT_PERCENTILE(igal,q) = SNGL(DARRAY2(q)) 
-            write(6,6789) q, SNHOST_ZPHOT_Q(igal,q), SNHOST_ZPHOT_PERCENTILE(igal,q)
-6789        format(' xxx RDHEAD_HOSTGAL: iz=',I3,'  z,pct = ', 2F9.3 )
-         ENDDO
-      else
-         ! legacy
-         DO q = 1, NZPHOT_Q
+    if ( REFAC_DATA_FLAG == 0 ) then
+       ! LEGACY : read ZPHOT_Q (May 2022) 
+       NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(igal)%NZ   ! stored at RDGLOBAL stage
+       if ( NQZPHOT > 0 ) then
+         DO q = 1, NQZPHOT
             KEY = VARNAME_ZPHOT_Q(igal,q)
             CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-            SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
+            SNHOSTz_QUANTILE_ZPHOT(igal)%Z_LIST(q) = SNGL(DARRAY(1))
+            ! xxx mark SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
          ENDDO
       endif
-
-      SNHOST_QZPHOT_MEAN(igal) = -9.0
-      SNHOST_QZPHOT_STD(igal)  = -9.0
-
+      IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
     endif
 
-    IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
+
 ! - - - -
 
     KEY    = PREFIX(1:LENPRE)//'_SPECZ'
@@ -5516,7 +5689,6 @@
     PRIVATE_DATA_PATH  = ' '
     FILTER_UPDATE_PATH = ' '
     OPT_YAML              = 0
-    OPT_REFORMAT_SALT2    = 0
     OPT_REFORMAT_TEXT     = 0
     OPT_REFORMAT_FITS     = 0
     OPT_REFORMAT_SPECTRA  = 0
@@ -5756,7 +5928,7 @@
     RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
     RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
     RESTORE_DES5YR        = .FALSE. ! May 28 2025
-    REFAC_DATA_FLAG       = 0       ! Apr 03 2026
+    REFAC_DATA_FLAG       = 1       ! Apr 03 2026
 
     REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
@@ -6518,7 +6690,6 @@
     FNAM = 'INIT_SNTABLE_OPTIONS'
 
 ! if reformating option is set, turn off all table output
-    IF ( OPT_REFORMAT_SALT2 > 0 ) SNTABLE_LIST = ' '
     IF ( OPT_REFORMAT_FITS  > 0 ) SNTABLE_LIST = ' '
     IF ( OPT_REFORMAT_TEXT  > 0 ) SNTABLE_LIST = ' '
 
@@ -7163,10 +7334,6 @@
        else if ( MATCH_NMLKEY('OPT_REFORMAT_SPECTRA',  & 
                    1, iArg, ARGLIST) ) then
            READ(ARGLIST(1),*) OPT_REFORMAT_SPECTRA
-
-       else if ( MATCH_NMLKEY('OPT_REFORMAT_SALT2',  & 
-                    1, iArg, ARGLIST) ) then
-           READ(ARGLIST(1),*) OPT_REFORMAT_SALT2
 
        else if ( MATCH_NMLKEY('REFORMAT_KEYS',  & 
                     1, iArg, ARGLIST) ) then
@@ -8146,7 +8313,6 @@
 ! 
     USE SNPAR
     USE SNCUTS
-! CDE,CTRLCOM.
     USE SNLCINP_NML
 
     IMPLICIT NONE
@@ -9886,8 +10052,7 @@
 
     ENDIF
 
-    REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0  & 
-            .or. OPT_REFORMAT_SALT2>0
+    REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0
 
     REFORMAT_SPECTRA_ONLY = (OPT_REFORMAT_SPECTRA > 0 )
 
@@ -9932,9 +10097,6 @@
        CALL INIT_REFORMAT_TEXT()
     ENDIF
 
-    IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
-       CALL INIT_REFORMAT_SALT2()
-    ENDIF
 
     IF ( OPT_REFORMAT_SPECTRA > 0 ) THEN
        CALL INIT_REFORMAT_SPECTRA_ONLY()
@@ -10014,255 +10176,6 @@
     RETURN
   END SUBROUTINE INIT_REFORMAT_TEXT
 
-! ====================================
-    SUBROUTINE INIT_REFORMAT_SALT2
-! -----------------------------------------------
-! Nov 2011 R.Kessler
-! 
-! Initialization for translating SNANA formatted data
-! into SALT2-formatted data. The input options are fed
-! vis &SNLCINP namelist string
-! 
-!  &SNLCINP
-!     ...
-!   REFORMAT_KEYS =
-!   '@INSTRUMENT <instr> @MAGSYS <magsys> @PREFIX <prefix> @REPLACE <f1> <f2>
-!     ...
-!  &END
-! 
-! where @INSTRUMENT and @MAGSYS are required and the others are optional.
-! Definition of above keys
-! 
-! @INSTRUMENT = name of telescope or survey defined by SALT2
-! @MAGSYS     = mag system defined by SALT2 (i.e, AB, VEGA ...)
-! @PREFIX     = file-name prefix (default prefix is name of survey)
-! @REPLACE    = replace filter list <f1> with <f2>. For example,
-!               if f1 = UGRIZ and f2 = ugriz, then U -> u, G -> g,
-!               etc in the output SALT2 files.
-! 
-! 
-! ------------------------------
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-    USE FILTCOM
-    USE WRS2COM
-
-    IMPLICIT NONE
-
-    INTEGER iwd, NWD, ifilt, NTMP, IFILT_OBS, IFILT_TMP(2)
-    INTEGER LL, LL0, LL1, LL2, MSKOPT
-    character  & 
-         cwd*(MXCHAR_FILEWORD-2)  & 
-        ,cwd1*(MXCHAR_FILEWORD-2)  & 
-        ,cwd2*(MXCHAR_FILEWORD-2)  & 
-        ,ctmp*(MXCHAR_FILEWORD-2)  & 
-        ,cfilt(2)*2, cfilt1*1  & 
-        ,cutvar_file*(MXCHAR_FILENAME)  & 
-        ,list_file*(MXCHAR_FILENAME)  & 
-        ,FNAM*30
-
-! function
-    INTEGER FILTINDX
-
-    INTEGER  STORE_PARSE_WORDS
-    EXTERNAL STORE_PARSE_WORDS
-! -------------------- BEGIN -------------------
-
-    FNAM = 'INIT_REFORMAT_SALT2'
-    CALL PRBANNER("INI_WRSALT2: Translate SNANA -> SALT2 format")
-
-    LL = INDEX(REFORMAT_KEYS,' ') -1
-    MSKOPT = MSKOPT_PARSE_WORDS_STRING
-    NWD = STORE_PARSE_WORDS(MSKOPT, REFORMAT_KEYS(1:LL)//char(0),  & 
-               FNAM//char(0), LL, 30)
-
-    NAMEof_SURVEY        = 'NULL'
-    NAMEof_INSTRUMENT    = 'NULL'
-    NAMEof_MAGSYS        = 'NULL'
-    NAMEof_PREFIX        =  SURVEY_NAME
-    NAMEof_REPLACE(1)    = 'NULL'
-    NAMEof_REPLACE(2)    = 'NULL'
-
-    NREPLACE = 0
-    NEWKEY = 0
-
-    DO ifilt = 1, MXFILT_ALL
-         IMAP_REPLACE(IFILT) = -9
-    ENDDO
-
-    DO iwd = 1, NWD
-
-      CALL get_PARSE_WORD_fortran(iwd+0, cwd,  LL0 )
-      CALL get_PARSE_WORD_fortran(iwd+1, cwd1, LL1 )
-
-      if ( cwd(1:LL0) .EQ. '@SURVEY' ) then
-        NAMEof_SURVEY = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@INSTRUMENT' ) then
-        NAMEof_INSTRUMENT = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@MAGSYS' ) then
-        NAMEof_MAGSYS = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@PREFIX' ) then
-        NAMEof_PREFIX = cwd1
-
-      else if ( cwd(1:LL0) .EQ. '@REPLACE' ) then
-         CALL get_PARSE_WORD_fortran(iwd+2, cwd2, LL2 )
-        NAMEof_REPLACE(1) = cwd1
-        NAMEof_REPLACE(2) = cwd2
-        NREPLACE    = INDEX(NAMEof_REPLACE(1), ' ' ) - 1
-      else if ( cwd(1:1) .EQ. '@' ) then
-        NEWKEY = NEWKEY + 1
-        NEWKEY_NAME(NEWKEY)(1:LL0-1) = cwd(2:LL0)
-        NEWKEY_ARG(NEWKEY)           = cwd1
-      endif
-
-    ENDDO
-
-    LEN_SURVEY  = INDEX(NAMEof_SURVEY,    ' ' ) - 1
-    LEN_INST    = INDEX(NAMEof_INSTRUMENT,' ' ) - 1
-    LEN_MAGSYS  = INDEX(NAMEof_MAGSYS,    ' ' ) - 1
-    LEN_PREFIX  = INDEX(NAMEof_PREFIX,    ' ' ) - 1
-
-! make sure that required keys are specified.
-
-    if ( NAMEof_INSTRUMENT .EQ. 'NULL' ) then
-      c1err = 'MUST specify @INSTRUMENT <instrument> in '
-      c2err = '&SNLCINP namelist string REFORMAT_KEYS'
-      CALL  MADABORT("WRSALT2_2", C1ERR, C2ERR)
-    endif
-    if ( NAMEof_MAGSYS .EQ. 'NULL' ) then
-      c1err = 'MUST specify @MAGSYS <magsys> in '
-      c2err = '&SNLCINP namelist string REFORMAT_KEYS'
-      CALL  MADABORT("WRSALT2_2", C1ERR, C2ERR)
-    endif
-
-! ----------
-! Check for filter-name substitutions;
-! i.e., UGRIZ -> ugriz for the SDSS
-
-    IF ( NREPLACE .GT. 0  ) THEN
-
-! abort if filter-strings have different length
-      NTMP   = INDEX(NAMEof_REPLACE(2), ' ' ) - 1
-      IF ( NREPLACE .NE. NTMP ) THEN
-        c1err = 'Filter @REPALCE strings have different length'
-        c2err = 'Cannot replace ' //  & 
-                    NAMEof_REPLACE(1)(1:NREPLACE) // ' with ' //  & 
-                    NAMEof_REPLACE(2)(1:NTMP)
-        CALL  MADABORT("WRSALT2_2", C1ERR, C2ERR)
-      ENDIF
-
-! create map between original filter and subst. filter
-
-      DO 55 ifilt = 1, NREPLACE
-         cfilt(1) = NAMEof_REPLACE(1)(ifilt:ifilt)
-         cfilt(2) = NAMEof_REPLACE(2)(ifilt:ifilt)
-         IFILT_TMP(1) = FILTINDX ( cfilt(1) )
-         IFILT_TMP(2) = FILTINDX ( cfilt(2) )
-         IMAP_REPLACE(IFILT_TMP(1)) = IFILT_TMP(2)
-
-         write(6,56) cfilt, IFILT_TMP
-56         format(t10,'Prepare @REPLACE map for ' , A2,' -> ', A2,  & 
-             '(', I2,' -> ', I2, ')' )
-
-55      CONTINUE
-    ENDIF
-
-! ----------------------------
-!  open list-file and leave it open.
-
-    LIST_FILE = NAMEof_PREFIX(1:LEN_PREFIX) // '.LIST'
-    print*,'   Open list-file: ', LIST_FILE(1:LEN_PREFIX+12)
-
-    OPEN( UNIT   = LUNSALT2  & 
-          , FILE   = LIST_FILE  & 
-          , STATUS = 'UNKNOWN'  & 
-                 )
-
-! ----------------------------
-! write cut-def file, then close it.
-
-    CUTVAR_FILE = NAMEof_PREFIX(1:LEN_PREFIX) // '_CUTVAR.LOG'
-    print*,'   Write cut-definitions to ' //  & 
-          CUTVAR_FILE(1:LEN_PREFIX+12)
-
-    OPEN( UNIT   = LUNTMP  & 
-          , FILE   = CUTVAR_FILE  & 
-          , STATUS = 'UNKNOWN'  & 
-                 )
-
-    write(LUNTMP,111) 'Z_HELIO   ',  & 
-             'heliocentric redshift'
-    write(LUNTMP,111) 'MWEBV     ',  & 
-             'Galactic E(B-V)'
-    write(LUNTMP,111) 'MWEBV_ERR     ',  & 
-             'error on Galactic E(B-V)'
-
-      write(ctmp,401) int(cutwin_trest(1)), int(cutwin_trest(2))
-401     format(I3,'<Trest<' , I3,' days')
-      write(LUNTMP,111) 'NOBS      ',  & 
-             'Nobs total with any S/N and ' // ctmp(1:20)
-      write(LUNTMP,111) 'TRESTMIN  ',  & 
-             'min Trest(days) relative to peak (any S/N)'
-      write(LUNTMP,111) 'TRESTMAX  ',  & 
-             'max Trest(days) relative to peak (any S/N)'
-
-      write(LUNTMP,111) 'T0GAPMAX  ',  & 
-             'max rest-frame gap (days) that overlaps peak epoch'
-
-      write(LUNTMP,111) 'SNRMAX    ',  & 
-             'max S/N among all observations'
-      write(LUNTMP,111) 'SNRMAX2   ',  & 
-             'max S/N excluding filter with SNRMAX'
-
-      write(LUNTMP,111) 'SNRMAX3   ',  & 
-             'max S/N excluding filters with SNRMAX   SNRMAX2'
-
-
-      write(LUNTMP,600) ' '
-      DO IFILT     = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-         ctmp      = 'SNRMAX_' // cfilt1
-         LL        = INDEX(ctmp,' ') - 1
-         write(LUNTMP,111) ctmp(1:10),  & 
-             'max S/N for indicated filter'
-      ENDDO
-
-    IF ( OPT_SETPKMJD > 0 ) THEN
-      write(LUNTMP,600) ' '
-      DO IFILT     = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-         ctmp      = 'ERRT0_' // cfilt1
-         LL        = INDEX(ctmp,' ') - 1
-         write(LUNTMP,111) ctmp(1:10),  & 
-             'fitted T0 error (days) for indicated filter'
-      ENDDO
-
-      write(LUNTMP,600) ' '
-      DO IFILT     = 1, NFILTDEF_SURVEY
-         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-         cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-         ctmp      = 'ERRF0_' // cfilt1
-         LL        = INDEX(ctmp,' ') - 1
-         write(LUNTMP,111) ctmp(1:10),  & 
-             'ERR(F0)/F0 for indicated filter'
-      ENDDO
-
-    ENDIF
-
-111     format('@', A, ' : ', A)
-600     format(A)
-      CLOSE(UNIT=LUNTMP)
-
-    print*,' -----------------------------------------------'
-    print*,' '
-    RETURN
-  END SUBROUTINE INIT_REFORMAT_SALT2
 
 ! ====================================
     SUBROUTINE INIT_REFORMAT_SPECTRA_ONLY()
@@ -10506,10 +10419,6 @@
        endif
     ENDIF
 
-! check Julien's original SALT2 format (not SNANA format)
-    IF ( OPT_REFORMAT_SALT2 .EQ. 2 ) THEN
-       CALL WRSALT2_2()
-    ENDIF
 
     IF ( REFORMAT_SPECTRA_ONLY ) THEN
       CALL WR_SPECTRA(IVERS)
@@ -10522,7 +10431,8 @@
     SUBROUTINE copy_SNDATA_MISC()
 
 ! Created Mar 14 2021
-! Update the following SNDATA struct variables for re-writting in FITS or TEXT format:
+! Update SNDATA struct variables that could be modified here in snana.exe;
+! for re-writting in FITS or TEXT format with changes from original data file:
 ! 
 !   + PEAKMJD                ( if OPT_SETPKMJD > 0)
 !   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
@@ -10556,9 +10466,9 @@
     IMPLICIT NONE
 
     INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
-    INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ, q, igal, LENV 
+    INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ0, NQ, q, igal, LENV, LENPRE
     REAL*8 DVAL(MXEPOCH)
-    CHARACTER cKEY*20, cSTRING*20, cfilt*2
+    CHARACTER cKEY*40, cSTRING*20, cfilt*2, PREFIX*20, PREFIXz*20
     EXTERNAL COPY_SNDATA_HEAD
 
 ! -------------- BEGIN ----------
@@ -10566,27 +10476,24 @@
     NARG     =  1
     NOBS     =  ISNLC_NEWMJD_FOUND
     COPYFLAG = +1
-    LEN_KEY  = 20
+    LEN_KEY  = 40
     LEN_STR  = 20
     cSTRING  = "DUMMY" // char(0)
 
     IF ( OPT_SETPKMJD > 0 ) THEN
       cKEY     = "PEAKMJD" // char(0)
       DVAL(1)     = DBLE(SNLC_SEARCH_PEAKMJD)
-      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
     IF ( OPT_MWEBV > 0 ) THEN
       cKEY     = "MWEBV" // char(0)
       DVAL(1)  = DBLE(SNLC_MWEBV)
-      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
       cKEY     = "MWEBV_ERR" // char(0)
       DVAL(1)  = DBLE(SNLC_MWEBV_ERR)
-      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 ! write MWXT mag as diagnostic (not used)
       do ifilt     = 1, NFILTDEF_SURVEY
@@ -10594,8 +10501,7 @@
          cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
          cKEY      = 'MWXT_MAG_' // cfilt(1:1) // char(0)
          DVAL(1)   = SNLC_MWXT_MAG(ifilt)
-         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-                 cSTRING, DVAL, LEN_KEY, LEN_STR)
+         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
       end do
 
     ENDIF
@@ -10606,57 +10512,62 @@
 ! zCMB
     cKEY     = "REDSHIFT_CMB" // char(0)
     DVAL(1)  = DBLE(SNLC_zCMB)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
     cKEY     = "REDSHIFT_CMB_ERR" // char(0)
     DVAL(1)  = DBLE(SNLC_zCMB_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 ! zHELIO
     cKEY     = "REDSHIFT_HELIO" // char(0)
     DVAL(1)  = DBLE(SNLC_zHELIO)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
     cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
     DVAL(1)  = DBLE(SNLC_zHELIO_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
 ! VPEC
     cKEY     = "VPEC" // char(0)
     DVAL(1)  = DBLE(SNLC_VPEC)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
     cKEY     = "VPEC_ERR" // char(0)
     DVAL(1)  = DBLE(SNLC_VPEC_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
-! Oct 2025: photo-z quantiles
-    NQ = SNHOST_NZPHOT_Q(1)
-    IF ( NQ > 0 ) THEN
-      do igal = 1, MXSNHOST
-      do q = 1, NQ
-         LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
-         cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
-         DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
-         CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
-      enddo
-      enddo
-    ENDIF
+! xxxxxxx mark delete Apr 20 2026 xxxxxxxx
+! Oct 2025: copy photo-z quantiles back to SNDATA struct
+    if ( REFAC_DATA_FLAG > 0 ) then
+       !do igal = 1, MXSNHOST
+          ! no need to copy override quantiles that are not modified here 
+          ! ?? not needed ?? CALL copy_SNDATA_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), COPYFLAG)
+
+          ! maybe set SNHOST_ZPHOT[_ERR] to MEAN and STD ... and copy back to SNDATA struct,
+          ! Should this be automatic, or require OVERRIDE to change it?
+          ! Automation problem may not allow alternate zPHOT_[ERR] options ?
+       !enddo
+    else
+       ! legacy ... this may have never been needed
+       !NQ = SNHOST_NZPHOT_Q(1)
+       !if ( NQ > 0 ) then
+       !   do q = 1, NQ
+       !      LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
+       !      cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
+       !      DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
+       !      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       !   enddo
+       !endif
+    endif
+    ! xxxxxxxx end mark xxxxxxx
+
 
 ! check option to exclude PRIVATE variables from output.
 ! Do NOT modify NVAR_PRIVATE.
     IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
       cKEY     = "NVAR_PRIVATE"  // char(0)
       DVAL(1)  = -1.0   ! -1 means disable to avoid abort on NVAR change
-      CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG,  & 
-                cSTRING, DVAL, LEN_KEY, LEN_STR)
+      CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
 ! ----
@@ -10665,15 +10576,13 @@
     IF ( DOFUDGE_FLUXERRMODEL .or. FUDGE_MAG_ERROR.NE.'') THEN
        cKEY  = "FLUXCALERR" // char(0)
        DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL_ERRTOT(o) ; END DO
-       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
     IF ( NSTORE_MAGCOR > 0 ) THEN
        cKEY  = "FLUXCAL" // char(0)
        DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL(o) ; END DO
-       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS,  & 
-              cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
 ! Apr 19 2025: check modifying band name
@@ -10702,26 +10611,24 @@
     if ( PHOTFLAG_TRIGGER > 0 ) then
        cKEY = "MJD_TRIGGER" // char(0)
        DVAL(1) = SNLC8_MJD_TRIGGER
-       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,  & 
-               cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     endif
 
     if ( PHOTFLAG_DETECT > 0 ) then
        cKEY = "MJD_DETECT_FIRST" // char(0)
        DVAL(1) = SNLC8_MJD_DETECT_FIRST
-       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,  & 
-               cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
        cKEY = "MJD_DETECT_LAST" // char(0)
        DVAL(1) = SNLC8_MJD_DETECT_LAST
-       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG,  & 
-               cSTRING, DVAL, LEN_KEY, LEN_STR)
+       CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     endif
 
 ! - - - - -
 
     RETURN
   END SUBROUTINE copy_SNDATA_MISC
+
 
 ! =========================================
     SUBROUTINE WRITE_REFORMAT_IGNORE()
@@ -11062,336 +10969,6 @@
     RETURN
   END SUBROUTINE END_REFORMAT
 
-
-! =========================================
-    SUBROUTINE WRSALT2_2()
-! 
-! Created July 30, 2010 by R.Kessler
-! Re-write SN data files into new SALT2 format with
-! one file per SN.
-! Output used by J. Guy's SALT2 'snfit' and 'pcafit' programs,
-! version 2.3.0 and higher.
-! Mainly used for SDSS data, and for simulations.
-! 
-! 
-! See &SNLCINP namelist variables
-!  OPT_REFORMAT_SALT2 = 2
-! 
-! so that arbitray keys can be specified.
-! 
-! 
-! Jan 25, 2013: use REAL*8 MJD8 instead of REAL*4 MJD to avoid
-!               round-off error.
-! 
-! May 20 2013: include RA and DEC in SALT2 files.
-! 
-! Jul 8 2013: write name of ascii SNDATA file ONLY for FORMAT_TEXT=T
-! 
-! Jul 17, 2013: write @FIELD  <list of fields>
-! 
-! Feb 25, 2014: remove logic with ITERSE_FLUXZPT
-! -----------------------------------------------
-
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-    USE FILTCOM
-    USE WRS2COM
-    USE PKMJDCOM
-
-    IMPLICIT NONE
-
-    INTEGER  & 
-         EPMIN, EPMAX, EP, NEWMJD  & 
-        ,IFILT, IFILT_OBS, IFILT_REPLACE  & 
-        ,LENCID, LS, IERR, CID, ikey, L1, L2, LL, i
-
-    REAL  & 
-         PEAKMJD, FLUX, FLUXERR  & 
-        ,ZP, ZPOFF, arg, Fscale, TMP, ERR
-
-
-    REAL*8  MJD8
-
-    LOGICAL LWR_FILT(MXFILT_OBS)
-
-    CHARACTER  & 
-         cfilt1*1,  ccid*(MXCHAR_CCID)  & 
-        ,salt2_file*(MXCHAR_FILENAME)  & 
-        ,SURVEY_NAME_LOCAL*(MXCHAR_FILEWORD)  & 
-        ,SIMFILE*(MXCHAR_FILENAME)  & 
-        ,ctmp*60
-
-! ------------ BEGIN -------------
-
-    CCID   = SNLC_CCID
-
-! if CCID is an integer, write in I6.6 (or I8.8) format
-    read( ccid, 25 , iostat = IERR ) CID
-25    format(I9)
-
-    IF ( IERR .EQ. 0  ) THEN
-       CALL CIDSTRING(CID,CCID,LENCID)
-    ENDIF
-
-!  ----------------------
-
-    LS  = INDEX(SURVEY_NAME,' ' ) - 1
-    LENCID = INDEX(CCID,' ' ) - 1
-
-    SALT2_FILE = NAMEof_PREFIX(1:LEN_PREFIX) // '_' //  & 
-                   CCID(1:LENCID) // '.DAT'
-
-     LL = INDEX(SALT2_FILE,' ') - 1
-     WRITE(LUNSALT2,700) SALT2_FILE(1:LL)
-700    FORMAT(A)
-
-    IF ( LSIM_SNANA ) THEN
-        PEAKMJD = SIM_PEAKMJD
-    ELSE
-        PEAKMJD = SNLC_SEARCH_PEAKMJD
-    ENDIF
-
-    OPEN(   UNIT   = LUNDAT  & 
-            , FILE   = SALT2_FILE  & 
-            , STATUS = 'UNKNOWN'  & 
-                 )
-
-    IF ( NAMEof_SURVEY(1:4) .EQ.  'NULL' ) then
-      SURVEY_NAME_LOCAL = SURVEY_NAME  ! SNANA survey name
-    ELSE
-      SURVEY_NAME_LOCAL = NAMEof_SURVEY ! user-specified survey name
-    ENDIF
-
-
-    ctmp = 'Translated into SALT2 format by SNANA ' // SNANA_VERSION
-    write(LUNDAT,120) ctmp
-    write(LUNDAT,120) ' '
-
-    write(LUNDAT,120) 'Required variables'
-    write(LUNDAT,11) 'SURVEY',   SURVEY_NAME_LOCAL
-    write(LUNDAT,11) 'SN',       CCID(1:LENCID)
-
-    write(LUNDAT,126) 'RA',    SNLC8_RA
-    write(LUNDAT,126) 'DEC',   SNLC8_DEC
-
-! ---- write field(s) - include all overlapping fields for this SN -----
-    write(LUNDAT,1220)
-    DO  i = 1, ISNLC_NFIELD_OVP
-       LL = INDEX( SNLC_FIELD_OVPLIST(i), ' ') - 1
-       write(LUNDAT,1230) SNLC_FIELD_OVPLIST(i)(1:LL)
-    ENDDO
-    write(LUNDAT,1240)
-
- 1220 FORMAT('@FIELD  ', $)
- 1230 FORMAT(A, '  ', $)
- 1240 FORMAT(' ')
-
-! ------------------------------------
-
-    write(LUNDAT,12) 'Z_HELIO',  SNLC_ZHELIO
-    write(LUNDAT,12) 'Z_CMB  ',  SNLC_ZCMB
-
-    write(LUNDAT,12) 'MWEBV  ',  SNLC_MWEBV
-    write(LUNDAT,12) 'MWEBV_ERR ',SNLC_MWEBV_ERR
-    write(LUNDAT,13) 'DayMax  ', PEAKMJD
-
-! --------------------------------------
-! add new keys, if any are given (Dec 2010)
-
-    DO 22 ikey = 1, NEWKEY
-       L1 = INDEX(NEWKEY_NAME(ikey),' ') - 1
-       L2 = INDEX(NEWKEY_ARG(ikey),' ') - 1
-       write(LUNDAT,11)  & 
-            NEWKEY_NAME(ikey)(1:L1), NEWKEY_ARG(ikey)(1:L2)
-22    CONTINUE
-
-
-! Set LWR_FILT logical array for filters to write out.
-! Use SNRMAX_FILT to determine if a filter is used.
-
-    DO IFILT     = 1, NFILTDEF_SURVEY
-       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-       TMP       = SNLC_SNRMAX_FILT(ifilt)
-       if ( TMP .NE. -9.0 ) then
-          LWR_FILT(IFILT_OBS) = .TRUE.
-       else
-          LWR_FILT(IFILT_OBS) = .FALSE.
-       endif
-    ENDDO
-
-! --------------------------------------
-! add extra cut variables (Sep 29 2010)
-
-    write(LUNDAT,120) ' '
-    write(LUNDAT,120) 'Analysis variables'
-    write(LUNDAT,30) 'SNTYPE   ',  ISNLC_TYPE
-    write(LUNDAT,30) 'NOBS     ',  ISNLC_NEPOCH_USE
-    write(LUNDAT,14) 'TRESTMIN ',  SNLC_TRESTMIN
-    write(LUNDAT,14) 'TRESTMAX ',  SNLC_TRESTMAX
-    write(LUNDAT,14) 'T0GAPMAX ',  SNLC_T0GAPMAX
-    write(LUNDAT,14) 'SNRMAX   ',  SNLC_SNRMAX_SORT(1)
-    write(LUNDAT,14) 'SNRMAX2  ',  SNLC_SNRMAX_SORT(2)
-    write(LUNDAT,14) 'SNRMAX3  ',  SNLC_SNRMAX_SORT(3)
-
-! write SNRMAX for each filter.
-    DO IFILT     = 1, NFILTDEF_SURVEY
-       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-       cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-       TMP       = SNLC_SNRMAX_FILT(ifilt)
-       if ( LWR_FILT(ifilt_obs) ) then
-          write(LUNDAT,114) 'SNRMAX_', cfilt1, TMP
-       endif
-
-    ENDDO
-
-114   format('@', A, A, 2x, F8.3)
-
-! to quanititative FoM, write error on flux and T0 for each band
-    IF ( OPT_SETPKMJD > 0 ) THEN
-
-      write(LUNDAT,120) ' '
-      write(LUNDAT,120) 'Fitted errors => exp(dT/T1)/[1+exp(dT/T2)]'
-      write(LUNDAT,120) 'ERRT0 => error on peak MJD'
-      write(LUNDAT,120) 'ERRF0 => ERROR(F0)/F0 where F0 = peak flux'
-
-
-      DO IFILT    = 1, NFILTDEF_SURVEY
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-        if ( LWR_FILT(ifilt_obs) ) then
-          ERR       = PKMJD_ERR(ifilt_obs)
-          write(LUNDAT,114) 'ERRT0_', cfilt1, ERR
-        endif
-      ENDDO
-        write(LUNDAT,12) 'ERRT0_MIN', PKMJD_ERRMIN
-        write(LUNDAT,12) 'ERRT0_WGT', PKMJD_ERRWGT
-
-      DO IFILT    = 1, NFILTDEF_SURVEY
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-        if ( LWR_FILT(ifilt_obs) ) then
-          ERR       = PKFLUX_ERR(ifilt_obs)/PKFLUX_FIT(ifilt_obs)
-          write(LUNDAT,114) 'ERRF0_', cfilt1, ERR
-        endif
-      ENDDO
-        write(LUNDAT,12) 'ERRF0_MIN', PKFLUX_ERRMIN
-        write(LUNDAT,12) 'ERRF0_WGT', PKFLUX_ERRWGT
-
-    ENDIF  ! end of OPT_SETPKMJD
-
-
-    IF ( LSIM_SNANA ) THEN
-      write(LUNDAT,120) ' '
-      write(LUNDAT,120) 'SIMULATION Parameters'
-
-! start with the exact name of the SNANA file that was translated
-      IF ( FORMAT_TEXT ) THEN
-        L1 = INDEX(VERSION_PHOTOMETRY(1),' ' ) - 1
-        L2 = INDEX(SNDATA_FILE_CURRENT,' ' ) - 1
-        SIMFILE = '$SNDATA_ROOT/SIM/' //  & 
-              VERSION_PHOTOMETRY(1)(1:L1) // '/' //  & 
-              SNDATA_FILE_CURRENT(1:L2)
-        LL = INDEX(SIMFILE,' ') - 1
-        WRITE(LUNDAT,11) 'SIM_SNANAFILE' , SIMFILE(1:LL)
-      ENDIF
-
-      write(LUNDAT,30)  'SIM_SNTYPE   ', SIM_GENTYPE
-      write(LUNDAT,30)  'SIM_TEMPLATE_INDEX  ', SIM_TEMPLATE_INDEX
-      write(LUNDAT,93)  'SIM_PEAKMJD  ', SIM_PEAKMJD
-      write(LUNDAT,12)  'SIM_MWEBV    ', SIM_MWEBV
-      write(LUNDAT,12)  'SIM_REDSHIFT ', SIM_REDSHIFT_CMB
-      write(LUNDAT,12)  'SIM_MU       ', SIM_DLMAG
-
-      IF ( SIM_TEMPLATE_INDEX .EQ. 0 ) THEN
-        write(LUNDAT,12)  'SIM_x0 ',    SIM_SALT2x0
-        write(LUNDAT,12)  'SIM_mb ',    SIM_SALT2mb
-        write(LUNDAT,12)  'SIM_x1 ',    SIM_SHAPEPAR
-        write(LUNDAT,12)  'SIM_c  ',    SIM_COLORPAR
-        write(LUNDAT,12)  'SIM_alpha ', SIM_SHAPELAW
-        write(LUNDAT,12)  'SIM_beta  ', SIM_COLORLAW
-      ENDIF
-
-      DO IFILT    = 1, NFILTDEF_SURVEY
-        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-        cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-        TMP       = SIM_PEAKMAG(ifilt)
-        write(LUNDAT,114) 'SIM_PEAKMAG_', cfilt1, TMP
-      ENDDO
-
-    ENDIF  ! end of LSIM_SNANA
-
-    write(LUNDAT,120) ' '
-    write(LUNDAT,120) '--------------------------------------'
-    write(LUNDAT,120) ' '
-
-! ---------------------------------------
-! define data columns
-    write(LUNDAT,20) 'Date'
-    write(LUNDAT,20) 'Flux'
-    write(LUNDAT,20) 'Fluxerr'
-    write(LUNDAT,20) 'ZP'
-    write(LUNDAT,20) 'Filter'
-    write(LUNDAT,20) 'MagSys'
-    write(LUNDAT,20) 'end'
-
-11    format('@', A, 2x, A)
-12    format('@', A, 2x, F8.5)
-13    format('@', A, 2x, F9.3, 2x, '1')
-14    format('@', A, 2x, F7.2)
-20    format('#', A, ' : ' )
-30    format('@', A, 2x, I5)
-93    format('@', A, 2x, F9.3)
-126   format('@', A, 2x, F12.6)
-
-120   format('# ! ', A )
-
-! write observations.
-
-    DO 301 NEWMJD = 1, ISNLC_NEWMJD_STORE
-        EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-        EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-
-        DO 302 EP = EPMIN, EPMAX
-
-          IFILT_OBS     = ISNLC_IFILT_OBS(ep)
-          IFILT_REPLACE = IMAP_REPLACE(IFILT_OBS)
-
-!  skip obs that are cut in SNRECON (Jan 2, 2012)
-          if ( .not. LWR_FILT(ifilt_obs) ) GOTO 302
-
-
-          IF ( IFILT_REPLACE .GT. 0 ) THEN
-             cfilt1 = filtdef_string(ifilt_replace:ifilt_replace)
-          ELSE
-             cfilt1 = filtdef_string(ifilt_obs:ifilt_obs)
-          ENDIF
-
-          ZPOFF   = MAGOBS_SHIFT_ZP_FILT(ifilt_obs)
-          MJD8    = SNLC8_MJD(EP)
-
-          ZP  = SNGL(ZP_FLUXCAL) + ZPOFF
-          arg = 0.4*ZPOFF
-
-          Fscale  = 10.0**ARG
-
-! get fluxes in native system (i.e., undo AB offsets)
-          Flux    = Fscale * SNLC_FLUXCAL(EP)
-          Fluxerr = Fscale * SNLC_FLUXCAL_ERRTOT(EP)
-          WRITE(LUNDAT,330) MJD8, FLUX, FLUXERR, ZP  & 
-                , NAMEof_INSTRUMENT(1:LEN_INST)  & 
-                , cfilt1  & 
-                , NAMEof_MAGSYS(1:LEN_MAGSYS)
-
-302      CONTINUE  ! EP
-301   CONTINUE  ! NEWMJD
-
-330   FORMAT(F9.3, 2x, 2G14.6, 1x, F7.3, 3x,A,'::',A,1x,A )
-
-    CLOSE ( LUNDAT )
-
-    RETURN
-  END SUBROUTINE WRSALT2_2
 
 
 ! ============================
@@ -14132,13 +13709,6 @@
 ! Convert character string CCID into integer CID.
 ! Returns logical USECID=T if this CID should be processed.
 ! 
-! 
-! Jul 28 2014; allow ABORT_ON_DUPLCID=F to count duplicates without aborting
-! 
-! Jul 31 2015: move GET_INTERP_MJDLIST call before LCIDSELECT call
-! 
-! Dec 2 2015: pass IAUC arg.
-! 
 ! ---------------------
 
 
@@ -14304,10 +13874,11 @@
 ! a different CID in each case. For integer
 ! CIDs (like SDSS), the CID is always the same.
 ! 
-! 
+! For int CID > 1 billion, treat it like a string (e.g., LSST alerts)
+!
 ! ---------------------
 
-
+    USE SNPAR
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -14319,14 +13890,15 @@
 
 ! ----------- BEGIN -------------
 
-    CID = -1 ; IERR=0
-    read( ccid, 20 , iostat = IERR ) CID
+    LCHAR = INDEX ( CCID, ' ' ) - 1
+    CID   = -1 ; IERR=0
+    read( ccid, 20 , iostat = IERR ) CID  
 20    format(I10)    ! was I8
 
-    IF ( IERR .EQ. 0 ) THEN  ! CCID is an integer
+    IF ( IERR == 0 .and. LCHAR < 10) THEN  ! CCID is an integer
        SNLC_CASTCID = 'INT'
     ELSE
-       LCHAR = INDEX ( CCID, ' ' ) - 1
+
        CID   = ABSO_INDEX
        SNLC_CASTCID = 'CHAR'
     ENDIF
@@ -15240,13 +14812,16 @@
        SNHOST_COLOR(igal)         = -9999.0
        SNHOST_COLOR_ERR(igal)     = -9999.0
 
+       SNHOST_QZPHOT_MEAN(igal) = -9.0
+       SNHOST_QZPHOT_STD(igal)  = -9.0
+
        ! for REFAC, reset quantile info for each event
        if ( REFAC_DATA_FLAG > 0 ) then
-          SNHOST_NZPHOT_Q(igal)      = 0
-          do i = 1, MXZPHOT_Q
-             SNHOST_ZPHOT_Q(igal,i)          = -9.0
-             SNHOST_ZPHOT_PERCENTILE(igal,i) = -9.0
-          enddo
+          CALL INIT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), igal, &
+               "QUANTILE_ZPHOT", "QUANTILE_PERCENT", "" )
+
+          CALL INIT_SNHOSTz(SNHOSTz_LOGMASS(igal), igal, &
+               "LOGMASS_ZGRID", "LOGMASS_VALGRID", "LOGMASS_ERRGRID" )
        endif
 
     enddo
@@ -15440,7 +15015,6 @@
 
     RETURN
   END SUBROUTINE INIT_SNLC
-
 
 ! =======================================
     SUBROUTINE INIT_CUTMASK ( IERR )
@@ -16933,7 +16507,7 @@
 
 ! local variables
 
-    INTEGER IFILT_OBS, ISTAT, L, L2
+    INTEGER IFILT_OBS, ISTAT, L, L2, NROW_MATCH
     REAL*8 MJD, DVAL
     REAL*4 MAGCOR, FCOR
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
@@ -16942,6 +16516,7 @@
     REAL, PARAMETER :: MAGCOR_CRAZY = 0.2
 
 ! function
+    INTEGER  SNTABLE_AUTOSTORE_READ
     EXTERNAL SNTABLE_AUTOSTORE_READ
 ! --------------- BEGIN -----------------
 
@@ -16960,15 +16535,15 @@
 
     cVARNAME = 'MAGCOR' // char(0)
 
-    CALL SNTABLE_AUTOSTORE_READ(STR_EPID1, cVARNAME, ISTAT,  & 
-                       DVAL,cDUM, 60,10,10 )
+    NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID1, cVARNAME, ISTAT,  & 
+         DVAL,cDUM, 60,10,10 )
 
 ! if no MAGCOR, then try again with IAUC name
     IF ( ISTAT .NE. 0 ) THEN
       L2  = INDEX(SNLC_NAME_IAUC,' ') - 1
       WRITE(STR_EPID2,40) SNLC_NAME_IAUC(1:L2), MJD, BAND, char(0)
-      CALL SNTABLE_AUTOSTORE_READ(STR_EPID2, cVARNAME, ISTAT,  & 
-                       DVAL,cDUM, 60,10,10 )
+      NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID2, cVARNAME, ISTAT,  & 
+           DVAL,cDUM, 60,10,10 )
     ENDIF
 
     IF ( ISTAT .EQ. 0 ) then
@@ -17621,7 +17196,7 @@
     USE SNLCINP_NML
 
     IMPLICIT NONE
-    INTEGER IERR
+    INTEGER IERR, igal
 
 ! -------------- BEGIN ----------
 
@@ -17632,8 +17207,16 @@
        return
     endif
 
-! Nov 30 2025: if there are quantiles, compute MEAN and STDDEV 
-    CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT,IERR)
+! if there are quantiles, compute MEAN and STDDEV.
+! Loop backwards so that IGAL=1 is last and preserved for LCFIT
+! Beware that SNHOST_NMATCH2 can exceed MXSNHOST
+! (number of stored matches).
+
+    do IGAL = SNHOST_NMATCH2, 1, -1
+       if ( IGAL <= MXSNHOST ) then
+          CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT, IGAL, IERR)
+       endif
+    enddo
 
 ! Check option to use host photo-z as redshift.
     CALL SET_SNHOST_ZPHOT()
@@ -17745,12 +17328,15 @@
 
 
 ! =============================================
-    SUBROUTINE SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES,IERR)
+    SUBROUTINE SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IGAL, IERR)
 !
 ! Created Nov 30 2025:
 ! If there are host photot-z quanitiles, compute MEAN and STDDEV
 !  [code moved from snlc_fit.F90 to here so that MEAN and STDDEV
 !    appear in SNANA table without having to do LC fit]
+!
+! Apr 15 2026: start using new SNHOSTz_DEF TYPE
+! Apr 16 2026: pass IGAL as argument
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -17758,35 +17344,46 @@
     IMPLICIT NONE
 
     CHARACTER :: METHOD_SPLINE_QUANTILES*(*)  ! (I) method to interpolate PDF
+    INTEGER   :: IGAL                         ! (I) sparse host index
     INTEGER   :: IERR                         ! (O) return error code (0 = no error)
 
 ! local var
     INTEGER*8 :: GALID
     CHARACTER*(MXCHAR_CCID)  CCID
-    INTEGER   :: q, LM, IERR_ZPDF, IPRINT
-    REAL*8    :: ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
+    INTEGER   :: NQ, q, LM, IERR_ZPDF, IPRINT
+    REAL*8    :: QZPHOT(MXZPHOT_Q), QPROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
 
+    CHARACTER FNAM*20
 ! ------------- BEGIN ---------------
 
-    if ( SNHOST_NZPHOT_Q(1) <= 0 ) RETURN
+    FNAM = 'SET_SNHOST_QZPHOT'
 
-    do q = 1, SNHOST_NZPHOT_Q(1)
-       ZPHOT_PROB(q) = DBLE(SNHOST_ZPHOT_PERCENTILE(1,q)) / 100.  ! 0 <= PROB <= 1
-       ZPHOT_Q(q)    = DBLE(SNHOST_ZPHOT_Q(1,q))
+    NQ = SNHOSTz_QUANTILE_ZPHOT(IGAL)%NZ
+   
+    if ( NQ <= 0 ) RETURN
 
-       if ( q > 1 .and. ZPHOT_Q(q) > -8.0 ) then
-          BIGGER_z = ZPHOT_Q(q) > ZPHOT_Q(q-1) 
+    do q = 1, NQ
+
+       QPROB(q)    = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%VAL_LIST(q)) / 100.  ! 0 <= PROB <= 1
+       QZPHOT(q)   = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%Z_LIST(q))
+
+       if ( q > 1 .and. QZPHOT(q) > -8.0 ) then
+          BIGGER_z = QZPHOT(q) > QZPHOT(q-1) 
           if ( .not. BIGGER_z ) then
              CCID   = SNLC_CCID
-             GALID = SNHOST_OBJID(1)
-             write(C1ERR,61) q-1, q, ZPHOT_Q(q-1), ZPHOT_Q(q), CCID(1:ISNLC_LENCCID), GALID
-61           format('ZPHOT_Q(',I2,',',I2,') = ', 2F8.3,'  for CID=',A,'  GALID=', I12 )
-             C2ERR = 'ZPHOT_Q must be monotonically increasing'
+             GALID = SNHOST_OBJID(IGAL)
+             CALL PRINT_PREABORT_BANNER(FNAM//char(0), 40)
+             print*,'   CID   = ', CCID(1:ISNLC_LENCCID)
+             print*,'   IGAL, GALID = ', igal, GALID
+             print*,'   NQZPHOT     = ', NQ
+             write(C1ERR,61) q-1, q, QZPHOT(q-1), QZPHOT(q)
+61           format('QZPHOT(',I2,',',I2,') = ', 2F8.3 )
+             C2ERR = 'QZPHOT must be monotonically increasing'
              if ( ABORT_ON_BADQZPHOT ) then
-                CALL MADABORT("SET_SNHOST_QZPHOT", c1err, c2err )
+                CALL MADABORT(FNAM, c1err, c2err )
              else
-                print*,' WARNING: ', C1ERR
+                print*,' FNAM WARNING: ', C1ERR
                 call flush(6)
              endif
 
@@ -17798,14 +17395,14 @@
     IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
-    CALL init_zPDF_spline(SNHOST_NZPHOT_Q(1), ZPHOT_PROB, ZPHOT_Q,  &
-         SNLC_CCID(1:ISNLC_LENCCID)//char(0),  &
-         METHOD_SPLINE_QUANTILES(1:LM)//char(0),  &
+    CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
+         SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
+         METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
 
     if (IERR .EQ. 0 ) then
-       SNHOST_QZPHOT_MEAN(1) = MEAN ! store mean & std in 4 byte global
-       SNHOST_QZPHOT_STD(1)  = STD
+       SNHOST_QZPHOT_MEAN(IGAL) = MEAN ! store mean & std in 4 byte global
+       SNHOST_QZPHOT_STD(IGAL)  = STD
     endif
 
     return
@@ -17830,7 +17427,7 @@
     REAL*8 zhelio_zcmb_translator ! function
 ! -------------- BEGIN ----------------
 
-    LZPH  = (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ)
+    LZPH  = (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ)  ! redundant logicals
     LQZPH = (USE_SNHOST_QZPHOT)  ! quantiles
 
     IF ( LZPH ) then
@@ -17840,8 +17437,6 @@
     else
        return
     endif
-
-    ! xxx mark IF ( .not. (USE_SNHOST_ZPHOT .or. USE_HOSTGAL_PHOTOZ) ) RETURN  ! same variable meaning ???
 
     if ( .not. EXIST_SNHOST_ZPHOT ) then
         C1ERR = 'Cannot USE_HOSTGAL_PHOTOZ for CID='//SNLC_CCID
@@ -17918,13 +17513,21 @@
           SNHOST_ZPHOT = SNHOST_zPHOT + zshift
        endif
 
-       if ( SNHOST_NZPHOT_Q(igal) > 0 ) then
-          do q    = 1, SNHOST_NZPHOT_Q(igal)
+       ! xxx mark if ( REFAC_DATA_FLAG > 0 ) then 
           do igal = 1, MXSNHOST
-	      SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
+             CALL SHIFT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), zshift )
           enddo
-          enddo
-       endif
+          ! xxxxxxxxxxx mark delete Apr 2026 xxxxxxxx
+       !else
+          ! legacy
+          !do q    = 1, SNHOST_NZPHOT_Q(igal)
+          !do igal = 1, MXSNHOST
+	  !    SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
+          !enddo
+          !enddo
+       !endif
+          ! xxxxxxxxx end mark xxxxx
+
     ENDIF
 
     IF ( zshift .NE. -9.0 ) THEN
@@ -23849,7 +23452,7 @@
 
 ! local var
     CHARACTER PREFIX*8, VARLIST*400, CBLOCK*40
-    INTEGER   LP, LENLIST, LENBLOCK, ITEXT_LOCAL
+    INTEGER   LP, LENLIST, LENBLOCK, ITEXT_LOCAL, NQ
 
 ! ------------- BEGIN ----------
 
@@ -23878,8 +23481,9 @@
     VARLIST =  PREFIX(1:LP) // 'ZPHOTERR:F' // char(0)
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT_ERR(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )
 
-! 
-    if(SNHOST_NZPHOT_Q(1) > 0) then
+
+    NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
+    if( NQ > 0 .or. OVERRIDE_QUANTILE_ZPHOT ) then
        VARLIST =  PREFIX(1:LP) // 'QZPHOT:F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_QZPHOT_MEAN(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )
        VARLIST =  PREFIX(1:LP) // 'QZPHOTSTD:F' // char(0)
@@ -27082,10 +26686,6 @@
        PKMJDERR = 4.0
     endif
 
-
-    if ( OPT_REFORMAT_SALT2 .GT. 0 ) then
-       PKMJDERR = T0ERR
-    endif
 
 ! get error on peak flux from fit
 

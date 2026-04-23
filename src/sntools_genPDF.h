@@ -25,6 +25,8 @@ int      KEYSOURCE_GENPDF; // 1=file, 2=arg; used for prioritization
 
 double MAG_OFFSET_GENPDF;  // read from MAG_OFFSET key in GENPDF_FILE
 
+char GENPDF_FILE[MXPATHLEN];
+
 struct {
   char     MAPNAME[40];
   char     *VARNAMES[MXVAR_GENPDF];
@@ -55,7 +57,7 @@ void   init_genPDF(int OPTMASK, FILE *fp, char *fileName, char *ignore);
 void   init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS);
 void   assign_VARNAME_GENPDF(int imap, int ivar, char *varName) ;
 void   checkAbort_VARNAME_GENPDF(char *varName);
-double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS);
+double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID);
 double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS); 
 void   get_VAL_RANGE_genPDF(int IDMAP, double *val_inputs, double *VAL_RANGE, 
 			    int dumpFlag);
@@ -64,6 +66,5 @@ void   free_memory_genPDF(void); // release memory of all genPDF maps
 int  IMAP_GENPDF(char *parName, bool *LOGPARAM);
 void iter_summary_genPDF(void);
 
-// xxx mark bool matchVar_GENPDF_GENGAUSS(char *varName_GENPDF, char *varName_GENGAUSS);
 
 // END

@@ -743,8 +743,9 @@ struct INPUTS {
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
   double GENRANGE_MJD_EXCLUDE[2]; // exclude this MJD region (6/2025)
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
+  double GENRANGE_PEAKMJD_EXCLUDE[2]; // exclude this PEAKMJD region (4/2026)
   double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED
-  // xxx mark del  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
+
   float  GENRANGE_TREST[2];     // relative to peak, days
   float  GENRANGE_TOBS[2];      // for GRID option
   float  GENSIGMA_PEAKMJD;      // option to estimate PEAKMJD for data file
@@ -1950,6 +1951,8 @@ void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 
 double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
+
+void   check_parse_args_for_COLON(int ncheck, char **WORDS);
 
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 

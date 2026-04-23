@@ -2106,7 +2106,8 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // init LASTREAD quantities
   LASTREAD_AUTOSTORE.IFILE = -9;
-  LASTREAD_AUTOSTORE.IROW  = -9;
+  LASTREAD_AUTOSTORE.IROW[0]  = -9;
+  LASTREAD_AUTOSTORE.IROW[1]  = -9;
   sprintf(LASTREAD_AUTOSTORE.CCID,"XXX");
 
   free(varList_table); free(varList_table_ptrtok);
@@ -2349,8 +2350,8 @@ int  UNIQUE_AUTOSTORE_VARNAME(int IFILE, char *VARNAME) {
 } // end UNIQUE_AUTOSTORE_VARNAME
 
 // =====================================
-void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
-			    double *DVAL, char *CVAL ) {
+int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
+			   double *DVAL, char *CVAL ) {
 
   // Created Oct 2013 by R.Kessler
   //
@@ -2362,6 +2363,8 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   // *ISTAT = -1  if CCID is NOT found 
   // *ISTAT = -2  if VARNAME is NOT found
   //
+  // Function return number of *DVAL values returned
+  //  
   //
   // Jan 6, 2017: 
   //   + check each autoStore file for varName.
@@ -2370,17 +2373,26 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   //
   // Oct 20 2020:
   //   + do NOT abort on missing varname; instead, return ISTAT = -2
-
-  int IVAR_READ, IFILE_READ, ivar, i ;
-  int NVAR_USR, NROW_TOT, ICAST, LENCCID, IROW ;
-  char *tmpCCID, *tmpVar;
+  //
+  // Apr 11 2026: change function from void to int, and return number of
+  //      rows matching CCID; e.g., light curve or quantiles.
+  //      Note that IROW is now IROW[2] = first and last row matching CID.
+  //
   
+  int NROW_MATCH = 0;  
+  int IVAR_READ, IFILE_READ, ivar, i, irow ;
+  int NVAR_USR, NROW_TOT, ICAST, LENCCID, IROW[2] ;
+  char *tmpCCID, *tmpVar;
+  int  LDMP = 0; // ( strstr(VARNAME,"ZPHOT") != NULL  && strcmp(CCID,"2200713027")==0 )  ;
   char fnam[] = "SNTABLE_AUTOSTORE_READ" ;
 
   // ------------- BEGIN --------------
 
+  // DVAL[0] = -999.0; // this causes wierd problems, so don't init this
+  CVAL[0] = 0; // init outputs
+
   *ISTAT = -1 ;       // default is that CCID is not found.
-  IVAR_READ = IFILE_READ = IROW = -9 ;
+  IVAR_READ = IFILE_READ = IROW[0] = IROW[1] = -9 ;
   NREAD_AUTOSTORE++ ;
 
   // search file and variable indices
@@ -2394,7 +2406,13 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   }
 
 
-  if ( IVAR_READ < 0  || IFILE_READ < 0 ) { *ISTAT = -2; return ; }
+  if ( LDMP ) {
+    printf(" 0.  xxx ---------------------------------------------- \n");
+    printf(" 1. xxx %s: IVAR_READ=%d  IFILE_READ=%d \n", fnam, IVAR_READ, IFILE_READ);    
+    fflush(stdout);
+  }
+
+  if ( IVAR_READ < 0  || IFILE_READ < 0 ) { *ISTAT = -2; return 0 ; }
 
  FIND_CCID:
 
@@ -2405,36 +2423,67 @@ void SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   // if IFILE and CCID are the same as last time, 
   // skip slow check of all CCIDs
 
+
   bool IS_SAME_FILE = ( IFILE_READ == LASTREAD_AUTOSTORE.IFILE );
   bool IS_SAME_CCID = ( strcmp(CCID,LASTREAD_AUTOSTORE.CCID)==0);
-  if (IS_SAME_FILE && IS_SAME_CCID ) 
-    { IROW =  LASTREAD_AUTOSTORE.IROW ;  goto SET_OUTVAL; }
+
+  if ( LDMP ) {
+    printf(" 2a. xxx %s: CCID=%s   VARNAME = %s  \n", fnam, CCID, VARNAME); 
+    printf(" 2b. xxx %s: IS_SAME_[FILE,CCID]=%d,%d LAST IROWS=%d to %d \n", 
+	   fnam, IS_SAME_FILE, IS_SAME_CCID, LASTREAD_AUTOSTORE.IROW[0], LASTREAD_AUTOSTORE.IROW[1]);
+    fflush(stdout);
+  }
+
+  if (IS_SAME_FILE && IS_SAME_CCID )  { 
+    IROW[0] =  LASTREAD_AUTOSTORE.IROW[0] ;   // first row
+    IROW[1] =  LASTREAD_AUTOSTORE.IROW[1] ;   // last row
+    goto SET_OUTVAL; 
+  }
+
+  if (LDMP ) { printf(" 3. xxx %s search for IROW ... \n", fnam); fflush(stdout); }
 
   // do slow loop over each row and do CCID string match each row.
-  for(i=0; i < NROW_TOT; i++ ) {
-    tmpCCID = SNTABLE_AUTOSTORE[IFILE_READ].CCID[i] ;
+  for(irow=0; irow < NROW_TOT; irow++ ) {
+    tmpCCID = SNTABLE_AUTOSTORE[IFILE_READ].CCID[irow] ;
     if ( tmpCCID[0] != CCID[0] ) { continue ; } // quick check first char
-    if ( strcmp(tmpCCID,CCID) == 0 )  { IROW = i ;  goto SET_OUTVAL ; }
+    if ( strcmp(tmpCCID,CCID) == 0 )  {
+      if ( IROW[0] < 0 ) { IROW[0] = irow; } // firsr row
+      IROW[1] = irow ;                       // last row
+      //goto SET_OUTVAL ; 
+    }
+    else if ( IROW[0] >= 0 ) {
+      break; // if IROW is set and no CID match, then stop looking
+    }
   }
 
-  if ( IROW < 0 ) { return ; } // could not find CCID
+
+  if ( IROW[0] < 0 ) { return 0; } // could not find CCID
 
  SET_OUTVAL:
+
+  if(LDMP) { printf(" 4. xxx %s IROW = %d %d  ICAST=%d \n", 
+		    fnam, IROW[0], IROW[1], ICAST ); fflush(stdout); }
+
   *ISTAT = 0 ;
   if ( ICAST == ICAST_C ) {  
-    sprintf(CVAL,"%s",SNTABLE_AUTOSTORE[IFILE_READ].CVAL[IVAR_READ][IROW]) ; 
+    irow = IROW[0]; // maybe later put loop here, but need to modify CVAL cast
+    sprintf(CVAL, "%s", SNTABLE_AUTOSTORE[IFILE_READ].CVAL[IVAR_READ][irow]) ; 
   }
   else  { 
-    // return double for D,F,I
-    *DVAL = SNTABLE_AUTOSTORE[IFILE_READ].DVAL[IVAR_READ][IROW]; 
+    // return double for D,F,I    
+    for (irow=IROW[0]; irow <= IROW[1]; irow++ ) {
+      DVAL[NROW_MATCH] = SNTABLE_AUTOSTORE[IFILE_READ].DVAL[IVAR_READ][irow]; 
+      NROW_MATCH++ ;
+    }
   }
 
   LASTREAD_AUTOSTORE.IFILE = IFILE_READ ;
-  LASTREAD_AUTOSTORE.IROW  = IROW;
+  LASTREAD_AUTOSTORE.IROW[0]  = IROW[0];
+  LASTREAD_AUTOSTORE.IROW[1]  = IROW[1];
   sprintf(LASTREAD_AUTOSTORE.CCID,"%s", CCID );
 
   // if we get here, return 'not found' value.
-  return ;
+  return NROW_MATCH ;
 
 } // end of SNTABLE_AUTOSTORE_READ
 

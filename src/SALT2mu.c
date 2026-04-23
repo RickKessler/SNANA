@@ -3388,6 +3388,7 @@ void check_vpec_sign(void) {
   double SUM_MURES[2], SUM_SQMURES[2], mean[2], rms[2], sgn_flip ;
   double zHD, zHDERR, zCMB, zHD_tmp, vpec, zpec;
   double mB, x1, c, mumodel, mures, dl, mu ;
+  int LDMP = 0 ;
   char fnam[] = "check_vpec_sign" ;
 
   // ------- BEGIN -------
@@ -3448,7 +3449,13 @@ void check_vpec_sign(void) {
       
       SUM_MURES[i]   += mures ;
       SUM_SQMURES[i] += (mures*mures) ;
-    }
+
+      if ( LDMP && i == 0 && fabs(mures)>0.5 ) {
+	char *name = INFO_DATA.TABLEVAR.name[isn] ;
+	printf(" xxx %s: i=%3d  CID=%10s  mures=%8.3f \n", fnam, i, name, mures);
+	fflush(stdout);
+      }
+    } // end loop over vpec(nominal) and vpec(flip)
 
   } // end isn loop
 
@@ -3473,7 +3480,7 @@ void check_vpec_sign(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
-  //  debugexit(fnam);
+  if ( LDMP ) {  debugexit(fnam); }
 
   return ;
 
@@ -6748,7 +6755,7 @@ void read_data_override(void) {
   // and replace value.
 
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
-  int istat, isn;
+  int istat, isn, NROW_MATCH;
   bool  override_zhd, override_zhderr;
   double dval;    char *name, cval[20] ;
   double zhd_over, zhderr_over, dl, zhel_over, zhd_orig, zhel_orig ;
@@ -6766,7 +6773,7 @@ void read_data_override(void) {
 
       name    = INFO_DATA.TABLEVAR.name[isn];
       varName = INFO_DATA.VARNAMES_OVERRIDE[ivar_over];
-      SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval );      
+      NROW_MATCH = SNTABLE_AUTOSTORE_READ(name, varName, &istat, &dval, cval );      
 
       // xxxxxxx
       if ( istat == -99990 ) {
@@ -25271,7 +25278,7 @@ void print_SALT2mu_HELP(void) {
     "",
     "zwin_vpec_check=0.01,0.05 # compute RMS(HR) for 0.01<z<0.05 using zHD and",
     "                          # again with vpec sign-flip; abort if sign-flip", 
-    "                          # RMS(HR) is smaller than no flip.",
+    "                          # RMS(HR) is smaller than with nominal vpec.",
     "zwin_vpec_check=0,0 # disable check on sign-flip.",
     "",
     "lensing_zpar=0.055  # add  z*lensing_zpar to sigma_int",

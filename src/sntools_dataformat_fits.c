@@ -132,6 +132,7 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   FORMAT_SNDATA_WRITE = FORMAT_SNDATA_FITS ;
 
+
   // set global logical for SIM
   SNFITSIO_DATAFLAG             = false ;
   SNFITSIO_ATMOS                = false ;
@@ -155,7 +156,6 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   SNFITSIO_WRITE_MASK_PHOT = writeFlag ;
 
   // ??  INPUTS_SPECTRO.WRITE_MASK = WRITE_MASK_SPEC_DEFAULT; // 
-  // xxx mark delete Sep 2024  SNFITSIO_WRITE_MASK_SPEC = INPUTS_SPECTRO.WRITE_MASK ;
   SNFITSIO_WRITE_MASK_SPEC = writeFlag ;  
 
   // - - - -
@@ -292,7 +292,7 @@ void wr_snfitsio_init_head(void) {
 
   fitsfile *fp;
 
-  char parName[80] ;
+  char parName[80], tform_snid[8] ;
   char TBLname[40] ;
   char fnam[] = "wr_snfitsio_init_head" ;
 
@@ -306,7 +306,9 @@ void wr_snfitsio_init_head(void) {
   if ( SNDATA.SUBSURVEY_FLAG )
     { wr_snfitsio_addCol("40A", "SUBSURVEY", itype); }
 
-  wr_snfitsio_addCol( "16A", "SNID", itype   ) ;  // required integer or string name
+  
+  sprintf(tform_snid,"%dA", MXCHAR_CCID);
+  wr_snfitsio_addCol(tform_snid, "SNID", itype   ) ;  // required integer or string name
 
   if ( !SNFITSIO_SIMFLAG_SNANA  ) {
     wr_snfitsio_addCol( "16A" ,"NAME_IAUC",      itype); // optional IAUC name
@@ -399,18 +401,20 @@ void wr_snfitsio_init_head(void) {
 
   // add zPHOT quantiles
   if ( REFAC_DATA_FLAG > 0 ) {
-    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, "HOSTGALz", 
-				SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT);
+    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[0] );
+    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[0] );
   }
+
+  /* xxxxxx mark delete xxxxxxx
   else {
     // legacy
     for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
       int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-      LOAD_VARNAME_ZPHOT_Q("HOSTGAL", PCT, parName); // return parName
+      LOAD_VARNAME_ZPHOT_Q_LEGACY("HOSTGAL", PCT, parName); // return parName
       wr_snfitsio_addCol( "1E", parName, itype );
     }
   }
-  
+  xxxxxxx end mark xxxxxx */
 
   // - - - - - 
   if ( SNFITSIO_HOSTGAL2_FLAG ) {
@@ -449,18 +453,21 @@ void wr_snfitsio_init_head(void) {
 
     // add zPHOT quantiles
     if ( REFAC_DATA_FLAG > 0 ) {
-      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, "HOSTGAL2z", 
-				  SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT);
+      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[1] );
+      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[1] );
     }
+
+    /* xxxxxxxx mark delete
     else {
       // legacy
       for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
 	int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-	LOAD_VARNAME_ZPHOT_Q("HOSTGAL2", PCT, parName); // return parName
+	LOAD_VARNAME_ZPHOT_Q_LEGACY("HOSTGAL2", PCT, parName); // return parName
 	wr_snfitsio_addCol( "1E", parName, itype );
       }
     }
- 
+    xxxxxxx end mark xxxxxxxx */
+
   }  // end of 2nd-HOSTGAL block
 
   // - - - -
@@ -752,8 +759,7 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL ) {
 
 } // end wr_snfitsio_addCol_HOSTGAL_PROERTIES
 
-void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, char *PREFIX, 
-				 char *SUFFIX_z, char *SUFFIX_val ) {
+void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz ) {
 
   // Created Apr 2026
   // Add float FITS colums for
@@ -762,47 +768,34 @@ void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, char *PREFIX,
   //   value grid with colname = [PREFIX]_[SUFFIX_val]
   
   int itype = ITYPE_SNFITSIO_HEAD ;
-  char tform[8], **parNames;
+  char tform[8] ;
   char fnam[] = "wr_snfitsio_addcol_HOSTGALz" ;
 
   // ---------- BEGIN ---------
 
+  /* xxx mark 
   malloc_strlist(+1, 3, 60, &parNames );
-  get_parnames_HOSTGALz(PREFIX, SUFFIX_z, SUFFIX_val, parNames); // return parNames
-
-  /* xxx
-  printf(" xxx %s:  parNames = %s | %s | %s \n",
-	 fnam, parNames[0], parNames[1], parNames[2]);
-  debugexit(fnam);
-  xxx  */
+  get_SNDATA_HOSTGALz_VARNAMES(PREFIX, SUFFIX_z, SUFFIX_val, parNames); // return parNames
+  xxxx */
 
   // add column for number of z bins
   sprintf(tform,"1I");
-  wr_snfitsio_addCol(tform, parNames[0], itype );    
+  wr_snfitsio_addCol(tform, HOSTGALz->VARNAME_NZ, itype );    
   
   // - - - - -
   // add columm for z-grid (e.g. zPHOT) and val-grid
   sprintf(tform,"%dE", NBIN_z);
-  wr_snfitsio_addCol(tform, parNames[1], itype );    
-  wr_snfitsio_addCol(tform, parNames[2], itype );    
+  wr_snfitsio_addCol(tform, HOSTGALz->VARNAME_Z,   itype );    
+  wr_snfitsio_addCol(tform, HOSTGALz->VARNAME_VAL, itype );    
   
-  malloc_strlist(-1, 3, 60, &parNames );
+  if ( HOSTGALz->USE_VAL2 ) 
+    { wr_snfitsio_addCol(tform, HOSTGALz->VARNAME_VAL2, itype ); }
+  // xxx mark  malloc_strlist(-1, 3, 60, &parNames );
 
   return;
 } // end wr_snfitsio_addcol_HOSTGALz
 
 
-/* xxx mark delete 
-void get_parnames_HOSTGALz(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, char **VARNAMES ) {
-
-  char fnam[] = "get_parnames_HOSTGALz" ;
-  // -------- BEGIN -----------
-  sprintf(VARNAMES[0], "%s_NBIN_%s", PREFIX, SUFFIX_z);
-  sprintf(VARNAMES[1], "%s_%s",      PREFIX, SUFFIX_z);
-  sprintf(VARNAMES[2], "%s_%s",      PREFIX, SUFFIX_val);
-
-} // end get_parnames_HOSTGALz
-xxxxx */
 
 // ========================================
 void wr_snfitsio_init_phot(void) {
@@ -928,7 +921,7 @@ void wr_snfitsio_init_spec(void) {
   int itype, ncol, istat, ipar ;
 
   fitsfile *fp;
-  char TBLname[40] ;
+  char TBLname[40], tform_snid[8] ;
   char fnam[] = "wr_snfitsio_init_spec" ;
 
   // --------------- BEGIN ---------------
@@ -949,7 +942,10 @@ void wr_snfitsio_init_spec(void) {
   // -----------------
   // create table for spectra fluxes 
   sprintf(TBLname, "%s", "SPECTRO_HEADER" );
-  wr_snfitsio_addCol( "16A", "SNID",        itype   ) ; 
+
+  sprintf(tform_snid,"%dA", MXCHAR_CCID);
+  wr_snfitsio_addCol( tform_snid, "SNID",   itype   ) ; 
+
   wr_snfitsio_addCol( "1D",  "MJD",         itype   ) ;  
   wr_snfitsio_addCol( "1D",  "Texpose",     itype   ) ;
   wr_snfitsio_addCol( "20A", "INSTRUMENT",  itype   ) ;
@@ -1175,7 +1171,7 @@ void wr_snfitsio_create(int itype ) {
 
 
     //write number of Q quantiles
-    if ( !REFAC_DATA_FLAG ) { wr_snfitsio_global_zphot_q(fp); }
+    // xxx mark    if ( !REFAC_DATA_FLAG ) { wr_snfitsio_global_zphot_q(fp); } // legacy
 
   }
 
@@ -1461,6 +1457,7 @@ void wr_snfitsio_global_private(fitsfile *fp) {
 
 } // end wr_snfitsio_global_private
 
+/* xxxxxxxxx mark delete xxxxxx
 // =================================================
 void wr_snfitsio_global_zphot_q(fitsfile *fp) {
 
@@ -1500,6 +1497,7 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp) {
   return;
 
 } // end wr_snfitsio_zphot_q
+xxxxxxxxxx end mark xxxxxxx */
 
 
 // ==================================
@@ -1771,25 +1769,23 @@ void wr_snfitsio_update_head(void) {
   wr_snfitsio_fillTable ( ptrColnum, "LENSDMU_ERR", itype );
 
   // ---------- HOST --------------
-  int NHOSTGAL=1;  char PREFIX[20]="HOSTGAL" ;  char PREFIXz[20] = "HOSTGALz" ;
+  int NHOSTGAL=1;    char PREFIX[20], PREFIXz[20]  ;
+
   if ( SNFITSIO_HOSTGAL2_FLAG ) { NHOSTGAL = MXHOSTGAL; }
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  sprintf(parName,"%s_NMATCH", PREFIX);
+  sprintf(parName,"HOSTGAL_NMATCH");
   WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.HOSTGAL_NMATCH[0] ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  sprintf(parName,"%s_NMATCH2", PREFIX);
+  sprintf(parName,"HOSTGAL_NMATCH2");
   WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.HOSTGAL_NMATCH[1] ;
   wr_snfitsio_fillTable ( ptrColnum, parName, itype );  
 
   for(igal=0; igal < NHOSTGAL; igal++ ) {
 
-    if ( igal > 0 ) { 
-      sprintf(PREFIX,  "HOSTGAL%d",  igal+1); 
-      sprintf(PREFIXz, "HOSTGAL%dz", igal+1); 
-    } 
+    get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz);
 
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     sprintf(parName,"%s_OBJID", PREFIX);
@@ -1916,8 +1912,7 @@ void wr_snfitsio_update_head(void) {
     for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
       ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
       sprintf(parName,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs] );
-      LOC++ ; 
-      ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      LOC++ ;  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_MAG[igal][ifilt] ;
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
@@ -1931,47 +1926,30 @@ void wr_snfitsio_update_head(void) {
       wr_snfitsio_fillTable ( ptrColnum, parName, itype );
     }
 
-    // HOSTGAL QUANTILES (Jan 2022) 
+    // HOSTGAL QUANTILES & LOGMASS
     if ( REFAC_DATA_FLAG > 0 ) {
-      char parNames[3][60];
-      char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
-      get_parnames_HOSTGALz(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, 
-			    ptrNames); // return ptrNames
+      HOSTGALz_DEF *HOSTGALz;
 
-      /* xxxxx hack in values that sim or data will fill later xxxxxxx
-      int iz, nbin_z = 11 + igal + (SNDATA.NOBS % 7);
-      SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ = nbin_z;
-      for(iz=0; iz < nbin_z; iz++ ) {  
-	SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST[iz]   = (float)(iz * 0.11) + .001*(float)igal;
-	SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST[iz] = (float)(iz * 10);
-      }
-      // xxxxx end hack xxxxxxxx */
+      HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
+      wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
 
-      LOC++ ;
-      ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ ;
-      wr_snfitsio_fillTable ( ptrColnum, parNames[0], itype );
-
-      LOC++ ; 
-      ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].list_E = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST;
-      wr_snfitsio_fillTable ( ptrColnum, parNames[1], itype );  
-
-      LOC++ ;
-      ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].list_E = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST;
-      wr_snfitsio_fillTable ( ptrColnum, parNames[2], itype );
+      HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
+      wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
     }
+
+    /* xxxxxxx mark delete xxxxxxx
     else {
       // legacy
       for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
 	int PCT  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-	LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, parName); // return parName 
+	LOAD_VARNAME_ZPHOT_Q_LEGACY(PREFIX, PCT, parName); // return parName 
 	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
 	WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
 	wr_snfitsio_fillTable ( ptrColnum, parName, itype );
       }
     }
+    xxxxxxxxx end mark xxxxxxx */
+
 
     
   } // end igal
@@ -2549,6 +2527,47 @@ void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, d
   return ;
 
 } // end wr_snfitsio_fillTable_filtersD
+
+// ==========================================
+void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *HOSTGALz) {
+
+  // Created Apt 2026
+  // load FITS table values with generic HOSTGALz info
+  // (e.g., zphot quantiles, logmass-vs-z grid ...)
+
+  int LOC = *COLNUM_INDX ;
+  int *ptrColnum;
+  char fnam[] = "wr_snfitsio_fillTable_HOSTGALz" ;
+
+  // ------------- BEGIN -------------
+
+  LOC++ ;
+  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = HOSTGALz->NZ ;
+  wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_NZ, itype );
+
+  LOC++ ; 
+  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->Z_LIST;
+  wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_Z, itype );  
+
+  LOC++ ;
+  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL_LIST;
+  wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL, itype );
+
+  // optional VAL2_LIST (e.g., uncertainties on VAL_LIST)
+  if ( HOSTGALz->USE_VAL2 ) {
+    LOC++ ;
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL2_LIST;
+    wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL2, itype );
+  }
+
+  *COLNUM_INDX = LOC;
+
+  return ;
+} // end wr_snfitsio_fillTable_HOSTGALz
 
 // ====================================
 void wr_snfitsio_update_phot(int ep) {
@@ -3372,6 +3391,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   //
   // Mar 04 2025: open and close FITS files here instead of in RD_SNFITSIO_PARVAL
   // Mar 09 2025: fix memory leak bug from Mar 04
+  // Apr 12 2026: call RD_OVERRIDE_POSTPROC after SIM block (instead of before)
 
   bool LRD_HEAD  = ( OPT & OPTMASK_SNFITSIO_HEAD );
   bool LRD_PHOT  = ( OPT & OPTMASK_SNFITSIO_PHOT );
@@ -3390,6 +3410,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   char KEY_NAME_TRANSIENT[]     = "NAME_TRANSIENT"; 
   
   int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iq, N_Q ;
+  int  NZ, NZ0, NZ1;
   char PREFIX[20], PREFIXz[20], KEY[40]; 
   double D_OBJID;
 
@@ -3457,7 +3478,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				   &SNFITSIO_READINDX_HEAD[j] ) ;
     }
 
-  
     j++ ;  NRD = RD_SNFITSIO_DBL(isn, "RA", &SNDATA.RA_AVG, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
@@ -3568,9 +3588,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     NGAL = MXHOSTGAL;
     for ( igal=0; igal < NGAL; igal++ ) {
-      sprintf(PREFIX,"HOSTGAL"); 
-      if ( igal > 0 ) {  sprintf(PREFIX,"HOSTGAL%d", igal+1);       }
-      sprintf(PREFIXz,"%sz", PREFIX);  
+
+      get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz);
 
       sprintf(KEY,"%s_OBJID", PREFIX);
       j++ ;  NRD = RD_SNFITSIO_DBL(isn, KEY, &D_OBJID,
@@ -3668,51 +3687,28 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
 
       // read optional zphot quantiles
-
       if ( REFAC_DATA_FLAG > 0 ) {
+	HOSTGALz_DEF *HOSTGALz;
 
-	char parNames[3][60];
-	char *ptrNames[3] = { parNames[0], parNames[1], parNames[2] } ;
-	get_parnames_HOSTGALz(PREFIXz, SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, 
-			      ptrNames); // return ptrNames
-	int NRDz, NRDpct;
-	j++ ; NRDz = RD_SNFITSIO_INT(isn, ptrNames[0], &SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ,
-				    &SNFITSIO_READINDX_HEAD[j]);
+	HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal] ;
+	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
 
-	j++ ; NRDz = RD_SNFITSIO_FLT(isn, ptrNames[1], SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST,
-				    &SNFITSIO_READINDX_HEAD[j]);
-
-	j++ ; NRDpct = RD_SNFITSIO_FLT(isn, ptrNames[2], SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST,
-				    &SNFITSIO_READINDX_HEAD[j]);
-
-	/* xxx mark xxxx
-	printf(" xxx --------------------------------------------------------------- \n");
-	printf(" xxx --------------------------------------------------------------- \n");
-	printf(" xxx %s: HOSTGALz  DUMP for SNID = %s    igal=%d\n", fnam, SNDATA.CCID, igal);
-	printf(" xxx %s: parNames = %s | %s | %s \n", 
-	       fnam, ptrNames[0], ptrNames[1], ptrNames[2] );
-	int iz, nbin_z = SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].NZ;
-	printf(" xxx %s: nbin_z=%d  NRD(z,pct) = %d %d   igal=%d\n", 
-	       fnam, nbin_z, NRDz, NRDpct, igal);
-	for(iz=0; iz < nbin_z; iz++ ) {
-	  printf(" xxx %s: iz=%2d z=%.3f  pct=%6.2f \n", fnam, iz, 
-		 SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].Z_LIST[iz],
-		 SNDATA.HOSTGALz_ZPHOT_QUANTILE[igal].VAL_LIST[iz] );
-	}
-	fflush(stdout);
-	// xxxxxxxxxxxxxx */
-
+	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal] ;
+	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
       }
+
+      /* xxxxxxxxxxx end mark xxxxxxxxxxxxxx
       else {
+	// legacy
 	N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
 	for(iq=0; iq < N_Q; iq++ ) {
 	  int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
 	  float *zq = &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq];
-	  LOAD_VARNAME_ZPHOT_Q(PREFIX, PCT, KEY); // return KEY
+	  LOAD_VARNAME_ZPHOT_Q_LEGACY(PREFIX, PCT, KEY); // return KEY
 	  j++ ; NRD = RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
 	}
       }
-      
+      xxxxxxxxxxxx end mark xxxxxxxxxx */
 
     } // end igal 
 
@@ -3740,10 +3736,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				   &SNFITSIO_READINDX_HEAD[j] ) ;          
     }
 
-    RD_OVERRIDE_POSTPROC(); // Dec 2021; only for real data
-
     // ---------- SIM ----------
-    // xxx mark delete Mar 4 2025    if ( !SNFITSIO_SIMFLAG_SNANA ) { return(SUCCESS); }
+
     if ( SNFITSIO_SIMFLAG_SNANA ) { 
     
       j++; NRD = RD_SNFITSIO_STR(isn, "SIM_MODEL_NAME", SNDATA.SIM_MODEL_NAME,
@@ -3973,6 +3967,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
       }
     } // ene SIM block
 
+    // check post-processing of overrides
+    RD_OVERRIDE_POSTPROC(); 
+
   } // end LRD_HEAD
   
 
@@ -4091,7 +4088,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     // load GENSPEC struct in sntools_spectrograph.h (Feb 19 2021)
     NSPEC = RD_SNFITSIO_SPECROWS(SNDATA.CCID, &ROWMIN, &ROWMAX) ;
     GENSPEC.NMJD_PROC = 0 ; 
-    // xxx mark delete Mar 4 2025    if ( NSPEC <= 0 ) { return(SUCCESS); }
   }
 
   if ( NSPEC > 0 ) {
@@ -4129,6 +4125,35 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 int rd_snfitsio_event__(int *OPT, int *isn )
 { return RD_SNFITSIO_EVENT(*OPT,*isn); }
 
+
+void check_NZ_HOSTGALz_snfitsio(int MXBIN, int NZ0, int NZ1, 
+				char *VARNAME0, char *VARNAME1, char *callFun) {
+
+  bool BAD_NZ_HIGH = (NZ0 > MXBIN);
+  bool BAD_NZ0_NZ1 = (NZ0 != NZ1 );
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "check_NZ_HOSTGALz_snfitsio", fnam);
+
+
+  if ( BAD_NZ_HIGH || BAD_NZ0_NZ1 ) {
+    print_preAbort_banner(fnam);
+    printf("\t z-vector array %s has %d elements\n", VARNAME0, NZ0);
+    printf("\t z-vector array %s has %d elements\n", VARNAME1, NZ1);
+    
+    if ( BAD_NZ0_NZ1 ) {
+      sprintf(c1err,"z-vector array size mis-match (%d ne %d) ", NZ0, NZ1);
+      sprintf(c2err,"Data stream or HEADER_OVERRIDE_FILE is messed up.");
+    }
+    else if ( BAD_NZ_HIGH ) {
+      sprintf(c1err,"NZ = %d exceeds bound MXBIN=%d", NZ0, MXBIN);
+      sprintf(c2err,"Check size of HOSTGALz array");
+    }
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+
+  }
+  
+} // end  check_NZ_HOSTGALz_snfitsio
 
 // ===============================================
 void RD_SNFITSIO_CLOSE(char *version) {
@@ -4487,7 +4512,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     istat_spec = -1 ;
   }
   else {
-    // xxx mark delete Oct 23 2025    itype = ITYPE_SNFITSIO_SPEC ;  
     istat_spec=0;
     sprintf(keyname, "SPECFILE" );
     fits_read_key(fp, TSTRING, keyname,
@@ -4505,12 +4529,11 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     sprintf(rd_snfitsFile[ifile][itype],"NONE");
   }
 
-
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
 
   // check optional NZPHOT_Q key (Feb 2022)
-  if ( !REFAC_DATA_FLAG ) { rd_snfitsio_zphot_q(); }
+  // xxxxxxx mark   if ( !REFAC_DATA_FLAG ) { rd_snfitsio_zphot_q(); }
 
   // - - - - - - - - - - -
 
@@ -4784,6 +4807,7 @@ void rd_snfitsio_simkeys(void) {
 } // end of  rd_snfitsio_simkeys
 
 
+/* xxxxxxx mark delete xxxxxxxxx
 // ==========================
 void rd_snfitsio_zphot_q(void) {
 
@@ -4848,6 +4872,7 @@ void rd_snfitsio_zphot_q(void) {
 
   return;
 } // end rd_snfitsio_zphot_q
+xxxxxxxxxx end mark xxxxxxx */
 
 // ==========================
 void rd_snfitsio_private(void) {
@@ -5118,7 +5143,6 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
 
   LEN_LOCAL += 10;
-  // xxx mark delete   if (LEN_LOCAL == 0 ) { LEN_LOCAL = 10 ; }
 
   fp     = fp_rd_snfitsio[itype] ;
   MEMTOT = 0 ;
@@ -5946,6 +5970,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // Dec 12 2021: call RD_OVERRIDE_FETCH
   // Jul 25 2024: allow RD_OVERRIDE_FETCH to return string C_VAL (e.g., IAUC)
   // Sep 29 2025: pass GALID to RD_OVERRIDE_FETCH
+  // Apr 11 2026: pass parList to RD_OVERRIDE_FETCH to allow return array of doubles.
 
   int  iptr_local, iform, n_elem, itype, ifile, itmp, icol, ipar, NSTORE;
   int  iparRow, isn_file, firstRow, lastRow, NPARVAL, J, JMIN, JMAX, NSTR=0;
@@ -5978,17 +6003,14 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // since there is no point in finding value in FITS file.
   // This override occurs whether or not parName exists, and thus
   // it overrides or appends data.
-  D_VAL = -9.9;  C_VAL[0] = 0 ;
+  C_VAL[0] = 0 ;
   char *CCID          = SNDATA.CCID;
   long long int GALID = SNDATA.HOSTGAL_OBJID[0]; // 9.29.2025
+  int NRD             = RD_OVERRIDE_FETCH(CCID, GALID, parName, parList, C_VAL) ;
 
-  if ( RD_OVERRIDE_FETCH(CCID, GALID, parName, &D_VAL, C_VAL) > 0 ) {
-    if ( iform == IFORM_A )
-      { sprintf(parString,"%s", C_VAL); } // July 25 2024
-    else
-      { parList[0] = D_VAL; }
-    
-    return 1;
+  if ( NRD > 0  ) {
+    if ( strlen(C_VAL) > 0 )  { sprintf(parString,"%s", C_VAL); } 
+    return NRD;
   }
 
   // determine 'itype' and 'icol' from parName.
@@ -5996,14 +6018,13 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // Search list if this is the first SN in the file in case the
   // header has changed.
 
-  
   if ( isn == ISNFIRST_SNFITSIO ) { *iptr = -9 ; } 
 
   iptr_local = *iptr ;
 
-  if ( iptr_local == -999 ) 
-    {  return 0 ;  }
-  
+  if ( iptr_local == -999 )  {  
+    return 0 ; 
+  }
   else {
 
     // search list of all param-names
@@ -6216,6 +6237,63 @@ int RD_SNFITSIO_DBL(int isn, char *parName, double *parList, int *ipar) {
   NRD = RD_SNFITSIO_PARVAL(isn, parName, parList, String, ipar);
   return NRD ;
 }
+
+int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
+
+  // Created Apr 2026
+  // Read generic HOSTGALz info from FITS file.
+  //
+  // Inputs:
+  //   isn:      event index
+  //   igal:     sparse host index (for diagnostic DUMP only)
+  //   *jcol     start SNFITSIO_READINDX_HEAD index
+  //
+  // Output:
+  //   *jcol     end SNFITSIO_READINDX_HEAD index
+  //   HOSTGALz  information to read
+  //
+  int j = *jcol;
+  int NZ, NZ0, NZ1, NZ2, NRD = 0;
+  //  int MXBIN   = MXBIN_HOSTGALz_QUANTILE;
+  int MXBIN   = HOSTGALz->MXZ;
+  char fnam[] = "RD_SNFITSIO_HOSTGALz" ;
+
+  // ------------- BEGIN -----------------
+
+  j++ ; NRD = RD_SNFITSIO_INT(isn, HOSTGALz->VARNAME_NZ, &NZ,     // read, but ignore
+			      &SNFITSIO_READINDX_HEAD[j]);
+  
+  j++ ; NZ0 = RD_SNFITSIO_FLT(isn, HOSTGALz->VARNAME_Z, HOSTGALz->Z_LIST,
+			      &SNFITSIO_READINDX_HEAD[j]);
+  
+  j++ ; NZ1 = RD_SNFITSIO_FLT(isn, HOSTGALz->VARNAME_VAL, HOSTGALz->VAL_LIST,
+			      &SNFITSIO_READINDX_HEAD[j]);
+
+  // abort if NZ0 and NZ1 are not the same
+  check_NZ_HOSTGALz_snfitsio(MXBIN, NZ0, NZ1, 
+			     HOSTGALz->VARNAME_Z, HOSTGALz->VARNAME_VAL, fnam);
+  
+  if ( HOSTGALz->USE_VAL2 ) {
+    j++ ; NZ2 = RD_SNFITSIO_FLT(isn, HOSTGALz->VARNAME_VAL2, HOSTGALz->VAL2_LIST,
+				&SNFITSIO_READINDX_HEAD[j]);
+
+    // abort if NZ0 and NZ2 are not the same
+    check_NZ_HOSTGALz_snfitsio(MXBIN, NZ0, NZ2, 
+			       HOSTGALz->VARNAME_Z, HOSTGALz->VARNAME_VAL2, fnam);
+  }
+
+  
+  // set NZ to number of non-negative Z_LIST values so that it works 
+  // reading FITS file and also for OVERRIDE; pad -9 values are ignored.
+  HOSTGALz->NZ = NZ_HOSTGALz(MXBIN, HOSTGALz->Z_LIST);
+
+  int LDMP = ( strcmp(SNDATA.CCID,"3488709") == 0 );
+  if ( LDMP ) { dump_SNDATA_HOSTGALz(HOSTGALz, igal, fnam); }
+  
+  *jcol = j;
+  return NZ0;
+
+} // end RD_SNFITSIO_HOSTGALz
 
 
 int rd_snfitsio_str__(int *isn, char *parName, char *parString, int *iptr) {

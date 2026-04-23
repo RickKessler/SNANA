@@ -129,7 +129,7 @@
 #define HOSTLIB_VARNAME_SQRADIUS     "sqradius"
 #define HOSTLIB_SUFFIX_MAGOBS        "_obs"     // key = [filt]$SUFFIX
 #define HOSTLIB_SUFFIX_MAGOBS_ERR    "_obs_err"     // key = [filt]$SUFFIX
-#define HOSTLIB_PREFIX_ZPHOT_Q       PREFIX_ZPHOT_Q // see sndata.h
+// xxx mark #define HOSTLIB_PREFIX_ZPHOT_Q       PREFIX_ZPHOT_Q // see sndata.h
 #define HOSTLIB_VARNAME_A_DLR        "a_DLR" // use this to measure DLR
 #define HOSTLIB_VARNAME_B_DLR        "b_DLR"
 #define HOSTLIB_VARNAME_WEAKLENS_DMU  "WEAKLENS_DMU" // Kevin Wang June 2022
@@ -230,8 +230,9 @@ struct HOSTLIB_DEF {
   int FRAME_ZTRUE;    // = FRAME_ZTRUE_HEL(default) or FRAME_ZTRUE_CMB
   int IVAR_ZPHOT ;
   int IVAR_ZPHOT_ERR  ;
-  int IVAR_ZPHOT_Q0; // index of first ZPHOT_Q (not necessarily 0th quantile)
-  int NZPHOT_Q;
+  int IVAR_Q0ZPHOT; // index of first ZPHOT_Q (not necessarily 0th quantile)
+  // xxx mark   int NZPHOT_Q;
+  int NQZPHOT;
   int IVAR_VPEC ;
   int IVAR_VPEC_ERR  ;
 
@@ -265,8 +266,15 @@ struct HOSTLIB_DEF {
   int NFILT_MAGOBS;  // NFILT with host mag info read
 
   char filterList[MXFILTINDX]; // filter list for gal-mag
+
+  /* xxxx mark delete xxxxx
   char VARNAME_ZPHOT_Q[MXBIN_ZPHOTEFF][12];
   int  PERCENTILE_ZPHOT_Q[MXBIN_ZPHOTEFF]; // list of percentiles
+  xxxxxx end mark */
+
+  char   VARNAME_QZPHOT[MXBIN_HOSTGALz_QUANTILE][20];
+  // xxx mark  double PERCENTILE_QZPHOT[MXBIN_HOSTGALz_QUANTILE]; // list of percentiles
+
   double SIGMA_QGAUSS[MXBIN_ZPHOTEFF];   // for forced Gauss quantiles
 
   // redshift information
@@ -492,7 +500,9 @@ typedef struct {
   HOSTGAL_PROPERTY_VALUE_DEF *HOSTGAL_PROPERTY_VALUE ;
   double MAG[MXFILTINDX]; 
   double MAG_ERR[MXFILTINDX];
-  double ZPHOT_Q[MXBIN_ZPHOT_Q];
+  double QZPHOT[MXBIN_HOSTGALz_QUANTILE];
+  double QPERCENTILE[MXBIN_HOSTGALz_QUANTILE]; // Apr 20 2026
+
   bool   TRUE_MATCH ;
   
   // Added GALID2 for LSST but maybe of more general utility; A Gagliano 09/2021
@@ -525,7 +535,7 @@ struct SNHOSTGAL {
   double ZDIF ;      // zSN(orig) - zGAL, Nov 2015
   double ZRATIO;     // zSN(orig)/zGAL July 2023
   double ZPHOT, ZPHOT_ERR ;     // photoZ of host
-  double ZPHOT_Q[MXBIN_ZPHOT_Q];
+  double QZPHOT[MXBIN_HOSTGALz_QUANTILE];
   double ZSPEC, ZSPEC_ERR ;     // = zSN or z of wrong host
   double VPEC,  VPEC_ERR  ;     // peculiar velocity
 
@@ -671,7 +681,7 @@ void   load_SNHOST_GENLC_COORDS(void);
 void   TRANSFER_SNHOST_REDSHIFT(int IGAL);
 void   GEN_SNHOST_GALMAG(int IGAL);
 void   GEN_SNHOST_ZPHOT(int IGAL);
-double GEN_SNHOST_ZPHOT_QUANTILE(int IGAL, int q);
+double GEN_SNHOST_QUANTILE_ZPHOT(int IGAL, int q);
 void   GEN_SNHOST_VPEC(int IGAL);
 void   GEN_SNHOST_WEAKLENS_DMU(int IGAL);
 void   GEN_SNHOST_STRONGLENS(void);
@@ -741,7 +751,7 @@ void   zptr_HOSTLIB(void);
 double transform_ZTRUE_HOSTLIB(int igal); 
 
 void   init_HOSTLIB_ZPHOTEFF(void);
-void   init_HOSTLIB_ZPHOT_QUANTILE(void);
+void   init_HOSTLIB_QUANTILE_ZPHOT(void);
 void   init_GALMAG_HOSTLIB(void);
 void   init_Gauss2d_Overlap(void);
 void   init_SAMEHOST(void);

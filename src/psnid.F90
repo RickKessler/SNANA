@@ -235,6 +235,7 @@
 ! -------------------------------------
 
     USE SNPAR
+    USE CTRLCOM
     USE PSNIDCOM
     USE SNCUTS
     USE SNLCINP_NML
@@ -540,7 +541,6 @@
        FLUXDATA8(NOBS) = DBLE( SNLC_FLUXCAL(ep) )
        FLUXERR8(NOBS)  = DBLE ( SNLC_FLUXCAL_ERRTOT(ep) )
        FLUXSIM8(NOBS)  = DBLE ( SIM_EPFLUXCAL(ep) )  ! Jan 2020
-!          XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
 
        IFILTLIST_PSNID(NOBS) = IFILTINV_PSNID(IFILT_OBS)
 
@@ -1051,7 +1051,7 @@
 ! then pass them to C function.
 ! 
 ! Feb 25 2020: pass DEBUG_FLAG to C code.
-
+! Apr 23 2026: pass ZP_FLUXCAL as first inpu
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -1069,6 +1069,9 @@
 ! ---------------- BEGIN -----------
 
     NVAR = 0
+
+    NVAR = NVAR + 1
+    INPUT_ARRAY(NVAR) = ZP_FLUXCAL  ! Apr 2026
 
 ! start with &SNLCINP values
     NVAR = NVAR + 1

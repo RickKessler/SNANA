@@ -38,6 +38,8 @@
 
  Oct 23 2020: call init_HzFUN_INFO
 
+ Apr 23 2026: update to use ZP_FLUXCAL read from data file header.
+
 ========================================= */
 
 
@@ -69,7 +71,7 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
 
   // Receive input values, then strip them off and load
   // PSNID_INPUTS structure in psnid_tools.h.
-
+  //
   int ivar, i, NWD, iwd, OPT, iter, VBOSE ;
   double dval, cosPar[10] ;
   char *ptrtok, cwd[60][200] ;
@@ -80,6 +82,11 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
   // ------------- BEGIN -----------
 
   ivar = -1 ;
+
+  // Apr 23 2026: load global ZP_FLUXCAL first since it can be either 27.5 or 31.4
+  //   This is NOT an NML parameter, but passed from data header.
+  ivar++ ; dval = input_array[ivar];
+  PSNID_INPUTS.ZP_FLUXCAL = dval ;
 
   // load &SNLCINP doubles
   ivar++ ; dval = input_array[ivar];
@@ -1392,11 +1399,12 @@ void psnid_pogson2fluxcal(double mag, double mage,
   //   - fix fluxcale calc with mage -> mage * .921
   //
   // Aug 28, 2014: for undefined model set flux=fluxe = 0 (instead of -9)
-  //
+  // Apr 23, 2026: replace hard-wired ZP=27.5 with PSNID_INPUTS.ZP_FLUXCAL
 
   int    LMAG, LERR, ibin ;
   double arg;
-  double ZEROPOINT_FLUXCAL = 27.5 ;
+  double ZP_FLUXCAL = PSNID_INPUTS.ZP_FLUXCAL ;
+  // xxx mark   double ZEROPOINT_FLUXCAL = 27.5 ;
 
   LMAG = (mag  <= PSNID_GOODMAG_HI    && mag  >= PSNID_GOODMAG_LO    ) ;
   LERR = (mage <= PSNID_GOODMAGERR_HI && mage >= PSNID_GOODMAGERR_LO ) ;
@@ -1405,7 +1413,7 @@ void psnid_pogson2fluxcal(double mag, double mage,
 
     if ( SIZEOF_PSNID_FLUXCAL_LOOKUP == 0 ) {
       // exact calculation 
-      arg        = mag - ZEROPOINT_FLUXCAL ;
+      arg        = mag - ZP_FLUXCAL ;
       *fluxcal   = pow(10.0,-0.4*arg);
     }
     else {

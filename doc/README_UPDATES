@@ -23664,7 +23664,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for +HOSTNBR option, fix dumb bug from Feb 23 fix (speedup ok)
        bug added here  https://github.com/RickKessler/SNANA/issues/1615
        and fixed here  https://github.com/RickKessler/SNANA/issues/1636
-
+     + in aappend_HOSTLIB_STOREPAR(), skip WGTMAP check if HOSTLIB_GALID_FORCE>0;
+        this fixes spurious abort using HOSTLIB_GALID_FORCE.
 
    sntools_output.cpp
      + change void SNTABLE_AUTOSTORE_READ to int function that returns

@@ -772,7 +772,7 @@ void   strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
 bool   QstringMatch(char *varName0, char *varName1);
 
 void   check_duplicate_GALID(void);
-int    IVAR_HOSTLIB_STORE(char *varname, int ABORTFLAG);
+int    IVAR_HOSTLIB_STORE(char *varname, int ABORTFLAG, char *callFun);
 int    IVAR_HOSTLIB_ALL(char *varname, int ABORTFLAG);
 int    IVAR_HOSTLIB_PREFIX(char *prefix, int ABORTFLAG);
 bool   ISCHAR_HOSTLIB(int IVAR);

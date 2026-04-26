@@ -4953,40 +4953,40 @@ by providing PEAKMJD-ranges as parenthetical arguments.
 \subsubsection{Generating Host Galaxy Photometric Redshifts}
 \label{sss:quantiles}
 
-Photometric redshifts are read from the {\tt HOSTLIB}.
+There are two ways to specify photometric redshifts:
+(1) \hostlib\ described here, or (2) define a \verb|HEADER_OVERRIDE| file 
+as described in \S~\ref{subsec:data_override}.
 The $\Zphot$ values are not used in the simulation for calculations,
 but are simply written to the data files for analysis.
-There are two ways to provide photo-z information into the {\tt HOSTLIB}.
-First, provide {\tt ZPHOT} and {\tt ZPHOTERR} columns.
-The second method is to provide 11 quantile redshift columns 
-corresponding to integrated (CDF) probabilities of 
-0, 10\%, 20\%, ... 100\%:
+There are two ways to provide photo-z information into the \hostlib.
+The first method is to provide {\tt ZPHOT} and {\tt ZPHOTERR} columns.
+The second method is to provide quantile redshift columns 
+corresponding to integrated (CDF) probabilities. The \hostlib\ columns are
 \begin{verbatim}
+    QZPHOT00 QZPHOT01 QZPHOT02 ... QZPHOTnn  # nn+1 quantiles
+
+    #or legacy columns fixed to 11 quantiles:
     ZPHOT_Q000  ZPHOT_Q010   ZPHOT_Q020   ZPHOT_Q030 ... ZPHOT_Q100
 \end{verbatim}
-One or both methods may be provided in the same {\tt HOSTLIB}.
-A more general framework for arbitrary quantiles may be developed in the
-future. 
-The corresponding output data variables are
+One or both methods may be provided in the same \hostlib.
+The quantile percentages are internally computed with a percent grid-size 
+of 100/nn; for nn=10, the percent grid size is 10\%.
+The corresponding output data variables are {\tt HOSTGALz} vectors
+%
 \begin{verbatim} 
-    HOSTGAL_ZPHOT_Q000  HOSTGAL_ZPHOT_Q010   
-    HOSTGAL_ZPHOT_Q020  HOSTGAL_ZPHOT_Q030 ... HOSTGAL_ZPHOT_Q100 
-    NZPHOT_Q
+    HOSTGALz_QUANTILE_NZ
+    HOSTGALz_QUANTILE_ZPHOT
+    HOSTGALz_QUANTILE_PERCENT
 \end{verbatim}
 %
-where {\tt NZPHOT\_Q=11}.
+where \verb|HOSTGALz_QUANTILE_NZ = nn+1|, and is internally determined as the
+number of {\tt QZPHOTnn} columns.
 
 To select photo-$z$ in the light curve fitting program,
-set {\&FITINP} namelist variable {\tt OPT\_PHOTOZ=4}
-(\S\ref{subsec:photoz}). To override photo-$z$ information
-in the data files (real or sim), 
-see (\S\ref{sss:header_override}).
-Note that quantile overrides are unique because they can
-be appended even if the original data files do not have
-quantile data.
+set {\&FITINP} namelist variable \verb|OPT_PHOTOZ|
+as described in \S\ref{subsec:photoz}. 
 
 % ------------------------------------
-\clearpage
 \subsubsection{Compute Synthetic \hostlib\ Magnitudes ({\tt +HOSTMAGS})}
 \label{sss:hostlib_synmag}
 % ------------------------------------
@@ -8663,7 +8663,7 @@ Photo-$z$ priors are described in \S\ref{subsec:photoz},
 and a brief description of the other {\tt \&FITINP}
 namelist prior options are given below.
 %
-\begin{itemize}  % .xyz
+\begin{itemize}  
   \item \verb|PRIOR_MJDSIG|:
     sigma on Gaussian prior for MJD at peak brightness.
     Default is 20 days.
@@ -10527,16 +10527,16 @@ and these {\tt USERTAG} indices appear in output table files.
 \label{subsec:data_override}
 
 
-\subsubsection{Over-Riding Header Information: {\tt HEADER\_OVERRIDE\_FILE} }
+\subsubsection{Over-Riding Header Information: \texttt{HEADER\_OVERRIDE\_FILE} }
 \label{sss:header_override}
 
 For \snana\ analysis programs 
 ({\tt snana.exe}, {\tt snlc\_fit.exe}, {\tt psnid.exe}),
-here we describe how to over-ride header information in the
-data files without re-making the data files.
+header information in the data files can be over-written for analysis,
+without re-making the data files.
 This feature is useful to study the impact of data changes
-without altering a released
-data set. Beware that this feature is intended only for internal 
+without altering a released data set. 
+Beware that this feature is intended only for internal 
 use by analysis teams,
 and should not be part of a publicly released data set;
 see Sec.~\ref{sss:new_data_files} on updating data files with 
@@ -10575,15 +10575,40 @@ The first column name can be either {\tt CID} or {\tt SNID}.
 The second example illustrates a comma-separated list of override table files;
 beware that the variables in each override file must be unique (except for CID).
 
+%\label{sss:quantiles}
+
 Data-override variables must exist in the original data file,
 with the exception of photo-$z$ quantiles (\S\ref{sss:quantiles}).
 Quantiles can be overwritten if they already exist in the
-original data files, 
-or appended if the original data files
-do not include quantile information. For quantile overrides using
-\verb|HOSTGAL_ZPHOT_Qppp| (where {\tt ppp=000, 010, ... 100}), 
-make sure to also include an \verb|NZPHOT_Q| column with each value set to 11.
-
+original data files, or appended if the original data files
+do not include quantile information. Quantile overrides can be specified
+in two distinct formats. The first format is using the same {\tt QZPHOTnn}
+column names as in the \hostlib\ (\S\ref{sss:header_override_dir}),
+even though these variables names do not appear in the data files:
+\begin{verbatim}
+  VARNAMES:  GALID  QZPHOT00 QZPHOT01 ... QZPHOTnn ANOTHTER_VAR ANOTHER_VAR2 ...
+\end{verbatim}
+While this {\hostlib}-style format {\it implicitly} defines equal-prob spacing of the
+percentiles, {\it explicit} (non-uniform) percentiles can be defined with a second 
+(more verbose) format:
+\clearpage
+\begin{verbatim}
+  VARNAMES:  GALID  HOSTGALz_QUANTILE_ZPHOT  HOSTGALz_QUANTILE_PERCENT
+  GAL: 10307000163519  0.35   0
+  GAL: 10307000163519  0.38   10
+  GAL: 10307000163519  0.41   28
+  GAL: 10307000163519  0.44   35
+  GAL: 10307000163519  0.47   48
+  GAL: 10307000163519  0.50   55
+  GAL: 10307000163519  0.53   62
+  GAL: 10307000163519  0.56   70
+  GAL: 10307000163519  0.59   83
+  GAL: 10307000163519  0.62   91
+  GAL: 10307000163519  0.80   100
+\end{verbatim}
+%
+With the 2nd format option, additional override variables (e.g., {\tt ZPHOT, ZPHOTERR})
+cannot be specified in this file, but a 2nd override file can be used for other variables.
 
 A common  mistake is to accidentally replace data variable names with names in the
 output FITRES tables: unfortunately the variable naming is not consistent.
@@ -10591,7 +10616,6 @@ Such substituion usually results in an abort since no
 valid override variables are found.
 
 
-\clearpage % .xyz
 \subsubsection{Over-Riding Header Information: {\tt HEADER\_OVERRIDE\_DIR} }
 \label{sss:header_override_dir}
 %

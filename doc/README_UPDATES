@@ -23642,6 +23642,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    for each event and each NBR host, and allows aribtrary PERCENT grid as well
    (i.e., PERCENT grid need not be uniform). Second goal is to add HOSTGALz_LOGMASS
    grid that includes ZGRID[iz], VALGRID[iz], ERRGRID[iz].
+   Set REFAC_DATA_FLAG=1, and there is no going back,
 
          *****  USEFUL(v12_01e) *****
 

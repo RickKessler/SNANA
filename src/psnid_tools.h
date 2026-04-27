@@ -156,6 +156,8 @@ struct  PSNID_INPUTS  {
 
   double XTMW_at_AV1[MXFILTINDX] ;  // Galactic extinctoin at AV=1
 
+  double ZP_FLUXCAL;  // Apr 2026
+
 } PSNID_INPUTS ;
 
 

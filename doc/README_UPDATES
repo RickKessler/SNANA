@@ -23642,6 +23642,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    for each event and each NBR host, and allows aribtrary PERCENT grid as well
    (i.e., PERCENT grid need not be uniform). Second goal is to add HOSTGALz_LOGMASS
    grid that includes ZGRID[iz], VALGRID[iz], ERRGRID[iz].
+   Set REFAC_DATA_FLAG=1, and there is no going back,
 
          *****  USEFUL(v12_01e) *****
 
@@ -23664,7 +23665,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + for +HOSTNBR option, fix dumb bug from Feb 23 fix (speedup ok)
        bug added here  https://github.com/RickKessler/SNANA/issues/1615
        and fixed here  https://github.com/RickKessler/SNANA/issues/1636
-
+     + in aappend_HOSTLIB_STOREPAR(), skip WGTMAP check if HOSTLIB_GALID_FORCE>0;
+        this fixes spurious abort using HOSTLIB_GALID_FORCE.
 
    sntools_output.cpp
      + change void SNTABLE_AUTOSTORE_READ to int function that returns
@@ -23708,9 +23710,54 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    sntools_genPDF.c: abort if any varname has SIM_ prefix
 
+   psnid_tools.c
+     + update to use ZP_FLUXCAL from data header (no longer hard-coded tp 27.5)
+
    TO-DO LIST:
-     + increase MXCHAR_CCID for big LSST object IDs:  snana.F90, sndata.h 
+     + increase MXCHAR_CCID->32 for big LSST object IDs:  snana.F90, sndata.h 
+   Reminder To-DO next tag:
      - MXHOSTGAL                 = 2 --> 3
      - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4
+
+
+# =============================================================
+         v12_01f (Apr 26 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01f) *****
+
+     - MXHOSTGAL                 = 2 --> 3
+     - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4 (nJY)
+
+         *****  USEFUL(v12_01f) *****
+
+         *****  MISCELLANEOUS(v12_01f) *****
+
+
+   switching ZEROPOINT_FLUXCAL_DEFAULT resulted in a few small regression failures
+   in LCFITs from very slight changes in FLUXCAL:
+
+    TASK013_SIMFIT_SALT2_DES_ZPHOT5_SNonly  :
+        ==> REF:  ZPHOT-1227 = 0.3757 +- .0146(stat)
+        ==> TEST: ZPHOT-1227 = 0.3757 +- .0025(stat)
+   
+    TASK023_SIMFIT_ROMAN_ZPHOT       
+        ==> REF:  zPHOT-4 = 1.2712 +/- 0.3038E-01(P)
+        ==> TEST: zPHOT-4 = 1.2745 +/- 0.1996E-01(P)
+
+    TASK041_SIMFIT_NON1ASED_DES 
+        ==> REF:  DLMAG-22 = 41.584 +/- 0.1619
+        ==> TEST: DLMAG-22 = 41.584 +/- 0.1614
+
+   TASK044_SIMFIT_SIMSED_FLASH1    
+       ==> REF:  x0-50008 = 0.68955E-04 +/- 0.2717E-05(P)
+       ==> TEST: x0-50008 = 0.68954E-04 +/- 0.2717E-05(P)   
+
+   TASK120_SCONE_PREDICT_DES3YR_SIM  
+       ==> REF:  scone_predict_des3yr_sim = 1039,0.48471913
+       ==> TEST: scone_predict_des3yr_sim = 1039,0.48609486
+
+   TASK121_SCONE_PREDICT_DES3YR_DATA  
+       ==> REF:  scone_predict_des3yr_data = 1297026,0.48158652
+       ==> TEST: scone_predict_des3yr_data = 1297026,0.48291832
 
 END: 

@@ -332,7 +332,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     for(ivar=1; ivar < NVAR-1; ivar++ )	{ 
       VARNAME = GENPDF[imap].VARNAMES[ivar] ;
       checkAlternateVarNames_HOSTLIB(VARNAME);
-      ivar_hostlib = IVAR_HOSTLIB_STORE(VARNAME,ABORTFLAG);
+      ivar_hostlib = IVAR_HOSTLIB_STORE(VARNAME,ABORTFLAG, fnam);
       if ( ivar_hostlib >= 0 ) {
 	printf("\t Found HOSTLIB IVAR=%2d for VARNAME='%s' (%s) \n",
 	       ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME );

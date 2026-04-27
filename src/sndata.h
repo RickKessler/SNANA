@@ -21,6 +21,8 @@
   Nov 20 2024: defie MXCHAR_FIELDNAME and MXCHAR_FILTNAME
   Apr    2026: add HOSTGALz_DEF, and MXCHAR_CCID = 20 > 32 
 
+  Apr 26 2206: MXHOSTGAL = 2 -> 3 and switch FLUXCAL unit to nJy
+
 *****************************************************/
 
 #define MXEPOCH  60000   // max Nepoch for data & simlib
@@ -37,15 +39,15 @@
 #define MXTYPE    1000    // max TYPE id in data base
 #define MXBRIGHT  20     // max number of bright times (for MJD ranges)
 #define MXVAR_PRIVATE 40 // max number of private variables
-#define MXHOSTGAL      2 // max number of matched hosts to write out
+#define MXHOSTGAL      3 // max number of matched hosts to write out
 #define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
 // xxx mark #define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100) // xxx legacy
 #define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
 #define ZEROPOINT_FLUXCAL_SNANA_ORIG  27.5
 #define ZEROPOINT_FLUXCAL_nJy         31.4
-#define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_ORIG
-// #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_nJy
+// #define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_SNANA_ORIG
+#define ZEROPOINT_FLUXCAL_DEFAULT     ZEROPOINT_FLUXCAL_nJy  // enabled 4.26 2026
 
 #define WRITE_MASK_LCMERGE       2  // idem to write lcmerge data files.
 #define WRITE_MASK_SIM_SNANA     4  // idem to write SNANA-SIM  

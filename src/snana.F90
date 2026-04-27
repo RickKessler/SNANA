@@ -23,7 +23,7 @@
         ,MXIDFIELD   = 200         &  ! max FIELD ID in SURVEY.DEF
         ,MXFIELD_OVP = 12          &  ! max number of overlapping fields
         ,MXSEASON    = 100         &  ! max number of seasons
-        ,MXSNHOST    = 2           &  ! max number of host matches to read/write
+        ,MXSNHOST    = 3           &  ! max number of host matches to read/write
         ,MXZPHOT_Q   = 20          &  ! max number of zphot quantiles (May 2022) LEGACY
         ,MXVAR_PRIVATE = 40        &  ! max number of private variables
         ,MXCUT_PRIVATE = 10         &  ! max number of cuts on private var

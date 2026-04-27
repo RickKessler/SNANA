@@ -23760,4 +23760,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        ==> REF:  scone_predict_des3yr_data = 1297026,0.48158652
        ==> TEST: scone_predict_des3yr_data = 1297026,0.48291832
 
+xx
+
+# =============================================================
+         v12_01g (Apr 26 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01g) *****
+
+         *****  USEFUL(v12_01g) *****
+
+         *****  MISCELLANEOUS(v12_01g) *****
+
+
+
 END: 

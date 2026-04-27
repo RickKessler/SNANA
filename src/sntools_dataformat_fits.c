@@ -288,7 +288,7 @@ void wr_snfitsio_init_head(void) {
 
   long  NROW = 0 ;
   int itype, ncol, istat, ivar, ipar, iq;
-  int ifilt, ifilt_obs;
+  int ifilt, ifilt_obs, igal;
 
   fitsfile *fp;
 
@@ -360,9 +360,16 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "LENSDMU_ERR",  itype );  // error on above
 
   // ---------- HOST ----------
-  
+ 
+
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH" ,     itype ); 
   wr_snfitsio_addCol( "1I", "HOSTGAL_NMATCH2" ,    itype ); 
+
+  for(igal=0; igal < MXHOSTGAL; igal++ ) { wr_snfitsio_init_host(igal, itype); }
+
+
+
+  /* xxxxxxxxxxxxxx mark delete Apr 26 2026 xxxxxxxxxxxxxxxxxxxxx
 
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID" ,      itype ); 
   wr_snfitsio_addCol( "1I", "HOSTGAL_FLAG" ,       itype ); 
@@ -376,7 +383,7 @@ void wr_snfitsio_init_head(void) {
   wr_snfitsio_addCol( "1E", "HOSTGAL_DDLR" ,       itype );  // Jan 29 2019
   wr_snfitsio_addCol( "1E", "HOSTGAL_CONFUSION" ,  itype );  // Jan 29 2019
 
-  wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL");
+  wr_snfitsio_addCol_HOSTGAL_PROPERTIES("HOSTGAL");
 
   wr_snfitsio_addCol( "1E", "HOSTGAL_ELLIPTICITY", itype );
   wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
@@ -405,17 +412,6 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[0] );
   }
 
-  /* xxxxxx mark delete xxxxxxx
-  else {
-    // legacy
-    for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-      int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-      LOAD_VARNAME_ZPHOT_Q_LEGACY("HOSTGAL", PCT, parName); // return parName
-      wr_snfitsio_addCol( "1E", parName, itype );
-    }
-  }
-  xxxxxxx end mark xxxxxx */
-
   // - - - - - 
   if ( SNFITSIO_HOSTGAL2_FLAG ) {
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID" ,      itype ); 
@@ -429,7 +425,7 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "HOSTGAL2_SNSEP" ,      itype );  
     wr_snfitsio_addCol( "1E", "HOSTGAL2_DDLR" ,       itype ); 
 
-    wr_snfitsio_addCol_HOSTGAL_PROERTIES("HOSTGAL2");
+    wr_snfitsio_addCol_HOSTGAL_PROPERTIES("HOSTGAL2");
 
     wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
     wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
@@ -456,21 +452,12 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[1] );
       wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[1] );
     }
-
-    /* xxxxxxxx mark delete
-    else {
-      // legacy
-      for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-	int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-	LOAD_VARNAME_ZPHOT_Q_LEGACY("HOSTGAL2", PCT, parName); // return parName
-	wr_snfitsio_addCol( "1E", parName, itype );
-      }
-    }
-    xxxxxxx end mark xxxxxxxx */
-
   }  // end of 2nd-HOSTGAL block
 
   // - - - -
+  xxxxxxxxxxxxx end mark xxxxxxxxxxxxxx */
+
+
 
   // HOSTGAL Surface Brightness (SB) under SN
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -703,6 +690,94 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
 } // end of wr_snfitsio_addCol
 
 
+// ========================================
+void wr_snfitsio_init_host(int igal, int itype) {
+
+  // Created Apr 26 2026
+  // define HOSTGAL, HOSTGAL2, HOSTGAL3 columns for igal=0 (nearest) or NBRS (igal>0)
+
+  int ifilt, ifilt_obs;
+  char PREFIX[20], PREFIXz[20], parName[60] ;
+  char fnam[] = "wr_snfitsio_init_host";
+
+  // ------------- BEGIN -----------------
+
+  get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz);
+
+  sprintf(parName,"%s_OBJID", PREFIX);
+  wr_snfitsio_addCol( "1K", parName,       itype ); 
+
+  sprintf(parName,"%s_FLAG", PREFIX);
+  wr_snfitsio_addCol( "1I", parName,        itype ); 
+
+  sprintf(parName,"%s_PHOTOZ", PREFIX);
+  wr_snfitsio_addCol( "1E", parName,     itype );
+
+  sprintf(parName,"%s_PHOTOZ_ERR", PREFIX);
+  wr_snfitsio_addCol( "1E", parName , itype );
+
+  sprintf(parName,"%s_SPECZ", PREFIX);
+  wr_snfitsio_addCol( "1E", parName ,      itype );
+
+  sprintf(parName,"%s_SPECZ_ERR", PREFIX);
+  wr_snfitsio_addCol( "1E", parName ,  itype );
+
+  sprintf(parName,"%s_RA", PREFIX);
+  wr_snfitsio_addCol( "1D", parName ,         itype );  
+
+  sprintf(parName,"%s_DEC", PREFIX);
+  wr_snfitsio_addCol( "1D", parName ,        itype );  
+
+  sprintf(parName,"%s_SNSEP", PREFIX);
+  wr_snfitsio_addCol( "1E", parName ,      itype );  
+
+  sprintf(parName,"%s_DDLR", PREFIX);
+  wr_snfitsio_addCol( "1E", parName ,       itype ); 
+
+  sprintf(parName,"%s_CONFUSION", PREFIX);
+  wr_snfitsio_addCol( "1E", parName ,  itype );  
+
+  wr_snfitsio_addCol_HOSTGAL_PROPERTIES(PREFIX);
+
+  sprintf(parName,"%s_ELLIPTICITY", PREFIX);
+  wr_snfitsio_addCol( "1E", parName, itype );
+
+  sprintf(parName,"%s_OBJID2", PREFIX);  // 2nd name for same host, not 2nd host
+  wr_snfitsio_addCol( "1K", parName,      itype );
+
+  sprintf(parName,"%s_SQRADIUS", PREFIX);
+  wr_snfitsio_addCol( "1E", parName,    itype );
+
+  // add if-block later if possible; to avoid writing garbage for most sims
+  sprintf(parName,"%s_OBJID_UNIQUE", PREFIX);
+  wr_snfitsio_addCol( "1K", parName,  itype );
+
+  // add HOSTGAL mags 
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+    sprintf(parName,"%s_MAG_%c", PREFIX, FILTERSTRING[ifilt_obs] );
+    wr_snfitsio_addCol( "1E", parName, itype );
+  }
+  
+  // add HOSTGAL mag-errors (Feb 2019)
+  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
+    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
+    sprintf(parName,"%s_MAGERR_%c", PREFIX, FILTERSTRING[ifilt_obs] );
+    wr_snfitsio_addCol( "1E", parName, itype );
+  }
+
+  // add zPHOT quantiles
+  if ( REFAC_DATA_FLAG > 0 ) {
+    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, 
+				&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal] );
+    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, 
+				&SNDATA.HOSTGALz_LOGMASS[igal] );
+  }
+
+
+  return;
+} // end wr_snfitsio_init_host
+
 void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ) {
 
   // Created Aug 4 2023
@@ -726,7 +801,7 @@ void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ) {
 } // end wr_snfitsio_addCol_filters
 
 // =============================
-void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL ) {
+void wr_snfitsio_addCol_HOSTGAL_PROPERTIES(char *PREFIX_HOSTGAL ) {
 
   // Created Apr 24 2022
   // Call wr_snfitsio_addCol for each host PROPERTY and its uncertainty;
@@ -738,7 +813,7 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL ) {
   int itype = ITYPE_SNFITSIO_HEAD;
   int i;
   char KEY[80], KEY_ERR[80], PROPERTY[40] ;
-  char fnam[] = "wr_snfitsio_addCol_HOSTGAL_PROERTIES"; 
+  char fnam[] = "wr_snfitsio_addCol_HOSTGAL_PROPERTIES"; 
 
   int N_PROP = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, 
 				 HOSTGAL_PROPERTY_NAME_LIST, fnam);
@@ -746,18 +821,18 @@ void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *PREFIX_HOSTGAL ) {
   // -------------- BEGIN ------------
 
   for(i=0; i < N_PROP; i++ ) {
-    get_PARSE_WORD(0,i,PROPERTY, fnam );
+    get_PARSE_WORD(0, i, PROPERTY, fnam );
     sprintf(KEY,     "%s_%s",     PREFIX_HOSTGAL, PROPERTY);
     sprintf(KEY_ERR, "%s_%s_ERR", PREFIX_HOSTGAL, PROPERTY);
 
-    //    printf(" xxx addCol(%s, %s)\n", KEY, KEY_ERR);  fflush(stdout);
     wr_snfitsio_addCol( "1E", KEY ,     itype ); 
     wr_snfitsio_addCol( "1E", KEY_ERR , itype ); 
   }
 
   return;
 
-} // end wr_snfitsio_addCol_HOSTGAL_PROERTIES
+} // end wr_snfitsio_addCol_HOSTGAL_PROPERTIES
+
 
 void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz ) {
 

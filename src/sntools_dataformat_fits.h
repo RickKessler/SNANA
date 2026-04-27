@@ -242,12 +242,14 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp);
 void wr_snfitsio_SET_SUBSURVEY_FLAG(void);
 
 void wr_snfitsio_init_head(void);
+void wr_snfitsio_init_host(int igal, int itype);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
+
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
 
 void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ); 
-void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix);
+void wr_snfitsio_addCol_HOSTGAL_PROPERTIES(char *prefix);
 void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz );
 void check_NZ_HOSTGALz_snfitsio(int MXBIN, int NZ0, int NZ1, 
 				char *VARNAME0, char *VARNAME1, char *callFun);

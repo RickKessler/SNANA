@@ -23719,4 +23719,45 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      - MXHOSTGAL                 = 2 --> 3
      - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4
 
+
+# =============================================================
+         v12_01f (Apr 26 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01f) *****
+
+     - MXHOSTGAL                 = 2 --> 3
+     - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4 (nJY)
+
+         *****  USEFUL(v12_01f) *****
+
+         *****  MISCELLANEOUS(v12_01f) *****
+
+
+   switching ZEROPOINT_FLUXCAL_DEFAULT resulted in a few small regression failures
+   in LCFITs from very slight changes in FLUXCAL:
+
+    TASK013_SIMFIT_SALT2_DES_ZPHOT5_SNonly  :
+        ==> REF:  ZPHOT-1227 = 0.3757 +- .0146(stat)
+        ==> TEST: ZPHOT-1227 = 0.3757 +- .0025(stat)
+   
+    TASK023_SIMFIT_ROMAN_ZPHOT       
+        ==> REF:  zPHOT-4 = 1.2712 +/- 0.3038E-01(P)
+        ==> TEST: zPHOT-4 = 1.2745 +/- 0.1996E-01(P)
+
+    TASK041_SIMFIT_NON1ASED_DES 
+        ==> REF:  DLMAG-22 = 41.584 +/- 0.1619
+        ==> TEST: DLMAG-22 = 41.584 +/- 0.1614
+
+   TASK044_SIMFIT_SIMSED_FLASH1    
+       ==> REF:  x0-50008 = 0.68955E-04 +/- 0.2717E-05(P)
+       ==> TEST: x0-50008 = 0.68954E-04 +/- 0.2717E-05(P)   
+
+   TASK120_SCONE_PREDICT_DES3YR_SIM  
+       ==> REF:  scone_predict_des3yr_sim = 1039,0.48471913
+       ==> TEST: scone_predict_des3yr_sim = 1039,0.48609486
+
+   TASK121_SCONE_PREDICT_DES3YR_DATA  
+       ==> REF:  scone_predict_des3yr_data = 1297026,0.48158652
+       ==> TEST: scone_predict_des3yr_data = 1297026,0.48291832
+
 END: 

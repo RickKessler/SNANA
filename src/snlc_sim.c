@@ -25616,7 +25616,7 @@ void MWEBVfluxCor_to_SNDATA(int epoch) {
   double ratio_MWEBV, FLUXERR_ADD, arg;
 
   double   MAG_T  = SNDATA.SIM_TEMPLATEMAG[ifilt_obs] ;
-  double   FLUX_T = pow(10.0, 0.4*(27.5-MAG_T) ); 
+  double   FLUX_T = pow(10.0, 0.4*(INPUTS.ZP_FLUXCAL-MAG_T) ); 
   int LDMP = (MAG_T < 12 && ifilt_obs == -3);
   char fnam[] = "MWEBVfluxCor_to_SNDATA" ;
 

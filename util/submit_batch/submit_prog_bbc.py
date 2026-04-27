@@ -897,9 +897,11 @@ class BBC(Program):
                 self.replace_fitopt_simfile(fitopt_num_outlist, KEY_SIMFILE_BIASCOR)
         replace_fitopt_simfile_ccprior_dict = \
                 self.replace_fitopt_simfile(fitopt_num_outlist, KEY_SIMFILE_CCPRIOR)
+
         #print(f"\n xxx replace_fitopt_simfile_biascor_dict \n{replace_fitopt_simfile_biascor_dict} \n")
         #print(f"\n xxx replace_fitopt_simfile_ccprior_dict \n{replace_fitopt_simfile_ccprior_dict} \n")
         #sys.exit(f"\n xxx map = {fitopt_num_outlist} \n") #RCC
+
         self.config_prep['replace_fitopt_simfile_biascor_dict'] = replace_fitopt_simfile_biascor_dict
         self.config_prep['replace_fitopt_simfile_ccprior_dict'] = replace_fitopt_simfile_ccprior_dict
 
@@ -916,11 +918,12 @@ class BBC(Program):
         # th FITOPT yaml input for pippin, but the label is assumed to always be
         # the same.
 
-        replace_dict = {}  # init output
+
+        replace_dict = {}
 
         CONFIG        = self.config_yaml['CONFIG']
-        simfile_dict  = CONFIG.setdefault(keyname_simfile,None) 
-        if not simfile_dict: return replace_dict
+        simfile_dict  = CONFIG.setdefault(keyname_simfile, [] ) 
+        # xxx if not simfile_dict: return replace_dict
 
         FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST'] 
         n_replace = 0
@@ -928,6 +931,7 @@ class BBC(Program):
         for row in FITOPT_OUT_LIST:
             fitopt_num = row[0]
             label      = row[2]
+            replace_dict[fitopt_num] = None
             msgerr = [' ', f'Check {keyname_simfile} for {fitopt_num} / {label} file', ' ' ] 
             #print(f"\t xxx {fitopt_num} -> {label}")
             if label in simfile_dict:

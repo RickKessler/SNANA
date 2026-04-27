@@ -27174,7 +27174,7 @@
 
     INTEGER  & 
          IPAR, IVARBL, i, IFLAG, NARG  & 
-        ,NPARI, NPARX, ISTAT
+        ,NPARI, NPARX, ISTAT, LV
 
     DOUBLE PRECISION  & 
          FIXLIST(NFITPAR)  & 
@@ -27227,8 +27227,9 @@
 
        IF ( IERR .NE. 0 ) THEN
 	    IERR = ERRFLAG_MNFIT_INITPAR
-          WRITE (6,'(A,A10,A)') '  ERROR initializing ',  & 
-                  PARNAME(ipar), '  with MNPARM '
+            LV   = INDEX(PARNAME(ipar),' ') - 1
+            WRITE (6,46) PARNAME(ipar)(1:LV), INIBND(1,IPAR), INIBND(2,IPAR)
+46          FORMAT(T3,'MNPARM ERROR initializing ', A, 3x, 'INIBND=',2F10.3 )
           RETURN
        ENDIF
 

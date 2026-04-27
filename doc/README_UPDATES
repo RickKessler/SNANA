@@ -23775,6 +23775,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_01g) *****
 
-
+    snlc_sim.c:
+       + for "DNDZ: FLAT" set z range in parse_input_RATEPAR() 
+         to avoid abort.
 
 END: 

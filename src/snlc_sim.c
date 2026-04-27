@@ -2852,6 +2852,8 @@ int parse_input_RATEPAR(char **WORDS, int keySource, char *WHAT,
     else if ( strcmp(RATEPAR->NAME,"FLAT") == 0 ) {
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_FLAT ;
       RATEPAR->NMODEL_ZRANGE = 1 ;
+      RATEPAR->MODEL_ZRANGE[iz_tmp][0]  =  0.0 ;         
+      RATEPAR->MODEL_ZRANGE[iz_tmp][1]  =  ZMAX_SNANA ;  
     }
     else if ( strcmp(RATEPAR->NAME,"COSBPOLY") == 0 ) {
       RATEPAR->INDEX_MODEL   = INDEX_RATEMODEL_COSBPOLY ;
@@ -16892,7 +16894,7 @@ double gen_peakmjd(void) {
 
   bool VALID_PKMJD = false;
   while ( !VALID_PKMJD ) {
-    PKMJD = getRan_Flat (1, GENPKMJD ); // .xyz
+    PKMJD = getRan_Flat (1, GENPKMJD ); 
     VALID_PKMJD = true;
     if ( CHECK_PKMJD_EXCLUDE ) {
       if ( PKMJD > GENPKMJD_EXCLUDE[0] && PKMJD < GENPKMJD_EXCLUDE[1] ) { VALID_PKMJD = false; }
@@ -17843,7 +17845,8 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
 
   // abort if we cannot find the z-dependent rate params.
   if ( FOUND_iz != 1 ) {
-    sprintf(c1err,"Found %d sets of rate params for z=%f", FOUND_iz, z);
+    sprintf(c1err,"Found %d sets of rate params for DNDZ=%s and z=%f", 
+	    FOUND_iz, RATEPAR->NAME, z); //.xyz
     sprintf(c2err,"Check DNDZ key(s) in sim-input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }

@@ -23733,6 +23733,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  MISCELLANEOUS(v12_01f) *****
 
 
+   Collatoral damage from ZP_FLUXCAL change:
+     psnid: fixed hard-wired 27.5 to use ZP_FLUXCAL
+     scone: need to fix one hard-wired 27.5
+     SuperNNova: need to ask Anais about ZP change
+
+
    switching ZEROPOINT_FLUXCAL_DEFAULT resulted in a few small regression failures
    in LCFITs from very slight changes in FLUXCAL:
 
@@ -23759,8 +23765,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    TASK121_SCONE_PREDICT_DES3YR_DATA  
        ==> REF:  scone_predict_des3yr_data = 1297026,0.48158652
        ==> TEST: scone_predict_des3yr_data = 1297026,0.48291832
-
-xx
 
 # =============================================================
          v12_01g (Apr 26 2026) <--- start date of git tag

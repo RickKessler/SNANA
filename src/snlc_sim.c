@@ -12590,20 +12590,50 @@ void gen_event_driver(int ilc) {
   to mimic real data, or they are generated randomly.
 
 
+gen_event_driver:
+   -> gen_peakmjd
+   -> gen_redshift_cmb
+   -> SIMLIB_READ_DRIVER
+   -> gen_redshift_helio # needs RA,DEC from SIMLIB
+   -> gen_distanceMag
+   -> if NOT HOST_COORDS: gen_MWEBV
+   -> gen_zHOST
+   -> if SNPAR in HOSTLIB: gen_modelPar(REST-FRAME) [rarely used/obsolete?]
+   -> GEN_SNHOST_DRIVER
+   -> if no SNPAR in HOSTLIB: gen_modelPar(REST-FRAME)
+   -> gen_modelPar(OBS-FRAME)
+   -> gen_modelPar_dust
+        if DUST2DUST:
+            -> gen_RV
+            -> gen_AV
+   -> if SN par in HOSTLIB: override_modelPar_from_SNHOST
+   -> gen_zsmear
+   -> gen_lensDMU_smear
+     ->  getRan_genPDF
 
-  Apr 14 2016: move gen_shapepar() in here [from main] so that
-               all generated quantities are before SIMLIB_read().
+  - - - - -
+  gen_modelPar:
+     if DO SHAPE & REST-FRAME:
+        -> get_zvariation_GENGAUSS
+        -> getRan_genPDF(shape only)
 
-  Jun 11 2016: 
-    call override_SNPARVAL_from_SNHOST() to ensure that all 
-    HOSTLIB parameters are read before overriding.
-    Fixes bug where HOSTLIB x1 & c were applied from previous event.
+     if SALT2 MODEL
+        -> gen_modelPar_SALT2
+              if REST-FRAME:
+                 SALT2c:     get_zvariation_GENGAUSS or getRan_genPDF
+                 SALT2ALPHA: get_zvariation_GENGAUSS or getRan_genPDF
+                 SALT2BETA:  get_zvariation_GENGAUSS or getRan_genPDF
 
-  Mar 1 2017: allow call to gen_AV for SIMSED model.
+              if OBS-FRAME:
+                 -> SALT2x0calc
 
-  Jul 19 2017: set GENLC.GENMAG_OFF_GLOBAL
+     if NON1ASED:
+         -> pick_NON1ASED
 
-  Oct 18 2017: compute and store GENLC.epoch_obs_range
+
+   - - - - - - - - - - -
+
+       HISTORY
 
   Jan 6 2018: refactor so that MU is computed after SIMLIB_READ,
               and has the zHEL dependence.

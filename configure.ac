@@ -49,11 +49,19 @@ AC_MSG_CHECKING([whether python3-config supports --embed])
 python_embed_test=$(${PYTHON_CONFIG} --ldflags --embed 2>/dev/null)
 AS_IF([test $? -eq 0 && test -n "$python_embed_test"],
   [AC_MSG_RESULT([yes])
-   PYTHON_LIBS=$(${PYTHON_CONFIG} --ldflags --embed)],
+   PYTHON_LIBS_RAW=$(${PYTHON_CONFIG} --ldflags --embed)],
   [AC_MSG_RESULT([no])
-   PYTHON_LIBS=$(${PYTHON_CONFIG} --ldflags)]
+   PYTHON_LIBS_RAW=$(${PYTHON_CONFIG} --ldflags)]
 )
 
+# Filter out config-* directories to avoid static libpython*.a 
+# This prevents LTO bytecode version mismatches on older Python builds (< 3.8)
+# and doesn't hurt newer versions which use shared libraries by default
+PYTHON_LIBS=$(echo "$PYTHON_LIBS_RAW" | sed 's|-L[[^ ]]*config[[^ ]]*||g')
+
+# Always add rpath for runtime shared library location
+PYTHON_LIB_DIR=$(${PYTHON_CONFIG} --prefix)/lib
+PYTHON_LIBS="$PYTHON_LIBS -Wl,-rpath,$PYTHON_LIB_DIR"
 
 AC_SUBST([PYTHON_LIBS])
 

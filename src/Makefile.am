@@ -19,6 +19,7 @@ if BIT64
 MYFCFLAGS = -fno-automatic -m64 -fsecond-underscore $(EXTRA_FLAGS) 
 MYLDFLAGS = -m64 $(PROFILEFLAG)
 MYCFLAGS = -m64 $(EXTRA_FLAGS) -fcommon
+MYCXXFLAGS = -m64 $(EXTRA_FLAGS) -fcommon
 else
 # doubt we'll ever need 32 bit, but just in case will likely need to hack this
 MYFCLAGS = -c -static -fno-automatic -fsecond-underscore $(EXTRA_FLAGS)
@@ -36,6 +37,7 @@ endif
 
 AM_FCFLAGS = $(MYFCFLAGS)
 AM_CFLAGS = $(MYCFLAGS)
+AM_CXXFLAGS = $(MYCXXFLAGS)
 AM_LDFLAGS = $(MYLDFLAGS)
 
 # tack on flag to provide git version to C/fortran codes

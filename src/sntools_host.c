@@ -925,48 +925,32 @@ void append_HOSTLIB_STOREPAR(void) {
   // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that all of the 
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.
 
-  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
+  // xxx mark   int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
 
-  if ( REFAC_SEARCHEFF ) {    
-    char **VARNAMES_RAW;
-    char *ptrFile[2] = 
-      { INPUTS_SEARCHEFF.USER_SPEC_FILE, INPUTS_SEARCHEFF.USER_zHOST_FILE } ;
-    char SEARCHEFF_FILE_STRING[2][40] = { "SEARCHEFF_SPEC_FILE", "SEARCHEFF_zHOST_FILE" } ;
+  char **VARNAMES_RAW;
+  char *ptrFile[2] = 
+    { INPUTS_SEARCHEFF.USER_SPEC_FILE, INPUTS_SEARCHEFF.USER_zHOST_FILE } ;
+  char SEARCHEFF_FILE_STRING[2][40] = 
+    { "SEARCHEFF_SPEC_FILE", "SEARCHEFF_zHOST_FILE" } ;
 
-    fmem = malloc_strlist(+1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_RAW );
+  fmem = malloc_strlist(+1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_RAW );
 
-    // - - - start with SPECID file
-    for(i=0; i < 2; i++ ) {
-      read_searcheff_raw_varnames(ptrFile[i], &OPEN_STATUS, &NVAR_RAW, VARNAMES_RAW) ;
-
-      for(ivar=0; ivar < NVAR_RAW; ivar++ )  { 
-	ptrVarName = VARNAMES_RAW[ivar] ;      
-	IVAR_HLIB = IVAR_HOSTLIB_ALL(ptrVarName, 0 );
-	if ( IVAR_HLIB > 0 ) {
-	  printf("\t append HOSTLIB_STOREPAR with %s from %s\n",
-		 ptrVarName, SEARCHEFF_FILE_STRING[i] ); fflush(stdout);
-	  catVarList_with_comma(STOREPAR, VARNAMES_RAW[ivar]); 
-	}
-      } // end ivar loop over seracheff variables
-    } // end i loop over SEARCHEFF files
-
-    fmem = malloc_strlist(-1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_RAW );
-
-  }
-  else {
-    // legacy mode, 
-    fp = open_zHOST_FILE(0);
-    if ( fp != NULL ) { 
-      read_VARNAMES_zHOST_LEGACY(fp); fclose(fp);
-      NVAR_RAW = SEARCHEFF_zHOST[0].NVAR ; // Jun 12 2020
-      for(ivar=0; ivar < NVAR_RAW; ivar++ ) {
-	ptrVarName = SEARCHEFF_zHOST[0].VARNAMES_HOSTLIB[ivar];
-	printf("\t append HOSTLIB_STOREPAR with %s from SEARCHEFF_zHOST_FILE\n",
-	       ptrVarName); fflush(stdout);
-	catVarList_with_comma(STOREPAR,ptrVarName);
-      } // end ivar
-    }
-  }  // end REFAC_SEARCHEFF
+  // - - - start with SPECID file
+  for(i=0; i < 2; i++ ) {
+    read_searcheff_raw_varnames(ptrFile[i], &OPEN_STATUS, &NVAR_RAW, VARNAMES_RAW) ;
+    
+    for(ivar=0; ivar < NVAR_RAW; ivar++ )  { 
+      ptrVarName = VARNAMES_RAW[ivar] ;      
+      IVAR_HLIB = IVAR_HOSTLIB_ALL(ptrVarName, 0 );
+      if ( IVAR_HLIB > 0 ) {
+	printf("\t append HOSTLIB_STOREPAR with %s from %s\n",
+	       ptrVarName, SEARCHEFF_FILE_STRING[i] ); fflush(stdout);
+	catVarList_with_comma(STOREPAR, VARNAMES_RAW[ivar]); 
+      }
+    } // end ivar loop over seracheff variables
+  } // end i loop over SEARCHEFF files
+  
+  fmem = malloc_strlist(-1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_RAW );
 
   
   // - - - - - - - 
@@ -8458,7 +8442,7 @@ void GEN_SNHOST_NBR(int IGAL) {
 	// if true host is not detected, 
 	// set the true unsorted index to -9
 	if ( SNHOSTGAL.IMATCH_TRUE_UNSORT == i ) 
-	  { SNHOSTGAL.IMATCH_TRUE_UNSORT = -9 ; }	
+	  { SNHOSTGAL.IMATCH_TRUE_UNSORT = -9 ; }  
       }
     }
     SNHOSTGAL.NNBR_ALL = NNBR_DETECT ;
@@ -8861,6 +8845,8 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 // ==============================
 void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
 
+  char fnam[] = "reset_SNHOSTGAL_DDLR_SORT";
+  // ---------- BEGIN ------------
   SNHOSTGAL.NNBR_ALL = 0;
   SNHOSTGAL.NNBR_DDLRCUT = SNHOSTGAL.NNBR_DDLRCUT2 = 0;
 
@@ -8889,7 +8875,24 @@ void reset_SNHOSTGAL_DDLR_SORT(int MAXNBR) {
 
   SNHOSTGAL.IMATCH_TRUE_SORT = -9 ;   // May 31 2021
 
+  // temp_print_debug_match(fnam);
+  
+  return ;
+
 } // end reset_SNHOSTGAL_DDLR_SORT
+
+
+//void temp_print_debug_match(char *callFun);
+void temp_print_debug_match(char *callFun) {
+
+  if ( GENLC.CID==11 || GENLC.CID ==35 ) {
+    printf(" xxx %s: CID=%d   IMATCH_TRUE_[SORT,UNSORT] -> %d, %d \n", 
+	   callFun, GENLC.CID, 
+	   SNHOSTGAL.IMATCH_TRUE_SORT, SNHOSTGAL.IMATCH_TRUE_UNSORT); 
+    fflush(stdout);
+  }
+
+} // end temp_print_debug_match
 
 // =======================================================
 void SIMLIB_SNHOST_POS(int IGAL, SERSIC_DEF *SERSIC, int DEBUG_MODE) {
@@ -8994,7 +8997,7 @@ void SORT_SNHOST_byDDLR(void) {
 
   bool DOSHIFT_GALCOORDS = ( IVAR_RA>0 && IVAR_DEC>0 &&  !LSN2GAL_RADEC );
   double RAD = RADIAN;
-  int  LDMP = 0 ; // (GENLC.CID == 9 ) ;
+  int  LDMP = 0; // (GENLC.CID == 11 || GENLC.CID == 35 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST];
   int  i, unsort, IGAL, IVAR, IVAR_ERR, ifilt, ifilt_obs, q ,ivar, IVAR_Q;
@@ -9037,8 +9040,11 @@ void SORT_SNHOST_byDDLR(void) {
 
   RA_SN = GENLC.RA;   DEC_SN = GENLC.DEC;   cosDEC_SN  = GENLC.cosDEC ;
 
-  if ( LDMP ) 
-    { printf(" xxx ------------  CID=%d ----------------- \n", GENLC.CID); }
+  if ( LDMP ) { 
+    printf(" xxx ------------  CID=%d  IMATCH_TRUE_SORT=%d ----------------- \n", 
+	   GENLC.CID, SNHOSTGAL.IMATCH_TRUE_SORT ); 
+    temp_print_debug_match(fnam);
+  }
 
   // load info sorted by DDLR
   for(i=0; i < NNBR_ALL; i++ ) {
@@ -9053,12 +9059,23 @@ void SORT_SNHOST_byDDLR(void) {
     // load logical for true host.
     // Jun 17 2022: if true host fails SNR_DETECT cut, it won't be 
     //              in DDLR_SORT 
+
+    //    printf(" xxx %s: CID=%d  IMATCH_TRUE_UNSORT =%d \n", 
+    //	   fnam, GENLC.CID, SNHOSTGAL.IMATCH_TRUE_UNSORT);
+
+    if ( LDMP ) {
+      printf(" xxx %s: i=%d  unsort=%d \n", fnam, i, unsort);
+      temp_print_debug_match(fnam);
+    }
+
     SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = false ;
     if ( unsort == SNHOSTGAL.IMATCH_TRUE_UNSORT ) {
        SNHOSTGAL_DDLR_SORT[i].TRUE_MATCH = true ; 
        SNHOSTGAL.IMATCH_TRUE_SORT = i;
        if ( i != 0 ) { GENLC.CORRECT_HOSTMATCH = false; } // Jan 20 2022
-       if ( LDMP ) { printf("\t xxx %s: IMATCH_TRUE_SORT = %d \n", fnam, i); }
+       if ( LDMP ) 
+	 { printf("\t xxx %s: IMATCH_TRUE_SORT = %d  CORRECT_HOSTMATCH=%d\n", 
+		  fnam, i, GENLC.CORRECT_HOSTMATCH); }
     }
 
     // load global struct
@@ -9120,17 +9137,6 @@ void SORT_SNHOST_byDDLR(void) {
       // compute percentiles for this NBR; percentile bin is recomputed for each event/nbr.
       compute_implicit_percentiles( HOSTLIB.NQZPHOT, NQ_VALID, 
 				    SNHOSTGAL_DDLR_SORT[i].QPERCENTILE ); // <== returned
-
-      /* xxx mark delete 
-      double DNQ_VALID = (double)NQ_VALID ;
-      double qbin      = 100.0/(DNQ_VALID - 1.0);
-      double pct ;
-      for(q=0; q < HOSTLIB.NQZPHOT; q++ ) {
-	pct = q*qbin ;      // 0 to 100
-	if ( q < NQ_VALID ) { pct = q*qbin; }   else { pct = -9.0; }
-	SNHOSTGAL_DDLR_SORT[i].QPERCENTILE[q] = pct; 
-      }
-      xxxxxxx end mark xxxxx */ 
 
     }
 
@@ -9197,15 +9203,15 @@ void SORT_SNHOST_byDDLR(void) {
     if ( LDMP ) { 
       printf("\t xxx %s: i=%d unsort=%d  NNBR_DDLRCUT=%d/%d \n",
 	     fnam, i, unsort, NNBR_DDLRCUT, NNBR_DDLRCUT2);
-      printf("\t xxx %s: DDLR=%6.2f  SEP=%8.1f\n",
+      printf("\t xxx %s:   DDLR=%6.2f  SEP=%8.1f\n",
 	     fnam,SNHOSTGAL_DDLR_SORT[i].DDLR, SNHOSTGAL_DDLR_SORT[i].SNSEP);
 	     // xxx DDLR, SNSEP ); 
-      printf("\t xxx %s: RA_GAL=%f DEC_GAL=%f \n",
+      printf("\t xxx %s:   RA_GAL=%f DEC_GAL=%f \n",
 	     fnam, SNHOSTGAL_DDLR_SORT[i].RA, SNHOSTGAL_DDLR_SORT[i].DEC);
       
       fflush(stdout);      
     }
-  }
+  } // end i loop over NNBR_ALL
 
   // - - - - - - - -
   // if true host fails SNR cut, set CORRECT_HOSTMATCH=F

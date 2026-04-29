@@ -254,8 +254,8 @@ int main(int argc, char **argv) {
     if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID ) 
       { fill_RANLISTs(); }      // init list of random numbers for each SN    
 
-    gen_event_driver(ilc); 
 
+    gen_event_driver(ilc); 
 
     if ( GENLC.STOPGEN_FLAG ) { NGENEV_TOT--;  goto ENDLOOP ; }
     
@@ -1280,9 +1280,12 @@ void set_user_defaults(void) {
   sprintf(INPUTS_SEARCHEFF.USER_PIPELINE_EFF_FILE,    "NONE" ); 
  
   INPUTS_SEARCHEFF.USER_SPECEFF_SCALE  = 1.0 ; // May 2018
+
+  /* xxx mark delete 4.28.2026 xxxxxxxx
   INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO  = 0 ;
   INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 0 ;
   INPUTS_SEARCHEFF.IVERSION_zHOST      = 0 ;
+  xxxxxx end mark */
 
   INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF  = 0.0 ;
   INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF = 0.0 ;
@@ -7940,9 +7943,9 @@ void  prep_GENPDF_FLAT(void) {
   // each variable, and set approproate GENGAUSS params for
   // flat distribution.
   // E.g., GENPDF_FLAT = SALT2x1(-4:4),SALT2c(-0.4:0.6),RV(1:5)
-  //   -> x1 PDF is flat from -4 to +4
-  //   -> c PDF is flat from -0.4 to +0.6
-  //   -> RV PDF is flat from 1 to 5
+  //   -> x1  PDF is flat from -4 to +4
+  //   -> c   PDF is flat from -0.4 to +0.6
+  //   -> RV  PDF is flat from 1 to 5
   //
   // Feb 5 2026: fix bug where only ptrRange[0] was allocated
 
@@ -8023,6 +8026,7 @@ void  prep_GENPDF_FLAT(void) {
       set_GEN_EXPON(TAU_FLAT, RANGE, &INPUTS.GENPROFILE_AV);
     }
     else if ( strcmp(varName,PARNAME_EBV) == 0 ) {
+      printf(" xxx %s: call set_GEN_EXPON \n", fnam); 
       set_GEN_EXPON(TAU_FLAT, RANGE, &INPUTS.GENPROFILE_EBV_HOST);
     }
     else {
@@ -12722,6 +12726,7 @@ gen_event_driver:
 		      &GENLC.CORRECT_HOSTMATCH );
     GENLC.REDSHIFT_HOST       = zHOST ;  // helio frame
 
+
     // Mar 14 2020: move modelPar before GEN_SNHOST so that WGTMAP
     // can depend on SN params (c,x1) without adding c,x1 in HOSTLIB
     if ( HOSTLIB_WGTMAP.N_SNVAR > 0  )
@@ -12858,6 +12863,7 @@ gen_event_driver:
   }
   GENLC.epoch_obs_range[0] = Tobs_min ;  // global range including all bands
   GENLC.epoch_obs_range[1] = Tobs_max ;  // --> needed for LCLIB
+  
 
   return ;
 
@@ -17846,7 +17852,7 @@ double SNrate_model(double z, RATEPAR_DEF *RATEPAR ) {
   // abort if we cannot find the z-dependent rate params.
   if ( FOUND_iz != 1 ) {
     sprintf(c1err,"Found %d sets of rate params for DNDZ=%s and z=%f", 
-	    FOUND_iz, RATEPAR->NAME, z); //.xyz
+	    FOUND_iz, RATEPAR->NAME, z); 
     sprintf(c2err,"Check DNDZ key(s) in sim-input file.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
@@ -24596,7 +24602,9 @@ void gen_spectype(void) {
   // Nov 22 2023: for FIXMAG, hard-wire SNTYPE only if it's not already set.
   // Mar 07 2026: improve logic for !SPECID
 
+  int IFLAG_SPECID_EFFZERO = SEARCHEFF_INFO_SPECID.IFLAG_EFFZERO;
   int L_PHOTID, L_SPECID, ispgen ;
+  bool LDMP = (GENLC.CID==11 || GENLC.CID==35);
   char fnam[] = "gen_spectype" ;
 
   // ---------- BEGIN --------------
@@ -24608,10 +24616,18 @@ void gen_spectype(void) {
 
   L_SPECID = (GENLC.SEARCHEFF_MASK & APPLYMASK_SEARCHEFF_SPECID) > 0;
   L_PHOTID =  ( INPUTS_SEARCHEFF.NMAP_SPECID > 0  && !L_SPECID ) ;
-		// xxx mark del Mar 7 2026  GENLC.SEARCHEFF_MASK  != 3  ) ;
 
-  // un 2018: if user forces EFF_SPEC=0 without a map, then we have PHOTID
-  if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
+  
+  // Jun 2018: if user forces EFF_SPEC=0 without a map, then we have PHOTID
+  if ( IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
+  // xxx mark  if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
+
+  if ( LDMP ) {
+    printf(" xxx %s: CID=%d: IS[SPECID,PHOTID]=%d, %d  "
+	   "NMAP_SPECID=%d  IFLAG_SPECID_EFFZERO=%d\n",
+	   fnam, GENLC.CID, L_SPECID, L_PHOTID, INPUTS_SEARCHEFF.NMAP_SPECID,
+	   IFLAG_SPECID_EFFZERO); fflush(stdout);
+  }
 
   ispgen = GENLC.NON1ASED.ISPARSE ;
   
@@ -24633,7 +24649,7 @@ void gen_spectype(void) {
     GENLC.SNTYPE = INPUTS.GENTYPE_SPEC ; 
   }
 
- 
+  
   if ( L_PHOTID ) {
     // photometric candidate
     GENLC.METHOD_TYPE = METHOD_TYPE_PHOT ;
@@ -24694,7 +24710,7 @@ void  setz_unconfirmed(void) {
   double ZHEL;
 
   int    FOUND_zHOST, m ;
-  int LDMP = 0 ;
+  int LDMP = ( GENLC.CID == 11 || GENLC.CID == 35 ) ;
   char fnam[] = "setz_unconfirmed" ;
 
   // ---------- BEGIN -------------
@@ -27146,11 +27162,7 @@ int gen_TRIGGER_PEAKMAG_SPEC(void) {
   int  DOSPEC = (INPUTS.APPLY_SEARCHEFF_OPT & APPLYMASK_SEARCHEFF_SPECID) ;
   double EFF ;
 
-  int FLAG_PEAKMAG_ONLY;
-  if ( INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP )
-    {  FLAG_PEAKMAG_ONLY = SEARCHEFF_INFO_SPECID.FLAG_PEAKMAG_ONLY ; } // REFAC
-  else
-    {  FLAG_PEAKMAG_ONLY = SEARCHEFF_SPECID_INFO.FLAG_PEAKMAG_ONLY ; } // LEGACY
+  int FLAG_PEAKMAG_ONLY = SEARCHEFF_INFO_SPECID.FLAG_PEAKMAG_ONLY ;
 
   struct {
     int NEPOCH, *IFILT_OBS, *ISPEAK;

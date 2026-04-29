@@ -662,6 +662,9 @@ time_t TIME_INIT_HOSTLIB[2];
 //
 // =====================================
 
+
+void temp_print_debug_match(char *callFun);            
+
 void   INIT_HOSTLIB(void);  // one-time init
 void   print_HOSTLIB_MSKOPT(void);
 

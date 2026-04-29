@@ -121,12 +121,13 @@ struct  {
   char   SPEC_FILE[MXPATHLEN];     
   char   zHOST_FILE[MXPATHLEN] ;   
 
+  /* xxxxxx mark delete 4.28.2026 xxxxxx
   int    IFLAG_zHOST_EFFZERO;      // flag to set EFF_zHOST=0
   int    IFLAG_zHOST_EFFONE;       // flag to set EFF_zHOST=1 (Nov 2024)
   
   int    IFLAG_SPECID_EFFZERO;       // flag to set EFF_SPEC=0
   int    IFLAG_SPECID_EFFONE;        // flag to set EFF_SPEC=1 (Nov 2024)
-  
+  xxxxxxx end mark xxxxx */
   int    IVERSION_zHOST;           // 1=legacy, 2=multi-D
 
   int    APPLY_DETECT_SINGLE;    // check EFF(pipe) on each exposure, not coadd
@@ -376,6 +377,7 @@ void   read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INF
 int    assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 int    assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
 
+
 void   read_searcheff_raw_varnames(char *SEARCHEFF_FILE, int *OPEN_STATUS, int *NVAR_RAW, char **RAW_VARNAMES);
 
 int  readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key);
@@ -389,6 +391,8 @@ int    gen_SEARCHEFF(int ID, double *EFF_SPECID, double *EFF_zHOST,
 int    gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT );
 
 int    gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID);
+int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
+
 int    gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF);
 
 int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);
@@ -416,85 +420,5 @@ int    IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME);
 
 bool   MATCH_SEARCHEFF_FIELD(char *field_map);
 
-
-
-// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-// @@@@@@@@@@@@ LEGACY_DECLARATIONS @@@@@@@@@@@@@@@@@
-// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-int    IFILTOBS_SEARCHEFF_VARNAME(char *VARNAME, char *SUBSTR, int OPT) ;
-double interp_SEARCHEFF_zHOST_LEGACY(void);
-double interp_SEARCHEFF_zHOST(int ID);
-void   check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF);
-
-int    assign_MAP_VARNAME_FILTERS_LEGACY(char *MAPTYPE, int ivar, char *VARNAME, SEARCHEFF_MAP_DEF *MAP) ;
-
-void   read_zHOST_FILE_LEGACY(FILE *fp);
-void   read_zHOST_FILE(FILE *fp);
-void   check_APPLYMASK_SEARCHEFF_LEGACY(char *SURVEY, int APPLYMASK_SEARCHEFF);
-double LOAD_SPECEFF_VAR_LEGACY(int imap, int ivar);
-int    gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID );
-int    gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST );
-
-void   read_VARNAMES_zHOST_LEGACY(FILE *fp);
-int    parse_VARNAMES_zHOST_LEGACY(FILE *fp, int *ivar_HOSTLIB, 
-				   char **varName_HOSTLIB, char *varNameList );
-
-int OPT_FIELDMATCH_REQUIRE_zHOST;  // True -> abort if FIELD is not associated with a map
-struct {
-  int  NVAR ;   // used by init_HOSTLIB
-  char FIELDLIST[100];  // fieldList for each map
-  double PEAKMJD_RANGE[2]; // PEAKMJD range for each map (7/2020)
-  char VARNAMES_HOSTLIB[MXVAR_SEARCHEFF_zHOST][40] ; 
-  int  IVAR_HOSTLIB[MXVAR_SEARCHEFF_zHOST] ; // points to HOSTLIB ivar
-  GRIDMAP_DEF  GRIDMAP ;
-} SEARCHEFF_zHOST[MXMAP_SEARCHEFF_zHOST] ; // legacy
-
-
-struct {
-  char   FIELDLIST[100]; // fieldList for each map
-  int    NROW ;
-  double *REDSHIFT, *EFF;    // malloc for each new map
-} SEARCHEFF_zHOST_LEGACY[MXMAP_SEARCHEFF_zHOST] ;
-
-
-struct {
-  char VARNAMES[MXVAR_SEARCHEFF_SPEC][40] ;
-  int IVAR, IVAR_REDSHIFT, IVAR_PEAKMJD, IVAR_LOGMASS ;
-  int IVAR_DTPEAK, IVAR_DTSEASON_PEAK, IVAR_SALT2mB, IVAR_SALT2x1, IVAR_SALT2c ;
-  int IVAR_SNRSUM_REST_V;
-
-  char FIELDLIST[60] ;
-  int IVARTYPE[MXVAR_SEARCHEFF_SPEC] ;
-
-  int REQUIRE; // 1 -> require this map (logical AND) instead of optional (OR)
-  
-  // ifilt_obs (mag and color) vs. IVAR index
-  int NFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_SPEC];
-  int IFILTLIST_PEAKMAG[MXVAR_SEARCHEFF_SPEC][MXFILTINDX];  
-  int IFILTOBS_PEAKCOLOR[MXVAR_SEARCHEFF_SPEC][2]; 
-  int IFILTOBS_HOSTMAG[MXVAR_SEARCHEFF_SPEC]; 
-  int IFILTOBS_SBMAG[MXVAR_SEARCHEFF_SPEC]; 
-
-  GRIDMAP_DEF GRIDMAP ;
-
-} SEARCHEFF_SPECID_LEGACY[MXMAP_SEARCHEFF_SPECID] ;
-
-
-struct {
-  int   IVARTYPE_MASK ;
-  int   FLAG_PEAKMAG_ONLY ;
-  int   BOOLEAN_OR, BOOLEAN_AND;
-  int   NLINE_README;
-  char  README[40][MXPATHLEN];
-} SEARCHEFF_SPECID_INFO ;
-
-
-void   init_SEARCHEFF_SPECID_LEGACY(char *survey)  ;
-void   init_SEARCHEFF_zHOST_LEGACY(char *survey) ;
-int    gen_SEARCHEFF_SPECID_LEGACY(int ID, double *EFF_SPECID );
-int    gen_SEARCHEFF_zHOST_LEGACY(int ID, double *EFF_zHOST );
-
-void   assign_SPECEFF_LEGACY(int imap, int ivar, char *VARNAME) ;
 
 // ============= END: ===============

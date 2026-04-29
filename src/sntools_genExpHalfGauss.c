@@ -79,12 +79,12 @@ void dump_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *genExp) {
   printf("\t EXP_TAU    = %.4f \n", genExp->EXP_TAU );
   printf("\t RANGE      = %.3f to %.3f \n", genExp->RANGE[0], genExp->RANGE[1]);
 
-  if ( genExp->RATIO > 0.0 ) {
-    printf("\n     Half-Gaussian core: \n");
-    printf("\t RATIO         = %.4f   # Gauss(0)/Expon(0)\n", genExp->RATIO );
-    printf("\t PEAK          = %.4f \n", genExp->PEAK );
-    printf("\t SIGMA         = %.4f \n", genExp->SIGMA );
-  }
+  //  if ( genExp->RATIO > 0.0 ) {
+  printf("\n     Half-Gaussian core: \n");
+  printf("\t RATIO         = %.4f   # Gauss(0)/Expon(0)\n", genExp->RATIO );
+  printf("\t PEAK          = %.4f \n", genExp->PEAK );
+  printf("\t SIGMA         = %.4f \n", genExp->SIGMA );
+    //  }
 
   double prob_expon_rewgt = genExp->PROB_EXPON_REWGT;
   if ( prob_expon_rewgt != 1.0 ) {
@@ -317,6 +317,9 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
     ranval = -9999.0 ;
     while ( ranval < range[0] || ranval > range[1] ) {
       if ( itry > MAXTRY_ABORT ) {
+
+	print_preAbort_banner(fnam);
+	dump_GEN_EXP_HALFGAUSS(gen_EXP_HALFGAUSS) ;
         sprintf(c1err,"Can't find Gauss-%s between %.2f and %.2f",
                 name, range[0], range[1]);
         sprintf(c2err,"after %d tries (sigma=%.2f)\n", itry, sig );

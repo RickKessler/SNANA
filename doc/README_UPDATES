@@ -23778,5 +23778,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c:
        + for "DNDZ: FLAT" set z range in parse_input_RATEPAR() 
          to avoid abort.
+       + fix bug setting IFLAG_SPECID_EFFZERO
+           (left-over bug from recent REFAC_SEARCHEFF)
+
+    sntools_trigger.c[h]
+      + remove legacy functions from recent REFAC_SEARCHEFF.
 
 END: 

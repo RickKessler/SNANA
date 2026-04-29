@@ -217,6 +217,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   bool IS_DOCANA = false, IS_COMMENT=false;
   FILE *fp = LCLIB_INFO.FP;
   char wd0[200], wd1[200], wd2[200], LINE[200], tmpString[200], comment[200] ;
+  char *fg;
   char fnam[] = "read_GLOBAL_HEADER_LCLIB" ;
 
   // -------------- BEGIN ---------------
@@ -260,7 +261,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );      
     }
 
-    fgets(LINE, 200, fp ) ;  NLINE++ ;
+    fg = fgets(LINE, 200, fp ) ;  NLINE++ ; (void)fg;
 
     if ( commentchar(LINE) ) { continue; }
 
@@ -602,7 +603,7 @@ void set_randomStart_LCLIB(void) {
   
   int    IEVT_START, ievt ;
   double XEVT_START ;
-  char   LINE[200];
+  char   LINE[200], *fg ;
   char KEY_SEARCH[] = "END_EVENT:" ;
   //  char fnam[] = "set_randomStart_LCLIB" ;
 
@@ -620,7 +621,7 @@ void set_randomStart_LCLIB(void) {
   ievt=0;
 
   while ( ievt < IEVT_START ) {
-    fgets(LINE, 40, LCLIB_INFO.FP ) ;
+    fg = fgets(LINE, 40, LCLIB_INFO.FP ) ;  (void)fg;
     if ( commentchar(LINE) ) { continue; }
     if ( strstr(LINE,KEY_SEARCH) != NULL )  { ievt++ ; }
   }

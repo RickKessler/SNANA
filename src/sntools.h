@@ -315,7 +315,7 @@ struct {
 typedef struct  {
   int ORDER;       // 2 -> 2nd order -> a + b*x + c*x^2
   double COEFF_RANGE[MXORDER_GENPOLY][2]; // range for each coeff.
-  char   STRING[200]; // string that was parsed to get COEFF_RANGEs
+  char   STRING[160]; // string that was parsed to get COEFF_RANGEs
   char   VARNAME[40]; // optional variable name
 } GENPOLY_DEF ;
 

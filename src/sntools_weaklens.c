@@ -102,11 +102,12 @@ void init_lensDMU(void) {
   double *z_TMP1D    = (double*) malloc( MEMD * NROW_TOT );
   double *dmu_TMP1D  = (double*) malloc( MEMD * NROW_TOT );
   double *Prob_TMP1D = (double*) malloc( MEMD * NROW_TOT );
+  char *fg;
 
   NROW_TABLE = 0;
   for(irow=0; irow < NROW_TOT; irow++ ) {
 
-    fgets(tmpLine, MXPATHLEN, FPMAP);
+    fg = fgets(tmpLine, MXPATHLEN, FPMAP); (void)fg;
     if ( commentchar(tmpLine) ) { continue ; }
 
     if ( !DOCANA_END ) { 

@@ -582,7 +582,7 @@ void SIMLIB_open_read(void) {
   // Jan 7 2021: use snana_open to allow reading gzipped SIMLIB.
 
   char cline[MXPATHLEN], c_get[MXPATHLEN], c_tmp[MXPATHLEN];
-  char clast[MXPATHLEN], key[MXPATHLEN];
+  char clast[MXPATHLEN], key[MXPATHLEN], *fg;
   char fullName[MXPATHLEN] ;
 
   bool FOUND_COMMENT = false, FOUND_DOCANA = false, FOUND_FILTERS=false ;
@@ -619,7 +619,7 @@ void SIMLIB_open_read(void) {
 
   while( READHEAD > 0 ) {
 
-    fgets(cline, 80, fp_simlib_input) ;
+    fg = fgets(cline, 80, fp_simlib_input) ;  (void)fg;
     printf(" Found header line: %s", cline );     fflush(stdout);
 
     sprintf( HEADER[NLINE_HEADER], "%s", cline );

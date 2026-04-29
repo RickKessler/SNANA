@@ -109,8 +109,8 @@
 
 // ===============================================
 void SNTABLE_DEBUG_DUMP(char *fnam, int idump) {
-  printf(" xxx DEBUG_DUMP(%s , %d): SNLCPAK_USE[ROOT]=%d/%d \n",
-	 fnam, idump, SNLCPAK_USE_ROOT);
+  printf(" xxx DEBUG_DUMP(%s , %d): SNLCPAK_USE_[TEXT,ROOT]=%d/%d \n",
+	 fnam, idump, SNLCPAK_USE_TEXT, SNLCPAK_USE_ROOT);
   fflush(stdout);
 } // end of   void SNTABLE_DEBUG_DUMP
 void sntable_debug_dump__(char *fnam, int *idump) 
@@ -129,7 +129,7 @@ void TABLEFILE_INIT(void) {
   int o,t ;
   char *s ;
   char U[] = "UNKNOWN" ;
-  char fnam[] = "TABLEFILE_INIT" ;
+  //  char fnam[] = "TABLEFILE_INIT" ;
 
   // -------------- BEGIN --------------
 
@@ -261,7 +261,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   // Jul 13 2020: declare *ENV and *FMT (used if HBOOK is NOT defined)
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
-  char *ptrtok, local_STRINGOPT[80], ctmp[20], *FMT, ENV[200] ;
+  char *ptrtok, local_STRINGOPT[80], ctmp[20];
   char fnam[] = "TABLEFILE_OPEN" ;
 
   // ---------------------- BEGIN ---------------------
@@ -416,6 +416,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
 #ifndef USE_ROOT
   if ( TYPE_FLAG == IFILETYPE_ROOT ) {
+    char *FMT, ENV[200] ;
     FMT = STRING_TABLEFILE_TYPE[TYPE_FLAG];  // "ROOT"
     sprintf(ENV,"ROOT_DIR");                 // required ENV for make
     TABLEFILE_notCompiled_ABORT(FILENAME, FMT, ENV);  
@@ -563,7 +564,7 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
   // *IDTABLE and *NAME are integer and character udentifiers.
   // TEXT_FORMAT used only for TEXT: 'key', 'csv', 'col'
   
-  int  ID, USE ; 
+  int  USE ; 
   char fnam[] = "SNTABLE_CREATE" ;
 
   // -------- BEGIN ----------
@@ -574,8 +575,6 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
     TABLEFILE_notOpen_ABORT(fnam, comment );
   }
 
-  ID = IDTABLE ; // local ID has a real address
-
   NVAR_ADDCOL_TOT = 0; // Mar 28 2016
 
 #ifdef USE_MARZ
@@ -584,9 +583,6 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
     { SNTABLE_CREATE_MARZ(IDTABLE,NAME);  return; } 
 #endif
   
-
-  // xxx mark   if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
-
 #ifdef USE_ROOT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ; 
   if ( USE ) { SNTABLE_CREATE_ROOT(IDTABLE,NAME);  }
@@ -669,7 +665,7 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
   // of the vector. However, 'NFIT' is a string giving the name
   // of the array-size for each SN.
 
-  int USE, ivar, LDMP=0 ;
+  int USE, LDMP=0 ;
   SNTABLE_ADDCOL_VARDEF ADDCOL_VARDEF ;  
   char fnam[] = "SNTABLE_ADDCOL" ;
   // ---------------- BEGIN --------------
@@ -853,9 +849,11 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
   ADDCOL_VARDEF->NVAR = NVAR ;
   
   if ( NVAR <=0 ) {
-    sprintf(MSGERR1, "NVAR=0 for VARLIST = '%s' ", 
-	    ADDCOL_VARDEF->VARLIST_ORIG );
-    sprintf(MSGERR2, "Last valid VARLIST = '%s'", ADDCOL_VARLIST_LAST);
+    print_preAbort_banner(fnam);
+    printf("  Last valid VARLIST = \n\t '%s' \n", ADDCOL_VARLIST_LAST);
+    printf("  VARLIST(orig) = \n\t '%s' \n", ADDCOL_VARDEF->VARLIST_ORIG);
+    sprintf(MSGERR1, "NVAR=0 for VARLIST(orig); see above. ");
+    sprintf(MSGERR2, "See last valid VARLIST above");
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
   }
 
@@ -1050,7 +1048,7 @@ int SNTABLE_READPREP(int IFILETYPE, char *TABLENAME) {
 
   char fnam[] = "SNTABLE_READPREP" ;
   int  NVAR, ISOPEN_DEJA, ivar ;
-  char msg[200], TBNAME_LOCAL[40] ;
+  char msg[180], TBNAME_LOCAL[40] ;
   // --------------- BEGIN --------------
 
   sprintf(msg,"read VARLIST from table = %s", TABLENAME);
@@ -1673,8 +1671,7 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   sprintf(msg,"Dump Table = '%s'", TABLENAME);
   TABLEFILE_INIT_VERIFY(fnam, msg) ;
 
-
-  int ivar, ICAST, NVAR_TOT, NC=0, IFILETYPE, MXLEN=0 ;
+  int ivar, ICAST,  NC=0, IFILETYPE, NVAR_TOT, MXLEN=0 ;
   int    VBOSE = 3 ; // 1-->print each var; 2--> abort in missing var
   double DDUMMY ;
   char   CDUMMY[80], *ptrVar, varName_NPT[20];
@@ -1682,7 +1679,10 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
 
   
   IFILETYPE = TABLEFILE_OPEN(FILENAME, stringOpt); // open file to read
-  NVAR_TOT  = SNTABLE_READPREP(IFILETYPE,TABLENAME); // read varList
+  (void)IFILETYPE;
+
+  NVAR_TOT  = SNTABLE_READPREP(IFILETYPE,TABLENAME);
+  (void)NVAR_TOT ;
 
   // Oct 2019: 
   //   Abort if OUTLIER flag is set but NPTFIT isn't defined in table.
@@ -1707,7 +1707,7 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
     ptrVar = VARLIST[ivar] ;
 
     ICAST = ICAST_for_textVar(ptrVar);
-
+  
     if ( ICAST == ICAST_C ) {
       SNTABLE_READPREP_VARDEF(ptrVar, CDUMMY, MXLEN, VBOSE); 
       NC++ ;
@@ -1800,6 +1800,7 @@ int  SNTABLE_DUMP_OUTLIERS(char *FILENAME, char *TABLENAME,
       if ( strcmp(VARLIST[ivar],simVar) == 0 ) 
 	{ OUTLIER_INFO.IVAR[indx_store] = ivar;  match = true; }
 
+      (void)match;
       /* xxx
       if ( match ) {
 	printf(" xxx %s: varname = %s  indx_store=%d -> ivar=%d\n", 
@@ -1931,7 +1932,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   bool APPEND_FLAG, ABORT_FLAG;
   int  IFILETYPE, NF, ICAST, UNIQUE ;
   int  NVAR_USR, ivar, NROW, i, indx ;
-  char *ptrtok, *tmpVar, varName_withCast[MXCHAR_VARNAME];
+  char *ptrtok, *tmpVar, varName_withCast[MXCHAR_VARNAME+20];
   char *varList_table, *varList_table_ptrtok;
   char varName[MXCHAR_VARNAME] ;
   char readOpt[] = "read";
@@ -2233,7 +2234,7 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST) {
   // Jan 2025: return *ICAST to allow for double and chars
 
   int ivar, ifile, ivar_tot, NVAR_USR ;
-  char *varName_autostore;
+  char *varName_autostore, *CCAST ;
   bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
   // ------- BEGIN ---------
 
@@ -2243,9 +2244,10 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST) {
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
       varName_autostore = SNTABLE_AUTOSTORE[ifile].VARNAME[ivar];
       *ICAST            = SNTABLE_AUTOSTORE[ifile].ICAST_READ[ivar];
+      CCAST             = &CCAST_TABLEVAR[*ICAST]; 
       if ( PRINT_LIST ) {
 	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s  (CAST=%s) \n", 
-	       ifile, ivar, varName_autostore, CCAST_TABLEVAR[*ICAST] );
+	       ifile, ivar, varName_autostore, CCAST);
 	fflush(stdout);
       }
       if ( strcmp(varName_autostore,varName)==0 ) {
@@ -2273,7 +2275,7 @@ int NVAR_MATCH_AUTOSTORE(char *varString, char *varList) {
   int NVAR_MATCH = 0 ;
   int ivar, ifile, NVAR_USR ;
   char *varName_autostore ;
-  char fnam[] = "NVAR_MATCH_AUTOSTORE" ;
+  //  char fnam[] = "NVAR_MATCH_AUTOSTORE" ;
 
   // ----------- BEGIN ------------
 
@@ -2381,7 +2383,7 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   
   int NROW_MATCH = 0;  
   int IVAR_READ, IFILE_READ, ivar, i, irow ;
-  int NVAR_USR, NROW_TOT, ICAST, LENCCID, IROW[2] ;
+  int NVAR_USR, NROW_TOT, ICAST, IROW[2] ;
   char *tmpCCID, *tmpVar;
   int  LDMP = 0; // ( strstr(VARNAME,"ZPHOT") != NULL  && strcmp(CCID,"2200713027")==0 )  ;
   char fnam[] = "SNTABLE_AUTOSTORE_READ" ;
@@ -2418,7 +2420,6 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 
   ICAST    = SNTABLE_AUTOSTORE[IFILE_READ].ICAST_READ[IVAR_READ] ;    
   NROW_TOT = SNTABLE_AUTOSTORE[IFILE_READ].NROW ; // total number of rows read
-  LENCCID  = strlen(CCID);
 
   // if IFILE and CCID are the same as last time, 
   // skip slow check of all CCIDs
@@ -2514,8 +2515,8 @@ void SNTABLE_VARNAMES(char *FILENAME, char *VARNAMES) {
   // CID/GALID.
   // Beware: works only for TEXT format
 
-  int  ISOPEN_DEJA, ISTYPE_ROOT, ISTYPE_TEXT ;
-  char fnam[] = "SNTABLE_VARNAMES";
+  int  ISOPEN_DEJA, ISTYPE_TEXT ;
+  //  char fnam[] = "SNTABLE_VARNAMES";
 
   // ------- BEGIN ---------
 
@@ -2548,7 +2549,6 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   // Oct 13 2014: add call to SNTABLE_NEVT_TEXT(FILENAME)
   //
 
-  int  ID ;
   int  ISOPEN_DEJA, ISTYPE_ROOT, ISTYPE_TEXT ;
   int  NEVT = 0 ;
   char msg[80] ;
@@ -2777,7 +2777,7 @@ void CDTOPDIR_OUTPUT(int VBOSE) {
   // Nov 2023: pass VBOSE flag to print what it's doing.
 
   int  NEW ;
-  char fnam[] = "CDTOPDIR_OUTPUT" ;
+  //  char fnam[] = "CDTOPDIR_OUTPUT" ;
 
   if ( NOPEN_TABLEFILE == 0 ) { return ; }
 
@@ -2897,8 +2897,8 @@ void SNLCPAK_CLEAR_PLOT(void) {
   // Called after filling each subdir;
   // clear SNLCPAK counters to prepare for next SUBDIR.
   
-  int  iflag, ifilt, NOBS, i ;
-  char fnam[] = "SNLCPAK_CLEAR_PLOT" ;
+  int  iflag, ifilt, i ;
+  //  char fnam[] = "SNLCPAK_CLEAR_PLOT" ;
 
   // init counters
   SNLCPAK_OUTPUT.MXTEXT   = MXTEXT_SNLCPAK ;
@@ -2906,7 +2906,7 @@ void SNLCPAK_CLEAR_PLOT(void) {
   SNLCPAK_OUTPUT.NOBS_MAX = 0 ;
 
   for ( iflag=0; iflag < MXFLAG_SNLCPAK_EPOCH; iflag++ )  {   
-    NOBS = SNLCPAK_OUTPUT.NOBS[iflag] ;
+    // xxx mark     NOBS = SNLCPAK_OUTPUT.NOBS[iflag] ;
     //    if ( NOBS == 0 ) { continue ; }
 
     SNLCPAK_OUTPUT.NOBS[iflag] = 0 ;   
@@ -3167,8 +3167,12 @@ void SNLCPAK_FILL_PREP() {
     sprintf(cfilt,"%c", SURVEY_FILTERS[IFILT] );
     if ( USE ) { 
       NFILT++ ; 
+      strcat(SNLCPAK_OUTPUT.FILTLIST_PLOT, cfilt); 
+
+      /* xxx mark delete 4.28.2026 xxxx
       sprintf(SNLCPAK_OUTPUT.FILTLIST_PLOT,"%s%s",
 	      SNLCPAK_OUTPUT.FILTLIST_PLOT, cfilt) ;
+      xxxxxxxx end mark */
 
       if ( IFMIN < 0 ) { IFMIN = IFILT ; }
       IFMAX = IFILT ;

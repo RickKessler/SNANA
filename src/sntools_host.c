@@ -1472,7 +1472,7 @@ int read_VARNAMES_WGTMAP_LEGACY(char *VARLIST_WGTMAP) {
 
     if ( strcmp(c_get,KEY_VARNAMES) == 0 ) {
       STOP_READ = true ;
-      fgets(LINE, MXCHAR, fp);
+      char *fg = fgets(LINE, MXCHAR, fp);  (void)fg;
       NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam);
      
       for(ivar=0; ivar < NWD; ivar++ ) {
@@ -2456,7 +2456,8 @@ void read_head_HOSTLIB(FILE *fp) {
     sprintf(key, "%s", "VARNAMES:") ;
     if ( strcmp(c_get,key) == 0 ) {
 
-      fgets(LINE,MXCHAR,fp);  NCHAR = strlen(LINE);
+      char *fg = fgets(LINE,MXCHAR,fp);  (void)fg;
+      NCHAR = strlen(LINE);
 
       if (NCHAR >= MXCHAR-5 ) {
 	print_preAbort_banner(fnam);
@@ -2824,430 +2825,6 @@ void prep_head_HOSTLIB(void) {
   return ;
 
 } // end prep_head_HOSTLIB
-
-/* xxxxxxxx mark delete xxxxxxx
-
-// ============================================
-void read_head_HOSTLIB_LEGACY(FILE *fp) {
-
-  // Mar 6, 2011
-  // read HOSTLIB header keys 
-  // -  NVAR: %d
-  // -  VARNMAES: <NVAR names>
-  // -  NVAR_WGTMAP: %d
-  // -  VARNAMES_WGTMAP:  <NVAR_WGTMAP names>
-  // -  WGT: %f %f ... repeated NVAR_WGTMAP+2 times
-  //
-
-  // Mar 15 2019: ignore NVAR key, and parse entire line after VARNAMES
-  // Mar 28 2019: use MXCHAR_LINE_HOSTLIB
-  // Nov 11 2019: set HOSTLIB.IVAR_NBR_LIST
-  // May 23 2020: 
-  //   + read option VPEC_ERR
-  //   + add error checking based on MSKOPT
-  //
-  // Jun 09 2021: use match_varname_HOSTLIB to apply logic for
-  //              case-sensitive matching.
-  //
-  // Aug 31 2022: restore CHECK_DUPLICATE_COLUMNS=T
-  //
-  int MXCHAR    = MXCHAR_LINE_HOSTLIB ;
-  bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
-  bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
-  bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
-  bool CHECK_DUPLICATE_COLUMNS = true; 
-  int  LEN_PREFIX_ZPHOT_Q = strlen(HOSTLIB_PREFIX_ZPHOT_Q);
-
-  int ivar, ivar_map, IVAR_STORE, i, N, NVAR, NVAR_WGTMAP, FOUND_SNPAR;
-  int MATCH, NVAR_STORE_SNPAR, USE, IS_SNPAR, VBOSE ;
-  int ivar2, NDUPL;
-  bool FOUND_VARNAMES, FOUND_VPECERR;
-  int NCHAR;
-  char  key[40], c_get[200], c_var[100], ctmp[80], wd[20], *cptr, *cptr2 ;
-  char *basename;
-  char  LINE[MXCHAR_LINE_HOSTLIB];
-  char  fnam[] = "read_head_HOSTLIB_LEGACY" ;
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-  // ------------- BEGIN ---------
-
-  printf("\t @@@ LEGACY @@@ %s \n", fnam); fflush(stdout);
-
-  NVAR = NVAR_WGTMAP = 0 ;
-  FOUND_VARNAMES     = false ;  // change to 1 after reading
-  FOUND_VPECERR      = false ;
-  VBOSE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_VERBOSE );
-  NVAR_STORE_SNPAR = 0 ;
-  HOSTLIB.FIX_VPEC_ERR = -9.0 ;
-
-    
-  while( (fscanf(fp, "%s", c_get)) != EOF) {
-
-    // stop reading when first GAL: key is reached.
-    if ( strcmp(c_get,"GAL:") == 0 )  {
-      // rewind doesn't work for gzip file
-
-      fseek(fp,-4,SEEK_CUR); //rewind to before 1st GAL key
-      goto VARCHECK ; 
-    }
-
-    if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(INPUTS.HOSTLIB_FILE); }
-
-    sprintf(key, "%s", "VARNAMES:") ;
-    if ( strcmp(c_get,key) == 0 ) {
-
-      fgets(LINE,MXCHAR,fp);  NCHAR = strlen(LINE);
-
-      if (NCHAR >= MXCHAR-5 ) {
-	print_preAbort_banner(fnam);
-	printf(" LINE = '%s'  (LEN=%d) \n", LINE, NCHAR );
-	sprintf(c1err,"LINE likely exceeds bound of %d", MXCHAR);
-	sprintf(c2err,"Shorten VARNAMES LINE, "
-		"or increase MXCHAR_LINE_HOSTLIB");
-        errmsg(SEV_FATAL, 0, fnam, c1err,c2err); 
-      }
-
-      // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-      NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam); 
-      HOSTLIB.NVAR_ALL = NVAR;
-      if ( NVAR < HOSTLIB.NVAR_REQUIRED || NVAR > MXVAR_HOSTLIB ) {
-        sprintf(c1err, "NVAR= %d  is invalid (MXVAR_HOSTLIB=%d)",
-                NVAR, MXVAR_HOSTLIB );
-	sprintf(c2err, "NVAR must be between %d and %d",
-		HOSTLIB.NVAR_REQUIRED, MXVAR_HOSTLIB );
-        errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
-      }
-
-      FOUND_VARNAMES = true ; 
-
-      // parse the VARNAMES from LINE string
-      for ( ivar=0; ivar < NVAR; ivar++ ) {
-	get_PARSE_WORD(0,ivar,c_var, fnam);
-	sprintf( HOSTLIB.VARNAME_ORIG[ivar], "%s", c_var); // 9.16.2021
-
-	checkAlternateVarNames_HOSTLIB(c_var);
-
-	// if coeff_template[nn], make sure it's actually needed
-	checkVarName_specTemplate(c_var);
-
-	// load ALL array
-	sprintf( HOSTLIB.VARNAME_ALL[ivar], "%s", c_var);
-
-	// @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-	// check for duplicate columns (9.16.2021)  
-	// E.g., ZERR and ZPHOTERR are both converted to ZPHOT_ERR.
-	if ( CHECK_DUPLICATE_COLUMNS ) {
-	  for(ivar2=0; ivar2 < ivar; ivar2++ ) {
-	    cptr2 = HOSTLIB.VARNAME_ALL[ivar2];
-	    if ( strcmp(c_var,cptr2) == 0 ) {
-	      sprintf(c1err,"Found two '%s' columns at ivar=%d and %d", 
-		      c_var, ivar2, ivar );
-	      sprintf(c2err,"Original column names are %s and %s",
-		      HOSTLIB.VARNAME_ORIG[ivar2],
-		      HOSTLIB.VARNAME_ORIG[ivar] );
-	      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-	    }
-	  }
-	} // end CHECK_DUPLICATE_COLUMNS
-
-	// check for optional variables to add to the store list
-	for ( i=0; i < HOSTLIB.NVAR_OPTIONAL; i++ ) {
-	  cptr = HOSTLIB.VARNAME_OPTIONAL[i];
-
-	  if( match_varname_HOSTLIB(c_var,cptr)  ) {
-	    N = HOSTLIB.NVAR_STORE ;  // global var index (required+optional)
-	    sprintf(HOSTLIB.VARNAME_STORE[N],"%s", c_var );
-	    if ( HOSTLIB.IS_SNPAR_OPTIONAL[i] ) { 
-	      HOSTLIB.FOUND_SNPAR_OPTIONAL[i] = 1 ;
-	      NVAR_STORE_SNPAR++ ; 
-	      HOSTLIB.IS_SNPAR_STORE[N] = 1 ; // index is for all variables
-	    }
-
-	    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-            if ( strstr(c_var,HOSTLIB_PREFIX_ZPHOT_Q) != NULL ) {
-	      int   percentile, N_Q = HOSTLIB.NZPHOT_Q;
-	      char *VARNAME = HOSTLIB.VARNAME_ZPHOT_Q[N_Q];
-	      sscanf(&c_var[LEN_PREFIX_ZPHOT_Q], "%d", &percentile);   
-
-	      // HOSTLIB ZPHOT_Qnn may not include pad zeros, but output
-	      // VARNAME must include pad zeros.
-	      sprintf(VARNAME, "%s%3.3d", HOSTLIB_PREFIX_ZPHOT_Q, percentile);
-	      HOSTLIB.PERCENTILE_ZPHOT_Q[N_Q] = percentile ;
-              HOSTLIB.NZPHOT_Q++ ;
-            }
-
-	    HOSTLIB.NVAR_STORE++ ;   
-	  }
-	}   // i       
-
-      }  // end ivar loop
-
-    } // end of VARNAMES
-
-    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-    // - - - - - 
-    // look for fixed Sersic index 'n#_Sersic' outside of VARNAMES list
-    if ( FOUND_VARNAMES ) 
-      { parse_Sersic_n_fixed(fp,c_get); }
-
-
-    // check for fixed VPEC_ERR or VPECERR
-    if ( DO_VPEC && !FOUND_VPECERR ) {
-      if ( strcmp(c_get,"VPEC_ERR:") == 0 || strcmp(c_get,"VPECERR:")==0 ) {
-	FOUND_VPECERR = true ;
-	readdouble(fp, 1, &HOSTLIB.FIX_VPEC_ERR);
-      }
-    }
-
-  } // end of while-fscanf 
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  // -----------------------------
-
- VARCHECK:  // note there is NO more file-reading below
-
-  //-----------------------
-  // sanity check on optioanl SNPARams
-  USE = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
-  FOUND_SNPAR = ( NVAR_STORE_SNPAR>0  ) ;
-
-  if ( USE && FOUND_SNPAR == 0 ) {
-    sprintf(c1err, "Found zero SN params for HOSTLIB_MSKOPT(%d) & %d option.",
-	    INPUTS.HOSTLIB_MSKOPT, HOSTLIB_MSKOPT_USESNPAR );
-    sprintf(c2err, "Expected 1 or more of '%s'", 
-	    HOSTLIB.VARSTRING_SNPAR) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  // make sure the required header was read
-  if ( HOSTLIB.NVAR_ALL <= 0 ) {
-    sprintf(c1err,"Could not find 'NVAR:' and/or 'VARNAMES:' keys.");
-    sprintf(c2err,"Check HOSTLIB file.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  // make sure that each VARNAME_STORE maps onto
-  // a real VARNAME_ALL, and store which 'ALL' index
-  // Also load HOSTLIB.IVAR_XXX variables.
-
-  NVAR_WGTMAP =  HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
-  for ( IVAR_STORE=0; IVAR_STORE < HOSTLIB.NVAR_STORE ; IVAR_STORE++ ) {
-
-    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-    sprintf(c_var,"%s", HOSTLIB.VARNAME_STORE[IVAR_STORE] );
-    for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ ) {
-      if ( strcmp(c_var,HOSTLIB_WGTMAP.VARNAME[ivar_map])==0 ) {
-	HOSTLIB.IVAR_STORE[ivar_map]    = IVAR_STORE ; 
-	HOSTLIB.IVAR_WGTMAP[IVAR_STORE] = ivar_map ;
-      }      
-    }
-
-    // now look for match among ALL of the hostlib variables
-    // Feb 2014 -> case insensitive check
-    MATCH = 0;
-    for( ivar=0; ivar < HOSTLIB.NVAR_ALL; ivar++ ) {
-      if ( match_varname_HOSTLIB(c_var,HOSTLIB.VARNAME_ALL[ivar]) ) { 
-	MATCH = 1 ; 
-	HOSTLIB.IVAR_ALL[IVAR_STORE] = ivar ;
-	goto DONEMATCH ; 
-      }
-    } // end ivar
-
-    // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  DONEMATCH:
-
-    if ( MATCH && VBOSE ) {
-      IS_SNPAR = HOSTLIB.IS_SNPAR_STORE[IVAR_STORE];
-      sprintf(wd,"HOSTLIB");
-      if ( IS_SNPAR ) { sprintf(wd,"SNPAR  "); }
-
-      sprintf(ctmp, "Found match to %s Variable", wd);
-      printf("\t %s '%s' (IVAR_STORE=%d) \n", ctmp, c_var, IVAR_STORE ); 
-      fflush(stdout);
-    }
-    if ( !MATCH  ) {  
-      sprintf(c1err,"Could not find required HOSTLIB var '%s' (IVAR_STORE=%d)", 
-	      c_var, IVAR_STORE );
-      sprintf(c2err,"Check HOSTLIB_STOREPAR key and "
-	      "VARNAMES in HOSTLIB, GENPDF, zHOST, WGTMAP files.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-   
-  } // end IVAR_STORE
-  
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  // make sure we found what we are looking for by checking 
-  // that each var-string returns a valid 'ivar.
-  // The 2nd argument to IVAR_HOSTLIB is a flag to
-  // abort on any mis-match.
-
-  HOSTLIB.IVAR_GALID   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_GALID,1) ; // required
-
-
-  // require either ZTRUE (zhelio) or ZTRUE_CMB
-  HOSTLIB.IVAR_ZTRUE     = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZTRUE,  0) ; 
-  if ( HOSTLIB.IVAR_ZTRUE < 0  ) {
-    sprintf(c1err,"Missing required ZTRUE column in HOSTLIB;");
-    sprintf(c2err,"HOSTLIB must include either %s of %s column.",
-	    HOSTLIB_VARNAME_ZTRUE, HOSTLIB_VARNAME_ZTRUE_CMB);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  // optional
-  HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_TRUE_MATCH, 0) ; 
-  HOSTLIB.IVAR_ZPHOT        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT,      0) ; 
-  HOSTLIB.IVAR_ZPHOT_ERR    = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT_ERR,  0);
-  HOSTLIB.IVAR_ZPHOT_Q0     = IVAR_HOSTLIB_PREFIX(HOSTLIB_PREFIX_ZPHOT_Q, 0);
-  HOSTLIB.IVAR_VPEC         = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC,       0) ; 
-  HOSTLIB.IVAR_VPEC_ERR     = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC_ERR,   0);
-
-  for (ivar=0;ivar<N_HOSTGAL_PROPERTY;ivar++){
-    basename = HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].BASENAME;
-    
-    sprintf(c_var, "%s_TRUE", basename);
-    HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE = IVAR_HOSTLIB_STORE(c_var, 0);
-    
-    sprintf(c_var, "%s_OBS", basename);
-    HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS = IVAR_HOSTLIB_STORE(c_var, 0);
-      
-    sprintf(c_var, "%s_ERR", basename);
-    HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR = IVAR_HOSTLIB_STORE(c_var, 0);  
-
-    // store IVAR for logmass for convenience (July 1 2022)
-    if ( strcmp(basename,HOSTGAL_PROPERTY_BASENAME_LOGMASS) == 0 ) {
-      HOSTLIB.IVAR_LOGMASS_TRUE = 
-	HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_TRUE;
-      HOSTLIB.IVAR_LOGMASS_OBS = 
-	HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_OBS;
-      HOSTLIB.IVAR_LOGMASS_ERR = 
-	HOSTLIB.HOSTGAL_PROPERTY_IVAR[ivar].IVAR_ERR ;
-    }
-  }
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  HOSTLIB.IVAR_ANGLE        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ANGLE,0) ;   
-  HOSTLIB.IVAR_FIELD        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_FIELD,0) ;   
-  HOSTLIB.IVAR_ELLIPTICITY  = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ELLIPTICITY,0) ;
-  HOSTLIB.IVAR_GALID2       = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_GALID2,0) ;
-  HOSTLIB.IVAR_GROUPID      = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_GROUPID,0) ;
-  HOSTLIB.IVAR_SQRADIUS     = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_SQRADIUS,0) ;
-  HOSTLIB.IVAR_NBR_LIST     = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_NBR_LIST,0) ; 
-  HOSTLIB.IVAR_a_DLR        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_A_DLR, 0) ; 
-  HOSTLIB.IVAR_b_DLR        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_B_DLR, 0) ; 
-  HOSTLIB.IVAR_WEAKLENS_DMU = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_WEAKLENS_DMU, 0) ;
-
-  // keep this debug flag to disable host NBR
-  if ( INPUTS.DEBUG_FLAG  == 1012      ) { HOSTLIB.IVAR_NBR_LIST = -9 ; }
-  if ( (INPUTS.RESTORE_DES5YR & 2) > 0 ) { HOSTLIB.IVAR_NBR_LIST = -9 ; } // May 28 2025
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  // Jan 2015: Optional RA & DEC have multiple allowed keys
-  int IVAR_RA[3], IVAR_DEC[3] ;
-  IVAR_RA[0]   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_RA,0);
-  IVAR_RA[1]   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_RA_HOST,0);
-  IVAR_RA[2]   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_RA_GAL,0);
-  IVAR_DEC[0]  = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_DEC,0);
-  IVAR_DEC[1]  = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_DEC_HOST,0);
-  IVAR_DEC[2]  = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_DEC_GAL,0) ;
-  HOSTLIB.IVAR_RA = HOSTLIB.IVAR_DEC = -9 ;
-  
-  for(i = 0; i < 3; i++ ) {
-    if ( IVAR_RA[i]  > 0 ) { HOSTLIB.IVAR_RA  = IVAR_RA[i] ; }
-    if ( IVAR_DEC[i] > 0 ) { HOSTLIB.IVAR_DEC = IVAR_DEC[i] ; }
-  }
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  // Mar 2025 check for specbasis coeff
-  HOSTLIB.IVAR_COEFF_SPECBASIS00 = IVAR_HOSTLIB_STORE("COEFF_SPECBASIS00", 0);
-  
-
-  // Make sure that these WGTMAP variables are really defined.
-  // Also flag user-STOREPAR [EXTRA] variables that are also in WGTMAP (7.2019)
-  int  NVAR_EXTRA  = HOSTLIB_OUTVAR_EXTRA.NOUT ;
-  char *varName_WGTMAP, *varName_EXTRA;
-  bool IS_SNVAR;
-  for ( ivar_map=0;  ivar_map < NVAR_WGTMAP; ivar_map++ )  { 
-    varName_WGTMAP = HOSTLIB_WGTMAP.VARNAME[ivar_map] ;
-    IS_SNVAR       = HOSTLIB_WGTMAP.IS_SNVAR[ivar_map];
-
-    // abort if varName_WGTMAP is not defined.
-    if ( !IS_SNVAR )  { ivar = IVAR_HOSTLIB_STORE(varName_WGTMAP,1); }
-  
-    for(ivar=0; ivar < NVAR_EXTRA; ivar++ ) {
-      varName_EXTRA = HOSTLIB_OUTVAR_EXTRA.NAME[ivar];
-      if ( strcmp(varName_EXTRA,varName_WGTMAP) == 0 ) 
-	{  HOSTLIB_OUTVAR_EXTRA.USED_IN_WGTMAP[ivar] = 1 ; }
-
-    }
-  }
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@  
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  // --------------------------------------------------
-  // Misc error checking (added May 2020)
-
-  if ( DO_VPEC ) {
-    if ( HOSTLIB.IVAR_VPEC < 0 ) {  
-      sprintf(c1err,"Could not find required VPEC column.");
-      sprintf(c2err,"Add VPEC column, or remove %d-bit of HOSTLIB_MSKOPT",
-	      HOSTLIB_MSKOPT_USEVPEC ) ;
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
-    // make sure VPEC_ERR is defined in table column, or in header
-    if ( HOSTLIB.IVAR_VPEC_ERR < 0 && HOSTLIB.FIX_VPEC_ERR < 0.0 ) {
-      sprintf(c1err,"Found VPEC column, but VPEC_ERR not defined.");
-      sprintf(c2err,"Add VPEC_ERR column, or define VPEC_ERR in header.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-  }
-
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  if ( DO_RADEC && (HOSTLIB.IVAR_RA<0 || HOSTLIB.IVAR_DEC < 0) ) {
-    print_preAbort_banner(fnam);
-    printf("\t Valid RA  column names:  %s  %s  %s \n",
-	   HOSTLIB_VARNAME_RA, HOSTLIB_VARNAME_RA_HOST, 
-	   HOSTLIB_VARNAME_RA_GAL);
-    printf("\t Valid DEC column names:  %s  %s  %s \n",
-	   HOSTLIB_VARNAME_RA, HOSTLIB_VARNAME_RA_HOST, 
-	   HOSTLIB_VARNAME_RA_GAL);
-    sprintf(c1err,"Couldn't find required RA or DEC column (see above).");
-    sprintf(c2err,"Add required column(s), or remove "
-	    "%d-bit from HOSTLIB_MSKOPT", HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
-  }
-
-
-  if ( DO_SWAPZ && (HOSTLIB.IVAR_ZPHOT<0 || HOSTLIB.IVAR_ZPHOT_ERR<0) ) {
-    sprintf(c1err,"Couldn't find required ZPHOT[_ERR] column .");
-    sprintf(c2err,"Add required column(s), or remove "
-	    "%d-bit from HOSTLIB_MSKOPT", HOSTLIB_MSKOPT_SWAPZPHOT ) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);     
-  }
-  // @@@@@@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@@@@@@@@@
-
-  return ;
-  
-} // end of read_head_HOSTLIB_LEGACY
-xxxxxxxx end mark xxxxxxxx*/
-
 
 
 // ==============================
@@ -3844,7 +3421,7 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   // ---------------- BEGIN -----------------
 
   // scoop up rest of line with fgets
-  fgets(tmpLine, MXCHAR, fp);
+  char *fg = fgets(tmpLine, MXCHAR, fp);  (void)fg;
 
   NCHAR = strlen(tmpLine);
   if ( NCHAR >= MXCHAR-5 ) {
@@ -10380,14 +9957,15 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // transfer DOCANA block (July 2021)
   bool DOCANA_END = false ;
   int  iline, NLINE_DOCANA = 0, ipad, NPAD=0 ;
-  char *str_tmp, PAD_YAML[12]="";
+  char *str_tmp, *fg, PAD_YAML[12]="";
   char KEY_DOCANA_PADCHECK[] = "PURPOSE:"; // key to measure pad space
 
   if ( INPUTS.REQUIRE_DOCANA ) {
 
     // keep re-writing HOSTLIB lines until reaching DOCUMENTATION_END key
     while ( !DOCANA_END ) {
-      fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG);
+      fg = fgets(LINE, MXCHAR_LINE_HOSTLIB, FP_ORIG);
+      (void)fg;
 
       // get yaml pad spacing
       str_tmp = strstr(LINE,KEY_DOCANA_PADCHECK);

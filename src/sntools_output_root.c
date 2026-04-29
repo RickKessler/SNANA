@@ -332,14 +332,14 @@ void SNTABLE_ADDCOL_ROOT(int IDTABLE, void *PTRVAR,
   // Add tree column(s) based on variables in input struct ADDCOL_VARDEF.
   
 
-  int ITABLE, ivar, ICAST, IVEC, ISIZE, LDMP ;
+  int ITABLE, ivar, ICAST, IVEC, ISIZE=0, LDMP ;
 
   char 
     CCAST[4]
     ,VARNAME[80]
-    ,BRNAME[80]
-    ,treeVarName[80]
-    ,varDum[80]
+    ,BRNAME[100]
+    ,treeVarName[100]
+    ,varDum[100]
     ,fnam[] = "SNTABLE_ADDCOL_ROOT" 
       ;
 
@@ -368,6 +368,7 @@ void SNTABLE_ADDCOL_ROOT(int IDTABLE, void *PTRVAR,
     ICAST   = ADDCOL_VARDEF->ICAST[ivar] ;
     IVEC    = ADDCOL_VARDEF->VECTOR_FLAG[ivar] ;
     ISIZE   = ADDCOL_VARDEF->ISIZE[ivar] ;
+    (void)ISIZE;
     sprintf(CCAST,  "%s", ADDCOL_VARDEF->CCAST[ivar]   ) ;
     sprintf(VARNAME,"%s", ADDCOL_VARDEF->VARNAME[ivar] ) ;
     sprintf(BRNAME, "%s", ADDCOL_VARDEF->VARNAME[ivar]    ) ;
@@ -753,6 +754,8 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
 	sprintf(tmpString,"%s", valStore[i] );
 	istat = 0 ; 	
       }
+
+      (void)istat;
 
       IVAR_TOT = READTABLE_POINTERS.PTRINDEX[i] ;
       ICAST    = TREE_INFO_READ.ICAST[IVAR_TOT] ;
@@ -1239,7 +1242,7 @@ void MAKEDIR_ROOT(char *CCID, int CID) {
   // if CID <  0 then CCID is an arbitrary  dirName
 
   char fnam[] = "MAKEDIR_ROOT" ;
-  char dirName[40];
+  char dirName[80];
   int IFIT, NFIT ;
 
 
@@ -1253,7 +1256,8 @@ void MAKEDIR_ROOT(char *CCID, int CID) {
   if ( CID >= 0 ) {
     NFIT   = SNLCPAK_OUTPUT.NFIT_PER_SN  ;
     IFIT   = SNLCPAK_OUTPUT.NLCPAK  ; // starts at 0 since it sums later
-    if ( NFIT > 1 ) { sprintf(dirName,"%s_FIT%d", dirName, IFIT); }
+    if ( NFIT > 1 ) { sprintf(dirName,"SN%s_FIT%d", CCID, IFIT); }
+    // xxx mark if ( NFIT > 1 ) { sprintf(dirName,"%s_FIT%d", dirName, IFIT); }
   }
 
 
@@ -1556,17 +1560,20 @@ void SNLCPAK_FILL_ROOT(void) {
   // Store light curve data with (optional) best-fit function.
   // Include REJECT flags and chi2 per obs.
   
-  int NTOT, NFILT, ipak ;
+  int ipak ;
   //  char fnam[] = "SNLCPAK_FILL_ROOT"  ;
 
   // -------------- BEGIN ---------------
 
+  /* xxx mark delete 4.29.2026
+  int NTOT, NFILT ;
   // load array sizes.
   NTOT   = 
     SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FLUXDATA]  +
     SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FITFUN] ;
-  NFILT    = SNLCPAK_OUTPUT.NFILTDEF_SURVEY ; 
 
+  NFILT    = SNLCPAK_OUTPUT.NFILTDEF_SURVEY ; 
+  xxxxxx end mark */
 
   // fill TREEDATA 
   SNLCPAK_FILL_TREEDATA();

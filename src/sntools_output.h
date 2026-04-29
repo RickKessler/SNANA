@@ -278,7 +278,7 @@ struct SPECPAK_OUTPUT {
   int  OPT_TEXT_FORMAT ;  // integer index for above (-9 -> no text output)
 
   // set user-passed variables that change with each SN
-  char    CCID[40];
+  char    CCID[MXCHAR_CCID];
   int     NLAMBIN_TOT;    // sum of lam bins for each event
   int     ID_LIST[MXSPEC_SPECPAK];
   int     NLAMBIN_LIST[MXSPEC_SPECPAK];

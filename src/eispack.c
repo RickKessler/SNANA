@@ -6600,7 +6600,7 @@ int hqr2 ( int n, int low, int igh, double h[], double wr[], double wi[],
   double s = 0.0;
   double sa;
   double t;
-  double ti;
+  double ti = 0.0 ;
   double tr;
   double tst1;
   double tst2;

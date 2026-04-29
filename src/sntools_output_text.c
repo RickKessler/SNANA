@@ -270,7 +270,8 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
   TABLEINFO_TEXT.FP[NTAB] = open_TEXTgz(FILENAME,TEXTMODE_wt, 0, &GZIPFLAG, fnam) ;
   if ( !TABLEINFO_TEXT.FP[NTAB] ) {
     sprintf(MSGERR1, "Could not open TEXT FILE = ");
-    sprintf(MSGERR2, "%s", FILENAME);    
+    strncpy(MSGERR2, FILENAME, 180); MSGERR2[180] = '\0';
+    // xxxx mark    sprintf(MSGERR2, "%s", FILENAME);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -709,10 +710,15 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
     for(IVAR=0; IVAR < NVAR ; IVAR++ ) {
       varName = TABLEINFO_TEXT.VARNAME[ITAB][IVAR] ;
 
+      catVarList_with_comma(CSVLIST,varName);
+
+      /* xxxxx mark delete 4.28.2026 xxxxxxxxx
       if ( IVAR == 0 ) 
 	{ sprintf(CSVLIST, "%s", varName ); }
       else
 	{ sprintf(CSVLIST, "%s,%s", CSVLIST, varName ); }
+      xxxxxxxx end mark xxxxx*/
+
     }
 
     fprintf(FP,"%s\n", CSVLIST); 
@@ -745,7 +751,8 @@ void OPEN_TEXTFILE(char *FILENAME, char *mode) {
 
   if ( !PTRFILE_TEXT ) {
     sprintf(MSGERR1, "Could not open text-file in mode='%s' : ", mode);
-    sprintf(MSGERR2, "%s", FILENAME);    
+    strncpy(MSGERR2, FILENAME, 180); MSGERR2[180] = '\0';
+    // xxx mark    sprintf(MSGERR2, "%s", FILENAME);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -764,18 +771,15 @@ void CLOSE_TEXTFILE(void) {
   // Beware: does not close TEXT files opened for reading.
   
   int itab;
-  char *FNAM;
   FILE *FP;
-  char fnam[] = "CLOSE_TEXTFILE" ;
+  //  char fnam[] = "CLOSE_TEXTFILE" ;
 
   // ------------- BEGIN -------------
 
   for(itab=0; itab < TABLEINFO_TEXT.NTABLE; itab++ ) {
       FP   = TABLEINFO_TEXT.FP[itab] ;
-      FNAM = TABLEINFO_TEXT.FILENAME[itab] ;
-      if ( FP != NULL ) {
-	fclose(FP);
-      }
+      // char *FNAM = TABLEINFO_TEXT.FILENAME[itab] ;
+      if ( FP != NULL ) {  fclose(FP); }
   }
 
   if ( NVAR_LCPLOT ) {
@@ -818,7 +822,8 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   PTRFILE_LCLIST = open_TEXTgz(listFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_LCLIST ) {
     sprintf(MSGERR1, "Could not open ascii LC list-file = ");
-    sprintf(MSGERR2, "%s", listFile);    
+    strncpy(MSGERR2, listFile, 180); MSGERR2[180]  = '\0';
+    // xxx mark sprintf(MSGERR2, "%s", listFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -826,7 +831,8 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   PTRFILE_LCPLOT = open_TEXTgz(lcplotFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_LCPLOT ) {
     sprintf(MSGERR1, "Could not open ascii LCPLOT file = ");
-    sprintf(MSGERR2, "%s", lcplotFile);    
+    strncpy(MSGERR2, lcplotFile, 180); MSGERR2[180]  = '\0';
+    // xxx mark    sprintf(MSGERR2, "%s", lcplotFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -1048,10 +1054,9 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
   //
 
   FILE *fp;
-  int  GZIPFLAG, NVAR, ivar, NWD=0, NWD_ABORT=1000;
+  int  GZIPFLAG, NWD=0, NWD_ABORT=1000;
   int  MXCHAR_LINE_VARNAMES = 400;
-  bool FOUND_KEY_VARNAMES = false;
-  char c_get[200];
+  char c_get[200], *fg;
   char KEY_VARNAMES[] = "VARNAMES:" ;
   char fnam[]         = "SNTABLE_VARLIST_TEXT" ;
 
@@ -1066,14 +1071,14 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
     NWD++ ;
     if ( NWD > NWD_ABORT ) {
       sprintf(MSGERR1,"Could not find required '%s' key", KEY_VARNAMES);
-      sprintf(MSGERR2,"After reading NWD words", NWD);
+      sprintf(MSGERR2,"After reading NWD=%d words", NWD);
       errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
     }
 
-    //.xyz
     if (strcmp(c_get,KEY_VARNAMES) == 0 ) {
       fscanf(fp, "%s", c_get); // skip key that identifies CID or GALID
-      fgets(VARNAMES, MXCHAR_LINE_VARNAMES, fp );  
+      fg = fgets(VARNAMES, MXCHAR_LINE_VARNAMES, fp );  
+      (void)fg;
       int len = strlen(VARNAMES); VARNAMES[len-1] = 0; // remove <CR>
       goto DONE;
     }
@@ -1092,7 +1097,7 @@ int  SNTABLE_READPREP_TEXT(void) {
   int LENV_TOT = 0;
   bool MATCH;
   FILE *FP ;
-  char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST, vtmp[MXCHAR_FILENAME*2] ;
+  char ctmp[MXCHAR_FILENAME], *VARNAME, *VARLIST, vtmp[MXCHAR_FILENAME*2], *fg ;
   char fnam[]=  "SNTABLE_READPREP_TEXT" ;
 
   // ---------- BEGIN -------------
@@ -1117,7 +1122,7 @@ int  SNTABLE_READPREP_TEXT(void) {
 
     // Mar 2023: check for '# VERSION_PHOTOMETRY: <string>'
     if (ctmp[0] == '#' ) {
-      fgets(VARLIST, MXCHAR_LINE, FP );
+      fg = fgets(VARLIST, MXCHAR_LINE, FP );
       MATCH = ( strstr(VARLIST,KEYNAME_VERSION_PHOTOMETRY) != NULL ) ;
       if ( MATCH ) {
 	MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
@@ -1139,7 +1144,7 @@ int  SNTABLE_READPREP_TEXT(void) {
     // no NVAR key, so read entire VARNAMES line and parse VARLIST
     if ( strcmp(ctmp,"VARNAMES:") == 0 ) {
       FOUNDKEY = 1;
-      fgets(VARLIST, MXCHAR_LINE, FP );
+      fg = fgets(VARLIST, MXCHAR_LINE, FP );
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARLIST, fnam );
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = READTABLE_POINTERS.VARNAME[ivar] ;
@@ -1158,6 +1163,7 @@ int  SNTABLE_READPREP_TEXT(void) {
 
   } // end while
 
+  (void)fg;
 
   // reset NVARTOT_FITRES to exclude CID
   READTABLE_POINTERS.NVAR_TOT = NVAR ;
@@ -1188,10 +1194,10 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   //
 
   int NROW = 0 ;
-  int i, iwd, ivar, isn, ICAST, nptr, NWD_LINE ;
+  int i, ivar, isn, ICAST, nptr ;
 
   char ctmp[MXCHAR_FILENAME], LINE[MXCHAR_LINE], *ptrtok, cvar[300];
-  char KEYNAME_ID[40];
+  char KEYNAME_ID[80];
   long double DVAR[MXVAR_TABLE];
   char        CVAR[MXVAR_TABLE][60];
   
@@ -1368,7 +1374,7 @@ int ICAST_for_textVar(char *varName) {
 
   int ivar;
   char *varname_tmp;
-  char fnam[] = "ICAST_for_textVar";
+  //  char fnam[] = "ICAST_for_textVar";
 
   // ----------- BEGIN -------------
 
@@ -1395,94 +1401,6 @@ int ICAST_for_textVar(char *varName) {
 
 } // end of ICAST_for_textVar
 
-// ====================================
-int ICAST_for_textVar_obsolete(char *varName) {
-
-  // Oct 2014
-  // Since ascii files do not include a cast, this function
-  // has hard-coded string values to return ICAST_C for
-  // string variables such as CCID and FIELD. All other 
-  // variables are returned as float (ICAST_F).
-  //
-  // Note that users can explicitly cast a string by appending 
-  // :C to the variables passed to SNTABLE_READPREP_VARDEF(..)
-  // This ICAST function allows sloppy read-usage when the 
-  // explicit cast is left out of SNTABLE_READPREP_VARDEF(..).
-  //
-  // Aug 04 2017: allow for "CCID ROW" using strstr
-  // Apr 29 2019: allow PARNAME
-  // Apr 16 2023: check partial match for GALID and OBJID
-  // Jul 26 2024: check NAME_IAUC and NAME_TRANSIENT
-
-  // ******* OBSOLETE *********
-  
-  char fnam[] = "ICAST_for_textVar";
-
-  // ----------- BEGIN -------------
-
-  // 1st-key identifiers  
-  if ( strcmp_ignoreCase(varName,(char*)"CID"  )  == 0 ) 
-    { return ICAST_C; }
-  if ( strcmp_ignoreCase(varName,(char*)"SNID" )  == 0 ) 
-    { return ICAST_C; }
-  if ( strcmp_ignoreCase(varName,(char*)"snid" )  == 0 ) 
-    { return ICAST_C; }
-  if ( strcmp_ignoreCase(varName,(char*)"CCID" )  == 0 ) 
-    { return ICAST_C; }
-  if ( strcmp_ignoreCase(varName,(char*)"GALID")  == 0 ) 
-    { return ICAST_C; }
-  if ( strcmp_ignoreCase(varName,(char*)"ROW"  )  == 0 ) 
-    { return ICAST_C; }
-  if ( strcmp_ignoreCase(varName,(char*)"STARID") == 0 ) 
-    { return ICAST_C; }
-
-  // ******* OBSOLETE *********
-  
-  // allow for partial matches; e.g., things like 
-  // "CCID ROW" or "HOSTGAL_OBJID" 
-  if ( strstr(varName,"CCID"  ) != NULL ) { return ICAST_C; }
-  if ( strstr(varName,"ROW"   ) != NULL ) { return ICAST_C; }
-
-  // allow partial match for GALID or OBJID to avoid float truncation
-  // when these integer IDs are very large
-  if ( strstr(varName,"GALID" ) != NULL ) { return ICAST_C; }
-  if ( strstr(varName,"OBJID" ) != NULL ) { return ICAST_C; }
-
-  // misc string-keys
-  if ( strcmp_ignoreCase(varName,(char*)"FIELD")  == 0 ) 
-    { return ICAST_C; }
-
-  if ( strcmp_ignoreCase(varName,(char*)"BAND" )  == 0 ) 
-    { return ICAST_C; }
-
-  // ******* OBSOLETE *********
-  
-  if ( strcmp_ignoreCase(varName,(char*)"NAME_TRANSIENT" ) == 0 ) 
-    { return ICAST_C;}
-  if ( strcmp_ignoreCase(varName,(char*)"NAME_IAUC" ) == 0 ) 
-    { return ICAST_C;}
-  if ( strcmp_ignoreCase(varName,(char*)"IAUC" ) == 0 ) 
-    { return ICAST_C;}
-
-  if ( strcmp_ignoreCase(varName,(char*)"CATALOG" )   == 0 ) 
-    { return ICAST_C;}
-
-  // ******* OBSOLETE *********
-  
-  if ( strcmp_ignoreCase(varName,(char*)"VERSION" )   == 0 ) 
-    { return ICAST_C;}
-
-  if ( strcmp_ignoreCase(varName,(char*)"PARNAME" )   == 0 )  // 4.29.2019
-    { return ICAST_C;}
-
-  // if not a string, return float cast which really means
-  // that it's not a char.
-
-  // ******* OBSOLETE *********
-  
-  return ICAST_F ;
-
-} // end of ICAST_for_textVar_obsolete
 
 
 // ==========================================
@@ -1490,28 +1408,20 @@ void SNLCPAK_FILL_TEXT(void) {
 
 
   int ifilt, USE, obs, FLAG, OUTFLAG, i ;
-  int NOBS_DATA, NOBS_FITFUN, NOBS, REJECT, ISDATA, ISFIT ;
-  int FLAGLIST[2] ;
-  int NFIT, IFIT ;
+  int NOBS, REJECT, ISDATA, ISFIT ;
+  int FLAGLIST[2], IFIT ;
 
-  char *PREFIX, *CCID, BAND[2] ;
+  char *CCID, BAND[2] ;
   char  fnam[] = "SNLCPAK_FILL_TEXT" ;
 
   // --------------- BEGIN ------------
 
-  PREFIX = SNLCPAK_OUTPUT.TEXTFILE_PREFIX ;
   CCID   = SNLCPAK_OUTPUT.CCID ;
- 
-  NOBS_DATA   = SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FLUXDATA];
-  NOBS_FITFUN = SNLCPAK_OUTPUT.NOBS[SNLCPAK_EPFLAG_FITFUN];
-
-  NFIT   = SNLCPAK_OUTPUT.NFIT_PER_SN ;
   IFIT   = SNLCPAK_OUTPUT.NLCPAK     ;
 
   // update list file
   fprintf(PTRFILE_LCLIST, "SN: %s  %d \n", CCID, IFIT );
   fflush(PTRFILE_LCLIST);
-
 
   // Aug 4 2015: write header on first call to make sure that
   //             all variables are defined.
@@ -1561,6 +1471,7 @@ void SNLCPAK_FILL_TEXT(void) {
 
   }  // ifilt
 
+  return ;
 
 }  // end of SNLCPAK_FILL_TEXT
 
@@ -1779,7 +1690,8 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
   PTRFILE_SPECLIST = open_TEXTgz(specFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_SPECLIST ) {
     sprintf(MSGERR1, "Could not open ascii SPECLIST file = ");
-    sprintf(MSGERR2, "%s", specFile);    
+    strncpy(MSGERR2, specFile, 100); MSGERR2[100] = '\0' ;
+    // xxx mark   sprintf(MSGERR2, "%s", specFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -1787,7 +1699,8 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
   PTRFILE_SPECPLOT = open_TEXTgz(specFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_SPECPLOT ) {
     sprintf(MSGERR1, "Could not open ascii SPECPLOT file = ");
-    sprintf(MSGERR2, "%s", specFile);    
+    strncpy(MSGERR2, specFile, 100); MSGERR2[100] = '\0' ;
+    // xxx mark    sprintf(MSGERR2, "%s", specFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 

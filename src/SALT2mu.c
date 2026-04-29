@@ -25848,7 +25848,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   int GZIPFLAG, NITEM, i, NWORD ;
   bool is_salt2, is_rv, is_ebv ; 
   char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST;
-  char LINE[MXPATHLEN], TMPLINE[MXPATHLEN] ; 
+  char LINE[MXPATHLEN], TMPLINE[MXPATHLEN], *fg ; 
   char varlist[80] = "";
   char fnam[] = "SUBPROCESS_READ_SIMREF_INPUTS" ; 
 
@@ -25897,7 +25897,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
     // will need to add EBV later
     if ( is_salt2 || is_rv || is_ebv ) {  // SALT2 or RV is in c_get
 
-      fgets(LINE,MXPATHLEN,finp); 
+      fg = fgets(LINE,MXPATHLEN,finp);  (void)fg;
       sprintf(TMPLINE,"%s %s", c_get, LINE);
       splitString(TMPLINE, " ", fnam, MXPATHLEN,          // inputs
                   &NITEM, ptr_ITEMLIST );      // outputs

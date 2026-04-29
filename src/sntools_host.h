@@ -731,8 +731,8 @@ int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);
 
-void   read_head_HOSTLIB_LEGACY(FILE *fp); // read and prep
-void   read_head_HOSTLIB(FILE *fp);        // read VARNAMES only before checking SEARCHEFF map s
+// xxx mark void   read_head_HOSTLIB_LEGACY(FILE *fp); // read and prep
+void   read_head_HOSTLIB(FILE *fp);  
 void   prep_head_HOSTLIB(void);
 
 bool   match_varname_HOSTLIB(char *varName0, char *varName1);

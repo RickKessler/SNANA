@@ -154,7 +154,7 @@ int read_VARNAMES_WGTMAP(char *WGTMAP_FILE, char *VARLIST_WGTMAP) {
   FILE *fp ;
   bool IS_SNVAR, FOUNDVAR_WGT=false, FOUNDVAR_SNMAGSHIFT=false;
   char FILENAME_FULL[MXPATHLEN], LINE[MXPATHLEN];
-  char c_get[60], VARNAME[60];
+  char c_get[60], VARNAME[60], *fg;
   char KEY_VARNAMES[] = "VARNAMES_WGTMAP:" ;
   char KEY_STOP[]     = "GAL:" ; // stop reading when this key is found
   char fnam[]         = "read_VARNAMES_WGTMAP" ;
@@ -184,7 +184,7 @@ int read_VARNAMES_WGTMAP(char *WGTMAP_FILE, char *VARLIST_WGTMAP) {
 
     if ( strcmp(c_get,KEY_VARNAMES) == 0 ) {
       STOP_READ = true ;
-      fgets(LINE, MXCHAR, fp);
+      fg = fgets(LINE, MXCHAR, fp);  (void)fg;
       NWD  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE,fnam);
      
       for(ivar=0; ivar < NWD; ivar++ ) {

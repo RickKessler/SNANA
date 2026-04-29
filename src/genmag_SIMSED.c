@@ -862,7 +862,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
     if ( strcmp(c_get,"PARNAMES:") == 0 ) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
-      fgets(string_parnames, 200, fp);
+      char *fg = fgets(string_parnames, 200, fp);  (void)fg;
       NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
       // A.G
       if ( ISWGTMAP_SIMSED ) {

@@ -1194,7 +1194,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   char  KEY_ROW[20], KEYNAME_MAP_FILE[40], KEYNAME_EFF[40];
   char  KEY_STOP[] = "" ;
   char  *VARNAME, *VARLIST, FIELDLIST[100] ;
-  char  eff_file_local[MXPATHLEN], *ptrFile_user, *ptrFile_final, *cptr;
+  char  eff_file_local[MXPATHLEN], *ptrFile_user, *ptrFile_final, *cptr, *fg;
   char  c_get[100], LINE[MXPATHLEN];
   double PEAKMJD_RANGE[2];
   int   OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
@@ -1285,7 +1285,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
     
-    if ( commentchar(c_get) ) { fgets(LINE, 100, fp ); continue ; }
+    if ( commentchar(c_get) ) { fg = fgets(LINE, 100, fp ); continue ; }
 
     if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(ptrFile_final); }
 
@@ -1309,7 +1309,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
 
     if ( FOUND_VARNAMES && NMAP < MXMAP_SEARCHEFF_MAP ) {
-      fgets(LINE, 100, fp ); // scoop up varnames
+      fg = fgets(LINE, 100, fp ); // scoop up varnames
 
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, LINE, fnam );
 
@@ -1404,6 +1404,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
 
   SEARCHEFF_INFO->NLINE_README = N ;
 
+  (void)fg; 
 
   return ;
 

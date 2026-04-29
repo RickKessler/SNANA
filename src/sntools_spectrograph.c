@@ -133,6 +133,7 @@ void read_spectrograph_text(char *inFile) {
   } ;
   int KEYFLAG_FOUND[NKEY_REQ_SPECTROGRAPH];
 
+  char *fg;
   char fnam[] = "read_spectrograph_text" ;
 
   // ---------------- BEGIN -------------
@@ -168,7 +169,7 @@ void read_spectrograph_text(char *inFile) {
     // if comment key is found, read remainder of line into dummy string  
     // so that anything after comment key is ignored (even a valid key)  
     if ( c_get[0] == '#' || c_get[0] == '!' || c_get[0] == '%' )
-      { fgets(tmpLine, 80, fp) ; continue ; }
+      { fg = fgets(tmpLine, 80, fp) ; continue ; }
 
     // check all default keys
     for(ikey=0; ikey < NKEY_REQ_SPECTROGRAPH; ikey++ ) {
@@ -277,6 +278,7 @@ void read_spectrograph_text(char *inFile) {
 
   fflush(stdout);
   fclose(fp);
+  (void)fg;
 
   return ;
 
@@ -519,12 +521,12 @@ int read_TEXPOSE_LIST(FILE *fp) {
 #define MXCHAR_TEXPOSE_LIST 400  // max chars to read on line
   int NBT=0 ;
   double T, TLAST;
-  char tmpLine[MXCHAR_TEXPOSE_LIST], *ptrtok, cval[40] ;
+  char tmpLine[MXCHAR_TEXPOSE_LIST], *ptrtok, cval[40], *fg ;
   char fnam[] = "read_TEXPOSE_LIST";
 
   // ---------- BEGIN --------------
 
-  fgets(tmpLine, MXCHAR_TEXPOSE_LIST, fp) ; 
+  fg = fgets(tmpLine, MXCHAR_TEXPOSE_LIST, fp) ;  (void)fg;
   ptrtok = strtok(tmpLine," ") ; // split string   
 
   while ( ptrtok != NULL  ) {

@@ -18615,7 +18615,7 @@ void SIMLIB_INIT_IDEAL_GRID(void) {
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
 
   double MJD, MJD_MIN, MJD_MAX, MJD_GRIDSIZE = -9.0 , MJD_LAST = -9.0 ;
-  char c_get[MXPATHLEN];
+  char c_get[MXPATHLEN], *fg;
   char fnam[] = "SIMLIB_INIT_IDEAL_GRID" ;
 
   // ----------- BEGIN ---------
@@ -18640,7 +18640,8 @@ void SIMLIB_INIT_IDEAL_GRID(void) {
       MJD_LAST = MJD;
 
       // read rest of line to avoid fscanf per word
-      fgets(c_get, MXPATHLEN, fp_SIMLIB) ;
+      fg = fgets(c_get, MXPATHLEN, fp_SIMLIB) ;
+      (void)fg;
     }
 
   } // end while
@@ -19000,12 +19001,13 @@ void SIMLIB_findStart(void) {
   // Jun 23 2023: few speed-ups:
   //   + Reading all MXPATHLEN chars is faster than reading only 40 !
   //   + check first char only (=='E') before using strstr to check key match.
+  char *fg;
   while ( NREAD < NSKIP_LIBID ) {
-    fgets(LINE, MXPATHLEN, fp_SIMLIB) ;
+    fg = fgets(LINE, MXPATHLEN, fp_SIMLIB) ;
     if ( LINE[0] != 'E' ) { continue; }  //quick reject (Jun 2023)
     if ( strstr(LINE,"END_LIBID:") != NULL ) { NREAD++; }
   }
-  
+  (void)fg;
 
   // search for specific LIBID; stop 1 short of IDSEEK to allow
   // advancing 1 more without doing a full wrap-around.
@@ -24604,7 +24606,7 @@ void gen_spectype(void) {
 
   int IFLAG_SPECID_EFFZERO = SEARCHEFF_INFO_SPECID.IFLAG_EFFZERO;
   int L_PHOTID, L_SPECID, ispgen ;
-  bool LDMP = (GENLC.CID==11 || GENLC.CID==35);
+  bool LDMP = 0; // (GENLC.CID==11 || GENLC.CID==35);
   char fnam[] = "gen_spectype" ;
 
   // ---------- BEGIN --------------
@@ -24710,7 +24712,7 @@ void  setz_unconfirmed(void) {
   double ZHEL;
 
   int    FOUND_zHOST, m ;
-  int LDMP = ( GENLC.CID == 11 || GENLC.CID == 35 ) ;
+  int LDMP = 0; // ( GENLC.CID == 11 || GENLC.CID == 35 ) ;
   char fnam[] = "setz_unconfirmed" ;
 
   // ---------- BEGIN -------------

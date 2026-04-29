@@ -38,6 +38,7 @@ void system_pmap(char *code_name, char *call_fun) {
   fflush(stdout);
   sprintf(cmd,"pmap `pidof %s` | tail -1", code_name );
   int istat = system(cmd);
+  (void)istat;
   printf("\n");
   fflush(stdout);
 }
@@ -49,7 +50,7 @@ void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
 
   time_t t = time(NULL);
   double dt = t - t0;
-  double scale;
+  double scale = 1.0 ;
   char fnam[] = "print_elapsed_time" ;
 
   // ----------- BEGIN ----------
@@ -99,7 +100,7 @@ void print_elapsed_time(time_t t0, char *comment, char *unit_time) {
 
   time_t t = time(NULL);
   double dt = t - t0;
-  double scale;
+  double scale = 1.0 ;
   char fnam[] = "print_elapsed_time" ;
 
   // ----------- BEGIN ----------
@@ -190,7 +191,7 @@ double smooth_stepfun(double sep, double sepmax) {
   //   0.8  0.991609
   //
   double tau, stepfun = 0.5;
-  char fnam[] = "smooth_stepfun" ;
+  //  char fnam[] = "smooth_stepfun" ;
 
   // --------------- BEGIN -------------
   
@@ -273,7 +274,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   // Oct 20 2025: 
   //    MXCHAR_LINE -> 2000 (was 400) for SN-unite that uses some filter-dependent entries.
   
-  int  OPTMASK_CID      = 1;
+  //  int  OPTMASK_CID      = 1;
   int  OPTMASK_IDSURVEY = 2;
   int  OPTMASK_FIELD    = 4;
 
@@ -281,7 +282,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   bool USE_IDSURVEY       = ( *OPTMASK & OPTMASK_IDSURVEY );
   bool USE_FIELD          = ( *OPTMASK & OPTMASK_FIELD    ); // feb 24 2025
   bool FIRST_FILE         = ( *OPTMASK & 8 );
-  bool REFAC              = ( *OPTMASK & 64 );
+  //  bool REFAC              = ( *OPTMASK & 64 );
   char VARNAME_IDSURVEY[] = "IDSURVEY";
   char VARNAME_FIELD[]    = "FIELD";
 
@@ -564,7 +565,7 @@ void malloc_HASH_STORAGE(int NVAR) {
   int MEMI    = NVAR * sizeof(int   *) ;  
   int MEMC    = NVAR * sizeof(char **) ;
   //  int MEMC1   = 40   * sizeof(char  *) ;
-  char fnam[] = "malloc_HASH_STORAGE" ;
+  //  char fnam[] = "malloc_HASH_STORAGE" ;
   
   // --------- BEGIN --------
 
@@ -640,7 +641,7 @@ int match_cidlist_exec(char *cid) {
   //        instead of returning bool match=(isn0>0);
   
   int  isn0, ILIST = 1;
-  char fnam[] = "match_cidlist_exec";
+  //  char fnam[] = "match_cidlist_exec";
   // ------------- BEGIN --------------
   isn0  = match_cid_hash(cid, ILIST, -1);
   // printf(" xxx %s: cid=%s -> isn0 = %d \n", fnam, cid, isn0 );
@@ -752,7 +753,7 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
 
   int isn0 = -9;
   struct hash_table_def *s, *tmp;
-  char fnam[] = "match_cid_hash" ;
+  //  char fnam[] = "match_cid_hash" ;
 
   // ---------------- BEGIN ---------------
 
@@ -1011,7 +1012,8 @@ int store_glob_file_list(char *wildcard) {
   // Utility to store files based on wildcard;
   // use fetch_glob_file_list to retreive 1 at a time.
   // Includes fortran interface.
-  char fnam[] = "store_glob_file_list";
+
+  //  char fnam[] = "store_glob_file_list";
   // --------- BEGIN -----------
   GLOB_LIST.NFILE = glob_file_list(wildcard, &GLOB_LIST.FILE_NAMES);
   return GLOB_LIST.NFILE;
@@ -1074,7 +1076,7 @@ int glob_file_list(char *wildcard, char ***file_list) {
 
   int    i, n_file = 0; 
   glob_t glob_temp;
-  char   fnam[] = "glob_file_list";
+  //  char   fnam[] = "glob_file_list";
   // ----------- BEGIN --------------
 
   // run the glob
@@ -1153,7 +1155,7 @@ void write_epoch_list_addvar(char *VARNAME, double *CUTWIN,
   int  CUTTYPE, CUTMODE ;
   char CUTTYPE_STRING[3][8] = { "NULL", "BITMASK", "WINDOW" };
   char *ptrCUTTYPE;
-  char fnam[] = "write_epoch_list_addvar" ;
+  //  char fnam[] = "write_epoch_list_addvar" ;
 
   // ------------- BEGIN -----------------
 
@@ -1219,7 +1221,7 @@ void write_epoch_list_exec(char *CID,double MJD, char *BAND,double *VALUES) {
   FILE *FP_OUT     = WRITE_EPOCH_LIST.FP_OUT;
   int  NVAR        = WRITE_EPOCH_LIST.NVAR ;
 
-  int  ivar, MASK, CUTTYPE, CUTMODE, MASK_SELECT, CUTMASK_EPOCH ;
+  int  ivar, MASK, CUTTYPE, CUTMODE=0, MASK_SELECT, CUTMASK_EPOCH ;
   double VAL, *CUTWIN ;
   bool PASSCUT;
   int  LDMP = 0; // (VALUES[0] > 1.01 );
@@ -1331,7 +1333,7 @@ void write_epoch_list_summary(void) {
   int  ivar, NCUTFAIL;
   double frac;
   char *VARNAME ;
-  char fnam[] = "write_epoch_list_summary" ;
+  //  char fnam[] = "write_epoch_list_summary" ;
 
   // ------------- BEGIN -----------------
 
@@ -1462,7 +1464,7 @@ void getRan_GaussCorr(CHOLESKY_DECOMP_DEF *DECOMP,
   int MATSIZE   = DECOMP->MATSIZE;
   double GAURAN, tmpMat, tmpRan ;
   int irow0, irow1;
-  char fnam[] = "getRan_GaussCorr" ;
+  //  char fnam[] = "getRan_GaussCorr" ;
 
   // ------------- BEGIN ------------
 
@@ -1952,10 +1954,9 @@ int eval_SNCUT_NOBS_TREST(int n_list, float *Trest_list, int verbose) {
 
   int N_RANGE = SNCUT_NOBS_TREST.N_TREST_RANGE;
   int  mask_sncut = 0 ;  
-  int  o, r, nobs_require, nobs_range[10];
+  int  o, r, nobs_range[10];
   float tmin, tmax, trest;
-  bool pass;
-  char fnam[] = "eval_SNCUT_NOBS_TREST" ;
+  //  char fnam[] = "eval_SNCUT_NOBS_TREST" ;
 
   // ----------- BEGIN -------------
 
@@ -1967,7 +1968,6 @@ int eval_SNCUT_NOBS_TREST(int n_list, float *Trest_list, int verbose) {
 
     trest = Trest_list[o];
     for(r=0; r < N_RANGE; r++ ) {
-      nobs_require = SNCUT_NOBS_TREST.NOBS_LIST[r] ;
       tmin = SNCUT_NOBS_TREST.TREST_LIST[0][r];
       tmax = SNCUT_NOBS_TREST.TREST_LIST[1][r];
       if ( trest >= tmin   &&   trest <= tmax ) { nobs_range[r] += 1;  }
@@ -2116,7 +2116,7 @@ int uniqueOverlap (char *string,char *key ) {
   int lenkey = strlen(key);
   int match ;
   char tmpString[1000];
-  char fnam[] = "uniqueOverlap" ;
+  //  char fnam[] = "uniqueOverlap" ;
   // ---------- BEGIN -----------
 
   if ( strcmp(string,STRINGMATCH_INIT) == 0 )  
@@ -2517,7 +2517,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
   double eigval[MATSIZE];
   double eigvec[MATSIZE][MATSIZE];
   double eigvalOrig[MATSIZE], covOrig[MATSIZE][MATSIZE];
-  double diag[3], EIGEN_MIN ;
+  double EIGEN_MIN ;
 
   char fnam[] = "update_covMatrix" ;
 
@@ -2582,7 +2582,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   *istat_cov = -1 ;
 
-  for (l=0;l<MATSIZE;++l)  { diag[l] = sqrt( covMat[l][l]) ; }
+  // xxx mark  for (l=0;l<MATSIZE;++l)  { diag[l] = sqrt( covMat[l][l]) ; }
         
   for (k=0;k<MATSIZE;++k)  { 
     eigvalOrig[k] = eigval[k] ;
@@ -2899,6 +2899,8 @@ void malloc_PARSE_WORDS(int NWD) {
     PARSE_WORDS.WDLIST[iwd][0] = 0 ;
   }
 
+  (void)IFLAG;
+
   return ;
 
 } // end malloc_PARSE_WORDS
@@ -2921,11 +2923,13 @@ void get_PARSE_WORD(int langFlag, int iwd, char *word, char *callFun) {
   if ( iwd >= NWD ) {
     print_preAbort_banner(fnam);
     int i;
+
+    printf("  PARSE_WORDS.FILENAME = '%s'\n", PARSE_WORDS.FILENAME);
     for(i=0; i < NWD; i++ ) 
       { printf("\t word(%d) = '%s' \n", i, PARSE_WORDS.WDLIST[i]) ;}
 
     sprintf(c1err,"iwd=%d exceeds NWD_STORE=%d", iwd, NWD);
-    sprintf(c2err,"Check FILENAME = '%s' ", PARSE_WORDS.FILENAME);
+    sprintf(c2err,"Check FILENAME ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   
@@ -3166,8 +3170,6 @@ void parse_GENPOLY(char *stringPoly, char *varName,
 void print_GENPOLY(GENPOLY_DEF *GENPOLY) {
 
   int ORDER = GENPOLY->ORDER;
-  int o;
-  double DVAL0, DVAL1;
   char fnam[] = "print_GENPOLY" ;
 
   // -------- BEGIN --------
@@ -3178,6 +3180,7 @@ void print_GENPOLY(GENPOLY_DEF *GENPOLY) {
 
   /* xxxx  
   printf("\t NORDER = %d \n", ORDER );
+  int o;
   for(o=0; o <= ORDER; o++ ) {
       DVAL0 = GENPOLY->COEFF_RANGE[o][0];
       DVAL1 = GENPOLY->COEFF_RANGE[o][1];
@@ -3563,7 +3566,7 @@ void read_SURVEYDEF(void) {
 
 #define STRING_SURVEY "SURVEY:"
 
-  char SURVEYDEF_FILE[MXPATHLEN], cline[MXPATHLEN], nameTmp[40];
+  char SURVEYDEF_FILE[2*MXPATHLEN], cline[MXPATHLEN], nameTmp[40];
   char sepKey[] = " " ;
   char **ptr_wdlist;
   int  MXWD_SURVEYDEF = 20;
@@ -3577,7 +3580,8 @@ void read_SURVEYDEF(void) {
   fp = fopen(SURVEYDEF_FILE,"rt");
   if ( !fp ) {
     sprintf(c1err,"Could not open SURVEY.DEF file");
-    sprintf(c2err,"%s", SURVEYDEF_FILE);
+    strncpy(c2err, SURVEYDEF_FILE, 180); c2err[180] = '\0' ;
+    // xxx mark sprintf(c2err,"%s", SURVEYDEF_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -3614,9 +3618,10 @@ void read_SURVEYDEF(void) {
       sscanf(ptr_wdlist[2], "%d", &idTmp );
 
       if ( idTmp >= MXIDSURVEY ) {
+	
         sprintf(c1err,"IDSURVEY=%d(%s) exceeds MXIDSURVEY=%d",
 		idTmp, nameTmp, MXIDSURVEY);
-        sprintf(c2err,"check %s", SURVEYDEF_FILE);
+        sprintf(c2err,"check $SNDATA_ROOT/SURVEY.DEF");
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
       }
 
@@ -3717,15 +3722,14 @@ int get_IDSURVEY(char *SURVEY) {
 
 void  get_geoSURVEY(int ID, double *LAT, double *LON) {
 
-  char fnam[] = "get_geoSURVEY";
+  //  char fnam[] = "get_geoSURVEY";
 
   *LAT = *LON = 999999.9 ;
   if ( ID >= 0 ) {
     *LAT  = SURVEY_INFO.geoLAT[ID];
     *LON  = SURVEY_INFO.geoLON[ID];
   }
-
-
+  return ;
 } // end get_geoSURVEY
 
 
@@ -3874,6 +3878,8 @@ void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME) {
   MODELPATH[0] = MODELNAME[0] = 0 ;
 
   ENVstat   = ENVreplace(STRING,fnam,1);    // check for ENV
+  (void)ENVstat;
+
   LENSTR    = strlen(STRING);
   lastSlash = -9;
   for(i=0; i < LENSTR; i++ ) {
@@ -4300,28 +4306,26 @@ double angSep( double RA1,double DEC1,
   // * scale = 60   -> output is in arcmin
   // * scale = 3600 -> output is in arcsec
 
-  double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
   double RAD = RADIAN ;
-  double top, bot, arg, tmp;
-  double cosD1, cosD2, sinD1, sinD2, sinR1, sinR2;
-  double sinRDIF, cosRDIF, sin2RDIF, cos2RDIF ;
+  double sep;
   bool REFAC = false ;
-
-  char fnam[] = "angSep";
+  // char fnam[] = "angSep";
 
   // ------------- BEGIN ------------------
 
   if ( REFAC ) {
-    cosD1 = cos(RAD*DEC1);
-    cosD2 = cos(RAD*DEC2);
-    sinD1 = sin(RAD*DEC1);
-    sinD2 = sin(RAD*DEC2);
-    sinR1 = sin(RAD*RA1);
-    sinR2 = sin(RAD*RA2);
-    cosRDIF = cos(RAD*(RA2-RA1));
-    sinRDIF = sin(RAD*(RA2-RA1));
-    cos2RDIF = cosRDIF * cosRDIF;
-    sin2RDIF = sinRDIF * sinRDIF;
+
+    double top, bot, arg, tmp ;
+    double cosD1 = cos(RAD*DEC1) ;
+    double cosD2 = cos(RAD*DEC2) ;
+    double sinD1 = sin(RAD*DEC1) ;
+    double sinD2 = sin(RAD*DEC2) ;
+    // double sinR1 = sin(RAD*RA1);
+    // double sinR2 = sin(RAD*RA2);
+    double cosRDIF = cos(RAD*(RA2-RA1));
+    double sinRDIF = sin(RAD*(RA2-RA1));
+    // double cos2RDIF = cosRDIF * cosRDIF;
+    double sin2RDIF = sinRDIF * sinRDIF;
 
     tmp = (cosD1*sinD2 - sinD1*cosD2*cosRDIF);
     top = cosD2*cosD2 * sin2RDIF + tmp*tmp ;
@@ -4359,7 +4363,7 @@ double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
   double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
   double RAD = RADIAN ;
   double tiny = 1.0E-35;
-  char fnam[] = "angSep_dotprod" ;
+  //  char fnam[] = "angSep_dotprod" ;
 
   // ------------- BEGIN ------------------
 
@@ -4856,7 +4860,7 @@ int strcmp_ignoreCase(char *str1, char *str2) {
   int len2 = strlen(str2) ;
   if ( len1 != len2 ) { return -1; }
   
-  int j ;
+  int j;
   char *str1_lc = (char*) malloc ( len1 * sizeof(char) + 10 );
   char *str2_lc = (char*) malloc ( len2 * sizeof(char) + 10 );
 
@@ -4882,7 +4886,7 @@ int strcmp_ignoregz(char *str1, char *str2) {
 
   int len1 = strlen(str1) ;
   int len2 = strlen(str2) ;
-  int j ;
+
   char *str1_nogz = (char*) malloc ( len1 * sizeof(char) + 10 );
   char *str2_nogz = (char*) malloc ( len2 * sizeof(char) + 10 );
 
@@ -5189,7 +5193,9 @@ void print_mask_comment(FILE *FP, int OPTIONS_MASK, int MASK, char *COMMENT) {
   //   COMMENT       : name of user mask variable if MASK=0;
   //                   description of MASK if MASK>0
   //
-  char fnam[] = "print_mask_comment";
+
+
+  //  char fnam[] = "print_mask_comment";
 
   // ---------- BEGIN ---------
 
@@ -5483,7 +5489,7 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
     SNDATA_ENV[20] = "SNDATA_ROOT"
     ,SNDATA_ROOT[MXPATHLEN]
     ,tmpDir[MXPATH_SNDATA_SIM][MXPATHLEN]
-    ,tmpFile[MXPATH_SNDATA_SIM][MXPATHLEN]
+    ,tmpFile[MXPATH_SNDATA_SIM][MXPATHLEN+20]
     ,prefix[MXPATHLEN]
     ,fnam[] = "getInfo_PHOTOMETRY_VERSION"
     ;
@@ -5562,7 +5568,6 @@ int getInfo_PHOTOMETRY_VERSION(char *VERSION      // (I) photometry version
   NPATH = getList_PATH_SNDATA_SIM(PATHLIST);
 
   // tack on default SIM dir (Sep 2019)
-  int IPATH_SIM_DEFAULT = NPATH;
   sprintf(PATHLIST[NPATH], "%s/SIM", SNDATA_ROOT ); NPATH++ ;
 
   if ( LDMP ) 
@@ -5660,7 +5665,7 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
   //
   // Feb 2021: abort if open fails (e.g. file is write-protected)
 
-  char fileName[MXPATHLEN], SNDATA_ROOT[MXPATHLEN] ;
+  char fileName[2*MXPATHLEN], SNDATA_ROOT[MXPATHLEN] ;
   char modeArg[4];
   FILE *fp ;
   char fnam[] = "openFile_PATH_SNDATA_SIM" ;
@@ -5676,7 +5681,8 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
 
   if ( !fp ) {
     sprintf(c1err,"Cannot open PATH_SNDATA_SIM file in %s mode:", mode);
-    sprintf(c2err,"%s", fileName);
+    strncpy(c2err, fileName, 180); c2err[180] = '\0' ;
+    // xxx mark sprintf(c2err,"%s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 
@@ -6009,7 +6015,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   int    NBIN_SIGINT = 0 ;
   double sigTmp_lo   = sigint_approx - (nbin_lo*sigint_bin) - 1.0E-7 ;
   double sigTmp_hi   = sigint_approx + (nbin_hi*sigint_bin) ;
-  double sigTmp, covTmp, covtot, sum_dif, sum_sqdif;
+  double sigTmp, covTmp, covtot ;
   double pull, sum_pull, sum_sqpull ;
   double sigTmp_store[MXSTORE_PULL], rmsPull_store[MXSTORE_PULL], rmsPull ;
   double ONE = 1.0 ;
@@ -6049,7 +6055,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
       }
     }
     
-    sum_dif = sum_sqdif = sum_pull = sum_sqpull = 0.0 ;
+    sum_pull = sum_sqpull = 0.0 ;
     covTmp = sigTmp * fabs(sigTmp) ;
 
     SUM_WGT = 0.0 ;
@@ -6242,7 +6248,7 @@ void trim_blank_spaces(char *string) {
 
   int MXchar, i, FOUNDCHAR, ISCHAR, ISBLANK, ISTERM ;
   char *tmpString, c1[2] ;
-  char fnam[] = "trim_blank_spaces" ;
+  //  char fnam[] = "trim_blank_spaces" ;
 
   // -------------- BEGIN ---------
 
@@ -6488,7 +6494,7 @@ void split2doubles(char *string, char *sep, double *dval) {
 void split2floats(char *string, char *sep, float *fval) {
   // May 2025: See plit2doubles for explanation
   double dval[2];
-  char fnam[] = "split2floats" ;
+  //  char fnam[] = "split2floats" ;
   // ---------------- BEGIN --------------------
   split2doubles(string, sep, dval);
   fval[0] = (float)dval[0];
@@ -6759,17 +6765,14 @@ void remove_comment(char *string) {
 
   char *e = strchr(string, '#');
   int index;
-  char fnam[] = "remove_comment" ;
+  //  char fnam[] = "remove_comment" ;
 
   // -------- BEGIN ----------
-
   if ( e != NULL ) {
     index = (int)(e - string);
     string[index] = 0;
   }
-
   return;
-
 } // end remove_comment
 
 // ============================================
@@ -7063,7 +7066,7 @@ void init_random_seed(int ISEED, int NSTREAM) {
   int i ;
   int ISEED2 = ISEED * 7 + 137; // for 2nd stream, if requested
   int ISEED_LIST[MXSTREAM_RAN] = { ISEED, ISEED2 } ;
-  char fnam[] = "init_random_seed" ;
+  //  char fnam[] = "init_random_seed" ;
 
   // ----------- BEGIN ----------------
 
@@ -7200,7 +7203,7 @@ double unix_getRan_Flat1(int istream) {
 
   int NSTREAM = GENRAN_INFO.NSTREAM ;
   int JRAN ;
-  char fnam[] = "unix_getRan_Flat1";
+  //  char fnam[] = "unix_getRan_Flat1";
   // ------------ BEGIN ----------------
   if ( NSTREAM == 1 )  { 
     JRAN = random(); 
@@ -7617,15 +7620,13 @@ int quickBinSearch(double VAL, int NBIN, double *VAL_LIST,
   // Dec 13 2019: return(0) immediately if NBIN=1
   // Oct 22 2025: pass fnam for error message
 
-  int  LDMP, NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
+  int  NITER, ibin_min, ibin_max, ibin, ibin1, ibin2, ISTEP ;
   double    MINVAL, MAXVAL, VAL1, VAL2 ;
 
   char fnam[200] ;  
   concat_callfun_plus_fnam(callFun, "quickBinSearch", fnam); // return fnam
 
   // ------------- BEGIN --------------
-
-  LDMP = 0 ; // ( fabs(VAL-7000.) < 0.01 );
 
   MINVAL = VAL_LIST[0] ;
   MAXVAL = VAL_LIST[NBIN-1];
@@ -8208,7 +8209,7 @@ void clr_VERSION ( char *version, int prompt ) {
   ***/
 
   char fnam[] = "clr_VERSION" ;
-  char cmd[200];
+  char cmd[5*MXPATHLEN];
   char listFile[2*MXPATHLEN];
   char vprefix[2*MXPATHLEN];
   int  RMFILE_PHOTOMETRY, RMFILE_LCMERGE, RMFILE_SIM, DO_RMFILE, isys ;
@@ -8284,10 +8285,13 @@ void clr_VERSION ( char *version, int prompt ) {
       fflush(stdout);    
       isys = system ( cmd );
     }
-
+    
     printf(" Done. \n" );
   }
 
+  (void)isys;
+
+  return;
 }  // end of clr_VERSION
 
 
@@ -8363,8 +8367,10 @@ int  init_SNPATH(void) {
   struct stat statbuf ;
   istat = stat( PATH_SNDATA_ROOT, &statbuf);
   if ( istat != 0 ) {
-    sprintf(c1err,"$SNDATA_ROOT = '%s'", PATH_SNDATA_ROOT);
-    sprintf(c2err,"does not exist ?!?!? Check your $SNDATA_ROOT .");
+    print_preAbort_banner(fnam);
+    printf("  SNDATA_ROOT = %s \n", PATH_SNDATA_ROOT);
+    sprintf(c1err,"SNDATA_ROOT (printed above) does not exist !?!?!?");
+    sprintf(c2err,"Check your $SNDATA_ROOT .");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -8400,7 +8406,7 @@ int init_SNDATA_GLOBAL(void) {
   //
   // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
 
-  int ifilt, ep, j, igal ;
+  int ifilt, ep, igal ;
   char fnam[] = "init_SNDATA_GLOBAL" ;
 
   // ---------------- BEGINN -------------
@@ -8483,15 +8489,9 @@ int init_SNDATA_EVENT(void) {
   // Mar 13 2021: ZEROPT_ERR[SIG] = 0 instead of -9 in case they are 
   //              not in data files.
   //
-  int i_epoch, ifilt, i, igal, j ;
-  char fnam[] = "init_SNDATA_EVENT" ;
+  int i_epoch, ifilt, i, igal ;
+  //  char fnam[] = "init_SNDATA_EVENT" ;
   // --------- BEGIN -----------------
-
-  /*
-  printf(" xxx %s: init SNDATA struct  (SIM_RA=%f)\n",  
-	 fnam, SNDATA.SIM_RA ); fflush(stdout);
-  */
-
 
   sprintf(FLUXUNIT, "ADU");
 
@@ -8752,7 +8752,7 @@ int init_SNDATA_EVENT(void) {
 
 void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX,char *PREFIXz) {
 
-  char fnam[] = "get_SNDATA_HOSTGAL_PREFIX";
+  //  char fnam[] = "get_SNDATA_HOSTGAL_PREFIX";
   // ---------- BEGIN -----------
 
   // For input igal, return PREFIX and PREFIXz for data varnames related to HOSTs.
@@ -8790,8 +8790,7 @@ xxxxxx end mark */
 void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN, 
 			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2 ) {
   int j;
-  char PREFIX[20], PREFIXz[20], varNames[4][60];
-  char *ptrNames[4] = { varNames[0], varNames[1], varNames[2], varNames[3] } ;
+  char PREFIX[20], PREFIXz[22] ;
   // ------------ BEGIN ----------
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
@@ -8853,7 +8852,7 @@ int NZ_HOSTGALz(int MXBIN, float *Z_LIST) {
 
   // Return number of Z_LIST redshifts that are >=0
   int  iz, NZ = 0 ; 
-  char fnam[] = "NZ_HOSTGALz_snfitsio";
+  //  char fnam[] = "NZ_HOSTGALz_snfitsio";
   // ------------ BEGIN ------------- 
   for(iz=0; iz < MXBIN; iz++ ) { 
     if ( Z_LIST[iz] >= 0.0 ) { NZ++; }  else { break; }
@@ -8889,7 +8888,7 @@ void compute_implicit_percentiles(int NBIN_TOT, int NBIN_VALID, double *PCT_LIST
 // =================================================
 void init_GENSPEC_GLOBAL(void) {
   int ispec;
-  char fnam[] = "init_GENSPEC_GLOBAL";
+  //  char fnam[] = "init_GENSPEC_GLOBAL";
   // -------- BEGIN ---------
   
   GENSPEC.NMJD_PROC = 0 ;
@@ -8905,7 +8904,7 @@ void init_GENSPEC_GLOBAL(void) {
 
 void init_GENSPEC_EVENT(int ispec, int NBLAM) {
 
-  char fnam[] = "init_GENSPEC_EVENT";
+  //  char fnam[] = "init_GENSPEC_EVENT";
 
   // --------- BEGIN -----------
   
@@ -8944,7 +8943,7 @@ void malloc_GENSPEC(int opt, int ispec, int NBLAM) {
   // each event because real data has different size spectra arrays.
 
   int i;
-  char fnam[] = "malloc_GENSPEC" ;
+  //  char fnam[] = "malloc_GENSPEC" ;
 
   // --------- BEGIN ------------
 
@@ -9049,7 +9048,7 @@ int  fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) {
 
   *********/
 
-  double mag, mag_err, mag_tmp, ZP, ZP_err, ZP_scale, ZP_sig;
+  double mag, mag_err, mag_tmp, ZP, ZP_scale, ZP_sig;
   double flux, flux_err, fluxcal, fluxcal_err, ferrp, ferrm;
   double tmperr, arg, sqerrtmp, relerr;
   int VALID_MAGFUN, IFILT, LTMP;
@@ -9060,7 +9059,7 @@ int  fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) {
   VALID_MAGFUN = 0;
 
   ZP        = SNDATA.ZEROPT[iepoch];
-  ZP_err    = SNDATA.ZEROPT_ERR[iepoch];
+  // xxx mark  ZP_err    = SNDATA.ZEROPT_ERR[iepoch];
   ZP_sig    = SNDATA.ZEROPT_SIG[iepoch];
   flux      = SNDATA.FLUX[iepoch];
   flux_err  = SNDATA.FLUX_ERRTOT[iepoch];
@@ -9205,8 +9204,8 @@ int PARSE_FILTLIST (char *filtlist_string, int *filtlist_array ) {
   char fnam[] = "PARSE_FILTLIST";
 
   int NF_USER ;
-  int ifilt_user, ifilt_list, ifilt_match;
-  char cfilt_user[2], cfilt_tmp[2], **cfilt_list ;
+  int ifilt_user,  ifilt_match;
+  char cfilt_user[2],  **cfilt_list ;
   char filtlist_local[MXFILTINDX];
 
   //------------- BEGIN ----------
@@ -9323,7 +9322,7 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
   int  NVAR_STORE = 0, NKEY_LOCAL = 0 ;
   int  FOUND_VARNAMES, ivar, ivar_start, ivar_end, ivar2, NVAR_TMP ;
   int  IVAR_EXIST, LDMP = 0 ;
-  char c_get[60], LINE[100], tmpName[60] ;
+  char c_get[60], LINE[100], tmpName[60], *fg = NULL ;
 
   char fnam[200] ;
   concat_callfun_plus_fnam(callFun, "read_VARNAMES_KEYS", fnam);
@@ -9334,12 +9333,12 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
 
-    if ( commentchar(c_get) ) { fgets(LINE, 100, fp); continue; } // Mar 2026
+    if ( commentchar(c_get) ) { fg=fgets(LINE, 100, fp); continue; } // Mar 2026
 
     FOUND_VARNAMES = ( strcmp(c_get,"VARNAMES:")==0 ) ;
     if ( FOUND_VARNAMES ) {
       NKEY_LOCAL++ ;
-      fgets(LINE, 100, fp ); // scoop up varnames
+      fg = fgets(LINE, 100, fp ); // scoop up varnames
       NVAR_TMP  = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
       
       ivar_start = 0; ivar_end = NVAR_TMP;
@@ -9397,7 +9396,8 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
     }
   }
 
-  
+  (void)fg;
+
   return ;
 
 } // end read_VARNAMES_KEYS
@@ -9652,7 +9652,7 @@ int Landolt_ini(
 
   int   ifilt, k ;
   float kval, kerr,  magtmp ;
-  char c_get[40], c_tmp[60], c_k[6], kfile[MXPATHLEN], kfile_full[MXPATHLEN]  ;
+  char c_get[40], c_tmp[60], c_k[6], kfile[MXPATHLEN], kfile_full[2*MXPATHLEN+20]  ;
   FILE *fp;
   char fnam[] = "Landolt_ini" ;
 
@@ -9700,8 +9700,9 @@ int Landolt_ini(
   sprintf(kfile_full,"%s/filters/Landolt/%s",  PATH_SNDATA_ROOT, kfile );
 
   if ( (fp = fopen(kfile_full, "rt"))==NULL ) {
-    sprintf(c1err,"Cannot open: %s", kfile_full );
-    errmsg(SEV_FATAL, 0, fnam, c1err, BLANK_STRING );
+    sprintf(c1err,"Cannot open Landolt color file:" );
+    strncpy(c2err, kfile_full, 180); c2err[180] = '\0' ;
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     fclose(fp); 
   }
 
@@ -9915,9 +9916,9 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
 
   struct stat statbuf, statbuf_gz;
   bool FOUNDIT = false;
-  int  jstat, jstat_gz, ipath, NPATH ;
+  int  jstat=0, jstat_gz=0, ipath, NPATH ;
   char *path, *PATH[MXPATH_CHECK], sepKey[] = " ";
-  char  tmpName[MXPATHLEN], tmpName_gz[MXPATHLEN] ;
+  char  tmpName[MXPATHLEN], tmpName_gz[MXPATHLEN+10] ;
   char fnam[] = "find_pathfile";
 
   // ------------- BEGIN -----------
@@ -9928,7 +9929,8 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
   splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, &PATH[1] ); // <== returned
 
-  NPATH++;  sprintf(PATH[0],"");
+  NPATH++; 
+  sprintf(PATH[0],BLANK_STRING); // add blank space at start of string.
 
   for ( ipath=0; ipath < NPATH; ipath++ ) {
     path = PATH[ipath] ;
@@ -10066,7 +10068,8 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
 
     if ( FOUND_0FILES && NOFILE_ABORT ) {
       sprintf(c1err, "Cannot open unzip or gzip file for:");
-      sprintf(c2err, "%s", unzipFile);
+      strncpy(c2err, unzipFile, 180); c2err[180] = '\0' ;
+      // xxx mark sprintf(c2err, "%s", unzipFile);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
     
@@ -10094,6 +10097,7 @@ void rewind_and_purge(FILE *fp) {
 
   int fd = fileno(fp);
   int istat = ftruncate(fd, 0); // delete contents of file, but do not close it
+  (void)istat;
 }
 
 // =====================================
@@ -10277,7 +10281,7 @@ int colnum_in_table(char *fileName, char *varName) {
   int nwd_check = 1000; // stop checking after this many words
   int gzipFlag, nvar, ivar, nwd_read=0;
   char KEY[] = "VARNAMES:" ;
-  char c_get[MXPATHLEN], VARNAME_STRING[MXPATHLEN];
+  char c_get[MXPATHLEN], VARNAME_STRING[MXPATHLEN], *fg;
   FILE *fp;
 
   char fnam[] = "colnum_in_file" ;
@@ -10294,7 +10298,9 @@ int colnum_in_table(char *fileName, char *varName) {
 
     if ( strcmp(c_get,KEY) == 0 ) { 
       colnum = -3;
-      fgets(VARNAME_STRING, MXPATHLEN, fp);
+      fg = fgets(VARNAME_STRING, MXPATHLEN, fp);
+      (void)fg;
+
       nvar = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,VARNAME_STRING, fnam);
       for(ivar=0; ivar < nvar; ivar++ ) {
 	get_PARSE_WORD(0, ivar, c_get, fnam );
@@ -10308,6 +10314,7 @@ int colnum_in_table(char *fileName, char *varName) {
   }
 
   if ( gzipFlag ) { pclose(fp); }  else  { fclose(fp); }
+
 
   return colnum ;
 
@@ -10327,9 +10334,9 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
   // Nov 18 2021; use fgets instead of fscanf
   // Nov 23 2021: back to simpler fscanf 
   
-  char line[MXPATHLEN], key[60], *ptrtok, *pos;
+  char key[60] ;
   bool FOUND_DOCANA ;
-  char fnam[] = "check_openFile_docana";
+  //  char fnam[] = "check_openFile_docana";
   // ------------- BEGIN --------
 
   fscanf(fp,"%s",key); 
@@ -10421,7 +10428,8 @@ void react_missing_docana(bool REQUIRE_DOCANA, char *fileName) {
 
   if( REQUIRE_DOCANA ) {
     sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
-    sprintf(c2err,"%s", fileName );
+    strncpy(c2err, fileName, 180); c2err[180] = '\0' ;
+    // xxx mark    sprintf(c2err,"%s", fileName );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
   }
 
@@ -10667,7 +10675,6 @@ void parse_err ( char *inFile, int NEWMJD, char *keyword ) {
 }
 
 // *********************************************************
-// xxx mark void  legacyKey_abort(char *callFun,  char *legacyKey, char *newKey) {
 void  legacyInput_abort(char *callFun, char *type, char *legacyName, char *newName) {
 
   // Inputs:
@@ -10678,7 +10685,7 @@ void  legacyInput_abort(char *callFun, char *type, char *legacyName, char *newNa
   //
   // May 2025: add *type input = "key" or "arg" or "whatever is obsolete
 
-  char fnam[] = "legacyInput_abort" ;
+  //  char fnam[] = "legacyInput_abort" ;
 
   // ----------- BEGIN ----------
 
@@ -10927,8 +10934,11 @@ void readint(FILE *fp, int nint, int *list)
 
     for ( i=0; i<nint; i++) {
       scanStat = fscanf(fp,"%s",c_get);         // read next string 
+      (void)scanStat;
+
       itmp     = NOINT  ;
       istat    = sscanf ( c_get, "%d", &itmp );
+      (void)istat ;
 
       if ( itmp == NOINT ) {
 	sprintf(c1err,"Could not read int from string='%s' ; ", c_get);
@@ -10956,6 +10966,8 @@ void readlong(FILE *fp, int nint, long long *list)
     for ( i=0; i<nint; i++)
       {  scanStat = fscanf(fp,"%lld", &list[i] );  }
 
+    (void)scanStat;
+
 }  // end of function "readlong" 
 
 
@@ -10982,8 +10994,11 @@ void readfloat(FILE *fp, int nint, float *list)
 
     for ( i=0; i<nint; i++) {
       scanStat = fscanf(fp,"%s",c_get);         // read next string 
+      (void)scanStat;
+
       ftmp     = NOFLOAT  ;
       fstat    = sscanf ( c_get, "%f", &ftmp );
+      (void)fstat;
       if ( ftmp == NOFLOAT ) {
 	sprintf(c1err,"Could not read float from string='%s' ; ", c_get);
 	sprintf(c2err,"reading item %d of %d items.", i+1, nint);
@@ -11014,8 +11029,11 @@ void readdouble(FILE *fp, int nint, double *list)
 
     for ( i=0; i<nint; i++) {
       scanStat = fscanf(fp,"%s",c_get);         // read next string 
+      (void)scanStat;
+
       dtmp     = NODOUBLE ;
       dstat    = sscanf ( c_get, "%le", &dtmp );
+      (void)dstat;
 
       if ( dtmp == NODOUBLE ) {
 	sprintf(c1err,"Could not read double from string='%s' ; ", c_get);
@@ -11044,6 +11062,8 @@ void readchar(FILE *fp, char *clist)
   int scanStat ;
   char fnam[] = "readchar";
   scanStat = fscanf(fp,"%s",clist);   // read next string 
+  (void)scanStat;
+
   if ( clist[0] == '\t' ) {
     sprintf(c1err,"Invalid tab read in string '%s'", clist);
     sprintf(c2err,"Check file being read.");

@@ -779,6 +779,8 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
 
   Jan 2020: pass FLUXSIM
 
+  Apr 28 2026: if NOBS < MINOBS, skip event instead of abort.
+
  */
 /************************************************************************/
 {
@@ -798,10 +800,17 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
 
 
   if ( NOBS < PSNID_MINOBS ) {
+
+    printf(" WARNING: skipping CID=%s because NOBS=%d < MINOBS(%d)\n", 
+	   CCID, NOBS, PSNID_MINOBS );
+    return ERRFLAG;
+
+    /* xxx
     sprintf(c1err,"NOBS=%d < MINOBS(%d) for CID=%s", 
 	    NOBS, PSNID_MINOBS, CCID);
     sprintf(c2err,"Check light curve");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );    
+    xxxxx */
   }
 
   // Feb 8 2013: RK store light curve info for use in other functions

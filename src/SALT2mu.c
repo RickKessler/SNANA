@@ -4544,11 +4544,15 @@ void *MNCHI2FUN(void *thread) {
 	  }  // end ig
 	}    // end ib 
       }     // end ia
-      // xxx mark delete  fitParBias = INFO_DATA.fitParBias[n] ; 
+      fitParBias = INFO_DATA.fitParBias[n] ; 
     } // end NDIM_BIASCOR if block
+    else {
+      double dummy;
+      fitParBias = &dummy; // does nothing but avoid -Wall warnings
+    }
 
     // set fitparBias outside NDIM_BIASCOR>0 block to avoid -Wall warnings
-    fitParBias = INFO_DATA.fitParBias[n] ; 
+
     // - - - - - - - - - - - - - - - - - 
 
     if ( z < 1.0E-8 ) { continue ; } // Jun 3 2013 (obsolete?)

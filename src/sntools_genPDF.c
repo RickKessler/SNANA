@@ -482,7 +482,7 @@ void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
     strcat(VARLIST,",");    strcat(VARLIST,varName);
   }
 
-  GENPDF[imap].VARNAMES[ivar] = (char*) malloc(40*sizeof(char));
+  GENPDF[imap].VARNAMES[ivar] = (char*) malloc(80*sizeof(char));
   sprintf(GENPDF[imap].VARNAMES[ivar], "%s", varName);
   
   return ;

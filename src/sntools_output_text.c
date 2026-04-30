@@ -742,9 +742,11 @@ void OPEN_TEXTFILE(char *FILENAME, char *mode) {
   // Created Oct 2014
   // e.g., mode = 'rt' or 'wt'
 
+  int OPTMASK_NOFILE = 0 ; // tells open_TEXTgz to return if no file
   char fnam[] = "OPEN_TEXTFILE" ;
 
-  PTRFILE_TEXT = open_TEXTgz(FILENAME,mode, 0, &GZIPFLAG_TEXT, fnam);
+  // ---------- BEGIN -----------
+  PTRFILE_TEXT = open_TEXTgz(FILENAME, mode, OPTMASK_NOFILE, &GZIPFLAG_TEXT, fnam);
 
   sprintf(FILENAME_TEXT, "%s", FILENAME);  // Dec 2 2017
 
@@ -758,6 +760,7 @@ void OPEN_TEXTFILE(char *FILENAME, char *mode) {
   sprintf(msg,"%s: %s", fnam, FILENAME);
   printf("\n   %s \n", msg);
 
+  return;
 
 } // end of OPEN_TEXTFILE
 

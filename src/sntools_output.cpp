@@ -397,12 +397,9 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   stringOpt[0] = 0 ;
   if ( OPEN_FLAG == OPENFLAG_NEW ) 
     { strcat(stringOpt,"N"); }
-  // xxx mark { sprintf(stringOpt,"%sN", stringOpt); }
 
   if ( OPT_Q  ) 
     { strcat(stringOpt,"Q"); }
-  // xxx mark    { sprintf(stringOpt,"%sQ", stringOpt); }
-
 
   // open file based on its type.
 
@@ -446,12 +443,13 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   }
 #endif
   
+
   // store USE-flag and filename
   sprintf(NAME_TABLEFILE[OPEN_FLAG][TYPE_FLAG], "%s", FILENAME);
   USE_TABLEFILE[OPEN_FLAG][TYPE_FLAG] = 1; 
 
   if ( IERR != 0 ) 
-    { return -9 ; }  // generaic error code
+    { return -9 ; }  // generate error code
   else
     { return TYPE_FLAG ; }
 
@@ -1494,7 +1492,6 @@ int SNTABLE_READ_EXEC(void) {
   // --------------- BEGIN ---------------
 
   NROW = -777 ;
-
 
 #ifdef USE_ROOT
   if ( IFILETYPE == IFILETYPE_ROOT ) {

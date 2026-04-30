@@ -270,8 +270,7 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
   TABLEINFO_TEXT.FP[NTAB] = open_TEXTgz(FILENAME,TEXTMODE_wt, 0, &GZIPFLAG, fnam) ;
   if ( !TABLEINFO_TEXT.FP[NTAB] ) {
     sprintf(MSGERR1, "Could not open TEXT FILE = ");
-    strncpy(MSGERR2, FILENAME, 180); MSGERR2[180] = '\0';
-    // xxxx mark    sprintf(MSGERR2, "%s", FILENAME);    
+    sprintf(MSGERR2, "%.*s", MXCHAR_MSGERR, FILENAME);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -751,8 +750,7 @@ void OPEN_TEXTFILE(char *FILENAME, char *mode) {
 
   if ( !PTRFILE_TEXT ) {
     sprintf(MSGERR1, "Could not open text-file in mode='%s' : ", mode);
-    strncpy(MSGERR2, FILENAME, 180); MSGERR2[180] = '\0';
-    // xxx mark    sprintf(MSGERR2, "%s", FILENAME);    
+    sprintf(MSGERR2, "%.*s", MXCHAR_MSGERR, FILENAME);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -822,8 +820,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   PTRFILE_LCLIST = open_TEXTgz(listFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_LCLIST ) {
     sprintf(MSGERR1, "Could not open ascii LC list-file = ");
-    strncpy(MSGERR2, listFile, 180); MSGERR2[180]  = '\0';
-    // xxx mark sprintf(MSGERR2, "%s", listFile);    
+    sprintf(MSGERR2, "%.*s", MXCHAR_MSGERR, listFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -831,8 +828,7 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
   PTRFILE_LCPLOT = open_TEXTgz(lcplotFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_LCPLOT ) {
     sprintf(MSGERR1, "Could not open ascii LCPLOT file = ");
-    strncpy(MSGERR2, lcplotFile, 180); MSGERR2[180]  = '\0';
-    // xxx mark    sprintf(MSGERR2, "%s", lcplotFile);    
+    sprintf(MSGERR2, "%.*s", MXCHAR_MSGERR, lcplotFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -1690,8 +1686,7 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
   PTRFILE_SPECLIST = open_TEXTgz(specFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_SPECLIST ) {
     sprintf(MSGERR1, "Could not open ascii SPECLIST file = ");
-    strncpy(MSGERR2, specFile, 100); MSGERR2[100] = '\0' ;
-    // xxx mark   sprintf(MSGERR2, "%s", specFile);    
+    sprintf(MSGERR2, "%.*s", MXCHAR_MSGERR, specFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
@@ -1699,8 +1694,7 @@ void OPEN_TEXTFILE_SPECLIST(char *PREFIX) {
   PTRFILE_SPECPLOT = open_TEXTgz(specFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_SPECPLOT ) {
     sprintf(MSGERR1, "Could not open ascii SPECPLOT file = ");
-    strncpy(MSGERR2, specFile, 100); MSGERR2[100] = '\0' ;
-    // xxx mark    sprintf(MSGERR2, "%s", specFile);    
+    sprintf(MSGERR2, "%.*s", MXCHAR_MSGERR, specFile);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 

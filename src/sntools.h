@@ -229,8 +229,9 @@ struct {
 
 
 // errsmsg parameters
-char c1err[200];   // for kcorerr utility
-char c2err[200];   // for kcorerr utility
+#define MXCHAR_MSGERR 200
+char c1err[MXCHAR_MSGERR+20];   // for kcorerr utility
+char c2err[MXCHAR_MSGERR+20];   // for kcorerr utility
 char BANNER[200];
 int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 

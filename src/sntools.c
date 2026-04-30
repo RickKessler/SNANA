@@ -3580,8 +3580,7 @@ void read_SURVEYDEF(void) {
   fp = fopen(SURVEYDEF_FILE,"rt");
   if ( !fp ) {
     sprintf(c1err,"Could not open SURVEY.DEF file");
-    strncpy(c2err, SURVEYDEF_FILE, 180); c2err[180] = '\0' ;
-    // xxx mark sprintf(c2err,"%s", SURVEYDEF_FILE);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, SURVEYDEF_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -5681,8 +5680,7 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
 
   if ( !fp ) {
     sprintf(c1err,"Cannot open PATH_SNDATA_SIM file in %s mode:", mode);
-    strncpy(c2err, fileName, 180); c2err[180] = '\0' ;
-    // xxx mark sprintf(c2err,"%s", fileName);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 
@@ -9909,6 +9907,8 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
   // path in (space-separated) PATH_LIST.
   // Return FILENAME that includes full path (if needed).
   // Abort if file not found.
+  //
+  // Apr 29 2026: use malloc_strlist
 
   // ------------ BEGIN ----------------
 
@@ -9917,23 +9917,28 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
   struct stat statbuf, statbuf_gz;
   bool FOUNDIT = false;
   int  jstat=0, jstat_gz=0, ipath, NPATH ;
-  char *path, *PATH[MXPATH_CHECK], sepKey[] = " ";
+  float fmem = 0.0 ;
+  char *path, **PATH, sepKey[] = " ";  
   char  tmpName[MXPATHLEN], tmpName_gz[MXPATHLEN+10] ;
   char fnam[] = "find_pathfile";
-
   // ------------- BEGIN -----------
 
+  fmem = malloc_strlist(+1, MXPATH_CHECK, MXPATHLEN, &PATH );
+
+  /* xxx mark delete 4.29.2026 xxxxx
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
     { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
+  xxxxxxxx end mark xxxxx */
 
   splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, &PATH[1] ); // <== returned
 
-  NPATH++; 
-  sprintf(PATH[0],BLANK_STRING); // add blank space at start of string.
+  NPATH++;  // add +1 for 0th element = no path
 
   for ( ipath=0; ipath < NPATH; ipath++ ) {
     path = PATH[ipath] ;
+
+    printf(" xxx %s: ipath=%d  path = '%s' \n", fnam, ipath, path);
     if ( strlen(path) == 0 ) 
       { sprintf(tmpName,"%s", fileName); }
     else
@@ -9962,7 +9967,10 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
 
   //  debugexit(fnam);
 
-  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )  { free(PATH[ipath]); }
+  // free memory
+  fmem = malloc_strlist(-1, MXPATH_CHECK, MXPATHLEN, &PATH );
+
+  // xxx mark  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )  { free(PATH[ipath]); }
 
 
   return;
@@ -10068,8 +10076,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
 
     if ( FOUND_0FILES && NOFILE_ABORT ) {
       sprintf(c1err, "Cannot open unzip or gzip file for:");
-      strncpy(c2err, unzipFile, 180); c2err[180] = '\0' ;
-      // xxx mark sprintf(c2err, "%s", unzipFile);
+      sprintf(c2err, "%.*s", MXCHAR_MSGERR, unzipFile);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
     
@@ -10176,7 +10183,8 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   bool IGNORE_DOCANA  = ( (OPTMASK & OPENMASK_IGNORE_DOCANA)  > 0 ) ;
   int ipath, NPATH ;
   bool IS_OPEN = false ;
-  char *PATH[MXPATH_CHECK], sepKey[]= " " ; 
+  char **PATH, sepKey[]= " " ; 
+  float fmem;
   FILE *fp ;
   char fnam[] = "snana_openTextFile" ;
 
@@ -10194,8 +10202,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 
   // if we get here, try paths in PATH_LIST
 
-  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
-    { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
+  fmem = malloc_strlist(+1, MXPATH_CHECK, MXPATHLEN, &PATH );
 
   splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, PATH ); // <== returned
@@ -10214,7 +10221,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   } // end ipath
 
   // free memory
-  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )   { free(PATH[ipath]); }
+  fmem = malloc_strlist(-1, MXPATH_CHECK, MXPATHLEN, &PATH );
 
  DONE:
 
@@ -10428,8 +10435,7 @@ void react_missing_docana(bool REQUIRE_DOCANA, char *fileName) {
 
   if( REQUIRE_DOCANA ) {
     sprintf(c1err,"See DOCANA error above. Must add DOCUMENTATION block to");
-    strncpy(c2err, fileName, 180); c2err[180] = '\0' ;
-    // xxx mark    sprintf(c2err,"%s", fileName );
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, fileName );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
   }
 
@@ -10456,11 +10462,12 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   // function to print error info and abort. Main thing is
   // to print out all directories that were checked from
   // current dir and PATH_LIST.
-  
-  //#define MXPATH_CHECK 4
+  //
+  // Apr 29 2026: use malloc_strlist
+
   int NPATH, ipath;
-  char *PATH[MXPATH_CHECK], sepKey[] = " " ;
-  // xxx mark   char fnam[] = "abort_openTextFile" ; 
+  char **PATH, sepKey[] = " " ;
+  float fmem;
 
   char fnam[200];
   concat_callfun_plus_fnam(funCall, "abort_openTextFile", fnam);
@@ -10468,9 +10475,12 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   // -------------- BEGIN ----------------
   print_preAbort_banner(fnam);
 
-  // append path(s) from PATH_LIST
+  fmem = malloc_strlist(+1, MXPATH_CHECK, MXPATHLEN, &PATH );
+
+  /* xxx mark del 4.29 2026 xxxx
   for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
     { PATH[ipath] = (char*) malloc( MXPATHLEN * sizeof(char) ); }
+  xxxx end mark */
 
   // first path is current working dir
   getcwd(PATH[0],MXPATHLEN);
@@ -10487,7 +10497,9 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   sprintf(c1err,"Could not find '%s' input file:", keyName );
   sprintf(c2err,"%s  (see preAbort info above)", fileName);
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-  
+
+  // free memory
+  fmem = malloc_strlist(-1, MXPATH_CHECK, MXPATHLEN, &PATH );  
   return ;
 
 } // end abort_openTextFile
@@ -11426,7 +11438,10 @@ float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 float malloc_strlist(int opt, int LEN1, int LEN2, char ***strlist ) {
 
   // Created Mar 27 2027
+  // malloc strlist char array of LEN1 elements, each of length LEN2,
+  // and set each element to ""
   // Functions return MB of memory allocated
+  
   int i;
   float f_MEMTOT = 0.0 ;
   int MEM1    = LEN1 * sizeof(char*) ; 
@@ -11439,7 +11454,10 @@ float malloc_strlist(int opt, int LEN1, int LEN2, char ***strlist ) {
 
   if ( opt > 0 ) {
     *strlist = (char**) malloc( MEM1 );
-    for(i=0; i < LEN1; i++ ) { (*strlist)[i] = (char*) malloc( MEM2 ); }
+    for(i=0; i < LEN1; i++ ) { 
+      (*strlist)[i] = (char*) malloc( MEM2 );
+      (*strlist)[i][0] = 0; // Apr 29 2026
+    }
     f_MEMTOT += (float)MEM2 ;
   }
   else {

@@ -23773,6 +23773,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v12_01g) *****
 
+   Begin fixing -Wall compilation warnings (tons of them)
+
          *****  MISCELLANEOUS(v12_01g) *****
 
     snlc_sim.c:

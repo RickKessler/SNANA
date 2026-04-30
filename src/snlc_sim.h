@@ -173,29 +173,30 @@ struct {
 
 
 // define auxillary files produced with data files.
+#define MXCHAR_AUX_FILE 2*MXPATHLEN + 50
 typedef struct { // SIMFILE_AUX_DEF
 
   // required outputs
-  FILE *FP_LIST;    char  LIST[MXPATHLEN] ;
-  FILE *FP_README;  char  README[MXPATHLEN] ;
-  FILE *FP_HIDE_README;  char  HIDE_README[MXPATHLEN] ; // for BLIND option
+  FILE *FP_LIST;    char  LIST[MXCHAR_AUX_FILE] ;
+  FILE *FP_README;  char  README[MXCHAR_AUX_FILE] ;
+  FILE *FP_HIDE_README;  char  HIDE_README[MXCHAR_AUX_FILE] ; // for BLIND option
 
   // optional outputs
-  FILE *FP_DUMP;        char  DUMP[MXPATHLEN] ;
-  FILE *FP_IGNORE;      char  IGNORE[MXPATHLEN] ;
-  FILE *FP_DUMP_SL;     char  DUMP_SL[MXPATHLEN] ;
-  FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXPATHLEN] ;
-  FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXPATHLEN] ;  
-  FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
-  FILE *FP_DUMP_TRAINSALT;  char  DUMP_TRAINSALT[MXPATHLEN] ;  
-  FILE *FP_DUMP_MWCL;   char  DUMP_MWCL[MXPATHLEN] ; 
-  FILE *FP_DUMP_RATE;   char  DUMP_RATE[MXPATHLEN] ; 
-  FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
-  char PATH_FILTERS[MXPATHLEN]; // directory instead of file
+  FILE *FP_DUMP;        char  DUMP[MXCHAR_AUX_FILE] ;
+  FILE *FP_IGNORE;      char  IGNORE[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_SL;     char  DUMP_SL[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXCHAR_AUX_FILE] ;  
+  FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_TRAINSALT;  char  DUMP_TRAINSALT[MXCHAR_AUX_FILE] ;  
+  FILE *FP_DUMP_MWCL;   char  DUMP_MWCL[MXCHAR_AUX_FILE] ; 
+  FILE *FP_DUMP_RATE;   char  DUMP_RATE[MXCHAR_AUX_FILE] ; 
+  FILE *FP_YAML;        char  YAML[MXCHAR_AUX_FILE] ;  // Aug 10 2020, for submit_batch
+  char PATH_FILTERS[MXCHAR_AUX_FILE]; // directory instead of file
 
   // optional outputs (just filename, not pointer)
-  char  ZVAR[MXPATHLEN] ;   // optional zvariation file
-  char  GRIDGEN[MXPATHLEN]; // optional GRID-output
+  char  ZVAR[MXCHAR_AUX_FILE] ;   // optional zvariation file
+  char  GRIDGEN[MXCHAR_AUX_FILE]; // optional GRID-output
 
   // char string to write each line to memory, and then
   // one ASCI write per line instead of per value.
@@ -205,13 +206,13 @@ typedef struct { // SIMFILE_AUX_DEF
 
 
 // Mar 2016: create typedefs for NON1A
-typedef struct {  //INPUTS_NON1ASED_DEF
+typedef struct {  
 
   int IFLAG_GEN;
 
   // NON1ASED inputs from sim-input file
-  char  PATH[MXPATHLEN];                // user-defined path to NON1A seds
-  char  LISTFILE[MXPATHLEN];           // $PATH/NON1A.LIST
+  char  PATH[MXPATHLEN+10];                // user-defined path to NON1A seds
+  char  LISTFILE[MXPATHLEN+10];           // $PATH/NON1A.LIST
   int   NKEY ;                         // number of user NON1A keys
   char  KEYLIST[MXNON1A_KEY][40];      // list of user NON1A keys
 
@@ -683,8 +684,8 @@ struct INPUTS {
   char GENPREFIX[200];       // filename prefix (default=GENVERSION)
   char GENSOURCE[20];       // 'RANDOM'  or  'DATA-VERSION'
   char GENMODEL[MXPATHLEN] ; // source model name, with optional path
-  char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
-  char MODELNAME[100];       // stripped from GENMODEL
+  char MODELPATH[2*MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
+  char MODELNAME[200];       // stripped from GENMODEL
 
   INPUTS_GENPDF_DEF GENPDF;
 
@@ -1077,8 +1078,8 @@ struct GENLC {
 
   SIMFILE_AUX_DEF SIMFILE_AUX ; // controls auxilary output files 
 
-  char SURVEY_NAME[40];    // name of survey in SIMLIB
-  char SUBSURVEY_NAME[40]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
+  char SURVEY_NAME[60];    // name of survey in SIMLIB
+  char SUBSURVEY_NAME[60]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
   int  SUBSURVEY_ID;       // IDSURVEY for SUBSURVEY
   int  IDSURVEY ;
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
@@ -1164,7 +1165,7 @@ struct GENLC {
   double GENMAG_OFF_GLOBAL ;  // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
 
   char  SNTEMPLATE[80];
-  char  SNTYPE_NAME[MXPATHLEN];   // 1a, 1b, 1c, II, etc ...
+  char  SNTYPE_NAME[60];   // 1a, 1b, 1c, II, etc ...
 
   char  DISTANCE_NAME[40];    // DLMAG, mB, ...
   char  COLORPAR_NAME[40];    // c, AV ...
@@ -2254,7 +2255,6 @@ void   init_DNDZ_Rate(void) ; // extraGalactic rate vs. redshift
 void   init_DNDB_Rate(void) ; // Galactic Rate vs. l & b
 
 int  GENRANGE_CUT(void);
-// xxx mark int  GENMAG_CUT(void);
 
 
 void DASHBOARD_DRIVER(void);

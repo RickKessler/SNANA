@@ -354,7 +354,8 @@ For help, run code with no arguments
 char STRING_EVENT_TYPE[MXEVENT_TYPE][12] = 
   { "NULL", "DATA", "BIASCOR", "CCPRIOR" } ;
 bool USE_EVENT_TYPE[MXEVENT_TYPE];
-char VERSION_PHOTOMETRY_EVENT_TYPE[MXEVENT_TYPE][MXCHAR_FILENAME*2];
+// xxx mark char VERSION_PHOTOMETRY_EVENT_TYPE[MXEVENT_TYPE][MXCHAR_FILENAME*2];
+char VERSION_PHOTOMETRY_EVENT_TYPE[MXEVENT_TYPE][MXCHAR_VERSION_PHOTOMETRY];
 
 char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 
@@ -1168,7 +1169,7 @@ struct INPUTS {
   char   varname_pIa[100];
   bool   sameFile_flag_CCprior; // True -> same file(s) as biasCor
 
-  char   append_varname_missing[100]; // force missing varname(s) with -9
+  char   append_varname_missing[200]; // force missing varname(s) with -9
 
   double force_pIa;
   bool   perfect_pIa;       // internally set if force_pIa='perfect'
@@ -3410,6 +3411,8 @@ void check_vpec_sign(void) {
     if ( zHD > zwin[1] ) { continue; }
     if ( zHD < zwin[0] ) { continue; }
     
+    mB = x1 = c = mu = -999.0 ;
+
     // B.P.Done - strip off mu for BayeSN
     zCMB = (double)INFO_DATA.TABLEVAR.zcmb[isn] ;
     if ( INPUTS.ISMODEL_LCFIT_SALT2 ) {
@@ -3446,7 +3449,10 @@ void check_vpec_sign(void) {
       else if (INPUTS.ISMODEL_LCFIT_BAYESN) {
 	mures   = mu - M0_DEFAULT - mumodel ;
       }
-      
+      else {
+	mures = 0.0 ;
+      }
+
       SUM_MURES[i]   += mures ;
       SUM_SQMURES[i] += (mures*mures) ;
 
@@ -3582,6 +3588,13 @@ void check_duplicates_util(int EVENT_TYPE) {
   // B.P.Done - update parameter names to be more general
 
   // beware that arrays are float (not double) to conserve memory
+
+  // Apr 29 2026: use same arrays for both data and sim
+  zList = TABLEVAR->zhd;
+  cList = TABLEVAR->fitpar[INDEX_c];  
+  sList = TABLEVAR->fitpar[INDEX_s]; 
+
+  /* xxxxxxxxxxx mark delete 4.29.2026 xxxxxxxxx
   if ( IS_DATA ) {
     zList = TABLEVAR->zhd;
     cList = TABLEVAR->fitpar[INDEX_c];  
@@ -3592,6 +3605,8 @@ void check_duplicates_util(int EVENT_TYPE) {
     cList = TABLEVAR->SIM_FITPAR[INDEX_c];  
     sList = TABLEVAR->SIM_FITPAR[INDEX_s] ;  
   }
+  xxxxxxxx end mark */
+
 
   ORDER_SORT = + 1 ; // increasing order
   sortFloat( nsn, zList, ORDER_SORT, unsortList ) ;
@@ -3645,6 +3660,8 @@ void check_duplicates_util(int EVENT_TYPE) {
 	{ SAME  = ( strcmp(snid,snid2) == 0 ); }
       else if ( IS_BIASCOR ) 
 	{ SAME  = ( z==z2 && c == c2 && s2==s ); }
+      else 
+	{ SAME = false; }
 
       if ( IS_DUPL[isn2] ) { continue; }
       if ( !SAME         ) { continue; }
@@ -3815,7 +3832,7 @@ void merge_duplicates(int NDUPL, int *isnList) {
   double wgt, sqerr, wgtsum[NLCPAR], covfit, covfit0, covtot, fitpar_tmp  ;
   bool   SIGN_CHANGE[NLCPAR][NLCPAR], sign_change ;
   char stringList_fitparOrig[NLCPAR][100], *name ;
-  char string_tmp[100];
+  char string_tmp[MXPATHLEN];
   char fnam[] = "merge_duplicates" ;
 
   // ----------- BEGIN ----------------
@@ -4356,7 +4373,7 @@ void *MNCHI2FUN(void *thread) {
   double cosPar[NCOSPAR], ProbRatio_Ia, ProbRatio_CC ;
   double chi2sum_tot, chi2sum_Ia, sqmures, mures, mu, muBias, muBiasErr ;
   double z, zmuerr, d, s, c,  mumodel_store, muCOVscale, muCOVadd ;
-  double PTOTRAW_Ia=0.0, PTOTRAW_CC=0.0, muBias_zinterp;
+  double PTOTRAW_Ia=0.0, PTOTRAW_CC=0.0, muBias_zinterp=0.0 ;
   double muerr, muerrsq, muerrsq_last, muerr_last ;
   double PSUM,Prob_SUM,PTOT_Ia,PTOT_CC, dPdmu_Ia, dPdmu_CC, Prob_Ia, Prob_CC ;
   double sqsigCC=0.001, sigCC_chi2penalty=0.0;
@@ -4527,11 +4544,14 @@ void *MNCHI2FUN(void *thread) {
 	  }  // end ig
 	}    // end ib 
       }     // end ia
-      fitParBias = INFO_DATA.fitParBias[n] ; 
+      // xxx mark delete  fitParBias = INFO_DATA.fitParBias[n] ; 
     } // end NDIM_BIASCOR if block
 
+    // set fitparBias outside NDIM_BIASCOR>0 block to avoid -Wall warnings
+    fitParBias = INFO_DATA.fitParBias[n] ; 
+    // - - - - - - - - - - - - - - - - - 
 
-    if ( z < 1.0E-8) { continue ; } // Jun 3 2013 (obsolete?)
+    if ( z < 1.0E-8 ) { continue ; } // Jun 3 2013 (obsolete?)
 
     // fetch alpha,beta,gamma (include z-dependence)
     fcnFetch_AlphaBetaGamma(xval, z, logmass, &alpha, &beta, &gamma); 
@@ -4686,8 +4706,10 @@ void *MNCHI2FUN(void *thread) {
       { mu   = d  + alpha*s - beta*c - gammaDM ;  } // d = mB;
     else if ( ISMODEL_LCFIT_BAYESN ) 
       { mu   = d ; }  
+    else {
+      mu = -9.0; // should abort before getting here
+    }
 
-    
     mu      -= muBias ;      // bias correction 
     mures    = mu - M0 - mumodel ;
     sqmures  = mures*mures ;
@@ -6154,6 +6176,8 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO ) {
     { cmin=INPUTS.cmin; cmax=INPUTS.cmax; }
   else if ( INPUTS.ISMODEL_LCFIT_BAYESN ) 
     { cmin=INPUTS.avmin; cmax=INPUTS.avmax; }
+  else
+    { cmin = cmax = -9.0 ; }
 
   NBINc=INPUTS.nbinc_mucovscale; // user input instead of hard-wired (March 2022 MVincenzi)
   cbin=(cmax-cmin)/(double)NBINc;
@@ -7567,7 +7591,7 @@ void SNTABLE_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
   int  icut, ivar, ivar2, irow, id, NVAR_REQ_MISS=0, NCUTWIN=0, NPARSHIFT=0 ;
   bool L_RDFLAG, L_BCORONLY, L_CCONLY ;
   bool L_SURVEY, L_IDSAMPLE, REQUIRE;
-  char vartmp[MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
+  char vartmp[2*MXCHAR_VARNAME], *cutname, str_z[MXCHAR_VARNAME]; 
   char str_zerr[MXCHAR_VARNAME]; 
 
   char fnam[] = "SNTABLE_READPREP_TABLEVAR" ;
@@ -8107,8 +8131,8 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   double zhel      = (double)TABLEVAR->zhel[ISN];   
   double vpecerr   = (double)TABLEVAR->vpecerr[ISN];
 
-  double SIM_X0, SIM_ZCMB,  SIM_MU, SIM_MUz;
-  int    SIM_TEMPLATE_INDEX;
+  double SIM_X0, SIM_ZCMB,  SIM_MU, SIM_MUz=-9.0 ;
+  int    SIM_TEMPLATE_INDEX = -9 ;
 
   double x0, x0err, x1, x1err, c, cerr, COV_x0x1, COV_x0c, COV_x1c;
   double mB, mBerr, mB_orig, sf, x0_ideal, mB_ideal ;
@@ -11246,6 +11270,9 @@ void  prepare_biasCor_zinterp(void) {
   else if ( ISMODEL_LCFIT_BAYESN ) {
     alpha = beta = gamma = SIM_ABG_BAYESN ;
   }
+  else {
+    alpha = beta = gamma = -9.0 ;
+  }
 
   fflush(FP_STDOUT);
 
@@ -11305,6 +11332,9 @@ void  prepare_biasCor_zinterp(void) {
     else if ( ISMODEL_LCFIT_BAYESN ) {
       mu_fit    = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_d][ievt];
       mu_sim    = mu_true ;
+    }
+    else {
+      mu_fit = mu_sim = -9.0 ;
     }
 
 
@@ -12301,7 +12331,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     muDif_list                = (double*) malloc(memd);
   }
 
-  fprintf(FP_STDOUT, " %s: make map of muCOVscale(a,b,g,z,c) for IDSAMPLE=%d\n", fnam, IDSAMPLE);
+  fprintf(FP_STDOUT, " %s: make map of muCOVscale(a,b,g,z,c) for IDSAMPLE=%d\n", 
+	  fnam, IDSAMPLE);
   fflush(FP_STDOUT);
 
   malloc_MUCOV(+1,IDSAMPLE, CELL_MUCOVSCALE );
@@ -12375,6 +12406,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     }
   }
 
+  // - - - - -
   for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
 
     ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
@@ -12891,6 +12923,9 @@ double muresid_biasCor(int ievt ) {
   else if ( ISMODEL_LCFIT_BAYESN ) {
     muFit = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_d][ievt];
   }
+  else {
+    muFit = -9.0; 
+  }
   
 
   muDif  = muFit - muz ;
@@ -13090,7 +13125,7 @@ void  write_COVINT_biasCor(void) {
   int  IROW=0 ;
   FILE *fp;
   double z, a, b, g, cov, rho, covDiag, sigma[NLCPAR] ;
-  char outFile[200], cline[200] ;
+  char outFile[200], cline[200], crho[12] ;
   //  char fnam[] = "write_COVINT_biasCor" ;
 
   // ------------ BEGIN ----------------
@@ -13136,17 +13171,20 @@ void  write_COVINT_biasCor(void) {
 	    // REDCOV01
 	    cov = INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL[0][1] ;
 	    rho = cov / (sigma[0]*sigma[1]);
-	    sprintf(cline,"%s %7.4f ", cline, rho );
+	    sprintf(crho," %7.4f ", rho);	    strcat(cline, crho);
+	    // xxx mark sprintf(cline,"%s %7.4f ", cline, rho );
 
 	    // REDCOV02
 	    cov = INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL[0][2] ;
 	    rho = cov / (sigma[0]*sigma[2]);
-	    sprintf(cline,"%s %7.4f ", cline, rho );
+	    sprintf(crho," %7.4f ", rho);	    strcat(cline, crho);
+	    // xxx mark sprintf(cline,"%s %7.4f ", cline, rho );
 
 	    // REDCOV12
 	    cov = INFO_BIASCOR.COVINT[idsample][iz][ia][ib][ig].VAL[1][2] ;
 	    rho = cov / (sigma[1]*sigma[2]);
-	    sprintf(cline,"%s %7.4f ", cline, rho );
+	    sprintf(crho," %7.4f ", rho);	    strcat(cline, crho);
+	    // xxx mark sprintf(cline,"%s %7.4f ", cline, rho );
 	    
 	    fprintf(fp,"%s\n", cline);
 	    
@@ -13446,7 +13484,7 @@ void  init_sigInt_biasCor_SNRCUT(int IDSAMPLE) {
   double  *MUERRSQ[MXa][MXb][MXg];
   double  *WGT_POP[MXa][MXb][MXg]; 
 
-  double SIGINT_AVG, SIGINT_ABGRID[MXa][MXb][MXg] ; 
+  double SIGINT_AVG=0.0, SIGINT_ABGRID[MXa][MXb][MXg] ; 
 
   char *NAME, callFun[60], str_IDSAMPLE[60];
   char fnam[]   = "init_sigInt_biasCor_SNRCUT" ;
@@ -14922,7 +14960,7 @@ int get_muCOVcorr(char *cid,
   float *ptr_MUCOVADD ;
 
   double dif, Dz, Dm, Dc, WGT, SUM_WGT, SUM_muCOVscale, SUM_muCOVadd; 
-  double muCOVscale_biascor, muCOVadd_biascor ;
+  double muCOVscale_biascor=0.0, muCOVadd_biascor=0.0 ;
   double muCOVscale_local, muCOVadd_local  ;
   bool USEBIN_CENTER ;
   char fnam[] = "get_muCOVcorr" ;
@@ -15031,7 +15069,7 @@ int get_muCOVcorr(char *cid,
 	  printf(" xxx %s: j1d=%d, ic=%d im=%d iz=%d "
 		 "muCOVscale/add = %.3f/%.5f WGT=%f\n", 
 		 fnam, j1d, ic,im,iz, 
-		 muCOVscale_biascor,muCOVadd_biascor, WGT);
+		 muCOVscale_biascor, muCOVadd_biascor, WGT);
 	  
 	  fflush(stdout);
 	}
@@ -17984,6 +18022,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
     cmin = INPUTS.avmin;   cmax = INPUTS.avmax;
     smin = INPUTS.thetamin;  smax = INPUTS.thetamax;
   }
+  else {
+    cmin = smin = cmax = smax = -9.0 ;
+  }
 
   // =======================================
   // check CUTWIN options; reject_CUTWIN returns 
@@ -20112,6 +20153,8 @@ void copy_SELECT_VAR(int ivar0,int ivar1, SELECT_VAR_DEF *SELECT_VAR) {
 
   // ---------- BEGIN ---------
 
+  if ( ivar0 == ivar1 ) { return; }
+
   sprintf(SELECT_VAR->NAME_LIST[ivar1], "%s", SELECT_VAR->NAME_LIST[ivar0] );
   SELECT_VAR->RANGE_LIST[ivar1][0] = SELECT_VAR->RANGE_LIST[ivar0][0];  
   SELECT_VAR->RANGE_LIST[ivar1][1] = SELECT_VAR->RANGE_LIST[ivar0][1];
@@ -21079,7 +21122,7 @@ void prep_input_driver(void) {
   // substitute ENV for filenames
   if ( INPUTS.nfile_data <= 0 ) {
     sprintf(c1err,"No input data (fitres files) !!!");
-    sprintf(c2err,"Check datafile=%s", INPUTS.dataFile_string); 
+    sprintf(c2err,"Check datafile=%.*s", MXCHAR_MSGERR-10, INPUTS.dataFile_string); 
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
@@ -21417,7 +21460,7 @@ void  prep_fitpar(void) {
   // set parameter bounds for each fit par
 
   char usage[10];
-  double a0, a1, b0, b1, g0, g1;
+  double a0=-9.0, a1=-9.0, b0=-9.0, b1=-9.0, g0=-9.0, g1=-9.0 ;
   double *val  = INPUTS.parval;
   int    *ipar = INPUTS.ipar;  // 0=fix, 1=float
 
@@ -21434,6 +21477,9 @@ void  prep_fitpar(void) {
     a0 = -9.0; a1 = 9.0 ;
     b0 = -9.0; b1 = 9.0 ;
     g0 = -0.5; g1 = 0.5 ;
+  }
+  else {
+
   }
 
 
@@ -21983,7 +22029,7 @@ void  prep_input_varname_missing(void) {
 
   char *varname_missing = INPUTS.append_varname_missing ;
   char *varname_pIa     = INPUTS.varname_pIa ;
-  char tmpName[100], *ptrTmp ;
+  char *ptrTmp ;
   int  MXVAR = MXVARNAME_MISSING ;
   int  MEMC  = 60*sizeof(char);
   int  ndef, i, LEN ; 
@@ -21996,11 +22042,16 @@ void  prep_input_varname_missing(void) {
 
   // if varname_pIa is specified, always add it to list
   if ( strlen(varname_pIa) > 0 ) {
-    sprintf(tmpName, "%s", varname_missing);
-    if ( strlen(varname_missing) == 0 ) 
-      { sprintf(varname_missing,"%s", varname_pIa); return; }
-    else
-      { sprintf(varname_missing,"%s,%s", varname_pIa, tmpName); }
+    // xxx mark    sprintf(tmpName, "%s", varname_missing);
+    if ( strlen(varname_missing) == 0 )  { 
+      sprintf(varname_missing,"%s", varname_pIa); 
+      return; 
+    }
+    else {
+      // Apr 29 2026: use catVarList which swithes original order
+      catVarList_with_comma(varname_missing,varname_pIa);
+      // xxx mark sprintf(varname_missing,"%s,%s", varname_pIa, tmpName); 
+    }
   }
 
 
@@ -22445,7 +22496,7 @@ void write_version_info(FILE *fp) {
 
   int ev;
   int lenkey = strlen(KEYNAME_VERSION_PHOTOMETRY);
-  char KEY_TMP[100], KEY_NOCOLON[100];
+  char KEY_TMP[120], KEY_NOCOLON[100];
   char fnam[] = "write_version_info" ;
 
   // ----------- BEGIN --------------
@@ -22986,7 +23037,7 @@ void write_chi2grid(char *chi2grid_file) {
   
   double xval[100], grad[100], chi2_a, chi2_b;
   int    i, ipar, iflag=3, rownum=0 ;
-  void  *not_used;
+  void  *not_used = xval;  // set not_used to anything to avoid -Wall warnings
   char fnam[] = "write_chi2grid";
 
   // ------------- BEGIN --------------
@@ -23097,7 +23148,8 @@ void write_fitres_driver(char* fileName) {
   fout = fopen(fileName,"wt");
   if (!fout ) {
     if ( cat_only ) {
-      sprintf(c1err,"Could not open catfile_out='%s'", INPUTS.cat_file_out);
+      sprintf(c1err,"Could not open catfile_out='%.*s'", 
+	      MXCHAR_MSGERR-20, INPUTS.cat_file_out);
       sprintf(c2err,"Check cat_file_out key." );
     }
     else {
@@ -24502,7 +24554,7 @@ void muerr_renorm(void) {
 
   int    iMN, jMN, i, j ;
   double cov, cov_diag, terr[MAXPAR], corr ;
-  char tmpName[MXCHAR_VARNAME], msg[100];
+  char tmpName[MXCHAR_VARNAME], msg[MXPATHLEN];
 
   char fnam[200];
   concat_callfun_plus_fnam(callFun, "printCOVMAT", fnam); // return fnam 
@@ -25641,7 +25693,7 @@ void SUBPROCESS_READPREP_TABLEVAR(int IFILE, int ISTART, int LEN,
     { VARNAME_LOGSFR, VARNAME_LOGsSFR, VARNAME_COLOR } ;
 
   for(i=0; i < NVAR_HOST; i++ ) {
-    sprintf(VARNAME,"%s", VARNAMES_HOST[i] );
+    sprintf(VARNAME,"%.40s", VARNAMES_HOST[i] );
     MATCH = false;
 
     // check if VARNAME appears in any output table
@@ -25848,7 +25900,7 @@ void SUBPROCESS_READ_SIMREF_INPUTS(void) {
   int GZIPFLAG, NITEM, i, NWORD ;
   bool is_salt2, is_rv, is_ebv ; 
   char c_get[MXCHAR_FILENAME], **ptr_ITEMLIST;
-  char LINE[MXPATHLEN], TMPLINE[MXPATHLEN], *fg ; 
+  char LINE[MXPATHLEN], TMPLINE[2*MXPATHLEN+10], *fg ; 
   char varlist[80] = "";
   char fnam[] = "SUBPROCESS_READ_SIMREF_INPUTS" ; 
 
@@ -26622,17 +26674,18 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
 
 
   // - - - - - -
-  if ( !MATCH ) {
+  if ( MATCH ) {
+    SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
+  }
+  else {
     print_preAbort_banner(fnam);    
     SUBPROCESS_REMIND_STDOUT();
-    fprintf(FP_STDOUT,"   Valid varnames for output table:\n  %s\n", VARNAME_VALID_LIST);
+    fprintf(FP_STDOUT,"   Valid varnames for output table:\n  %s\n", 
+	    VARNAME_VALID_LIST);
     sprintf(c1err,"Unknown output table var = '%s'", VARNAME);
     sprintf(c2err,"Check valid varnames above.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
-
-
-  SUBPROCESS.OUTPUT_TABLE[ITABLE].PTRVAL[IVAR] = PTRVAL ;
 
 
   // free local memory
@@ -27098,7 +27151,7 @@ void SUBPROCESS_OUT_TABLE_WRITE_UNBIN(void) {
   int isn, CUTMASK, NEVT_SUM = 0 ;
   char TABLE_NAME[]  = "UNBINNED" ;
   char VARNAMES[] = "CID zHD x1 c HOST_LOGMASS MURES";
-  char fnam[] = "SUBPROCESS_OUT_TABLE_WRITE_UNBIN" ;
+  char fnam[] = "SUBPROCESS_OUT_TABLE_WRITE_UNBIN" ; (void)fnam;
   
   // ---------- BEGIN ---------
 
@@ -27181,7 +27234,7 @@ double prob_CCprior_sim_legacy(int OPT_CCPRIOR, int IDSAMPLE, MUZMAP_DEF *MUZMAP
   bool DO_FUNDMU_GAUSS  = ( (OPT_CCPRIOR & MASK_CCPRIOR_FUNDMU_GAUSS) > 0 ) ; // default
   bool DO_FUNDMU_INTERP = !DO_FUNDMU_GAUSS;
 
-  int OPT_INTERP = 1; // 1=linear
+  // xxx mark   int OPT_INTERP = 1; // 1=linear
   int IZ, NBMU, imu ;
   double dmumin, dmumax, dmubin, dmu_local=dmu , prob, prob2, frac, *DMUPDF, *DMUAVG;
 
@@ -27502,7 +27555,7 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
   bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
 
-  int EVENT_TYPE = TABLEVAR->EVENT_TYPE ;
+  int EVENT_TYPE = TABLEVAR->EVENT_TYPE ;  (void)EVENT_TYPE;
   int NSN_ALL = TABLEVAR->NSN_ALL;
 
   int imu, NMUBIN, NZBIN, ia, ib, ig, iz, icc, idsample, nevt_biascor ;
@@ -27529,19 +27582,19 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   double           MUCOVSCALE_TMP[MXa][MXb][MXg] ; 
   double           MUCOVADD_TMP[MXa][MXb][MXg] ; 
   double fitParBias[NLCPAR], muBias, muBiasErr, muCOVscale, muCOVadd ;
-
   char fnam[] = "setup_DMUPDF_CCprior_legacy" ;
     
   // ----------------- BEGIN ---------------
 
+  if ( INFO_CCPRIOR.USEH11 ) { return ; }
+
   if ( WRITE_CCPRIOR ) {
-    IZ_CCPRIOR      = (int*)malloc(MEMI);
-    IMU_CCPRIOR     = (int*)malloc(MEMI);
-    DMU_CCPRIOR     = (double*)malloc(MEMD);
-    MUBIAS_CCPRIOR  = (double*)malloc(MEMD);
+    IZ_CCPRIOR      = (int*)    malloc(MEMI);
+    IMU_CCPRIOR     = (int*)    malloc(MEMI);
+    DMU_CCPRIOR     = (double*) malloc(MEMD);
+    MUBIAS_CCPRIOR  = (double*) malloc(MEMD);
   }
 
-  if ( INFO_CCPRIOR.USEH11 ) { return ; }
     
   // number of DMU bins to make PDF
   NMUBIN = MUZMAP->DMUBIN.nbin ;
@@ -27610,9 +27663,11 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     
     if ( ISMODEL_SALT2 ) 
       { mu = d + a*x1 - b*c - M0 ; }
-    else 
+    else if ( ISMODEL_BAYESN ) 
       { mu = d; } // fixed for BAYESN Jul 29 2025
-    
+    else 
+      { mu = -9.0; }
+
     // apply SNIa mu-bias Correction if simfile_bias is given;
     muBias = muBiasErr = 0.0 ;  muCOVscale = 1.0 ;
     if ( USE_BIASCOR ) {    
@@ -27659,9 +27714,9 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
     imu          = IBINFUN(dmu, &MUZMAP->DMUBIN, 0, "" );  
 
     if ( WRITE_CCPRIOR )  { 
-      IZ_CCPRIOR[icc] = iz; 
-      IMU_CCPRIOR[icc] = imu; 
-      DMU_CCPRIOR[icc] = dmu; 
+      IZ_CCPRIOR[icc]     = iz; 
+      IMU_CCPRIOR[icc]    = imu; 
+      DMU_CCPRIOR[icc]    = dmu; 
       MUBIAS_CCPRIOR[icc] = muBias; 
     }
 
@@ -27694,7 +27749,6 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   } // end icc loop
 
 
-  
   // Normalize each DMU distribution to get PDF in each class,iz bin.
   // If the stats are too low then leave flat/default PDF.
   double S1TMP, S2TMP, AVG, STD; 
@@ -27760,7 +27814,8 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
 
 
   // - - - - - - - - 
-  // diagnostic: write all CCprior events to FITRES file and include PDF_TRUE and PDF_BBC
+  // diagnostic: write all CCprior events to FITRES file and 
+  // include PDF_TRUE and PDF_BBC
   if ( WRITE_CCPRIOR ) {
     sprintf(outfile_cc,"%s_CCPRIOR.FITRES", INPUTS.PREFIX);
     if ( INPUTS.write_ccprior_status == 0 ) { 	

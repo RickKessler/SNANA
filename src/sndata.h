@@ -205,8 +205,8 @@ struct SNDATA {
   char DATATYPE[20];       // e.g., DATA, SIM_SNANA ...
 
   // name of SURVEY and SUBSURVEY
-  char SURVEY_NAME[40];       // SDSS, SNLS, LSST, etc ...
-  char SUBSURVEY_NAME[40];    // e.g., LOWZ_ALL(CFA3) --> CFA3 is subsurvey
+  char SURVEY_NAME[60];       // SDSS, SNLS, LSST, etc ...
+  char SUBSURVEY_NAME[60];    // e.g., LOWZ_ALL(CFA3) --> CFA3 is subsurvey
   char SUBSURVEY_LIST[MXPATHLEN] ; // optional list in global simlib header
   int  SUBSURVEY_FLAG ;
   
@@ -232,7 +232,7 @@ struct SNDATA {
   char SNFILE_INPUT[MXPATHLEN];
 
   char snfile_output[MXPATHLEN];   // name of data file (no path)
-  char SNFILE_OUTPUT[MXPATHLEN];   // full name of data file
+  char SNFILE_OUTPUT[3*MXPATHLEN];   // full name of data file
 
   char AUXHEADER_FILE[MXPATHLEN];  // extra info from file to dump into header
   char AUXHEADER_LINES[MXFILTINDX][100]; // extra lines to dump into header
@@ -277,8 +277,8 @@ struct SNDATA {
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch
 
-  char  MAGTYPE[20];   // LOG10 or ASINH
-  char  MAGREF[20];    // VEGA or AB
+  char  MAGTYPE[40];   // LOG10 or ASINH
+  char  MAGREF[40];    // VEGA or AB
 
   int  SNTYPE;                     // user-defined integer type 
   int  IDTEL[MXEPOCH];             // integer telescope id
@@ -412,10 +412,10 @@ struct SNDATA {
 
   // declare generation quantities for simulation (fake flag = 2)
 
-  char SIM_MODEL_NAME[60];   // model name
+  char SIM_MODEL_NAME[200];   // model name
   int  SIM_MODEL_INDEX;      //integer id for model or class
   int  SIM_TEMPLATE_INDEX ;  // template index for NON1ASED, SIMSED, LCLIB ...
-  char SIM_COMMENT[200]; 
+  char SIM_COMMENT[600]; 
   int  SIM_GENTYPE;          // same as SNTYPE (if set).
   char SIM_TYPE_NAME[60];    // Ia, Ib, II, etc ...
 

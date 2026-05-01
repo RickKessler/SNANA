@@ -3546,7 +3546,6 @@
 ! to provide adequate DVAL array size.
 ! 
 
-
     USE SNPAR
     USE FITSCOM
 

@@ -22,7 +22,7 @@ struct {
   int NRD_PER_VAR[IVARMAX_OVERRIDE];   // NRD per IVAR per event
 
   int NMATCH_by_CID, NMATCH_by_GALID;
-  char VARNAME_MATCH[40];  // e.g., CID, SNID, GALID ...
+  char VARNAME_MATCH[60];  // e.g., CID, SNID, GALID ...
 
   // logicals to decide if zCMB or zHEL needs to be recomputed.
   int  IVAR_zCMB, IVAR_zHEL;

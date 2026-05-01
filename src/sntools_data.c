@@ -1,5 +1,5 @@
 /******************************************
-  Created Dec 10 2021 by R.Kessler 
+  Created Dec 10 2021 by R.Kessler   
 
   Data-handling tools that don't depend on format.
   Format-specific tools are in 
@@ -82,7 +82,7 @@ void copy_HOSTGALz(int copyFlag, char *key, double *parVal, HOSTGALz_DEF *HOSTGA
 
   int NZ = HOSTGALz->NZ;
   int iz;
-  char fnam[] = "copy_HOSTGALz" ;
+  char fnam[] = "copy_HOSTGALz" ;  (void)fnam;
 
   // ---------- BEGIN --------------
 
@@ -137,12 +137,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   bool ISKEY_LCLIB   = ( strncmp(key,"LCLIB",5)   == 0 ) ;
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
 
-  /* xxxxxxxxxxx mark  xxxxx
-  bool ISKEY_ZPHOT_Q = ( strstr (key,"ZPHOT_Q")  != NULL ) ; // legacy
-  if ( REFAC_DATA_FLAG ) { ISKEY_ZPHOT_Q = false; }
-  xxxxxxx end mark xxxxx */
-
-  int ivar, NVAR, ipar, PCT ;
+  int ivar, ipar ;
   char fnam[] = "copy_SNDATA_GLOBAL" ;
 
   // --------------- BEGIN --------------
@@ -187,21 +182,6 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
       copy_str(copyFlag, stringVal, SNDATA.PRIVATE_KEYWORD[ivar] ); 
     }
   }
-
-  /* xxxxxxxx mark delete xxxxxxxxx
-  else if ( ISKEY_ZPHOT_Q ) {
-    // legacy
-    if ( strcmp(key,STRING_NZPHOT_Q) == 0 ) {
-      copy_int(copyFlag, parVal, &SNDATA.HOSTGAL_NZPHOT_Q );
-    }
-    else if ( strstr(key,"PERCENTILE_ZPHOT_Q") != NULL ) {
-      int lentmp = strlen(key) - 2 ; // PERCENTILE_ZPHOT_Qnn
-      sscanf(&key[lentmp], "%d", &ivar); 
-      PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar] ;
-      copy_int(copyFlag, parVal, &PCT ); 
-    }
-  }
-  xxxxxxx end mark xxxxx*/
 
   else if ( ISKEY_SIMSED  ) {
 
@@ -333,18 +313,12 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   char *PySEDMODEL_NAME = SNDATA.PySEDMODEL_NAME ; // BYOSED or SNEMO
   int  len_PySEDMODEL   = strlen(PySEDMODEL_NAME);
   int  ncmp_PySEDMODEL  = strncmp(key,PySEDMODEL_NAME,len_PySEDMODEL) ;
-  int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar, q, PCT;
-  double DVAL;
+  int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar ;
   HOSTGALz_DEF *HOSTGALz;
-  char PREFIX[40], PREFIXz[40], KEY_TEST[60], cfilt[2] ;
+  char PREFIX[40], PREFIXz[40], KEY_TEST[60] ;
   char fnam[] = "copy_SNDATA_HEAD" ;
 
   // ------------- BEGIN ------------
-
-  /* xxx
-  if ( REFAC_DATA_FLAG ) 
-    { printf(" xxx %s: copyFlag=%2d  key = %s \n", fnam, copyFlag, key); fflush(stdout); }
-  xxx */
 
   if ( copyFlag < 0 ) 
     { sprintf(stringVal,"NOTSET");  parVal[0] = -999.0; }
@@ -897,8 +871,9 @@ void host_property_list_sndata(char *HOST_PROPERTY_LIST) {
   // to store in output tables.
 
   double NOVAR = HOSTLIB_PROPERTY_UNDEFINED + 1.0;
-  char fnam[] = "host_property_list_sndata";
+  char fnam[] = "host_property_list_sndata"; (void)fnam;
   char TMPLIST[MXPATHLEN];
+  // ----------- BEGIN -----------
   HOST_PROPERTY_LIST[0] = TMPLIST[0] = 0 ;
 
   if ( SNDATA.HOSTGAL_LOGMASS_TRUE[0] > NOVAR ) 
@@ -940,10 +915,8 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
   // 
   // Apr 19 2025; fix to set SNDATA.FILTNAME[obs] for 'FLT' or 'BAND' with copyFlag>0
 
-  int  NOBS       = SNDATA.NOBS ;
   int  NOBS_STORE = SNDATA.NOBS_STORE ;
   int  obs, OBS, NSPLIT, MSKOPT, NVAL_TMP ;
-  char **str2d ;
   char fnam[] = "copy_SNDATA_OBS" ;
 
   // ------------- BEGIN ------------
@@ -1227,14 +1200,17 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
 
   if ( copyFlag<0 ) {  parVal[0] = -999.0; }  // init outpuit
 
-  if ( ispec >= 0 ) { NBLAM = GENSPEC.NBLAM_VALID[ispec]; }
-
   if ( strcmp(key,"NSPECTRA") == 0 ) 
     { copy_int(copyFlag, parVal, &GENSPEC.NMJD_PROC );  }
 
+  // - - - - - - -
+  if ( ispec < 0 ) { return; }
+
+  NBLAM = GENSPEC.NBLAM_VALID[ispec];
+
   // ispec-dependent info
 
-  else if ( strcmp(key,"ID") == 0 ) 
+  if ( strcmp(key,"ID") == 0 ) 
     { copy_int(copyFlag, parVal, &GENSPEC.ID_LIST[ispec] );  }
 
   else if ( strcmp(key,"MJD") == 0 ) 
@@ -1420,7 +1396,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     // store varname in 1st column used to match with data
     sprintf(RD_OVERRIDE.VARNAME_MATCH, "%s", READTABLE_POINTERS.VARNAME[0] ); //9.29.2025
     VARNAME_MATCH = RD_OVERRIDE.VARNAME_MATCH;
-    if ( strcmp(VARNAME_MATCH,"HOSTGAL_OBJID") == 0 || strcmp(VARNAME_MATCH,"GALID") == 0 ) {
+    if ( strcmp(VARNAME_MATCH,"HOSTGAL_OBJID") == 0 || 
+	 strcmp(VARNAME_MATCH,"GALID") == 0 ) {
       RD_OVERRIDE.NMATCH_by_GALID++ ;
     }
     else {
@@ -1601,8 +1578,8 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
     // use stat function to determine file vs. path
     ENVreplace(OVERRIDE_PATH_LOCAL, fnam, 1);
 
-    istat       =  stat(OVERRIDE_PATH_LOCAL, &statbuf);
-    istat_link  = lstat(OVERRIDE_PATH_LOCAL, &linkbuf);
+    istat       =  stat(OVERRIDE_PATH_LOCAL, &statbuf);  (void)istat;
+    istat_link  = lstat(OVERRIDE_PATH_LOCAL, &linkbuf);  (void)istat_link;
     IS_DIR      = S_ISDIR(statbuf.st_mode);
     IS_LINK     = S_ISLNK(linkbuf.st_mode);
     IS_FILE     = !IS_DIR ;
@@ -1622,9 +1599,9 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
   else {
     // for /path/base, check list file with name  /path/base/base.LIST
     char *basename = strrchr(OVERRIDE_PATH_LOCAL, '/'); // basename include slash    
-    char *LIST_FILE = (char*) malloc(MXPATHLEN * sizeof(char) );
-    char *tmp_file  = (char*) malloc(MXPATHLEN * sizeof(char) );
-    char *TMP_FILE  = (char*) malloc(MXPATHLEN * sizeof(char) );
+    char *LIST_FILE = (char*) malloc(2*MXPATHLEN * sizeof(char) );
+    char *tmp_file  = (char*) malloc(2*MXPATHLEN * sizeof(char) );
+    char *TMP_FILE  = (char*) malloc(2*MXPATHLEN * sizeof(char) );
     int i, NF;
 
     if ( IS_LINK ) { // show resolved symlink
@@ -1699,7 +1676,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   // Apr  11 2026: return DVAL array and return array length
 
   bool NEW_ID, NEW_CID, FOUND_VARNAME ;
-  int  ISTAT, NRD, IVAR, NTMP, ICAST, NTOT_PER_VAR, ivar ;
+  int  ISTAT, NRD, IVAR, ICAST, NTOT_PER_VAR, ivar ;
   char ID_LOCAL[40], CID_LOCAL[40];
 
   int LDMP = 0 ;
@@ -1812,7 +1789,7 @@ void RD_OVERRIDE_POSTPROC(void) {
   // Apr 12 2026: split rd_override_zcalc() into rd_override_zspec and rd_override_zphot.
 
   int igal;
-  char fnam[] = "RD_OVERRIDE_POSTPROC" ;
+  char fnam[] = "RD_OVERRIDE_POSTPROC" ; (void)fnam;
   
   // ------------ BEGIN --------------
 
@@ -1877,17 +1854,17 @@ void rd_override_append(void) {
     &SNDATA.HOSTGAL_COLOR_OBS[0],   &SNDATA.HOSTGAL_COLOR_ERR[0]
   } ;
 
-  int ivar, NRD;
-  double DVAL ;
+  int ivar, NRD;   (void)NRD;
+  double DVAL ;  
   char *varName, STRVAL[60] ;
-  char fnam[] = "rd_override_append" ;
+  char fnam[] = "rd_override_append" ; (void)fnam;
 
   // --------- BEGIN --------
 
   for (ivar=0; ivar < NVAR_OVERRIDE_CHECK; ivar++ ) {
     varName = VARNAME_CHECK[ivar] ;
     if ( EXIST_VARNAME_AUTOSTORE(varName) ) { 
-      NRD = RD_OVERRIDE_FETCH(SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], varName, &DVAL, STRVAL) ;
+      NRD = RD_OVERRIDE_FETCH(SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], varName, &DVAL, STRVAL);
       *ptr_SNDATA[ivar] = (float)DVAL;
 
       if ( strstr(varName,"HOSTGAL") != NULL ) {
@@ -1909,8 +1886,8 @@ void rd_override_zspec(void) {
   double DEC = SNDATA.DEC_AVG ;
   bool FOUND_zspec = ( RD_OVERRIDE.IVAR_zCMB>=0 || RD_OVERRIDE.IVAR_zHEL>=0 );
 
-  double zCMB, zHEL, zHELERR ;
-  char fnam[] = "rd_override_zspec" ;
+  double zCMB, zHEL;
+  char fnam[] = "rd_override_zspec" ;  (void)fnam;
 
   // ---------- BEGIN -------------
 
@@ -1950,8 +1927,6 @@ void rd_override_zphot(int igal) {
   //
   double RA  = SNDATA.RA_AVG ;
   double DEC = SNDATA.DEC_AVG ;
-  char *CCID = SNDATA.CCID;
-
 
   int  IVAR_HOSTGAL_ZPHOT    = RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal];
   int  IVAR_HOSTGAL_QZPHOT   = RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[igal];
@@ -1981,18 +1956,9 @@ void rd_override_zphot(int igal) {
 
   int iz;
   double zCMB, zPHOT_SCALE_SIM = 1.0;
-  char fnam[] = "rd_override_zphot" ;
+  char fnam[] = "rd_override_zphot" ; (void)fnam;
 
   // ---------- BEGIN -------------
-
-
-  /* xxxxxx mark delete xxxxxxx
-  // check legacy feature
-  if ( !REFAC_DATA_FLAG ) { 
-    if ( igal == 0 ) { rd_override_zphot_legacy(); }
-    return;
-  }
-  xxxxxxxx end mark xxxxxxx */
 
   if ( FOUND_ZPHOT  )  { FOUND_ANY_ZPHOT = true; }
   if ( FOUND_QZPHOT )  { FOUND_ANY_ZPHOT = true; }
@@ -2102,10 +2068,10 @@ void rd_override_qzphot_implicit(int OPT, int IGAL) {
   //
   //  IGAL = 0,1... is sparse galaxy index to fetch GALID (for OPT=2 only)
 
-  int  NQZPHOT, NQ_OBSOLETE, PCT, q, NRD ;
+  int  NQZPHOT, NQ_OBSOLETE, q, NRD ;
   char PREFIX_QZPHOT[]   = "QZPHOT" ;
   char PREFIX_OBSOLETE[] = "HOSTGAL_ZPHOT_Q" ;
-  char PREFIX[60], *varName, STRDUM[60] ;
+  char *varName, STRDUM[60] ;
   char fnam[] = "rd_override_qzphot_implicit" ;
 
   // ------------- BEGIN -------------
@@ -2113,11 +2079,12 @@ void rd_override_qzphot_implicit(int OPT, int IGAL) {
   if ( OPT == 1 ) {
     char *VARSTRING = (char*) malloc(500*sizeof(char));
 
-    
     NQ_OBSOLETE = NVAR_MATCH_AUTOSTORE(PREFIX_OBSOLETE, VARSTRING);
     if ( NQ_OBSOLETE > 0 ) {
-      sprintf(c1err,"Found %d obsolete OVERRIDE colums with '%s' prefix; ", NQ_OBSOLETE, PREFIX_OBSOLETE);
-      sprintf(c2err,"Replace with QZPHOT00 QZPHOT01 ... QZPHOT%2.2d", NQ_OBSOLETE-1);
+      sprintf(c1err,"Found %d obsolete OVERRIDE colums with '%s' prefix; ", 
+	      NQ_OBSOLETE, PREFIX_OBSOLETE);
+      sprintf(c2err,"Replace with QZPHOT00 QZPHOT01 ... QZPHOT%2.2d", 
+	      NQ_OBSOLETE-1);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -2144,16 +2111,23 @@ void rd_override_qzphot_implicit(int OPT, int IGAL) {
 
     double zq, PCT_LIST[MXBIN_HOSTGALz];
     int    NQ_VALID = 0 ;
-    char   *CCID        =  SNDATA.CCID;
+    char   *CCID        = SNDATA.CCID;
     long long int GALID = SNDATA.HOSTGAL_OBJID[IGAL];
     
-
     for(q=0; q < NQZPHOT; q++ ) {
       varName = RD_OVERRIDE.VARLIST_QZPHOT_IMPLICIT[q];
       NRD = RD_OVERRIDE_FETCH(CCID, GALID, varName, &zq, STRDUM) ; // return zq
       if ( NRD == 0 ) { zq = -9.0; }
       if ( zq >= 0.0 ) { NQ_VALID++ ; }
       SNDATA.HOSTGALz_QUANTILE_ZPHOT[IGAL].Z_LIST[q] = zq;
+
+      // abort on tiny negative redshifts (4.30.2026)
+      if ( zq < 0.0 && zq > -0.02 ) {
+	sprintf(c1err,"Invalid QZPHOT%2.2d = %f  for CID=%s, GALID=%lld", 
+		q, zq, CCID, GALID);
+	sprintf(c2err,"All QZPHOTnn must be > 0");
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
 
       //printf(" xxx %s: cid=%s  igal=%d  GALID=%lld  q=%d  z=%.4f NRD=%d\n",
       //     fnam, SNDATA.CCID, IGAL, GALID, q, zq, NRD); fflush(stdout);
@@ -2180,10 +2154,10 @@ void rd_override_logmass_grid(int igal) {
   // This trick avoids multiple override files to match each host.
 
   bool MATCH_NBR_by_GALID    = (RD_OVERRIDE.NMATCH_by_GALID > 0 && igal > 0);
-  int  IVAR_HOSTGAL_LOGMASS  = RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[igal];
+  //  int  IVAR_HOSTGAL_LOGMASS  = RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[igal];
   int  IVAR0_HOSTGAL_LOGMASS = RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[0];
 
-  char fnam[] = "rd_override_logmass_grid" ;
+  char fnam[] = "rd_override_logmass_grid" ; (void)fnam;
 
   // ------------- BEGIN ----------
   if ( MATCH_NBR_by_GALID && IVAR0_HOSTGAL_LOGMASS > 0 ) {
@@ -2221,8 +2195,8 @@ void rd_override_hostgal2z(int igal, HOSTGALz_DEF *HOSTGAL0z, HOSTGALz_DEF *HOST
   double DVAL_LIST[MXBIN_HOSTGALz], DVAL2_LIST[MXBIN_HOSTGALz];
   // xxx mark   double zSCALE_SIM = 1.0 ;
   char STRDUM[20];
-  int  iz, NRD, NZ;
-  char fnam[] = "rd_override_hostgal2z" ;
+  int  iz, NRD ;
+  char fnam[] = "rd_override_hostgal2z" ; (void)fnam;
 
   // ------------ BEGIN -------------
 
@@ -2248,7 +2222,7 @@ void rd_override_hostgal2z(int igal, HOSTGALz_DEF *HOSTGAL0z, HOSTGALz_DEF *HOST
     }
 
     // count NZ with z>=0 (avoid possible pad values of -9)
-    HOSTGALz->NZ = NZ_HOSTGALz(MXBIN_HOSTGALz, HOSTGALz->Z_LIST);  
+    HOSTGALz->NZ = NZ_HOSTGALz(MXBIN_HOSTGALz, HOSTGALz->Z_LIST, SNDATA.CCID);  
   } // end NRD>0
   else {
     HOSTGALz->NZ = 0 ;
@@ -2265,9 +2239,8 @@ void rd_override_name(void) {
 
   double D_VAL = 0.0 ;
   long long int GALID_DUMMY = 999 ;
-  int NRD;
-  char   *ptr_str;
-  char fnam[] = "rd_override_name" ;
+  int NRD;  (void)NRD;
+  char fnam[] = "rd_override_name" ;  (void)fnam;
   
   // ---------- BEGIN -------------
 

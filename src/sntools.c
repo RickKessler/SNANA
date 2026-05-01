@@ -8846,13 +8846,26 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
 } // end dump_SNDATA_HOSTGALz
  
 
-int NZ_HOSTGALz(int MXBIN, float *Z_LIST) {  
+int NZ_HOSTGALz(int MXBIN, float *Z_LIST, char *CCID) {  
 
   // Return number of Z_LIST redshifts that are >=0
+  // Inputs:
+  //   MXBIN  : max number of bins allowed
+  //   Z_LIST : list of MXBIN redshifts (many can have -9 value)
+  //   CCID   : current CID; for diagnostics only
+  //
   int  iz, NZ = 0 ; 
-  //  char fnam[] = "NZ_HOSTGALz_snfitsio";
+  bool SMALL_QZNEG = false;
+  int  LDMP = 0 ;
+  char fnam[] = "NZ_HOSTGALz";  (void)fnam;
+
   // ------------ BEGIN ------------- 
+
+  if ( LDMP ) { printf(" xxx %s:  -------- CID = %s ------------ \n", fnam, CCID); }
+
   for(iz=0; iz < MXBIN; iz++ ) { 
+    if ( LDMP ) 
+      { printf(" xxx %s: iz=%d  z=%f \n", fnam, iz, Z_LIST[iz]); fflush(stdout); }
     if ( Z_LIST[iz] >= 0.0 ) { NZ++; }  else { break; }
   }  
   return NZ;  

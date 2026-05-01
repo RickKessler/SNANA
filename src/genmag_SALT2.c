@@ -190,7 +190,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   int  retval = 0   ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
   int  ABORT_on_BADVALUE_ERROR = 1;
-  char BANNER[120], tmpFile[200], sedcomment[40], version[60]  ;
+  char BANNER[120], tmpFile[2*MXPATHLEN], sedcomment[40], version[60]  ;
   char fnam[] = "init_genmag_SALT2" ;
 
   // -------------- BEGIN --------------
@@ -262,7 +262,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   // if re-reading the same SALT2 version, then skip re-reading the files.
   // WARNING: SALT2_VERSION is not set on first pass, so it may give
   //          valgrind errors.
-  int SKIPREAD = 0 ;
+  int SKIPREAD = 0 ;  (void)SKIPREAD;
   if ( strcmp(SALT2_VERSION,version) == 0 ) { 
     printf("\t Re-init %s -> skip reading files. \n", version);
     fflush(stdout);
@@ -427,7 +427,7 @@ void setFlags_ISMODEL_SALT2(char *version) {
   if ( !set ) {
     printf("\n\t index_dot = %d \n", index_dot);
     sprintf(c1err,"Unable to set ISMODEL_SALT2 or ISMODEL_SALT3");
-    sprintf(c2err,"Check GENNODEL: %s (%s)", version, version_near_dot);
+    sprintf(c2err,"Check GENNODEL: %.80s (%.80s)", version, version_near_dot);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -446,7 +446,7 @@ int NSURFACE_SALT2(void) {
   // Return number of SALT2 surfaces. Original model has 2,
   // but there can be 3 for x2 * M2.
 
-  char template_file[200];
+  char template_file[2*MXPATHLEN];
   int  gzipFlag, i, N = 0 ;
   FILE *fp;
   char fnam[] = "NSURFACE_SALT2";
@@ -848,7 +848,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
   int imap, NDAY, NLAM, NBTOT, nflux_nan ;
   double DUMMY[20];
 
-  char tmpFile[200], sedcomment[80], lc_string[20] ;
+  char tmpFile[2*MXPATHLEN], sedcomment[80], lc_string[20] ;
   char *prefix = SALT2_PREFIX_FILENAME ;
   char fnam[] = "read_SALT2errmaps" ;
 
@@ -926,8 +926,8 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
 
     if ( ISMODEL_SALT3 && imap == INDEX_SALT2_ERRMAP.ERRSCALE ) { continue; }
 
-    sprintf(tmpFile, "%s/%s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
-    sprintf(sedcomment, "SALT%d-%s", IMODEL_SALT, SALT2_ERRMAP_COMMENT[imap] );
+    sprintf(tmpFile, "%s/%.40s", SALT2_MODELPATH, SALT2_ERRMAP_FILES[imap] );
+    sprintf(sedcomment, "SALT%d-%.40s", IMODEL_SALT, SALT2_ERRMAP_COMMENT[imap] );
 
     rd_sedFlux(tmpFile, sedcomment, Trange, Lrange
 	       ,MXBIN_DAYSED_SEDMODEL, MXBIN_LAMSED_SEDMODEL, 0   // inputs
@@ -954,7 +954,7 @@ void read_SALT2errmaps(double Trange[2], double Lrange[2] ) {
       sprintf(c1err,"NLAM*NDAY=%d*%d = %d exceeds bound of "
 	      "MXBIN_VAR_SALT2=%d",
 	      NLAM, NDAY, NBTOT, MXBIN_VAR_SALT2);
-      sprintf(c2err,"See '%s'", tmpFile);
+      sprintf(c2err,"See '%.*s'", MXCHAR_MSGERR, tmpFile);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
@@ -1018,7 +1018,7 @@ void read_SALT2colorDisp(void) {
   // Oct 18 2022 RK - abort if all colorDisp values are zero
 
   int imap, NLAM, ilam, MXBIN ;
-  char tmpFile[MXPATHLEN];
+  char tmpFile[2*MXPATHLEN];
 
   // define parameters for Guy07 color dispersion model
 #define NPOLY_G07 4  // 3rd-order poly fit to G07 color law
@@ -1139,7 +1139,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   // Aug 05, 2021: read last char for BAND
   // Oct 10, 2022: abort of NSHIFT_CALIB exceeds bount
   char
-     infoFile[MXPATHLEN]
+     infoFile[2*MXPATHLEN]
     ,c_get[60]
     ,CHAR_ERROPT[3][20] = { "OFF", "Linear", "Spline" }
     ,CHAR_SEDOPT[3][20] = { "OFF", "Linear", "Spline" }
@@ -1150,7 +1150,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
   bool   REQUIRE_DOCANA, DISABLE_MAGSHIFT, DISABLE_WAVESHIFT;
   double *errtmp, *ptrpar, SHIFT_CALIB;
   double UVLAM = INPUTS_SEDMODEL.UVLAM_EXTRAPFLUX ;
-  int     OPT, ipar, NPAR_READ, NPAR_POLY, IVER, i, WHICH, NSHIFT, LEN ;
+  int     OPT, ipar, NPAR_POLY, IVER, i, WHICH, NSHIFT, LEN ;
   FILE  *fp ;
 
   char fnam[]  = "read_SALT2_INFO_FILE"  ;
@@ -1178,7 +1178,7 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
     print_preAbort_banner(fnam);
     printf("\t SALT2_MODELPATH = '%s' \n", SALT2_MODELPATH);
     sprintf(c1err,"Could not open SALT2 info file:");
-    sprintf(c2err," %s", infoFile );
+    sprintf(c2err," %.*s", MXCHAR_MSGERR, infoFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -1785,8 +1785,8 @@ void init_calib_shift_SALT2train(void) {
 
   int  NSHIFT_TOT   = INPUT_SALT2_INFO.NSHIFT_CALIB ;
   int  NSHIFT_APPLY = 0 ;
-  int  i, which, n_survey, isurvey, ifilt, ifilt_obs, NLAM, ilam, MEMD ;
-  char **survey_calib_list, *survey_calib_string, *survey_calib, *band_calib;
+  int  i, which, n_survey, isurvey, ifilt, ifilt_obs, NLAM ;
+  char **survey_calib_list, *survey_calib_string, *survey_calib ;
   char *filter_name, *filter_calib;
   double shift, magprimary, mag_shift, lam_shift;
   double *lam, *trans, *transREF ;
@@ -1807,7 +1807,6 @@ void init_calib_shift_SALT2train(void) {
   for(i=0; i < NSHIFT_TOT; i++ ) {
     which               = INPUT_SALT2_INFO.SHIFT_CALIB[i].WHICH ;
     survey_calib_string = INPUT_SALT2_INFO.SHIFT_CALIB[i].SURVEY_STRING ;
-    band_calib          = INPUT_SALT2_INFO.SHIFT_CALIB[i].BAND ;
     filter_calib        = INPUT_SALT2_INFO.SHIFT_CALIB[i].FILTER_STRING;
     shift               = INPUT_SALT2_INFO.SHIFT_CALIB[i].SHIFT ;
    
@@ -1877,7 +1876,7 @@ int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans,
   int  NLAM          = FILTER_SEDMODEL[ifilt].NLAM ;
   int  MEMD          = NLAM * sizeof(double);
   int  ilam ;
-  char fnam[] = "copy_filter_trans_SALT2" ;
+  char fnam[] = "copy_filter_trans_SALT2" ;   (void)fnam;
   // ----------- BEGIN ------------
 
   *lam           = (double*) malloc(MEMD) ;
@@ -1912,7 +1911,7 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
   char *survey_genmag  = FILTER_SEDMODEL[ifilt].survey ;
   char *filter_genmag  = FILTER_SEDMODEL[ifilt].name ; // full filter name
   char  filter_calib_base[60], filter_genmag_base[60]; 
-  int   j_band, j_slash ;
+  int   j_slash ;
   bool  MATCH_SURVEY, MATCH_FILTER ;
   int   LDMP = 0 ;
   char fnam[] = "match_SALT2train";
@@ -2085,7 +2084,7 @@ void genmag_SALT2(
 
   double RV_host      = parList_HOST[0];
   double AV_host      = parList_HOST[1];
-  double logMass_host = parList_HOST[2];
+  //  double logMass_host = parList_HOST[2];
 
   double 
     meanlam_obs,  meanlam_rest, ZP, z1
@@ -2101,7 +2100,7 @@ void genmag_SALT2(
 
   char *cfilt;
   int  ifilt, epobs, EXTRAPFLAG_DMP = 0;
-  int  LDMP_DEBUG,OPT_PRINT_BADFLUX, OPT_RETURN_MAG ;
+  int  LDMP_DEBUG,OPT_PRINT_BADFLUX ;
   int  OPT_RETURN_FLUX, OPT_DOERR ;    
 
   bool DO_EXTRAP_LOCAL       = false;
@@ -2116,10 +2115,10 @@ void genmag_SALT2(
   // parse bit-mask options
 
   OPT_PRINT_BADFLUX = OPT_RETURN_FLUX =  0; // default flags OFF
-  OPT_RETURN_MAG = OPT_DOERR = 1 ;       // default flags on
+  OPT_DOERR = 1 ;       // default flags on
   LDMP_DEBUG=0;
 
-  if ( (OPTMASK & 1)  ) { OPT_RETURN_MAG    = 0 ; OPT_RETURN_FLUX = 1; }
+  if ( (OPTMASK & 1)  ) { OPT_RETURN_FLUX = 1; }
   if ( (OPTMASK & 2)  ) { OPT_PRINT_BADFLUX = 1 ; }
   if ( (OPTMASK & 4)  ) { OPT_DOERR         = 0 ; } // Jul 2013
   if ( (OPTMASK & 8)  ) { LDMP_DEBUG        = 1 ; }
@@ -2392,6 +2391,9 @@ double SALT2magerr(double Trest, double lamRest, double z,
     if ( flux_train  < 0.0 ) { flux_train  = -flux_train  ; }  // W.A.G
     fracerr_snake = sqrt(vartot_flux) / flux_train ;
   }
+  else {
+    fracerr_snake = 0.0 ; // avoid -Wall warnings
+  }
 
   // kcor/color error is the same for SALT2,SALT3
   fracerr_kcor = SALT2colorDisp(lamRest,fnam); 
@@ -2552,7 +2554,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
   int  
     ifilt, NLAMFILT, ilamobs, ilamsed, jlam
-    ,IDAY, NDAY, nday, iday, ised, ic
+    ,IDAY, nday, iday, ised, ic
     ,ISTAT_GENSMEAR, LABORT_ILAM, LABORT_FRAC
     ;
 
@@ -2620,7 +2622,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   DAYMIN  = SALT2_TABLE.DAY[0]  ;
   DAYDIF  = Trest_model - DAYMIN ;
   IDAY    = (int)(DAYDIF/DAYSTEP);  
-  NDAY    = SALT2_TABLE.NDAY ;
   DAYDIF  = Trest_model - SALT2_TABLE.DAY[IDAY] ;
 
   nday    = 2 ; 
@@ -3001,16 +3002,19 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
   Apr 27 2021:
      for SALT3, ignore error-scale map and hard wired scale=1
 
+  Apr 30 2026: bug fix (thanks to -Wall) with unclear consequences
+      else if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT = 1 
+   -> else if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 1 
+  
   *****************************************************/
 
   int imap, jval, iday_min, iday_max, ilam_min, ilam_max ;
-  int NLAM, NDAY, IND, IERR ;
+  int NLAM, NDAY  ;
 
-  double val, val0, val1, valdif, val_linear, val_spline, tmp_old, tmp_new;
+  double val, val0, val1, valdif, val_linear ;
   double LMIN, LSTEP, LDIF, TMIN, TSTEP, TDIF, val_atlammin, val_atlammax ;
-  double val_list[2];
 
-  char fnam[] = "get_SALT2_ERRMAP";
+  char fnam[] = "get_SALT2_ERRMAP"; (void)fnam;
 
   // ------------ BEGIN --------
 
@@ -3068,31 +3072,17 @@ void get_SALT2_ERRMAP(double Trest, double Lrest, double *ERRMAP ) {
     if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 0 ) {
       val = 0.0 ; 
     }
-    else if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT = 1 ) {
+    else if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 1 ) { // bug fix 4.30.2026
       val = val_linear ;
     }
     else if ( INPUT_SALT2_INFO.ERRMAP_INTERP_OPT == 2 ) {
 
       val = val_linear ; // May 8 2025: no more spline, just linear interp
 
-      /* xxxxxxxxxxxx mark delete May 8 2025 xxxxxxxx
-      //      IND      = SALT2_ERRMAP[imap].INDEX_SPLINE ; 
-      //      tmp_old  = ge2dex_ ( &IND, &Trest, &Lrest, &IERR ) 	;
-      val_list[0] = Trest ;
-      val_list[1] = Lrest ;
-      IERR     = interp_GRIDMAP(&SALT2_ERRMAP[imap].GRIDMAP, val_list, &tmp_new ); // .xyz     
-      val_spline  = sqrt(pow(TEN,tmp_old)) ;
-      printf(" xxx %s: Trest = %5.1f  Lrest=%7.1f   val[lin,spl] = %f  %f \n",
-	     fnam, Trest, Lrest, val_linear, val_spline); fflush(stdout);
-      // Use the sign of the linear interp because
-      // the sign in storing the error-squared is lost.
-
-      if ( val_linear < 0.0 ) { val = -val_spline ; }
-      else                    { val = +val_spline ; }
-      xxxxxxxxxx end mark xxxxxxxxxx */
-
-
     }  // SPLINE option
+    else {
+      val = -9.0 ;
+    }
 
     ERRMAP[imap] = val ;
     
@@ -3332,7 +3322,7 @@ void errorSummary_SALT2(void) {
 
   int NLAM, ilam, imap, LLAM ;
   double LAMLIST[100], lam, Trest, ERRMAP[MXERRMAP_SALT2] ;
-  double var0, var1, covar01, errscale, S0fracErr, colorCor, c, colorDisp ;   
+  double var0, var1, errscale, S0fracErr, colorCor, c, colorDisp ;   
   char cCor[20];
   //  char fnam[] = "errorSummary_SALT2" ;
 
@@ -3380,10 +3370,9 @@ void errorSummary_SALT2(void) {
 
     // fractional flux error with x1=0
     get_SALT2_ERRMAP ( Trest, lam, ERRMAP );
-    var0       = ERRMAP[INDEX_SALT2_ERRMAP.VAR[0]] ;  // sigma(S0)/S0
-    var1       = ERRMAP[INDEX_SALT2_ERRMAP.VAR[1]] ;  // sigma(S1)/S0
-    covar01    = ERRMAP[INDEX_SALT2_ERRMAP.COVAR[0][1]] ;  // 
-    errscale   = ERRMAP[INDEX_SALT2_ERRMAP.ERRSCALE] ;  // error fudge
+    var0       = ERRMAP[INDEX_SALT2_ERRMAP.VAR[0]] ;  (void)var0; // sigma(S0)/S0
+    var1       = ERRMAP[INDEX_SALT2_ERRMAP.VAR[1]] ;  (void)var1; // sigma(S1)/S0
+    errscale   = ERRMAP[INDEX_SALT2_ERRMAP.ERRSCALE]; (void)errscale;  // error fudge
     S0fracErr  = errscale * sqrt(var0);         // dF/F with x1=0
 	   
     // color dispersion
@@ -3520,21 +3509,18 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   bool DO_EXTRAP_LOCAL = false; 
   bool EXTRAP_METHOD_MAG     = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_MAG );
   bool EXTRAP_METHOD_SEDFLUX = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_SEDFLUX );
-  bool EXTRAP_METHOD_FLAM    = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM);
   bool VALID_ZP;
   
   double Tobs_SED = Tobs; // Tobs to fetch SED
 
   double Trest, Finteg, Finteg_errPar, MWXT_FRAC ;
-  double FTMP, GENFLUX, ZP, MAG, LAM, LAMREST, z1, FSCALE_ZP;
+  double FTMP, GENFLUX, ZP, MAG, LAM, LAMREST, FSCALE_ZP;
   double FTMP_DAYMAX, MAG_DAYMAX ;
   double hc8 = (double)hc ;
   int    LDMP;
   char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
-
-  z1 = 1.0 + z;
 
   fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv); 
 
@@ -3648,7 +3634,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   double parList_SN[3]   = { x0, x1, c };
   double parList_HOST[3] = { RV_host, AV_host, m_host } ;
 
-  char fnam[] = "getSpec_band_SALT2" ;
+  char fnam[] = "getSpec_band_SALT2" ;  (void)fnam;
 
   // ------------- BEGIN ---------------
 

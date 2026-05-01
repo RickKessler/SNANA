@@ -451,7 +451,7 @@ void free_memory_genPDF(void) {
   int  ivar, NVAR, NDIM, imap, NMAP = NMAP_GENPDF; 
   int  NFUN = 1;
   int  MAPSIZE = MXROW_GENPDF ;
-  char fnam[] = "free_memory_genPDF" ;
+  char fnam[] = "free_memory_genPDF" ;  (void)fnam;
 
   // --------- BEGIN --------
 

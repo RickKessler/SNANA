@@ -287,14 +287,14 @@ void wr_snfitsio_init_head(void) {
   // Mar 14, 2024: add MASK_REDSHIFT_SOURCE
 
   long  NROW = 0 ;
-  int itype, ncol, istat, ivar, ipar, iq;
+  int itype, ncol, istat, ivar, ipar;
   int ifilt, ifilt_obs, igal;
 
   fitsfile *fp;
 
   char parName[80], tform_snid[8] ;
   char TBLname[40] ;
-  char fnam[] = "wr_snfitsio_init_head" ;
+  char fnam[] = "wr_snfitsio_init_head" ; (void)fnam;
 
   // ------------- BEGIN --------------
 
@@ -635,7 +635,6 @@ void wr_snfitsio_addCol(char *tform, char *name, int itype) {
   // Actual table column is created later using array loaded here.
   // Apr 7 2026: parse tform = 1E into 1 and E, 11E into 11 and E, etc ...
 
-  int lent = strlen(tform);
   int  NPAR, n_element, iform ;
   char  *ptrTmp ;
   char fnam[] = "wr_snfitsio_addCol"     ;
@@ -698,7 +697,7 @@ void wr_snfitsio_init_host(int igal, int itype) {
 
   int ifilt, ifilt_obs;
   char PREFIX[20], PREFIXz[20], parName[60] ;
-  char fnam[] = "wr_snfitsio_init_host";
+  char fnam[] = "wr_snfitsio_init_host"; (void)fnam;
 
   // ------------- BEGIN -----------------
 
@@ -790,7 +789,7 @@ void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ) {
  
   int ifilt, ifilt_obs;
   char parName[80] ;
-  char fnam[] = "wr_snfitsio_addCol_filters" ;
+  char fnam[] = "wr_snfitsio_addCol_filters" ;  (void)fnam;
   // ------------- BEGIN -----------
 
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -844,15 +843,9 @@ void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz ) {
   
   int itype = ITYPE_SNFITSIO_HEAD ;
   char tform[8] ;
-  char fnam[] = "wr_snfitsio_addcol_HOSTGALz" ;
+  char fnam[] = "wr_snfitsio_addcol_HOSTGALz" ; (void)fnam;
 
   // ---------- BEGIN ---------
-
-  /* xxx mark 
-  malloc_strlist(+1, 3, 60, &parNames );
-  get_SNDATA_HOSTGALz_VARNAMES(PREFIX, SUFFIX_z, SUFFIX_val, parNames); // return parNames
-  xxxx */
-
   // add column for number of z bins
   sprintf(tform,"1I");
   wr_snfitsio_addCol(tform, HOSTGALz->VARNAME_NZ, itype );    
@@ -884,7 +877,7 @@ void wr_snfitsio_init_phot(void) {
   int WRFULL = ( SNFITSIO_COMPACT_FLAG == false );
   fitsfile *fp;
   char TBLname[40], FMT[20] ;
-  char fnam[] = "wr_snfitsio_init_phot" ;
+  char fnam[] = "wr_snfitsio_init_phot" ; (void)fnam;
 
   // ------------- BEGIN --------------
 
@@ -1119,11 +1112,11 @@ void wr_snfitsio_create(int itype ) {
   // Mar 07 2022: fix bug setting SUBSURVEY_FLAG when SUBSURVEY = ''
   // Jul 23 2025: add ZP_FLUXCAL (part of switching 27.5 to 31.4 for nJy)
 
-  int istat, ipar, ivar, NVAR ;
+  int istat, ipar ;
   long NAXIS = 1, NAXES = 0    ;
   fitsfile  *fp ;
   char *ptrFile, *ptrType ;
-  char KEYNAME[60], PARNAME[80] ;
+  char KEYNAME[MXPATHLEN], PARNAME[80] ;
   char fnam[] = "wr_snfitsio_create" ;
     
   // -------------- BEGIN --------------
@@ -1660,11 +1653,11 @@ void wr_snfitsio_update_head(void) {
   // Aug 04 2023: use wr_snfitsio_fillTable_filters(..) utility and
   //              write RA_[band], DEC_[band]
 
-  int itype, LOC ,*ptrColnum, ipar, ivar, igal,   iq ;
+  int itype, LOC ,*ptrColnum, ipar, ivar, igal ;
   int  PTROBS_MIN, PTROBS_MAX;
   int  ifilt, ifilt_obs ;
   char parName[80] ;
-  char fnam[] = "wr_snfitsio_update_head" ;
+  char fnam[] = "wr_snfitsio_update_head" ;  (void)fnam;
   
   // ------------- BEGIN -------------
 
@@ -2555,7 +2548,7 @@ void wr_snfitsio_fillTable_filters(int *COLNUM_INDX, char *PREFIX, int ITYPE, fl
   int LOC = *COLNUM_INDX;
   int ifilt, ifilt_obs, *ptrColnum;
   char parName[80];
-  char fnam[] = "wr_snfitsio_fillTable_filters" ;
+  char fnam[] = "wr_snfitsio_fillTable_filters" ;  (void)fnam;
 
   // ----------- BEGIN ---------
 
@@ -2584,7 +2577,7 @@ void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, d
   int LOC = *COLNUM_INDX;
   int ifilt, ifilt_obs, *ptrColnum;
   char parName[80];
-  char fnam[] = "wr_snfitsio_fillTable_filtersD" ;
+  char fnam[] = "wr_snfitsio_fillTable_filtersD" ;  (void)fnam;
 
   // ----------- BEGIN ---------
 
@@ -2612,7 +2605,7 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
 
   int LOC = *COLNUM_INDX ;
   int *ptrColnum;
-  char fnam[] = "wr_snfitsio_fillTable_HOSTGALz" ;
+  char fnam[] = "wr_snfitsio_fillTable_HOSTGALz" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -2649,7 +2642,7 @@ void wr_snfitsio_update_phot(int ep) {
 
   int itype, LOC ,*ptrColnum  ;
   int WRFULL = ( SNFITSIO_COMPACT_FLAG == false );
-  char fnam[] = "wr_snfitsio_update_phot" ;
+  char fnam[] = "wr_snfitsio_update_phot" ;  (void)fnam;
   
   // ------------- BEGIN --------------
 
@@ -2839,7 +2832,7 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   bool EOE;
   int  itype, LOC ,*ptrColnum, PTRSPEC_MIN, PTRSPEC_MAX, ifilt, ifilt_obs   ;
-  char fnam[] = "wr_snfitsio_update_spec" ;
+  char fnam[] = "wr_snfitsio_update_spec" ;  (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -2959,8 +2952,8 @@ void  wr_snfitsio_update_spec(int imjd)  {
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // update spectrum table
-  int    ilam, ILAM ;
-  double LAMMIN, LAMMAX, LAMAVG, GENFLAM, GENMAG, FLAM, FLAMERR, WARP ;
+  int    ilam ;
+  double LAMMIN, LAMMAX, GENFLAM, FLAM, FLAMERR, WARP ;
 
   itype = ITYPE_SNFITSIO_SPECTMP ;
   
@@ -2970,12 +2963,11 @@ void  wr_snfitsio_update_spec(int imjd)  {
     EOE = false;
 
     if ( ilam < NBLAM_TOT ) {
-      ILAM = ilam ;
       LAMMIN     = GENSPEC.LAMMIN_LIST[imjd][ilam];
       LAMMAX     = GENSPEC.LAMMAX_LIST[imjd][ilam];
-      LAMAVG     = 0.5*(LAMMIN+LAMMAX);
+      //      LAMAVG     = 0.5*(LAMMIN+LAMMAX);
       GENFLAM    = GENSPEC.GENFLAM_LIST[imjd][ilam];
-      GENMAG     = GENSPEC.GENMAG_LIST[imjd][ilam];
+      //      GENMAG     = GENSPEC.GENMAG_LIST[imjd][ilam];
       FLAM       = GENSPEC.FLAM_LIST[imjd][ilam];
       FLAMERR    = GENSPEC.FLAMERR_LIST[imjd][ilam];
       WARP       = GENSPEC.FLAMWARP_LIST[imjd][ilam];
@@ -2983,8 +2975,8 @@ void  wr_snfitsio_update_spec(int imjd)  {
     }
     else {
       // end-of-event marker
-      ILAM = 777 ;
-      GENMAG=0.0; WARP=1.0;
+      // GENMAG=0.0;
+      WARP=1.0;
       LAMMIN = LAMMAX = FLAM = FLAMERR = GENFLAM = SNFITSIO_EOE_MARKER ;
       EOE = true ;
     }
@@ -3132,7 +3124,7 @@ int IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype) {
   // For read only.
 
   bool FLAG_RD        = (OPT & OPTMASK_RD_SNFITSIO) > 0;
-  bool FLAG_WR        = (OPT & OPTMASK_WR_SNFITSIO) > 0;
+  //bool FLAG_WR        = (OPT & OPTMASK_WR_SNFITSIO) > 0;
   bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int ipar, NPAR, icol ;
   char *ptrTmp;
@@ -3221,7 +3213,7 @@ void WR_SNFITSIO_END(int OPTMASK) {
     ifile = IFILE_WR_SNFITSIO ;
     itype = ITYPE_SNFITSIO_SPECTMP ;
     sprintf(cmd,"rm %s", wr_snfitsFile_plusPath[ifile][itype] );
-    isys = system( cmd );
+    isys = system( cmd );  (void)isys;
   }
 
   // Dec 2021:check option to gzip FITS files
@@ -3244,7 +3236,7 @@ void wr_snfitsio_end__(int *OPTMASK) {
 void rd_snfitsFile_close(int ifile, int itype) {
   int istat ;
   fitsfile *fp ;
-  char fnam[] = "rd_snfitsFile_close" ; 
+  char fnam[] = "rd_snfitsFile_close" ;  (void)fnam;
   // ------------ BEGIN -----------
   istat = 0 ;
   fp = fp_rd_snfitsio[itype] ;
@@ -3259,7 +3251,7 @@ void rd_snfitsFile_close(int ifile, int itype) {
 void wr_snfitsFile_close(int ifile, int itype) {
   int istat ;
   fitsfile *fp ;
-  char fnam[] = "wr_snfitsFile_close" ; 
+  char fnam[] = "wr_snfitsFile_close" ;  (void)fnam;
   // ------------ BEGIN -----------
   istat = 0 ;
   fp = fp_wr_snfitsio[itype] ;
@@ -3484,12 +3476,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   char KEY_NAME_IAUC_LEGACY[]   = "IAUC";
   char KEY_NAME_TRANSIENT[]     = "NAME_TRANSIENT"; 
   
-  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar, iq, N_Q ;
-  int  NZ, NZ0, NZ1;
+  int  j, NRD, igal, NGAL, ifilt, ifilt_obs, ivar, ipar ;
   char PREFIX[20], PREFIXz[20], KEY[40]; 
   double D_OBJID;
 
-  char fnam[] = "RD_SNFITSIO_EVENT";
+  char fnam[] = "RD_SNFITSIO_EVENT";  (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -4052,7 +4043,6 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
   if ( LRD_PHOT ) {
     int ep, ep0 = 1 ;
-    int NSPLIT ;
     j=0;
 
     j++; NRD = RD_SNFITSIO_DBL(isn, "MJD", &SNDATA.MJD[ep0], 
@@ -4204,13 +4194,20 @@ int rd_snfitsio_event__(int *OPT, int *isn )
 void check_NZ_HOSTGALz_snfitsio(int MXBIN, int NZ0, int NZ1, 
 				char *VARNAME0, char *VARNAME1, char *callFun) {
 
+  // Created Apr 2026
+  // Inputs:
+  //   NZ0 is number of z-grid values (with VARNAME0)
+  //   NZ1 is number of grid values   (with VARNAME1)
+  //
+  // Run diagnostics and abort on NZ0 != NZ1, or exceeding bound.
+  
   bool BAD_NZ_HIGH = (NZ0 > MXBIN);
   bool BAD_NZ0_NZ1 = (NZ0 != NZ1 );
 
   char fnam[200];
   concat_callfun_plus_fnam(callFun, "check_NZ_HOSTGALz_snfitsio", fnam);
 
-
+  // ------------ BEGIN --------------=
   if ( BAD_NZ_HIGH || BAD_NZ0_NZ1 ) {
     print_preAbort_banner(fnam);
     printf("\t z-vector array %s has %d elements\n", VARNAME0, NZ0);
@@ -4233,7 +4230,7 @@ void check_NZ_HOSTGALz_snfitsio(int MXBIN, int NZ0, int NZ1,
 // ===============================================
 void RD_SNFITSIO_CLOSE(char *version) {
 
-  char fnam[] = "RD_SNFITSIO_CLOSE" ;
+  char fnam[] = "RD_SNFITSIO_CLOSE" ;  (void)fnam;
 
   // ------------- BEGIN --------------
 
@@ -4241,8 +4238,8 @@ void RD_SNFITSIO_CLOSE(char *version) {
 
   if ( strcmp(version,SNFITSIO_PHOT_VERSION) != 0 ) {
     sprintf(c1err,"Cannot close fits-files for version %s", version);
-    sprintf(c2err,"because current fits version is %s", 
-	    SNFITSIO_PHOT_VERSION);
+    sprintf(c2err,"because current fits version is %.*s", 
+	    MXCHAR_MSGERR-30, SNFITSIO_PHOT_VERSION);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -4312,7 +4309,7 @@ int rd_snfitsio_list(void) {
 
   if ( (fp = fopen(SNFITSIO_LISTFILE, "rt"))==NULL ) {       
     sprintf ( c1err, "Cannot open LIST file :" );
-    sprintf ( c2err," '%s' ", SNFITSIO_LISTFILE );
+    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, SNFITSIO_LISTFILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -4341,14 +4338,14 @@ int rd_snfitsio_list(void) {
     sprintf(c1err,"NFILE_RD_SNFITSIO = %d exceeds bound of "
 	    "MXFILE_SNFITSIO=%d", 
 	    NFILE_RD_SNFITSIO, MXFILE_SNFITSIO );
-    sprintf(c2err,"Check %s", SNFITSIO_LISTFILE);
+    sprintf(c2err,"Check %.*s", MXCHAR_MSGERR,  SNFITSIO_LISTFILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
   else if ( NFILE_RD_SNFITSIO > 0 ) 
     { return SUCCESS ; }
   else {
     sprintf(c1err,"Found no files in");
-    sprintf(c2err,"%s", SNFITSIO_LISTFILE);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, SNFITSIO_LISTFILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -4446,7 +4443,7 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // July 23 2025: read ZP_FLUXCAL
 
   fitsfile *fp ;
-  int istat, itype, istat_spec, NVAR, hdutype, nrow, nmove = 1, FLAG  ;
+  int istat, itype, istat_spec, hdutype, nrow, nmove = 1, FLAG  ;
   char keyname[60], comment[200], *ptrFile ;
   char fnam[] = "rd_snfitsio_open" ;
 
@@ -4764,7 +4761,7 @@ void rd_snfitsio_simkeys(void) {
   fitsfile *fp ;
   int itype, istat, NPAR, ipar ;
   char  keyname[60], comment[200], *cptr    ;
-  char  fnam[] = "rd_snfitsio_simkeys"  ;
+  char  fnam[] = "rd_snfitsio_simkeys"  ; (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -4800,7 +4797,7 @@ void rd_snfitsio_simkeys(void) {
   
   load_PySEDMODEL_CHOICE_LIST();
   for(imodel = 0; imodel < NCHOICE_PySEDMODEL; imodel++ ) {
-    sprintf(tmpModel, "%s", PySEDMODEL_CHOICE_LIST[imodel] );
+    sprintf(tmpModel, "%.20s", PySEDMODEL_CHOICE_LIST[imodel] );
     istat = NPAR = 0;
     sprintf(keyname, "%s_NPAR", tmpModel ); 
     fits_read_key(fp, TINT, keyname, &NPAR, comment, &istat );
@@ -4963,7 +4960,7 @@ void rd_snfitsio_private(void) {
   fitsfile *fp ;
   int itype, istat, NVAR=0, ivar ;
   char keyname[60], comment[200], *cptr ;
-  char fnam[] = "rd_snfitsio_private" ;
+  char fnam[] = "rd_snfitsio_private" ; (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -5000,7 +4997,7 @@ void rd_snfitsio_file(int ifile) {
 
   int photflag_open = 1, MXROW ;
   int vbose=1; // xxx RESTORE to zero
-  char fnam[] = "rd_snfitsio_file" ;
+  char fnam[] = "rd_snfitsio_file" ; (void)fnam;
 
   // ----------- BEGIN --------------
 
@@ -5124,7 +5121,7 @@ void rd_snfitsio_free(int ifile, int itype ) {
   // Oct 17 2012 set   MALLOC_LEN_SNFITSIO[itype] = 0 ; 
 
   int LDMP = 0;
-  int iform, ipar, npar, LEN, i, MEMTOT=0 ;
+  int iform, ipar, npar, LEN, i ;
   char fnam[] = "rd_snfitsio_free" ;
 
   // --------------- BEGIN ----------
@@ -5200,11 +5197,10 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   int MALLOC_LEN = MALLOC_LEN_SNFITSIO[itype];
   char *ptrFile  = rd_snfitsFile[ifile][itype];
 
-  int  iform, n_element, npar, ipar, i ;
+  int  iform, npar, ipar, i ;
   int  mem, MEM, MSTR, MEMTOT, sizeof_mem, sizeof_MEM    ;
 
   float FMEM ;
-  fitsfile *fp ;
   int LDMP = 0;
   char  fnam[] = "rd_snfitsio_malloc"  ;
 
@@ -5218,8 +5214,6 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
 
   LEN_LOCAL += 10;
-
-  fp     = fp_rd_snfitsio[itype] ;
   MEMTOT = 0 ;
 
   for ( iform=1; iform < MXFORM_SNFITSIO; iform++ ) {
@@ -5427,14 +5421,12 @@ void rd_snfitsio_head(int ifile) {
 
   int  itype,  icol, ipar, isn, NOBS, NCOL, NSNLC, OPTMASK, NROW  ;
   int  iform, n_elem;
-  fitsfile *fp ;
-  char  fnam[] = "rd_snfitsio_head" ;
+  char  fnam[] = "rd_snfitsio_head" ;  (void)fnam;
 
   // ------------ BEGIN --------------
 
   NSNLC = NSNLC_RD_SNFITSIO[ifile] ; 
   itype = ITYPE_SNFITSIO_HEAD ;
-  fp    = fp_rd_snfitsio[itype] ;
 
   NCOL = NPAR_RD_SNFITSIO[itype];
   for ( icol=1; icol <= NCOL; icol++ ) {
@@ -5550,11 +5542,11 @@ void  rd_snfitsio_specFile( int ifile ) {
   
   bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
 
-  int istat, itype, hdutype, icol, icol_off, anynul, nmove=1;
+  int istat, itype, hdutype, icol, anynul, nmove=1;
   long FIRSTROW=1, FIRSTELEM=1, NROW ;
   fitsfile *fp ;
   char *ptrFile, keyName[40], comment[200] ;
-  char fnam[] = "rd_snfitsio_specFile" ;
+  char fnam[] = "rd_snfitsio_specFile" ;  (void)fnam;
 
   // ------------ BEGIN -------------
 
@@ -5728,11 +5720,10 @@ void RD_SNFITSIO_SPECDATA(int irow,
   int NLAM     = RDSPEC_SNFITSIO_HEADER.NLAMBIN[irow] ;
   int PTRMIN   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MIN[irow];
   int PTRMAX   = RDSPEC_SNFITSIO_HEADER.PTRSPEC_MAX[irow];
-  int itype    = ITYPE_SNFITSIO_SPEC;
   bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
   bool READ_SPECTRUM = !READ_SED_TRUE ;
 
-  int  istat=0, icol=0, anynul, ilam, ILAM ; 
+  int  istat=0, icol=0, anynul, ilam; 
   long NROW      = PTRMAX - PTRMIN + 1;
   long FIRSTROW  = PTRMIN ;
   long FIRSTELEM = 1 ;
@@ -5790,7 +5781,7 @@ void RD_SNFITSIO_SPECDATA(int irow,
     // explicitly compute arrays that were left out of the compact data structure 
     // that was designed to save disk space for voluminous SED_TRUE feature.
     double LAMMIN_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMMIN[irow] ;
-    double LAMMAX_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMMAX[irow] ;
+    //double LAMMAX_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMMAX[irow] ; 
     double LAMBIN_SPEC = (double)RDSPEC_SNFITSIO_HEADER.LAMBIN[irow] ;
     double lammin_tmp = LAMMIN_SPEC;
     for ( ilam=0; ilam < NLAM; ilam++ ) {
@@ -5827,7 +5818,7 @@ void  rd_snfitsio_mallocSpec(int opt, int ifile) {
 
   bool READ_SED_TRUE = ( SNFITSIO_WRITE_MASK_SPEC & WRITE_MASK_SED_TRUE )>0;
 
-  char fnam[] = "rd_snfitsio_mallocSpec" ;
+  char fnam[] = "rd_snfitsio_mallocSpec" ; (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -6047,8 +6038,8 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   // Sep 29 2025: pass GALID to RD_OVERRIDE_FETCH
   // Apr 11 2026: pass parList to RD_OVERRIDE_FETCH to allow return array of doubles.
 
-  int  iptr_local, iform, n_elem, itype, ifile, itmp, icol, ipar, NSTORE;
-  int  iparRow, isn_file, firstRow, lastRow, NPARVAL, J, JMIN, JMAX, NSTR=0;
+  int  iptr_local, iform, n_elem, itype, ifile, icol, ipar, NSTORE;
+  int  iparRow, isn_file, firstRow, lastRow, NPARVAL, J, JMIN, JMAX ;
   int  *IPTR, MASK, NEP_RDMASK, NEP_MASK=0, OPTMASK ;
 
   char   C_VAL[80];
@@ -6328,7 +6319,7 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   //   HOSTGALz  information to read
   //
   int j = *jcol;
-  int NZ, NZ0, NZ1, NZ2, NRD = 0;
+  int NZ, NZ0, NZ1, NZ2, NRD = 0;  (void)NRD;
   //  int MXBIN   = MXBIN_HOSTGALz_QUANTILE;
   int MXBIN   = HOSTGALz->MXZ;
   char fnam[] = "RD_SNFITSIO_HOSTGALz" ;
@@ -6360,7 +6351,7 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   
   // set NZ to number of non-negative Z_LIST values so that it works 
   // reading FITS file and also for OVERRIDE; pad -9 values are ignored.
-  HOSTGALz->NZ = NZ_HOSTGALz(MXBIN, HOSTGALz->Z_LIST);
+  HOSTGALz->NZ = NZ_HOSTGALz(MXBIN, HOSTGALz->Z_LIST, SNDATA.CCID );
 
   int LDMP = ( strcmp(SNDATA.CCID,"3488709") == 0 );
   if ( LDMP ) { dump_SNDATA_HOSTGALz(HOSTGALz, igal, fnam); }

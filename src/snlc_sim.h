@@ -211,8 +211,8 @@ typedef struct {
   int IFLAG_GEN;
 
   // NON1ASED inputs from sim-input file
-  char  PATH[MXPATHLEN+10];                // user-defined path to NON1A seds
-  char  LISTFILE[MXPATHLEN+10];           // $PATH/NON1A.LIST
+  char  PATH[MXPATHLEN+50];                // user-defined path to NON1A seds
+  char  LISTFILE[MXPATHLEN+80];           // $PATH/NON1A.LIST
   int   NKEY ;                         // number of user NON1A keys
   char  KEYLIST[MXNON1A_KEY][40];      // list of user NON1A keys
 

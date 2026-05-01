@@ -23783,6 +23783,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + fix bug setting IFLAG_SPECID_EFFZERO
            (left-over bug from recent REFAC_SEARCHEFF)
 
+    genmag_extrap.c:
+       call print_genmag_extrap_table() from init stage to show
+       dimming vs. rest-frame phase and wavelength.
+
     sntools_trigger.c[h]
       + remove legacy functions from recent REFAC_SEARCHEFF.
 

@@ -60,7 +60,7 @@ void init_genmag_NON1ASED(int isparse, INPUTS_NON1ASED_DEF *INP_NON1ASED,
   int ifilt, ifilt_obs, NZBIN, NON1A_INDEX, nflux_nan ;
   double Trange[2], Lrange[2] ;
   char sedcomment[40], *sedFile ;
-  char fnam[] = "init_genmag_NON1ASED"  ;
+  char fnam[] = "init_genmag_NON1ASED"  ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -407,7 +407,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
 
     if ( INP_NON1ASED->INDEXVALID[index] == 0 ) {
       sprintf(c1err,"Invalid NON1A index = %d in sim-input file.",index );
-      sprintf(c2err,"Compare with %s", INP_NON1ASED->LISTFILE );
+      sprintf(c2err,"Compare with %.*s", MXCHAR_MSGERR, INP_NON1ASED->LISTFILE );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 
@@ -420,6 +420,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
     ptrSed  = INP_NON1ASED->SED_FILE[isp] ;
     EXIST_SED = getName_SED_FILE_NON1ASED(INP_NON1ASED->PATH, name, 
 					  ptrSed); // return ptrSed
+    (void)EXIST_SED ;
 
     if ( NGENTMP > 0 ) {
       printf("     Will generate %4d %s (MXGEN=%4d) with %s\n", 
@@ -445,7 +446,7 @@ void prep_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED,
       if ( ISPEC1A_USER != ISPEC1A_LIST ) {
 	sprintf(c1err, "ISPEC1A(USER)=%d but ISPEC1A(NON1A_LIST)=%d",
 		ISPEC1A_USER, ISPEC1A_LIST );
-	sprintf(c2err,"for %s (index=%d)", name, index );
+	sprintf(c2err,"for %.*s (index=%d)", MXCHAR_MSGERR, name, index );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);         
       }
     }
@@ -482,7 +483,7 @@ bool getName_SED_FILE_NON1ASED(char *PATH, char *inpName, char *outName) {
   struct stat statbuff;
   int jstat, jstat_gz ;
   char *outName_gz = (char*)malloc( MXPATHLEN*sizeof(char) );
-  char fnam[] = "getName_SED_FILE_NON1ASED" ;
+  char fnam[] = "getName_SED_FILE_NON1ASED" ;  (void)fnam;
 
   // -------------- BEGIN --------------
 
@@ -537,7 +538,7 @@ int count_NON1A_LIST(char *PATHMODEL) {
   sprintf(listFile, "%s/NON1A.LIST",  PATHMODEL );
   if ( (fp = fopen(listFile, "rt"))==NULL ) { 
     sprintf ( c1err, "Cannot open file :" );
-    sprintf ( c2err," '%s' ", listFile );
+    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, listFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -579,24 +580,24 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
   //
   FILE *fp;
   int NLIST, L_NON1A, L_PEC1A, index, NINDEX ;
-  int FOUND_PEC1A=0;
   double SCALE = 1.0 ;
   int    ALLNON1A_FLAG=0, SNTAG_ALLNON1A=0, NSED_MISSING=0 ;
   bool   EXIST_SED;
   double MAGOFF_ALLNON1A=0.0, MAGSMEAR_ALLNON1A=0.0;
   char cget[80], type[20];
-  char FILE_NAME[MXPATHLEN], file_name[MXPATHLEN], listFile[MXPATHLEN] ;
-  char tmpLine[100], *ptrTmp = tmpLine ;
+  char FILE_NAME[MXPATHLEN], file_name[MXPATHLEN], *listFile ;
+  char tmpLine[100], *ptrTmp = tmpLine ; (void)ptrTmp ;
   char fnam[] = "read_NON1A_LIST" ;
 
   // ------------- BEGIN -----------
 
-  sprintf(listFile, "%s/NON1A.LIST",  INP_NON1ASED->PATH );
-  sprintf(INP_NON1ASED->LISTFILE, "%s", listFile);
+  sprintf(INP_NON1ASED->LISTFILE, "%s/NON1A.LIST",  INP_NON1ASED->PATH );
+  listFile = INP_NON1ASED->LISTFILE;
+  // xxx mark  sprintf(INP_NON1ASED->LISTFILE, "%s", listFile);
 
   if ( (fp = fopen(listFile, "rt"))==NULL ) { 
     sprintf ( c1err, "Cannot open file :" );
-    sprintf ( c2err," '%s' ", listFile );
+    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, listFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -645,7 +646,7 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
       if ( index <= 0 || index >= MXNON1A_TYPE ) {
 	sprintf(c1err,"Invalid %s index = %d read from ", 
 		MODELNAME_NON1ASED, index );
-	sprintf(c2err,"%s", INP_NON1ASED->LISTFILE );
+	sprintf(c2err,"%.*s", MXCHAR_MSGERR, INP_NON1ASED->LISTFILE );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
       }
 
@@ -671,7 +672,6 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
       if ( L_PEC1A ) { 
 	INP_NON1ASED->LIST_ISPEC1A[index] = 1; 
 	sprintf(INP_NON1ASED->LIST_TYPE[index], "PEC1A-%s", type );
-	FOUND_PEC1A=1;
       }
 
       // check option to use all NON1A with equal prob.
@@ -726,7 +726,7 @@ void sort_NON1ASED(INPUTS_NON1ASED_DEF *INP_NON1ASED) {
   INPUTS_NON1ASED_DEF *TMP_NON1ASED ;
   int isp, inew, ISPEC1A, NNON1A=0, NPEC1A=0 ;
   int  NINDEX = INP_NON1ASED->NINDEX ;
-  char fnam[] = "sort_NON1ASED" ;
+  char fnam[] = "sort_NON1ASED" ;  (void)fnam;
 
   // --------------- BEGIN ----------------
 

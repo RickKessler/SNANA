@@ -9243,7 +9243,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     SB_FLUXCAL = pow(10.0,arg) ;
     
     SNHOSTGAL.SB_FLUXCAL[ifilt_obs] = SB_FLUXCAL ;  
-    SNHOSTGAL.SB_MAG[ifilt_obs]  = SB_MAG ;
+    SNHOSTGAL.SB_MAG[ifilt_obs]     = SB_MAG ;
   }
 
   return ;

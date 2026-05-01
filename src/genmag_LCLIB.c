@@ -177,7 +177,7 @@ void open_LCLIB(char *lcLibFile) {
 
   FILE *fp;
   int  OPTMASK_OPEN = 1;  // 1=verbose
-  char MODELPATH_LIST[2*MXPATHLEN];
+  char MODELPATH_LIST[2*MXPATHLEN+50];
   char *LCLIB_FILE = LCLIB_INFO.FILENAME ;
   char fnam[] = "open_LCLIB" ;
 
@@ -192,7 +192,7 @@ void open_LCLIB(char *lcLibFile) {
   
   if ( fp == NULL ) {
     sprintf(c1err,"Could not open LCLIB file:");
-    sprintf(c2err,"%s", LCLIB_FILE );
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, LCLIB_FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
   }
 
@@ -212,7 +212,7 @@ void read_GLOBAL_HEADER_LCLIB(void) {
   int NRD_ABORT = 1000 ; // abort after this many words and no FIRST_EVT
   int NRD       = 0 ;
   int FIRST_EVT = 0 ;
-  int ipar, NPAR, NFILT, iwd, NWD, NLINE=0; 
+  int ipar, NPAR, iwd, NWD, NLINE=0; 
   int MSKOPT = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
   bool IS_DOCANA = false, IS_COMMENT=false;
   FILE *fp = LCLIB_INFO.FP;
@@ -353,7 +353,6 @@ void read_GLOBAL_HEADER_LCLIB(void) {
 
   // tack on extra model params: EVENT_ID and template mags
   NPAR  = LCLIB_INFO.NPAR_MODEL ;
-  NFILT = LCLIB_INFO.NFILTERS ;
 
   sprintf(LCLIB_INFO.PARNAME_MODEL[NPAR], "EVENT_ID");    NPAR++ ;
 
@@ -816,7 +815,6 @@ void readNext_LCLIB(double *RA, double *DEC) {
   int NFILT  = LCLIB_INFO.NFILTERS;
   int IFLAG_PERIODIC = (LCLIB_INFO.IFLAG_RECUR_CLASS == IFLAG_RECUR_PERIODIC);
   int MXWD   = NFILT + NPAR + 2 ;
-  bool FIRST_EVENT = LCLIB_EVENT.NEVENT_READ==0;
   int START_EVENT, END_EVENT, ISROW_T, ISROW_S ;
   int ipar, ifilt, NROW_FOUND, NROW_EXPECT, KEEP, REJECT ;
   int NWD, iwd, NLINE_READ, NLINE_SKIP, Nfread, NCHAR_ROW, istat ;
@@ -826,7 +824,7 @@ void readNext_LCLIB(double *RA, double *DEC) {
   char  WDLIST[MXFILTINDX+MXPAR_LCLIB][100], *WD0, *WD1; 
   char *ptrWDLIST[MXFILTINDX+MXPAR_LCLIB];
   double GalLat, GalLong ;
-  char key[60], LINE[200], tmpLINE[200];
+  char key[100], LINE[200], tmpLINE[200];
 
   char fnam[] = "readNext_LCLIB" ;
 
@@ -893,7 +891,7 @@ void readNext_LCLIB(double *RA, double *DEC) {
       if ( REFAC && NCHAR_ROW > 0 ) {
 	NCHAR_SKIP  = (NROW_EXPECT-5) * NCHAR_ROW ;
 	NLINE_SKIP += (NROW_EXPECT-5) ;
-	istat = fseek(fp, NCHAR_SKIP, SEEK_CUR);
+	istat = fseek(fp, NCHAR_SKIP, SEEK_CUR);  (void)istat;
       }
       else {
 	NLINE_SKIP++ ;
@@ -1209,7 +1207,7 @@ void coord_translate_LCLIB(double *RA, double *DEC) {
   // wrapper to convert RA,DEC -> b,l
 
   bool switch_RADEC = (LCLIB_INFO.OPTMASK & OPTMASK_LCLIB_useRADEC) > 0 ;
-  char fnam[] = "coord_translate_LCLIB";
+  char fnam[] = "coord_translate_LCLIB";  (void)fnam;
 
   if ( LCLIB_EVENT.RA < 900 && LCLIB_EVENT.DEC < 900.0 ) {
     // convert J2000 into Galactic coords
@@ -1291,7 +1289,7 @@ int keep_ANGLEMATCH_LCLIB(double b, double l) {
   int KEEP=1 ;
   double b_SIM    = fabs(b);
   double b_LCLIB  = fabs(LCLIB_EVENT.GLAT);
-  char fnam[] = "keep_ANGLEMATCH_LCLIB" ;
+  char fnam[] = "keep_ANGLEMATCH_LCLIB" ;  (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -1934,7 +1932,7 @@ void  addTemplateRows_PERIODIC(void) {
   double EPRANGE   = EPMAX_T - EPMIN_T ;
   double mag;
   double DAY_S, DAYFIRST_S, DAYLAST_S, NDAY_S ; 
-  double DAY_T, DAYFIRST_T, DAYLAST_T, NDAY_T ; 
+  double DAY_T, DAYFIRST_T, DAYLAST_T ; 
   
   int  FIRSTROW_S = LCLIB_EVENT.FIRSTROW_S ;
   int  LASTROW_S  = LCLIB_EVENT.LASTROW_S ;
@@ -1955,7 +1953,6 @@ void  addTemplateRows_PERIODIC(void) {
 
   DAYFIRST_T = DAYFIRST_S - EPRANGE - 10.0 ;
   DAYLAST_T  = DAYFIRST_T + EPRANGE ;
-  NDAY_T     = DAYLAST_T - DAYFIRST_T ;
   NROW_T     = NEP_T ;
 
   if ( LDMP ) {

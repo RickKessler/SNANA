@@ -34,7 +34,7 @@ void init_genmag_NON1AGRID(char *GRIDFILE, double FRAC_PEC1A) {
 
   char fnam[] = "init_genmag_NON1AGRID" ;
   char FILENAME[MXPATHLEN] ;  // full filenam of GRIDFILE
-  char PATH_NON1AGRID[MXPATHLEN];
+  char PATH_NON1AGRID[2*MXPATHLEN];
   int  gzipFlag; 
   FILE *fp ;
 
@@ -107,7 +107,7 @@ void genmag_NON1AGRID (int ifilt_obs, double mwebv, double z,
   }
 
 
-  MAGOFF         = NON1AGRID.NON1A_MAGOFF[INDEX_NON1AGRID];
+  MAGOFF         = NON1AGRID.NON1A_MAGOFF[INDEX_NON1AGRID];  (void)MAGOFF;
   MAGSMEAR_SIGMA = NON1AGRID.NON1A_MAGSMEAR[INDEX_NON1AGRID];
 
   // store log(z) and iz index in global so that it's only

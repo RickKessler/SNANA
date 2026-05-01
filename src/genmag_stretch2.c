@@ -130,7 +130,7 @@ int init_genmag_stretch2 (
 	  STRETCH2_MODELPATH, "stretch_UBVRI_template.dat" );
   if ( (fp = fopen(STRTEMPL_FILE, "rt")) == NULL ) {
     sprintf(c1err,"Could not find stretch-template file:");
-    sprintf(c2err,"%s", STRTEMPL_FILE );
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, STRTEMPL_FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -160,7 +160,8 @@ int init_genmag_stretch2 (
     if ( strcmp(c_get,"FILTER:") == 0 ) {
       readchar(fp,cfilt);
       NFILT_STRTEMPL++ ;
-      sprintf(STRTEMPL_FILTERS,"%s%s", STRTEMPL_FILTERS, cfilt);
+      strcat(STRTEMPL_FILTERS, cfilt);
+      // xxx mark sprintf(STRTEMPL_FILTERS, "%s%s", STRTEMPL_FILTERS, cfilt);
     }
 
 
@@ -310,7 +311,7 @@ int genmag_stretch2 (
   if ( ifilt < 0 ) {
     sprintf(c1err,"Invalid ifilt_rest=%d (%c). Check filter-defs in", 
 	    ifilt_rest, FILTERSTRING[ifilt_rest]);
-    sprintf(c2err, "%s", STRTEMPL_FILE );
+    sprintf(c2err, "%.*s", MXCHAR_MSGERR, STRTEMPL_FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 

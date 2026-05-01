@@ -119,7 +119,7 @@ int init_genmag_mlcs2k2(
 		     ,char *filtlist     // (O) char-string of model filters
 		     ) {
   
-  char tempFilename[200];
+  char tempFilename[MXPATHLEN];
   char fnam[] = "init_genmag_mlcs2k2" ;
   char BANNER[80], cfilt[2], version[60];
 
@@ -309,7 +309,7 @@ int genmag_mlcs2k2(
     ,M2, P2, Q2
     ;
 
-  int i, j1, j2, idum;
+  int i, j1, j2 ;
 
   // ---------- BEGIN function ------------
 
@@ -373,9 +373,6 @@ int genmag_mlcs2k2(
 
     rest_magerr[i] = 
       (w1*temperr1 + w2*temperr2) / (w1 + w2);
-
-
-       idum = 1 ;
 
        if ( ifilt == -999 
 	    && fabs(Trest-44.50) < 0.010 
@@ -505,7 +502,7 @@ void rd_mlcs2k2_cov(char *covFile, float scale_covar) {
   **/
 
 
-  char covFile_loc[100];
+  char covFile_loc[MXPATHLEN];
   char fnam[] = "rd_mlcs2k2_cov" ;
   FILE *fp ;
 
@@ -943,7 +940,7 @@ int mlcs2k2_Tmax(void) {  return (int)TMAXDAY_MLCS2k2 ; }
 // ==============================================
 void set_LAMRANGE_mlcs2k2(void) {
   // Set rest-frame lambda range (internal use only)
-  char tempFilename[200];
+  char tempFilename[MXPATHLEN];
   char restlamFile[40] = "RESTLAMBDA_RANGE.DAT" ;
   FILE *fp ;
 

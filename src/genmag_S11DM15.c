@@ -98,7 +98,7 @@ int init_genmag_S11DM15(char *VERSION, int OPTMASK ) {
   // set extreme ranges to read any SED
   int     nflux_nan;
   double  Trange[2], Lrange[2] ;
-  char    tmpFile[MXPATHLEN], sedComment[60];
+  char    tmpFile[2*MXPATHLEN], sedComment[60];
 
   Trange[0] = -20. ;  // rest-frame days
   Trange[1] = 200. ;
@@ -179,7 +179,7 @@ void read_S11DM15_INFO_FILE(void) {
   // read info file and fill S11DM15.INFO structre
 
   char 
-    infoFile[MXPATHLEN]
+    infoFile[2*MXPATHLEN]
     ,c_get[60]
     ,fnam[] = "read_S11DM15_INFO_FILE"
     ;
@@ -194,7 +194,7 @@ void read_S11DM15_INFO_FILE(void) {
 
   if (( fp = fopen(infoFile, "rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
-    sprintf(c2err," %s", infoFile );
+    sprintf(c2err," %.*s", MXCHAR_MSGERR, infoFile );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 

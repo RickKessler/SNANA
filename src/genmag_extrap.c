@@ -8,7 +8,9 @@
  These extrap models are designed to be fairly generic so that they can be 
  applied to multiple models.
 
-     UNDER CONSTRUCTION: NOT YET IMPLEMENTED 
+   HISTORY
+
+  Apr 30 2026: call print_genmag_extrap_table()
 
 *****************************************/
 
@@ -49,7 +51,7 @@ double modelflux_extrap(
   double DTref0, SQDTref0, CUBEDTref0 ,DT0, DT1 ;
   double T0  = -20.0 ; // time of explosion, wher T=0 at peak
 
-  char fnam[] = "modelflux_extrap" ;
+  char fnam[] = "modelflux_extrap" ;  (void)fnam;
 
   // -------- BEGIN ----------
 
@@ -221,9 +223,52 @@ void init_extrap_latetime_Ia(char *fileName) {
   }
   printf("   --------------------------------------------------------\n");
 
+  // - - - - -
+  print_genmag_extrap_table();
+  //  debugexit(fnam);
+
   return ;
 
 } // end init_extrap_latetime_Ia
+
+void print_genmag_extrap_table(void) {
+
+  // Apr 30 2026: print diagnostic table of mag-extrap vs. Trest and lam.
+
+#define NLAMLIST_DUMP 5
+#define NDAYLIST_DUMP 6
+  double day, lam, mag, magdif, mag_daymin=20.0 ;
+  double lamlist[NLAMLIST_DUMP] = { 3000.0, 4000.0, 6000.0, 8000.0, 10000.0 } ;
+  double daylist[NDAYLIST_DUMP] = { 45.0, 50.0, 100.0, 150.0, 200.0, 250.0 };
+  int  ilam, iday;
+  char line[200], cval[20];
+
+  // ---------- BEGIN -------------
+
+  printf("\n");
+  printf("         |     delta mag_extrap at wave: \n");
+  printf("   Trest | ");
+  for(ilam=0; ilam<NLAMLIST_DUMP; ilam++ ) { printf("  %6.0f ", lamlist[ilam]); }
+  printf("\n  ------------------------------------------------------ \n"); 
+  fflush(stdout);
+
+  for(iday=0; iday < NDAYLIST_DUMP; iday++ ) {
+    day = daylist[iday];
+    sprintf(line, " %4.0f  | ", day);
+    for(ilam=0; ilam<NLAMLIST_DUMP; ilam++ ) {
+      lam = lamlist[ilam];
+      mag = genmag_extrap_latetime_Ia(mag_daymin, day, lam ) ;
+      magdif = mag - mag_daymin ;
+      sprintf(cval, "  %6.3f ", magdif);
+      strcat(line, cval);
+    }
+    printf("  %s\n", line);  
+  }
+  fflush(stdout);
+
+  return;
+
+} // end print_genmag_extrap_table
 
 // ===============================================
 double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
@@ -237,17 +282,12 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam ) {
   //   lam        = rest-frame wavelength of filter
   //
 
-  int    NLAMBIN = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN ;  
+  //  int    NLAMBIN = INPUT_EXTRAP_LATETIME_Ia.NLAMBIN ;  
   double DAYMIN  = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;  
   double mag_extrap = mag_daymin ;
   double ZP_FLUXCAL = ZEROPOINT_FLUXCAL_nJy; // any value works here
 
-  double arg, F_DAYMIN, F_EXTRAP, VAL, PARLIST[MXPAR_EXTRAP_LATETIME_Ia];
-  double *ptrLam, *ptrVal;
-  int    ipar;
-  int    NPAR = NPAR_EXTRAP_LATETIME_Ia ;
-  int    OPT_INTERP = 1;        // 1=linear
-  int    LDMP = 0, ABORT=0 ;
+  double arg, F_DAYMIN, F_EXTRAP;
   char   fnam[] = "genmag_extrap_latetime_Ia" ;
 
   // ----------- BEGIN ---------

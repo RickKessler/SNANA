@@ -45,6 +45,8 @@ double genmag_extrap_latetime_Ia(double mag_daymin, double day, double lam);
 double genflux_extrap_latetime_Ia(double flux_daymin, double day, double lam);
 double FLUXFUN_EXTRAP_LATETIME_Ia(double t, double tau1, double tau2, double ratio);
 
+void print_genmag_extrap_table(void) ;
+
 // generic for any model
 double modelflux_extrap(double T, double Tref,
 			double fluxref, double fluxslope, int LDMP);

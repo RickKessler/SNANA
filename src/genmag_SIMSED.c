@@ -139,10 +139,10 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   char
     BANNER[120]
-    ,tmpFile[MXPATHLEN]
+    ,tmpFile[2*MXPATHLEN]
     ,sedFile[MXPATHLEN]
-    ,bin1File[MXPATHLEN]  // SED binary file
-    ,bin2File[MXPATHLEN]  // flux-table binary file
+    ,bin1File[2*MXPATHLEN]  // SED binary file
+    ,bin2File[2*MXPATHLEN]  // flux-table binary file
     ,sedcomment[40], version[60], kcorFile_gz[MXPATHLEN]
     ;
 
@@ -552,7 +552,7 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   //
 
   int nflux_nan;
-  char fnam[] = "read_SIMSED_flux";
+  char fnam[] = "read_SIMSED_flux";  (void)fnam;
 
   // -------------- BEGIN -----------------
 
@@ -785,7 +785,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // open & read info file
 
   ptrFile = SIMSED_INFO_FILENAME_FULL ;
-  sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
+  sprintf(ptrFile, "%s/%s", PATHMODEL, SIMSED_INFO_FILENAME);
   SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
   SEDMODEL.IPAR_WGT            = -9; // Feb 28 2024 
 
@@ -795,7 +795,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
-    sprintf(c2err,"%s", ptrFile);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, ptrFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -979,7 +979,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     }
     if ( NKEY_MISSING > 0 ) {
       sprintf(c1err,"SED.INFO file missing required keys %s", keyname_missing);
-      sprintf(c2err,"Check %s",  ptrFile );
+      sprintf(c2err,"Check %.*s",  MXCHAR_MSGERR, ptrFile );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   }
@@ -1070,9 +1070,9 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   int NSED = SEDMODEL.NSURFACE ;
   int ised, istat, size, MXsize, ised_MXsize, NDAY ;
-  char sedFile[MXPATHLEN], sedFile_gz[MXPATHLEN], comment[60] ;
+  char sedFile[2*MXPATHLEN], sedFile_gz[2*MXPATHLEN+10], comment[60] ;
   struct stat statbuf ; 
-  char fnam[] = "set_SIMSED_MXDAY";
+  char fnam[] = "set_SIMSED_MXDAY";  (void)fnam;
 
   // ---------------- BEGIN -----------------
 
@@ -1210,6 +1210,8 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
       }
 
       istat = interp_GRIDMAP(&GRIDMAP, PARVALUES, &WGT_INTERP) ;
+      (void)istat;
+
       SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT] = WGT_INTERP;
       //printf("xxx %s ISED = %d WGT_INTERP = %le\n", fnam, ISED, WGT_INTERP);
 
@@ -1404,7 +1406,8 @@ void checkBinary_SIMSED(char *binaryFile) {
       printf("%s\n\n", line);
       
       sprintf(rm,"rm %s", binaryFile);
-      int isys = system(rm); return ;
+      int isys = system(rm);  (void)isys;
+      return ;
     }
   } // end ifile loop
 
@@ -1474,7 +1477,7 @@ void genmag_SIMSED(
 
   double  meanlam_obs, meanlam_rest, ZP, z1, Tobs, Trest, flux, arg, Sinterp  ;
   int ifilt, epobs, OPT_COLORLAW    ;
-  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSED_SELECT ;
+  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_FLUX, LSED_SELECT ;
   double AV, XT_MW, XT_HOST, *PARLIST_COLORLAW, PARDUM=0.0 ;
   double magobs, magerr, tmpPar;
   char *cfilt ;
@@ -1487,10 +1490,9 @@ void genmag_SIMSED(
   // set default optopn and then parse OPTMASK
 
   LDMP_BADFLUX = LRETURN_FLUX = LDMP_DEBUG = 0 ;
-  LRETURN_MAG  = 1;
   LSED_SELECT  = 0;
 
-  if ( (OPTMASK & 1) > 0 ) { LRETURN_MAG    = 0; LRETURN_FLUX = 1; }
+  if ( (OPTMASK & 1) > 0 ) { LRETURN_FLUX = 1; }
   if ( (OPTMASK & 2) > 0 ) { LDMP_BADFLUX   = 1; }
 
   if ( (OPTMASK & OPTMASK_GEN_SIMSED_WGT) > 0 ) { LSED_SELECT    = 1; }

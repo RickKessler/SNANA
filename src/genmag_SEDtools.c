@@ -281,7 +281,7 @@ int init_filter_SEDMODEL(
 
   lamstep     = LAMLIST[1] - LAMLIST[0] ;
   fluxREF_sum = transREF_sum = lamtransREF_sum = 0.0 ;
-  fluxSN_sum  = transSN_sum  = lamtransSN_sum  = 0.0 ;
+  fluxSN_sum  = transSN_sum  = lamtransSN_sum  = 0.0 ; (void)fluxSN_sum;
   transSN_MAX = transREF_MAX = 0.0 ;
 
   for ( ilam=0; ilam < NLAM; ilam++ ) {
@@ -375,7 +375,7 @@ int init_filter_SEDMODEL(
 // ***********************************************
 void filtdump_SEDMODEL(void) {
 
-  int ifilt, ifilt_obs;
+  int ifilt ;
   char *name;
   char dashLine[] = 
     "----------------------------------------------------------------------" ;
@@ -398,8 +398,6 @@ void filtdump_SEDMODEL(void) {
   printf( "   %s\n", dashLine);
 
   for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++) {
-
-    ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs ;
 
     printf("   id=%2.2d (%12s)   (%7.1f +%2.0f)  %5.0f-%5.0f(%3.0f)  "
 	   "%6.3f  %6.3f  \n"
@@ -754,7 +752,7 @@ void init_NEGFLAM_SEDMODEL(int OPTMASK) {
   // Created Aug 31 2023
   // Set global ALLOW_NEGFLAM_SEDMODEL for SALT2, NON1ASED, SIMSED models.
 
-  char fnam[] = "init_NEGFLAM_SEDMODEL";
+  char fnam[] = "init_NEGFLAM_SEDMODEL";  (void)fnam;
 
   // -------- BEGIN ---------
 
@@ -949,7 +947,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   // Nov 15 2020: protect ifilt for ifilt_obs==0
 
   int  ilampow, iep, ifilt, ilamfilt, iz ;
-  int  NLAMFILT, NLAMSED, EPMIN, EPMAX, N, NZBIN, index ;
+  int  NLAMFILT, EPMIN, EPMAX, N, NZBIN, index ;
 
   double 
     lamsed, lamobs, lampow, trans, day, z, z1, logzdif
@@ -1051,7 +1049,6 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   
   // local variables.
   NLAMFILT  = FILTER_SEDMODEL[ifilt].NLAM ;
-  NLAMSED   = TEMP_SEDMODEL.N_FINEBIN ;
 
   // error checks.
 
@@ -1238,21 +1235,21 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 
   z1 = 1.0 + z ;
   LAMSED = LAMOBS / z1 ;
+  TREST  = TOBS/z1 ;
   
   if ( LAMSED < SEDMODEL.LAMMIN[ISED] ) { return(FLUX); }
   if ( LAMSED > SEDMODEL.LAMMAX[ISED] ) { return(FLUX); }
 
   ONEDAY = ( NDAY == 1 ) ;
 
-  if ( IEP >= 0 ) 
-    { iep = IEP ; FRAC_INTERP_DAY=0.0; }
+  if ( IEP >= 0 )  { 
+    iep = IEP ; FRAC_INTERP_DAY=0.0; 
+  }
   else {
-    // compute iep from TOBS
-    TREST = TOBS/z1 ;
-
     if ( TREST < DAYMIN ) { return(FLUX); }
     if ( TREST > DAYMAX ) { return(FLUX); }
 
+    // compute iep from TOBS
     get_DAYBIN_SEDMODEL(ISED, TREST, &iep, &FRAC_INTERP_DAY);
 
     // TREST in SED file can be truncated, so allow a little
@@ -1492,7 +1489,7 @@ double get_flux_SEDMODEL( int ISED, int ilampow, int ifilt_obs,
   double MINSLOPE = INPUTS_SEDMODEL.MINSLOPE_EXTRAPMAG_LATE;
 
   double XNDAY  = (double)NDAYFIT_SLOPE ;
-  double Tref1, Fref1, m1, m, slope;
+  double Tref1, m1, m, slope;
   double Tlist[NDAYFIT_SLOPE];
   double Flist[NDAYFIT_SLOPE];
   double Mlist[NDAYFIT_SLOPE];
@@ -1532,7 +1529,6 @@ double get_flux_SEDMODEL( int ISED, int ilampow, int ifilt_obs,
       slope = ( TMsum - (Tsum*Msum)/XNDAY) / ( TTsum - Tsum*Tsum/XNDAY );
       slope = fabs(slope); // fabs --> force getting dimmer with time
       if ( slope < MINSLOPE ) { slope = MINSLOPE; }
-      Fref1 = Flist[NDAYFIT_SLOPE-1];
       Tref1 = Tlist[NDAYFIT_SLOPE-1];
       m1    = Mlist[NDAYFIT_SLOPE-1];
       m     = m1 + (Trest-Tref1)*slope ;
@@ -2088,14 +2084,10 @@ void  checkLamRange_SEDMODEL(int ifilt, double z, char *callFun) {
 
 // ==============================================
 void get_DAYRANGE_SEDMODEL(int ISED, double *DAYMIN, double *DAYMAX) {
-
-  char fnam[] = "get_DAYRANGE_SEDMODEL";
-
+  char fnam[] = "get_DAYRANGE_SEDMODEL";  (void)fnam;
   // ----------- BEGIN ----------
-
   *DAYMIN   = SEDMODEL.DAYMIN[ISED] ;
   *DAYMAX   = SEDMODEL.DAYMAX[ISED] ;
-
   return;
 } // end get_DAYRANGE_SEDMODEL
 
@@ -2224,7 +2216,7 @@ void pack_SEDBINARY(int OPT) {
   // Jun 6 2022: fix aweful index bug restoring flux from SEDBINARY
   //           (N++ was after instead of before)
 
-  int N, NZLEN, NZLEN_LAST, NFLUX, j, IVERSION ;
+  int N, NFLUX, j, IVERSION ;
   double tmpFlux, FLUXSCALE_LOCAL, PADWORD ;
   char fnam[] = "pack_SEDBINARY" ;
 
@@ -2249,7 +2241,6 @@ void pack_SEDBINARY(int OPT) {
     for ( j=0; j < TEMP_SEDMODEL.NLAM; j++ )
       { N++;  SEDBINARY[N] = TEMP_SEDMODEL.LAM[j]; }
 
-    NZLEN = NZLEN_LAST = 0; // number of consecutive zeros
     NFLUX = TEMP_SEDMODEL.NDAY * TEMP_SEDMODEL.NLAM ;
     for ( j=0; j<NFLUX; j++ ) { 
       tmpFlux = (TEMP_SEDMODEL.FLUX[j]*SEDMODEL.FLUXSCALE); 
@@ -2412,6 +2403,7 @@ double nearest_gridval_SIMSED (int ipar, double lumipar ) {
 
   // get SED indices that bound the input lumipar
   istat = get_SEDMODEL_INDICES( ipar, lumipar, &I0SED, &I1SED ); 
+  (void)istat;
 
   // check for invalid ISED index
   if ( I0SED < 0 ) { I0SED = I1SED; }
@@ -2592,7 +2584,7 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
   int  NLAMFILT, NBSPEC, ilam, I8, I8p, ifilt, ifilt_min ;
   int  OPT_COLORLAW ;
   double *PARLIST_COLORLAW ;
-  double LAMOBS, AV, XT_MAG, XT_FRAC, arg, PARDUM=0.0    ;
+  double LAMOBS, AV, XT_MAG, XT_FRAC, arg  ;
   char fnam[] = "fill_TABLE_MWXT_SEDMODEL";
   
   // ------------- BEGIN ------------------
@@ -2680,7 +2672,7 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
   //     fixes silly bug causing fit to be almost x10 slower.
   //
 
-  int  NLAMFILT, ilam, I8, I8p, ifilt, ifilt_obs, ifilt_min ;
+  int  NLAMFILT, ilam, I8, I8p, ifilt, ifilt_min ;
   int  OPT_COLORLAW, NBSPEC ;
   double *PARLIST_COLORLAW ;
   double  LAMOBS, LAMREST, XT_MAG, XT_FRAC, arg    ;
@@ -2724,7 +2716,6 @@ void fill_TABLE_HOSTXT_SEDMODEL(double RV, double AV, double z) {
 
   for(ifilt=ifilt_min; ifilt <= NFILT_SEDMODEL; ifilt++) {
     NLAMFILT  = FILTER_SEDMODEL[ifilt].NLAM ;
-    ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs ;
 
     for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
       LAMOBS     = FILTER_SEDMODEL[ifilt].lam[ilam] ;
@@ -2881,7 +2872,7 @@ void T0shiftExplode_SEDMODEL(int OPTMASK, SEDMODEL_FLUX_DEF *SEDFLUX,
   //
   // Jun 4 2018: fix sign error in Tshift.
   //
-  int  jflux, NDAY, NLAM, IDAY_MAX=0, ILAM_MAX, iday, ilam ;
+  int  jflux, NDAY, NLAM, IDAY_MAX=0, iday, ilam ;
   double Tshift, FLUXTMP, FLUXMAX, DAY, FLUX_EXPLODE=0.0 ;
   char fnam[] = "T0shiftExplode_SEDMODEL" ;
 
@@ -2899,7 +2890,7 @@ void T0shiftExplode_SEDMODEL(int OPTMASK, SEDMODEL_FLUX_DEF *SEDFLUX,
       jflux      = NLAM*iday + ilam ;
       FLUXTMP    = SEDFLUX->FLUX[jflux];
       if ( FLUXTMP > FLUXMAX ) {
-	FLUXMAX = FLUXTMP;  IDAY_MAX=iday; ILAM_MAX=ilam;
+	FLUXMAX = FLUXTMP;  IDAY_MAX=iday; 
       }
     } // end ilam 
   } // end iday                                                   
@@ -3045,12 +3036,12 @@ void print_ranges_SEDMODEL(char *NAME, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
   int jflux, iday, ilam, iday_sparse;
   int IDAY_PEAK=-9, IDAY_EDGE_MIN=0, IDAY_EDGE_MAX=NDAY-1;
-  double day, lam, dif, difmin, FLUXTMP ;
+  double day, difmin, FLUXTMP ;
 
   int    NDAY_SPARSE = 3;
   int    IDAY_LIST[3];
   double FLUXSUM_LIST[3]; // peak, minEdge, maxEdge
-  char fnam[] = "print_ranges_SEDMODEL";
+  char fnam[] = "print_ranges_SEDMODEL";  (void)fnam;
 
   // --------- BEGIN ----------
 
@@ -3115,7 +3106,7 @@ double UVLAM_EXTRAP_RESTLAMMIN_FILTERCEN(double UVLAM_EXTRAP) {
   //
   double lamrest = 0.0, lammin_edge, lammin_mean, lammin, mean, zmax ;
   int ifilt;
-  char fnam[] = "UVLAM_EXTRAP_RESTLAMMIN_FILTER";
+  char fnam[] = "UVLAM_EXTRAP_RESTLAMMIN_FILTER";  (void)fnam;
 
   // ----------- BEGIN ---------
 
@@ -3186,7 +3177,7 @@ void UVLAM_EXTRAPFLUX_SEDMODEL(double UVLAM, SEDMODEL_FLUX_DEF *SEDFLUX) {
 
   NLAM_ADD  = NLAM_NEW - NLAM_ORIG; // number of LAM bins to add
   NBTOT_NEW = NLAM_NEW * NDAY ;
-  LAM_ADD   = LAMMIN_ORIG - LAMMIN_NEW;
+  LAM_ADD   = LAMMIN_ORIG - LAMMIN_NEW;  (void)LAM_ADD;
 
   printf("    Extrap UVLAM: %.1f -> %.1f A  (NLAM=%d->%d) \n",
 	 LAMMIN_ORIG, LAMMIN_NEW,  NLAM_ORIG, NLAM_NEW);
@@ -3338,7 +3329,7 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   int  IFILT  = JFILT_SPECTROGRAPH ;
   int  MEMD   = NBLAM * sizeof(double);
   int  ilam, DUMPFLAG_ZP, NZP_INVALID=0 ;
-  double L0, L1, LAVG, ZP, ZPMIN=1.0E8, ZPMAX=-1.0E8, LAM_at_ZPMIN, LAM_at_ZPMAX;
+  double L0, L1, LAVG, ZP, ZPMIN=1.0E8, ZPMAX=-1.0E8, LAM_at_ZPMIN=-9.0, LAM_at_ZPMAX=-9.0;
   char fnam[] = "INIT_SPECTROGRAPH_SEDMODEL" ;
 
   // ---------- BEGIN ----------

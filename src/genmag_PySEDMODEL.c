@@ -572,8 +572,6 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   //
 
   int   MXLAM      = MXLAM_PySEDMODEL;
-  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
-  char *PyCLASS_NAME = INPUTS_PySEDMODEL.PyCLASS_NAME ;
 
   double RV_host = HOSTPAR_LIST[0];
   double AV_host = HOSTPAR_LIST[1];
@@ -672,6 +670,8 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
       { magobs = MAG_ZEROFLUX ; }
     else if ( FLAG_Finteg == (int)MAG_UNDEFINED )
       { magobs = MAG_UNDEFINED ; }
+    else 
+      { magobs = MAG_UNDEFINED ; } // avoid -Wall compile warnings
 
     if ( o < NOBS ) {
       MAGOBS_list[o] = magobs;  // load output array
@@ -715,7 +715,6 @@ int fetchParNames_PySEDMODEL(char **parNameList) {
   //
   // Called once during init stage.
 
-  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
   int NPAR = 0 ;
   char fnam[] = "fetchParNames_PySEDMODEL" ;
 
@@ -777,18 +776,19 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   // Called once per event.
 
 #ifdef USE_PYTHON
-  PyObject *parvalmeth,*pParVal,*pargs;
+  PyObject *parvalmeth, *pParVal ;
 #endif
-  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+
   double val;
   char **parNameList ;
   int NPAR, ipar;
-  char fnam[] = "fetchParVal_PySEDMODEL" ;
+  char fnam[] = "fetchParVal_PySEDMODEL" ;   (void)fnam;
 
   // ------------- BEGIN ------------------
 
   NPAR = Event_PySEDMODEL.NPAR;
   parNameList = Event_PySEDMODEL.PARNAME;
+
   // David: need python function to return these values.
 #ifdef USE_PYTHON
 
@@ -796,16 +796,17 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   handle_python_exception(fnam, "getting fetchParVals attribute of the class");
 
   for(ipar=0; ipar < NPAR; ipar++ ) {
-    pParVal  = PyObject_CallFunction(parvalmeth, "(s)", parNameList[ipar]);
+    pParVal      = PyObject_CallFunction(parvalmeth, "(s)", parNameList[ipar]);
     handle_python_exception(fnam, "fetching a parameter value");
     val          = PyFloat_AsDouble(pParVal);
-    parVal[ipar] = val;
+    parVal[ipar] = val;    
     // printf("   PARVAL    = '%d' \n",  val);
   }
 
   Py_DECREF(pParVal);
   Py_DECREF(parvalmeth);
 #endif
+
 
 #ifndef USE_PYTHON
   for(ipar=0; ipar < NPAR; ipar++ ) {
@@ -838,7 +839,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   //               Note that this is flux, not dF/dLam
   //
 
-  char *MODEL_NAME = INPUTS_PySEDMODEL.MODEL_NAME ;
+
   char fnam[] = "fetchSED_PySEDMODEL" ;
 
   // ------------ BEGIN -----------
@@ -849,7 +850,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   PyObject *pmeth, *pargs, *pargs2, *pLAM, *pFLUX, *plammeth;
   Py_buffer bufLAM = {NULL, NULL};
   Py_buffer bufFLUX = {NULL, NULL};
-  int NLAM, ilam, ihost;
+  int NLAM, NFLUX,  ihost;
   //int numpy_initialized =  init_numpy();
 
   // python declarations here
@@ -897,20 +898,22 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
 
   if (bufLAM.itemsize != sizeof(double)) {
     sprintf(c1err,"_fetchSED_LAM must return numpy array with np.float64 dtype");
-    sprintf(c2err,"itemsize of returned dtype is %d",bufLAM.itemsize);
+    sprintf(c2err,"itemsize of returned dtype is %ld", bufLAM.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   if (bufFLUX.itemsize != sizeof(double)) {
     sprintf(c1err,"_fetchSED must return numpy array with np.float64 dtype");
-    sprintf(c2err,"itemsize of returned dtype is %d",bufFLUX.itemsize);
+    sprintf(c2err,"itemsize of returned dtype is %ld",bufFLUX.itemsize);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  NLAM = bufLAM.len / bufLAM.itemsize;
+  NLAM  = bufLAM.len / bufLAM.itemsize;
+  NFLUX = bufFLUX.len / bufFLUX.itemsize ;
   if (NLAM != bufFLUX.len / bufFLUX.itemsize) {
-    sprintf(c1err,"size of array returned by _fetchSED_LAM doesn't equal to one returned by _fetchSED");
-    sprintf(c2err,"NLAM = %d, NFLUX = %d",bufLAM.len / bufLAM.itemsize, bufFLUX.len / bufFLUX.itemsize);
+    sprintf(c1err,"size of array returned by _fetchSED_LAM doesn't equal "
+	    "to one returned by _fetchSED");
+    sprintf(c2err,"NLAM = %d, NFLUX = %d", NLAM, NFLUX );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -1195,7 +1198,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   double *SED   = Event_PySEDMODEL.SED ;
   double *FLAM  = Event_PySEDMODEL.LAM;
 
-  char fnam[] = "genSpec_PySEDMODEL" ;
+  char fnam[] = "genSpec_PySEDMODEL" ;  (void)fnam;
 
 
   // --------- BEGIN ------------
@@ -1245,7 +1248,7 @@ void  read_SALT2_template0(void) {
   // read M0 surface of SALT2 model, corresponding to x1=c=0.
 
   char sedcomment[80] ;
-  char SALT2_tempate0_file[MXPATHLEN];
+  char SALT2_tempate0_file[2*MXPATHLEN];
 
   int nflux_nan;
   double Trange[2] = { -40.0,  100.0   } ;

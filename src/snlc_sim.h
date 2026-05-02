@@ -648,7 +648,8 @@ struct INPUTS {
   long long HOSTLIB_GALID_FORCE ;    // force this GALID
   double HOSTLIB_ABMAG_FORCE ;    // for ABmag on galmag and gal spec
   double HOSTLIB_ABMAG_OFFSET ;   // add this ABmag offset to each galmag
-  double HOSTLIB_FIXRAN_RADIUS ;  // fix random number of radius
+  double HOSTLIB_FIXRAN_WGT   ;   // fix random number of picking which Sersic profile
+  double HOSTLIB_FIXRAN_RADIUS ;  // fix random number for radius
   double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi
   double HOSTLIB_FIXSERSIC[4];    // fix sersic a,b,n,a_rot
   int    HOSTLIB_NREPEAT_GALID_SNPOS; // allow repeating same GALID and SNPOS
@@ -805,8 +806,9 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_RISETIME_SHIFT ;
   GENGAUSS_ASYM_DEF GENGAUSS_FALLTIME_SHIFT ;
 
-  double  FIXMAG[2] ; // for observer-frame FIXMAG model
+  double  FIXMAG[2] ;       // for observer-frame FIXMAG model
   int     GENFRAME_FIXMAG;  // GENFRAME_OBS or GENFRAME_REST
+  int     FLAG_FIXMAG;      // 1(fixmag)-> fixed mag per event; 2(ranmag) -> ran mag per obs
 
   // SIMSED parameters & ranges
   int   USE_BINARY_SIMSED;  // 1 => use binary files fof faster I/O

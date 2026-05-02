@@ -112,7 +112,6 @@ int main(int argc, char **argv) {
   // random systematic shifts.
   prep_user_input();
 
-
   // check for random CID option (after randoms are inited above)
   init_CIDRAN();
 
@@ -1201,8 +1200,9 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_GALID_FORCE   = -9;
   INPUTS.HOSTLIB_ABMAG_FORCE   = -9.0 ;
   INPUTS.HOSTLIB_ABMAG_OFFSET  =  0.0 ;  
-  INPUTS.HOSTLIB_FIXRAN_RADIUS = -9;
-  INPUTS.HOSTLIB_FIXRAN_PHI    = -9;
+  INPUTS.HOSTLIB_FIXRAN_WGT    = -9.0;
+  INPUTS.HOSTLIB_FIXRAN_RADIUS = -9.0;
+  INPUTS.HOSTLIB_FIXRAN_PHI    = -9.0;
   INPUTS.HOSTLIB_FIXSERSIC[0]  =  0.0   ; // a
   INPUTS.HOSTLIB_FIXSERSIC[1]  =  0.0   ; // b
   INPUTS.HOSTLIB_FIXSERSIC[2]  = -999.0 ; // n
@@ -4060,6 +4060,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTLIB_ABMAG_OFFSET", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_ABMAG_OFFSET );
   }
+  else if ( keyMatchSim(1, "HOSTLIB_FIXRAN_WGT", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXRAN_WGT );
+  }
   else if ( keyMatchSim(1, "HOSTLIB_FIXRAN_RADIUS", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.HOSTLIB_FIXRAN_RADIUS );
   }
@@ -4798,6 +4801,12 @@ int parse_input_GENMODEL(char **WORDS, int keySource) {
 	{ INPUTS.GENFRAME_FIXMAG = GENFRAME_OBS; }
       else if ( strstr(GENMODEL,"MAG") != NULL ) 
 	{ INPUTS.GENFRAME_FIXMAG = GENFRAME_REST; }
+
+      if ( strstr(NAME0,"FIX") != NULL || strstr(NAME0,"fix") != NULL )
+	{ INPUTS.FLAG_FIXMAG = 1; } // fix mag per obs for each event
+      else
+	{ INPUTS.FLAG_FIXMAG = 2; } // random mag per obsservation
+
     }
   }
 
@@ -6651,6 +6660,7 @@ void prep_user_input(void) {
   ENVreplace(PATH_USER_INPUT,fnam,1);
   ENVreplace(INPUTS.GENPDF.MAP_FILE,fnam,1);
 
+
   if ( strlen(INPUTS.PATH_SNDATA_SIM) > 0 ) {
 
     if ( INPUTS.README_DUMPFLAG ) {
@@ -6683,7 +6693,6 @@ void prep_user_input(void) {
   // read SURVEY.DEF file 
   read_SURVEYDEF(); 
 
-
   // Now identify MODEL_INDEX
   for ( indx = 1; indx < MXMODEL_INDEX; indx++ ) {
     for ( j=0; j < MXNAME_PER_MODEL ;  j++ ) {
@@ -6708,7 +6717,6 @@ void prep_user_input(void) {
   }
 
   check_model_default( INDEX_GENMODEL ); // adjust INPUTS.GENMODEL if needed
-
 
   ISRATE_LCLIB = 0 ; 
   INDEX_RATEMODEL = INPUTS.RATEPAR.INDEX_MODEL ;
@@ -6740,6 +6748,7 @@ void prep_user_input(void) {
 
   // disable HOSTLIB_MSKOPT if HOSTLIB_FILE isn't set.
   if ( IGNOREFILE(INPUTS.HOSTLIB_FILE) ) { INPUTS.HOSTLIB_MSKOPT=0; }
+
 
   // -------------------------------
   // set INPUTS.GENSOURCE
@@ -6992,10 +7001,13 @@ void prep_user_input(void) {
     INPUTS.MWEBV_SIG      = 0.0 ;
     INPUTS.MWEBV_SHIFT    = 0.0 ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
+
+    /* xxxx mark delete May 1 2026 xxxxxxx
     sprintf(INPUTS.HOSTLIB_FILE,           "NONE");
     INPUTS.HOSTLIB_MSKOPT = 0 ;
     INPUTS.HOSTLIB_USE    = 0 ; // July 2024
-    
+    xxxxxxxxx end mark xxxxxx */
+
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;
     INPUTS.GENMAG_OFF_NON1A  = 0.0 ;
@@ -7004,6 +7016,7 @@ void prep_user_input(void) {
       INPUTS.GENMAG_OFF_MODEL[ifilt_obs] = 0.0 ;
       INPUTS.GENMAG_OFF_ZP[ifilt_obs]    = 0.0 ;
     }
+
   }
 
   else if ( INDEX_GENMODEL == MODEL_SIMLIB ) {
@@ -7045,6 +7058,7 @@ void prep_user_input(void) {
   // ===========================================
   
   // check options to work only for NON1A (with sim_SNmix)
+
 
   if ( INPUTS.NON1A_MODELFLAG > 0 || INDEX_GENMODEL == MODEL_SIMSED ) { 
       INPUTS.NGEN_SCALE  *= INPUTS.NGEN_SCALE_NON1A ;  
@@ -7154,11 +7168,6 @@ void prep_user_input(void) {
   char PATH_KCOR_LIST[3*MXPATHLEN], calibFile[MXPATHLEN];
   sprintf(calibFile, "%s", INPUTS.CALIB_FILE);
   sprintf(PATH_KCOR_LIST, "%s %s/kcor",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
-
-  printf(" xxx %s: calibFile = '%s' \n", fnam, calibFile);
-  printf(" xxx %s: PATH_USER_INPUT = '%s' \n", fnam, PATH_USER_INPUT);
-  printf(" xxx %s: PATH_SNDATA_ROOT = '%s' \n", fnam, PATH_SNDATA_ROOT);
-  printf(" xxx %s: PATH_KCOR_LIST = '%s' \n", fnam, PATH_KCOR_LIST);
 
   find_pathfile(calibFile, PATH_KCOR_LIST, INPUTS.CALIB_FILE, fnam ); 
 
@@ -13844,8 +13853,13 @@ void gen_modelPar(int ilc, int OPT_FRAME ) {
   } // end of SIMSED if-block
 
   else  if ( ISMODEL_FIXMAG ) {	  
-    if ( ISFRAME_REST ) 
-      { GENLC.NOSHAPE   = getRan_Flat ( 2, INPUTS.FIXMAG );  }
+
+    if ( ISFRAME_REST ) {
+      if ( INPUTS.FLAG_FIXMAG == 1 ) 
+	{ GENLC.NOSHAPE   = getRan_Flat ( 2, INPUTS.FIXMAG );  }
+      else
+	{ GENLC.NOSHAPE   = 0.0;  }	 // add randomn mag later per observation
+    }
 
     if ( ISFRAME_OBS ) {
       if ( INPUTS.GENFRAME_FIXMAG == GENFRAME_REST ) 
@@ -16077,7 +16091,13 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   NVAR_SIMGEN_DUMP++ ;
 
   // Jun 2023: allow random number used to generate radius and phi;
-  //  enables exact event regeneration using HOSTLIB_FIXRAN_RADIUS[PHI]
+  //  enables exact event regeneration using HOSTLIB_FIXRAN_RADIUS[PHI
+
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"GALRANDOM_WGT") ;  // 0-1 (May 2026)
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.FlatRan1_radius[0];
+  NVAR_SIMGEN_DUMP++ ;
+
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALRANDOM_RADIUS") ;  // 0-1 (Jun 2023)
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.FlatRan1_radius[1];
@@ -19630,7 +19650,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	KEEP_MJD =  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
 	if ( MJD > INPUTS.GENRANGE_MJD_EXCLUDE[0] && 
 	     MJD < INPUTS.GENRANGE_MJD_EXCLUDE[1] ) { KEEP_MJD = 0; }
-
+ 
 	// code aborts below if ISTORE is too big, but to avoid corrupting
 	// abort messages, don't exceed array bound here.
 	if ( KEEP_MJD &&  ISTORE < MXOBS_SIMLIB ) {
@@ -23703,7 +23723,7 @@ int GENRANGE_CUT(void) {
     } // end ifilt
     //     if ( LTRACE) { dump_PEAKMAG(fnam); }
   }
-  // xxx  LTRACE = 0; // xxx REMOVE
+
 
 
   if ( INPUTS.HOSTLIB_USE && SNHOSTGAL.ZTRUE < 0.0 )  {  
@@ -24543,7 +24563,7 @@ void  LOAD_SEARCHEFF_DATA(void) {
 	     SNHOSTGAL.GALMAG[ifilt_obs][0], SNHOSTGAL.SB_MAG[ifilt_obs] );
       */
       SEARCHEFF_DATA.PEAKMAG[ifilt_obs] =  GENLC.peakmag_obs[ifilt_obs] ;
-      SEARCHEFF_DATA.HOSTMAG[ifilt_obs] =  SNHOSTGAL.GALMAG[ifilt_obs][0] ; //.xyz
+      SEARCHEFF_DATA.HOSTMAG[ifilt_obs] =  SNHOSTGAL.GALMAG[ifilt_obs][0] ;
       SEARCHEFF_DATA.SBMAG[ifilt_obs]   =  SNHOSTGAL.SB_MAG[ifilt_obs];
   }  // ifilt
 
@@ -24916,7 +24936,6 @@ int npe_above_saturation ( int epoch, double flux_pe) {
   // comput number of photoelectrons above saturation
   npe = (int)( fluxtot_pe_avg - NPE_SAT);
 
-
   LDMP = ( GENLC.CID < 0 && epoch <= 4) ;
   if ( LDMP ) {
     double genmag = GENLC.genmag_obs[epoch];
@@ -24932,7 +24951,6 @@ int npe_above_saturation ( int epoch, double flux_pe) {
     printf(" xxx npe above saturation :  %d \n", npe ) ;
     if ( epoch ==4 ) { debugexit(fnam); }
   }
-
 
   return(npe);
 
@@ -25794,7 +25812,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
   NMATCH  = SNHOSTGAL.NNBR_DDLRCUT ;
   NMATCH2 = SNHOSTGAL.NNBR_DDLRCUT2 ;
-  if ( NMATCH  > MXHOSTGAL ) { NMATCH  = MXHOSTGAL; } // .xyz ???
+  if ( NMATCH  > MXHOSTGAL ) { NMATCH  = MXHOSTGAL; }
   if ( NMATCH2 > MXHOSTGAL ) { NMATCH2 = MXHOSTGAL; }
 
   if ( ifilt_obs == 0 ) {
@@ -27547,7 +27565,6 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
     flux_T  = pow(10.0,arg) / NADU_over_Npe ; 
   }
 
-
   // use search-run zero-point to convert mag -> flux.
   arg           = 0.4 * ( zpt - genmag );
   fluxsn_adu    = pow(10.0,arg);         // flux in ADUs
@@ -27604,7 +27621,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   OVP = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT ;
   if ( OVP > 0 ) {
     // get galmag over NEA
-    galmag        = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig_arcsec );
+    galmag        = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig_arcsec ); 
     arg           = 0.4 * ( zpt - galmag );
     fluxgal_pe    = ccdgain * pow(10.0,arg);   // effec-aper flux in pe.
   }
@@ -29097,8 +29114,13 @@ void genmodel(
   else if ( INDEX_GENMODEL  == MODEL_FIXMAG ) {
     GENLC.FIXMAG = GENLC.NOSHAPE ;
     for ( iep = 0 ; iep < NEPFILT; iep++ ) {
+
+      if ( INPUTS.FLAG_FIXMAG == 2 ) 
+	{ GENLC.FIXMAG  = GENLC.NOSHAPE + getRan_Flat ( 2, INPUTS.FIXMAG );  }
+
       ptr_genmag[iep] = GENLC.FIXMAG ;
       ptr_generr[iep] = 0.0 ;
+      // .xyz
     }
 
     GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero
@@ -30595,6 +30617,8 @@ void update_hostmatch_counters(void) {
   }
 
   if ( IZ < 0 ) {
+    if ( INDEX_GENMODEL == MODEL_FIXMAG ) { return; } // 5.01.2026
+
     sprintf(c1err,"Could not find redshift bin for hostmatch stats");
     sprintf(c2err,"z=%f  and  GENRANGE_REDSHIFT = %f to %f \n",
 	    z, INPUTS.GENRANGE_REDSHIFT[0], INPUTS.GENRANGE_REDSHIFT[1] );

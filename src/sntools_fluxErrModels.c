@@ -58,10 +58,10 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   int  IDMAP, NMAP=0, imap, OPT_EXTRAP=0 ;
   int  USE_REDCOV_FILE=1, USE_REDCOV_OVERRIDE=0;
   bool HAS_COLON;
-  char PATH[2*MXPATHLEN], c_get[80];  
+  char PATH[2*MXPATHLEN+40], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
   char *name, *fieldList, TMP_STRING[80], LINE[100];
-  char MSGERR_FILE[200];
+  char MSGERR_FILE[2*MXPATHLEN];
   char colon[] = ":"  ;
   char fnam[] = "INIT_FLUXERRMODEL" ;
 
@@ -294,7 +294,7 @@ void  DUMP_MAP_FLUXERRMODEL(int IMAP) {
   FILE *fp;
   int  NVAR_DUMP=0, ivar, irow, OPENFLAG=0 ;
   char VARLIST[100][40];
-  //  char fnam[] = "DUMP_MAP_FLUXERRMODEL";
+  char fnam[] = "DUMP_MAP_FLUXERRMODEL"; (void)fnam;
 
   // ---------------- BEGIN ---------------
   
@@ -305,7 +305,7 @@ void  DUMP_MAP_FLUXERRMODEL(int IMAP) {
     OPENFLAG     = ( strcmp(MAPNAME,LAST_MAPNAME) != 0 ) ;
   }
 
-  sprintf(dumpFileName, "FLUXERRMAP-%s.TEXT", MAPNAME  );
+  sprintf(dumpFileName, "FLUXERRMAP-%.20s.TEXT", MAPNAME  );
 
   if ( OPENFLAG ) { 
     fp = fopen(dumpFileName,"wt"); // new file
@@ -508,10 +508,10 @@ int load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   // returns -1 if |REDCOV| > 1. 
 
   int  NREDCOV = NREDCOV_FLUXERRMODEL ;
-  int  N2, ifilt_obs, NBAND_TMP, iband, INDEX_CHECK, istat=0 ;
+  int  N2, NBAND_TMP, iband, INDEX_CHECK, istat=0 ;
   double REDCOV ;
   char *ptr_BANDSTRING, *ptr_BANDLIST, *ptrSplit2[2];
-  char *ptr_FIELDGRP, *ptr_FIELDLIST, band[2] ;
+  char *ptr_FIELDGRP=NULL, *ptr_FIELDLIST=NULL, band[2] ;
   char fnam[]= "load_REDCOV_FLUXERRMODEL";
 
   // ------------- BEGIN ------------
@@ -537,8 +537,8 @@ int load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   }
 
   // set FIELDLIST based on FIELDGRP; 
-  sprintf(ptr_FIELDLIST, "%s", ptr_FIELDGRP);
-  set_FIELDLIST_FLUXERRMODEL(ptr_FIELDGRP,ptr_FIELDLIST);
+  sprintf(ptr_FIELDLIST, "%s", ptr_FIELDGRP); // set default FIELDLIST
+  set_FIELDLIST_FLUXERRMODEL(ptr_FIELDGRP, ptr_FIELDLIST);
 
   COVINFO_FLUXERRMODEL[NREDCOV].REDCOV = REDCOV ;
   COVINFO_FLUXERRMODEL[NREDCOV].ALL_FIELD = 
@@ -549,7 +549,6 @@ int load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   NBAND_TMP = strlen(ptr_BANDLIST) ;
   for(iband=0; iband < NBAND_TMP; iband++ ) {
     sprintf(band, "%c", ptr_BANDLIST[iband] );
-    ifilt_obs = INTFILTER(band);
 
     INDEX_CHECK = INDEX_REDCOV_FLUXERRMODEL(band,ptr_FIELDGRP,1,fnam);
     if ( INDEX_CHECK >= 0 ) {       
@@ -645,7 +644,7 @@ void printSummary_FLUXERRMODEL(void) {
 
   for(imap=0; imap < NMAP_FLUXERRMODEL; imap++ ) {
 
-    sprintf(NAME, "%s:%d"  
+    sprintf(NAME, "%.20s:%d"  
 	    , FLUXERRMAP[imap].NAME
 	    , FLUXERRMAP[imap].INDEX_SPARSE );
 
@@ -733,7 +732,7 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
 
   //  int NMAP      = NMAP_FLUXERRMODEL; 
   int NSPARSE[MXMAP_FLUXERRMAP];
-  int IDMAP, istat, isp, imap, NVAR, IVAR, ivar, MASK_APPLY ;
+  int IDMAP, istat, isp, imap, NVAR, ivar, MASK_APPLY ;
   int LDMP = (OPT & 512) ;
   double FLUXERR_TMP, errModelVal, parList[MXPAR_FLUXERRMAP] ;
   char *VARNAMES, tmpString[40], cparList[200] ;
@@ -779,14 +778,13 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
 
   // load correct variables for this map;
   // errModelVal is the error scale from map
-  IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + imap ;
+  IDMAP = IDGRIDMAP_FLUXERRMODEL_OFFSET + imap ;  (void)IDMAP;
   load_parList_FLUXERRMAP(imap, PARLIST, parList);
 
   if ( LDMP ) {
     cparList[0] = 0 ;
     NVAR      = FLUXERRMAP[imap].NVAR ;
     for(ivar=0; ivar < NVAR-1; ivar++ ) { 
-      IVAR      = FLUXERRMAP[imap].IVARLIST[ivar] ;
       VARNAMES  = FLUXERRMAP[imap].VARNAMES[ivar] ;
       sprintf(tmpString,"%s=%.3f ",  VARNAMES, parList[ivar] ); 
       strcat(cparList,tmpString);
@@ -1036,8 +1034,8 @@ void END_FLUXERRMODEL(void) {
   int NMAP      = NMAP_FLUXERRMODEL; 
   int imap, N0, N1, NLO, NHI;
   double frac;
-  char *NAME, *FIELD, *BAND, TMPNAME[80] ;
-  //  char fnam[] = "END_FLUXERRMODEL" ;
+  char *NAME, *FIELD, *BAND, TMPNAME[2*MXPATHLEN] ;
+  char fnam[] = "END_FLUXERRMODEL" ;  (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -1062,7 +1060,7 @@ void END_FLUXERRMODEL(void) {
       else
 	{ frac = 0.0 ; }
 
-      sprintf(TMPNAME,"%s(%s-%s)", NAME, FIELD, BAND);
+      sprintf(TMPNAME,"%.40s(%.40s-%.80s)", NAME, FIELD, BAND);
 
       printf("   %-24.24s  %d/%d = %6.4f   (%d,%d)\n",
 	     TMPNAME,   N1,N0,frac,  NLO,NHI); fflush(stdout);

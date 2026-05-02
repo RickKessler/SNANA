@@ -9938,20 +9938,13 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
 
   fmem = malloc_strlist(+1, MXPATH_CHECK, MXPATHLEN, &PATH );
 
-  /* xxx mark delete 4.29.2026 xxxxx
-  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
-    { PATH[ipath] = (char*) malloc(MXPATHLEN*sizeof(char) ); }
-  xxxxxxxx end mark xxxxx */
-
   splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, &PATH[1] ); // <== returned
 
   NPATH++;  // add +1 for 0th element = no path
-
+ 
   for ( ipath=0; ipath < NPATH; ipath++ ) {
     path = PATH[ipath] ;
-
-    printf(" xxx %s: ipath=%d  path = '%s' \n", fnam, ipath, path);
     if ( strlen(path) == 0 ) 
       { sprintf(tmpName,"%s", fileName); }
     else

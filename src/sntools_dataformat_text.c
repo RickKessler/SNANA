@@ -98,8 +98,6 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   //  + rename IAUC key to NAME_IAUC key
   //  + write NAME_IAUC and NAME_TRANSIENT only for real data.
   
-  char comment[80];
-
   char COMMENT_FAKEFLAG[4][80] = {
     "data",
     "fakes overlaid on images",
@@ -111,7 +109,7 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   bool IS_SIM       = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
   bool IS_BLINDTEST =  SNDATA.WRFLAG_BLINDTEST;
   
-  char SURVEY_ARG[100];
+  char SURVEY_ARG[200];
   char fnam[] = "wr_dataformat_text_HEADER" ;
 
   // ------------ BEGIN -----------
@@ -121,7 +119,7 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   int LENS = strlen(SNDATA.SUBSURVEY_NAME);
   int OVP  = strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME);
   if ( LENS > 0 && OVP!=0 ) 
-    { sprintf(SURVEY_ARG, "%s(%s)", 
+    { sprintf(SURVEY_ARG, "%s(%.60s)", 
 	      SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME ); }
   else
     { sprintf(SURVEY_ARG, "%s", SNDATA.SURVEY_NAME); }
@@ -248,10 +246,10 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
   // write sim-truth variables to data file header (text format)
 
-  int NTMP, NPAR, ipar, ifilt, ifilt_obs, iscat ;
+  int  NPAR, ipar, iscat ;
   char key[80], ctmp[100] ;  
   float parval, parval2;
-  char fnam[] = "wr_dataformat_text_SIMPAR" ;
+  char fnam[] = "wr_dataformat_text_SIMPAR" ;  (void)fnam;
 
   // ------------ BEGIN -----------
   // write SIM-truth params
@@ -548,7 +546,7 @@ void wr_dataformat_text_KEYVAL(FILE *fp, char *KEY, double DVAL) {
   // on DVAL.
 
   double abs_dval = fabs(DVAL);
-  char fnam[] = "wr_dataformat_text_KEYVAL";
+  char fnam[] = "wr_dataformat_text_KEYVAL";  (void)fnam;
 
   // --------- BEGIN ---------
 
@@ -572,7 +570,7 @@ void wr_dataformat_text_FILTERPAR(FILE *fp, char *KEY, char *COMMENT,
   int  MXVAL_PER_LINE=14;
   int ifilt, ifilt_obs, NTMP;
   char FORMAT_LOCAL[40];
-  char fnam[] = "wr_dataformat_text_FILTERPAR" ;
+  char fnam[] = "wr_dataformat_text_FILTERPAR" ;  (void)fnam;
 
   // ------------ BEGIN ---------
 
@@ -597,7 +595,7 @@ void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT,
 
   char FORMAT_LOCAL[40];
   int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=14;
-  char fnam[] = "wr_dataformat_text_FILTERPAR" ;
+  char fnam[] = "wr_dataformat_text_FILTERPAR" ;  (void)fnam;
 
   // ------------ BEGIN ---------
 
@@ -626,15 +624,15 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   //
 
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
-  bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
+  //  bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
   bool IS_SIM  = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
 
-  int N_Q=0, ifilt, ifilt_obs, NTMP, igal, NGAL, j;
+  int ifilt, NTMP, igal, NGAL ;
 
   char PREFIX[20] = "HOSTGAL", PREFIXz[20] = "HOSTGALz" ; 
-  char filtlist[MXFILTINDX], ctmp[100], KEY[60] ;
+  char filtlist[MXFILTINDX], ctmp[120] ;
  
-  char fnam[] = "wr_dataformat_text_HOSTGAL" ;
+  char fnam[] = "wr_dataformat_text_HOSTGAL" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -782,7 +780,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     if ( (SNDATA.HOSTGAL_USEMASK & 1) > 0 ) {
       fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
 	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
@@ -793,7 +790,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     if ( (SNDATA.HOSTGAL_USEMASK & 2) > 0 ) {
       fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
 	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
@@ -852,7 +848,7 @@ void wr_dataformat_text_HOSTGALz(FILE *fp, HOSTGALz_DEF *HOSTGALz) {
   //
   int iz, NZ = HOSTGALz->NZ;
   char line_z[MXPATHLEN], line_val[MXPATHLEN], line_val2[MXPATHLEN], cval[20];
-  char fnam[] = "wr_dataformat_text_HOSTGALz" ;
+  char fnam[] = "wr_dataformat_text_HOSTGALz" ;  (void)fnam;
 
   // ------------- BEGIN ----------
   
@@ -886,9 +882,9 @@ void wr_dataformat_text_PRIVATE(FILE *fp) {
 
   int NVAR_PRIVATE = SNDATA.NVAR_PRIVATE ;
   int ivar, IVAL ;
-  double DVAL, DTMP;
+  double DVAL;
   char *KEY ;
-  char fnam[] = "wr_dataformat_text_PRIVATE" ;
+  char fnam[] = "wr_dataformat_text_PRIVATE" ;  (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -923,8 +919,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   // May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
 
   char OBSKEY[] = "OBS:" ;
-  bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
-  bool WRFLAG_BLINDTEST  = SNDATA.WRFLAG_BLINDTEST ;
+  //  bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
+  //  bool WRFLAG_BLINDTEST  = SNDATA.WRFLAG_BLINDTEST ;
   bool WRFLAG_PHOTPROB   = SNDATA.WRFLAG_PHOTPROB ;
   bool WRFLAG_PHOTFLAG   = true;
   bool WRFLAG_ATMOS      = SNDATA.WRFLAG_ATMOS;
@@ -940,7 +936,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
-  bool RDFITS  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_FITS);
+  //  bool RDFITS  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_FITS);
   bool FOUND_METADATA ;
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
@@ -1191,9 +1187,9 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
   int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
   
-  int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
-  int  imjd, ilam, ifilt, ifilt_obs ;
-  double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
+  int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR ;
+  int  imjd, ilam ;
+  double L0, L1, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
   double SCALE;
 
   char VARLIST[200], tmpLine[200], cval[40] ;
@@ -1289,7 +1285,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
     fflush(fp); 
 
     NBLAM_WR = 0 ;
-    NVAR_EXPECT = NVAR ;
 
     for(ilam=0; ilam < NBLAM_TOT; ilam++ ) {
 
@@ -1302,7 +1297,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
       L0      = GENSPEC.LAMMIN_LIST[imjd][ilam];
       L1      = GENSPEC.LAMMAX_LIST[imjd][ilam];
-      LCEN    = 0.5*(L0+L1);
 
       NVAR = 0; sprintf(tmpLine,"SPEC: ");
       sprintf(cval, "%8.2f ",   L0);       NVAR++ ; strcat(tmpLine,cval);
@@ -1370,7 +1364,7 @@ void RD_SNTEXTIO_INIT(int init_num) {
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called
   //        so avoid re-mallocing strings.
 
-  char fnam[] = "RD_SNTEXTIO_INIT" ;
+  char fnam[] = "RD_SNTEXTIO_INIT" ;  (void)fnam;
 
   SNTEXTIO_VERSION_INFO.NVERSION        = 0 ;
   SNTEXTIO_VERSION_INFO.NFILE           = 0 ;
@@ -1484,7 +1478,7 @@ int rd_sntextio_list(void) {
   int  RETCODE_FITS = -1;
   int  NFILE_LAST = SNTEXTIO_VERSION_INFO.NFILE ;
 
-  char firstFile[MXPATHLEN], FIRSTFILE[MXPATHLEN];
+  char firstFile[MXPATHLEN], FIRSTFILE[2*MXPATHLEN];
   char fnam[] = "rd_sntextio_list" ;
 
   // ------------- BEGIN --------------
@@ -1526,7 +1520,7 @@ int rd_sntextio_list(void) {
 void rd_sntextio_malloc_list(int OPT, int NFILE) {
   
   int i;
-  char fnam[] = "rd_sntextio_malloc_list" ;
+  char fnam[] = "rd_sntextio_malloc_list" ;  (void)fnam;
   // ---------- BEGIN ----------
 
 
@@ -1563,17 +1557,15 @@ void  rd_sntextio_global(void) {
   // Apr 07 2026: read SIM_WGT_POPULATION
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
-  int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
   char *firstFile  = SNTEXTIO_VERSION_INFO.DATA_FILE_LIST[0];
   char *DATA_PATH  = SNTEXTIO_VERSION_INFO.DATA_PATH ;
-  char FIRSTFILE[MXPATHLEN] ;
+  char FIRSTFILE[2*MXPATHLEN] ;
   int  langC  = LANGFLAG_PARSE_WORDS_C ;
-  int  NWD, iwd, ITMP, LENKEY, NVAR, NPAR, i ;
+  int  NWD, iwd, ITMP,  NVAR, NPAR, i ;
   bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM, FOUND_FAKEKEY=false ;
-  bool IS_PRIVATE, IS_ZPHOT_Q=false ;
-  bool IS_HOSTLIB, IS_SIMSED, IS_LCLIB;
+  bool IS_PRIVATE, IS_HOSTLIB, IS_SIMSED, IS_LCLIB;
   int  ICHOICE_PySEDMODEL;
-  char word0[100], word1[100], word2[100], parName[40];    
+  char word0[100], word1[100], parName[40];    
   char fnam[] = "rd_sntextio_global" ;
   int  LDMP = 0 ;
   // ---------- BEGIN ----------
@@ -1601,9 +1593,6 @@ void  rd_sntextio_global(void) {
     IS_HOSTLIB   =  strstr(word0,"SIM_HOSTLIB")   != NULL && IS_TMP ;
     IS_SIMSED    =  strstr(word0,"SIMSED_")       != NULL && IS_TMP ;
     IS_LCLIB     =  strstr(word0,"LCLIB_PARAM")   != NULL && IS_TMP ;
-
-    if ( !REFAC_DATA_FLAG ) 
-      { IS_ZPHOT_Q   =  strstr(word0,"ZPHOT_Q")       != NULL ; }  // legacy
 
     ICHOICE_PySEDMODEL = -9;
     if ( IS_TMP ) {
@@ -1755,8 +1744,9 @@ void  rd_sntextio_global(void) {
 void copy_keyword_nocolon(char *key_in, char *key_out) {
   int lenkey = strlen(key_in);
   sprintf(key_out, "%s", key_in) ;
-  if ( strstr(key_out,COLON) != NULL ) 
-    { sprintf(&key_out[lenkey-1],"") ; }
+  if ( strstr(key_out,COLON) != NULL ) { key_out[lenkey-1] = 0; } 
+  // xxx mark delete { sprintf(&key_out[lenkey-1],"") ; }
+
   return;
 } // end copy_keyword_nocolon
 
@@ -2086,7 +2076,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
   char *DATA_PATH = SNTEXTIO_VERSION_INFO.DATA_PATH ;
   char *fileName  = SNTEXTIO_VERSION_INFO.DATA_FILE_LIST[ifile];
   
-  char FILENAME[MXPATHLEN]; 
+  char FILENAME[2*MXPATHLEN]; 
   int  NWD, iwd; 
   bool LRD_NEXT = false;
   char fnam[] = "RD_SNTEXTIO_EVENT";
@@ -2242,14 +2232,14 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   int    iwd0      = *iwd_file ; // never changes
   int    iwd       = *iwd_file ; // iwd increments
-  int    igal, ivar, NVAR, ipar, NPAR, ifilt, ifilt_obs;
-  int    NRD, NRD_ERR, len_word0, N_Q, NZ ;
+  int    igal, ivar, NVAR, ipar ;
+  int    NRD, NRD_ERR, len_word0, NZ ;
   int    IVAL;
   float  FVAL, FVAL_ERR ;
   double DVAL=-9.0, DVAL_ERR=-9.0; 
-  bool   IS_PRIVATE, IS_HOSTGALz, PLUS_MINUS = false ;  
+  bool   IS_PRIVATE, PLUS_MINUS = false ;  
   char word0[100], word1_val[100], word2_pm[100],  word3_err[100];
-  char PREFIX[40], PREFIXz[40], KEY[80], KEY_ERR[80], KEY_TEST[80], ARG_TMP[80];
+  char PREFIX[40], PREFIXz[40], KEY[80], KEY_ERR[100], KEY_TEST[80] ;
   char STRVAL[40];
   char fnam[] = "parse_SNTEXTIO_HEAD" ;
 
@@ -2265,9 +2255,6 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   IS_PRIVATE =  
     strncmp(word0,"PRIVATE",7) == 0  &&  strstr(word0,COLON) != NULL ;
-
-  IS_HOSTGALz = 
-    ( strstr(word0,"QUANTILE") != NULL ) || (strstr(word0,"LOGMASS") != NULL ) ;
 
   ncmp_PySEDMODEL  = strncmp(word0,PySEDMODEL_NAME,len_PySEDMODEL) ;
 
@@ -2289,7 +2276,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   // check for header_override (Dec 2021)
   len_word0 = strlen(word0);
-  sprintf(KEY,"%s", word0); KEY[len_word0-1] = 0;
+  sprintf(KEY,"%.*s", len_word0, word0); KEY[len_word0-1] = 0; // erase colon
   sprintf(KEY_ERR, "%s_ERR", KEY);
   NRD     = RD_OVERRIDE_FETCH(CCID, GALID, KEY,     &DVAL,     STRVAL);    // return DVAL
   NRD_ERR = RD_OVERRIDE_FETCH(CCID, GALID, KEY_ERR, &DVAL_ERR, STRVAL);  
@@ -2495,7 +2482,6 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_SPECZ_ERR[igal]=FVAL_ERR; }	
       }
 
-      // xxx mark if ( REFAC_DATA_FLAG && IS_HOSTGALz ) {
       NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
       iwd = iwd0 + NZ;
       
@@ -2878,7 +2864,6 @@ int rd_sntextio_SNDATA_HOSTGALz(int iwd0, char *KEY, HOSTGALz_DEF *HOSTGALz) {
   int langC = LANGFLAG_PARSE_WORDS_C;
   int  NRD = 0, LENKEY = strlen(KEY);
   char KEY_noColon[60];
-  float fval;
   char fnam[] = "rd_sntextio_SNDATA_HOSTGALz" ;
 
   // ------------- BEGIN -------------
@@ -2933,7 +2918,6 @@ void parse_plusminus_sntextio(char *word, char *key, int *iwd_file,
   int iwd = *iwd_file;
   char next_word[60], KEY[60], KEY_ERR[60];
   int  langC  =  LANGFLAG_PARSE_WORDS_C ;
-  int  lenkey = strlen(key);
   char fnam[] = "parse_plusminus_sntextio" ;
 
   // ------------ BEGIN --------
@@ -3077,11 +3061,11 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
   int  iwd       = *iwd_file ;
-  int  ep, ivar, lenstr, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
+  int  ep=1, ivar, lenstr, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   bool DONE_OBS = false ;
   float PSF_FWHM ;
   double dval;
-  char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
+  char word0[100], *str;
   char STRING[40];  
   char fnam[] = "parse_SNTEXTIO_OBS";
 
@@ -3091,7 +3075,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   if ( strstr(word0,"END")       != NULL ) { DONE_OBS = true; }
   if ( strcmp(word0,"NSPECTRA:") == 0    ) { DONE_OBS = true; }
-  if ( DONE_OBS ) { *iwd_file-- ; return false; }
+  if ( DONE_OBS ) { iwd--; *iwd_file = iwd ; return false; }
 
 
   if ( strcmp(word0,"OBS:") == 0 ) {
@@ -3308,7 +3292,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   
   int  iwd     = *iwd_file ;
   int  langC   = LANGFLAG_PARSE_WORDS_C ;
-  int  ID, ivar, NBLAM, ilam ; 
+  int  ivar, NBLAM, ilam ; 
   int  ISPEC   = SNTEXTIO_FILE_INFO.NSPEC_READ-1 ;
   double MJD ;
   char word0[100], *str ;

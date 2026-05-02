@@ -284,7 +284,7 @@ void INIT_NOISEMODEL_HOST_LEGACY(char *HOSTNOISE_FILE) {
   char *ptrFile = HOSTNOISE_FILE; 
   char fnam[]   = "INIT_NOISEMODEL_HOST_LEGACY" ;
   char c_get[60];
-  char PATH_SIMLIB[MXPATHLEN] ;
+  char PATH_SIMLIB[2*MXPATHLEN+20] ;
 
   // ------------- BEGIN ----------------
 
@@ -413,7 +413,7 @@ void GEN_NOISEMODEL_HOST_LEGACY(char *BAND,  char *FIELD,
   //  SNSEP:   SN-host sep, arcsec
 
   int    LDMP = 0 ;
-  int    imap, IMAP, NMATCH, LIBID, NBIN, ibin, IPAR, NPAR ;
+  int    imap, IMAP, NMATCH, LIBID, NBIN, ibin, IPAR ;
   char   BANDLIST[MXPATHLEN], FIELDLIST[MXPATHLEN];
   double MAG_LOCAL ;
   double GRID_HOSTMAG[MXBIN_HOSTMAG], GRID_NOISE[MXBIN_HOSTMAG] ;
@@ -422,7 +422,6 @@ void GEN_NOISEMODEL_HOST_LEGACY(char *BAND,  char *FIELD,
 
   // ----------------- BEGIN --------------------
 
-  NPAR = 2;
   noisePar[0] = 0.0 ;  // FLUXCAL noise per pixe;
   noisePar[1] = 0.0 ;  // ERRSCALE to multiply skynoise
 
@@ -431,7 +430,7 @@ void GEN_NOISEMODEL_HOST_LEGACY(char *BAND,  char *FIELD,
   NMATCH = 0 ;  LIBID = IMAP = -9;
   for(imap=0; imap < NMAP_NOISEMODEL_HOST ; imap++ ) {
     
-    sprintf(BANDLIST,  "%s", NOISEMODEL_HOST[imap].BANDLIST  ) ;
+    sprintf(BANDLIST,  "%.*s", MXPATHLEN-2, NOISEMODEL_HOST[imap].BANDLIST  ) ;
     sprintf(FIELDLIST, "%s", NOISEMODEL_HOST[imap].FIELDLIST ) ;
 
     if ( strstr(BANDLIST, BAND)  == NULL ) { continue ; }
@@ -445,14 +444,14 @@ void GEN_NOISEMODEL_HOST_LEGACY(char *BAND,  char *FIELD,
   if ( NMATCH != 1 ) {
     sprintf(c1err, "Invalid NMATCH=%d for BAND=%s  FIELD=%s",
 	    NMATCH, BAND, FIELD);
-    sprintf(c2err, "Check file: %s", NOISEMODEL_FILE);
+    sprintf(c2err, "Check file: %.*s", MXCHAR_MSGERR, NOISEMODEL_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
 
   if ( IMAP < 0 ) {
     sprintf(c1err, "Invalid IMAP=%d (BAND=%s FIELD=%s", 
 	    IMAP, BAND, FIELD );
-    sprintf(c2err, "Check file: %s", NOISEMODEL_FILE);
+    sprintf(c2err, "Check file: %.*s", MXCHAR_MSGERR, NOISEMODEL_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
 
@@ -488,8 +487,8 @@ void GEN_NOISEMODEL_HOST_LEGACY(char *BAND,  char *FIELD,
   }
   else {
     MAG_LOCAL = 99. ;
-    sprintf(c1err, "Unknown NOISEMODEL_NAME = '%s'", NOISEMODEL_NAME);
-    sprintf(c2err, "Check file: %s", NOISEMODEL_FILE);
+    sprintf(c1err, "Unknown NOISEMODEL_NAME = '%.*s'", MXCHAR_MSGERR-10, NOISEMODEL_NAME);
+    sprintf(c2err, "Check file: %.*s", MXCHAR_MSGERR, NOISEMODEL_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
 

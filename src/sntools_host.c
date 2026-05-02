@@ -136,6 +136,7 @@ void INIT_HOSTLIB(void) {
   // ---------------- BEGIN -------------
 
   USE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USE) ;
+
   if ( USE == 0 ) 
     {  checkAbort_noHOSTLIB() ;  return ;  }
   else
@@ -5926,6 +5927,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   //  GEN_SNHOST_ZPHOT(IGAL) is moved after DDLR sorting,
   //  which changes random sync.
   //
+  // May 01 2026: check INPUTS.HOSTLIB_FIXRAN_WGT
 
   int    USE, IGAL, ilist ;
   int    NREPEAT_GALID_SNPOS = INPUTS.HOSTLIB_NREPEAT_GALID_SNPOS;
@@ -5952,7 +5954,10 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   SNHOSTGAL.FlatRan1_phi       = getRan_Flat1(ilist) ;  // relative to major axis
 
   // ------------------------------------------------
-  // check option to fix randoms (Sep 14, 2012)
+  // check option to fix randoms
+  fixran = INPUTS.HOSTLIB_FIXRAN_WGT ;
+  if ( fixran > -1.0E-9 ) { SNHOSTGAL.FlatRan1_radius[0] = fixran ; }
+
   fixran = INPUTS.HOSTLIB_FIXRAN_RADIUS ;
   if ( fixran > -1.0E-9 ) { SNHOSTGAL.FlatRan1_radius[1] = fixran ; }
 

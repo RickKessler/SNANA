@@ -3546,7 +3546,7 @@ void check_duplicates_util(int EVENT_TYPE) {
   int  unsort, unsort2, *unsortList, ORDER_SORT   ;
   float  *zList, *cList, *sList, z, s, c  ;
   bool   *IS_DUPL;
-  TABLEVAR_DEF *TABLEVAR;
+  TABLEVAR_DEF *TABLEVAR = NULL ;
   char string_match_varlist[60], str_SIM_prefix[12], str_SIM_ab[40];
   char fnam[] = "check_duplicates_util" ;
   
@@ -3581,7 +3581,7 @@ void check_duplicates_util(int EVENT_TYPE) {
   // beware that arrays are float (not double) to conserve memory
 
   // Apr 29 2026: use same arrays for both data and sim
-  zList = TABLEVAR->zhd;
+  zList = TABLEVAR->zhd ;
   cList = TABLEVAR->fitpar[INDEX_c];  
   sList = TABLEVAR->fitpar[INDEX_s]; 
 
@@ -12258,7 +12258,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int NperCell_min = MINPERCELL_MUCOVSCALE;
 
   // Declare lists for debug_mucovscale
-  double *muErr_list, *muErr_raw_list, *muDif_list;
+  double *muErr_list=NULL, *muErr_raw_list=NULL, *muDif_list=NULL;
   int NPERCELL_REALLOC=2000;
   int N_REALLOC=0;
 
@@ -14902,7 +14902,7 @@ int get_muCOVcorr(char *cid,
 
   // get bin info into local variables
   CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
-  CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
+  //  CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
   int  NBINz   = CELL_MUCOVSCALE->BININFO_z.nbin ;
   int  NBINm   = CELL_MUCOVSCALE->BININFO_m.nbin ;
   int  NBINc   = CELL_MUCOVSCALE->BININFO_LCFIT[INDEX_c].nbin ;
@@ -15076,7 +15076,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   // May 26 2023: include SNRMAX column
 
   CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
-  CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
+  //CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
 
   int NCELL  = CELLINFO_MUCOVSCALE[IDSAMPLE].NCELL ;
   FILE *fp;
@@ -20051,13 +20051,17 @@ void copy_SELECT_VAR(int ivar0,int ivar1, SELECT_VAR_DEF *SELECT_VAR) {
   //
 
   int i;
+  char NAME[60];
   char fnam[] = "copy_SELECT_VAR" ;  (void)fnam;
 
   // ---------- BEGIN ---------
 
   if ( ivar0 == ivar1 ) { return; }
 
-  sprintf(SELECT_VAR->NAME_LIST[ivar1], "%s", SELECT_VAR->NAME_LIST[ivar0] );
+  sprintf(NAME,"%s", SELECT_VAR->NAME_LIST[ivar0]); // goofy logic avoids -Wall warnings
+  sprintf(SELECT_VAR->NAME_LIST[ivar1], "%s", NAME ); 
+  // xxx mark   sprintf(SELECT_VAR->NAME_LIST[ivar1], "%s", SELECT_VAR->NAME_LIST[ivar0] ); 
+
   SELECT_VAR->RANGE_LIST[ivar1][0] = SELECT_VAR->RANGE_LIST[ivar0][0];  
   SELECT_VAR->RANGE_LIST[ivar1][1] = SELECT_VAR->RANGE_LIST[ivar0][1];
   SELECT_VAR->VAL_LIST[ivar1]      = SELECT_VAR->VAL_LIST[ivar0];
@@ -27466,7 +27470,8 @@ void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
   bool WRITE_CCPRIOR = ( INPUTS.write_ccprior > 0 && PRINT_TABLE ); 
   FILE *fcc;
   char outfile_cc[MXPATHLEN];
-  int *IZ_CCPRIOR, *IMU_CCPRIOR;  double *DMU_CCPRIOR, *MUBIAS_CCPRIOR; // store local info
+  int *IZ_CCPRIOR=NULL, *IMU_CCPRIOR=NULL;  
+  double *DMU_CCPRIOR=NULL, *MUBIAS_CCPRIOR=NULL; // store local info
   int MEMI = NSN_ALL * sizeof(int) ;
   int MEMD = NSN_ALL * sizeof(double) ;
 

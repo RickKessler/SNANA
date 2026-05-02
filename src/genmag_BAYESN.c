@@ -113,9 +113,9 @@ void read_BAYESN_inputs(char * filename) {
     double N_TAU =  -1.0;
     double N_SIG =  -1.0;
 
-    double *L_Sigma_epsilon;
-    double *W0;
-    double *W1;
+    double *L_Sigma_epsilon = NULL;
+    double *W0 = NULL;
+    double *W1 = NULL;
     
     bool is_malloc_W0=false, is_malloc_W1=false, is_malloc_epsilon=false; // RK
 
@@ -269,14 +269,11 @@ void read_BAYESN_inputs(char * filename) {
           // finally parse the 2D matrices
 	  int LEN_W0W1     = (int)N_LAM * (int)N_TAU ;
 	  int LEN_EPSILON  = (int)N_SIG * (int)N_SIG ;
-	  //int MEMD_W0W1    = sizeof(double) * LEN_W0W1 ;
-	  //int MEMD_EPSILON = sizeof(double) * LEN_EPSILON ;
           if (strcmp(scalar_value, "W0")==0 )
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-	      // xxx mark  W0  = (double*)malloc(MEMD_W0W1);	 is_malloc_W0 = true;
-	      W0  = calloc(LEN_W0W1, sizeof(double)) ; is_malloc_W0 = (W0 != NULL);
+	      W0  = calloc(LEN_W0W1, sizeof(double)) ; is_malloc_W0 = true;
               row = 0;
               col = 0;
               bayesn_var_dptr = &W0[col];
@@ -286,8 +283,7 @@ void read_BAYESN_inputs(char * filename) {
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-	      // xxx mark W1  = (double*)malloc(MEMD_W0W1);	 is_malloc_W1 = (W1 != NULL);
-	      W1  = calloc(LEN_W0W1, sizeof(double)) ; is_malloc_W1 = (W1 != NULL);
+	      W1  = calloc(LEN_W0W1, sizeof(double)) ; is_malloc_W1 = true;
               row = 0;
               col = 0;
               bayesn_var_dptr = &W1[col];
@@ -297,9 +293,8 @@ void read_BAYESN_inputs(char * filename) {
           {
               datatype = 3;
               rowsize = (int) N_SIG;
-              // xxx mark L_Sigma_epsilon = (double*)malloc(MEMD_EPSILON); 
               L_Sigma_epsilon = calloc(LEN_EPSILON, sizeof(double));   
-	      is_malloc_epsilon = (L_Sigma_epsilon != NULL );
+	      is_malloc_epsilon = true;
               row = 0;
               col = 0;
               bayesn_var_dptr = &L_Sigma_epsilon[col];

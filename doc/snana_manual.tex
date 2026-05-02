@@ -4418,8 +4418,9 @@ the sim-input file (or via command-line override):
                                       # default= 1.0 for all properties
 # debug options
    HOSTLIB_GALID_FORCE:    ####       # forced GALID 
-   HOSTLIB_FIXRAN_RADIUS:  #.##       # 0-1: fix radial random number 
-   HOSTLIB_FIXRAN_PHI:     #.##       # 0-1: fix PHI angle = 2*PI*HOSTLIB_FIXRAN_PHI
+   HOSTLIB_FIXRAN_WGT:     #.##       # 0-1: fix Sersic wgt 
+   HOSTLIB_FIXRAN_RADIUS:  #.##       # 0-1: fix Sersic radius
+   HOSTLIB_FIXRAN_PHI:     #.##       # 0-1: fix azimuthal PHI angle 
    HOSTLIB_FIXSERSIC:  a b n a_rot    # a,b in arcsec, a_rot in deg
    HOSTLIB_ABMAG_FORCE:   #.##        # force mag for galmag and host spectrum
    HOSTLIB_ABMAG_OFFSET:  #.##        # add this mag offset to all galmags
@@ -5315,17 +5316,22 @@ radius and angle to known values and visually inspect the location
 on a real image with the HOSTLIB galaxies. A relative
 galaxy position and Sersic profile can be selected with
 \begin{itemize}
-  \item {\tt HOSTLIB\_FIXRAN\_PHI} is a random number ($0<r<1$) 
+  \item \verb|HOSTLIB_FIXRAN_WGT| fixes the random number ($0<r<1$)
+    to pick the wgt for multi-Sersic profiles. This option has no
+    impact for single-Sersic description.
+%
+  \item \verb|HOSTLIB_FIXRAN_RADIUS| fixes the random number ($0<r<1$)
+         where the reduced radius contains a fraction  
+         `$r$' of the total flux.
+%
+  \item \verb|HOSTLIB_FIXRAN_PHI| fixes random number ($0<r<1$) 
         that fixes the azimuthal angle to $r\times 360$:
         $r=0,~0.5,~1$ correspond to the major axis 
         ($0^{\circ},180^{\circ},360^{\circ}$); 
         $r=0.25$ and 0.75 correspond to the minor axis
         ($90^{\circ},270^{\circ}$).
-  \item {\tt HOSTLIB\_FIXRAN\_RADIUS} is a random number ($0<r<1$)
-         where the reduced radius contains a fraction  
-         `$r$' of the total flux.
 %
- \item {\tt HOSTLIB\_FIXSERSIC} fixes the Sersic parameters
+ \item \verb|HOSTLIB_FIXSERSIC| fixes the Sersic parameters
        $a,b,n$, and also the galaxy major axis angle ({\tt a\_rot})
        w.r.t. Right Ascension.
 \end{itemize}
@@ -12559,26 +12565,29 @@ or generating fake magnitudes to overlay on images.
 Examples are as follows:
 %
 \begin{verbatim}
-   GENMODEL:  fixmag  20      # every obs mag=20
-   GENMODEL:  fixmag  20:24   # random obs mag between 20 & 24
-   GENMODEL:  ranmag  20:24   # same as above
+   GENMODEL:  fixmag  20      # mag=20 for every obs & event
+   GENMODEL:  fixmag  20:24   # random mag (20-24) per event (same mag per obs)
+   GENMODEL:  ranmag  20:24   # random mag (20-24) oer observation
 
    GENMODEL:  FIXMAG  -19     # obs mag = -19 + MU
-   GENMODEL:  FIXMAG  -19:-17 # obs mag = ran(-19:-17) + MU
+   GENMODEL:  FIXMAG  -19:-17 # obs mag = ran(-19:-17) + MU per event
+   GENMODEL:  RANMAG  -19:-17 # random mag per observations
 \end{verbatim}
 %
 In the first case, all observer-frame magnitudes are 20.
-The 2nd and 3rd cases are equivalent, where the observer-frame mag 
-for each event is randomly selected between 20 and 24.
-The same mag is used at all epochs, but a different random mag
-is chosen for each event. The range of fixed-mag epochs
-is determined by the sim-input key {\tt GENRANGE\_TREST}.
+For the 2nd case, the observer-frame mag 
+for each event is randomly selected between 20 and 24;
+the same mag is used at all epochs, but a different random mag
+is chosen for each event. 
+For the 3rd case ({\tt ranmag}), a random mag is selected per for each observation.
+The range of fixed-mag (random-mag) epochs is determined by the sim-input key 
+\verb|GENRANGE_TREST|.
 For these observer-frame models, 
-{\tt GENRANGE\_REDSHIFT} is ignored.
+\verb|GENRANGE_REDSHIFT| is ignored unless a \hostlib\ is specfied.
 
 The upper case {\tt FIXMAG} specifies rest-frame mag for which
 the distance modulus is added. 
-For this option, {\tt GENRANGE\_REDSHIFT} must be specified.
+For this option, \verb|GENRANGE_REDSHIFT| must be specified.
 
 
 % -----------------------------------------

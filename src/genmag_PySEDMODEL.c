@@ -776,7 +776,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
   // Called once per event.
 
 #ifdef USE_PYTHON
-  PyObject *parvalmeth, *pParVal ;
+  PyObject *parvalmeth = NULL, *pParVal = NULL;
 #endif
 
   double val;

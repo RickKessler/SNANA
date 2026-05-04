@@ -15,6 +15,8 @@
     split IFILE_SNFITSIO into IFILE_RD_SNFITSIO and IFILE_WR_SNFITSIO;
     Same for NFILE_SNFITSIO.
 
+  May 4 2026: MXPAR_SNFITSIO -> 800 (was 600)
+
 **************************************************/
 
 
@@ -33,7 +35,7 @@
 #define OPTMASK_SNFITSIO_DONE   16  // done reading data version
 
 #define MXFILE_SNFITSIO     500  // max number of fits-files to read
-#define MXPAR_SNFITSIO      600  // max number of header variables
+#define MXPAR_SNFITSIO      800  // max number of header variables
 #define MXELEMENT_SNFITSIO  100  // max elements per vector write (Apr 2026)
 
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes

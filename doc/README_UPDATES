@@ -23790,4 +23790,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_trigger.c[h]
       + remove legacy functions from recent REFAC_SEARCHEFF.
 
+    sntools_dataformat_fits.h
+        MXPAR_SNFITSIO -> 800 (was 600); needs more allowance
+        with 3rd host added to output.
+
 END: 

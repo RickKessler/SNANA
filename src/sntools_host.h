@@ -620,7 +620,7 @@ struct SNTABLEVAR_DEF {
 
 struct {
   int  ITABLE ;       // either SPECBASIS or SPECDATA (Feb 23 2021)
-  char TABLENAME[12] ;   // "BASIS" or "DATA"
+  char TABLENAME[40] ;   // "BASIS" or "DATA"
 
   int  NSPECBASIS ; 
   int  NSPECDATA, IDSPECDATA  ; 

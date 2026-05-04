@@ -47,7 +47,7 @@ void README_DOCANA_DRIVER(int iflag_readme) {
   // Jun 21 2023: abort if any README_DOC line is too long
 
   int i;
-  char fnam[] = "README_DOCANA_DRIVER";
+  char fnam[] = "README_DOCANA_DRIVER";  (void)fnam;
 
   // ----------- BEGIN -----------
 
@@ -153,7 +153,7 @@ void README_DOCANA_OVERVIEW(int *iline) {
   char TIME_START[100] ;
   char *SURVEY         = GENLC.SURVEY_NAME;
   char *SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST ;
-  char fnam[] = "README_DOCANA_OVERVIEW";
+  char fnam[] = "README_DOCANA_OVERVIEW";  (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -250,10 +250,8 @@ void get_TIME_START_readme_docana(char *TIME_START) {
 
 void  README_DOCANA_INPUT_KEYS(int *iline) {
   int i = *iline;
-  char *cptr, pad[] = "    ", noComment[]="" ;
-  int nval1=1, nval2=2, lenkey=20;
-  double *dptr, dval, dval_list[10];
-  char fnam[] = "README_DOCANA_INPUT_KEYS";
+  char *cptr, pad[] = "    " ;
+  char fnam[] = "README_DOCANA_INPUT_KEYS";  (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -307,9 +305,9 @@ void  README_DOCANA_FILTERS(int *iline) {
   // Created Apr 2024
 
   int ifilt, ifilt_obs, i = *iline ;
-  double LAMOBS, LAMMIN, LAMMAX ; 
+  double LAMOBS ; 
   char cfilt[4], *cptr, pad[] = "  " ;
-  char fnam[] = "README_DOCANA_FILTERS";
+  char fnam[] = "README_DOCANA_FILTERS";  (void)fnam;
   
   // --------- BEGIN ----------
 
@@ -322,8 +320,6 @@ void  README_DOCANA_FILTERS(int *iline) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
     sprintf(cfilt, "%c", INPUTS.GENFILTERS[ifilt] ) ;
     LAMOBS     = (double)INPUTS.LAMAVG_OBS[ifilt_obs];
-    LAMMIN     = (double)INPUTS.LAMMIN_OBS[ifilt_obs];
-    LAMMAX     = (double)INPUTS.LAMMAX_OBS[ifilt_obs];
 
     i++; cptr = VERSION_INFO.README_DOC[i] ;
     sprintf(cptr,"%s  %s:  %.1f", pad, cfilt, LAMOBS );
@@ -421,7 +417,7 @@ void README_DOCANA_SED_TRUE(int *iline) {
   // write out alarm values to readme; fraction of observations (per band) in which
   // synthetic mag from SED is discrepant from original genmag using fine-binned SED.
 
-  int  OVP, j, i = *iline;
+  int    i = *iline;
   int    ifilt, ifilt_obs, N0, N1;
   double frac;
 
@@ -431,7 +427,7 @@ void README_DOCANA_SED_TRUE(int *iline) {
 
   char cfilt[2];
   char *cptr, pad[] = "  " ;
-  char fnam[] = "README_DOCANA_SED_TRUE";
+  char fnam[] = "README_DOCANA_SED_TRUE";  (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -484,7 +480,7 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
   char *TYPE_NAME, *cptr, *STR;
   char STR_Ia[]    = "Ia";
   char STR_notIa[] = "nonIa" ;
-  char fnam[]=  "README_DOCANA_GENTYPE_MAP";
+  char fnam[]=  "README_DOCANA_GENTYPE_MAP";  (void)fnam;
 
   // --------- BEGIN ---------
 
@@ -522,13 +518,12 @@ void README_DOCANA_GENTYPE_MAP(int *iline) {
 
 // ========================================
 void README_DOCANA_OUTPUT_SUMMARY(int *iline) {
-  int  OVP, j, i = *iline;
-  char *cptr, *onoff, pad[] = "    ", dash[]="    -";
+  int  j, i = *iline;
+  char *cptr,  pad[] = "    ", dash[]="    -";
   char comment[60];
   char *SUBSURVEY_LIST = SIMLIB_GLOBAL_HEADER.SUBSURVEY_LIST; // comma-sep list
-  double XN, XNERR;
   double NGEN_PER_SEASON=0.0, NACC_PER_SEASON=0.0, NACCERR_PER_SEASON=0.0;
-  char fnam[] = "README_DOCANA_OUTPUT_SUMMARY" ;
+  char fnam[] = "README_DOCANA_OUTPUT_SUMMARY" ;  (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -705,7 +700,7 @@ void readme_docana_hostmatch(int *iline, char *pad) {
   char str_z[20], str_tmp[20], *cptr ;
   double frac0, frac2, z0, z1;
 
-  char fnam[] = "readme_docana_hostmatch" ;
+  char fnam[] = "readme_docana_hostmatch" ;  (void)fnam;
 
   // ------------ BEGIN ----------
 
@@ -804,8 +799,8 @@ void readme_docana_genmodel(int *iline, char *pad) {
 
   int i = *iline;
   char *cptr, noComment[]="" ;
-  int nval1=1, nval2=2, lenkey=24, o ;  
-  double dval, *dptr;
+  int nval1=1,  lenkey=24 ;  
+  double dval ;
 
   // ----------- BEGIN ------------
 
@@ -882,7 +877,7 @@ void readme_docana_instr(int *iline, char *pad) {
 
   // instrumental: filters, kcor/calib file, simlib, noise
   int i = *iline;
-  int nval1=1, nval2=2, lenkey = 20;
+  int nval1=1, lenkey = 20;
   double dval;
   char noComment[] = "";
   char *cptr;
@@ -939,11 +934,8 @@ void readme_docana_hostlib(int *iline, char *pad) {
 
   int i = *iline;
   int lenkey = 24; // to format printing of key
-  double dval, dval_list[20] ;
-  char *cptr, *sval, *key;
-  int n, nval;
-  char  noComment[] = "" ;
-  char  fnam[] = "readme_docana_hostlib" ;
+  char *cptr ;
+  char  fnam[] = "readme_docana_hostlib" ;  (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -982,8 +974,8 @@ void readme_docana_modelPar(int *iline, char *pad) {
 
   int i = *iline;
   char *cptr, *s, noComment[]="" ;
-  int nval1=1, nval2=2, lenkey=24;
-  double *dptr, dval_list[10];
+  int  nval2=2, lenkey=24;
+  double *dptr ;
 
   // ----------- BEGIN ------------
 
@@ -1036,9 +1028,9 @@ void readme_docana_modelPar(int *iline, char *pad) {
 void readme_docana_rate(int *iline, char *pad) {
 
   int i = *iline;
-  int nval1=1, nval2=2, lenkey=24, m, NMODEL ;
+  int nval1=1, nval2=2, lenkey=24 ;
   char *cptr, *s;
-  double *dptr, dval;
+  double *dptr ;
   // ----------- BEGIN ------------
 
   readme_docana_load_list(&i, pad, &README_KEYS_RATEMODEL);
@@ -1077,11 +1069,10 @@ void readme_docana_rate(int *iline, char *pad) {
 void readme_docana_cutwin(int *iline, char *pad) {
 
   int i = *iline;
-  int icut, NCUTWIN = README_KEYS_CUTWIN.NKEY ;
-  int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
-  double *dptr, dval;
-  char *KEY, *ARG, KEY_LAST[100]="" ;
+  int NCUTWIN = README_KEYS_CUTWIN.NKEY ;
+  int nval1=1, lenkey=24 ;
+  char noComment[]="" ;
+  double  dval;
 
   // ----------- BEGIN ------------
 
@@ -1104,7 +1095,7 @@ void readme_docana_cutwin(int *iline, char *pad) {
 void readme_docana_redshift(int *iline, char *pad) {
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
+  char noComment[]="" ;
   double *dptr, dval;
 
   // ----------- BEGIN ------------
@@ -1141,7 +1132,7 @@ void readme_docana_redshift(int *iline, char *pad) {
 void readme_docana_epoch(int *iline, char *pad) {
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
+  char noComment[]="" ;
   double *dptr, dval, dval_list[10];
 
   // ----------- BEGIN ------------
@@ -1187,9 +1178,9 @@ void readme_docana_epoch(int *iline, char *pad) {
 
 void readme_docana_misc(int *iline, char *pad) {
   int i = *iline;
-  int nval1=1, nval2=2, lenkey=24 ;
+  int nval1=1, lenkey=24 ;
   char *cptr, noComment[]="", *ptrFile ;
-  double *dptr, dval, dval_list[10];
+  double  dval;
 
   // ----------- BEGIN ------------
 
@@ -1249,9 +1240,7 @@ void readme_docana_misc(int *iline, char *pad) {
 void readme_docana_mwebv(int *iline, char *pad) {
   
   int i = *iline;
-  int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
-  double *dptr, dval, dval_list[10];
+  char *cptr; 
 
   // ----------- BEGIN ------------
 
@@ -1273,9 +1262,9 @@ void readme_docana_mwebv(int *iline, char *pad) {
 
 void readme_docana_searcheff(int *iline, char *pad) {
   int i = *iline;
-  int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
-  double *dptr, dval, dval_list[10];
+  int nval1=1, lenkey=24 ;
+  char *cptr;
+  double dval ;
   // ----------- BEGIN ------------
 
   readme_docana_comment(&i, "SEARCHEFF/detections");
@@ -1331,7 +1320,7 @@ void readme_docana_output(int *iline, char *pad) {
   int i = *iline;
   int nval1=1, nval2=2, lenkey=24 ;
   char *cptr, noComment[]="" ;
-  double *dptr, dval, dval_list[10];
+  double  dval, dval_list[10];
 
   // ----------- BEGIN ------------
 
@@ -1391,18 +1380,6 @@ void readme_docana_output(int *iline, char *pad) {
 
 } // end readme_docana_output
 
-void readme_docana_template(int *iline, char *pad) {
-  int i = *iline;
-  int nval1=1, nval2=2, lenkey=24 ;
-  char *cptr, noComment[]="" ;
-  double *dptr, dval, dval_list[10];
-
-  // ----------- BEGIN ------------
-  // copy this and change 'template' to something else
-  *iline = i;
-  return;
-
-} // end readme_docana_template
 
 void  readme_docana_load_list(int *iline, char *pad,
                               README_KEYPLUSARGS_DEF *README_KEYS) {
@@ -1478,7 +1455,7 @@ void readme_docana_load_asymGauss(int *iline, char *pad,
   char *VARNAME = GENGAUSS->NAME;
   char noComment[] = "" ;
 
-  char keyName[60];
+  char keyName[100];
   double *dptr, dval ;
   // ------------ BEGIN -------------
  
@@ -1553,8 +1530,8 @@ void readme_docana_load_expHalfGauss(int *iline, char *pad,
   char *VARNAME = EXP_HALFGAUASS->NAME;
   char noComment[] = "" ;
 
-  char keyName[60];
-  double *dptr, dval;
+  char keyName[100];
+  double *dptr ;
 
   // ------------- BEGIN -----------
 	 
@@ -1616,7 +1593,7 @@ void VERSION_INFO_load(int *iline, char *pad, char *keyName,  char *comment,
   bool passcut  = (val0 >= valmin   &&   val0 <= valmax );
   bool do_print = passcut && !noprint ;
   char *cptr, cval[40] ;
-  char fnam[] = "VERSION_INFO_load" ;
+  char fnam[] = "VERSION_INFO_load" ;  (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -1657,7 +1634,7 @@ void README_KEYPLUSARGS_purge(README_KEYPLUSARGS_DEF *README_KEYS, char *KEY_PUR
   
   int  k, NKEY    = README_KEYS->NKEY;
   char *KEY_TMP, *ARG_TMP ;
-  char fnam[] = "README_KEYPLUSARGS_purge";
+  char fnam[] = "README_KEYPLUSARGS_purge";  (void)fnam;
   // --------- BEGIN -------
 
   for(k=0; k < NKEY; k++ ) {
@@ -1703,7 +1680,7 @@ void README_KEYPLUSARGS_load(int MXKEY, int NWD, char **WORDS, int keySource,
   int  NKEY    = README_KEYS->NKEY;  
   int  MEMC1   = MXKEY * sizeof(char*);
   int  MEMC_KEY, MEMC_ARG;
-  int iwd, lenkey, k, LENKEY=0, LENARG=0 ;
+  int iwd,  k, LENKEY=0, LENARG=0 ;
   char *KEY, *ARG, *ARG_TMP, *KEY_TMP ;
   char BLANK[] = " ";
 

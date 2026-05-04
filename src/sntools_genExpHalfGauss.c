@@ -18,7 +18,7 @@ void init_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, double VAL
   // Created March 20 2020 by R.Kessler and D.Brout
   // Init all genGasuss parameter values to VAL .
   
-  //  char fnam[] = "init_GEN_EXP_HALFGAUSS" ;
+  char fnam[] = "init_GEN_EXP_HALFGAUSS" ;  (void)fnam;
   
   gen_EXP_HALFGAUSS->USE       = false;
   gen_EXP_HALFGAUSS->NAME[0]   = 0;
@@ -66,7 +66,7 @@ void dump_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *genExp) {
 
   // Created Dec 21 2023
 
-  char fnam[] = "dump_GEN_EXP_HALFGAUSS" ;
+  char fnam[] = "dump_GEN_EXP_HALFGAUSS" ;  (void)fnam;
 
   // --------- BEGIN --------
 
@@ -132,7 +132,7 @@ void setUseFlag_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS, char
   bool DO_PROFILE = (sigma > 1.0E-9 || exptau > 1.0E-9 );
   bool DO_RANGE   = (valmax > 1.0E-9) ;
   bool DO_RATIO   = ratio > 0.0 ;
-  char fnam[] = "setUseFlag_GEN_EXP_HALFGAUSS";
+  char fnam[] = "setUseFlag_GEN_EXP_HALFGAUSS";  (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -156,11 +156,11 @@ double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAU
   double ratio  = gen_EXP_HALFGAUSS->RATIO ; // Gauss(0)/Exp(0)
   double peak   = gen_EXP_HALFGAUSS->PEAK ;  // Gauss peak
   double sigma  = gen_EXP_HALFGAUSS->SIGMA ; // Gauss sigma
-  double *range = gen_EXP_HALFGAUSS->RANGE ; // range of expon+Gauss (for relative norm)
+  //  double *range = gen_EXP_HALFGAUSS->RANGE ; // range of expon+Gauss (for relative norm)
   double funVal = NULLDOUBLE ;
   double funVal_exp=0.0, funVal_gauss = 0.0 ;
 
-  char fnam[] = "funVal_GEN_EXP_HALFGAUSS";
+  char fnam[] = "funVal_GEN_EXP_HALFGAUSS";  (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -171,17 +171,11 @@ double funVal_GEN_EXP_HALFGAUSS(double x, GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAU
   funVal     = funVal_exp ;
 
   if ( ratio > 0.0 ) {
-    double nsig, arg, wgt_exp, wgt_gauss;
+    double nsig, arg ;
     nsig = (x-peak)/sigma ;
     arg  = 0.5 * nsig * nsig ;
     funVal_gauss = exp(-arg);
     funVal       = funVal_exp  +  ratio*funVal_gauss ;
-
-    /* xxx mark  xxx
-    wgt_exp    = (1.0/tau) * ( exp(-range[0]/tau) - exp(-range[1]/tau) );
-    wgt_gauss  = 0.5 * ratio / sqrt(TWOPI * sigma*sigma);
-    funVal     = funVal_exp  +  funVal_gauss * ( wgt_gauss/wgt_exp );
-    xxx */
   }
 
   return funVal;
@@ -233,7 +227,7 @@ double getRan_GEN_EXP_HALFGAUSS(GEN_EXP_HALFGAUSS_DEF *gen_EXP_HALFGAUSS){
   double epsilon = 1.0E-14;
   double ranval = -9.0 ; //output random value
 
-  char fnam[] = "getRan_GEN_EXP_HALFGAUSS";
+  char fnam[] = "getRan_GEN_EXP_HALFGAUSS";  (void)fnam;
 
   // ----- BEGIN ---------------------
 
@@ -358,7 +352,7 @@ int parse_input_EXP_HALFGAUSS(char *VARNAME, char **WORDS, int keySource,
 
   int N = 0 ;
   char KEYNAME[60];
-  char fnam[] = "parse_input_EXP_HALFGAUSS" ;
+  char fnam[] = "parse_input_EXP_HALFGAUSS" ;  (void)fnam;
 
   // -------------- BEGIN --------------
 

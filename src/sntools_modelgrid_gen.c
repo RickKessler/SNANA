@@ -102,7 +102,7 @@ void init0_GRIDsource(void) {
     ,ilcoff, ilc, ilc_last, itmp
     ,iz, ish, ic1, ic2
     ,Nz, Nsh, Nc1, Nc2, Nf, Nep
-    ,NPAR_STORE, iptroff, MEM
+    ,NPAR_STORE,  MEM
     ;
 
   char valname[20] ;
@@ -126,7 +126,7 @@ void init0_GRIDsource(void) {
 
   sprintf(SNGRID_WRITE.MODEL,  "%s", INPUTS.MODELNAME );
 
-  sprintf(BANNER,"init_GRIDsource for SURVEY=%s  and  GENMODEL=%s : \n", 
+  sprintf(BANNER,"init_GRIDsource for SURVEY=%s  and  GENMODEL=%.90s : \n", 
 	  SNGRID_WRITE.SURVEY, SNGRID_WRITE.MODEL );
   print_banner(BANNER);
 
@@ -408,7 +408,6 @@ void init0_GRIDsource(void) {
 	    1 + SNGRID_WRITE.NWD_I2GRIDGEN * (ilc-1);
 
 	  for ( IPAR = 1; IPAR <= NPAR_STORE; IPAR++ ) {
-	    iptroff = (IPAR-1) * SNGRID_WRITE.NGRIDGEN_LC ;
 	    SNGRID_WRITE.PTR_VALUE[IPAR][ilc] = indx[IPAR] ;
 	  }
 
@@ -826,7 +825,7 @@ void wrhead_GRIDfile_fits(void) {
   fits_update_key(fp_GRIDGEN_FITS, TSTRING, "FILTERS", 
 		  INPUTS.GENFILTERS, "Simulated filters", &istat );
 
-  sprintf(ctmp,"Total number of %s light curves", INPUTS.GENFILTERS );
+  sprintf(ctmp,"Total number of %.50s light curves", INPUTS.GENFILTERS );
   fits_update_key(fp_GRIDGEN_FITS, TINT, "NTOT_LC", 
 		  &SNGRID_WRITE.NGRIDGEN_LC, ctmp, &istat );
 
@@ -1149,7 +1148,6 @@ void wrhead_GRIDfile_fits(void) {
 // ********************************
 void get_GRIDKEY(void) {
 
-  // xxxx  char vers_snana[20], vers_photom[200], ctkey[100] ;
   char ctkey[100] ;
   time_t tkey ;
   struct tm * ptm;
@@ -1246,7 +1244,7 @@ void update_GRIDarrays(void) {
   int NFILT, ifilt, ifilt_obs, NEP, ep, jindx, NTMP ; 
   int I2MAGVAL, I2MAGERR, JINDX,  NEPFILT[MXFILTINDX] ;
   long int ilc;
-  double magval, magerr, Trest ;
+  double magval, magerr ;
   char cfilt[2];
   char fnam[] = "update_GRIDarrays";
 
@@ -1278,8 +1276,6 @@ void update_GRIDarrays(void) {
 
     if ( INPUTS.GENMODEL_ERRSCALE > 0.001 ) 
       { magerr   *= INPUTS.GENMODEL_ERRSCALE ; }
-
-    Trest     = GENLC.epoch_obs[ep]/(1. + GENLC.REDSHIFT_CMB) ;
 
     /*
     if ( fabs(Trest) < 0.1 && ifilt_obs == 5 ) {

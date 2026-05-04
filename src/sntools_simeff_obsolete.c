@@ -298,9 +298,9 @@ void malloc_SIMEFFMAP(int flag) {
   // flag > 0 => allocate
   // flag < 0 => free 
 
-  int  NVAR, NBINTOT, MEM, ivar, I8, I8p, I4 ;
+  int  NVAR, NBINTOT, MEM, ivar, I8, I8p ;
   double XMEM;
-  char fnam[] = "malloc_SIMEFFMAP" ;
+  char fnam[] = "malloc_SIMEFFMAP" ;  (void)fnam;
 
   // --------------- BEGIN ---------------
 
@@ -312,7 +312,6 @@ void malloc_SIMEFFMAP(int flag) {
 
   I8p = sizeof(double*);
   I8  = sizeof(double );
-  I4  = sizeof(int);
 
   if ( flag > 0 ) {
     printf("\t Allocate %6.3f MB of temp SIMEFFMAP memory (NBIN=%d). \n", 

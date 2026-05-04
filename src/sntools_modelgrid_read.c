@@ -104,7 +104,7 @@ void fits_read_SNGRID(int OPTMASK, char *sngridFile,
     fnam[] = "fits_read_SNGRID" 
     , keyname[60]
     , comment[100]
-    , msg1[100]
+    , msg1[MXCHAR_MSGERR]
     , *parname
     , *tparnam[NPAR_GRIDGEN+1]
     , *nonIa_type[MXGRIDGEN]

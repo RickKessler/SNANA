@@ -288,11 +288,11 @@ void  sntable_combine_init(void) {
   int USE4TEXT=1;
   int TABLEID ;
   int ifile, ivar, NVAR_TOT, ICAST, NFILE, NVAR ;
-  char CCAST[12], VARNAME[60], FORMAT[20] ;
+  char CCAST[12], VARNAME[60], FORMAT[20], ctmp[20] ;
   void *PTRVAR = NULL;
 
   char BLOCK[] = "COMBINE" ;
-  //  char fnam[]  = "sntable_combine_init" ;
+  char fnam[]  = "sntable_combine_init" ; (void)fnam;
 
   // ----------- BEGIN -----------
   
@@ -320,7 +320,11 @@ void  sntable_combine_init(void) {
       ICAST = SNTABLE_AUTOSTORE[ifile].ICAST_READ[ivar];
       if ( ICAST < 0 ) { continue ; }
       sprintf(CCAST, "%c", CCAST_TABLEVAR[ICAST] );
-      if ( ICAST == ICAST_C ) { sprintf(CCAST,"%s*%d", CCAST, MXCHAR_CCID); }
+      if ( ICAST == ICAST_C ) { 
+	sprintf(ctmp,"*%d", MXCHAR_CCID);
+	strcat(CCAST, ctmp);
+	// xxx mark delete sprintf(CCAST,"%s*%d", CCAST, MXCHAR_CCID); 
+      }
 
       sprintf(VARNAME, "%s:%s", 
 	      SNTABLE_AUTOSTORE[ifile].VARNAME[ivar], CCAST );
@@ -376,6 +380,7 @@ void  sntable_combine_fill(int irow) {
 
       DVAL = -3333.0 ; sprintf(CVAL,"NULL_COMBINE");
       NROW_MATCH = SNTABLE_AUTOSTORE_READ(CCID, VARNAME, &ISTAT, &DVAL, CVAL );
+      (void)NROW_MATCH;
 
       if ( ICAST == ICAST_C ) 
 	{ sprintf(OUTPUT.VAL_C[NVAR_TOT], "%s ", CVAL) ;  }
@@ -451,7 +456,7 @@ void testRead(void) {
   sprintf(CCID[NLIST],"8771181");  sprintf(varName[NLIST], "FIELD");
   NLIST++ ;
 
-  int NROW_MATCH;
+  int NROW_MATCH; (void)NROW_MATCH;
   for(i=0; i < NLIST; i++ ) {
     DVAL=0; sprintf(CVAL,"NULL");
     NROW_MATCH = SNTABLE_AUTOSTORE_READ(CCID[i], varName[i], &istat, &DVAL, CVAL );

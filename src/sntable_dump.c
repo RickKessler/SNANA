@@ -226,7 +226,7 @@ int main(int argc, char **argv) {
     NDUMP = SNTABLE_DUMP_OUTLIERS(TFILE, TID, NVAR, TLIST, IVAR_NPT, 
 				  INPUTS.OUTLIER_NSIGMA, FP_OUTFILE,
 				  LINEKEY_DUMP, SEPKEY_DUMP );
-
+    (void)NDUMP;
     if ( DO_IGNORE ) { write_IGNORE_FILE(); }
   } 
   else {
@@ -375,8 +375,11 @@ void parse_args(int NARG, char **argv) {
       sprintf(INPUTS.VARNAMES[NVAR],"%s", argv[i] );
       // buggy if ( NVAR==0 ) { sprintf(INPUTS.VARNAMES[NVAR],"CCID ROW"); }
       if ( NVAR==0  && strcmp(argv[i],"CID")!=0 ) 
-	{ sprintf(INPUTS.VARNAMES[NVAR],"CCID"); } // Aug 17 2017
-      sprintf(INPUTS.VARLIST,"%s %s", INPUTS.VARLIST, argv[i] );
+	{ sprintf(INPUTS.VARNAMES[NVAR],"CCID"); } 
+
+      strcat(INPUTS.VARLIST," ");
+      strcat(INPUTS.VARLIST,argv[i] );
+      // xxx mark delete sprintf(INPUTS.VARLIST,"%s %s", INPUTS.VARLIST, argv[i] );
       INPUTS.NVAR++ ; 
     }
 
@@ -664,7 +667,8 @@ void write_IGNORE_FILE(void) {
   //
 
   FILE *FP ;
-  int  OPTMASK=3, NROW, irow, ISTAT, IFILTOBS, REJECT, NROW_MATCH ;
+  int  OPTMASK=3, NROW, irow, ISTAT, IFILTOBS, REJECT;
+  int  NROW_MATCH ; (void)NROW_MATCH;
   double DVAL, MJD, PSF, TOBS, CHI2 ;
   char VARLIST[200], CCID[32], CCID_LAST[32], CVAL[32], BAND[2];
   char *VARNAME_CHI2 = INPUTS.OUTLIER_VARNAME_CHI2FLUX ;
@@ -673,7 +677,7 @@ void write_IGNORE_FILE(void) {
 
   // ---------------- BEGIN ---------------
 
-  sprintf(BANNER,"Write IGNORE format to %s", INPUTS.OUTFILE_IGNORE);
+  sprintf(BANNER,"Write IGNORE format to %.100s", INPUTS.OUTFILE_IGNORE);
   print_banner(BANNER);
 
   // read newly-created table

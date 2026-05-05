@@ -4792,9 +4792,10 @@
         ,PRIOR_ZPULL  & 
         ,PRIOR_MUPULL  & 
         ,GET_RV8  & 
-        ,eval_zPDF_spline, DLMAG_REF
+        ,eval_zPDF_spline, DLMAG_REF &
+        ,eval_spline
 
-    EXTERNAL eval_zPDF_spline
+    EXTERNAL eval_zPDF_spline, eval_spline
 
 ! ------------- BEGIN --------------
 
@@ -4896,8 +4897,13 @@
       DO_QUANTILES    = btest(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
 
       if ( DO_QUANTILES ) then
-        ! get the probability at this redshift
-        PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
+         ! get the probability at this redshift
+
+         if(DEBUG_FLAG == 28) then
+            PROBZ = eval_SPLINE(ZSN)
+         else
+            PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
+         endif   
         if ( PROBZ > 0.0 ) then
            CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
         else

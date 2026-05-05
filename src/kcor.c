@@ -289,7 +289,6 @@ int rd_input(void) {
     ,magcheck_name[40]
     ,MAGSYSTEM_TMP[60]
     ,FILTPATH_LIST[MXFILTDEF+1][MXCHAR_FILENAME]
-    ,*ptr_tmp
     ,TXT_MAGREF[60]
     ;   
 
@@ -299,14 +298,14 @@ int rd_input(void) {
 
   FILE *fp_input ;  // name of user input file 
 
-  int iprim, ifilt, itmp, i, gzipFlag, INDX, INDX_INPUT ;
-  int NFILT_SYSTEM, LANDOLT_OPT, FILTER_IGNORE   ;
+  int iprim, ifilt,  i, gzipFlag, INDX ;
+  int NFILT_SYSTEM, FILTER_IGNORE, INDX_INPUT   ;
 
   float xlim4[2];
 
   double magcheck_value[MXFILTDEF+1]    ;
 
-  char fnam[] = "rd_input"  ;
+  char fnam[] = "rd_input"  ;  (void)fnam;
 
   /* ----------------- BEGIN ----------------------- */
 
@@ -524,7 +523,6 @@ int rd_input(void) {
       readchar ( fp_input,  FILTSYSTEM.NAME );
 
       NFILT_SYSTEM = 0 ;
-      LANDOLT_OPT  = 0 ;
       sprintf(magcheck_name, "NULL" );
       for ( i=0; i<=MXFILTDEF; i++ ) 
 	magcheck_value[i] = -99.0 ;
@@ -554,7 +552,7 @@ int rd_input(void) {
       else
 	{ FILTER_IGNORE = 0 ; }
 
-      INDX_INPUT   = index_primary(MAGSYSTEM.NAME_INPUT); 
+      INDX_INPUT   = index_primary(MAGSYSTEM.NAME_INPUT);  (void)INDX_INPUT;
       INDX         = index_primary(MAGSYSTEM.NAME);
       MAGSYSTEM.INDX_INPUT = INDX_INPUT ;
       MAGSYSTEM.INDX       = INDX ;
@@ -801,7 +799,7 @@ int rd_input(void) {
 
     if ( !fp ) {
       sprintf(c1err, "Could not open SPECTROGRAPH file");
-      sprintf(c2err, "%s", spectro_fileName );
+      sprintf(c2err, "%.*s", MXCHAR_MSGERR, spectro_fileName );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
@@ -890,7 +888,7 @@ void  check_valid_survey_names(char *SURVEYS) {
 
   int  n_survey, i, ID ;
   char **survey_list, *survey ;
-  char fnam[] = "check_valid_survey_names" ;
+  char fnam[] = "check_valid_survey_names" ;  (void)fnam;
 
   // ------------- BEGIN ---------------
 
@@ -919,7 +917,7 @@ void parse_OOB(char *bandList, double *LAMRANGE, double RATIO) {
 
   int NFTMP, i, ifilt ;
   char band[2];
-  //  char fnam[] = "parse_OOB" ;
+  char fnam[] = "parse_OOB" ;  (void)fnam;
 
   // -------------
 
@@ -956,11 +954,10 @@ void  parse_MAGREF(char *FILTNAME, char *TXT_MAGREF, double *MAGREF ) {
   // Mar 2 2023: abort if FILTNAME is not valid
 
   int LENTXT  = strlen(TXT_MAGREF);
-  int LENFILT = strlen(FILTNAME);
   int i, ISPLUS, ISMINUS, ISIGN, LASTCHAR, IFILTDEF ;
   double MAGREF_LOCAL, TMPNUM, XSIGN ;
   char   c1[2], cnum[40] ;
-  char fnam[] = "parse_MAGREF" ;
+  char fnam[] = "parse_MAGREF" ;  (void)fnam;
 
   // ------------- BEGIN ---------------
 
@@ -1025,7 +1022,7 @@ void parse_MAGSYSTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
 
   int i, len, jdash;
   char TMP_ARG[60];
-  //  char fnam[] = "parse_MAGSYSTEM" ;
+  char fnam[] = "parse_MAGSYSTEM" ;  (void)fnam;
 
   // ----------- BEGIN -----------
 
@@ -1081,8 +1078,8 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   double OFFSET_INPUT = MAGSYSTEM->OFFSET_INPUT;
 
   int NF, lenf, IFLAG_SYN  ;
-  char FILENAME[MXPATHLEN], band[4];
-  char fnam[] = "storeFilterInfo" ;
+  char FILENAME[2*MXPATHLEN], band[4];
+  char fnam[] = "storeFilterInfo" ; (void)fnam;
 
   // strip inputs into local variables
   char *filtName = INPUT_FILTER->FILTNAME ;
@@ -1187,7 +1184,8 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
     //update list of filter-bands defined by spectrograph
     char *ptrBand = INPUTS_SPECTRO.SYN_FILTERLIST_BAND ;
-    sprintf(ptrBand,"%s%s", ptrBand, band);
+    strcat(ptrBand,band);
+    // xxx mark delete sprintf(ptrBand,"%s%s", ptrBand, band);
   } 
   else {
     FILTER[NF].IFLAG_SYN = 0 ;
@@ -1203,7 +1201,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 void get_NZBIN(void) {
 
   double tmpdif, xbin;
-  char fnam[] = "get_NZBIN" ;
+  char fnam[] = "get_NZBIN" ; (void)fnam;
 
   // ----------- BEIGN ----------
 
@@ -1240,7 +1238,7 @@ void get_NZBIN(void) {
 void get_NAVBIN(void) {
 
   double xbin, xn;
-  char fnam[] = "get_NAVBIN" ;
+  char fnam[] = "get_NAVBIN" ; (void)fnam;
 
   // ------------- BEGIN -----------
 
@@ -1288,7 +1286,7 @@ void kcor_input_override(int OPT) {
 
   int i, ilast, iuse ;
   char tmpName[60], tmpFile[MXPATHLEN] ;
-  char fnam[] = "kcor_input_override" ;
+  char fnam[] = "kcor_input_override" ; (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -1526,7 +1524,7 @@ void  parse_FILTER_LAMSHIFT(int *indx_ARGV) {
   int LDMP = 0 ;
   double lamshift ;
   char *cfilt ;
-  char fnam[] = "parse_FILTER_LAMSHIFT" ;
+  char fnam[] = "parse_FILTER_LAMSHIFT" ; (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -1588,7 +1586,7 @@ int INTFILTER_kcor(char *filterName) {
   // If the band appears more than once, abort.
 
   int ifilt, IFILT, NMATCH ;
-  char fnam[] = "INTFILTER_kcor" ;
+  char fnam[] = "INTFILTER_kcor" ; (void)fnam;
   // ------------- BEGIN -------------
   
 
@@ -1613,10 +1611,8 @@ int INTFILTER_kcor(char *filterName) {
 
  DONE_CHECK:
   if ( NMATCH > 1 ) { 
-    sprintf(c1err,"NMATCH=%d for filterName='%s'", 
-	    NMATCH, filterName);
-    sprintf(c2err,"Check filter names in input file: %s", 
-	    INPUTS.inFile_input);
+    sprintf(c1err,"NMATCH=%d for filterName='%s'", NMATCH, filterName);
+    sprintf(c2err,"Check filter names in: %.*s", MXCHAR_MSGERR-10, INPUTS.inFile_input);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -1638,7 +1634,7 @@ void rd_ZPOFF(char *sdir, char *zpoff_file_override) {
   FILE *fp;
   int gzipFlag, REQUIRE_ZPOFF_FILE ;
   char  cfilt[40], zpoff_File[MXPATHLEN], ZPOFF_FILE[MXPATHLEN] ;
-  char  fnam[] = "rd_ZPOFF"     ;
+  char  fnam[] = "rd_ZPOFF"     ; (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -1693,8 +1689,8 @@ void rd_ZPOFF(char *sdir, char *zpoff_file_override) {
     readdouble(fp, 1, &zpoff );
 
     NZPOFF++;
-    sprintf(ZPOFF_STORE.FILTLIST,"%s%s", 
-	    ZPOFF_STORE.FILTLIST, cfilt );
+    strcat(ZPOFF_STORE.FILTLIST,cfilt); 
+    // xxx mark delete  sprintf(ZPOFF_STORE.FILTLIST,"%s%s", ZPOFF_STORE.FILTLIST, cfilt );
     ZPOFF_STORE.FILTVALUES[NZPOFF] = zpoff ;
     ZPOFF_STORE.IFILTPATH[NZPOFF]  = NFILTPATH ;
   }
@@ -1765,7 +1761,7 @@ void  ADDFILTERS_LAMSHIFT_GLOBAL(void) {
   int NF = NFILTDEF ;
   int ifilt, ifilt2, INDX ;
   double LAMSHIFT = INPUTS.LAMSHIFT_GLOBAL ;
-  char fnam[] = "ADDFILTERS_LAMSHIFT_GLOBAL" ;
+  char fnam[] = "ADDFILTERS_LAMSHIFT_GLOBAL" ; (void)fnam;
 
   // ------------- BEGIN ------------------
 
@@ -1838,7 +1834,7 @@ int kcor_ini(void) {
    int OVP_OBS, OVP_REST, lenf, LREST, LX     ;
 
    char cfilt[2] ;
-   char fnam[] = "kcor_ini";
+   char fnam[] = "kcor_ini"; (void)fnam;
 
    /*  ----------------- BEGIN ------------------------- */
 
@@ -1954,7 +1950,7 @@ void  set_store_lambda_range(void) {
   //
 
   int  LEGACY = 0;  // set True to restore using FILTER_LAMBDA_MIN[MAX]
-  char fnam[] = "set_store_lambda_range" ;
+  char fnam[] = "set_store_lambda_range" ; (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -1992,9 +1988,9 @@ void set_kcorFile_format(void) {
   // set INPUTS.FORMAT_FLAG[ifile] for each OUTFILE.
 
   int  i, FLAG ;
-  char *SUFFIX, *suffix, *ptrFile;
+  char *ptrFile;
   char CFORMAT[4][20] ;
-  char fnam[] = "set_kcorFile_format" ;
+  char fnam[] = "set_kcorFile_format" ; (void)fnam;
 
   // ------------- BEGIN ---------
 
@@ -2248,13 +2244,13 @@ int rd_filter ( int ifilt ) {
    FILE *fp;
 
    double lambda, trans, tsum, wtsum ;
-   double lammin, lammax, lamavg, dlam, dlam_last     ;
+   double lammin, lammax, lamavg, dlam ;
 
    int NBIN, IFLAG_SYN, ilam, gzipFlag ;
      
    char  *ptr_name, *ptr_file, txtFilter[60] ;
    char  FILTFILE_FULLNAME[MXCHAR_FILENAME] ;
-   char  fnam[] = "rd_filter"    ;
+   char  fnam[] = "rd_filter"    ; (void)fnam;
 
   /* -------------------- BEGIN ------------------ */
 
@@ -2282,7 +2278,7 @@ int rd_filter ( int ifilt ) {
      // if we get here, abort because file cannot be found.
      if ( fp == NULL ) {
        sprintf ( c1err, "Cannot find file : %s", ptr_file );
-       sprintf ( c2err," Check local dir and %s", PATH_SNDATA_FILTER );
+       sprintf ( c2err," Check local dir and %.*s", MXCHAR_MSGERR-10, PATH_SNDATA_FILTER );
        errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
      }     
      fclose(fp);
@@ -2316,10 +2312,9 @@ int rd_filter ( int ifilt ) {
      NBIN = FILTER[ifilt].NBIN_LAMBDA ;
    }
 
-   tsum = 0.0;
+   tsum  = 0.0;
    wtsum = 0.0;
-   dlam_last = 0.0 ;
-   dlam      = 0.0 ;
+   dlam  = 0.0 ;
 
    if ( LAMSHIFT != 0.0 ) {
      for ( ilam = 1; ilam <= NBIN; ilam++ ) 
@@ -2408,15 +2403,21 @@ void addOOBTrans_filter(int ifilt) {
   double LAM_ORIG[MXLAM_FILT], TRANS_ORIG[MXLAM_FILT];
 
   double TransMax = 0.0 ;
-  double trans, lam, OOB_TRANS, xlam;
+  double trans, lam, OOB_TRANS=0.0, xlam;
   double LAMBIN_BLUE, LAMBIN_RED, MINLAM_NEW, MAXLAM_NEW ;
   int    NBIN_LAM_NEW, ilam, ilam_orig, NBINADD_BLUE, NBINADD_RED ;
-  char fnam[] = "addOOBTrans_filter" ;
   int LDMP = 0 ; 
+  char fnam[] = "addOOBTrans_filter" ; (void)fnam;
 
   // ----------- BEGIN ------------
 
   if ( OOB_RATIO == 0.0 ) { return; }
+
+  // add abort to avoid potential bugs: May 5 2026
+  sprintf(c1err,"-Wall caught udefined OOB_TRANS.");
+  sprintf(c2err,"I set OOB_TRANS=0 to compile, but more debugging is needed");
+  errmsg(SEV_FATAL, 0, fnam,  c1err, c2err); 
+
 
   // first find max trans
   for(ilam=1; ilam <= NBIN_LAM_ORIG; ilam++ ) {
@@ -2529,12 +2530,11 @@ void cutOOBTrans_filter(int ifilt) {
   double LAM_ORIG[MXLAM_FILT], TRANS_ORIG[MXLAM_FILT];
 
   double TransMax = 0.0 ;
-  double trans, lam, OOB_TRANS, xlam;
+  double trans, lam;
   double MINLAM_NEW, MAXLAM_NEW ;
-  int    NBIN_LAM_NEW, ilam, ilam_new, ilam_orig, NBINCUT_BLUE, NBINCUT_RED ;
-  bool   LCUT, FOUND_TRANSMAX=false;
-  char fnam[] = "cutOOBTrans_filter" ;
-  int LDMP = 0 ; 
+  int    NBIN_LAM_NEW, ilam, ilam_new, ilam_orig ;
+  bool   LCUT ;
+  char fnam[] = "cutOOBTrans_filter" ; (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -2551,7 +2551,6 @@ void cutOOBTrans_filter(int ifilt) {
 
   ilam_new=0;
 
-  NBINCUT_BLUE = NBINCUT_RED = 0 ;
   MINLAM_NEW   = 9.0E9; MAXLAM_NEW = 0.0 ;
 
   for(ilam_orig=1; ilam_orig <= NBIN_LAM_ORIG; ilam_orig++ ) {
@@ -2559,7 +2558,6 @@ void cutOOBTrans_filter(int ifilt) {
     trans = TRANS_ORIG[ilam_orig] / TransMax ;
     lam   = LAM_ORIG[ilam_orig] ;
 
-    // xxx    if ( trans > 0.999 ) { FOUND_TRANSMAX = true ; }
     LCUT = ( trans < LEAKAGE_CUT );
     if ( LCUT ) { continue; }
 
@@ -2625,8 +2623,8 @@ int rd_snsed ( void ) {
 
    int NDAY, NLAM,ilam0, iep0, jflux0, ilam1, iep1, ifilt, ilam, iep  ;
    int FOUND_SNSEDFILE, nflux_nan ;
-   char sedFile[MXPATHLEN], sedcomment[40], SNPATH[MXPATHLEN] ;
-   char fnam[] = "rd_snsed" ;
+   char sedFile[3*MXPATHLEN], sedcomment[40], SNPATH[2*MXPATHLEN] ;
+   char fnam[] = "rd_snsed" ; (void)fnam;
 
    //   --------------------- BEGIN --------------------------
 
@@ -2658,8 +2656,8 @@ int rd_snsed ( void ) {
    } 
 
    if ( FOUND_SNSEDFILE == 0 ) {
-     sprintf(c1err,"Cannot find SED file '%s' .", INPUTS.inFile_snsed );
-     sprintf(c2err,"Check %s for available SEDs", SNPATH );
+     sprintf(c1err,"Cannot find SED file '%.*s' .", MXCHAR_MSGERR-10, INPUTS.inFile_snsed );
+     sprintf(c2err,"Check %.*s for available SEDs", MXCHAR_MSGERR-10, SNPATH );
      errmsg(SEV_FATAL, 0, fnam,  c1err, c2err); 
    }
 
@@ -2791,7 +2789,7 @@ void check_snsed_bins(void) {
 
   int NLAM    = SNSED.NBIN_LAMBDA ;
   int NDAY    = SNSED.NEPOCH ;
-  char fnam[] = "check_snsed_bins" ;
+  char fnam[] = "check_snsed_bins" ; (void)fnam;
 
    // check array size
    if ( NLAM >= MXLAM_SN ) {
@@ -2821,7 +2819,7 @@ void  hardWire_snsed_bins(void) {
   
   int  ilam, iday, NLAM,  NDAY ;
   double lamBin, dayBin, tmpRange, xi  ;
-  char fnam[] = "hardWire_snsed_bins" ;
+  char fnam[] = "hardWire_snsed_bins" ; (void)fnam;
 
 #define HARDWIRE_LAMBIN 10.0 // Angstroms
 #define HARDWIRE_DAYBIN  1.0 // days
@@ -2870,7 +2868,7 @@ int index_primary( char *name) {
   // Dec 8, 2011
   // Search INPUTS.name_primary[iprim] and return iprim.
 
-  char fnam[] = "index_primary";
+  char fnam[] = "index_primary"; (void)fnam;
   int  iprim ;
   char *cptr;
 
@@ -2931,9 +2929,9 @@ int rd_primary ( int INDX, char *subdir ) {
    FILE  *fp;
    double lambda, flam, fnu, fcount, LAMMIN_READ, LAMMAX_READ  ;
    int  ilam, NBIN, ibin, gzipFlag;
-   char SNPATH[MXCHAR_FILENAME], fullName[MXCHAR_FILENAME];
+   char SNPATH[2*MXCHAR_FILENAME], fullName[MXCHAR_FILENAME];
    char *refName, *sedFile, line[200];
-   char fnam[] = "rd_primary" ;
+   char fnam[] = "rd_primary" ; (void)fnam;
 
    /* --------------------- BEGIN -------------------------- */
 
@@ -3079,7 +3077,7 @@ double GET_SNSED_FUDGE(double lam) {
   int N, ilam_near, ilam,  i ;
   double lamtmp, fudge, maxfudge, lamatmax, a_lam[4], a_fud[4] ;
   FILE *fp;
-  char fnam[] = "GET_SNSED_FUDGE";
+  char fnam[] = "GET_SNSED_FUDGE"; (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -3217,7 +3215,7 @@ void rebin_primary ( int  nblam_in,  double *lam_in,  double *flux_in,
 
   int NBLAM, ilam, idump=0;
   double  DLAM, LAM, LAM0,  LAM1, F0, F1, slope, FLUX_OUT  ;
-  char fnam[] = "rebin_primary" ;
+  char fnam[] = "rebin_primary" ; (void)fnam;
 
   /* ---------------------------- BEGIN -------------------- */
 
@@ -3287,17 +3285,17 @@ int kcor_grid (void) {
   //               needed by snana.
   // -------------------------------------------------
 
-   char ctmp[20]
-     ,  fnam[] = "kcor_grid"
-     ;
+  char ctmp[20];
 
-   int  ikcor, OPT, ifilt_rest, ifilt_obs ;
-   int  i_epoch, i_z, i_av, i_ebv, FLAG_MAGOBS, NZBIN ;
-   
-   double 
-     z, epoch, av, dum, kcor, kcormin, kcormax
-     ,err, ovp, magobs[MXMWEBV+2], magtmp, dxt, debv
-     ; 
+  int  ikcor, OPT, ifilt_rest, ifilt_obs ;
+  int  i_epoch, i_z, i_av, i_ebv, FLAG_MAGOBS, NZBIN ;
+  
+  double 
+    z, epoch, av, dum, kcor, kcormin, kcormax
+    ,err, ovp, magobs[MXMWEBV+2], magtmp, dxt, debv
+    ; 
+
+  char fnam[] = "kcor_grid";  (void)fnam;
 
    /* -------------------- BEGIN ------------------ */
 
@@ -3515,7 +3513,7 @@ void kcor_eval(int opt                // (I) K cor option ("E" or "N")
      , ten = 10.0
      ;
 
-   char fnam[] = "kcor_eval";
+   char fnam[] = "kcor_eval";   (void)fnam;
 
    /* ------------------ BEGIN ------------------- */
 
@@ -3792,7 +3790,7 @@ double snflux( double epoch, double lambda, double redshift, double av ) {
    int iepoch, ilambda, ilam1, ilam, i;
    int idebug = 0;
 
-   char fnam[] = "snflux";
+   char fnam[] = "snflux";  (void)fnam;
 
    /* --------------------- BEGIN -------------------- */
 
@@ -3930,7 +3928,7 @@ double primaryflux( int iprim, double lambda ) {
 
    int idebug = 0;
 
-   char fnam[] = "primaryflux";
+   char fnam[] = "primaryflux";  (void)fnam;
    
    /* --------------------- BEGIN -------------------- */
 
@@ -4156,14 +4154,14 @@ int snmag(void) {
 
   int ifilt, iepoch, ilam, iepoch_peak, iepoch_15day ;
 
-  double epoch, epoch_peak, epoch_15day, near_peak, near_15day ;
+  double epoch,  near_peak, near_15day ;
   double arg, lam, trans, flux,  fluxsum_sn, filtsum ;
   double filtsum_check, filter_check, zp, mag, wflux, wfilt ;
-  double LAMMIN, LAMMAX, LAMAVG, dm15, mag15 ;
+  double LAMMIN, LAMMAX, dm15, mag15 ;
   double zero = 0.0 ;
   double TPEAK  = 0.0;
   double T15DAY = 15.0;
-  char fnam[] = "snmag";
+  char fnam[] = "snmag";  (void)fnam;
 
   /* ------------------- BEGIN --------------------- */
 
@@ -4183,7 +4181,6 @@ int snmag(void) {
      filtsum = FILTER[ifilt].SSUM_SN ; 
      LAMMIN  = FILTER[ifilt].LAMBDA_MIN ;
      LAMMAX  = FILTER[ifilt].LAMBDA_MAX ;
-     LAMAVG  = FILTER[ifilt].LAMAVG;   
 
      near_peak   = 9999. ; // Trest nearest peak
      near_15day  = 9999. ; //
@@ -4252,13 +4249,11 @@ int snmag(void) {
        if ( fabs(epoch-TPEAK) < fabs(near_peak)  ) {
 	 IEPOCH_SNPEAK[ifilt] = iepoch ;
 	 near_peak = epoch-TPEAK ;
-	 epoch_peak = epoch ;
        }
 
        if ( fabs(epoch-T15DAY) < fabs(near_15day)  ) {
 	 IEPOCH_SN15DAY[ifilt] = iepoch ;
 	 near_15day  = epoch - T15DAY ;
-	 epoch_15day = epoch ;
        }
 
 
@@ -4340,10 +4335,10 @@ void primarymag_zp(int iprim ) {
   int ifilt, ilam, INDX, INDX_INPUT ;
   int idump = 0;
 
-  double  arg, lam, trans, flux, wflux, wfilt, mag, ftmp, LAMMIN, LAMMAX;
+  double  arg, lam, trans, flux, wflux, wfilt, mag, LAMMIN, LAMMAX;
   double  fluxsum[MXFILTDEF+1], filtsum[MXFILTDEF+1] ;
   bool    USE_FILT ;
-  char fnam[] = "primarymag_zp" ;
+  char fnam[] = "primarymag_zp" ;  (void)fnam;
 
   /* ------------------- BEGIN --------------------- */
 
@@ -4370,7 +4365,6 @@ void primarymag_zp(int iprim ) {
      LAMMIN = FILTER[ifilt].LAMBDA_MIN;
      LAMMAX = FILTER[ifilt].LAMBDA_MAX;
 
-     ftmp = 0.0;
      for ( ilam=1; ilam <= PRIMARYSED[iprim].NBIN_LAMBDA; ilam++ ) {
        
 	lam = PRIMARYSED[iprim].LAMBDA[ilam] ;
@@ -4436,7 +4430,7 @@ void primarymag_zp2(int iprim ) {
 
   int  ifilt, INDX, INDX_INPUT ;
   double ZP_INPUT, ZP ;
-  //  char fnam[] = "primarymag_zp2" ;
+  char fnam[] = "primarymag_zp2" ;   (void)fnam;
 
   // ---------- BEGIN ------------
 
@@ -4471,9 +4465,9 @@ void primarymag_summary(int iprim) {
   // print table summarizing primary mag and ZP
 
   char *NAME = PRIMARYSED[iprim].MAGSYSTEM_NAME ;
-  int  ifilt, INDX, INDX_INPUT;
+  int  ifilt, INDX ;
   bool USE_FILT;
-  //  char fnam[] = "primarymag_summary" ;
+  char fnam[] = "primarymag_summary" ;   (void)fnam;
 
   // ----------- BEGIN -----------
 
@@ -4489,7 +4483,6 @@ void primarymag_summary(int iprim) {
   for ( ifilt=1;  ifilt <= NFILTDEF ; ifilt++ ) {
     
     INDX       = FILTER[ifilt].MAGSYSTEM_INDX ;
-    INDX_INPUT = FILTER[ifilt].MAGSYSTEM_INDX_INPUT;  // 4/2020
     USE_FILT = (iprim==INDX);
     if ( !USE_FILT ) { continue; }
     
@@ -4541,14 +4534,10 @@ void magflux_info(
 
   ***/
 
-  //  char fnam[] = "magflux_info" ;
-  int INDX, IDBUG ;
   double  dlam, lam, lam1, lam2, nu, dnu    ;
+  char fnam[] = "magflux_info" ;   (void)fnam;
 
   // -------------- BEGIN function --------------
-
-  IDBUG = 0;
-  if ( ifilt == -222 && ilam > 1500 && ilam < 1510 ) IDBUG = 1;
 
 
   // init output args.
@@ -4574,7 +4563,6 @@ void magflux_info(
   nu       = LIGHT_A / lam ;
   dnu      = LIGHT_A * (1.0/lam1 - 1.0/lam2);
 
-  INDX = FILTER[ifilt].MAGSYSTEM_INDX ;
 
   *wflux = dnu / ( PLANCK * nu ) ;   // divide by E/photon to get counts
   *wfilt = dnu / ( PLANCK * nu ) ;
@@ -4601,7 +4589,7 @@ void wr_fits(char *ptrFile) {
   fitsfile *fp ;
 
   char  clobberFile[MXPATHLEN];
-  char fnam[] = "wr_fits"  ;
+  char fnam[] = "wr_fits"  ;   (void)fnam;
 
   // ------------- BEGIN --------------
 
@@ -4654,7 +4642,7 @@ void wr_fits_HEAD(fitsfile *fp) {
 
   int istat, iprim, ifilt, ikcor, N, jbinsize, IVER ;
   char  KEYNAME[40], KEYVAL[MXPATHLEN], MSG[200] ;
-  char  fnam[] = "wr_fits_HEAD" ;
+  char  fnam[] = "wr_fits_HEAD" ;   (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -4885,17 +4873,17 @@ void wr_fits_HEAD(fitsfile *fp) {
 // ========================================
 void wr_fits_SNSED(fitsfile *fp) {
   
-  char 
-    fnam[] = "wr_fits_SNSED"
-    ,LABEL_FLUX[]  = "SN Flux (erg/s/cm^2/A)"
-    ,TBLname[]     = "SN SED";
+  char LABEL_FLUX[]  = "SN Flux (erg/s/cm^2/A)" ;
+  char TBLname[]     = "SN SED" ;
 
   long NROW = 0;
   int i, ncol, istat;
 
   int NBLAM, NTREST, ilam, iday, icol ;
   int firstrow, firstelem, nrow ;
-  float lam, epoch, flux, FBIN, FMIN, FMAX ;
+  float epoch, flux, FBIN, FMIN, FMAX ;
+
+  char fnam[] = "wr_fits_SNSED" ;   (void)fnam;
 
   // --------------- BEGIN ------------
 
@@ -4997,8 +4985,8 @@ void wr_fits_SNSED(fitsfile *fp) {
 
   for ( iday=1; iday <= NTREST ; iday++ ) {      
     for ( ilam=1; ilam <= NBLAM; ilam++ ) {
-      lam   = SNSED.LAMBDA[iday][ilam];
-      epoch = SNSED.EPOCH[iday];
+      //      lam   = SNSED.LAMBDA[iday][ilam];
+      epoch = SNSED.EPOCH[iday];  (void)epoch;
       flux  = (float)SNSED.FLUX_WAVE[iday][ilam] ;
       flux *= SNSED.LAMBDA_BINSIZE;     
       firstrow++ ;
@@ -5034,8 +5022,7 @@ void wr_fits_ZPT(fitsfile *fp) {
   long NROW      = 0 ;
  
   char 
-    fnam[] = "wr_fits_ZPT"
-    ,LABEL_FILT[]         = "Filter Name"
+     LABEL_FILT[]         = "Filter Name"
     ,LABEL_PRIMARY_NAME[] = "Primary Name"
     ,LABEL_PRIMARY_MAG[]  = "Primary Mag"
     ,LABEL_ZPOFF_REF[]    = "ZPoff(Primary)"  // used here, but not in snana
@@ -5043,6 +5030,7 @@ void wr_fits_ZPT(fitsfile *fp) {
     ,TBLname[] = "ZPoff" 
     ;
 
+  char fnam[] = "wr_fits_ZPT";  (void)fnam;
   //     iprim =  FILTER[ifilt].MAGSYSTEM_INDX ;
 
   // ------------ BEGIN ---------
@@ -5144,16 +5132,14 @@ void wr_fits_PRIMARY(fitsfile *fp) {
   int icol,  firstrow, firstelem, nrow ;
 
   long NROW      = 0 ;
-  char 
-    fnam[]       = "wr_fits_PRIMARY" 
-    ,LABEL_LAM[] = "wavelength (A)"
-    ,TBLname[]   = "PrimarySED"  
-    ;
-
+  
+  char LABEL_LAM[] = "wavelength (A)" ;
+  char TBLname[]   = "PrimarySED"  ;
   char *NAME;
   float lam, flux ;
   double lam8, flux8 ;
 
+  char fnam[]       = "wr_fits_PRIMARY" ;  (void)fnam;
   // ----------- BEGIN ------------
 
   printf("\t %s: write Primary SED(s) \n", fnam);
@@ -5245,15 +5231,13 @@ void wr_fits_FilterTrans(fitsfile *fp) {
   int icol,  firstrow, firstelem, nrow ;
 
   long NROW      = 0 ;
-  char 
-    fnam[]       = "wr_fits_FilterTrans" 
-    ,LABEL_LAM[] = "wavelength (A)"
-    ,TBLname[]   = "FilterTrans"  
-    ;
+  char LABEL_LAM[] = "wavelength (A)" ;
+  char TBLname[]   = "FilterTrans"  ;
 
   float lam4, trans4 ;
   double lam8, trans8 ;
 
+  char fnam[]       = "wr_fits_FilterTrans" ;  (void)fnam;
   // ----------- BEGIN ------------
 
 
@@ -5349,13 +5333,13 @@ void wr_fits_KCOR(fitsfile *fp) {
 
   long NROW      = 0 ;
   char 
-    fnam[]       = "wr_fits_KCOR" 
-    ,LABEL_T[]   = "Trest"
+     LABEL_T[]   = "Trest"
     ,LABEL_Z[]   = "Redshift"
     ,LABEL_AV[]  = "AVwarp"
     ,TBLname[]   = "KCOR"  
     ;
 
+  char fnam[]       = "wr_fits_KCOR" ;  (void)fnam;
   // ----------- BEGIN ------------
 
 
@@ -5472,8 +5456,7 @@ void wr_fits_MAGS(fitsfile *fp) {
 
   long NROW      = 0 ;
   char 
-    fnam[]       = "wr_fits_MAGS" 
-    ,LABEL_T[]   = "Trest"
+     LABEL_T[]   = "Trest"
     ,LABEL_Z[]   = "Redshift"
     ,LABEL_AV[]  = "AVwarp"
     ,TBLname[]   = "MAG+MWXTCOR" 
@@ -5481,6 +5464,7 @@ void wr_fits_MAGS(fitsfile *fp) {
     ,MAGSYS[60], CFILT[2]
     ;
 
+  char fnam[]   = "wr_fits_MAGS" ;  (void)fnam;
   // ----------- BEGIN ------------
 
 
@@ -5642,7 +5626,7 @@ void wr_fits_SPECTROGRAPH(fitsfile *fp) {
   char  LABEL_LAMMAX[] = "LAMBIN_MAX" ;
   char  LABEL_LAMRES[] = "LAMRES" ;
   
-  char fnam[]     = "wr_fits_SPECTROGRAPH" ;
+  char fnam[]     = "wr_fits_SPECTROGRAPH" ;  (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -5846,7 +5830,7 @@ void wr_fits_SPECTROGRAPH(fitsfile *fp) {
 // ==================================================
 void wr_fits_errorCheck(char *comment, int status) {
   // Print out cfitsio error messages and exit program
-  char fnam[] = "wr_fits_errorCheck" ;
+  char fnam[] = "wr_fits_errorCheck" ;  (void)fnam;
   if (status) {
     fits_report_error(stderr, status); /* print error report */
     errmsg(SEV_FATAL, 0, fnam, comment, "Check cfitsio routines." ); 
@@ -5905,20 +5889,11 @@ void wrsnmag_text(void) {
 
   *****/
 
-  int 
-    ifilt,  ifiltmin, ifiltmax, iep, ipath, NPATH
-    ,IFILTDEF_PATH[20][2]
-    ;
-
+  int ifilt,  ifiltmin, ifiltmax, iep, ipath, NPATH, IFILTDEF_PATH[20][2] ;
   double snmag,epoch;
-
-  char 
-    dumpFile[MXCHAR_FILENAME]
-    ,path[40], last_path[40]
-    ,fnam[] = "wrsnmag_text" 
-    ;
-
-  FILE *fp;
+  char  dumpFile[MXCHAR_FILENAME], path[40], last_path[40] ;
+  FILE *fp;  
+  char fnam[] = "wrsnmag_text" ; (void)fnam;
 
   // ------- BEGIN --------
 

@@ -108,6 +108,8 @@
  * Jan 28 2020 RK - abort if WAVE>12000 and using Fitz99 color law
  * 
  * Oct 9 2021 DB and DS - update Fitz/Odonell ratio and extend WAVE to 15000
+ * 
+ * May 5 2026 RK - few minor fixes to eliminate -Wall compilation warnings
  */
 /**************************************************************************/
 
@@ -259,13 +261,12 @@ void modify_MWEBV_SFD(int OPT, double RA, double DECL,
   // and may be changed !
   // Input RA and DEC may or may not be used depending on the option.
 
-  double MWEBV_INP, MWEBV_OUT=0.0, MWEBV_ERR_OUT=0.0, MWEBV_SFD98=0.0 ;
+  double MWEBV_OUT=0.0, MWEBV_ERR_OUT=0.0, MWEBV_SFD98=0.0 ;
   double dumXT[10] ;
-  //  char fnam[] = "modify_MWEBV_SFD" ;
+  char fnam[] = "modify_MWEBV_SFD" ;  (void)fnam;
 
   // ----------- BEGIN -----------
 
-  MWEBV_INP = *MWEBV ;
   MWEBV_OUT = -999.0 ;
 
   // check trival option with no Galactic extiction
@@ -446,7 +447,8 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, c
   double y2, y3, y4, y5, y6, y7, y8 ;
 
 
-  char fnam[60];  concat_callfun_plus_fnam(callFun, "GALextinct", fnam); // return fnam
+  char fnam[60];
+  concat_callfun_plus_fnam(callFun, "GALextinct", fnam);  (void)fnam;
 
   // ------------------- BEGIN --------------
 
@@ -460,7 +462,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, c
 
   //  printf(" xxx %s: PARLIST = %f %f %f \n", PARLIST[0], PARLIST[1], PARLIST[2] ); fflush(stdout);
   
-  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 )  {
+  if ( OPT == OPT_MWCOLORLAW_FITZ99_EXACT || OPT == OPT_MWCOLORLAW_FITZ04 || OPT == OPT_MWCOLORLAW_GORD03 ) {
     XT = GALextinct_Fitz99_exact(RV, AV, WAVE, OPT, callFun);
     return XT ;
   } else if ( OPT == OPT_MWCOLORLAW_GOOB08 ) {
@@ -677,7 +679,7 @@ Returns :
 ***/
 
   char fnam[60];
-  concat_callfun_plus_fnam(callFun, "GALextinct_Fitz99_exact", fnam); // return fnam
+  concat_callfun_plus_fnam(callFun, "GALextinct_Fitz99_exact", fnam);  (void)fnam;
 
   //Check RV=2.74 for Gordon et al. (2003)
   if ( OPT == OPT_MWCOLORLAW_GORD03 && RV != 2.74 ) {
@@ -694,9 +696,9 @@ Returns :
   }
   
   //number of knots
-  int Nk;
+  int Nk = 0 ;
   // constants
-  double x02, gamma2, c1, c2, c3, c4, c5;
+  double x02=0.0, gamma2=0.0, c1=0.0, c2=0.0, c3=0.0, c4=0.0, c5=0.0 ;
   // target wavenumber in inverse microns
   double x = 10000.0/WAVE;
   // spline result
@@ -834,7 +836,7 @@ double GALextinct_Maiz14(double RV, double AV, double WAVE, char *callFun) {
 ***/
 
     char fnam[60] ;
-    concat_callfun_plus_fnam(callFun, "GALextinct_Maiz14", fnam); // return fnam
+    concat_callfun_plus_fnam(callFun, "GALextinct_Maiz14", fnam); (void)fnam;
 
     // Abort if out of bounds
     if ( WAVE > WAVEMAX_MAIZ14 || WAVE < WAVEMIN_MAIZ14 ) {
@@ -846,8 +848,6 @@ double GALextinct_Maiz14(double RV, double AV, double WAVE, char *callFun) {
 
     // target wavelength in inverse microns
     double x = 10000.0/WAVE;
-    // curve at WAVE
-    double y;
 
     // terms we'll compute
     double a, b; //a and b curves at x
@@ -926,7 +926,7 @@ double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC, char *cal
 ***/
 
     char fnam[60] ;
-    concat_callfun_plus_fnam(callFun, "GALextinct_Fitz19", fnam); // return fnam
+    concat_callfun_plus_fnam(callFun, "GALextinct_Fitz19", fnam);  (void)fnam;
 
     // Abort if out of bounds
     if ( WAVE > WAVEMAX_FITZ19 || WAVE < WAVEMIN_FITZ19 ) {
@@ -1004,7 +1004,7 @@ double GALextinct_Gord23(double RV, double AV, double WAVE, char *callFun) {
 ***/
 
     char fnam[60] ;
-    concat_callfun_plus_fnam(callFun, "GALextinct_Gord23", fnam); // return fnam
+    concat_callfun_plus_fnam(callFun, "GALextinct_Gord23", fnam);  (void)fnam;
 
     // target wavelength in inverse microns
     double x = 10000.0/WAVE;
@@ -1017,8 +1017,7 @@ double GALextinct_Gord23(double RV, double AV, double WAVE, char *callFun) {
     // variables for a and b part of curve
     // w = weighting function in overlap regions
     double a, b, w, f;
-    a = 0.0;
-    b = 0.0;
+    a = b = w = 0.0;
 
     // terms for the optical part
     double x01, x02, x03, FW1, FW2; //Drude params
@@ -1178,7 +1177,7 @@ double GALextinct_Somm25(double AV, double WAVE, char *callFun) {
     logc4 = -0.59*logAV - 1.42; // Eq. 9
        c4 = pow(10.0, logc4);
     
-    return AV*GALextinct_Pei4(x, c1, c2, c3, c4);
+       return AV*GALextinct_Pei4(x, c1, c2, c3, c4);
 
 } // end of GALextinct_Somm25
  
@@ -1201,18 +1200,18 @@ Returns :
     E(x-V)/E(B-V)
   */
 
-    char fnam[] = "GALextinct_FM90" ;
+  double x2, y, y2, b, k;
+  char fnam[] = "GALextinct_FM90" ;  (void)fnam;
 
-    double x2, y, y2, b, k;
-    x2 = x*x;
-    b = x2 / ((x2-x02)*(x2-x02) + x2*g2);
-    k = c1 + c2*x + c3*b;
-    if (x >= c5) {
-        y = x - c5;
-        y2 = y * y;
-        k += c4 * (0.5392*y2 + 0.05644*y2*y);
-    }
-    return k;
+  x2 = x*x;
+  b = x2 / ((x2-x02)*(x2-x02) + x2*g2);
+  k = c1 + c2*x + c3*b;
+  if (x >= c5) {
+    y = x - c5;
+    y2 = y * y;
+    k += c4 * (0.5392*y2 + 0.05644*y2*y);
+  }
+  return k;
 
 } // end of GALextinct_FM90
 
@@ -1234,7 +1233,7 @@ double GALextinct_Pei4(double x, double c1, double c2, double c3, double c4) {
     Ax/AV
   */
 
-    char fnam[] = "GALextinct_Pei4" ;
+    char fnam[] = "GALextinct_Pei4" ;  (void)fnam;
 
     double x08, x046, x2175;
     double y08, y046, y2175;
@@ -1273,7 +1272,7 @@ Returns :
     y   =  Value of curve at x.
   */
 
-    char fnam[] = "GALextinct_FM_spline" ;
+    char fnam[] = "GALextinct_FM_spline" ; (void)fnam;
 
     // abort on x out of knot range
     if (x < xk[0] || x > xk[Nk-1]) {
@@ -1374,8 +1373,8 @@ void MWgaldust(
    char     pDefPath[200];
 
    /* Declarations for data file names */
-   char     pFileN[MAX_FILE_NAME_LEN];
-   char     pFileS[MAX_FILE_NAME_LEN];
+   char     pFileN[MAX_FILE_NAME_LEN+20];
+   char     pFileS[MAX_FILE_NAME_LEN+20];
    struct   mapParms {
       char *   pName;
       char *   pFile1;
@@ -2765,10 +2764,10 @@ DSIZE fits_read_file_xfits_noscale_
 
    int      fileNum;
    HSIZE    iCard;
-   HSIZE *  pTempN;
+   HSIZE *  pTempN;   (void)pTempN;
    DSIZE    retval;
    uchar    pExtend[40];
-   uchar *  pTempHead;
+   uchar *  pTempHead;  (void)pTempHead;
    char     pPrivR[] = "r\0";
 
    inoutput_open_file(&fileNum, pFileName, pPrivR);
@@ -3050,7 +3049,7 @@ void fits_add_required_cards_
    float    cdeltX;
 #endif
    DSIZE *  pNaxis;
-   uchar    pLabel_temp[9]; /* Must be long enough for 8 chars + NULL */
+   uchar    pLabel_temp[18]; /* Must be long enough for 8 chars + NULL */
 
    if (fits_get_card_ival_(&naxis, label_naxis, pNHead, ppHead) == FALSE_MWDUST) {
       naxis = 0; /* default to no data axes */
@@ -3315,7 +3314,7 @@ void fits_compute_axes_
    int      ival;
    DSIZE *  pNaxis;
    MEMSZ    memSize;
-   uchar    pLabel_temp[9];
+   uchar    pLabel_temp[18]; // was 9
 
    fits_get_card_ival_(pNumAxes, label_naxis, pNHead, ppHead);
    if (*pNumAxes > 0) {
@@ -3397,7 +3396,7 @@ void fits_compute_vista_poly_coeffs_
    int      iLpolyNum;
    int      nLpolyNum;
    MEMSZ    memSize;
-   uchar    pLabel_temp[9]; /* Must be long enough for 8 chars + NULL */
+   uchar    pLabel_temp[18]; /* Must be long enough for 8 chars + NULL */
    char  *  pStringVal;
    char  *  pCardLoc;
    const char pCharSpace[] = " \'";
@@ -3445,7 +3444,7 @@ void fits_data_to_r4_
    float    bscale;
    float    bzero;
    float    blankval;
-   float    newBlankval;
+   float    newBlankval = 0.0 ;
    float *  pNewData;
 
    fits_get_card_ival_(&bitpix, label_bitpix, pNHead, ppHead);
@@ -3522,7 +3521,7 @@ void fits_data_to_i2_
    float    bscale;
    float    bzero;
    float    blankval;
-   float    newBlankval;
+   float    newBlankval = 0.0 ;
    short int *  pNewData;
 
    fits_get_card_ival_(&bitpix, label_bitpix, pNHead, ppHead);
@@ -5375,7 +5374,7 @@ int inoutput_open_file
 {
    int      iChar;
    int      retval;
-   char     tempName[IO_FORTRAN_FL];
+   char     tempName[IO_FORTRAN_FL+20];
 
    if ((*pFilenum = inoutput_free_file_pointer_()) == IO_FOPEN_MAX) {
       printf("ERROR: Too many open files\n");

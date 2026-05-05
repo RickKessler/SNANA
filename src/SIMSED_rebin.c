@@ -59,7 +59,7 @@
 
 struct {
   char   INPDIR_SIMSED[MXPATHLEN];
-  char   OUTDIR_SIMSED[MXPATHLEN];  // determined from INPDIR
+  char   OUTDIR_SIMSED[MXPATHLEN+60];  // determined from INPDIR
 
   int    NREBIN_DAY;
   int    REBIN_DAY[MXREBIN_DAY];
@@ -71,8 +71,8 @@ struct {
 } INPUTS;
 
 
-char SEDINFO_FILE_INP[MXPATHLEN];
-char SEDINFO_FILE_OUT[MXPATHLEN];
+char SEDINFO_FILE_INP[MXPATHLEN+40];
+char SEDINFO_FILE_OUT[MXPATHLEN+100];
 
 FILE  *FP_SEDINFO_INP;
 FILE  *FP_SEDINFO_OUT;
@@ -91,7 +91,7 @@ void  rebin_SED(void);
 // ====================================
 int main(int argc, char **argv) {
 
-  char fnam[] = "main" ;
+  char fnam[] = "main" ;  (void)fnam;
   // ------------ BEGIN ------------
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_UNKNOWN);
@@ -128,9 +128,8 @@ int main(int argc, char **argv) {
 // ******************************************
 void parse_args(int argc, char **argv) {
 
-  int i, ipar,  ep, ilast, iuse, rebin_tmp ;
-  char fnam[] = "parse_args" ;
-
+  int i, ilast, iuse, rebin_tmp ;
+  char fnam[] = "parse_args" ;  (void)fnam;
 
   // ---------- BEGIN --------
 
@@ -203,7 +202,7 @@ void  parse_REBIN_DAY(char *string, int rebin) {
   double DAYRANGE[2];
   char stringDayRange[100], *ptrSPLIT[2], stringSPLIT[2][40];
   char colon[] = ":";
-  char fnam[] = "parse_REBIN_DAY";
+  char fnam[] = "parse_REBIN_DAY";  (void)fnam;
 
   // --------- BEGIN ---------
 
@@ -284,7 +283,7 @@ void  make_OUTDIR_SIMSED(void) {
 
   // Create output SIMSED dir, and open SED.INFO file.
   FILE *fp;
-  int isys;
+  int isys; (void)isys;
   char cmd_make[400], cmd_rm[400] ;
   // ----------- BEGIN ---------
 
@@ -315,9 +314,9 @@ void  SIMSED_DRIVER(void) {
 
   int NLINE=0, NSED=0, nflux_nan=0 ;
   char LINE[MXCHAR_LINE];
-  char *ptrtok, KEY[40], sed_fileName[100], SED_FILENAME[200];
+  char *ptrtok, KEY[40], sed_fileName[100], SED_FILENAME[2*MXPATHLEN];
   char sedComment[] = "";
-  char fnam[] = "SIMSED_DRIVER" ;
+  char fnam[] = "SIMSED_DRIVER" ;  (void)fnam;
 
   int    SEDMODEL_OPTMASK = 2;  // allow non-uniform day bins
   double Trange_SIMSED[2] = { -1000.0, 1000.0 } ;
@@ -328,7 +327,7 @@ void  SIMSED_DRIVER(void) {
   FP_SEDINFO_INP = fopen(SEDINFO_FILE_INP, "rt");
   if ( !FP_SEDINFO_INP ) {
     sprintf(c1err,"Could not open input SED.INFO file:");
-    sprintf(c2err,"%s", SEDINFO_FILE_INP);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, SEDINFO_FILE_INP);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -389,7 +388,7 @@ void  rebin_SED(void) {
   int NDAY_OUT, NLAM_OUT;
   int iday, ilam, iday_out, ilam_out, jflux, nskip, irebin, REBIN;
   double DAY, LAM, FLUX, DAYMIN, DAYMAX ;
-  char fnam[] = "rebin_SED" ;
+  char fnam[] = "rebin_SED" ; (void)fnam;
 
   // ---------------- BEGIN -------------
 
@@ -487,11 +486,11 @@ void  write_rebinned_SED(char *sed_fileName) {
   int NLAM = TEMP_SEDMODEL_OUT.NLAM;
   
   int  iday, ilam, jflux;
-  char SED_FILENAME[MXPATHLEN];
+  char SED_FILENAME[2*MXPATHLEN];
   double DAY, LAM, FLUX;
   FILE *fp;
 
-  char fnam[] = "write_rebinned_SED" ;
+  char fnam[] = "write_rebinned_SED" ;  (void)fnam;
   // ---------- BEGIN --------
 
 
@@ -501,7 +500,7 @@ void  write_rebinned_SED(char *sed_fileName) {
   fp = fopen(SED_FILENAME,"wt");
   if ( !fp ) {
     sprintf(c1err,"Could not open output SED file:");
-    sprintf(c2err,"%s", SED_FILENAME);
+    sprintf(c2err,"%.*s",MXCHAR_MSGERR, SED_FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 

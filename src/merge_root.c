@@ -39,7 +39,7 @@ void MERGE_ROOT(int NFILE, char **INFILES, char *OUTFILE);
 
 #define MXFILE_MERGE 200 
 
-char msgerr1[80], msgerr2[80];
+char msgerr1[MXCHAR_MSGERR+40], msgerr2[MXCHAR_MSGERR+40];
 
 struct INPUTS {
   int  NFILE_IN ;
@@ -194,7 +194,7 @@ void checkFiles(void) {
 	sprintf(INPUTS.FILETYPE_NAME, "%s", FTYPE);
 
 	if ( IFILETYPE < 0 ) {
-	  sprintf(msgerr1,"Invalid file type for '%s'", inFile);
+	  sprintf(msgerr1,"Invalid file type for '%.*s'", MXCHAR_MSGERR, inFile);
 	  sprintf(msgerr2,"Must be a ROOT file.");
 	  errmsg(SEV_FATAL, 0, fnam, msgerr1, msgerr2 );	
 	}
@@ -221,7 +221,7 @@ void checkFiles(void) {
   printf(" merged output --> '%s' \n", outFile) ; fflush(stdout);
   if ( jstat == 0  ){
     sprintf(msgerr1,"Output file already exists ?!?!?!");
-    sprintf(msgerr2,"See '%s' ", outFile);
+    sprintf(msgerr2,"See '%.*s' ", MXCHAR_MSGERR, outFile);
     errmsg(SEV_FATAL, 0, fnam, msgerr1, msgerr2 );
   }
 

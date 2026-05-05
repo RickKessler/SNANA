@@ -11,11 +11,15 @@ void read_Inoue_coeffs() {
     /* Read the coefficients files */
     
     FILE *tlaf, *tdla;
-    char *arg,buff[1024];
-    char delim[]=" \n\t,\r";
     int j, ix;
-    double value;
-    
+    char buff[1024];
+
+    /* xxxxxx mark delete May 5 2026 (caught by -Wall) xxxxxx
+    char *arg,buff[1024];
+    caught by -Wall char delim[]=" \n\t,\r";
+    caught by -Wall    double value;
+    xxxxxxxx end mark xxxxxx */
+
     NA=39;
     lam1 = malloc(sizeof(double)*NA);    
     ALAF1 = malloc(sizeof(double)*NA);    

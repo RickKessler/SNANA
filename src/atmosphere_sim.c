@@ -724,8 +724,8 @@ void read_filterTrans(int ifile) {
   int NBIN, ITMP, gzipFlag ;
 
   char 
-    PATH_SNANA_FILTERS[200]
-    ,filterFile[200], *fptr
+    PATH_SNANA_FILTERS[MXPATHLEN+40]
+    ,filterFile[MXPATHLEN], *fptr
     ,tmpFile[200]
     ,fnam[] = "read_filterTrans" 
     ;
@@ -827,7 +827,7 @@ void read_filterTrans(int ifile) {
 void read_sed(int ifile) {
 
   FILE *fp;
-  char tmpFile[200];
+  char tmpFile[MXPATHLEN];
   double lambda, flux;
   double LAM_MIN, LAM_MAX;
   int NBIN;

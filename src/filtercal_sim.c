@@ -1,6 +1,5 @@
 /*****************************************
 
-
   Created Mar 12, 2009 by R.Kessler
 
   Simulate (actually, calculate) the filter-response
@@ -90,7 +89,7 @@ double  MAGDIF_MAX ;
 struct INPUTS {
   char inputFile[200] ;
   char outFile[200] ;
-  char readmeFile[200];
+  char readmeFile[MXPATHLEN];
 
   int NFILT ;
   char filterFile[MXFILTCAL][200] ;
@@ -596,7 +595,7 @@ void  proc_input(void) {
 void read_filterTrans(int ifile) {
 
   FILE *fp;
-  char tmpFile[200];
+  char tmpFile[MXPATHLEN+40];
   double lambda, trans;
   double sum1, sum2;
   int NBIN, ITMP;
@@ -1023,7 +1022,7 @@ double SYNMAG( double z, double *ptrlam, double *ptrtrans, double *ptrflux ) {
     ilamz = (int)tmp ;
 
     flux_E     = *(ptrflux  + ilamz);  // erg/s/cm^2/A
-    flux_count = flux_E * lam/hc;     // per s per cm^2 per A 
+    flux_count = flux_E * lam/hc;  (void)flux_count;   // per s per cm^2 per A 
 
     //    printf(" xxxx lam=%6.0f  flux_E = %le ilamz=%d \n", lam, flux_E, ilamz );
 

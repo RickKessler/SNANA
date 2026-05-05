@@ -287,6 +287,7 @@ void simlib_add_header(
 
   // make sanity checks on input values.
   if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
+    (void)istat;
     istat = CHECK_SIMLIB_VAL("IDLIB",   (float)IDLIB,  0.0, (float)MXLIBID_SIMLIB_TOOLS );
     istat = CHECK_SIMLIB_VAL("NOBS",    (float)NOBS,   1.0, (float)MXOBS_SIMLIB_TOOLS   );
     istat = CHECK_SIMLIB_VAL("MWEBV",   MWEBV,         0.0,  MXMWEBV_SIMLIB_TOOLS       );
@@ -428,7 +429,7 @@ void simlib_add_mjd(
   // make sanity checks after adding entry to file
 
   if ( SIMLIB_TOOLS.OPT_CHECKVAL == 1 ) {
-    
+    (void)istat;
     istat = CHECK_SIMLIB_VAL("MJD",          MJD,     20000.0, 90000. );
     istat = CHECK_SIMLIB_VAL("CCDGAIN",      CCDGAIN,     0.0,   100. );
     istat = CHECK_SIMLIB_VAL("CCDNOISE",     CCDNOISE,    0.0,   100. );

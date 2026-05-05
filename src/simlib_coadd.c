@@ -250,10 +250,9 @@ void copy_SIMLIB_CONTENTS_OBS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
 // ****************************************
 int main(int argc, char **argv) {
 
-  int LIBID, obs, ifilt, NOBS ;
+  int LIBID, obs, NOBS ;
   int RDSTAT ;
   float XN, XNMOD=100.;
-  char cfilt[2];
 
   // --------------- BEGIN --------
 
@@ -422,7 +421,7 @@ void  parse_args(int argc, char **argv) {
 
   int i, i1, N;
   char *ptrhead, copt[20];
-  char fnam[] = "parse_args" ;
+  char fnam[] = "parse_args" ;  (void)fnam;
 
   // --------------- BEGIN --------------
 
@@ -450,7 +449,7 @@ void  parse_args(int argc, char **argv) {
 
   if ( argc >= 2 ) {
     sscanf( argv[1], "%s", SIMLIB_INPUT.FILE );
-    sprintf(SIMLIB_OUTPUT.FILE, "%s.COADD", SIMLIB_INPUT.FILE );
+    sprintf(SIMLIB_OUTPUT.FILE, "%.*s.COADD", MXPATHLEN-10, SIMLIB_INPUT.FILE );
   }
   else {
     sprintf(c1err, "Must give SIMLIB file year as argument." ); 
@@ -581,14 +580,13 @@ void SIMLIB_open_read(void) {
   // Open input SIMLIB file and read header.
   // Jan 7 2021: use snana_open to allow reading gzipped SIMLIB.
 
-  char cline[MXPATHLEN], c_get[MXPATHLEN], c_tmp[MXPATHLEN];
-  char clast[MXPATHLEN], key[MXPATHLEN], *fg;
+  char cline[MXPATHLEN], c_tmp[MXPATHLEN], key[MXPATHLEN], *fg;
   char fullName[MXPATHLEN] ;
 
-  bool FOUND_COMMENT = false, FOUND_DOCANA = false, FOUND_FILTERS=false ;
+  bool FOUND_DOCANA = false, FOUND_FILTERS=false ;
   int  READHEAD, i, gzipFlag, iwd, NWD, add ;
   int  langC = 0;
-  char fnam[] = "SIMLIB_open_read" ;
+  char fnam[] = "SIMLIB_open_read" ; (void)fnam;
   // ---------------- BEGIN --------------
 
   printf("\n SIMLIB_open_read(): \n ");
@@ -602,7 +600,7 @@ void SIMLIB_open_read(void) {
 					fullName,  &gzipFlag ); 
   if ( !fp_simlib_input ) {
     sprintf(c1err,"cannot open input simlib file: ");
-    sprintf(c2err," '%s' ", SIMLIB_INPUT.FILE );
+    sprintf(c2err," '%.*s' ", MXCHAR_MSGERR, SIMLIB_INPUT.FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -650,7 +648,6 @@ void SIMLIB_open_read(void) {
     }
     
     if ( strcmp(key,"COMMENT:") == 0 )  { 
-      FOUND_COMMENT = true ; 
       if ( REQUIRE_DOCANA_COADD ) {
 	sprintf(c1err,"COMMENT: keys no longer allowed." ) ;
 	sprintf(c2err,"Add %s YAML block before SURVEY key.",
@@ -716,7 +713,7 @@ void SIMLIB_open_read(void) {
 
   if ( (fp_simlib_output = fopen(SIMLIB_OUTPUT.FILE, "wt")) == NULL ) {   
     sprintf(c1err,"Cannot open output simlib file:");
-    sprintf(c2err," '%s'", SIMLIB_OUTPUT.FILE );
+    sprintf(c2err," '%.*s'", MXCHAR_MSGERR, SIMLIB_OUTPUT.FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -746,17 +743,17 @@ void SIMLIB_read(int *RDSTAT) {
     Dec 6 2021: set INFO_HEAD[IPAR_NEA_UNIT] 
   */
 
-  char  c_get[80], c_tmp[80],cfilt[4], STRING_IDEXPT[20] ;
+  char  c_get[80], cfilt[4], STRING_IDEXPT[20] ;
   int   IDEXPT, NEXPOSE;
 
   int i, o, NOBS_READ, NOBS_ACCEPT, LIBID ;
-  int OPTLINE, NOBS_EXPECT, ENDLIB, OKLIBID, iwd, NWD    ;
+  int OPTLINE, NOBS_EXPECT, ENDLIB, OKLIBID  ;
 
   double *MJD_UNSORT = (double*) malloc( MXMJD * sizeof(double) ) ;
   double MJD, CCDGAIN, CCDNOISE, SKYSIG, NEA, PSF[3], ZPT[2] ;
   double MAG, RA, DEC, XMW[20], MWEBV    ;
 
-  char  fnam[] = "SIMLIB_read"  ;
+  char  fnam[] = "SIMLIB_read"  ; (void)fnam;
 
   // ---------------- BEGIN ------------------
 
@@ -965,8 +962,8 @@ void sort_OBS_byMJD(int NOBS, double *MJD_UNSORT) {
 
   // Created Jun 22 2025
   int *INDEX_SORT = (int*)malloc( NOBS * sizeof(int) );
-  int  o_sort, i, o ;
-  char fnam[] = "sort_OBS_byMJD";
+  int  o_sort, o ;
+  char fnam[] = "sort_OBS_byMJD";  (void)fnam;
   // -------------- BEGIN ------------
 
   copy_SIMLIB_CONTENTS(&SIMLIB_INPUT, &SIMLIB_INPUT_TEMP);
@@ -997,7 +994,7 @@ void SIMLIB_sort_band(void) {
   int  ifilt, NFILT, o, NOBS_copy=0 ;
   int  LDMP = 0;
   char band[2];
-  char fnam[] = "SIMLIB_sort_band" ;
+  char fnam[] = "SIMLIB_sort_band" ; (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -1049,7 +1046,7 @@ void SIMLIB_coadd(void) {
   double MJD, MJD_LAST, MJD_DIF, XIN, XSUM, XN, XNOPT, ARG, ZPTOFF;
   double *PTR_INFO_INPUT, *PTR_INFO_OUTPUT  ;
 
-  char fnam[] = "SIMLIB_coadd";
+  char fnam[] = "SIMLIB_coadd";  (void)fnam;
 
   // ------------- BEGIN ----------
 
@@ -1259,7 +1256,7 @@ void copy_SIMLIB_CONTENTS(SIMLIB_CONTENTS_DEF *CONTENTS_INP,
 
   int NOBS = CONTENTS_INP->NOBS;
   int ipar, obs;
-  char fnam[] = "copy_SIMLIB_CONTENTS";
+  char fnam[] = "copy_SIMLIB_CONTENTS";  (void)fnam;
 
   // ------------ BEGIN -------------
 
@@ -1379,8 +1376,8 @@ void  insert_NLIBID(void) {
   //
   // Jan 10 2019: \ -> \\ in sedCmd to avoid warning on Midway2
 
-  char INSERT_LINE[100], sedCmd[400];
-  char fnam[] = "insert_NLIBID" ;
+  char INSERT_LINE[MXPATHLEN], sedCmd[2*MXPATHLEN+40];
+  char fnam[] = "insert_NLIBID" ;  (void)fnam;
   
   // ------------- BEGIN -------------
 
@@ -1392,7 +1389,7 @@ void  insert_NLIBID(void) {
   sprintf(sedCmd,"sed -i '/SURVEY/a\\%s' %s", 
 	  INSERT_LINE, SIMLIB_OUTPUT.FILE );
 
-  int isys = system(sedCmd);
+  int isys = system(sedCmd);  (void)isys;
 
 
   return ;

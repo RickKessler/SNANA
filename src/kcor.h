@@ -67,7 +67,7 @@ double NULLVAL = 999.0 ;
 char subdir_snsed[20]      = "snsed"   ;  // default location in SNDATA_ROOT
 char subdir_standards[20]  = "standards" ;
 char subdir_filter[20]     = "filters" ;
-char PATH_SNDATA_FILTER[200];  // $SNDATA_ROOT/filters
+char PATH_SNDATA_FILTER[2*MXPATHLEN];  // $SNDATA_ROOT/filters
 
 
 struct INPUTS {

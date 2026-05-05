@@ -280,6 +280,7 @@ OBJ_SNTOOLS_SNANA	 = 	\
 	$(OBJ)/sntools_dataformat_text.o	\
 	$(OBJ)/sntools_data.o 			\
 	$(OBJ)/sntools_zPDF_spline.o \
+	$(OBJ)/sntools_spline.o \
 	$(OBJ)/sntools_modelgrid_read.o \
 	$(OBJ)/sntools_calib.o \
 	$(OBJ)/sntools_output.o  \
@@ -701,11 +702,17 @@ $(OBJ)/sntools_wronghost.o : $(SRC)/sntools_wronghost.c  $(SRC)/sntools_wronghos
 	$(CC) $(SNCFLAGS) $(SRC)/sntools_wronghost.c )
 
 # -------------------------------------------------
-# compile sntools_wronghost (.o only)
 
 $(OBJ)/sntools_zPDF_spline.o : $(SRC)/sntools_zPDF_spline.c $(SRC)/sntools_zPDF_spline.h
 	(cd $(OBJ); \
 	$(CC) $(SNCFLAGS) $(IGSL) $(SRC)/sntools_zPDF_spline.c )
+
+# -------------------------------------------------                                                                          
+
+$(OBJ)/sntools_spline.o : $(SRC)/sntools_spline.c $(SRC)/sntools_spline.h
+	(cd $(OBJ); \
+        $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/sntools_spline.c )
+
 
 
 # -------------------------------------------------

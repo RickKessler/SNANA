@@ -205,13 +205,10 @@
         NULLVAL          = -99999.  &      
        ,MAG_SATURATE     = -7.0     &  ! for sim only
        ,LEGACY_INIT_VAL  = 1.0E8    
+
     CHARACTER, PARAMETER ::        &
        SNTABLE_LIST_DEFAULT*60           = 'SNANA  FITRES'  &
-       ,METHOD_SPLINE_QUANTILES_DEFAULT*8 = 'CUBIC'  ! default; may change in LC fit
-    INTEGER, PARAMETER ::        &
-         INDEX_SPLINE_QUANTILE_ZPHOT = 1 &
-         ,INDEX_SPLINE_LOGMASS_ZGRID = 2 
-        
+      ,METHOD_SPLINE_QUANTILES_DEFAULT*8 = 'CUBIC'  ! default; may change in LC fit
 
 ! - - - - - - - - - - - - - - 
 ! physical constants
@@ -1709,6 +1706,7 @@
         ,OPT_REFORMAT_SPECTRA  &  ! I: 1=> 3-col text: lam, Flam, Flamerr (ignore photometry)
         ,OPTSIM_LCWIDTH        &  ! I: 1=> option to compute LC width
         ,DEBUG_FLAG            &  ! I: for internal debug
+        
         ,JOBSPLIT(2)           &  ! I: for batch; process (1)-range of (2)=TOTAL
         ,JOBSPLIT_EXTERNAL(2)  &  ! passed by submit_batch for text format
         ,MXLC_FIT              &  ! I: stop after this many fits passing all cuts
@@ -17350,7 +17348,7 @@
     INTEGER   :: IERR                         ! (O) return error code (0 = no error)
 
 ! local var
-    INTEGER*8 :: GALID, INDEX_SPLINE
+    INTEGER*8 :: GALID
     CHARACTER*(MXCHAR_CCID)  CCID
     INTEGER   :: NQ, q, LM, IERR_ZPDF, IPRINT
     REAL*8    :: QZPHOT(MXZPHOT_Q), QPROB(MXZPHOT_Q), MEAN, STD
@@ -17397,24 +17395,11 @@
     IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
-    if (DEBUG_FLAG == 28 ) THEN
-       ! REFACTORED  NEWCALL GOES HERE MAY, 2026
-       INDEX_SPLINE = -9
-       CALL init_spline(INDEX_SPLINE_QUANTILE_ZPHOT, NQ, QPROB, QZPHOT,  &
-            SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
-            METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
-            IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
-       PRINT*, 'XXX DEBUG FLAG = ', DEBUG_FLAG
-       STOP
-    else
-       ! LEGACY CALL
-       CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
-            SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
-            METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
-            IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
-    endif
+    CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
+         SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
+         METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
+         IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
 
-       
     if (IERR .EQ. 0 ) then
        SNHOST_QZPHOT_MEAN(IGAL) = MEAN ! store mean & std in 4 byte global
        SNHOST_QZPHOT_STD(IGAL)  = STD

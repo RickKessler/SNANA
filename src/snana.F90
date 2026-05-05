@@ -3333,7 +3333,6 @@
     REAL*8    DARRAY(MXEPOCH)
     INTEGER   OPT, LEN
     CHARACTER STRING*100
-    LOGICAL   ISCORRECT_BUG, ISCORRECT_FIX
 
     LOGICAL   correct_sign_vpec_data
     EXTERNAL  correct_sign_vpec_data
@@ -3600,11 +3599,9 @@
 
     INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
 
-    INTEGER   IVAR, LEN
+    INTEGER   IVAR
     REAL*8    DARRAY(MXVAR_PRIVATE)
     CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*60
-    CHARACTER VARNAME(20)*60
-    LOGICAL   MATCH_VARNAME
 
 ! -------------- BEGIN ---------------
 
@@ -4208,8 +4205,7 @@
 
     INTEGER   LENPRE, ifilt, q, NQZPHOT
     CHARACTER PREFIX*20, PREFIXz*20, STRING*40, KEY*60, KEY_PREFIX*60
-    REAL*8    DARRAY(MXFILT_OBS), DARRAY2(MXFILT_OBS), SB, MAG, zq
-    LOGICAL LTMP, LZQ
+    REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
 ! -------------- BEGIN ----------
 
@@ -12098,10 +12094,10 @@
         ,cfilt1*2, SURVEY_TMP*(MXCHAR_SURVEY)  & 
         ,SURVEYFILE*(MXCHAR_FILENAME)  & 
         ,NAME_forC*(MXCHAR_FILENAME)  & 
-        ,upper*60, ctel*60, cfield*60  & 
+        ,upper*60, cfield*60  & 
         ,SURVEY_FILTERS_ORIG*(MXFILT_ALL)
 
-    LOGICAL LTMP, LKEY, LSRVY
+    LOGICAL LKEY, LSRVY
 
 ! functions
     INTEGER FILTINDX
@@ -22350,9 +22346,9 @@
 
     INTEGER  & 
          IFILT, IFILT_OBS, ITEXT  & 
-        ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
+        ,LENBLOCK, LENLIST, ipar, ivar
 
-    LOGICAL LTMP, ADDCOL_SETPKMJD
+    LOGICAL   ADDCOL_SETPKMJD
     CHARACTER varlist*100, CTMP*60, CBLOCK*40
     CHARACTER FNAM*22, CFILT*2
     EXTERNAL  & 
@@ -24710,7 +24706,6 @@
     REAL*8  z8, LAMDIF_MIN8
 
     CHARACTER FNAM*32
-    INTEGER NEAREST_IFILT_REST     ! lefacy fortran func
     INTEGER NEAREST_IFILTDEF_REST  ! refactored C code
 ! ------------- BEGIN -------------
 

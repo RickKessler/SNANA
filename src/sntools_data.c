@@ -138,7 +138,7 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
   bool ISKEY_SIM     = ( strncmp(key,"SIM",3)     == 0 && !ISKEY_SIMSED) ;
 
   int ivar, ipar ;
-  char fnam[] = "copy_SNDATA_GLOBAL" ;
+  char fnam[] = "copy_SNDATA_GLOBAL" ;  (void)fnam;
 
   // --------------- BEGIN --------------
 
@@ -316,7 +316,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   int igal, NGAL, ifilt, ifilt_obs, NVAR, ivar, ipar ;
   HOSTGALz_DEF *HOSTGALz;
   char PREFIX[40], PREFIXz[40], KEY_TEST[60] ;
-  char fnam[] = "copy_SNDATA_HEAD" ;
+  char fnam[] = "copy_SNDATA_HEAD" ; (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -838,7 +838,7 @@ int select_MJD_SNDATA(double *CUTWIN_MJD) {
   int  NOBS = SNDATA.NOBS ;
   bool LDMP = false ;
   double MJD;
-  char fnam[] = "select_MJD_SNDATA" ;
+  char fnam[] = "select_MJD_SNDATA" ; (void)fnam;
   // ---------- BEGIN -------
 
   for(o=1; o <= NOBS; o++ ) {  // note fortran-like index
@@ -917,7 +917,7 @@ void copy_SNDATA_OBS(int copyFlag, char *key, int NVAL,
 
   int  NOBS_STORE = SNDATA.NOBS_STORE ;
   int  obs, OBS, NSPLIT, MSKOPT, NVAL_TMP ;
-  char fnam[] = "copy_SNDATA_OBS" ;
+  char fnam[] = "copy_SNDATA_OBS" ; (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -1194,7 +1194,7 @@ void copy_GENSPEC(int copyFlag, char *key, int ispec, double *parVal ) {
   //
 
   int  NBLAM, ilam ;
-  char fnam[] = "copy_GENSPEC" ;
+  char fnam[] = "copy_GENSPEC" ; (void)fnam;
 
   // ------------ BEGIN ----------
 
@@ -1271,7 +1271,7 @@ void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST) {
   int i0, i1, NVAR_LIST=0, NVAR_MATCH=0 ;
   int MEMC = sizeof(char)*40;
   char **ptr_VARNAME_LIST;
-  char fnam[] = "RD_PRIVATE_INIT" ;
+  char fnam[] = "RD_PRIVATE_INIT" ; (void)fnam;
 
   // --------- BEGIN --------
 
@@ -1349,7 +1349,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   char VARNAME[60], PREFIX[40], PREFIXz[40] ;
   char TABLE_NAME[] = "OVERRIDE" ;
   char VARLIST[]    = "ALL" ;
-  char fnam[]       = "RD_OVERRIDE_INIT" ;
+  char fnam[]       = "RD_OVERRIDE_INIT" ; (void)fnam;
 
   // ----------- BEGIN -----------
 
@@ -1563,7 +1563,7 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
   int LDMP = 0 ;
   char cWARN[20];
   char OVERRIDE_PATH_LOCAL[MXPATHLEN]; // more memory for ENVreplace
-  char fnam[] = "get_override_file_list" ;
+  char fnam[] = "get_override_file_list" ; (void)fnam;
 
   // ----------- BEGIN ---------
 
@@ -1647,7 +1647,7 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
 // ==================================================
 void rd_override_check_mistake(char *varname_mistake, char *varname_correct) {
 
-  char fnam[] = "rd_override_check_mistake";
+  char fnam[] = "rd_override_check_mistake"; (void)fnam;
 
   // ------------ BEGIN ----------
 
@@ -1680,7 +1680,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   char ID_LOCAL[40], CID_LOCAL[40];
 
   int LDMP = 0 ;
-  char fnam[] = "RD_OVERRIDE_FETCH";
+  char fnam[] = "RD_OVERRIDE_FETCH"; (void)fnam;
 
   // ----------- BEGIN -----------
   DVAL[0] = 0.0;
@@ -2072,7 +2072,7 @@ void rd_override_qzphot_implicit(int OPT, int IGAL) {
   char PREFIX_QZPHOT[]   = "QZPHOT" ;
   char PREFIX_OBSOLETE[] = "HOSTGAL_ZPHOT_Q" ;
   char *varName, STRDUM[60] ;
-  char fnam[] = "rd_override_qzphot_implicit" ;
+  char fnam[] = "rd_override_qzphot_implicit" ;  (void)fnam;
 
   // ------------- BEGIN -------------
     

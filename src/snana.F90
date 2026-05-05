@@ -17403,6 +17403,7 @@
        CALL init_spline(INDEX_SPLINE_QUANTILE_ZPHOT, NQ, QPROB, QZPHOT,  &
             SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
             METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
+            "QUANTILE_ZPHOT" // char(0), &
             IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
        PRINT*, 'XXX DEBUG FLAG = ', DEBUG_FLAG
        STOP

@@ -44,7 +44,7 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   double sum    = 0. ;
   double sum_pdf= 0. ;
   double sum_sq = 0. ;
-  int i,i2;
+  int i;
   int LDMP = 0;
 
   // ------ BEGIN ---------
@@ -178,15 +178,15 @@ double eval_zPDF_spline(double z) {
   //
   // Jan 9 2024 RK : pdf /= pdf_max
 
-  double pdf,z0,z1,cdf0,cdf1;
+  double pdf, z0, z1  ;
   double dz = zPDF_spline.dz;
-  char fnam[] = "eval_zPDF_spline";
+  char fnam[] = "eval_zPDF_spline";  (void)fnam;
   // BEGIN
   if (z < zPDF_spline.zmin || z > zPDF_spline.zmax )  {
     pdf=0.0 ;
   }
   else {
-    z0 = z1 = z;
+    z0 = z1 = z;  (void)z0;
     if ( z+dz < zPDF_spline.zmax) { z1 = z+dz ; }
     if ( z-dz > zPDF_spline.zmin) { z0 = z-dz ; }
     pdf = gsl_spline_eval_deriv(zPDF_spline.spline, z, zPDF_spline.acc);

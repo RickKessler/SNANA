@@ -266,6 +266,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
   // ---------------------- BEGIN ---------------------
 
+
   TABLEFILE_INIT_VERIFY(fnam, FILENAME) ;
 
   OPEN_FLAG = TYPE_FLAG = OPT_Q = IERR = 0 ;
@@ -447,6 +448,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   // store USE-flag and filename
   sprintf(NAME_TABLEFILE[OPEN_FLAG][TYPE_FLAG], "%s", FILENAME);
   USE_TABLEFILE[OPEN_FLAG][TYPE_FLAG] = 1; 
+
 
   if ( IERR != 0 ) 
     { return -9 ; }  // generate error code
@@ -1044,9 +1046,9 @@ int SNTABLE_READPREP(int IFILETYPE, char *TABLENAME) {
   //   TABLENAME  : name of table to read
   //
 
-  char fnam[] = "SNTABLE_READPREP" ;
   int  NVAR, ISOPEN_DEJA, ivar ;
   char msg[180], TBNAME_LOCAL[40] ;
+  char fnam[] = "SNTABLE_READPREP" ;
   // --------------- BEGIN --------------
 
   sprintf(msg,"read VARLIST from table = %s", TABLENAME);

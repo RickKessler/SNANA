@@ -54,7 +54,7 @@
 // =======================================
 void init_spectrograph(char *inFile, char *stringOpt ) {
 
-  //  char fnam[] = "init_spectrograph" ;
+  char fnam[] = "init_spectrograph" ;  (void)fnam;
 
   // ------------- BEGIN ---------------
 
@@ -79,7 +79,7 @@ void parse_spectrograph_options(char *stringOpt) {
   char *ptrOpt[MXOPT_SPEC], s[MXOPT_SPEC][40];
   char *ptr2[MXOPT_SPEC], s2[2][40];
   char comma[]=",", equal[]="=" ;
-  char fnam[] = "parse_spectrograph_options" ;
+  char fnam[] = "parse_spectrograph_options" ;  (void)fnam;
 
   // ------------- BEGIN --------------
 
@@ -118,7 +118,7 @@ void read_spectrograph_text(char *inFile) {
 
   FILE *fp ;
   int NROW_FILE, ikey, NKEY_FOUND, DONE_MALLOC ;
-  int NBL, NBT, NRDCOL, t, GZIPFLAG ;
+  int NBL, NBT, t, GZIPFLAG ;
   char c_get[200], tmpLine[200] ;
 
 #define NKEY_REQ_SPECTROGRAPH 3
@@ -134,7 +134,7 @@ void read_spectrograph_text(char *inFile) {
   int KEYFLAG_FOUND[NKEY_REQ_SPECTROGRAPH];
 
   char *fg;
-  char fnam[] = "read_spectrograph_text" ;
+  char fnam[] = "read_spectrograph_text" ;  (void)fnam;
 
   // ---------------- BEGIN -------------
 
@@ -197,8 +197,6 @@ void read_spectrograph_text(char *inFile) {
     if( NKEY_FOUND == NKEY_REQ_SPECTROGRAPH && DONE_MALLOC==0 ) {
       // malloc array vs. lambda and TEXPOSE
       malloc_spectrograph(+1, NROW_FILE, NBT);
-
-      NRDCOL = 2 + 2*NBT ; // number of columns to read below
       DONE_MALLOC = 1;
     }
 
@@ -323,7 +321,7 @@ int read_SPECBIN_spectrograph(FILE *fp) {
   int jtmp, t, NBMOD ;
   double XTMP[MXVALUES_SPECBIN] ;
   double SNR_OLD, SNR_NEW ;
-  char fnam[] = "read_SPECBIN_spectrograph" ;
+  char fnam[] = "read_SPECBIN_spectrograph" ;  (void)fnam;
 
   // ------------ BEGIN -------------
 
@@ -422,7 +420,7 @@ void check_SNR_SPECTROGRAPH(int l, int t) {
   double *ptrSNR;
   double *ptrTexpose = INPUTS_SPECTRO.TEXPOSE_LIST;
   int    iSNR ;
-  char fnam[]    = "check_SNR_SPECTROGRAPH" ;
+  char fnam[]    = "check_SNR_SPECTROGRAPH" ;  (void)fnam;
   //  int  LDMP = 0;
   // ---------------BEGIN ----------
 
@@ -522,7 +520,7 @@ int read_TEXPOSE_LIST(FILE *fp) {
   int NBT=0 ;
   double T, TLAST;
   char tmpLine[MXCHAR_TEXPOSE_LIST], *ptrtok, cval[40], *fg ;
-  char fnam[] = "read_TEXPOSE_LIST";
+  char fnam[] = "read_TEXPOSE_LIST";  (void)fnam;
 
   // ---------- BEGIN --------------
 
@@ -591,7 +589,7 @@ void malloc_spectrograph(int OPT, int NBIN_LAM, int NBIN_TEXPOSE) {
   int  MEMT  = NBIN_TEXPOSE       * sizeof(double);
   int  MEMB  = NBIN_LAM_LOCAL     * sizeof(bool);
   int  ilam;
-  //  char fnam[] = "malloc_spectrograph" ;
+  char fnam[] = "malloc_spectrograph" ;  (void)fnam;
 
   // ------------ BEGIN ---------------
 
@@ -663,7 +661,7 @@ void  solve_spectrograph(void) {
   double SNR_check[2], check[2], MAGREF_DIF, MAGSNR_DIF, magCheck ;
   int    LDMP_SNRFIX = 1;
   char  msg[100];
-  char fnam[] = "solve_spectrograph" ;
+  char fnam[] = "solve_spectrograph" ;  (void)fnam;
 
   // ------------- BEGIN ---------------
 
@@ -716,7 +714,7 @@ void  solve_spectrograph(void) {
 	ARG    = -0.4 * MAGREF_DIF ;
 	SNR[1] = 1.005 * pow(TEN,ARG) * SNR[0] ;
 	if ( LDMP_SNRFIX ) {
-	  printf(" HACK-SNR1: LAM=%.1f  SNR0=%f  SNR1=%f -> %f \n",
+	  printf(" %s HACK-SNR1: LAM=%.1f  SNR0=%f  SNR1=%f -> %f \n",
 		 fnam, LAMAVG, SNR[0], SNR1_ORIG, SNR[1] );
 	  fflush(stdout);
 	}
@@ -827,7 +825,7 @@ void get_FILTERtrans_spectrograph(double *LAMFILT_MIN, double *LAMFILT_MAX,
   int NBL_TRANS ;
   int OPT_INTERP=1;
 
-  char fnam[] = "get_FILTERtrans_spectrograph" ;
+  char fnam[] = "get_FILTERtrans_spectrograph" ;  (void)fnam;
 
   // -------------- BEGIN -------------
 
@@ -942,8 +940,8 @@ void read_spectrograph_fits(char *inFile) {
   int    NBL, NBT, l, t, ifilt, ifiltdef ;
   double L0, L1;
 
-  char keyName[40], comment[80], TBLname[40], INFILE[MXPATHLEN] ;
-  char fnam[] = "read_spectrograph_fits" ;
+  char keyName[40], comment[80], TBLname[40], INFILE[2*MXPATHLEN] ;
+  char fnam[] = "read_spectrograph_fits" ;  (void)fnam;
 
   // --------------- BEGIN -----------------
 
@@ -968,7 +966,7 @@ void read_spectrograph_fits(char *inFile) {
     fits_open_file(&fp, INFILE, READONLY, &istat );
   }
 
-  sprintf(c1err,"Open %s", INFILE );
+  sprintf(c1err,"Open %.*s", MXCHAR_MSGERR, INFILE );
   snfitsio_errorCheck(c1err, istat);
 
   // -------------------------------------------------
@@ -993,7 +991,7 @@ void read_spectrograph_fits(char *inFile) {
 	 INPUTS_SPECTRO.INSTRUMENT_NAME );
 
   char *synlist = INPUTS_SPECTRO.SYN_FILTERLIST_BAND ;
-  printf("\t Found %d synthetic spectrograph filters (%s) \n",
+  printf("\t Found %lu synthetic spectrograph filters (%s) \n",
 	 strlen(synlist), synlist );
   fflush(stdout);
 
@@ -1070,7 +1068,7 @@ void read_spectrograph_fits(char *inFile) {
   snfitsio_errorCheck(c1err, istat);
 
   // compute LAMAVG & LAMBIN
-  double LBIN, LASTBIN=0.0 ;
+  double LBIN;
   // xxx mark delete Oct 29 2024 INPUTS_SPECTRO.WRITE_MASK = WRITE_MASK_SPEC_DEFAULT;
   INPUTS_SPECTRO.WRITE_MASK = WRITE_MASK_SPECTRA ;   
   for(l=0; l <NBL; l++ ) {
@@ -1081,8 +1079,6 @@ void read_spectrograph_fits(char *inFile) {
     INPUTS_SPECTRO.LAMBIN_LIST[l] = LBIN;
 
     INPUTS_SPECTRO.ISLAM_EXTEND_LIST[l] = false ;
-
-    LASTBIN=LBIN; 
   }
 
 
@@ -1121,7 +1117,7 @@ void read_spectrograph_fits(char *inFile) {
 
       if ( ZP != 0.0 ) {
 	if ( LAMMIN_ZP > 0.9E9 ) { LAMMIN_ZP = LAM; }
-	LAMMAX_ZP = LAM;
+	LAMMAX_ZP = LAM;  (void)LAMMAX_ZP;
       }
 
     } // end l loop over lambda
@@ -1226,7 +1222,7 @@ void compute_spectrograph_filter_overlap(void) {
 
   int    ifilt, ifilt_obs, NLAM, ilam ;
   double LAMOBS, TRANS, SUMTRANS, SUMTRANS_SPEC, MAXTRANS,  OVERLAP ;  
-  char fnam[] = "compute_spectrograph_filter_overlap";
+  char fnam[] = "compute_spectrograph_filter_overlap";  (void)fnam;
 
   // ---------- BEGIN ---------
 
@@ -1302,9 +1298,8 @@ void extend_spectrograph_lambins(void) {
   int    NLAM_EXTEND[2], NLAM_EXTEND_TOT=0 ; 
   double LAMSIG, LAMMIN, LAMMAX, LAMBIN ;
   bool   ISLAM_EXTEND ;
-  char TEXT_FIRSTLAST[2][8] = { "FIRST", "LAST" } ;
   char TEXT_COLOR[2][8]     = { "BLUE",  "RED " } ;
-  char fnam[] = "extend_spectrograph_lambins" ;
+  char fnam[] = "extend_spectrograph_lambins" ;  (void)fnam;
 
   // ---------- BEGIN ----------
 
@@ -1417,10 +1412,8 @@ void dump_INPUTS_SPECTRO(int nbin_dump, char *comment) {
   // Created May 2021
   // dump spectrograph table for first and last "nbin_dump" lambda bins.
 
-  int l, NBL = INPUTS_SPECTRO.NBIN_LAM ;  
-  int t, NBT = INPUTS_SPECTRO.NBIN_TEXPOSE ;  
-  int NERR = 0;
-  double LAMAVG, LAMBIN, LAMSIG, ZP, SIGSKY, VARSKY, SNR0, SNR1;
+  int t, l, NBL = INPUTS_SPECTRO.NBIN_LAM ;  
+  double LAMAVG, LAMBIN, LAMSIG, ZP, SIGSKY, VARSKY ;
   bool   ISLAM_EXTEND ;
 
   // ---------- BEGIN -----------
@@ -1491,7 +1484,7 @@ double getSNR_spectrograph(int ILAM, double TEXPOSE_S, double TEXPOSE_T,
   //  double TEXPOSE_T_local = TEXPOSE_T ;
   double SNR, ZP_S, ZP_T, arg, SQ_S, SQ_T, SQ_SUM, Flux, FluxErr ;
   bool   DO_TEXTRAP = false;
-  char fnam[] = "getSNR_spectrograph" ;
+  char fnam[] = "getSNR_spectrograph" ;  (void)fnam;
   char errmsg_ZP_S[] = "getSNR_spectrograph(ZP_S)";
   char errmsg_ZP_T[] = "getSNR_spectrograph(ZP_T)";
   char errmsg_SQ_S[] = "getSNR_spectrograph(SQ_S)";
@@ -1632,7 +1625,7 @@ int IMJD_GENSPEC(double MJD) {
 
   int    imjd, IMJD = -9 ;
   double MJD_SPEC, MJD_DIF_MIN, MJD_DIF ;
-  char fnam[] = "IMJD_GENSPEC" ;
+  char fnam[] = "IMJD_GENSPEC" ;  (void)fnam;
 
   // ----------- BEGIN ----------
 
@@ -1676,7 +1669,7 @@ void create_ideal_spectrograph(double lammin, double lammax, double lambin ) {
 
   int    ilam, NBIN_LAM, it ;  
   double lavg, lmin, lmax, LAM_MIN, LAM_MAX ;
-  char fnam[] = "create_ideal_spectrograph" ;
+  char fnam[] = "create_ideal_spectrograph" ;  (void)fnam;
 
   // ------------ BEGIN ------------
 

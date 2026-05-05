@@ -365,7 +365,7 @@ void malloc_stronglens(int NLENS) {
   int MEMI  = NLENS * sizeof(int);
     
   int i;  
-  char fnam[] = "malloc_stronglens";
+  char fnam[] = "malloc_stronglens";  (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -509,7 +509,7 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
     printf(" xxx \n");
     printf(" xxx -------- %s DUMP -------- \n", fnam );
     printf(" xxx input zSN = %.3f \n", zSN);
-    printf(" xxx output IDLENS=%d at zLENS=%.3f and zSRC=%.3f \n", 
+    printf(" xxx output IDLENS=%lld at zLENS=%.3f and zSRC=%.3f \n", 
 	   IDLENS_local, zLENS_local, zSRC_local );
     printf(" xxx output LOGMASS_LENS = %.3f +_ %.3f \n",
 	   LOGMASS_local, LOGMASS_ERR_local );

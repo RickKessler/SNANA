@@ -32,7 +32,6 @@ int read_WGTMAP(char *WGTMAP_FILE, int OPTMASK, GRIDMAP_DEF *GRIDMAP){
   int  FLAG_EXTRAP        = (OPTMASK & OPTMASK_WGTMAP_EXTRAP);
   int  FLAG_VERBOSE       = (OPTMASK & OPTMASK_WGTMAP_VERBOSE);
   int  FLAG_VARNAMES_ONLY = (OPTMASK & OPTMASK_WGTMAP_READ_VARNAMES_ONLY);
-  int  LDMP = 1;
   char KEYLIST_VARNAMES[2][20] = {"VARNAMES:", "VARNAMES_WGTMAP:"};
   bool FOUND_VARNAMES = false;
   bool FOUND_WGT      = false;
@@ -152,13 +151,12 @@ int read_VARNAMES_WGTMAP(char *WGTMAP_FILE, char *VARLIST_WGTMAP) {
   int MXCHAR = MXPATHLEN;
   int NWD, ivar, gzipFlag, NTMP=0 ;
   FILE *fp ;
-  bool IS_SNVAR, FOUNDVAR_WGT=false, FOUNDVAR_SNMAGSHIFT=false;
-  char FILENAME_FULL[MXPATHLEN], LINE[MXPATHLEN];
+  bool FOUNDVAR_WGT=false ;  (void)FOUNDVAR_WGT;
+  char LINE[MXPATHLEN];
   char c_get[60], VARNAME[60], *fg;
   char KEY_VARNAMES[] = "VARNAMES_WGTMAP:" ;
   char KEY_STOP[]     = "GAL:" ; // stop reading when this key is found
   char fnam[]         = "read_VARNAMES_WGTMAP" ;
-  int  LDMP = 0 ;
   // ------------- BEGIN ------------
 
   VARLIST_WGTMAP[0] = 0 ;
@@ -193,18 +191,8 @@ int read_VARNAMES_WGTMAP(char *WGTMAP_FILE, char *VARLIST_WGTMAP) {
 	if ( strcmp(VARNAME,"WGT") == 0 )
 	  { FOUNDVAR_WGT = true; continue; }
 
-	//if ( strcmp(VARNAME,HOSTLIB_VARNAME_SNMAGSHIFT) == 0 )
-	//  { FOUNDVAR_SNMAGSHIFT = true; continue; }
 
 	NVAR++ ;
-	/*
-	IS_SNVAR = checkSNvar_HOSTLIB_WGTMAP(VARNAME);
-	if ( !IS_SNVAR ) 
-	  { catVarList_with_comma(VARLIST_WGTMAP,VARNAME); }
-	if ( LDMP ) 
-	  { printf(" xxx %s wgtmap var '%s'  (storeFlag=%d)\n", 
-		   fnam, VARNAME, !IS_SNVAR ); } 
-	*/
       }
 
     } // end reading VARNAMES_WGTMAP line

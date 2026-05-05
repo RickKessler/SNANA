@@ -78,7 +78,7 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
   *************/
 
   int  NMAP=0 ;
-  char  fnam[] = "init_SEARCHEFF"  ;
+  char  fnam[] = "init_SEARCHEFF"  ;  (void)fnam;
  
 
   // ------------- BEGIN ----------
@@ -150,7 +150,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
   int  NONZERO_SPECID = SEARCHEFF_INFO_SPECID.NONZERO_SEARCHEFF;
   int  NONZERO_zHOST  = SEARCHEFF_INFO_zHOST.NONZERO_SEARCHEFF;
 
-  char fnam[] = "check_APPLYMASK_SEARCHEFF" ;
+  char fnam[] = "check_APPLYMASK_SEARCHEFF" ;  (void)fnam;
 
   // ---------- BEGIN --------------
 
@@ -265,7 +265,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   int   REQUIRE_EFF_FILE=0, gzipFlag, imap, NMAP=0 ;
   int   FOUNDMAP_DETECT=0, FOUNDMAP_PHOTPROB=0 ;
   char  file_local[MXPATHLEN], c_get[100], *ptrFile_user, *ptrFile_final ;   
-  char  fnam[] = "init_SEARCHEFF_PIPELINE"  ;
+  char  fnam[] = "init_SEARCHEFF_PIPELINE"  ;  (void)fnam;
     
 
   // ---------------- BEGIN ----------------
@@ -373,7 +373,7 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
   double VAL, EFF;
   int  IREAD, imap, NBIN ;
   char ctmp[MXFILTINDX] ;
-  char fnam[] = "readMap_SEARCHEFF_DETECT";
+  char fnam[] = "readMap_SEARCHEFF_DETECT";  (void)fnam;
 
   // ------------ BEGIN -------------
 
@@ -442,7 +442,7 @@ int malloc_NEXTMAP_SEARCHEFF_DETECT(void) {
   // Created March 2018
   // malloc next map, and return imap index.
   int imap, MEMD ;
-  char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;
+  char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;  (void)fnam;
   // ------------- BEGIN -------------
   INPUTS_SEARCHEFF.NMAP_DETECT++ ; 
   imap  = INPUTS_SEARCHEFF.NMAP_DETECT-1;
@@ -475,7 +475,7 @@ int  readMap_SEARCHEFF_PHOTPROB(FILE *fp,  char *key) {
   int NVAR_MAP, NFUN, NROW, IDMAP,  IVARABS, ibin ;
   double tmpVal, TMPVAL[MXVAR_SEARCHEFF_PHOTPROB];
   char VARNAME[20], *MAPNAME;
-  char fnam[] = "readMap_SEARCHEFF_PHOTPROB" ;
+  char fnam[] = "readMap_SEARCHEFF_PHOTPROB" ; (void)fnam;
 
   // --------------- BEGIN --------------
 
@@ -686,7 +686,7 @@ int IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME) {
 
   int ivar, IVARABS = -9;
   char *varTmp ;
-  char fnam[] = "IVARABS_SEARCHEFF_PHOTPROB" ;
+  char fnam[] = "IVARABS_SEARCHEFF_PHOTPROB" ; (void)fnam;
 
   for(ivar=0; ivar < MXDEF_VARNAMES_PHOTPROB; ivar++ ) {
     varTmp = VARDEF_SEARCHEFF_PHOTPROB[ivar];
@@ -720,10 +720,10 @@ void check_SEARCHEFF_DETECT(int imap) {
   char *cfilt = SEARCHEFF_DETECT[imap].FILTERLIST ;
 
   int     ibin, i, IBIN_HALF, IBIN_ONE ;
-  double  VAL, VAL_LAST, EFF, EFFDIF, EFFDIF_ONE, EFFDIF_HALF ;
+  double  VAL, EFF, EFFDIF, EFFDIF_ONE, EFFDIF_HALF ;
 
   char  *ptr_effname, *MAPNAME, cline[MXPATHLEN] ;
-  char fnam[] = "check_SEARCHEFF_DETECT" ;
+  char fnam[] = "check_SEARCHEFF_DETECT" ; (void)fnam;
 
   // ------------ BEGIN -------------
 
@@ -742,7 +742,6 @@ void check_SEARCHEFF_DETECT(int imap) {
   SEARCHEFF_DETECT[imap].NLINE_README = 0 ; 
 
 
-  VAL_LAST   = 0.0 ;
   EFFDIF_ONE = EFFDIF_HALF = 999.0;
   IBIN_HALF  = IBIN_ONE = 0;
 
@@ -787,7 +786,8 @@ void check_SEARCHEFF_DETECT(int imap) {
 void check_SEARCHEFF_PHOTPROB(int imap) {
   
   // set README comment(s).
-  char fnam[] = "check_SEARCHEFF_PHOTPROB" ;
+  char NAME[100], FIELDLIST[100], BANDLIST[MXFILTINDX];
+  char fnam[] = "check_SEARCHEFF_PHOTPROB" ; (void)fnam;
 
   // -------------- BEGIN ----------------
 
@@ -800,9 +800,9 @@ void check_SEARCHEFF_PHOTPROB(int imap) {
 	   "------------------------------ \n");
   }
 
-  char *NAME      = SEARCHEFF_PHOTPROB[imap].NAME;
-  char *FIELDLIST = SEARCHEFF_PHOTPROB[imap].FIELDLIST;
-  char *BANDLIST  = SEARCHEFF_PHOTPROB[imap].FILTERLIST;
+  sprintf(NAME,      "%s", SEARCHEFF_PHOTPROB[imap].NAME);
+  sprintf(FIELDLIST, "%s",  SEARCHEFF_PHOTPROB[imap].FIELDLIST);
+  sprintf(BANDLIST,  "%s",  SEARCHEFF_PHOTPROB[imap].FILTERLIST);
   int  NFUN       = SEARCHEFF_PHOTPROB[imap].NFUN_CDF ;
   int  NROW       = SEARCHEFF_PHOTPROB[imap].NROW;
 
@@ -812,9 +812,13 @@ void check_SEARCHEFF_PHOTPROB(int imap) {
 
   SEARCHEFF_PHOTPROB[imap].NLINE_README = 0 ; 
   int i = SEARCHEFF_PHOTPROB[imap].NLINE_README ;
-  char *cptr = SEARCHEFF_PHOTPROB[imap].README[i] ;
-  sprintf(cptr, "  PHOTPROB MAP %s: BANDS=%s  FIELD=%s \n",
-	  NAME, BANDLIST, FIELDLIST );
+
+  if ( i < 4 ) {
+    char *cptr = SEARCHEFF_PHOTPROB[imap].README[i] ;
+    sprintf(cptr, "  PHOTPROB MAP %.40s: BANDS=%.80s  FIELD=%.40s \n",
+	    NAME, BANDLIST, FIELDLIST );
+  }
+
   SEARCHEFF_PHOTPROB[imap].NLINE_README++ ;
 
   return ;
@@ -837,7 +841,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
   FILE *fp ;
 
   char 
-     cline[MXPATHLEN]
+     cline[MXPATHLEN+40]
     ,logic[100]
     ,c_get[100]
     ,surveykey[60]
@@ -845,8 +849,10 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
     ,logicFile[MXPATHLEN]
     ,*ptrFile_user
     ,*ptrFile_final
-    ,fnam[] = "init_SEARCHEFF_LOGIC" 
     ;
+
+  char fnam[] = "init_SEARCHEFF_LOGIC";   (void)fnam;
+   
 
   // -------------- BEGIN ----------------
 
@@ -898,7 +904,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   if ( NMJD == 0 ) {
     sprintf(c1err,"Could NOT find search pipeline logic for %s", survey );
-    sprintf(c2err,"Check %s", ptrFile_final ) ;
+    sprintf(c2err,"Check %.*s", MXCHAR_MSGERR, ptrFile_final ) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
   
@@ -920,7 +926,7 @@ void parse_search_eff_logic(char *survey, int NMJD, char *logic) {
 
   int len, i, ifiltdef, NOR, NAND ;
   char ctmp[4];
-  char fnam[] = "parse_search_eff_logic" ;
+  char fnam[] = "parse_search_eff_logic" ; (void)fnam;
 
   // ------------- BEGIN ----------------
 
@@ -1014,7 +1020,7 @@ void  init_SEARCHEFF_SPECID(char *survey) {
   // does not exist then just return with message that EFFSPEC=1.
   //
 
-  char fnam[] = "init_SEARCHEFF_SPECID";
+  char fnam[] = "init_SEARCHEFF_SPECID";  (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -1037,7 +1043,7 @@ void init_searcheff_map(char *MAPTYPE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
   // init generic INFO including multi-Dimensional MAP_LIST
 
   int ivar, imap;
-  char fnam[] = "init_searcheff_map" ;
+  char fnam[] = "init_searcheff_map" ; (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -1117,14 +1123,13 @@ void  init_searcheff_shifts(int imap, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
   //   SEARCHEFF_zHOST_SHIFT([varname]): [value]
   //
 
-  int  NMAP     = SEARCHEFF_INFO->NMAP;
   char *MAPTYPE = SEARCHEFF_INFO->MAPTYPE ;
   int    ivar, ivar2, NSHIFT ;
-  double MAGSHIFT, SHIFT ;
+  double MAGSHIFT ;
   double *ptr_SHIFT_VALUES;
   char   *ptr_SHIFT_VARNAMES[MXVAR_SEARCHEFF_MAP] ;
   SEARCHEFF_MAP_DEF *MAP = &SEARCHEFF_INFO->MAP_LIST[imap];
-  char fnam[] = "init_searcheff_shifts" ;
+  char fnam[] = "init_searcheff_shifts" ;  (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -1143,20 +1148,28 @@ void  init_searcheff_shifts(int imap, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO) {
     for(ivar=0; ivar < NSHIFT; ivar++ ) 
       { ptr_SHIFT_VARNAMES[ivar] = INPUTS_SEARCHEFF.SHIFT_VARNAMES_zHOST[ivar]; }
   }
-
+  else {
+    NSHIFT   = 0;
+    MAGSHIFT = 0.0 ;
+  }
 
   // assign same MAGSHIFT to all mags (later applied only to MAG type map);
   MAP->MAGSHIFT = MAGSHIFT ; 
 
   // - - - - - - -
+  /* xxx mark delete May 4 2026 ... SHIFT unclear ?? xxxxx
   if ( MAGSHIFT != 0.0 ) {
     printf("\t set SHIFT = %8.2f for %s PEAK & HOST mags \n",
 	   SHIFT, MAPTYPE ); fflush(stdout);
   }    
+  xxxxxxxxxx end mark xxxxxxx  */
+
+
 
   if ( NSHIFT == 0 ) { return ; }  
 
   char *VARNAME, *VARNAME2;
+  double SHIFT;
   // assign more specific shift based on VARNAME
   for(ivar=0; ivar < MAP->NVAR_TOT-1; ivar++ ) {
     VARNAME = MAP->VARNAMES[ivar];
@@ -1188,8 +1201,8 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   char *MAPTYPE = SEARCHEFF_INFO->MAPTYPE;
   FILE *fp = NULL ;
 
-  int   NMAP, imap, NROW, ivar, NVAR, FOUND_VARNAMES ;
-  int   ID, NDIM, NFUN, N, gzipFlag, ISFIELD ;
+  int   NMAP, NROW, ivar, NVAR, FOUND_VARNAMES ;
+  int   ID, NDIM, NFUN, N, gzipFlag ;
   int   REQUIRE_EFF_FILE = 0, REQUIRE_MAP, OPT_EXTRAP=0;
   char  KEY_ROW[20], KEYNAME_MAP_FILE[40], KEYNAME_EFF[40];
   char  KEY_STOP[] = "" ;
@@ -1199,8 +1212,8 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   double PEAKMJD_RANGE[2];
   int   OPTMASK       = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
 
-  int IDGRIDMAP_OFFSET, IVARTYPE_MASK = 0  ;
-  char fnam[] = "read_searcheff_map" ;
+  int IDGRIDMAP_OFFSET=-99, IVARTYPE_MASK = 0  ;
+  char fnam[] = "read_searcheff_map" ;  (void)fnam;
 
   // ----------- BEGIN -------------
 
@@ -1280,7 +1293,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   REQUIRE_MAP = 0 ;  sprintf(FIELDLIST,"%s", ALL);
   PEAKMJD_RANGE[0] = 10000;  PEAKMJD_RANGE[1] = 90000;  
 
-  sprintf(c2err,"%s", "Check %s-eff file above", MAPTYPE );
+  sprintf(c2err, "Check %s-eff file above", MAPTYPE );
 
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
@@ -1436,7 +1449,7 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
   bool USE_HOSTLIB = (HOSTLIB.NGAL_STORE > 0 ) ; 
   int  IVARTYPE_MASK = 0; 
 
-  char fnam[] = "assign_MAP_VARNAME";
+  char fnam[] = "assign_MAP_VARNAME";  (void)fnam;
 
   // ----------- BEGIN ---------
   
@@ -1565,7 +1578,7 @@ int assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME,
   int MXSUBSTR = MXSUBSTR_SEARCHEFF_MAP;
 
   char **ptrLIST, SUB[40], sep[2];
-  float fmem; 
+  float fmem;   (void)fmem;
   int  ipre, isub, NSUBSTR, NMATCH, ichar_band, ifiltlist[20], NFILT=0  ;
   int  i, ifilt_obs;
 
@@ -1598,11 +1611,10 @@ int assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME,
   char PREFIX[40], cband[2];
   int LDMP = 0 ;
 
-  char fnam[] = "assign_MAP_VARNAME_FILTERS" ;
+  char fnam[] = "assign_MAP_VARNAME_FILTERS" ; (void)fnam;
   
   // -------------- BEGIN ---------------
 
-  // xxx mark   for(isub=0; isub < MXSUBSTR; isub++ ) { ptrLIST[isub] = SUBSTRING_LIST[isub] ; }
   fmem = malloc_strlist(+1, MXSUBSTR, 40, &ptrLIST );
 
   for(i=0; i < 10; i++ ) { ifiltlist[i] = -9; }
@@ -1751,28 +1763,9 @@ void init_SEARCHEFF_zHOST(char *survey) {
   // redshift for UNCONFIRMED SNe.
   //
 
-  FILE *fp ;
-  char fnam[] = "init_SEARCHEFF_zHOST" ;
+  char fnam[] = "init_SEARCHEFF_zHOST" ; (void)fnam;
 
   // --------------- BEGIN ------------
-
-  /* xxxxxx mark delete 4.28.2026 xxxxxxxxxxx
-  // abort on ancient legacy format that has no VARNAMES
-  // and two columns only: redshift and EFF.
-  if ( INPUTS_SEARCHEFF.IVERSION_zHOST == 0 ) {
-    fp = open_zHOST_FILE(1);
-
-    if ( fp != NULL ) { read_VARNAMES_zHOST_LEGACY(fp); fclose(fp); }
-    int LEGACY = ( INPUTS_SEARCHEFF.IVERSION_zHOST == IVERSION_zHOST_LEGACY );
-    if ( LEGACY ) {
-      sprintf(c1err,"Two-column (z EFF) format no longer supported");
-      sprintf(c2err,"See manual for multi-D format.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-    }
-  }
-  xxxxxxxxx end mark xxxxxxxx */
-
-  // ------------------------------------
   
   init_searcheff_map(MAPTYPE_SEARCHEFF_zHOST, &SEARCHEFF_INFO_zHOST) ;
 
@@ -1803,7 +1796,7 @@ void read_searcheff_raw_varnames(char *SEARCHEFF_FILE, int *OPEN_STATUS,
   float fmem; 
   char **VARNAMES_LOCAL, **SUBSTRING_LIST, SUB[40], sep[2], VARLIST[80] ;
   int LDMP = 0 ;
-  char fnam[] = "read_searcheff_raw_varnames";
+  char fnam[] = "read_searcheff_raw_varnames"; (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -1863,13 +1856,12 @@ FILE *open_zHOST_FILE(int VBOSE) {
   //
   // Apr 28 2026: just read; don't set or print flags 
 
-  int LPRINT = ( VBOSE > 0 ) ; // stdout printing
   int  REQUIRE_zHOST_FILE=0, gzipFlag ;
   char *ptrFile_user ;
   char *ptrFile_final ;
   char localFile[MXPATHLEN];
   FILE *fp = NULL;
-  char fnam[] = "open_zHOST_FILE" ;
+  char fnam[] = "open_zHOST_FILE" ; (void)fnam;
 
   // --------------- BEGIN ------------------
 
@@ -1886,14 +1878,6 @@ FILE *open_zHOST_FILE(int VBOSE) {
   
   if( IGNOREFILE(ptrFile_user) ) {
     // NULL or NONE, etc ... -> EFF=1
-
-    /* xxxx mark delete 4.28.2026 xxxxxxx
-    if ( LPRINT )   {
-      INPUTS_SEARCHEFF.IFLAG_zHOST_EFFONE = 1; // Nov 19 2024      
-      printf("\n  Optional SEARCHEFF_zHOST_FILE not specified -> Eff=1.0 \n"); 
-    }
-    xxxxxxx*/
-
     return(fp);
   }
   else if ( strcmp(ptrFile_user,"ZERO") == 0 ) {
@@ -1981,7 +1965,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
   *****/
 
   int  LFIND1_PIPELINE, LFIND2_SPECID, LFIND3_zHOST, MASK ;
-  char fnam[]  = "gen_SEARCHEFF" ;
+  char fnam[]  = "gen_SEARCHEFF" ; (void)fnam;
 
   // ----------------- BEGIN -------------
 
@@ -2049,7 +2033,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
 int gen_SEARCHEFF_SPECID(int ID, double *EFF_SPECID) {
 
   int  IS_SPECID ;
-  char fnam[] = "gen_SEARCHEFF_SPECID";
+  char fnam[] = "gen_SEARCHEFF_SPECID";  (void)fnam;
 
   // ---------- BEGIN -------------
 
@@ -2101,13 +2085,13 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   int NMJD_DETECT, NDETECT, imask, NOBS, MARK, DETECT_MARK, IMAP ;
   int IFILTOBS, obs, OVP, obsLast, istore, LFIND, FIRST=0;
   int IFILTOBS_MASK, IFILTDEF_MASK, NEXT_DETECT, DETECT_FLAG ;
-  int FOUND_TRIGGER=0,  FOUND_DETECT_FIRST=0, LCUT_PHOTPROB ;
+  int FOUND_TRIGGER=0, LCUT_PHOTPROB ;
   int OBSMARKER_DETECT[MXOBS_TRIGGER];
   double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG;
   double  PHOTPROB, CUTVAL, SEP_NEAREST_SRC, PSFSIG, MINSEP_DETECT ;
   char CFILT[4];
   int LDMP  = (ID == -39 ); 
-  char fnam[] = "gen_SEARCHEFF_PIPELINE";
+  char fnam[] = "gen_SEARCHEFF_PIPELINE"; (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -2298,7 +2282,7 @@ void dumpLine_PIPELINE_PHOTPROB(void) {
   int  NDUMP  = INPUTS_SEARCHEFF.NPHOTPROB_DUMP ;
   int  i, obs, NFOUND=0;
   double PHOTPROB, PHOTPROB_LIST[MXOBS_PHOTPROB];
-  char fnam[] = "dumpLine_PIPELINE_PHOTPROB";
+  char fnam[] = "dumpLine_PIPELINE_PHOTPROB";  (void)fnam;
   // --------------- BEGIN --------------
 
   if ( NDUMP == 0 ) { return ; }
@@ -2356,7 +2340,7 @@ double GETEFF_PIPELINE_DETECT(int obs) {
   bool MATCH_FILTER, MATCH_FIELD;
 
   char cfilt[4], *field_map, *filt_map;
-  char fnam[] ="GETEFF_PIPELINE_DETECT" ;
+  char fnam[] ="GETEFF_PIPELINE_DETECT" ;  (void)fnam;
 
   // ---------- BEGIN ---------
 
@@ -2395,8 +2379,8 @@ double GETEFF_PIPELINE_DETECT(int obs) {
     sprintf(c1err,
 	    "Found %d PIPELINE/DETECT maps for ifilt_obs=%d(%s)",
 	    NMAP_FOUND, ifilt_obs, cfilt);
-    sprintf(c2err,"Check EFF maps in %s", 
-	    INPUTS_SEARCHEFF.PIPELINE_EFF_FILE );
+    sprintf(c2err,"Check EFF maps in %.*s", 
+	    MXCHAR_MSGERR, INPUTS_SEARCHEFF.PIPELINE_EFF_FILE );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
   }
 
@@ -2505,7 +2489,7 @@ void setObs_for_PHOTPROB(int DETECT_FLAG, int obs) {
   int  imap, IMAP, NMATCH;
   bool MATCH_FIELD, MATCH_FILT ;
   char FILT[2], *FIELD_TMP, *FILT_TMP;
-  char fnam[]      = "setObs_for_PHOTPROB" ;
+  char fnam[]      = "setObs_for_PHOTPROB" ;  (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -2588,7 +2572,7 @@ void setRan_for_PHOTPROB(void) {
   int  MEMD, istore, imap, imap1, irow, irow1, NCOV, obs ;
   double CORR, CORR1, FLATRAN, GAURAN ;
   double GAURAN_LIST[MXOBS_PHOTPROB], GAURANCORR_LIST[MXOBS_PHOTPROB];
-  char   fnam[] = "setRan_for_PHOTPROB" ;
+  char   fnam[] = "setRan_for_PHOTPROB" ;  (void)fnam;
 
 
   // ------------ BEGIN -----------
@@ -2721,7 +2705,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
   char  *VARNAME, cFILT[4];
   double PHOTPROB = 0.0 ;
 
-  char fnam[] = "get_PIPELINE_PHOTPROB" ;
+  char fnam[] = "get_PIPELINE_PHOTPROB" ;  (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -2811,11 +2795,11 @@ int gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
   int    imap, ivar, NVAR, LFIND, istat, NMATCH = 0, INDX_RAN ;
   bool   MATCH_FIELD, MATCH_PEAKMJD, REQUIRE_PASS = true ;
   double PROB_all_FAIL, PROB_all_PASS;  
-  double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP], PEAKMJD ;
+  double EFF_LOCAL, RAN, VARDATA[MXVAR_SEARCHEFF_MAP], PEAKMJD=-9.0 ;
   double *ptr_FLAT_RANDOMS;
   char   *FIELD_MAP, *VARNAME ;
   int    LDMP = 0 ; // (ID == 7) ;
-  char   fnam[] = "gen_searcheff_map" ;
+  char   fnam[] = "gen_searcheff_map" ;  (void)fnam;
 
   // ----------- BEGIN --------
 
@@ -2834,6 +2818,9 @@ int gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
   else if ( strcmp(MAPTYPE,MAPTYPE_SEARCHEFF_zHOST) == 0 ) {
     ptr_FLAT_RANDOMS = SEARCHEFF_RANDOMS.FLAT_zHOST;
     INDX_RAN = 50 ;
+  }
+  else {
+    return 0;
   }
 
   // check option of there is no SEARCHEFF map file
@@ -2903,10 +2890,10 @@ int gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
       }
     }
 
-    istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, &EFF_LOCAL );
+    istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, &EFF_LOCAL );  (void)istat;
 
     if ( LDMP ) {
-      printf(" xxx %s \t EFF(interp)=%.3f \n", fnam, imap, EFF_LOCAL );
+      printf(" xxx %s \t EFF(interp)=%.3f \n", fnam, EFF_LOCAL );
       fflush(stdout);
     }
     
@@ -2924,9 +2911,8 @@ int gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
   // - - - - - -
   if ( NMATCH == 0 ) {
     if ( OPT_FIELDMATCH_REQUIRE > 0 ) {
-      sprintf(c1err, "Invalid NMATCH=%d %s maps for", MAPTYPE, NMATCH );
-      sprintf(c2err, "FIELD = '%s'  PEAKMJD=%.3f", 
-	      SEARCHEFF_DATA.FIELDNAME, PEAKMJD );
+      sprintf(c1err, "Invalid NMATCH=%d  %s maps for", NMATCH, MAPTYPE);
+      sprintf(c2err, "FIELD = '%s'  PEAKMJD=%.3f", SEARCHEFF_DATA.FIELDNAME, PEAKMJD );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
     }
     else {
@@ -2993,10 +2979,10 @@ double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar) {
   // and to include optional HOSTLIB columns.
   // Function returns value of variable corresponding to this MAP & ivar index
 
-  int    ifilt_obs, ifilt,  IVARTYPE, NFILTLIST ;
-  double mag, MAG, mag0, mag1, color;
+  int    IVARTYPE ;
+  double mag; 
   char *varName = MAP->VARNAMES[ivar] ;
-  char fnam[] = "LOAD_SEARCHEFF_VAR" ;
+  char fnam[] = "LOAD_SEARCHEFF_VAR" ;  (void)fnam;
 
   // ------------ BEGIN ------------------
 
@@ -3094,7 +3080,7 @@ double get_searcheff_mag(char *MAPTYPE, int FLAG_MAG, double MAGSHIFT, char *VAR
 
   int ifilt, ifilt_obs  ;
   int LDMP = 0 ;
-  char fnam[] = "get_searcheff_mag" ;
+  char fnam[] = "get_searcheff_mag" ;  (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -3179,11 +3165,9 @@ int gen_SEARCHEFF_zHOST(int ID, double *EFF_zHOST) {
   // Oct 15 2025: 
   //    + bail if hostless event (can't get zSpec_host if host is not found)
 
-  int NMAP            = SEARCHEFF_INFO_zHOST.NMAP;
   bool  USE_HOSTLIB   = (HOSTLIB.NGAL_STORE > 0 ) ; // Oct 2025
   int     LFIND ;
-  double  SNRMAX, RAN, EFF ;
-  char fnam[] = "gen_SEARCHEFF_zHOST" ;
+  char fnam[] = "gen_SEARCHEFF_zHOST" ;  (void)fnam;
 
   // ----------- BEGIN -----------
 
@@ -3225,11 +3209,10 @@ bool MATCH_SEARCHEFF_FIELD(char *field_map) {
   // in using a different map for field overlaps.
   //
 
-  int  NFIELD_OVP = SEARCHEFF_DATA.NFIELD_OVP;
   int  i;
   bool OVP;
   char *field_data;
-  char fnam[] = "MATCH_SEARCHEFF_FIELD";
+  char fnam[] = "MATCH_SEARCHEFF_FIELD";  (void)fnam;
 
   // ---------- BEGIN ----------
 
@@ -3261,7 +3244,7 @@ void LOAD_PHOTPROB_CDF(int NVAR_CDF, double *VAL ) {
 
   int ivar;
   double SUM=0.0, sum=0.0, TMPVAL[MXVAR_SEARCHEFF_PHOTPROB];
-  char fnam[] = "LOAD_PHOTPROB_CDF" ;
+  char fnam[] = "LOAD_PHOTPROB_CDF" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -3303,7 +3286,7 @@ double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) {
   int    IVARABS ;
   double VAL=0.0 ;
   char *VARNAME;
-  char fnam[] = "LOAD_PHOTPROB_VAR" ;
+  char fnam[] = "LOAD_PHOTPROB_VAR" ;  (void)fnam;
 
   // -------------- BEGIN --------------
 
@@ -3353,7 +3336,7 @@ int  gen_SEARCHEFF_DEBUG(char *WHAT, double RAN, double *EFF) {
 
   int    IDEBUG ;
   double RAN_LOCAL, EFF_LOCAL, zTau ;
-  char fnam[] = "gen_SEARCHEFF_DEBUG" ;
+  char fnam[] = "gen_SEARCHEFF_DEBUG" ;  (void)fnam;
   // --------- BEGIN ------------
 
   IDEBUG = INPUTS_SEARCHEFF.FUNEFF_DEBUG ;

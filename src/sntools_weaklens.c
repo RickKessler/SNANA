@@ -44,9 +44,9 @@ void init_lensDMU(void) {
   int    jj, iz, imu, gzipFlag, NZ=0, NDMU=0 ;  
   bool   DOCANA_END = false;
   double Prob, dmu, ztmp, z=0.0, zLAST=-9.9 ;
-  double WGT, SUM_WGT, SUM_SQWGT, SUM_dmu, dmu_avg, dmu_std, SUM_Prob ;
+  double SUM_WGT, SUM_SQWGT, dmu_avg, dmu_std, SUM_Prob ;
 
-  char PATH_DEFAULT[2*MXPATHLEN], MAPFILENAME[MXPATHLEN];
+  char PATH_DEFAULT[2*MXPATHLEN+60], MAPFILENAME[MXPATHLEN];
   char tmpLine[MXPATHLEN], tmpLine_copy[MXPATHLEN];
   int  LEN, iwd, NWD ;
   char *ptrWORD[10]; int MXWD=10;
@@ -208,8 +208,6 @@ void init_lensDMU(void) {
       { LENSING_PROBMAP.FUNPROB[iz][imu] /= SUM_Prob; }
 
     // compute <dmu> to check how close to zero, and stddev
-    // xxx mark delete  SUM_dmu = LENSING_PROBMAP.dmu_LIST[NDMU-1] - LENSING_PROBMAP.dmu_LIST[0] ;
-    // xxx mark delete  dmu_avg = SUM_WGT/SUM_dmu ;
 
     dmu_avg = SUM_WGT/SUM_Prob ;
     dmu_std = sqrt(SUM_SQWGT/SUM_Prob - dmu_avg*dmu_avg);
@@ -262,7 +260,7 @@ double gen_lensDMU_smear(double lensDMU) {
 
   double lensDMU_smear = lensDMU;
   double lensDMU_err, lensDMU_shift = 0.0, gran ;
-  char fnam[] = "gen_lensDMU_smear" ;
+  char fnam[] = "gen_lensDMU_smear" ;  (void)fnam;
 
   // -------------- BEGIN --------------
 

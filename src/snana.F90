@@ -1755,6 +1755,7 @@
         ,ABORT_ON_DUPLMJD     &  ! I: T=> abort on repeat MJD+band (default=F)
         ,ABORT_ON_NOPKMJD     &  ! I: T=> abort if no PKMJDINI (see OPT_SETPKMJD)
         ,ABORT_ON_BADQZPHOT   &  ! I: T=> abort if redshift quantiles are NOT monotonically increasing
+        ,ABORT_ON_MISSING_QZPHOT & ! I: T->abort on missing quantiles if QZPHOT are requested
         ,USE_MIGRAD           &  ! I: T=> use MIGRAD instead of MINIMIZE (no fallback to SIMPLEX)
         ,USE_MINOS            &  ! I: T=> use MINOS instead of MINIMIZE
         ,USE_SIMPLEX          &  ! I: T=> use SIMPLEX instead of MINIMIZE
@@ -6003,7 +6004,8 @@
     ABORT_ON_DUPLCID   = .TRUE.
     ABORT_ON_DUPLMJD   = .FALSE.  ! Jun 2017
     ABORT_ON_NOPKMJD   = .TRUE.
-    ABORT_ON_BADQZPHOT = .TRUE.   ! Dec 2025
+    ABORT_ON_BADQZPHOT      = .TRUE.   ! Dec 2025
+    ABORT_ON_MISSING_QZPHOT = .TRUE.   ! May 2026
 
     SNTABLE_LIST          = 'DEFAULT'  ! Sep 08 2014
     SNTABLE_FILTER_REMAP  = ''
@@ -8233,6 +8235,10 @@
                   1, iArg, ARGLIST) ) then
         READ(ARGLIST(1),*) ABORT_ON_BADQZPHOT
 
+      else if ( MATCH_NMLKEY('ABORT_ON_MISSING_QZPHOT',  & 
+                  1, iArg, ARGLIST) ) then
+        READ(ARGLIST(1),*) ABORT_ON_MISSING_QZPHOT
+
       else if ( MATCH_NMLKEY('ABORT_ON_BADFILTER',  & 
                   1, iArg, ARGLIST) ) then
         READ(ARGLIST(1),*) ABORT_ON_BADFILTER
@@ -10059,7 +10065,7 @@
 
        ABORT_ON_BADQZPHOT = .FALSE.  ! Dec 17 2025
        ABORT_ON_DUPLMJD   = .FALSE.
-
+       ABORT_ON_MISSING_QZPHOT = .FALSE.
     ENDIF
 
     REFORMAT = OPT_REFORMAT_FITS>0 .or. OPT_REFORMAT_TEXT>0

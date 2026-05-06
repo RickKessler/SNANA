@@ -8385,6 +8385,7 @@
 ! Nov 07 2024: fix bug setting PHOTODZ_REJECT for zSPEC
 ! Dec 19 2024: print time to process this function
 ! Feb 02 2026: set LZDONE=T inside BTEST(MASK,BIT_BESTZ_GAUSS) if-block
+! May 06 2026: check ABORT_ON_MISSING_QZPHOT
 ! --------------------------------------------
 
     USE SNDATCOM
@@ -8523,11 +8524,15 @@
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
        NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
-
-       if ( NQ .le. 0 ) THEN
-          c1err = 'zPDF quantiles requested for photo-z fit to CID=' // SNLC_CCID
-          c2err = 'but there are no zPDF quantiles in the data.'
-          CALL MADABORT(FNAM, c1err, c2err)
+       if ( NQ <= 0 ) THEN
+          if ( ABORT_ON_MISSING_QZPHOT ) then
+             c1err = 'zPDF quantiles requested for photo-z fit to CID=' // SNLC_CCID
+             c2err = 'but there are no zPDF quantiles in the data.'
+             CALL MADABORT(FNAM, c1err, c2err)
+          else
+             IERR = -1  ! May 2026 : skip event
+             return
+          endif
        endif
 
       MEAN = SNHOST_QZPHOT_MEAN(1) 

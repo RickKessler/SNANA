@@ -3,6 +3,9 @@
 
 ! May 4-6: fix -Wall compilation warnings (in anticipation of autotools)
 !
+! May 6 2026: define MARK_UESD macro to suppress "unused argument" with -Wall compile flag
+#define MARK_USED(FOO) IF(.FALSE.)THEN;DO;IF(SIZE(SHAPE(FOO))==-1) EXIT;ENDDO;ENDIF
+
 ! =====================================================================
   MODULE SNPAR
     IMPLICIT NONE
@@ -1271,13 +1274,13 @@
 
 ! from WFIRST sims
     DATA SKYLAM_SPACE_LIST /  & 
-              1000.0,  4330.0,  6258.0,  8052.0,           &  ! x,B,R,I
-              8745.0, 10653.0, 12976.0, 15848.0, 20000.,   &  ! Z,Y,J,H,FUDGE
-              27700.0, 35600.0, 44400.0, 50000.0        / ! NIRCAM LW
+         1000.0,  4330.0,  6258.0,  8052.0,           &  ! x,B,R,I
+         8745.0, 10653.0, 12976.0, 15848.0, 20000.,   &  ! Z,Y,J,H,FUDGE
+         27700.0, 35600.0, 44400.0, 50000.0      /       ! NIRCAM LW
     DATA SKYMAG_SPACE_LIST /  & 
-              24.0,    23.8,     23.6,   23.5,  & 
-              23.5,    23.7,     23.8,   23.9, 24.2,  & 
-              23.1,    23.3,     22.3,   22.0	        /
+         24.0,    23.8,     23.6,   23.5,        & 
+         23.5,    23.7,     23.8,   23.9, 24.2,  & 
+         23.1,    23.3,     22.3,   22.0    /
 
   END MODULE SIMLIBCOM
 
@@ -1696,7 +1699,7 @@
         ,FILTER_REPLACE*(MXFILT_ALL)       &  ! I: e.g., 'UGRIZ -> ugriz'
         ,FILTLIST_LAMSHIFT*(MXFILT_ALL)    &  ! I: list of lam-shifted filters
         ,PRIVATE_CUTWIN_STRING(MXCUT_PRIVATE)*(MXCHAR_CUTNAME)  &  ! I: cut on privat variables
-        ,PRIVATE_VARNAME_READLIST*200    &  ! I: list of private vars to read (default=ALL)
+        ,PRIVATE_VARNAME_READLIST*(MXCHAR_FILENAME)    &  ! I: list of private vars to read (default=ALL)
         ,SIMVAR_CUTWIN_STRING*(MXCHAR_CUTNAME)  &  ! I: cuts on SIM_XXX
         ,EARLYLC_STRING*(MXCHAR_CUTNAME)        &  ! I: see manual
         ,REQUIRE_EPOCHS_STRING*100   &  ! I: e.g., 'riz 10 7 20' uses CUTWIN_SNRMAX
@@ -2686,7 +2689,7 @@
 
     INTEGER LEN_PATH, LEN_PRIV, REQ_DOC, NPATH
     LOGICAL ISDATA
-    CHARACTER STR_TMP*(MXFILE_LIST*MXCHAR_FILENAME), VARNAME*60
+    CHARACTER STR_TMP*(MXFILE_LIST*MXCHAR_FILENAME), VARNAME*60, VARNAME2*60
     CHARACTER OVERRIDE_PATH*(MXFILE_LIST*MXCHAR_FILENAME) ! file list or folder
 
     
@@ -2737,9 +2740,15 @@
        CALL RD_OVERRIDE_INIT(OVERRIDE_PATH(1:LEN_PATH)//char(0), REQ_DOC, LEN_PATH)
 
        ! check if quantiles are in override to ensure adding mean & stddev to plot table
-       VARNAME = 'HOSTGALz_QUANTILE_ZPHOT' // char(0)
-       OVERRIDE_QUANTILE_ZPHOT = ISRD_OVERRIDE_VARNAME(VARNAME, 40)
+       VARNAME  = 'HOSTGALz_QUANTILE_ZPHOT' // char(0)  ! explicit column
+       VARNAME2 = 'QZPHOT00' // char(0)                 ! implicit column
+       OVERRIDE_QUANTILE_ZPHOT = & 
+            ISRD_OVERRIDE_VARNAME(VARNAME, 40) .or.  &
+            ISRD_OVERRIDE_VARNAME(VARNAME2, 40)
+    else
+       OVERRIDE_QUANTILE_ZPHOT = .FALSE.
     endif
+
 
     ! - - - - - -
     LEN_PRIV = INDEX(PRIVATE_VARNAME_READLIST,' ') -1
@@ -2925,7 +2934,7 @@
 
 !     store primary mags
        MAG_PRIM = GET_CALIB_PRIMARY_MAG(OPT_FRAME,IFILTDEF_OBS)
-       FILTOBS_MAG_PRIMARY(IFILTDEF_OBS) = MAG_PRIM
+       FILTOBS_MAG_PRIMARY(IFILTDEF_OBS) = SNGL(MAG_PRIM)
 
 !       fetch ZPOFF from ZPOFF.DAT file in filter dir
        ZPOFF = GET_CALIB_ZPOFF_FILE(OPT_FRAME,ifiltdef_obs)
@@ -2945,7 +2954,7 @@
 
 !     store primary mags
        MAG_PRIM = GET_CALIB_PRIMARY_MAG(OPT_FRAME,IFILTDEF_REST)
-       FILTREST_MAG_PRIMARY(IFILTDEF_REST) = MAG_PRIM
+       FILTREST_MAG_PRIMARY(IFILTDEF_REST) = SNGL(MAG_PRIM)
     ENDDO
 
 ! misc tasks to store info
@@ -3030,7 +3039,7 @@
        IF ( LRDFLAG_GLOBAL )          OPTRD = OPTRD + 2
        IF ( .NOT. LRDFLAG_SPEC      ) OPTRD = OPTRD + 128  ! Jul 9 2025
        IF ( .NOT. REFORMAT_SIMTRUTH ) OPTRD = OPTRD + 256  ! Mar 2022
-	 IF ( DO_GETINFO )              OPTRD = 64   ! Oct 2025
+       IF ( DO_GETINFO )              OPTRD = 64   ! Oct 2025
 
        NSN_VERS  = RD_SNFITSIO_PREP(OPTRD, cPATH, cVERSION,  & 
                           LEN_PATH, LEN_VERS )
@@ -3527,9 +3536,9 @@
     if ( LEN_STR < 0 ) then
        LEN_STR   = INDEX(cSTRING//' ', ' ') - 1
        write(C1ERR,161) LEN_STR, MXLEN_EPSTRING
-161      format('Returned strlen=', I6,' ~=  MXLEN_EPSTRING=', I6)
-	 write(C2ERR,162) KEY, NARG
-162      format('KEY=',A, 4x, 'NARG=', I6)
+161    format('Returned strlen=', I6,' ~=  MXLEN_EPSTRING=', I6)
+       write(C2ERR,162) KEY, NARG
+162    format('KEY=',A, 4x, 'NARG=', I6)
        CALL MADABORT(FNAM, C1ERR, C2ERR)
     endif
 
@@ -4147,10 +4156,10 @@
 
 !   reject event if user doesn't want to process true SNIa or NONIa
        if ( .NOT. USESIM_SNIA  .and. LSIM_TRUE_SNIa) THEN
-	     ISTAT = ISTAT_SKIP ; RETURN
-	 endif
+          ISTAT = ISTAT_SKIP ; RETURN
+       endif
        if ( .NOT. USESIM_NONIa .and. LSIM_TRUE_NONIa)  THEN
-	    ISTAT = ISTAT_SKIP; RETURN
+          ISTAT = ISTAT_SKIP; RETURN
        endif
 
     ENDIF
@@ -4523,8 +4532,8 @@
     ENDIF
 
     if ( OPT_VPEC_COR == 0 ) then  ! Aug 19 2024
-        SNLC_VPEC     = 0.0
-	  SNLC_VPEC_ERR = 0.0
+       SNLC_VPEC     = 0.0
+       SNLC_VPEC_ERR = 0.0
     endif
 
 ! redshift quality flag (real data only)
@@ -5466,10 +5475,10 @@
         CODE_FILENAME = 'psnid.F90'
 #endif
 
-	 if ( CODE_FILENAME .NE. '' )  then
-          CMD_HELP = 'help_inputs_fortran.py ' // CODE_FILENAME
-          CALL SYSTEM(CMD_HELP)
-       endif
+        if ( CODE_FILENAME .NE. '' )  then
+           CMD_HELP = 'help_inputs_fortran.py ' // CODE_FILENAME
+           CALL SYSTEM(CMD_HELP)
+        endif
        STOP
     ENDIF
 ! - - - - - - - - - - - - - - - - - -
@@ -6017,8 +6026,6 @@
 ! ------------------------
 ! read the nml
 
-300   CONTINUE
-
     LL = INDEX(nmlfile,' ' ) - 1
     print*,'   Read namelist file: ', nmlfile(1:LL)
 
@@ -6297,10 +6304,10 @@
        NVERS = STORE_GLOB_FILE_LIST(cSTRING,LENV)
 
        if ( NVERS == 0 ) then
-	    C1ERR = 'Found zero data versions matching wildcard'
-	    C2ERR = 'Check &SNLCINP  VERSION_PHOTOMETRY_WILDCARD'
+          C1ERR = 'Found zero data versions matching wildcard'
+          C2ERR = 'Check &SNLCINP  VERSION_PHOTOMETRY_WILDCARD'
           CALL MADABORT(FNAM, C1ERR, C2ERR)
- 	 endif
+       endif
 
        langFlag = 1 ! fortran
        DO i = 1, NVERS
@@ -7349,7 +7356,7 @@
 
        else if ( MATCH_NMLKEY('PRIVATE_VARNAME_READLIST',  & 
                   1, iArg, ARGLIST) ) then
-          PRIVATE_VARNAME_READLIST = ARGLIST(1)(1:MXCHAR_CUTNAME)
+          PRIVATE_VARNAME_READLIST = ARGLIST(1)(1:MXCHAR_FILENAME)
 
        else if ( MATCH_NMLKEY('EARLYLC_STRING',  & 
                    1, iArg, ARGLIST) ) then
@@ -7735,7 +7742,7 @@
 
        else if ( MATCH_NMLKEY('SNFIELD_LIST',  & 
                    1, iArg, ARGLIST) ) then
-         SNFIELD_LIST(1) = ARGLIST(1)(1:MXCHAR_PATH)
+         SNFIELD_LIST(1) = ARGLIST(1)(1:60)
          SNFIELD_LIST(2) = ''
 
        else if ( MATCH_NMLKEY('FORCE_STDOUT_BATCH',  & 
@@ -8444,9 +8451,9 @@
         print*,' xxx - - - - - - - - '
         print*,' xxx  ilast, iArg = ', ilast, iArg
         print*,' xxx  FIRSTARG    = ', FIRSTARG(1:40)
-	  print*,' xxx  HAS_EQUAL = ', HAS_EQUAL
+        print*,' xxx  HAS_EQUAL = ', HAS_EQUAL
         print*,' xxx  FOUND_MATCH[SPSEP,EQ] = ',  & 
-                FOUND_MATCH_SPSEP, FOUND_MATCH_EQ
+             FOUND_MATCH_SPSEP, FOUND_MATCH_EQ
     endif
 
     RETURN
@@ -9189,7 +9196,7 @@
 
     INTEGER ISN  ! (I) integer index (1-NSN)
 
-    INTEGER JTDIF
+    INTEGER*8 JTDIF
     INTEGER NSN_TOT, JTIME, PERCENT
     REAL FRAC, T_ELAPSE, T_REMAIN
 ! ------------ BEGIN ---------
@@ -9245,7 +9252,8 @@
 
     IMPLICIT NONE
 
-    INTEGER LEN, JDIFF, AIZ
+    INTEGER*8  JDIFF
+    INTEGER LEN, AIZ
     REAL    T_CPU
     CHARACTER OUTFILE*(MXCHAR_FILENAME)
 
@@ -9350,14 +9358,14 @@
 
     IF ( WHICH(1:7) .EQ. 'LC_CUTS' ) THEN
        KEY = 'MASK_zSOURCE_LC_CUTS:'
-	 DO mask = 0, MXMASK_zSOURCE
-	     N_MASK_LOCAL(mask) = N_MASK_zSOURCE_LC_CUTS(mask)
-	 ENDDO
+       DO mask = 0, MXMASK_zSOURCE
+          N_MASK_LOCAL(mask) = N_MASK_zSOURCE_LC_CUTS(mask)
+       ENDDO
     ELSE
        KEY = 'MASK_zSOURCE_LCFIT_CUTS:'
-	 DO mask = 0, MXMASK_zSOURCE
-	     N_MASK_LOCAL(mask) = N_MASK_zSOURCE_LCFIT_CUTS(mask)
-	 ENDDO
+       DO mask = 0, MXMASK_zSOURCE
+          N_MASK_LOCAL(mask) = N_MASK_zSOURCE_LCFIT_CUTS(mask)
+       ENDDO
     ENDIF
 
     write(LUN,28) ' '
@@ -9368,26 +9376,27 @@
     write(LUN,38) '   += 8 -> zPHOT_HOST(quantiles)'
     write(LUN,38)  & 
          '    MASK:     NEVT(MASK=val)    NEVT(MASK&val)'
+
     DO 200 MASK = 0, MXMASK_zSOURCE
        NEVT    = N_MASK_LOCAL(MASK)
        NEVT_or = 0
-       DO 202 MASK2 = 0, MXMASK_zSOURCE
-	    NEVT2 = N_MASK_LOCAL(MASK2)
-	    if ( NEVT2 == 0 ) GOTO 202
-	    if ( IAND(MASK,MASK2) == MASK ) then
-	        NEVT_or = NEVT_or + NEVT2
+       DO 202  MASK2 = 0, MXMASK_zSOURCE
+          NEVT2 = N_MASK_LOCAL(MASK2)
+          if ( NEVT2 == 0 ) GOTO 202
+          if ( IAND(MASK,MASK2) == MASK ) then
+             NEVT_or = NEVT_or + NEVT2
           endif
-202	 CONTINUE
-
-	 if ( NEVT > 0 ) then
+202    CONTINUE
+          
+       if ( NEVT > 0 ) then
           write(LUNDAT,212) MASK, NEVT, NEVT_or
-212	    format('  - ', I6,':', I10, 8x, I10 )
+212       format('  - ', I6,':', I10, 8x, I10 )
        endif
-200   CONTINUE
-    write(LUNDAT,28) ' '
+200  CONTINUE
 
-28    format(A)
-38    format('# ', A)
+       write(LUNDAT,28) ' '
+28     format(A)
+38     format('# ', A)
 
     RETURN
   END SUBROUTINE PRINT_JOBSPLIT_zSRC
@@ -9436,6 +9445,8 @@
     CHARACTER FNAM*14
 
 ! ----------------- BEGIN -------------
+
+    MARK_USED(ISN_ALL)
 
     FNAM = 'SNANA_DRIVER'
 
@@ -9503,8 +9514,8 @@
 
     IF ( .not. LSNCUTS ) THEN
        if ( STDOUT_UPDATE ) write(6,41) SNLC_CCID
-41       format(T20,'SNANA cuts REJECT CID = ',A8, 2x,'=> SKIP ')
-	 CALL FLUSH(6)
+41     format(T20,'SNANA cuts REJECT CID = ',A8, 2x,'=> SKIP ')
+       CALL FLUSH(6)
        IF ( LDMP_SNFAIL ) CALL DMP_SNFAIL()
        CALL MON_SNANA(IFLAG_ANA)       ! update tables for rejected SN
        RETURN  ! skip this SN
@@ -10189,7 +10200,7 @@
     IMPLICIT NONE
 
     INTEGER NVAR, ivar, LL, LENV
-    CHARACTER VARNAMES_LIST*100, FNAM*28, VARNAME*20, COMMENT*80
+    CHARACTER VARNAMES_LIST*100, FNAM*28, VARNAME*40, COMMENT*80
     CHARACTER LINE*60
 
 ! --------------- BEGIN ------------
@@ -10211,7 +10222,7 @@
 
     IF ( WRSPEC_SNID_SAGE ) THEN  ! set FLAM bit in case user doesn't
        OPT_REFORMAT_SPECTRA = IBSET(OPT_REFORMAT_SPECTRA,0)
-	 WRSPEC_FLAM = .TRUE.
+       WRSPEC_FLAM = .TRUE.
     ENDIF
 
 ! define all possible columns for spec table
@@ -10712,17 +10723,17 @@
        CALL RDSPEC_DRIVER(ispec)  ! load LAM and FLAM arrays
 
        MJD     = MJD_SPECTRUM(ispec)
-	 TOBS    = TOBS_SPECTRUM(ispec)
-	 TREST   = TOBS/(1.0+z)
+       TOBS    = TOBS_SPECTRUM(ispec)
+       TREST   = TOBS/(1.0+z)
        NLAMBIN = NLAMBIN_SPECTRUM(ispec)
 
        if ( MJD > 0.0 ) THEN
-           WRITE(SPEC_FILE,40) VERS(1:LENV), SNLC_CCID(1:LENC), MJD
-40          format(A,'_',A,'_', F9.3, '.SPEC' )
+          WRITE(SPEC_FILE,40) VERS(1:LENV), SNLC_CCID(1:LENC), MJD
+40        format(A,'_',A,'_', F9.3, '.SPEC' )
        ELSE
-           WRITE(SPEC_FILE,41)  & 
-             VERS(1:LENV), SNLC_CCID(1:LENC), "HOST"
-41          format(A,'_',A,'_', A, '.SPEC' )
+          WRITE(SPEC_FILE,41)  & 
+               VERS(1:LENV), SNLC_CCID(1:LENC), "HOST"
+41        format(A,'_',A,'_', A, '.SPEC' )
        ENDIF
        LENF = INDEX(SPEC_FILE,' ') - 1
 
@@ -10761,34 +10772,34 @@
 ! write comments at top of SPECTRUM file
 
        MSG = 'VERSION_PHOTOMETRY: ' // VERS(1:LENV)
-	 write(LUNSPEC,350) MSG
+       write(LUNSPEC,350) MSG
 
        MSG = 'CID:      ' // SNLC_CCID(1:LENC)  ! Oct 29 2025
-	 write(LUNSPEC,350) MSG
+       write(LUNSPEC,350) MSG
 
        write(MSG,301) 'MJD:      ', MJD
-	 write(LUNSPEC,350) MSG
+       write(LUNSPEC,350) MSG
 
        write(MSG,301) 'TOBS:     ', TOBS
-	 write(LUNSPEC,350) MSG
+       write(LUNSPEC,350) MSG
 
        write(MSG,301) 'REDSHIFT: ', z
-	 write(LUNSPEC,350) MSG
+       write(LUNSPEC,350) MSG
 
-301      format(A, 3x, F9.3)
+301    format(A, 3x, F9.3)
 
        write(MSG,302) 'NLAMBIN:  ', NLAMBIN
-302      format(A, 3x, I5)
-	 write(LUNSPEC,350) MSG
+302    format(A, 3x, I5)
+       write(LUNSPEC,350) MSG
 
        write(LUNSPEC,350) ' '
 
        if ( WRSPEC_FLAM ) then
-     	      write(MSG,360) 'WAVE FLAM FLAMERR'
+          write(MSG,360)  'WAVE FLAM FLAMERR'
        else if ( WRSPEC_FLUX ) then
-            write(MSG,360)	'WAVE FLUX FLUXERR'
-	 else if ( WRSPEC_KEY ) then
-            write(MSG,351)	'ROW WAVE FLAM FLAMERR'
+          write(MSG,360)  'WAVE FLUX FLUXERR'
+       else if ( WRSPEC_KEY ) then
+          write(MSG,351)  'ROW WAVE FLAM FLAMERR'
        endif
 
        if ( LSIM_SNANA ) MSG = MSG(1:35) // '  SIM_FLAM  '
@@ -10819,14 +10830,14 @@
             LENROW = 60
          endif
 
-	   if ( LSIM_SNANA) then
-	      FSIM = SIM_FLAM_SPECTRUM(ilam)
-	      MSGTMP = MSG
-	      write(MSG,446) MSGTMP(1:LENROW), FSIM
-446           format(A,E14.5)
+         if ( LSIM_SNANA) then
+            FSIM = SIM_FLAM_SPECTRUM(ilam)
+            MSGTMP = MSG
+            write(MSG,446) MSGTMP(1:LENROW), FSIM
+446         format(A,E14.5)
          endif
 
-	   write(LUNSPEC,360) MSG
+         write(LUNSPEC,360) MSG
 
 401      CONTINUE
 
@@ -11454,7 +11465,7 @@
 ! ----------- BEGIN ------------
 
     IF ( SNCID_LIST_FILE(1:20) .EQ. 'HEADER_OVERRIDE_FILE' ) THEN
-        SNCID_LIST_FILE = HEADER_OVERRIDE_FILE
+        SNCID_LIST_FILE = HEADER_OVERRIDE_FILE(1:MXCHAR_FILENAME)
     ENDIF
 
     cBLANK = ""//char(0)
@@ -11481,7 +11492,7 @@
 ! but allow these features for list read from file.
     IF ( IS_LIST ) THEN
        CUTWIN_CID(1) = 0;  CUTWIN_CID(2) = 0
-	 SIM_PRESCALE = 1  ! disable prescale Dec 11 2024
+       SIM_PRESCALE = 1  ! disable prescale Dec 11 2024
     ENDIF
 
 !      print*,' xxx IS_CCID/IS_CIDINT/FILE = ',
@@ -13128,7 +13139,6 @@
     ENDIF
 
 ! ----------------------------
- 600  CONTINUE
 
 ! set return-function value
     PASS_EPOCH_CUTS = ( .not. REJECT)
@@ -13345,7 +13355,7 @@
       print*,'   NWD, NVAL = ', NWD, NVAL
       print*,'   SNLC_CCID = ', SNLC_CCID
       print*,'   KEYNAME   = ', KEYNAME,'      LENKEY=', LK
-	print*,'   ISVAR_[FLT,FIELD] = ',  & 
+      print*,'   ISVAR_[FLT,FIELD] = ',  & 
                LVAR_FLT, LVAR_FIELD
       print*,'   LEN(STRING) = ', LENS
       print*,'   STRING = ', STRING(1:1000)
@@ -14944,8 +14954,8 @@
     IF ( DO_FIT ) THEN
 
          FITPROB_ITER1   = 0.0  ! July 2024
-	   FITCHI2RED_INI  = 0.0
-	   FITCHI2RED_INI2 = 0.0
+         FITCHI2RED_INI  = 0.0
+         FITCHI2RED_INI2 = 0.0
 
        do i = 1, 4
          FITCHI2_STORE(i)      = 0.0
@@ -17115,7 +17125,7 @@
 #endif
 
 ! Mar 2025 : count NOBS_PREDETECT
-        TMP = MJD8 - SNLC8_MJD_DETECT_FIRST  ! TMP < 0 for pre-detection
+        TMP = SNGL(MJD8 - SNLC8_MJD_DETECT_FIRST)  ! TMP < 0 for pre-detection
         if ( TMP .GE.  CUTWIN_TOBS_PREDETECT(1) .and.  & 
                TMP .LE.  CUTWIN_TOBS_PREDETECT(2)  ) then
            ISNLC_NOBS_PREDETECT =  ISNLC_NOBS_PREDETECT + 1
@@ -17410,8 +17420,8 @@
 
        
     if (IERR .EQ. 0 ) then
-       SNHOST_QZPHOT_MEAN(IGAL) = MEAN ! store mean & std in 4 byte global
-       SNHOST_QZPHOT_STD(IGAL)  = STD
+       SNHOST_QZPHOT_MEAN(IGAL) = SNGL(MEAN) ! store mean & std in 4 byte global
+       SNHOST_QZPHOT_STD(IGAL)  = SNGL(STD)
     endif
 
     return
@@ -17613,7 +17623,7 @@
 60       format('  xxx CID=',A, 3x, 'NMATCH=',I2, 3x,'DDLR=', 2F9.3 )
        print*,' xxx HOST_CONFUSION = ', HC
        print*,' xxx '
- 	 CALL FLUSH(6)
+       CALL FLUSH(6)
     ENDIF
 
     SNHOST_CONFUSION = SNGL(HC)
@@ -18226,7 +18236,7 @@
     IF ( LSIM_SNANA ) THEN
       FUDGE     = SIM_FUDGE_MAG_ERROR_FILT(IFILT_OBS)
       ERR3_SIM  = DBLE(FUDGE)* FLUXCAL ! fudge mag err
-	SQERR3    = SQERR3 + (ERR3_SIM*ERR3_SIM)
+      SQERR3    = SQERR3 + (ERR3_SIM*ERR3_SIM)
     ENDIF
 
 ! --------------------------------------------
@@ -21107,8 +21117,8 @@
        if(SNHOST_ZSPEC(1) > 0.) N_SNHOST_ZSPEC = N_SNHOST_ZSPEC+1
        if(SNHOST_ZPHOT(1) > 0.) N_SNHOST_ZPHOT = N_SNHOST_ZPHOT+1
 
-	 N_MASK_zSOURCE_LC_CUTS(ISNLC_zSOURCE) =  & 
-         N_MASK_zSOURCE_LC_CUTS(ISNLC_zSOURCE) + 1
+       N_MASK_zSOURCE_LC_CUTS(ISNLC_zSOURCE) =  & 
+            N_MASK_zSOURCE_LC_CUTS(ISNLC_zSOURCE) + 1
 
     ENDIF
 
@@ -26724,12 +26734,15 @@
 
     IMPLICIT NONE
 
+! input args
     INTEGER NVAR, IFLAG
+
     REAL*8  & 
          XVAL(*)   &  ! (I) T0, Trise, Tfall, A, B
         ,GRAD(*)  & 
         ,CHI2  & 
         ,ANYLCFUN
+
 
     EXTERNAL ANYLCFUN
 
@@ -26746,6 +26759,9 @@
     REAL*8, PARAMETER :: MODEL_MAGERR = 0.05
 
 ! --------------- BEGIN -------------
+
+    MARK_USED(NVAR)
+    MARK_USED(GRAD(1))
 
     ISN         = INT ( XVAL(1) + 0.0001 )
     IFILT_OBS   = INT ( XVAL(2) + 0.0001 )

@@ -1,7 +1,8 @@
 ! F77 -> F90 translation created 2025-11-29 with command:
 !   ../util/convert_snana_f77_to_f90.py snana.car
 
-
+! May 4-6: fix -Wall compilation warnings (in anticipation of autotools)
+!
 ! =====================================================================
   MODULE SNPAR
     IMPLICIT NONE
@@ -5663,7 +5664,7 @@
 ! local ars
 
     integer i, ifilt, LL, ipar, NZPCUT, bit
-    character nmlfile_default*40, FNAM*8
+    character FNAM*8
 
 ! function
     INTEGER PARSE_NML_STRINGLIST
@@ -9423,12 +9424,12 @@
     INTEGER ISN_ALL, ISN_PROC, IVERS  ! (I)
 
 #if defined(SNFIT)
-    INTEGER NCALL_MNFIT, ITER, i
+    INTEGER NCALL_MNFIT, ITER, i, OPT_MNFIT
     LOGICAL LAST_ITER, REJECT_FIT
     REAL    t_end
 #endif
 
-    INTEGER IERR, OPT_MNFIT
+    INTEGER IERR
     REAL*8  PS8
     REAL t_start
     LOGICAL REJECT_PRESCALE
@@ -10118,8 +10119,7 @@
          cPATH*(MXCHAR_PATH)  & 
         ,cVERSION*(MXCHAR_VERSION)  & 
         ,cPREFIX*(MXCHAR_VERSION)  & 
-        ,cHEADFILE*(MXCHAR_FILENAME)  & 
-        ,LIST_FILE*(MXCHAR_FILENAME)
+        ,cHEADFILE*(MXCHAR_FILENAME) 
 
     INTEGER  & 
          WRITE_FLAG, LL, NMARK  & 
@@ -10463,9 +10463,9 @@
     IMPLICIT NONE
 
     INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
-    INTEGER IFILT, IFILT_OBS, LEN_SURVEY, NQ0, NQ, q, igal, LENV, LENPRE
+    INTEGER IFILT, IFILT_OBS, LEN_SURVEY
     REAL*8 DVAL(MXEPOCH)
-    CHARACTER cKEY*40, cSTRING*20, cfilt*2, PREFIX*20, PREFIXz*20
+    CHARACTER cKEY*40, cSTRING*20, cfilt*2
     EXTERNAL COPY_SNDATA_HEAD
 
 ! -------------- BEGIN ----------
@@ -10686,7 +10686,7 @@
 
 ! local args
 
-    INTEGER LENV, LENC, LENROW, LENF, LENT, LENTT, LENR
+    INTEGER LENV, LENC, LENROW, LENF, LENT, LENTT
     INTEGER ispec, NLAMBIN, ilam, ISDATA_REAL
     REAL*8  MJD, LAM, LAMBIN, F, FERR, FSIM, TOBS, TREST, z
     CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80, MSGTMP*80
@@ -11441,7 +11441,7 @@
 
     IMPLICIT NONE
 
-    INTEGER i, LENF, LENV, LENC, NCCID_TMP, NCCID_FILE, OPTMASK
+    INTEGER i, LENF, LENC, NCCID_TMP, NCCID_FILE, OPTMASK
     CHARACTER FNAM*20, cFILE*(MXCHAR_FILENAME)
     CHARACTER CCID*(MXCHAR_CCID), cCCID*(MXCHAR_CCID)
     CHARACTER cBLANK*4, cVARLIST_STORE*60
@@ -20171,7 +20171,6 @@
     INTEGER IFLAG   ! (I) see IFLAG_XXX params
 
 ! local var
-    LOGICAL   LTMP
     CHARACTER FNAM*10
 
 ! ------------ BEGIN ---------
@@ -21670,13 +21669,13 @@
 
     CHARACTER  CCID*(MXCHAR_CCID), TEXT_forC*80
 
-    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS), REJECT
+    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS)
     INTEGER  & 
          LENCCID, LENTEXT, NEWMJD, EPMIN, EPMAX, EP  & 
         ,IFILT_OBS, IFILT, ipar, NBT, i, NFILT
 
     REAL*8  & 
-          Z, Z1, Tobs, Trest, MJD, MJD_PLOT, TOBS_PLOT  & 
+          Z, Z1, Tobs, Trest, MJD  & 
          ,FLUX_DATA,  FLUXERR_DATA, FLUX_MODEL  & 
          ,SQDIF, SQERR, CHI2, TMIN, TMAX, DT  & 
          ,XVAL8(NPAR_ANYLC)
@@ -21987,7 +21986,7 @@
 
     IMPLICIT NONE
 
-    INTEGER LENCCID, LENTEXT, ispec
+    INTEGER LENCCID, ispec
     CHARACTER  CCID_forC*(MXCHAR_CCID)
     LOGICAL DOPLOT_SPEC
 
@@ -22079,10 +22078,10 @@
     if ( NSTORE_DUPLICATE_MJD < 200 ) then
        DUPLICATE_MJDLIST(NSTORE_DUPLICATE_MJD) = MJD
        CFILT = filtdef_string(ifiltobs:ifiltobs)
-	 CLIBID = ''
-	 IF ( LSIM_SNANA ) THEN
+       CLIBID = ""
+       IF ( LSIM_SNANA ) THEN
           write(CLIBID,600) SIM_LIBID
-600	    format('LIBID=',I9)
+600       format('LIBID=',I9)
        ENDIF
        write(6,666) SNLC_CCID(1:ISNLC_LENCCID), MJD, CFILT,  & 
               SNLC_FIELDLIST, cLIBID

@@ -3980,19 +3980,19 @@
 
     INTEGER LEN
     REAL*8 SIM_COSPAR(20)
-    CHARACTER FNAM*24, KEYLIST*100, FILENAME*(MXCHAR_FILENAME)
+    CHARACTER FNAM*24, KEYLIST*100, KEYSTOP*20, FILENAME*(MXCHAR_FILENAME)
 
 ! ------------- BEGIN --------------
 
     FNAM    = 'RDGLOBAL_SIM_COSPAR' // char(0)
-    KEYLIST = 'OMEGA_MATTER,OMEGA_LAMBDA,w0_LAMBDA,wa_LAMBDA,MUSHIFT'  & 
-                 //char(0)
+    KEYLIST = 'OMEGA_MATTER,OMEGA_LAMBDA,w0_LAMBDA,wa_LAMBDA,MUSHIFT' //char(0)
 
     LEN = INDEX(SNREADME_FILE(1),' ') - 1
     FILENAME = SNREADME_FILE(1)(1:LEN) // char(0)
+    KEYSTOP = "NULL" // char(0)   ! no key to stop reading
 
-    CALL READ_YAML_VALS(FILENAME, KEYLIST, FNAM,  & 
-                            SIM_COSPAR) ! return SIM_COSPAR
+    CALL READ_YAML_VALS(FILENAME, KEYLIST, KEYSTOP, FNAM,  & 
+         SIM_COSPAR) ! return SIM_COSPAR
 
 ! store cosmo params in globals
 
@@ -27184,7 +27184,7 @@
     DOUBLE PRECISION  USRFUN
 
     INTEGER  & 
-         IPAR, IVARBL, i, IFLAG, NARG  & 
+         IPAR, IVARBL, IFLAG, NARG  & 
         ,NPARI, NPARX, ISTAT, LV
 
     DOUBLE PRECISION  & 
@@ -27194,7 +27194,6 @@
         ,MAXCALLS(4)  & 
         ,GRAD(NFITPAR)  & 
         ,CHI2  & 
-        ,ARGLIST(20)  & 
         ,EPLUS, EMINUS, EPARAB, GLOBCC  & 
         ,FEDM, ERRDEF  & 
         ,ERRSYM      ! local SYMMMETRIC fiterr
@@ -27913,29 +27912,15 @@
     REAL  NSIGMA     ! (I) integrate +_ NSIGMA for exact pdf.
 
 ! local var
-
-    INTEGER  & 
-         ipar, ipar2  & 
-        ,JTIME1, JTIME2, JDIFTIME  & 
-        ,NEVAL         &  ! number of function evaluations
-        ,LL, NDOF, NGRID  & 
-        ,i, IERR  
-
+    INTEGER ipar, JTIME1, JTIME2, JDIFTIME, NEVAL, LL, NGRID, IERR  
     character  copt*6
-
     REAL*8 TMP
 
 ! functions
     CHARACTER ERRTYPE_STR*1
-    REAL*8  PROB
 
 ! FCN args
-
-    DOUBLE PRECISION  & 
-          GRAD8(MXFITPAR)  & 
-         ,CHI8  & 
-         ,USRFUN
-
+    DOUBLE PRECISION GRAD8(MXFITPAR), CHI8, USRFUN
     EXTERNAL USRFUN
 
 ! ------------------ BEGIN ------------
@@ -28112,7 +28097,7 @@
     INTEGER  & 
          IPAR, IPAR2, NBINTOT, IBIN, IBIN_OFF, IGRID, NDIM, IDIM, IDIM2  & 
         ,IPAR_DIM(MXPAR), IBIN_DIM(MXPAR)   &
-        ,NN, i, NPASS, NHDIM, LL, NUM, ITER, NPDF
+        ,NN, NPASS, NHDIM, LL, ITER, NPDF
 
     REAL*8  & 
          PARVAL_MIN(MXPAR)  & 
@@ -28122,8 +28107,8 @@
         ,PARDIF_MAX(MXPAR)  & 
         ,PARVAL(MXPAR)  & 
         ,PARVAL_GRID(MXGRID,MXPAR)  & 
-        ,TMP, TMPVAL, DVOL, X8(MXPAR)  & 
-        ,PDF, XPDF(2), WGT  & 
+        ,TMP, DVOL, X8(MXPAR)  & 
+        ,PDF & 
         ,PDFWSUMCOR(0:MXPAR,0:MXPAR)    &  ! wgted sum for correlations
         ,PDFSUMCOR  & 
         ,PDFWSUM(0:MXPAR)           &  ! wgted sum for each ipar
@@ -28133,10 +28118,10 @@
         ,TMP_RANGE(2,MXPAR)  & 
         ,PDF1D_MARG(MXGRID,MXPAR)  &    ! marginalized pdf for each param
         ,PDF1D_NOMARG(MXGRID,MXPAR)  &   ! pdf at minimized value of other params
-        ,SUM0, SUM1, SUM2, XN, XTMP, SQERR, E12, E1xE2, PDFTMP  & 
-        ,PDF_NBR1, PDF_NBR2, XVAL
+        ,SUM0, SUM1, SUM2, XTMP, SQERR, E12, E1xE2, PDFTMP  & 
+        ,PDF_NBR1, PDF_NBR2
 
-    LOGICAL  LTMP, LPDFZERO, LREDO, LREDO_ALL, LDMP_DEBUG
+    LOGICAL  LPDFZERO, LREDO, LREDO_ALL, LDMP_DEBUG
 
 ! plot variables
     INTEGER ID
@@ -28939,7 +28924,7 @@
 
 ! local args
 
-    INTEGER  ipar_all, ipar_float, ipar
+    INTEGER  ipar_all, ipar_float
 
 ! FCNSNLC args
 

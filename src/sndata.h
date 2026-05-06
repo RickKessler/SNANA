@@ -117,8 +117,8 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
 
 // xxxxx legacy names
-#define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
-#define STRING_NZPHOT_Q "NZPHOT_Q"
+// xxx mark #define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
+// xxx mark #define STRING_NZPHOT_Q "NZPHOT_Q"
 // xxxxxxx
 
 // define suffixes for refactoed data stream with z-dependent quantities
@@ -127,6 +127,8 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 #define SUFFIX_LOGMASS_ZGRID        "LOGMASS_ZGRID"
 #define SUFFIX_LOGMASS_VALGRID      "LOGMASS_VALGRID"
 #define SUFFIX_LOGMASS_ERRGRID      "LOGMASS_ERRGRID"
+#define PREFIX_QZPHOT               "QZPHOT"    // allowed for OVERRIDE and HOSTLIB columns
+#define VARNAME_QZPHOT00            "QZPHOT00"  
 
 char PATH_SNDATA_ROOT[MXPATHLEN];        // top dir for SN data
 char PATH_SNDATA_PHOTOMETRY[MXPATHLEN+20];

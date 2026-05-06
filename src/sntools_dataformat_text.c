@@ -2487,18 +2487,6 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       
       NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_LOGMASS[igal]);
       iwd = iwd0 + NZ;
-      // xxx mark }
-
-      /* xxxx mark delete xxxxxx
-      else {
-	// legacy
-	sprintf(KEY_TEST,"%s_%s:", PREFIX, PREFIX_ZPHOT_Q); 
-	if ( strcmp(word0,KEY_TEST) == 0 ) {
-	  N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-	  get_PARSE_WORD_NFLT(langC,N_Q,iwd0+1, SNDATA.HOSTGAL_ZPHOT_Q[igal], fnam);
-	}
-      }
-      xxxxxxx end mark xxxxxxx */
 
       sprintf(KEY_TEST,"%s_RA:", PREFIX); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {

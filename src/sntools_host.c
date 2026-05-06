@@ -643,7 +643,7 @@ void init_OPTIONAL_HOSTVAR(void) {
 
   for (j=0; j < MXBIN_HOSTGALz_QUANTILE; j++) {
     cptr = HOSTLIB.VARNAME_OPTIONAL[NVAR] ;   NVAR++;
-    sprintf(cptr, "QZPHOT%2.2d", j );  // refac Apr 20 2026
+    sprintf(cptr, "%s%2.2d", PREFIX_QZPHOT, j );  // refac Apr 20 2026
   }
 
   for (j=0; j < MXBIN_HOSTGALz_QUANTILE; j++){  // check for legacy keys ZPHOT_Q[nnn]
@@ -2600,10 +2600,10 @@ void prep_head_HOSTLIB(void) {
 	  HOSTLIB.NQZPHOT++ ;
 	}
 
-	if ( strstr(c_var_all,"QZPHOT") != NULL ) {  // refac key
+	if ( strstr(c_var_all,PREFIX_QZPHOT) != NULL ) {  // refac key
 	  int   N_Q = HOSTLIB.NQZPHOT ;
 	  char *VARNAME         = HOSTLIB.VARNAME_QZPHOT[N_Q]; 
-	  sprintf(VARNAME, "QZPHOT%2.2d", N_Q);
+	  sprintf(VARNAME, "%s%2.2d", PREFIX_QZPHOT, N_Q);
 	  HOSTLIB.NQZPHOT++ ;
 	}
 

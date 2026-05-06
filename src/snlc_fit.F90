@@ -4,6 +4,10 @@
 ! Include base snana code to read/write data and apply cuts
 #include "snana.F90" 
 
+
+! May 6 2026: define MARK_UESD macro to suppress "unused argument" with -Wall compile flag
+#define MARK_USED(FOO) IF(.FALSE.)THEN;DO;IF(SIZE(SHAPE(FOO))==-1) EXIT;ENDDO;ENDIF
+
 ! *********************************************************
 ! Created June 2006   by R.Kessler
 ! 
@@ -1540,7 +1544,6 @@
     INTEGER IERR ! (O) 0=OK
 
     INTEGER ipar
-    REAL*8    DUMPAR
     CHARACTER FNAM*12
 ! ------------- BEGIN ----------------
     IERR = 0
@@ -1675,12 +1678,8 @@
 
 ! local var
 
-    INTEGER  & 
-          NPAR, ipar, bit  & 
-        , ifilt, ifilt_obs, ifilt_rest1, ifilt_rest2, ifilt_rest_iter1  & 
-        , istat, NUSE_FILT, OPT, LL, L2, LCHAR
-
-    REAL*8 LAMMIN,LAMMAX, LAMAVG, Z8, Z8TEST, GRAD(MXFITPAR)
+    INTEGER  ipar, bit, ifilt, ifilt_obs, OPT, LL, LCHAR
+    REAL*8 LAMMIN,LAMMAX, LAMAVG, Z8, Z8TEST
     REAL*4 Z4, LMIN4
 
     CHARACTER CFILT*1, CCID*(MXCHAR_CCID), CTMP*8
@@ -2225,7 +2224,7 @@
 ! check for crazy errors, unless:
 !   + plotchi2-debugger is on, or
 
-    CRAZY = CRAZYFITERR(isn,iter)
+    CRAZY = CRAZYFITERR(iter)
 
     IF ( CRAZY ) THEN
       write(6,222) CCID(1:LCID)
@@ -2361,7 +2360,7 @@
   END SUBROUTINE FITPAR_ANA 
 
 ! ================================================
-    LOGICAL FUNCTION CRAZYFITERR(isn,iter)
+    LOGICAL FUNCTION CRAZYFITERR(iter)
 
 ! Returns TRUE if a crazy fit error is identified.
 ! Jan 28 2020: check for crazy-small errors too, only if floated.
@@ -2375,7 +2374,7 @@
 
     IMPLICIT NONE
 
-    INTEGER ISN, ITER ! (I) ! SN index & fit-iteration
+    INTEGER  ITER ! (I) ! SN index & fit-iteration
     REAL ERR_COLOR, ERR_SHAPE, ERR_DIST, ERR_PKMJD, ERR_ZPHOT
     LOGICAL  & 
         LNAN,  & 
@@ -3094,7 +3093,7 @@
     LOGICAL   USED, LAM1, LAM2
     INTEGER   ifilt, IFILT_OBS, NFILT_UNDEFINED
     CHARACTER cfilt*2
-    DOUBLE PRECISION GRAD(MXFITPAR), ZSIM, Z1SIM, LAMREST
+    DOUBLE PRECISION GRAD(MXFITPAR), Z1SIM, LAMREST
 
 ! function(s)
     DOUBLE PRECISION  USRFUN   ! for SIMCHI2_CHEAT
@@ -4768,14 +4767,13 @@
 
 ! local args
 
-    INTEGER  IPAR, ISN, IERR, IPAR_DIST, q
+    INTEGER  IPAR, ISN, IPAR_DIST
 
     REAL*8  & 
-         CHI2INI, CHI2TMP  & 
-        ,COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN  & 
-        ,arg_tmp, DIF, pull, EFF, SQSIG, PROBZ, DVAL
+         CHI2TMP, COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN  & 
+        ,arg_tmp, DIF, pull, PROBZ, DVAL
 
-    LOGICAL LTMP, LBADVAL, DO_QUANTILES, DO_BESTZ_GAUSS
+    LOGICAL LTMP, LBADVAL, DO_QUANTILES
 
 ! define max color and MU for which exponential priorchi2 is used
 ! to prevent MINUIT from probing extreme values.
@@ -5081,9 +5079,7 @@
 
 ! local args
 
-    INTEGER IFILT_OBS
     REAL*8  SIGRAT, LAST_FLUXERR
-    CHARACTER CFILT*2
 
 ! function
     LOGICAL FIRST_ITERATION
@@ -6395,11 +6391,10 @@
         ,ERRFRAC8, XTAV, XTMW  & 
         ,FITPARLOC8(IPAR_MAX)  & 
         ,SIMPARLOC8(IPAR_MAX)  & 
-        ,MAGTMP8, ARG8  & 
-        ,X08, S2a, S2b
+        ,MAGTMP8, ARG8  
 
     INTEGER ipar
-    LOGICAL LDMP, LFLUX, LREST_COSMO, LMUFIX
+    LOGICAL LDMP, LREST_COSMO, LMUFIX
 
 
 ! function
@@ -7949,7 +7944,7 @@
 
 ! local var
 
-    INTEGER  NPAR, ipar, ITER_LAST
+    INTEGER  ipar, ITER_LAST
     REAL*8   PEAKMJD, VALTMP, ERRTMP
     LOGICAL  FIRST_ITER, JG
 
@@ -8402,12 +8397,12 @@
 
 ! local var
 
-    INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK, NQ
-    LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
-    REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
+    INTEGER  IPAR, IPRINT, MASK, NQ
+    LOGICAL  LZDONE, LPRINT
+    REAL*8 ZHOST, ZHOST_ERR,  ZMIN, ZMAX, z, s, c, d
     REAL*8 ztmp_min, ztmp_max
     REAL   t_start, t_end
-    LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC,  LDMP_REFAC
+    LOGICAL  LPZ_AUTO_INISTP, LDMP_REFAC
     CHARACTER BANNER*100, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
     REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
@@ -8526,8 +8521,8 @@
        NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
        if ( NQ <= 0 ) THEN
           if ( ABORT_ON_MISSING_QZPHOT ) then
-             c1err = 'zPDF quantiles requested for photo-z fit to CID=' // SNLC_CCID
-             c2err = 'but there are no zPDF quantiles in the data.'
+             c1err = 'Missing zPDF quantiles for photo-z fit to CID=' // SNLC_CCID
+             c2err = 'To skip such events, set &SNLCINP ABORT_ON_MISSING_QZPHOT=F'
              CALL MADABORT(FNAM, c1err, c2err)
           else
              IERR = -1  ! May 2026 : skip event
@@ -8777,16 +8772,13 @@
     REAL*8 C_SAVE, CMIN, CMAX, CBIN, c
     REAL*8 T_SAVE, TMIN, TMAX, TBIN, t  ! Dec 11 2025 PKMJD
     REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE, d_cospar
-    REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
+    REAL*8 ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
     REAL*8 RESTLAMBDA_SAVE(2) 
     INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER
-    REAL SCALE_ALL, SCALE_z
+    REAL SCALE_ALL
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
-
-    REAL*8  d_tmp, dsave_tmp, tmp, chi2_tmp, chi2min_tmp  ! for DEBUG test
-    INTEGER jd_tmp
     LOGICAL REFAC_LAMRANGE
     CHARACTER FNAM*28
     REAL*8 GET_DIST8, USRFUN
@@ -8794,7 +8786,8 @@
 
 ! ------------- BEGIN ------------
 
-  
+    MARK_USED(ZBIN)
+
     FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
     
     ITER  = 1
@@ -9076,7 +9069,7 @@
 
     INTEGER IFLAG, NTMP, itry, NPAR, i, IPAR, IPAR_LIST(MXFITPAR)
     REAL*8 CHI2min, DIF, AVG, STEP, VAL, ran
-    REAL*8 z,s,c,t0,d, dmu, x0cosmo, x0
+    REAL*8 z,s,c,t0, dmu, x0cosmo, x0
     REAL*8 CHI2, CHI2_LAST, ARG, PROB, VALMIN, VALMAX
     REAL*8 MCMC_STEPVAL(MXFITPAR), MCMC_TRYVAL(MXFITPAR)
     REAL*8 GRAD(MXFITPAR), BND_LOCAL(2,MXFITPAR)
@@ -9264,8 +9257,6 @@
     USE SNFILECOM
 
     IMPLICIT NONE
-
-    CHARACTER NAME_COLOR*12, NAME_STRETCH*12
     LOGICAL IS_SALT2, IS_BAYESN, IS_MLCS2k2, USER_c, USER_s, USER_t
 
     ! ---------- BEGIN ---------
@@ -9352,8 +9343,7 @@
   END SUBROUTINE INIT_COURSEBIN_PHOTOZ
 
 ! ====================================================
-  SUBROUTINE SET_COURSEBIN_PHOTOZ(IPAR,ITER,  & 
-         NBIN, PARBIN, PARMIN, PARMAX)
+  SUBROUTINE SET_COURSEBIN_PHOTOZ(IPAR, ITER, NBIN, PARBIN, PARMIN, PARMAX)
 ! 
 ! Created March 25, 2012 by R.Kessler
 ! 
@@ -9380,10 +9370,12 @@
     REAL*8  PARBIN,PARMIN,PARMAX  ! (O) binsize, min and max
 ! local args
 
-    REAL*8 PEAKMJD_ESTIMATE, ZMIN, ZMAX, ZVAR_MIN, ZVAR_MAX
+    REAL*8 PEAKMJD_ESTIMATE, ZMIN, ZMAX
     LOGICAL IS_SALT2, IS_BAYESN, DO_COLOR, DO_SHAPE, DO_PEAKMJD, DO_ZPHOT
 
 ! --------------- BEGIN ---------------
+
+    MARK_USED(ITER)
 
 ! hard-code color range for SALT2 model (Dec 2014)
     IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
@@ -9504,27 +9496,25 @@
 ! local var
 
     INTEGER  & 
-         CID, IFILT, IFILT_OBS, NFILT, LTMP, i, ipar  & 
-        ,IPAR_ADJUST, NF, NZ, LCHAR, LCHAR2
+         CID, IFILT, IFILT_OBS, NFILT, LTMP, ipar  & 
+        ,IPAR_ADJUST, NF, LCHAR, LCHAR2
 
     LOGICAL LPRINT
-    LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
+    LOGICAL   FIRST_ITER, DO_PEAKMJD, DO_COLOR
     CHARACTER BANNER*100, CFILT*(MXFILT_ALL), cpar*20
 
     REAL  & 
-         RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux  & 
-        ,CHI2, CHI2RED, Xsig, ZTMP  & 
+         RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux, CHI2RED  & 
         ,PEAKMJD_INI, PEAKMJD_SAVE  & 
         ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD  & 
         ,COLOR_INI, COLOR_SAVE, COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR  & 
-        ,PHOTOZ_INI, PHOTOZ_SAVE, PHOTOZ_STP  & 
         ,INIVAL_START(IPAR_MAX), RTMP(MXFILT_ALL)
 
     REAL*8  T8, Z8
 
 ! FCNSNLC args
     INTEGER IFLAG
-    REAL*8 GRAD(MXFITPAR), CHI8INI, CHI8END, CHI8MIN, CHI8, CHI8TEST
+    REAL*8 GRAD(MXFITPAR), CHI8INI, CHI8END, CHI8MIN, CHI8
 
 ! functions
     REAL  DATA_MODEL_RATIO
@@ -10059,7 +10049,7 @@
 
 ! local args
     REAL*8  PRIOR_SIG, SCALE_SIGMA, SIG_FLOOR, MAGERR_MIN
-    LOGICAL LX2, LX3, LNOzPRIOR
+    LOGICAL LX2, LX3
 
 ! ------------- BEGIN ----------
     PRIOR_SIG = DVALSIG
@@ -10396,7 +10386,6 @@
 
 ! local var
 
-    CHARACTER cfilt*1
     INTEGER   ifilt_rest1, ifilt_rest2, ifilt_obs, ifilt
     REAL Z, LAMDIF_MIN
 
@@ -10472,20 +10461,17 @@
 ! local var
 
     INTEGER  & 
-         ifilt, ifilt_obs, ifilt_rest, ifilt1, ifilt2, ISTAT  & 
+         ifilt_obs, ifilt_rest, ISTAT  & 
         ,irow, icol, J1, N, ep, ep_row, ep_col  & 
-        ,IR(MXFIT_DATA), IFILT_COV(MXFIT_DATA)  & 
-        ,IFAIL, JFAIL, IFROW, IFCOL, LCCID, NONZERO  & 
-        ,FIRSTITER_USECOV
+        ,IFILT_COV(MXFIT_DATA), LCCID, NONZERO
 
     REAL*8  & 
-         COVTMP, RHO, Z, MWEBV, RHO_TMP, DET, ARG  & 
+         COVTMP, RHO, Z, MWEBV, RHO_TMP & 
         ,TOBS(MXFIT_DATA)  & 
         ,TREST(MXFIT_DATA)  & 
         ,COVMAG_ERR(MXFIT_DATA)  & 
-        ,SQMAGERR, SQFLUXERR, FF  & 
-        ,R1, R2, F1, F2, ERR1, ERR2, FUDGE_SQERR, ERRSCALE  & 
-        ,COV_MWXT, COV_MODEL, COV_DATA, COV_TMP, x0, x1, xx1, c  & 
+        ,SQMAGERR, R1, R2, ERR1, ERR2, FUDGE_SQERR  & 
+        ,COV_MWXT, COV_MODEL, COV_DATA, x1, xx1  & 
         ,PARLIST_SN(10), PARLIST_HOST(10)
 
     LOGICAL  & 
@@ -12650,6 +12636,8 @@
     REAL*8 DLMAG_REF
 ! ------------ BEGIN -------------
 
+    MARK_USED(isn)
+
     PRIOR_MUPULL = 0.0
     if ( .NOT. DOPRIOR_DLMAG ) RETURN
 
@@ -13574,7 +13562,7 @@
     LOGICAL LOADVAL, LOADERR, DO_AVG, DO_SUM
     REAL    VAL_STORE
     INTEGER IFILTOBS_ORIG, IFILTOBS_REMAP, IFILT_REMAP
-    INTEGER IFILTOBS, IFILT_ORIG, IFILT_REMAP_TMP, NFILT_STORE
+    INTEGER IFILT_ORIG, IFILT_REMAP_TMP, NFILT_STORE
 
 ! ---------- BEGIN -------------
 
@@ -13675,7 +13663,7 @@
 
 !  local var
 
-    REAL NSIGMA, EPLUS, EMINUS, Z1tmp, Z2tmp, RTMP, ZERR
+    REAL    EPLUS, EMINUS, Z1tmp, Z2tmp, RTMP, ZERR
     INTEGER IPAR, ITER
     LOGICAL LBAD
 
@@ -13885,7 +13873,7 @@
 
     IMPLICIT NONE
 
-    REAL*8  mB, mbtmp, MBERR, x0, x0tmp, x0err
+    REAL*8  mB, MBERR, x0, x0err
 
 ! functions
     REAL*8  SALT2mBcalc
@@ -14019,19 +14007,12 @@
 
 ! local var
 
-    REAL  & 
-         zfit,  zfiterr  & 
-        ,zhost, zhosterr  & 
-        ,zmagerr  & 
-        ,zdif, zerr, zpull, Z1  & 
-        ,TCOR
-
-    INTEGER NFTMIN, NFTMAX, LENC
-
+    REAL zfit,  zfiterr, zhost, zhosterr, zmagerr, zdif, zerr, zpull 
+    INTEGER LENC
     REAL*8  MU8(2), Z8(2), DZ8, DZDMU, MUREF
 
     character CZPRIOR*20
-! xxx mark      LOGICAL LPZ_PHOT, LPZ_BEST, LPZ_QUANTILE
+
 ! functions
 
     REAL*8  DLMAG_REF
@@ -14372,13 +14353,13 @@
 
 ! local var
 
-    INTEGER IMJD, ifilt, ifilto, ifiltr, iep, ifitdata
+    INTEGER ifilt, ifilto, iep, ifitdata
 
     REAL  & 
          kcor, flux, flux_err, Flux_model, Flux_model_err  & 
         ,Frat, Fraterr, arg, FPKRAW(MXEPOCH)  & 
         ,z1, Trest, MJD, PEAKMJD  & 
-        ,Tnear, Terr, ratio, ratio_err, sum_ratio, wsum_ratio  & 
+        ,Tnear, ratio, ratio_err, sum_ratio, wsum_ratio  & 
         ,wgt, sq1, sq2, PEAK_MODEL_RENORM
 
     LOGICAL LRENORM, USE_RENORM, LDMP, LKCOR
@@ -14527,7 +14508,6 @@
 
     IMPLICIT NONE
 
-    INTEGER i
     REAL s, c, s_scale, c_scale
 
 ! ------------ BEGIN -------------
@@ -14902,7 +14882,7 @@
 
 ! local var
 
-    REAL*8 COV, R1, R2, ERR1, ERR2, F1, F2
+    REAL*8 R1, R2, ERR1, ERR2, F1, F2
     INTEGER IFILT1, IFILT2
 
 ! -------------- BEGIN --------------
@@ -14946,7 +14926,7 @@
 
     INTEGER irow, icol   ! (I) matrix location
     REAL*8  RHO          ! (I) un-fudged rho = COV[1,2]/sig1*sig2
-    LOGICAL LPRINT       ! (I) print comment
+
 ! local var
 
     REAL*8 RHOSGN, RHOABS, RHOTMP
@@ -15477,7 +15457,7 @@
 ! local var
 
     LOGICAL LMATCH, USE
-    INTEGER ipar, ifilt, ifiltdef, iflag, LL
+    INTEGER ipar, ifiltdef, iflag, LL
     CHARACTER CFILTDEF*2
 
 ! -------------- BEGIN -----------
@@ -15642,7 +15622,7 @@
 
     LOGICAL DO_MAGDIF, DO_LCPLOT
     INTEGER IFLAG, IFILTOBS, LCID, NFUNPLOT, NDOF, IFILT
-    REAL    ERR1, ERR2, FITPROB
+    REAL    ERR1, ERR2
     REAL*8  CHI8, PROB8
 
     CHARACTER CCID*40
@@ -15824,8 +15804,7 @@
     INTEGER ITER ! (I) fit iteration
 
 ! local var
-    INTEGER EP, EPMIN, EPMAX, IMJD, IFILT_OBS
-    REAL*8  PS, MAGOFF, SCALE
+    REAL*8  PS
     LOGICAL REJECT_PRESCALE  ! function
 
 ! ----------------- BEGIN ---------------
@@ -16228,12 +16207,11 @@
         ,J, JKEEP, LL, NBRA, NTRY, itry, ITERLAST, IPAR  & 
         ,IFILTDEF_MAP_SAVE(MXFILT_OBS)
 
-    REAL LAMAVG, LAMREST(3), LAMTMP, Z, DLAM_TOL
-    REAL SNRMAX, SNRMAX1, SNRMAX2
+    REAL LAMAVG, LAMREST(3), LAMTMP, Z, DLAM_TOL, SNRMAX
     CHARACTER CFILTOBS_LIST*(MXFILT_OBS), CTMP*4, CFILTDEF*2
 
-    LOGICAL L_BRACKET, L_MATCH, L_USE, L_SNR, L_KEEP
-    LOGICAL SKIPTEST, LSNR, LSNR1, LSNR2
+    LOGICAL L_BRACKET, L_MATCH, L_USE, L_KEEP
+    LOGICAL SKIPTEST, LSNR
 
 ! function
     INTEGER BRACKET_FILTERLIST
@@ -16829,7 +16807,6 @@
 ! subroutine args
     INTEGER IFILTREST      ! (I) absolute value of rest-frame filter
     REAL*8  SHAPE, COLOR   ! (I)
-    REAL*8  SHAPE2
 
 ! local args
 
@@ -16998,8 +16975,7 @@
     REAL*8 oneplusZ, LAMZ
     REAL*4 Z4, LMIN4
 
-    LOGICAL DOTEST_Z
-    LOGICAL DOTEST_NONZ, ISSURVEY, NOEPOCHS
+    LOGICAL ISSURVEY, NOEPOCHS
 
 ! function
     INTEGER NEAREST_IFILTDEF_WRAPPER
@@ -18901,13 +18877,10 @@
 ! local var
     INTEGER, PARAMETER :: IPAR_START=3   ! skip ISN and ITER for CWN
 
-    INTEGER  & 
-          IFILT, IFILT_OBS, OPT_STORE, USE4TEXT  & 
-         ,LENLIST, LENPKMJD, LENNAME, LENNAME2, LENBLOCK, LENPACK  & 
-         ,NTPAR_MIN, NTPAR_MAX, NTPAR, ipar
+    INTEGER IFILT, LENLIST, LENPKMJD, LENNAME, LENBLOCK
+    INTEGER NTPAR_MIN, NTPAR_MAX, ipar, USE4TEXT
 
-    LOGICAL   LTMP
-    CHARACTER varlist*1000, VARNAME*60, STR_IPACK*40, CBLOCK*40
+    CHARACTER varlist*1000, VARNAME*60, CBLOCK*40
     CHARACTER CFILT*1, SUFFIX_R*12, SUFFIX_I*12, PNAM*40
 
     LOGICAL  SKIPTABLE_FITPAR  ! function
@@ -19442,8 +19415,8 @@
 
 ! local var
 
-    INTEGER ipar,  LENNAME, LENPACK
-    character CTMP*20, C2*2, STR_IPACK*40, NAME*40
+    INTEGER ipar,  LENNAME
+    character CTMP*20, C2*2, NAME*40
 
 ! ----------- BEGIN ------------
 
@@ -19602,10 +19575,7 @@
     INTEGER   ISN   ! 0->init, otherwise fill
 
 ! local
-    INTEGER ID, i, ep, LENNAME, LENFMT
-    INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
-    REAL    Tobs, z, x0, x1, c, MWEBV
-    REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
+    INTEGER ID, LENNAME, LENFMT
     CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
 
 ! ----------------- BEGIN ------------------------
@@ -19669,10 +19639,7 @@
 
 ! local var
 
-    INTEGER  & 
-          IPAR, IFILT, IFILT_OBS  & 
-         ,LENLIST, LENNAME, LENBLOCK, LENPACK
-
+    INTEGER  IPAR, LENNAME, LENBLOCK
     CHARACTER VARNAME*60, CBLOCK*40
 
     EXTERNAL  & 
@@ -19910,9 +19877,7 @@
 
 ! local var
 
-    INTEGER  & 
-          IFILT, IFILT_OBS, USE4TEXT  & 
-         ,LENLIST, LENNAME, LENBLOCK, LENPACK
+    INTEGER IFILT, IFILT_OBS, LENBLOCK
 
     CHARACTER VARNAME*60, CBLOCK*40, CNFIT*20, CFILT*2
 

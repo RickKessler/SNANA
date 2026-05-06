@@ -23775,6 +23775,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    Begin fixing -Wall compilation warnings (tons of them)
 
+   Allow new key  "NULL_ON_MISSING_EVENT: 1" inside HEADER_OVERRIDE_FILE
+   to skip reading the override variables from data file so that they
+   remain NULL if not in the override file. Initial reason is photo-z systmatics
+   where zPHOT(sys) are missing for some events that have zPHOT(baseline);
+   we don't want to use zPHOT(baseline) in the systematic test.
+   See manual.
+
          *****  MISCELLANEOUS(v12_01g) *****
 
     snlc_sim.c:

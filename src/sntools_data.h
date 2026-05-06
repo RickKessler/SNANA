@@ -7,12 +7,13 @@
 
 int REFAC_DATA_FLAG ;  // Apr 3 2026: refactor to store LOGMASS[_ERR] in z-bins
 
-#define MXFILE_OVERRIDE   10
+#define MXFILE_OVERRIDE    10
 #define IVARMAX_OVERRIDE  200  // max IVAR;  can be large even with only 1 override var
 
 // define two different quantile formats for override
 #define QFORMAT_OVERRIDE_IMPLICIT   1  // specify zq list for each GALID; PERCENTILES are IMPLCICITLY computed
 #define QFORMAT_OVERRIDE_EXPLICIT   2  // specify EXPLCIIT zq and PERCENT for each GALID
+
 
 struct {
   bool USE;
@@ -51,7 +52,13 @@ struct {
   float ORIG_HOSTGALz_ZPHOT_QUANTILE[MXHOSTGAL][MXBIN_HOSTGALz_QUANTILE];
 
   bool IS_SIM;
+
+  int  NVAR_NULL_ON_MISSING_EVENT; 
+  char **VARNAMES_NULL_ON_MISSING_EVENT;
+
 } RD_OVERRIDE;
+
+#define KEY_NULL_ON_MISSING_EVENT "NULL_ON_MISSING_EVENT"
 
 
 #define FORMAT_SNDATA_FITS 32
@@ -91,6 +98,7 @@ void RD_OVERRIDE_POSTPROC(void); // special updates for redshift variables
 bool ISRD_OVERRIDE_VARNAME(char *VARNAME);
 bool isrd_override_varname__(char *VARNAME);
 
+void rd_override_init_missing_event(char *OVERRIDE_FILE);
 void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST);
 void rd_override_append(void);
 void rd_override_zspec(void);

@@ -9413,15 +9413,17 @@ void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 
 } // end read_VARNAMES_KEYS
 
-void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun, 
+void read_YAML_VALS(char *fileName, char *keystring_list, char *key_stop, char *callFun, 
 		    double *val_list ) {
 
   // Created Mar 2023 by R.Kessler
   // Open and read yaml file (fileName), read list of comma-sep keys
   // specified by keystring_list, and return list of double-precision values
   // in val_list. CallFun is for error messages.
+  //
+  // May 6 2026: stop reading when key_stop is reached (avoid reading very long file)
 
-  int n_key, k ;
+  int n_key, k, len ;
   char **key_list, c_get[MXWORDLINE_PARSE_WORDS];
   FILE *fp;
 
@@ -9442,10 +9444,14 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun,
 
   // add colon for each key, and init val_list
   for(k=0; k < n_key; k++ ) {
-    int len = strlen(key_list[k]);
-    sprintf(&key_list[k][len], ":") ;
-    val_list[k] = -9.0 ;
+    if ( strstr(key_list[k],COLON) == NULL ) { strcat(key_list[k],COLON); }
+    // xxx mark     len = strlen(key_list[k]);
+    // xxx mark    sprintf(&key_list[k][len], ":") ;
+    val_list[k] = -999.0 ;
   }
+
+  // add colon for key_stop (if not already included)
+  if ( strstr(key_stop,COLON) == NULL ) { strcat(key_stop,COLON) ; }
 
   fp = fopen(fileName,"rt");
   if ( ! fp  ) {
@@ -9457,6 +9463,7 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun,
 
   int n_key_found = 0 ;
   while( (fscanf(fp, "%s", c_get)) != EOF) {
+    if ( strcmp(c_get,key_stop) == 0 ) { break; }
     for(k=0; k < n_key; k++ ) {
       if ( strcmp(key_list[k],c_get) == 0 ) {
 	fscanf(fp, "%le", &val_list[k] ) ;	
@@ -9477,9 +9484,9 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *callFun,
 } // end read_YAML_VALS
 
 
-void read_yaml_vals__(char *fileName, char *key_list, char *callFun,  
+void read_yaml_vals__(char *fileName, char *key_list, char *key_stop, char *callFun,  
 		      double *val_list ) {
-  read_YAML_VALS(fileName, key_list, callFun, val_list);
+  read_YAML_VALS(fileName, key_list, key_stop, callFun, val_list);
 }
 
 

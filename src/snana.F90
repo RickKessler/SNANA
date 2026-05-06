@@ -205,6 +205,7 @@
         NULLVAL          = -99999.  &      
        ,MAG_SATURATE     = -7.0     &  ! for sim only
        ,LEGACY_INIT_VAL  = 1.0E8    
+
     CHARACTER, PARAMETER ::        &
        SNTABLE_LIST_DEFAULT*60           = 'SNANA  FITRES'  &
        ,METHOD_SPLINE_QUANTILES_DEFAULT*8 = 'CUBIC'  ! default; may change in LC fit
@@ -212,6 +213,8 @@
          INDEX_SPLINE_QUANTILE_ZPHOT = 1 &
          ,INDEX_SPLINE_LOGMASS_ZGRID = 2 
         
+
+    INTEGER, PARAMETER :: I8 = selected_int_kind(18)
 
 ! - - - - - - - - - - - - - - 
 ! physical constants
@@ -372,7 +375,7 @@
         ,IDSURVEY_LIST(MXSURVEY)  &  ! corresponds to SURVEY_NAME_LIST
         ,NSURVEY_LIST          ! size of SURVEY_NAME_LIST   IDSURVEY_LIST
 
-    LOGICAL*1  & 
+    LOGICAL  & 
           EXIST_CALIB_FILE  & 
          ,EXIST_FILT(MXFILT_OBS)   &  ! T => at least one point per filt
          ,FOUND_SURVEY  & 
@@ -895,7 +898,7 @@
         ,NEP_SIM_MAGOBS     &    ! number of sim epochs with MAGOBS < 99
         ,SIM_WRITE_MASK          ! WRITE_MASK_HEAD[PHOT] Feb 2026 
        
-    INTEGER*8  SIM_HOSTLIB_GALID
+    INTEGER(I8) :: SIM_HOSTLIB_GALID
     REAL*8    DSIM_HOSTLIB_GALID  ! for table only
 
     CHARACTER  & 
@@ -1111,7 +1114,7 @@
     INTEGER COPYFLAG    ! (I) determines direction of copy (to/from SNDATA struct)
 
     ! local args
-    INTEGER   NQ, q, LENPRE, LEN_KEY, LEN_STR, NARG
+    INTEGER   NQ, q,  LEN_KEY, LEN_STR, NARG
     CHARACTER cKEY*40, cSTRING*20
     REAL*8    DVAL(MXZPHOT_Q)
 
@@ -2415,7 +2418,8 @@
 
     IMPLICIT NONE
 
-    INTEGER   IERR, IVERS, NFIT_PER_SN, JDIFF
+    INTEGER*8 JDIFF
+    INTEGER   IERR, IVERS, NFIT_PER_SN
 
 ! funtions
 
@@ -2985,7 +2989,6 @@
 
     INTEGER   NSN_VERS, LEN_VERS, LEN_PATH, OPTRD
     INTEGER   IJOB, NJOBTOT, ISN, ISTAT
-    INTEGER*8 JTIME_EVENTSTART
     LOGICAL   LRDFLAG_GLOBAL, LRDFLAG_ALL, LRDFLAG_SPEC
     LOGICAL   REFORMAT_LOCAL, WR_SIMLIB_OUTFILE
     CHARACTER cVERSION*(MXCHAR_VERSION), cPATH*(MXCHAR_PATH)
@@ -3160,7 +3163,7 @@
     INTEGER LEN_VERS, istat, L1, L2, L3
     CHARACTER*(2*MXCHAR_FILENAME)  & 
          VERSION, PATH, LIST_FILE, README_FILE
-    CHARACTER FNAM*20, FIRST_WORD*60
+    CHARACTER FNAM*20
 
     INTEGER   GETINFO_PHOTOMETRY_VERSION
     EXTERNAL  GETINFO_PHOTOMETRY_VERSION, CHECK_FILE_DOCANA
@@ -3336,7 +3339,6 @@
     REAL*8    DARRAY(MXEPOCH)
     INTEGER   OPT, LEN
     CHARACTER STRING*100
-    LOGICAL   ISCORRECT_BUG, ISCORRECT_FIX
 
     LOGICAL   correct_sign_vpec_data
     EXTERNAL  correct_sign_vpec_data
@@ -3603,7 +3605,7 @@
 
     INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
 
-    INTEGER   IVAR, LEN
+    INTEGER   IVAR
     REAL*8    DARRAY(MXVAR_PRIVATE)
     CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*60
 
@@ -4209,8 +4211,7 @@
 
     INTEGER   LENPRE, ifilt, q, NQZPHOT
     CHARACTER PREFIX*20, PREFIXz*20, STRING*40, KEY*60, KEY_PREFIX*60
-    REAL*8    DARRAY(MXFILT_OBS), DARRAY2(MXFILT_OBS), SB, MAG, zq
-    LOGICAL LTMP, LZQ
+    REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
 ! -------------- BEGIN ----------
 
@@ -4541,7 +4542,6 @@
 ! =============================
     SUBROUTINE RDHEAD_SIM_SNANA(OPT)
 
-
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -4632,7 +4632,7 @@
     CALL FETCH_SNDATA_WRAPPER("SIM_HOSTLIB_GALID",  & 
           ONE, STRING, DARRAY, OPT)
     DSIM_HOSTLIB_GALID = DARRAY(1)
-    SIM_HOSTLIB_GALID  = DSIM_HOSTLIB_GALID
+    SIM_HOSTLIB_GALID  = int(DSIM_HOSTLIB_GALID, kind = I8 )
 
     do ipar = 1, NPAR_SIM_HOSTLIB
        CALL FETCH_SNDATA_WRAPPER(SIM_HOSTLIB_KEYWORD(ipar),  & 
@@ -5571,7 +5571,7 @@
 
 ! local var
     CHARACTER VERSION*(MXCHAR_FILENAME), COMMENT*40
-    INTEGER IERR, LEN, JSLASH
+    INTEGER LEN, JSLASH
 ! -------------- BEGIN ------------
 
     DO_GETINFO = .TRUE.
@@ -7278,8 +7278,7 @@
     INTEGER iArg, LL, ilast, iuse, NVERLOC
     CHARACTER STRING_LIST*(MXCHAR_PATH)
     CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
-    LOGICAL LSNIGNORE, DO_STOP, FOUND_MATCH_LEGACY, FOUND_MATCH_REFAC
-    LOGICAL FOUND_MATCH, LDMP
+    LOGICAL FOUND_MATCH, DO_STOP, LDMP
 
 ! functions
     LOGICAL MATCH_NMLKEY, FOUND_MATCH_NMLKEY
@@ -8904,10 +8903,10 @@
 
     IMPLICIT NONE
 
-    integer icut, i,  JDIFF
+    integer icut, i
     LOGICAL LTEST, LFAIL
 
-    REAL Tsn, Ttot, f_dupl
+    REAL f_dupl
     EXTERNAL PRINT_CPUTIME
 
 ! ------------ BEGIN --------------
@@ -9189,7 +9188,8 @@
 
     INTEGER ISN  ! (I) integer index (1-NSN)
 
-    INTEGER NSN_TOT, JTIME, JTDIF, PERCENT
+    INTEGER JTDIF
+    INTEGER NSN_TOT, JTIME, PERCENT
     REAL FRAC, T_ELAPSE, T_REMAIN
 ! ------------ BEGIN ---------
 
@@ -9423,13 +9423,14 @@
     INTEGER ISN_ALL, ISN_PROC, IVERS  ! (I)
 
 #if defined(SNFIT)
-    INTEGER NCALL_MNFIT, ITER
+    INTEGER NCALL_MNFIT, ITER, i
     LOGICAL LAST_ITER, REJECT_FIT
+    REAL    t_end
 #endif
 
-    INTEGER IERR, i, OPT_MNFIT
+    INTEGER IERR, OPT_MNFIT
     REAL*8  PS8
-    REAL t_start, t_end  ! Dec 2024
+    REAL t_start
     LOGICAL REJECT_PRESCALE
     CHARACTER FNAM*14
 
@@ -9536,9 +9537,6 @@
 
         ITER = ITER + 1
         LAST_ITER = ( ITER .EQ. NFIT_ITERATION )
-
-        ! xxx mark IF ( ITER == 1 ) THEN
-        ! xxx mark   OPT_MNFIT = OPT_MNFIT_MINIMIZE 
 
         IF ( USE_MIGRAD ) THEN
            OPT_MNFIT = OPT_MNFIT_MIGRAD 
@@ -9736,12 +9734,12 @@
 
     IMPLICIT NONE
 
-    INTEGER IERR, LENF
+    INTEGER LENF, IERR
     EXTERNAL write_epoch_list_summary
 
 ! ----------------- BEGIN -------------
 
-! -----------------------------
+    IERR = 0
 
 #if defined(SNFIT)
     CALL PRBANNER ( "CALL FITPAR_END" )
@@ -10121,8 +10119,7 @@
         ,cVERSION*(MXCHAR_VERSION)  & 
         ,cPREFIX*(MXCHAR_VERSION)  & 
         ,cHEADFILE*(MXCHAR_FILENAME)  & 
-        ,LIST_FILE*(MXCHAR_FILENAME)  & 
-        ,IGNORE_FILE*(MXCHAR_FILENAME)
+        ,LIST_FILE*(MXCHAR_FILENAME)
 
     INTEGER  & 
          WRITE_FLAG, LL, NMARK  & 
@@ -11100,7 +11097,7 @@
     IMPLICIT NONE
 
     INTEGER icut, i, ibit, itype, ipar, ifilt, LM,istat
-    INTEGER LL, LL_SNANA, NWD, LL_HOST
+    INTEGER LL, NWD
     CHARACTER ENVtemp*400, MACH*40, FNAM*12
 
 ! function
@@ -12099,10 +12096,10 @@
         ,cfilt1*2, SURVEY_TMP*(MXCHAR_SURVEY)  & 
         ,SURVEYFILE*(MXCHAR_FILENAME)  & 
         ,NAME_forC*(MXCHAR_FILENAME)  & 
-        ,upper*60, ctel*60, cfield*60  & 
+        ,upper*60, cfield*60  & 
         ,SURVEY_FILTERS_ORIG*(MXFILT_ALL)
 
-    LOGICAL LTMP, LKEY, LSRVY
+    LOGICAL LKEY, LSRVY
 
 ! functions
     INTEGER FILTINDX
@@ -12928,8 +12925,7 @@
     REAL*8    MJD8, MJD8_LAST
     INTEGER   NMJD_STORE_NEW, NMJD_STORE_ORIG, NEWMJD
     INTEGER   EPMIN, EPMAX, ep_orig, ep_new, IMJD
-    INTEGER   IFILT, IFILT_OBS
-    REAL      PEAKMJD, MJD, TOBS, TREST, z1, z
+    REAL      PEAKMJD,  z
     LOGICAL   APPLY_CUTS, APPLY_TREST
     LOGICAL   PASS_CUTS, PASS_TREST, PASS
     CHARACTER FNAM*20
@@ -16743,11 +16739,10 @@
         ,Tobs, z1, z, Trest, scale, arg, PSF, ZPERR  & 
         ,Zhost, Zhosterr, LAMOBS, LAMZ1,  SNRMAX, SUM_AREAFRAC
 
-    REAL*8  MJD8, EBV8, EBVERR8
+    REAL*8  Z8, MJD8, EBV8, EBVERR8
     REAL*8  MJD8_LASTALL, MJD8_LASTFILT(MXFILT_ALL)
-    REAL*8  MU_OLD, MU_NEW, z8
     LOGICAL  & 
-         LSIG, LLAM, LZ, LTEST, LXMJD, LINCMJD  & 
+         LSIG, LLAM, LZ, LTEST, LXMJD  & 
         ,LPSF, LZPERR, LPP, LERRTEST  & 
         ,LSNRMAX(MXFILT_ALL)  & 
         ,LSNRMAX2(MXFILT_ALL)  & 
@@ -17350,7 +17345,7 @@
 ! local var
     INTEGER*8 :: GALID, INDEX_SPLINE
     CHARACTER*(MXCHAR_CCID)  CCID
-    INTEGER   :: NQ, q, LM, IERR_ZPDF, IPRINT
+    INTEGER   :: NQ, q, LM, IPRINT
     REAL*8    :: QZPHOT(MXZPHOT_Q), QPROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
 
@@ -17491,10 +17486,9 @@
     IMPLICIT NONE
 
     LOGICAL LSHIFT_FINAL, LSHIFT_HOST_ZPHOT, LSHIFT_HOST_ZSPEC
-    INTEGER OPT, q, igal
+    INTEGER igal
     REAL    zshift, ztol, zdif
 
-    REAL*8 zhelio_zcmb_translator ! function
 ! -------------- BEGIN ----------------
 
 ! bail if none of the zSHIFT options are used
@@ -17527,20 +17521,10 @@
           SNHOST_ZPHOT = SNHOST_zPHOT + zshift
        endif
 
-       ! xxx mark if ( REFAC_DATA_FLAG > 0 ) then 
-          do igal = 1, MXSNHOST
-             CALL SHIFT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), zshift )
-          enddo
-          ! xxxxxxxxxxx mark delete Apr 2026 xxxxxxxx
-       !else
-          ! legacy
-          !do q    = 1, SNHOST_NZPHOT_Q(igal)
-          !do igal = 1, MXSNHOST
-	  !    SNHOST_ZPHOT_Q(igal,q) = SNHOST_ZPHOT_Q(igal,q) + zshift ! Apr 22 2025
-          !enddo
-          !enddo
-       !endif
-          ! xxxxxxxxx end mark xxxxx
+       do igal = 1, MXSNHOST
+          CALL SHIFT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), zshift )
+       enddo
+
 
     ENDIF
 
@@ -18168,7 +18152,7 @@
          ERR1, ERR2a, ERR2b, ERR3, ERR3_SIM, ERR_SIM, ERR_DATA  & 
         ,ERR_ORIG, SCALE, FUDGE, SNR, SNR_PROTECT, LOGSNR  & 
         ,SQERR, SQERR1, SQERR2a, SQERR2b, SQERR3, SQERRHOST, SQERRMAP  & 
-        ,RDNOISE_pe, FLUXCAL, FLUXCAL_BUG, FLUXADU  & 
+        ,RDNOISE_pe, FLUXCAL, FLUXADU  & 
         ,AREA, NEA, PSFSIG1, PSFSIG2, PSFRATIO  & 
         ,GALMAG, SBMAG, SBFLUX, SNSEP, NOISEPAR(2)  & 
         ,MJD, GAIN, SKYSIG, ZP, ZPDIF, PARLIST(20), Texpose  & 
@@ -18941,13 +18925,13 @@
 ! local args
     REAL*8  MJD, GAIN, RDNOISE, SKYSIG, PSF1, PSF2, PSFRAT
     REAL*8  ZP, ZPERR, MAG, FLUX, FLUXERR, PIXSIZE, LAMOBS
-    REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD, DVAL
+    REAL*8  MJD_MIN, TOBS_MIN, PEAKMJD
     INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
     INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
-    INTEGER LENcMAG, ISTAT, LENF, NFILTDEF_TMP
+    INTEGER LENcMAG, LENF, NFILTDEF_TMP
     LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
     LOGICAL WR_SIM_MAGOBS, FOUND_METADATA
-    CHARACTER BAND*4, FNAM*20, SEDCMD*200, cDUM*20, CCID*32
+    CHARACTER BAND*4, FNAM*20, SEDCMD*200
     CHARACTER cMAG*12, cNCUTS*12, STR_OLD*40, STR_NEW*60
 
 ! ------------------ BEGIN ------------------
@@ -22141,13 +22125,15 @@
 
 ! local var
 
-    INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP, BIT
+    INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP
     INTEGER   IFILTOBS, IFILT
     LOGICAL   DOFILL_TABLE, LCUT_NSIG, LCUT_FTRUE, LCUT_SBMAG
-    REAL      NSIG, FTRUE, SBMAG, FLUXCAL_FIT, FLUXCAL_ERR_FIT
+    REAL      NSIG, FTRUE, SBMAG 
     CHARACTER NAME_forC*40, TEXTFMT*20, TEXTFMT_forC*20, FNAM*14
 
+#if defined(SNFIT)
     REAL  NSIG_OUTLIER_FIT  ! function
+#endif
     EXTERNAL  SNTABLE_CREATE, SNTABLE_FILL
 ! ---------------- BEGIN -----------------
 
@@ -22363,13 +22349,9 @@
 
 ! local var
 
-    INTEGER  & 
-         IFILT, IFILT_OBS, ITEXT  & 
-        ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
-
-    LOGICAL LTMP, ADDCOL_SETPKMJD
-    CHARACTER varlist*100, CTMP*60, CBLOCK*40
-    CHARACTER FNAM*22, CFILT*2
+    INTEGER LENBLOCK, LENLIST
+    CHARACTER varlist*100, CBLOCK*40
+    CHARACTER FNAM*22
     EXTERNAL  & 
           SNTABLE_ADDCOL  & 
          ,SNTABLE_ADDCOL_int  & 
@@ -23734,7 +23716,6 @@
 ! local var
 
     INTEGER LENV, LENB, IFILT, IFILT_OBS
-    LOGICAL IGNORE
     CHARACTER CBLK*40, CNOBS*20, VARNAME*40, cfilt*2
 
     EXTERNAL  & 
@@ -23791,7 +23772,7 @@
 
     IMPLICIT NONE
 
-    INTEGER IGRID, NEP, IFILT, IFILT_OBS
+    INTEGER IGRID, NEP, IFILT
     REAL MAGOBS, TOBS
 
 ! function
@@ -24231,13 +24212,10 @@
     IMPLICIT NONE
 
     INTEGER ifilt, NFILT, IFILTOBS, IFILTOBS_REMAP, IFILT_REMAP
-    INTEGER LEN
     CHARACTER  CFILTOBS*2, CFILTOBS_REMAP*2, FNAM*18
     LOGICAL DO_NOMINAL, DO_REMAP, VALID_BAND
     LOGICAL USE, USEFILT_REMAP(MXFILT_ALL)
     REAL    SNRMAX, VAL_OLD, VAL_NEW
-! function
-    INTEGER FILTINDX
 
 ! ------------- BEGIN --------------
 
@@ -24425,7 +24403,7 @@
 
     LOGICAL   DO_FILL
     INTEGER   LENNAME, LENFMT, ISPEC, LENCCID, LENz, LENGALID
-    CHARACTER FNAM*12, NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+    CHARACTER FNAM*12, NAME*40,  TEXTFMT_forC*20
     CHARACTER CCID_forC*40, cGALID*24, cz*20
     REAL      z
     INTEGER*8 GALID
@@ -24725,7 +24703,6 @@
     REAL*8  z8, LAMDIF_MIN8
 
     CHARACTER FNAM*32
-    INTEGER NEAREST_IFILT_REST     ! lefacy fortran func
     INTEGER NEAREST_IFILTDEF_REST  ! refactored C code
 ! ------------- BEGIN -------------
 
@@ -25996,8 +25973,7 @@
     IMPLICIT NONE
 
     INTEGER  & 
-         EPMAX, EP  & 
-        ,EP_atFLUXMAX(0:MXFILT_ALL), EPTEST_atFLUXMAX(0:MXFILT_ALL)  & 
+         EP, EP_atFLUXMAX(0:MXFILT_ALL)    & 
         ,IFILT_OBS, ifilt, ifilt_snrmin  & 
         ,IFILT_OBS2, IFILT_OUTLIER, IFILT_REJECT  & 
         ,NPKMJD, LUN, VBOSE

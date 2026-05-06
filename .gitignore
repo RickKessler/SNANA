@@ -8,6 +8,7 @@ src/*.f*
 src/*~
 src/temp*
 src/*.o
+src/*.mod
 util/*~
 *~
 __pycache__/*

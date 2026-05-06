@@ -1799,7 +1799,6 @@ void RD_OVERRIDE_POSTPROC(void) {
   
   // ------------ BEGIN --------------
 
-  printf(" xxx --------- CID=%s ------------------ \n", SNDATA.CCID); fflush(stdout);
 
   if ( !RD_OVERRIDE.USE ) { return; }
 
@@ -2035,8 +2034,6 @@ void rd_override_zphot(int igal) {
   // for igal=0, but current igal=1
   bool UPD_QZPHOT = (FOUND0_QZPHOT  && !FOUND_ZPHOT ) ;
 
-  printf(" xxx %s: CID=%s  igal=%d  FOUND0_QZPHOT=%d  FOUND_ZPHOT=%d  UPD_QZPHOT=%d \n",
-	 fnam, SNDATA.CCID, igal, FOUND0_QZPHOT, FOUND_ZPHOT, UPD_QZPHOT); fflush(stdout);
 
   if ( UPD_QZPHOT ) {
     double sumz = 0.0, sumzsq=0.0, sumPz = 0.0, z, Pz, mean, std ;
@@ -2146,11 +2143,6 @@ void rd_override_qzphot_implicit(int OPT, int IGAL) {
       //     fnam, SNDATA.CCID, IGAL, GALID, q, zq, NRD); fflush(stdout);
     }
 
-
-    if ( NQ_VALID > 0 ) {
-      printf(" xxx %s: CID=%s igal=%d  NQZPHOT=%d  NQ_VALID=%d\n",
-	     fnam, SNDATA.CCID, IGAL, NQZPHOT, NQ_VALID); fflush(stdout);
-    }
 
     SNDATA.HOSTGALz_QUANTILE_ZPHOT[IGAL].NZ = NQ_VALID;
     compute_implicit_percentiles(NQZPHOT, NQ_VALID, PCT_LIST); // <== return PCT_LIST

@@ -2710,7 +2710,7 @@
 
     IMPLICIT NONE
 
-    INTEGER IFITDATA, iep, imjd, ifilt
+    INTEGER IFITDATA, iep
     REAL    FLUXCAL, FLUXCAL_ERR
 
 ! -------------- BEGIN -------------
@@ -3610,9 +3610,9 @@
 ! local var
 
     REAL*8  ZMIN, ZMAX
-    INTEGER IFILT, IFILT_OBS, LCID
+    INTEGER IFILT, IFILT_OBS
     LOGICAL LZTEST
-    CHARACTER CFILT1*1, CCID*(MXCHAR_CCID)
+    CHARACTER CFILT1*1
 
 ! ------------- BEGIN -------------
 
@@ -3798,26 +3798,19 @@
 
 ! local var
 
-    REAL NSIGMA, Z1
-    INTEGER  & 
-         OPT, HOFF, iep, ifilt, ifilt_obs, NDOF, LL  & 
-        ,ITER, IFILTBAD
-
-    LOGICAL LTMP
-
-    REAL FITPROB, CHI2
-    LOGICAL  LFITPROB, LMARG, LZPHOT
-
+    INTEGER  OPT, ifilt, ifilt_obs, NDOF, LL, ITER, IFILTBAD
+    REAL FITPROB, CHI2, NSIGMA
     REAL*8  CHI8, ZPH8, ZPHERR8
-
-    CHARACTER CFILT1*1
+    LOGICAL  LFITPROB, LMARG, LZPHOT, LTMP
 
 ! functions
-    REAL    LCPROBCHI2
     REAL*8  PROB_CHI2NDOF
     LOGICAL LTEST_ZPHFILTER
 
 ! --------------- BEGIN ---------------
+
+    MARK_USED(isn)
+    MARK_USED(DOPDFPLOT)
 
     ERRFLAG = 0  ! init to OK
 
@@ -12739,17 +12732,13 @@
 ! local var
 
     INTEGER  & 
-         cid, LCID, year, epoch, imjd  & 
+         cid, LCID, epoch, imjd  & 
         ,ifilt, ifilt_obs, cutbit, ipar, ipar2  & 
-        ,ETYPE, MXERRBAD, NERRBAD, NERROK, ifitdata, NTLIST
+        ,ETYPE, MXERRBAD, NERRBAD, NERROK, ifitdata
 
-    REAL  & 
-         MJD, PEAKMJD, Tobs, Trest  & 
-        ,TMIN,TMAX, TGAPMAX, T0GAPMAX  & 
-        ,XN, xval, zpull, ERR_overz1, z1, TRESTCUT, TRESTCUT_EXTEND  & 
-        ,TLIST(MXEPOCH)
+    REAL PEAKMJD, xval, zpull, ERR_overz1, z1, TRESTCUT, TRESTCUT_EXTEND 
 
-    LOGICAL LTMP, LTMP1, LTMP2, DOFIT_SPECZ, LVBOSE, LCOV
+    LOGICAL LTMP, DOFIT_SPECZ, LVBOSE, LCOV
 
     CHARACTER  & 
          BANNER*80  & 
@@ -12762,6 +12751,8 @@
     LOGICAL LCUTVAR
 
 ! ----------------- BEGIN ----------------
+
+    MARK_USED(isn)
 
     LVBOSE = STDOUT_UPDATE 
 
@@ -13157,9 +13148,9 @@
 
     INTEGER  & 
          IFILT, IFILT_OBS, IFILT_RST, ifitdata, iep, ipar, NPAR, i  & 
-        ,IERR, NTLIST,  NFILT, NFADD, isort  & 
+        ,NTLIST,  NFILT, NFADD, isort  & 
         ,FLIST(MXEPOCH)  & 
-        ,MODE, ORDER, NSORT, INDEX_SORT(MXFILT_OBS)   &  ! SORTZV args
+        ,ORDER, INDEX_SORT(MXFILT_OBS)   &  ! SORTZV args
         ,MASK_STORE_VAL, MASK_STORE_ERR, MASK_STORE_SUM
 
     REAL  & 
@@ -13171,10 +13162,9 @@
          Z8, MU8REF, MU8FIT, MU8  & 
         ,x08, x18, c8, S2a8, S2b8, mb8
 
-    LOGICAL USE, LNON
+    LOGICAL USE
 
 ! function
-    REAL   LCPROBCHI2
     REAL*8 DLMAG_REF, SALT2mBcalc
 
     EXTERNAL SORTFLOAT
@@ -15132,7 +15122,7 @@
 
     INTEGER, PARAMETER :: JOBS=1, JFIT=2
 
-    INTEGER  IFITDATA, IFILT, IFILT_OBS, IMJD, j, ep
+    INTEGER  IFITDATA, IFILT_OBS, j, ep
     INTEGER  NITER, OPTWGT, NEP
 
     CHARACTER CFILT*1

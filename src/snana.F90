@@ -27912,15 +27912,14 @@
     REAL  NSIGMA     ! (I) integrate +_ NSIGMA for exact pdf.
 
 ! local var
-    INTEGER ipar, JTIME1, JTIME2, JDIFTIME, NEVAL, LL, NGRID, IERR  
+    INTEGER JTIME1, JTIME2, JDIFTIME, NEVAL, LL, NGRID, IERR  
     character  copt*6
     REAL*8 TMP
 
 ! functions
-    CHARACTER ERRTYPE_STR*1
 
 ! FCN args
-    DOUBLE PRECISION GRAD8(MXFITPAR), CHI8, USRFUN
+    DOUBLE PRECISION  USRFUN
     EXTERNAL USRFUN
 
 ! ------------------ BEGIN ------------

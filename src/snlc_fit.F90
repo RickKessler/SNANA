@@ -14287,7 +14287,7 @@
        ifilto     = I4EP_ALL(iep,IEP_IFILT_OBS)
        if ( ifilto .NE. IFILT_OBS ) goto 50
 
-       MJD        = R8EP_MJD(ifitdata)
+       MJD        = SNGL(R8EP_MJD(ifitdata))
        Trest      = (MJD - PEAKMJD) / z1
        ifilt      = I4EP_ALL(iep,IEP_IFILT)
 
@@ -14606,16 +14606,16 @@
     if ( CFRAME(1:3) .EQ. 'OBS' ) THEN
       IFILT = IFILTDEF_INVMAP_SURVEY(ifiltdef) ! get sparse index
 
-      PEAKMAG_OBS_MODEL(ifilt)     = MAG
-      PEAKMAG_OBS_MODEL_ERR(ifilt) = MAGERR
+      PEAKMAG_OBS_MODEL(ifilt)     = SNGL(MAG)
+      PEAKMAG_OBS_MODEL_ERR(ifilt) = SNGL(MAGERR)
 
-      PEAKFLUX_OBS_MODEL(ifilt)     = FLUX
-      PEAKFLUX_OBS_MODEL_ERR(ifilt) = FLUXERR
+      PEAKFLUX_OBS_MODEL(ifilt)     = SNGL(FLUX)
+      PEAKFLUX_OBS_MODEL_ERR(ifilt) = SNGL(FLUXERR)
 
-      PEAK_KCOR_MODEL(ifiltdef)        = KCOR
+      PEAK_KCOR_MODEL(ifiltdef)        = SNGL(KCOR)
     ELSE
-      PEAKMAG_REST_MODEL(ifiltdef)     = MAG
-      PEAKMAG_REST_MODEL_ERR(ifiltdef) = MAGERR
+      PEAKMAG_REST_MODEL(ifiltdef)     = SNGL(MAG)
+      PEAKMAG_REST_MODEL_ERR(ifiltdef) = SNGL(MAGERR)
     ENDIF
 
     RETURN
@@ -16603,8 +16603,8 @@
     CALL PEAKMAG_CALC(ifiltdef, 'REST')
 
 ! restore nominal values
-    LCVAL_STORE(IPAR_SHAPE)   = SHAPE_FIT
-    LCVAL_STORE(IPAR_COLOR)   = COLOR_FIT
+    LCVAL_STORE(IPAR_SHAPE)   = SNGL(SHAPE_FIT)
+    LCVAL_STORE(IPAR_COLOR)   = SNGL(COLOR_FIT)
 
 ! PEAKMAG_REST was evaluated for the best-fit model assuming
 ! DLMAG=0 or x0=1. But we need the standardization part of x0.
@@ -16618,11 +16618,8 @@
 !       print*,' xxx MAGCOR = ', MAGCOR,'  for CID=', SNLC_CCID
 
 ! save fitted rest mag and error
-    FITRESTMAG(IFILT)     = PEAKMAG_REST_MODEL(ifiltdef)  & 
-                            + MAGCOR
-
-!      FITRESTMAG_ERR(IFILT) = PEAKMAG_REST_MODEL_ERR(ifiltdef)
-    FITRESTMAG_ERR(IFILT) = 1.0857*x0err/x0     ! Mar 30 2014
+    FITRESTMAG(IFILT)     = SNGL(PEAKMAG_REST_MODEL(ifiltdef)  + MAGCOR)
+    FITRESTMAG_ERR(IFILT) = SNGL(1.0857*x0err/x0)
 
 ! ------------------------
 ! print one-line summary.
@@ -16792,7 +16789,7 @@
          MAGREST    = MAGOBS + KCOR - SNLC_DLMAG
          ARG        = 0.4*(ZP_FLUXCAL - MAGREST)
          FLUX_REST  = 10.0**(ARG)
-         R4EP_ALL(ep,JEP_DATAFLUX_REST) = FLUX_REST
+         R4EP_ALL(ep,JEP_DATAFLUX_REST) = SNGL(FLUX_REST)
          I4EP_ALL(ep,IEP_IFILT_REST1)   = IFILTREST
        ELSE
          MAGREST   = -999

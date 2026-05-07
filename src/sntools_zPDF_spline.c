@@ -101,13 +101,19 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  for(i = 1; i<N_Q; i++){
-    bool check_1 = percentile_list[i] > percentile_list[i-1];
-    bool check_2 = zphot_q_list[i]    > zphot_q_list[i-1];
+  for(i = 1; i < N_Q; i++) {
+    bool check_1 = zphot_q_list[i]    > zphot_q_list[i-1];
+    bool check_2 = percentile_list[i] > percentile_list[i-1];
 
     if ( !(check_1 && check_2)  ) {
-      if ( verbose ) 
-	{ dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);  }
+      if ( verbose ) { 
+	dump_zPDF(method_spline, N_Q, percentile_list, zphot_q_list, cid);  
+
+	printf(" xxx %s: check_1=%d  qzph[%d,%d] = %f , %f \n", 
+	       fnam, check_1, i-1, i,   zphot_q_list[i-1], zphot_q_list[i]);
+	printf(" xxx %s: check_2=%d  qpct[%d,%d] = %f , %f \n", 
+	       fnam, check_2, i-1, i,  percentile_list[i-1], percentile_list[i] );
+      }
       
       if (zphot_q_list[i] < 0 )
 	{ *error_flag = -1 ;  }

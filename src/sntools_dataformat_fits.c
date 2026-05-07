@@ -3459,6 +3459,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   // Mar 04 2025: open and close FITS files here instead of in RD_SNFITSIO_PARVAL
   // Mar 09 2025: fix memory leak bug from Mar 04
   // Apr 12 2026: call RD_OVERRIDE_POSTPROC after SIM block (instead of before)
+  //
+  // May 07 2026: call init_SNDATA_EVENT() inside LRD_HEAD block;
+  //              noticed for NULL_ON_MISSING_EVENT option in OVERRIDE_FILE
+  //
 
   bool LRD_HEAD  = ( OPT & OPTMASK_SNFITSIO_HEAD );
   bool LRD_PHOT  = ( OPT & OPTMASK_SNFITSIO_PHOT );
@@ -3503,6 +3507,8 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
   // ---------------------------
 
   if ( LRD_HEAD ) {
+    init_SNDATA_EVENT();  // added May 7 2026
+
     j=0;
 
     j++ ;  NRD = RD_SNFITSIO_STR(isn, "SUBSURVEY", SNDATA.SUBSURVEY_NAME, 
@@ -6077,6 +6083,12 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
   if ( NRD > 0  ) {
     if ( strlen(C_VAL) > 0 )  { sprintf(parString,"%s", C_VAL); } 
     return NRD;
+  }
+
+  // May 7 2026: skip nominal read for override vars tagged with NULL_ON_MISSING_EVENT
+  if ( match_override_missing_event(parName) ) { 
+    //printf(" xxx %s: match '%s' for CID=%s \n", fnam, parName, SNDATA.CCID); fflush(stdout);
+    return 0; 
   }
 
   // determine 'itype' and 'icol' from parName.

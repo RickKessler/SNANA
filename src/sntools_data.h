@@ -92,13 +92,15 @@ void copy_HOSTGALz(int copyFlag, char *key, double *DVAL, HOSTGALz_DEF *HOSTGALz
 
 bool IS_SIMKEY_SNDATA(char *key);
 
+
+// - - - - -  OVERRIDE functions - - - -  - - 
 void RD_OVERRIDE_INIT(char *OVERRIDE_FILE, int REQUIRE_DOCANA);
-int  RD_OVERRIDE_FETCH(char *CCID, long long int GALID, char *VARNAME, double *DVAL, char *STRVAL);
+int  RD_OVERRIDE_FETCH(char *CCID, long long int GALID, 
+		       char *VARNAME, double *DVAL, char *STRVAL);
 void RD_OVERRIDE_POSTPROC(void); // special updates for redshift variables
 bool ISRD_OVERRIDE_VARNAME(char *VARNAME);
 bool isrd_override_varname__(char *VARNAME);
 
-void rd_override_init_missing_event(char *OVERRIDE_FILE);
 void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST);
 void rd_override_append(void);
 void rd_override_zspec(void);
@@ -108,8 +110,12 @@ void rd_override_zphot_legacy(void);
 void rd_override_logmass_grid(int igal);
 void rd_override_name(void);
 void rd_override_hostgal2z(int igal, HOSTGALz_DEF *HOSTGAL0z, HOSTGALz_DEF *HOSTGALz);
-
 void rd_override_check_mistake(char *varname_mistake, char *varname_correct);
+
+void init_override_missing_event(int ifile, char *OVERRIDE_FILE);
+bool match_override_missing_event(char *VARNAME);
+
+// - - - - - - -
 
 void RD_PRIVATE_INIT(char *PRIVATE_VARNAME_LIST); 
 

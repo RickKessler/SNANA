@@ -3,7 +3,7 @@
 
 ! May 4-6: fix -Wall compilation warnings (in anticipation of autotools)
 !
-! May 6 2026: define MARK_UESD macro to suppress "unused argument" with -Wall compile flag
+! May 6 2026: define MARK_USED macro to suppress "unused argument" with -Wall compile flag
 #define MARK_USED(FOO) IF(.FALSE.)THEN;DO;IF(SIZE(SHAPE(FOO))==-1) EXIT;ENDDO;ENDIF
 
 ! =====================================================================

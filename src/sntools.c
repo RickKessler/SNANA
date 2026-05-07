@@ -7824,7 +7824,7 @@ int rd_sedFlux(
   double DAYSTEP_TOL = 0.5E-3; // tolerance on DAYSTEP uniformity
   double LAMSTEP_TOL = 0.01;   // tolerance on LAMSTEP uniformity
  
-  char fnam[]  = "rd_sedFlux" ;
+  char fnam[]  = "rd_sedFlux" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -8206,7 +8206,7 @@ void clr_VERSION ( char *version, int prompt ) {
 
   ***/
 
-  char fnam[] = "clr_VERSION" ;
+  char fnam[] = "clr_VERSION" ;   (void)fnam;
   char cmd[5*MXPATHLEN];
   char listFile[2*MXPATHLEN];
   char vprefix[2*MXPATHLEN];
@@ -8344,7 +8344,7 @@ int  init_SNPATH(void) {
   //
   // Jan 31 2020: init PATH_USER_INPUT = ""
 
-  char fnam[] = "init_SNPATH" ;
+  char fnam[] = "init_SNPATH" ;  (void)fnam;
 
   // ------------ BEGIN ----------
 
@@ -8405,7 +8405,7 @@ int init_SNDATA_GLOBAL(void) {
   // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
 
   int ifilt, ep, igal ;
-  char fnam[] = "init_SNDATA_GLOBAL" ;
+  char fnam[] = "init_SNDATA_GLOBAL" ;  (void)fnam;
 
   // ---------------- BEGINN -------------
 
@@ -8463,17 +8463,6 @@ int init_SNDATA_GLOBAL(void) {
 			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
-
-  /* xxxxxxx mark delete xxxxxxx
-  // init legacy quantile storage
-  SNDATA.HOSTGAL_NZPHOT_Q     = 0;
-  for(j=0; j < MXBIN_ZPHOT_Q; j++)  { 
-    SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[j]  = -99.0;  
-    SNDATA.HOSTGAL_ZPHOT_Q[0][j]          = -99.0;
-    SNDATA.HOSTGAL_ZPHOT_Q[1][j]          = -99.0;
-  } 
-  xxxxxxxx end mark xxxxxx */
-
   return(SUCCESS);
 
 } // end init_SNDATA_GLOBAL
@@ -8488,7 +8477,7 @@ int init_SNDATA_EVENT(void) {
   //              not in data files.
   //
   int i_epoch, ifilt, i, igal ;
-  //  char fnam[] = "init_SNDATA_EVENT" ;
+  char fnam[] = "init_SNDATA_EVENT" ;  (void)fnam;
   // --------- BEGIN -----------------
 
   sprintf(FLUXUNIT, "ADU");
@@ -8570,11 +8559,6 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_ELLIPTICITY[igal]  = HOSTLIB_PROPERTY_UNDEFINED ;
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
-
-    /* xxxxxxxx mark delete 
-    for(j=0; j<SNDATA.HOSTGAL_NZPHOT_Q; j++)
-      { SNDATA.HOSTGAL_ZPHOT_Q[igal][j] = -9.0; }
-    xxxxxxx end mark */
 
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
 			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
@@ -8750,7 +8734,7 @@ int init_SNDATA_EVENT(void) {
 
 void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX,char *PREFIXz) {
 
-  //  char fnam[] = "get_SNDATA_HOSTGAL_PREFIX";
+  char fnam[] = "get_SNDATA_HOSTGAL_PREFIX";   (void)fnam;
   // ---------- BEGIN -----------
 
   // For input igal, return PREFIX and PREFIXz for data varnames related to HOSTs.
@@ -8766,23 +8750,6 @@ void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX,char *PREFIXz) {
   return;
 
 } // end get_SNDATA_HOSTGAL_PREFIX
-
-/* xxxxxxx mark delete 
-void get_SNDATA_HOSTGALz_VARNAMES(char *PREFIX, char *SUFFIX_z, char *SUFFIX_val, 
-				  char *SUFFIX_val2, char **VARNAMES ) {
-  char fnam[] = "get_SNDATA_HOSTGALz_VARNAMES" ;
-  // -------- BEGIN -----------     
-  sprintf(VARNAMES[0], "%s_NBIN_%s", PREFIX, SUFFIX_z);
-  sprintf(VARNAMES[1], "%s_%s",      PREFIX, SUFFIX_z);
-  sprintf(VARNAMES[2], "%s_%s",      PREFIX, SUFFIX_val);
-
-  if ( strlen(SUFFIX_val2) > 0 ) 
-    { sprintf(VARNAMES[3], "%s_%s",      PREFIX, SUFFIX_val2); }
-  else 
-    { VARNAMES[3][0] = 0 ; }
-
-} // end get_SNDATA_HOSTGALz_VARNAMES
-xxxxxx end mark */
 
 
 void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN, 
@@ -8822,7 +8789,8 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
   char *VARNAME_val  = HOSTGALz->VARNAME_VAL;
   char *VARNAME_val2 = HOSTGALz->VARNAME_VAL2;
   char fnam[200];
-  concat_callfun_plus_fnam(callFun, "dump_SNDATA_HOSTGALz", fnam);
+  concat_callfun_plus_fnam(callFun, "dump_SNDATA_HOSTGALz", fnam); 
+
   // -------- BEGIN ----------
 
   printf("\n");

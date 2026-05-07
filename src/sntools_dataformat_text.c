@@ -2220,6 +2220,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   // Dec 10 2021: refactor to enable header_override.
   // Feb 10 2022: read zphot quantile info
   // Apr 14 2026: call rd_sntextio_SNDATA_HOSTGALz (quantiles)
+  // May 07 2026: check match_override_missing_event()
 
   int  NFILT     = SNDATA_FILTER.NDEF;
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
@@ -2245,10 +2246,20 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   // ------------ BEGIN -----------g
 
+
   get_PARSE_WORD(langC, iwd, word0, fnam);
 
   // bail if there is no colon in key word
   if ( strchr(word0,':') == NULL ) { return true; }
+
+  // - - - - -
+  // May 2026: check to skip read for override vars with NULL_ON_MISSING_EVENT 
+  int len0 = strlen(word0);
+  char word0_nocolon[40];
+  sprintf(word0_nocolon,"%s", word0);  word0_nocolon[len0-1] = '\0';
+  //  if ( match_override_missing_event(word0_nocolon) ) { return true; }
+					 
+  // - - - - -
 
   // bail when reaching first obs
   if ( strcmp(word0,"OBS:") == 0 ) { return false; }
@@ -2391,14 +2402,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   }
   else if ( strcmp(word0,"REDSHIFT_FINAL_ERR:") == 0 ) {
     SNDATA.REDSHIFT_FINAL_ERR = FVAL;
-  }
-
-  
+  }  
   else if ( strcmp(word0,"MASK_REDSHIFT_SOURCE:") == 0 ) {
     SNDATA.MASK_REDSHIFT_SOURCE = (int)FVAL;
   }
 
-  
   else if ( strcmp(word0,"REDSHIFT_CMB:") == 0 ) {
     SNDATA.REDSHIFT_FINAL = FVAL ;
     if(PLUS_MINUS) { SNDATA.REDSHIFT_FINAL_ERR = FVAL_ERR; }
@@ -2440,21 +2448,6 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       get_PARSE_WORD_NFLT(langC, NFILT, iwd0+1, SNDATA.HOSTGAL_SB_FLUXCAL, fnam);
       iwd = iwd0 + NFILT;
     } 
-
-    /* xxxxxx end mark xxxxxx
-    else if ( !REFAC_DATA_FLAG && strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 ) {
-      SNDATA.HOSTGAL_NZPHOT_Q = IVAL ;
-    }
-
-    else if ( !REFAC_DATA_FLAG && strcmp(word0,"HOSTGAL_PERCENTILE_ZPHOT_Q:") == 0 ) {
-      N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-      float fval_tmp[MXBIN_ZPHOT_Q];
-      get_PARSE_WORD_NFLT(langC, N_Q, iwd0+1, fval_tmp, fnam);
-      iwd = iwd0 + N_Q;
-      for(ivar=0; ivar < N_Q; ivar++ ) 
-	{ SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar] = (int)fval_tmp[ivar]; }
-    }
-    xxxxxxxxxx end mark xxxxxxx */
 
     // - - - - - 
     for(igal=0; igal < MXHOSTGAL; igal++ ) {
@@ -2554,8 +2547,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   } // end HOSTGAL
       
-  else if ( strcmp(word0,"PEAKMJD:") == 0 || 
-	    strcmp(word0,"SEARCH_PEAKMJD:") == 0 ) {
+  else if ( strcmp(word0,"PEAKMJD:") == 0 || strcmp(word0,"SEARCH_PEAKMJD:") == 0 ) {
     SNDATA.SEARCH_PEAKMJD = FVAL;
   }
 
@@ -2827,6 +2819,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   } // end SIM_LCSIM
 
+  // - - - - -  -
 
   /*
   printf(" xxx %s check word0 = '%s'  cnt=%d\n", 

@@ -1378,7 +1378,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST, OPTMASK_SNTABLE );
 
     // check option to NOT use data values for missing events in override
-    rd_override_init_missing_event(ptrFile);
+    init_override_missing_event(ifile, ptrFile);
 
     // store varname in 1st column used to match with data
     sprintf(RD_OVERRIDE.VARNAME_MATCH, "%s", READTABLE_POINTERS.VARNAME[0] ); //9.29.2025
@@ -1524,22 +1524,26 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
 } // end RD_OVERRIDE_INIT
 
 
-void rd_override_init_missing_event(char *OVERRIDE_FILE) {
+void init_override_missing_event(int IFILE, char *OVERRIDE_FILE) {
 
   // Created May 6 2026: 
   // check override file before VARNAMES key for NULL_ON_MISSING_EVENT key
+  //
+  // Inputs:
+  //   IFILE  : sparse file index for list of OVERRIDE files
+  //   OVERRIDE_FILE : name of OVERRIDE file to check for KEY_NULL_ON_MISSING_EVENT
+  //
   
   char KEY_STOP_READ[] = "VARNAMES";  // stop reading when finding this key
   int  NULL_ON_MISSING_EVENT;
 
-  int  IFILE      = NFILE_AUTOSTORE-1; // curent override file index
   int  ivar, NVAR = SNTABLE_AUTOSTORE[IFILE].NVAR ;
   int  NVAR_MISSING_EVENT = RD_OVERRIDE.NVAR_NULL_ON_MISSING_EVENT ;
   char *varname_override, varname_tmp[60], *VARLIST_MISSING_EVENT ;
   int  igal;
   bool IS_Q0, IS_Q;
   double val;
-  char fnam[] = "rd_override_init_missing_event";  (void)fnam;
+  char fnam[] = "init_override_missing_event";  (void)fnam;
 
   // ------------ BEGIN -----------
 
@@ -1553,13 +1557,13 @@ void rd_override_init_missing_event(char *OVERRIDE_FILE) {
   VARLIST_MISSING_EVENT = (char*)malloc( sizeof(char)*MXPATHLEN );
   VARLIST_MISSING_EVENT[0] = 0;
 
-  HOSTGALz_DEF *HOSTGALz_Q = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[0];
+  HOSTGALz_DEF *HOSTGALz_Q0 = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[0];
 
   for(ivar=0; ivar < NVAR; ivar++ ) {
     varname_override = SNTABLE_AUTOSTORE[IFILE].VARNAME[ivar]; 
 
     IS_Q0 = (strcmp(varname_override,VARNAME_QZPHOT00) == 0 ||      // first QZPHOT00
-	     strcmp(varname_override,HOSTGALz_Q->VARNAME_Z)  == 0 ); // or HOSTGALz_QUANTILE_ZPHOT[0]
+	     strcmp(varname_override,HOSTGALz_Q0->VARNAME_Z)  == 0 ); // or HOSTGALz_QUANTILE_ZPHOT[0]
 
     IS_Q  = (strstr(varname_override,PREFIX_QZPHOT) != NULL ) ||  // any QZPHOTmm
       (strstr(varname_override,SUFFIX_QUANTILE_ZPHOT) !=NULL );   // or any *QUANTILE_ZPHOT
@@ -1569,10 +1573,12 @@ void rd_override_init_missing_event(char *OVERRIDE_FILE) {
     if ( IS_Q0 ) {
       char PREFIX[20], PREFIXz[20];
       for(igal=0; igal < MXHOSTGAL; igal++ ) {
-	catVarList_with_comma(VARLIST_MISSING_EVENT, SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].VARNAME_Z);
+	HOSTGALz_DEF *HOSTGALz_Q = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
+
+	catVarList_with_comma(VARLIST_MISSING_EVENT, HOSTGALz_Q->VARNAME_Z);
 	NVAR_MISSING_EVENT++ ;
 
-	catVarList_with_comma(VARLIST_MISSING_EVENT, SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].VARNAME_VAL);
+	catVarList_with_comma(VARLIST_MISSING_EVENT, HOSTGALz_Q->VARNAME_VAL);
 	NVAR_MISSING_EVENT++ ;
 
 	get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz);
@@ -1627,12 +1633,39 @@ void rd_override_init_missing_event(char *OVERRIDE_FILE) {
   // there is no utility to return list of variables found,
   // so need to search internal AUTOSTORE array
 
-  debugexit(fnam);
+  //  debugexit(fnam);
 
   return;
 
-} // end rd_override_init_missing_event
+} // end init_override_missing_event
 
+
+bool match_override_missing_event(char *VARNAME) {
+
+  // Created May 7 2026
+  // Return true input *VARNAME matches any of the "NULL_ON_MISSING_EVENT"
+  // variables in the OVERRIDE file(s).
+
+  int ivar, NVAR_CHECK = RD_OVERRIDE.NVAR_NULL_ON_MISSING_EVENT;
+  char *VARNAME_TMP;
+  char fnam[] = "match_override_missing_event" ;  (void)fnam;
+
+  // ------------ BEGIN ---------
+
+  if ( NVAR_CHECK == 0 ) { return false; }
+
+  for(ivar=0; ivar < NVAR_CHECK; ivar++ ) {
+    VARNAME_TMP = RD_OVERRIDE.VARNAMES_NULL_ON_MISSING_EVENT[ivar];
+    if ( strcmp(VARNAME,VARNAME_TMP) == 0 ) { return true; }
+  }
+
+  // if we get here there is no match so return false
+  return false ;
+
+}  // end match_override_missing_event
+
+
+// ==============================================
 bool ISRD_OVERRIDE_VARNAME(char *VARNAME) {
   bool ISOV = false;
   int  IVAR = -9, ICAST;

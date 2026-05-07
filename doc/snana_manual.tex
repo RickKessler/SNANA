@@ -79,7 +79,8 @@
 
 \newcommand{\eff}{efficiency}
 \newcommand{\effs}{efficiencies}
-\newcommand{\simeffsub}{\epsilon_{\rm subtr}}
+%\newcommand{\simeffsub}{\epsilon_{\rm subtr}}
+\newcommand{\simeffsub}{\epsilon_{\rm detect}}  % May 7 2026
 \newcommand{\simeffspec}{\epsilon_{\rm spec}}
 \newcommand{\simeffzhost}{\epsilon_{\rm zHOST}}
 \newcommand{\magdim}{{\mathcal M}_{\rm dim}}
@@ -10620,6 +10621,26 @@ A common  mistake is to accidentally replace data variable names with names in t
 output FITRES tables: unfortunately the variable naming is not consistent.
 Such substituion usually results in an abort since no
 valid override variables are found.
+
+\bigskip\noindent
+{\bf Missing Events in {\tt HEADER\_OVERRIDE\_FILE}:} \\
+By default, missing events ({\tt CID} or {\tt GALID}) in the 
+\verb|HEADER_OVERRIDE_FILE| result in reading the value in the data file.
+This default behavior may not be suitable in cases such as photo-$z$ (PZ) overrides
+(point estimate and/or quantiles) with a different PZ-syst algorithm;
+if a PZ-syst method drops a few events, the analysis should not necessarily
+use the baseline PZ values for these events. To force using only values
+in the \verb|HEADER_OVERRIDE_FILE|, add the following key above the {\tt VARNAMES}
+key in the \verb|HEADER_OVERRIDE_FILE|:
+\begin{verbatim}
+   NULL_ON_MISSING_EVENT:  1  # do NOT read data values for VARNAMES in this file
+\end{verbatim}
+resulting in NULL values for missing override events. NULL values are typically 0 for
+counters (e.g.. number of quantiles), and -9 for values such as redshifts.
+Beware that \verb|NULL_ON_MISSING_EVENT| applies to all columns in the 
+\verb|HEADER_OVERRIDE_FILE|; to have a mix of columns with/without the
+\verb|NULL_ON_MISSING_EVENT| feature, separate the columns into different
+\verb|HEADER_OVERRIDE_FILE|s.
 
 
 \subsubsection{Over-Riding Header Information: {\tt HEADER\_OVERRIDE\_DIR} }

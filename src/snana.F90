@@ -27446,7 +27446,7 @@
 
 ! store chi2
 
-    FITCHI2_STORE(1)     = FITCHI2_MIN ! total chi2
+    FITCHI2_STORE(1) = SNGL(FITCHI2_MIN) ! total chi2
 
 ! get prior-chi2 using special flag
 
@@ -27461,14 +27461,12 @@
       NDOF_PRIOR = 0
     endif
 
-    FITCHI2_STORE(3) = CHI8  ! prior chi2
-    FITCHI2_STORE(2) =  & 
-           FITCHI2_STORE(1) - FITCHI2_STORE(3)  ! total - prior
+    FITCHI2_STORE(3) = SNGL(CHI8)  ! prior chi2
+    FITCHI2_STORE(2) = FITCHI2_STORE(1) - FITCHI2_STORE(3)  ! total - prior
 
 ! store chi2 from ln(sigma) terms
-    CALL FCNSNLC(NFITPAR_MN, GRAD8, CHI8, FITVAL(1,iter),  & 
-             FCNFLAG_SIGMA_ONLY, USRFUN)
-    FITCHI2_STORE(4) = CHI8
+    CALL FCNSNLC(NFITPAR_MN, GRAD8, CHI8, FITVAL(1,iter), FCNFLAG_SIGMA_ONLY, USRFUN)
+    FITCHI2_STORE(4) = SNGL(CHI8)
 
 ! store number of degrees of freedom
 
@@ -27512,8 +27510,8 @@
          FITERR_MINUS(ipar,iter)  = FITERR(ipar,iter)
        endif
 
-       EPLUS  = FITERR_PLUS(ipar,iter)
-       EMINUS = ABS ( FITERR_MINUS(ipar,iter) )
+       EPLUS  = SNGL(FITERR_PLUS(ipar,iter))
+       EMINUS = ABS ( SNGL(FITERR_MINUS(ipar,iter)) )
 
 ! if fit error is way too small, set error to INISTP
 ! and set error type to BAD
@@ -27533,17 +27531,17 @@
        if ( FLOATPAR(ipar) .and. LBADERR ) then
           FITERR_PLUS(ipar,iter)  = +INISTP(ipar)
           FITERR_MINUS(ipar,iter) = -INISTP(ipar)
-          EPLUS              = FITERR_PLUS(ipar,iter)
-          EMINUS             = ABS ( FITERR_MINUS(ipar,iter) )
+          EPLUS              = SNGL(FITERR_PLUS(ipar,iter))
+          EMINUS             = ABS ( SNGL(FITERR_MINUS(ipar,iter)) )
           ERRTYPE(ipar)      = ERRTYPE_BAD
        endif
 
        FITERR_RATIO(ipar,iter)   = EPLUS / (EMINUS+1.0E-10)
        FITERR(ipar,iter)         = 0.5 * ( EPLUS + EMINUS )
 
-       FITVAL_STORE(ipar)    = FITVAL(ipar,iter)
-       FITERR_STORE(ipar)    = FITERR(ipar,iter)
-       INIVAL_STORE(ipar)    = INIVAL(ipar)
+       FITVAL_STORE(ipar)    = SNGL(FITVAL(ipar,iter))
+       FITERR_STORE(ipar)    = SNGL(FITERR(ipar,iter))
+       INIVAL_STORE(ipar)    = SNGL(INIVAL(ipar))
        ERRTYPE_STORE(ipar)   = ERRTYPE(ipar)
 
 ! store FITVCAL in 'LC' array (might get over-written later by PDFVAL
@@ -27570,7 +27568,7 @@
             ERR_LAST  = FITERR(ipar,iter-1)
             ERR_AVG   = 0.5*(ERR_FINAL+ERR_LAST)
             if ( ERR_AVG > 1.0E-12 ) then
-              LCFRACERRDIF_STORE(ipar) = (ERR_FINAL-ERR_LAST)/ERR_AVG
+              LCFRACERRDIF_STORE(ipar) = SNGL( (ERR_FINAL-ERR_LAST)/ERR_AVG )
             endif
           endif
        ENDIF

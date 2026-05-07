@@ -2112,19 +2112,19 @@
 ! check cuts on 1st-iteration FITPROB and fit pars
     IF ( ITER==1 ) THEN
        FITPROB = FITPROBCHI2_STORE(1)
-       SHAPE   = FITVAL(IPAR_SHAPE,ITER)
-       COLOR   = FITVAL(IPAR_COLOR,ITER)
+       SHAPE   = SNGL(FITVAL(IPAR_SHAPE,ITER))
+       COLOR   = SNGL(FITVAL(IPAR_COLOR,ITER))
        IF( FITPROB < FITWIN_PROB_ITER1(1) .or.  & 
             FITPROB > FITWIN_PROB_ITER1(2) ) THEN
-           ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
+          ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
        ENDIF
        IF( SHAPE < FITWIN_SHAPE_ITER1(1) .or.  & 
-             SHAPE > FITWIN_SHAPE_ITER1(2) ) THEN
-           ERRFLAG = ERRFLAG_FIT_SHAPE_ITER1
+            SHAPE > FITWIN_SHAPE_ITER1(2) ) THEN
+          ERRFLAG = ERRFLAG_FIT_SHAPE_ITER1
        ENDIF
        IF( COLOR < FITWIN_COLOR_ITER1(1) .or.  & 
-             COLOR > FITWIN_COLOR_ITER1(2) ) THEN
-           ERRFLAG = ERRFLAG_FIT_COLOR_ITER1
+            COLOR > FITWIN_COLOR_ITER1(2) ) THEN
+          ERRFLAG = ERRFLAG_FIT_COLOR_ITER1
        ENDIF
        if ( ERRFLAG > 0 ) RETURN
     ENDIF
@@ -3204,8 +3204,8 @@
       PHOTOZ_RANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
       if ( LREST_FITMODEL ) then
          CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
-         PHOTOZ_RANGE_KCOR(1) = ZMIN_KCOR
-         PHOTOZ_RANGE_KCOR(2) = ZMAX_KCOR + 4.0*ZBIN_KCOR
+         PHOTOZ_RANGE_KCOR(1) = SNGL(ZMIN_KCOR)
+         PHOTOZ_RANGE_KCOR(2) = SNGL(ZMAX_KCOR + 4.0*ZBIN_KCOR)
       endif
 
 
@@ -3318,8 +3318,8 @@
         endif
 
 ! store valid z-range in global
-        PHOTOZ_DROPFILTER_MIN(ifilt_obs) = ZMIN
-        PHOTOZ_DROPFILTER_MAX(ifilt_obs) = ZMAX
+        PHOTOZ_DROPFILTER_MIN(ifilt_obs) = SNGL(ZMIN)
+        PHOTOZ_DROPFILTER_MAX(ifilt_obs) = SNGL(ZMAX)
 
         Z1MIN = 1. + ZMIN
         Z1MAX = 1. + ZMAX
@@ -3334,14 +3334,14 @@
 
 ! keep track of filter that is closest to getting dropped.
         if ( abs(DZatMIN) < abs(PHOTODZ_MIN(iter)) ) then
-          PHOTODZ_MIN(iter)   = DZatMIN
-          PHOTODZ1Z_MIN(iter) = DZ1ZatMIN
+          PHOTODZ_MIN(iter)   = SNGL(DZatMIN)
+          PHOTODZ1Z_MIN(iter) = SNGL(DZ1ZatMIN)
           IFILT_NEARDROP      = IFILT_OBS
         endif
 
         if ( abs(DZatMAX) < abs(PHOTODZ_MIN(iter)) ) then
-          PHOTODZ_MIN(iter)   = DZatMAX
-          PHOTODZ1Z_MIN(iter) = DZ1ZatMAX
+          PHOTODZ_MIN(iter)   = SNGL(DZatMAX)
+          PHOTODZ1Z_MIN(iter) = SNGL(DZ1ZatMAX)
           IFILT_NEARDROP      = IFILT_OBS
         endif
 
@@ -3416,11 +3416,11 @@
       VERB = ''
       IF( LDROP ) THEN
          VERB = 'Dropped'
-         CFILT1 = cfiltdrop
+         CFILT1 = cfiltdrop(1:12)
       ENDIF
       IF( LADD  ) THEN
          VERB = 'Added'
-         CFILT1 = cfiltadd
+         CFILT1 = cfiltadd(1:12)
       ENDIF
 
       if ( STDOUT_UPDATE ) then
@@ -3446,7 +3446,7 @@
 
         Trest         = (MJD - PEAKMJD) / z1
         NTLIST        = NTLIST + 1
-        TLIST(NTLIST) = Trest
+        TLIST(NTLIST) = SNGL(Trest)
         FLIST(NTLIST) = ifilt_obs
         SNRLIST(NTLIST) = SNR
 
@@ -9266,7 +9266,7 @@
 
     ELSE
        c1err = 'Course bins not defined for FITMODEL_NAME = '
-       c2err =  FITMODEL_NAME 
+       c2err =  FITMODEL_NAME(1:80)
        CALL MADABORT ('INIT_COURSEBIN_PHOTOZ', c1err, c2err )
     ENDIF
 

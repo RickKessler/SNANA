@@ -27819,9 +27819,9 @@
 
     DO 30 ipar = 1, NFITPAR_MN
 
-       PDFVAL_STORE(ipar)   = PDFVAL(ipar)
-       PDFERR_STORE(ipar)   = PDFERR(ipar)
-       PDFPROB2_STORE(ipar) = PDFPROB2(ipar)
+       PDFVAL_STORE(ipar)   = SNGL( PDFVAL(ipar) )
+       PDFERR_STORE(ipar)   = SNGL( PDFERR(ipar) )
+       PDFPROB2_STORE(ipar) = SNGL( PDFPROB2(ipar) )
 
 ! over-write LCVAL[ERR] array with pdf-avarges
 
@@ -27841,22 +27841,22 @@
 ! start with PRIOR-only chi2.
     CALL FCNSNLC(NFITPAR_MN, GRAD8, CHI8, PDFVAL,  & 
              FCNFLAG_PRIOR_ONLY, USRFUN)
-    LCCHI2_STORE(3) = CHI8
+    LCCHI2_STORE(3) = SNGL(CHI8)
 
 ! now get contribution from ln(sigma)-terms
 
     CALL FCNSNLC(NFITPAR_MN, GRAD8, CHI8, PDFVAL,  & 
              FCNFLAG_SIGMA_ONLY, USRFUN)
-    LCCHI2_STORE(4) = CHI8
+    LCCHI2_STORE(4) = SNGL(CHI8)
 
 ! Now get full chi2 ...
 
     CALL FCNSNLC(NFITPAR_MN, GRAD8, CHI8, PDFVAL,  & 
             FCNFLAG_LAST, USRFUN)
-    LCCHI2_STORE(1) = CHI8
+    LCCHI2_STORE(1) = SNGL(CHI8)
 
 ! data-only chi2 if full-prior chi2.
-    LCCHI2_STORE(2) = CHI8 - LCCHI2_STORE(3)
+    LCCHI2_STORE(2) = SNGL( CHI8 - LCCHI2_STORE(3) )
 
 ! compute fit-probs.
 

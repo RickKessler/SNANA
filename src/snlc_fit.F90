@@ -2360,11 +2360,11 @@
 
     CRAZYFITERR = .FALSE.
 
-    ERR_COLOR =  FITERR(IPAR_COLOR,ITER)
-    ERR_SHAPE =  FITERR(IPAR_SHAPE,ITER)
-    ERR_DIST  =  FITERR(IPAR_DLMAG,ITER)
-    ERR_PKMJD =  FITERR(IPAR_PEAKMJD,ITER)
-    ERR_ZPHOT =  FITERR(IPAR_ZPHOT,ITER)
+    ERR_COLOR =  SNGL( FITERR(IPAR_COLOR,ITER) )
+    ERR_SHAPE =  SNGL( FITERR(IPAR_SHAPE,ITER) )
+    ERR_DIST  =  SNGL( FITERR(IPAR_DLMAG,ITER) )
+    ERR_PKMJD =  SNGL( FITERR(IPAR_PEAKMJD,ITER) )
+    ERR_ZPHOT =  SNGL( FITERR(IPAR_ZPHOT,ITER) )
 
     FLOAT_COLOR = FLOATPAR(IPAR_COLOR)
     FLOAT_SHAPE = FLOATPAR(IPAR_SHAPE)
@@ -2643,7 +2643,7 @@
              IPAR2 = IPAR_LIST(j)
              COV_TMP = COV_UPD(i,j)
              if ( i == j ) then
-                LCERR_STORE(IPAR) = sqrt(COV_TMP/X0JACOB(i,i))
+                LCERR_STORE(IPAR) = SNGL( sqrt(COV_TMP/X0JACOB(i,i)) )
              else
                 FITERRMAT(IPAR,IPAR2) = COV_TMP/X0JACOB(i,j)
              endif
@@ -2653,7 +2653,7 @@
 ! update MBERR based on updated x0ERR
        X0ERR = LCERR_STORE(IPAR_X0)
        MBERR = X0ERR * abs(SF)
-       LCERR_STORE(IPAR_MB) = MBERR
+       LCERR_STORE(IPAR_MB) = SNGL(MBERR)
     ENDIF
 
 ! --- check dump options ----
@@ -3802,7 +3802,7 @@
          LC_MARGCHI2(ifilt) = FCN_FITCHI2(ifilt)
 
          CHI8 = DBLE(LC_FITCHI2(ifilt))
-         LC_FITPROB(ifilt)  = PROB_CHI2NDOF(CHI8, NDOF)
+         LC_FITPROB(ifilt)  = SNGL( PROB_CHI2NDOF(CHI8, NDOF) )
          LC_MARGPROB(ifilt) = LC_FITPROB(ifilt)
        endif
 
@@ -3840,8 +3840,6 @@
     ENDIF
 
 ! ---------------------------------------------------------
-
-
 ! Check for too-tiny errors.
     CALL FITERR_ADJUST()
 
@@ -3889,7 +3887,7 @@
          LTMP = NDOF .GT. 0 .and. LC_MARGCHI2(ifilt) .GE. 0.0
          if ( LTMP ) then
             CHI8 = DBLE( LC_MARGCHI2(ifilt) )
-            LC_MARGPROB(ifilt) = PROB_CHI2NDOF(CHI8, NDOF)
+            LC_MARGPROB(ifilt) = SNGL( PROB_CHI2NDOF(CHI8, NDOF) )
          else
             LC_MARGPROB(ifilt) = 1.0
          endif
@@ -4151,9 +4149,6 @@
          if ( LFITDATA ) NFITDATA_LAM_REJECT = NFITDATA_LAM_REJECT + 1
          goto 102
       endif
-
-      ! xxx mark del 3.24.2026  if ( LAMREST > RESTLAMBDA_USEFIT(2) ) GOTO 102
-      ! xxx mark del            if ( LAMREST < RESTLAMBDA_USEFIT(1) ) GOTO 102
 
       MJD                = R8EP_MJD(ifitdata)
       MJDFIT             = MJD - MJDOFF
@@ -12732,7 +12727,7 @@
         PEAKMJD_SANITY(2) = CUTWIN_PEAKMJD(2) + 20.0
     endif
 
-    PEAKMJD   = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
+    PEAKMJD   = SNGL( LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF )
 
     LTMP =  ( PEAKMJD .GT. PEAKMJD_SANITY(1) )  & 
         .and. ( PEAKMJD .LT. PEAKMJD_SANITY(2) )
@@ -12876,19 +12871,12 @@
 
     DO 172 ipar2 = 1, IPAR_MAX
 
-       xval = FITERRMAT(ipar,ipar2)
+       xval = SNGL( FITERRMAT(ipar,ipar2) )
        if ( abs(xval+9.0) < 1.0E-6 ) goto 172 ! not fitted
 
        LTMP = xval .GE.  cutwin_fitcov(1,ipar,ipar2) .and.  & 
                 xval .LE.  cutwin_fitcov(2,ipar,ipar2)
        if ( .not. LTMP ) LCOV=.FALSE.
-
-! xxxxxxxxx
-!         write(6,177) ipar,ipar2, LTMP, FITERRMAT(ipar,ipar2),
-!     &       cutwin_fitcov(1,ipar,ipar2), cutwin_fitcov(2,ipar,ipar2)
-177      format(' xxx COVCUT(',i2,',',i2, ')=', L2, ' for COV=',G11.3,  & 
-                '  [CUTWIN=', G10.2, ' to ' , G10.2,']' )
-! xxxxxxxxx
 
 172   CONTINUE
 170   CONTINUE
@@ -13138,8 +13126,8 @@
     NTLIST = 0
     DO 100 ifitdata = 1, NFITDATA
         iep       = EPLIST_FIT(ifitdata)
-        MJD       = SNLC8_MJD(iep)
-        Tobs      = MJD - (PEAKMJD + MJDOFF)
+        MJD       = SNGL(SNLC8_MJD(iep))
+        Tobs      = MJD - SNGL(PEAKMJD + MJDOFF)
         Trest     = Tobs / z1
         NTLIST    = NTLIST + 1
         TLIST(NTLIST) = Trest
@@ -13252,8 +13240,8 @@
 
     IF ( LSIM_SNANA ) THEN
       NPAR = NPAR + 1             ! SIM chi2 (Dec 2013)
-      FITVAL_STORE(NPAR) = SIMCHI2_CHEAT
-      LCVAL_STORE(NPAR)  = SIMCHI2_CHEAT
+      FITVAL_STORE(NPAR) = SNGL(SIMCHI2_CHEAT)
+      LCVAL_STORE(NPAR)  = SNGL(SIMCHI2_CHEAT)
     ENDIF
 
 ! now the fit-probs ...
@@ -13426,10 +13414,10 @@
          MU8    = LCVAL_STORE(IPAR_DLMAG)  ! might be marginalized
       ENDIF
 
-      FITVAL_STORE(NPAR) = MU8FIT - MU8REF
+      FITVAL_STORE(NPAR) = SNGL(MU8FIT - MU8REF)
       FITERR_STORE(NPAR) = FITERR_STORE(IPAR_DLMAG)
 
-      LCVAL_STORE(NPAR) = MU8 - MU8REF
+      LCVAL_STORE(NPAR) = SNGL(MU8 - MU8REF)
       LCERR_STORE(NPAR) = LCERR_STORE(IPAR_DLMAG)
 
 ! store delzph for photoz fits.
@@ -13593,7 +13581,7 @@
 
 !  local var
 
-    REAL    EPLUS, EMINUS, Z1tmp, Z2tmp, RTMP, ZERR
+    REAL    EPLUS, EMINUS, Z1tmp, Z2tmp, RTMP, ZERR, cERR
     INTEGER IPAR, ITER
     LOGICAL LBAD
 
@@ -13633,15 +13621,13 @@
 
 ! check for too-big error that gives Z - 4\sigma_z < 0
 
-       Z1tmp = FITVAL(ipar,ITER)  & 
-               - NSIGMA_PDF * FITERR_MINUS(IPAR,ITER)
-       Z2tmp = FITVAL(ipar,ITER)  & 
-               + NSIGMA_PDF * FITERR_PLUS(IPAR,ITER)
+       Z1tmp = SNGL( FITVAL(ipar,ITER) - NSIGMA_PDF * FITERR_MINUS(IPAR,ITER) )
+       Z2tmp = SNGL( FITVAL(ipar,ITER) + NSIGMA_PDF * FITERR_PLUS(IPAR,ITER)  )
 
        LBAD  = Z1tmp .LT. INIBND(1,IPAR)
        if ( NGRID_PDF .GT. 0 .and. LBAD ) then
-         EMINUS = (FITVAL(ipar,ITER)-INIBND(1,IPAR))/NSIGMA_PDF
-         EPLUS  = FITERR_PLUS(IPAR,ITER)
+         EMINUS = SNGL( (FITVAL(ipar,ITER)-INIBND(1,IPAR))/NSIGMA_PDF )
+         EPLUS  = SNGL( FITERR_PLUS(IPAR,ITER) )
          FITERR_MINUS(IPAR,ITER) = -EMINUS
          FITERR_RATIO(IPAR,ITER) =  EPLUS / EMINUS
          FITERR(IPAR,ITER)       =  (EMINUS + EPLUS)/2.
@@ -13649,14 +13635,14 @@
 
 ! Dec 2011:
 ! check for too-tiny error. Should be at least .4 * color error
-! or at least .02.
 
-       ZERR = FITERR(IPAR,ITER)
-       RTMP = ZERR/FITERR(IPAR_COLOR,ITER)
+       ZERR = SNGL( FITERR(IPAR,ITER) )
+       cERR = SNGL( FITERR(IPAR_COLOR,ITER) )
+       RTMP = ZERR/cERR 
        if ( RTMP .LT. 0.4 ) then
-           ZERR = 0.4 * FITERR(IPAR_COLOR,ITER)
+           ZERR = 0.4 * cERR
        endif
-! c         IF ( ZERR .LT. 0.02 ) ZERR = 0.02
+
        FITERR(IPAR,ITER) = ZERR
 
     ENDIF
@@ -13815,13 +13801,11 @@
 
     MB    = SALT2mBcalc( X0 )
     MBERR = 2.5 * (X0err/X0)/log(10.0)
-! xxx      MBERR = 2.5 * (X0err/X0)/LOGTEN
 
 ! store mB and it error, and its COV
 
-
-    LCVAL_STORE(IPAR_MB)  = mb
-    LCERR_STORE(IPAR_MB)  = mberr
+    LCVAL_STORE(IPAR_MB)  = SNGL(mb)
+    LCERR_STORE(IPAR_MB)  = SNGL(mberr)
     FITERRMAT(IPAR_MB,IPAR_MB) = mberr*mberr  ! covariance
 
     RETURN
@@ -13973,7 +13957,7 @@
 
     DZDMU = ( Z8(2) - Z8(1) ) / ( MU8(1) - MU8(2) )  ! local derivative
 
-    zmagerr = SNMAGRMS_for_PHOTOZ * abs(DZDMU)
+    zmagerr = SNGL( SNMAGRMS_for_PHOTOZ * abs(DZDMU) )
 
 ! -------
     zdif  = zfit - zhost
@@ -14023,7 +14007,7 @@
 ! in any way.
 
     IF ( DOFIT_PHOTOZ .and. INISTP_DLMAG .EQ. 0.0 ) THEN
-       LCVAL_STORE(IPAR_DLMAG) = MUREF
+       LCVAL_STORE(IPAR_DLMAG) = SNGL(MUREF)
     ENDIF
 
     RETURN
@@ -14138,7 +14122,7 @@
 ! write Trest fit range relative to exact SIM_PEAKMJD
 
     IF ( LSIM_SNANA ) THEN
-       TCOR = FITVAL_STORE(IPAR_PEAKMJD) - (SIM_PEAKMJD-MJDOFF)
+       TCOR = SNGL( FITVAL_STORE(IPAR_PEAKMJD) - (SIM_PEAKMJD-MJDOFF) )
        write(6,770) CCID(1:KK),  & 
                 R4SN_Tearly+TCOR, R4SN_Tlate+TCOR, 'SIM'
     ENDIF
@@ -14147,12 +14131,6 @@
           3x,'(relative to ',A,'-PEAKMJD)' )
 
 771   format(T4, 'MJD   FIT RANGE(',A,'): ', F7.1,' to ', F7.1 )
-
-! write  rest-frame peakmags
-
-
-777   format(T4, A, '(',A,') : ',  $)
-778   format(F6.2, $ )
 
 ! -----------------------------------
 ! print chi2 and prob for 1:TOTAL,  2:DATA,  3:PRIOR,   4:SIGMA
@@ -14296,11 +14274,11 @@
 
     cfilt   = filtdef_string(ifilt_obs:ifilt_obs)
     z1      = 1. + REDSHIFT_FIT
-    PEAKMJD = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
+    PEAKMJD = SNGL( LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF )
 
-      SUM_RATIO   = 0.
-      WSUM_RATIO  = 0.
-      Tnear       = 99999.  ! epoch closest to peak
+    SUM_RATIO   = 0.
+    WSUM_RATIO  = 0.
+    Tnear       = 99999.  ! epoch closest to peak
 
     DO 50 ifitdata = 1, NFITDATA
 
@@ -14326,7 +14304,8 @@
        LKCOR = abs(kcor-NULLVAL) > 1.0
        IF ( LREST_FITMODEL .and. LKCOR ) then
          arg     = 0.4 * (kcor - PEAK_KCOR_MODEL(ifilt))
-         Frat    = Frat * TEN8**(arg)
+         Frat    = Frat * 10.0**(arg)
+         ! xxx mark Frat    = Frat * TEN8**(arg)
        ENDIF
 
 ! include data and model error for error on FPKRAT:
@@ -15133,8 +15112,8 @@
       MAG_LIST_VMAX(ifilt_Vmax)   = PEAKMAG_OBS_MODEL(IFILT_Vmax)
       TREST_LIST_VMAX(ifilt_Vmax) = 0.0
     ELSE
-      MAG_LIST_VMAX(ifilt_Vmax)   = MAG_atmax(JFIT)
-      TREST_LIST_VMAX(ifilt_Vmax) = Trest_atmax(JFIT)
+      MAG_LIST_VMAX(ifilt_Vmax)   = SNGL( MAG_atmax(JFIT) )
+      TREST_LIST_VMAX(ifilt_Vmax) = SNGL( Trest_atmax(JFIT) )
     ENDIF
 
 
@@ -15181,12 +15160,12 @@
        zmax = zmax * 10.0**(0.2*(MAGDIF))
        d    = GET_DIST8(zmax,SHAPE,COLOR,ONE8) ! compute dist: x0 or mu
 
-       LCVAL_STORE(IPAR_zPHOT) = zmax
+       LCVAL_STORE(IPAR_zPHOT) = SNGL(zmax)
 
        IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
-          LCVAL_STORE(IPAR_DLMAG)  = d_save * d/d0  ! scale x0
+          LCVAL_STORE(IPAR_DLMAG)  = SNGL(d_save * d/d0)
        ELSE
-          LCVAL_STORE(IPAR_DLMAG)  = d_save + (d0-d) ! MU-dif -> UNTESTED!
+          LCVAL_STORE(IPAR_DLMAG)  = SNGL(d_save + (d0-d)) ! MU-dif -> UNTESTED!
        ENDIF
 
        CALL MODELMAG_CALC(IFILT_OBS, 'OBS', MJD,  & 
@@ -15233,12 +15212,12 @@
 
 ! -----------
 ! store results in globals
-    Z_LIST_VMAX(ifilt_Vmax)     = zmax
-    VOL_LIST_VMAX(ifilt_Vmax)   = Vmax
+    Z_LIST_VMAX(ifilt_Vmax)     = SNGL(zmax)
+    VOL_LIST_VMAX(ifilt_Vmax)   = SNGL(Vmax)
 
 ! restore LCVAL_STORE values
-    LCVAL_STORE(IPAR_zPHOT) = z_save
-    LCVAL_STORE(IPAR_DLMAG)  = d_save
+    LCVAL_STORE(IPAR_zPHOT)  = SNGL(z_save)
+    LCVAL_STORE(IPAR_DLMAG)  = SNGL(d_save)
 
     RETURN
   END SUBROUTINE VMAX_ANA
@@ -15876,7 +15855,7 @@
 ! check when to store results of IDEAL fit
     IF ( DOFIT_IDEAL_EVENT .and. ITER .EQ. NFIT_ITERATION_IDEAL) THEN
       DO ipar = 1, NFITPAR_MN
-         FITPAR_IDEAL(ipar) = FITVAL(IPAR,ITER)
+         FITPAR_IDEAL(ipar) = SNGL( FITVAL(IPAR,ITER) )
       ENDDO
 
 ! compute mB from x0 (Jan 28 2018)

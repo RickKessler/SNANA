@@ -9571,10 +9571,10 @@
         CALL FITPAR_PREP ( iter, IERR )  ! init fit params
         if ( IERR .NE. 0 ) then
           ERRFLAG_FIT = IERR
- 	    REJECT_FIT = .TRUE.
+          REJECT_FIT = .TRUE.
           write(6,40) ITER, SNLC_CCID(1:ISNLC_LENCCID)
-40          format(T5,'FITPAR_PREP PROBLEM => SKIP FIT-ITER=',  & 
-                    I2,'  for  CID=',A )
+40        format(T5,'FITPAR_PREP PROBLEM => SKIP FIT-ITER=',  & 
+               I2,'  for  CID=',A )
           GOTO 410          ! bad init => skip fit-iteration
         endif
 
@@ -9606,9 +9606,9 @@
 
 ! bail on error
        IF ( IERR > 90 ) THEN  ! May 2024
-	   ERRFLAG_FIT = IERR
-	   REJECT_FIT = .TRUE.
-         GOTO 410
+          ERRFLAG_FIT = IERR
+          REJECT_FIT = .TRUE.
+          GOTO 410
        ENDIF
 
 ! avoid infinite loop with MNFIT calls ...
@@ -9616,8 +9616,8 @@
        IF  ( NCALL_MNFIT .GT. 2*MXITER ) THEN
           write(c1err,641) 2*MXITER, SNLC_CCID
           write(c2err,642) NFIT_ITERATION
-641         format('MNFIT_DRIVER called > ',I3,' times for CID=',A)
-642         format('even though NFIT_ITERATION = ', I2 )
+641       format('MNFIT_DRIVER called > ',I3,' times for CID=',A)
+642       format('even though NFIT_ITERATION = ', I2 )
           CALL  MADABORT(FNAM, C1ERR, C2ERR )
        ENDIF
 
@@ -9639,9 +9639,9 @@
 
       if ( STDOUT_UPDATE ) THEN
         CALL CPU_TIME(t_end)
-	  write(6,450) SNLC_CCID(1:ISNLC_LENCCID), t_end-t_start
-450       format(T5,'Finished fitting CID = ', A12,  & 
-                 ' in ', F6.3,' seconds')
+        write(6,450) SNLC_CCID(1:ISNLC_LENCCID), t_end-t_start
+450     format(T5,'Finished fitting CID = ', A12,  & 
+             ' in ', F6.3,' seconds')
         CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Apr 4 2024
         call flush(6)
       endif
@@ -27331,10 +27331,10 @@
              ,IERR   )
 
        IF ( IERR .NE. 0 ) THEN
-	    IERR = ERRFLAG_MNFIT_INITPAR
-            LV   = INDEX(PARNAME(ipar),' ') - 1
-            WRITE (6,46) PARNAME(ipar)(1:LV), INIBND(1,IPAR), INIBND(2,IPAR)
-46          FORMAT(T3,'MNPARM ERROR initializing ', A, 3x, 'INIBND=',2F10.3 )
+          IERR = ERRFLAG_MNFIT_INITPAR
+          LV   = INDEX(PARNAME(ipar),' ') - 1
+          WRITE (6,46) PARNAME(ipar)(1:LV), INIBND(1,IPAR), INIBND(2,IPAR)
+46        FORMAT(T3,'MNPARM ERROR initializing ', A, 3x, 'INIBND=',2F10.3 )
           RETURN
        ENDIF
 
@@ -27429,9 +27429,9 @@
                     , BND1,BND2, IVARBL )
 
       IF ( ISNAN(FITVAL(IPAR))  ) THEN
-	   N_NAN = N_NAN + 1
-	   write(6,644) PARNAME(IPAR), CCID
-644	   format(' MNFIT_DRIVER ERROR: ', A,' = NaN for CID = ', A)
+         N_NAN = N_NAN + 1
+         write(6,644) PARNAME(IPAR), CCID
+644      format(' MNFIT_DRIVER ERROR: ', A,' = NaN for CID = ', A)
          call flush(6)
       ENDIF
 

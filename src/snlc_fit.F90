@@ -842,7 +842,6 @@
         ,FITERR_ALLFILT(20)
 
 
-
   END MODULE ALLFILTCOM
 
 ! =====================================================================
@@ -3010,21 +3009,20 @@
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
-!       BAYESN BLOCK created Nov 2022
-	OPTMASK = 0
-	if(debug_flag == 821) then
-         OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
-	endif
+       !       BAYESN BLOCK created Nov 2022
+       OPTMASK = 0
+       if(debug_flag == 821) then
+          OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
+       endif
 
 
-      ISTAT=INIT_GENMAG_BAYESN(TMP_FITMODEL,TMP_EXTRAP,OPTMASK,BLANK,  & 
-                  LEN_NAME,10,8)
+       ISTAT=INIT_GENMAG_BAYESN(TMP_FITMODEL,TMP_EXTRAP,OPTMASK,BLANK,  & 
+            LEN_NAME,10,8)
 
 ! turn on covariance model by default,
 ! unless user specifically sets OPT_COVAR=0
-      IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
-      if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0
-
+       IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
+       if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -3458,8 +3456,7 @@
         if ( PHOTOZ_DROPFILTER(ifilt_obs) ) GOTO 200
 
         MJD           = SNLC8_MJD(iep) - MJDOFF
-	  SNR           = SNLC_SNR(iep)
-
+        SNR           = SNLC_SNR(iep)
         Trest         = (MJD - PEAKMJD) / z1
         NTLIST        = NTLIST + 1
         TLIST(NTLIST) = SNGL(Trest)
@@ -4023,7 +4020,7 @@
         ,REJECT_TREST, REJECT_MJD, REJECT_SIGNOISE, REJECT_DELCHI2  & 
         ,DO_LOGDET, DUMP_FCNCHI2
 
-    CHARACTER CVAR*8, star*1
+    CHARACTER CVAR*20, star*1
     REAL*8 logdet, LAST_FLUXERR, logdet_offset
 
 
@@ -4603,7 +4600,7 @@
 
     if ( LFLAG_LAST_MN .and. ITER > 1 .and. DUMP_FCNCHI2 )  then
         write(6,6655) chi2tot, chi2tot-chi2_offdiag, chi2_offdiag
-6655      format(' xxx FCN_CHI2(tot, diag, offdiag) = ', 3F12.1)
+6655    format(' xxx FCN_CHI2(tot, diag, offdiag) = ', 3F12.1)
         print*,' '
         call flush(6)
     endif
@@ -4625,10 +4622,9 @@
 ! - - - - - - -
     IF ( LDMPFCN_LOC ) THEN
        write(6,6665) chi2tot,  NFITDATA_FILT(0)
-6665     format(T5,'CHI2-FINAL(all filters)    = ', F10.2,3x,  & 
-                   'NFITDATA=', I5)
+6665   format(T5,'CHI2-FINAL(all filters)    = ', F10.2,3x,  'NFITDATA=', I5)
        print*,'      ********* END OF FCN DUMP ********** '
-	 print*,' '
+       print*,' '
        CALL FLUSH(6)
 
        TBLDMPFCN_CHI2TOT = sngl(chi2tot)
@@ -5070,9 +5066,9 @@
           LAST_FLUXERR = DBLE( R4EP_LAST(iepoch,JEP_DATAFLUX_ERR) )
     ELSE
        WRITE(c1err,601)OPT_CHI2_SIGMA
-601      FORMAT('Invalid OPT_CHI2_SIGMA =',i5)
+601    FORMAT('Invalid OPT_CHI2_SIGMA =',i5)
        c2err='OPT_CHI2_SIGMA must include bit for flux error baseline'
-	 CALL MADABORT('FCNCHI2_SIGMA', c1err, c2err );
+       CALL MADABORT('FCNCHI2_SIGMA', c1err, c2err );
     ENDIF
 
     if ( LAST_FLUXERR .LE. 1.0E-11 ) RETURN
@@ -8213,7 +8209,7 @@
 
 
     IF ( INIVAL_PEAKMJD .GT. 40000. )  & 
-           INIVAL_PEAKMJD = INIVAL_PEAKMJD - MJDOFF
+           INIVAL_PEAKMJD = INIVAL_PEAKMJD - SNGL(MJDOFF)
 
     IF ( INIVAL_PEAKMJD .GT. NULLVAL )  & 
            INIVAL(IPAR_PEAKMJD) = INIVAL_PEAKMJD
@@ -8248,9 +8244,9 @@
     IF ( USESIM_INIVAL .or. DOFIT_IDEAL ) THEN
 
        if ( STDOUT_UPDATE ) then
-	    write(6,420) USESIM_INIVAL, DOFIT_IDEAL
-420         format('   Set INIVAL = SIM value (USESIM_INIVAL=',L2,  & 
-                 '  DOFIT_IDEAL=',L2,')' )
+          write(6,420) USESIM_INIVAL, DOFIT_IDEAL
+420       format('   Set INIVAL = SIM value (USESIM_INIVAL=',L2,  & 
+               '  DOFIT_IDEAL=',L2,')' )
           call flush(6)
        endif
        INIVAL(IPAR_PEAKMJD)  = SIM_PEAKMJD
@@ -8503,8 +8499,8 @@
 
 ! - - - - - -
 ! Dec 2024: load global zprior summary here instead of in PHOTOZ_STORE
-    PRIOR_PHOTOZ     =  INIVAL(ipar)
-    PRIOR_PHOTOZ_ERR =  max(0.001, STD * PRIOR_ZERRSCALE)
+    PRIOR_PHOTOZ     =  SNGL( INIVAL(ipar) )
+    PRIOR_PHOTOZ_ERR =  max(0.001, SNGL(STD) * PRIOR_ZERRSCALE)
     PRIOR_COMMENT    =  CZTMP
 
 ! - - - - - - - -
@@ -8570,7 +8566,6 @@
        CALL INIPAR_PHOTOZ_COURSEGRID(CHI2GUESS,LZDONE)
     endif
 
- 444  CONTINUE
 
 ! update x0-bound for SALT2
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
@@ -8580,8 +8575,6 @@
     ENDIF
 
     CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
-
-777   CONTINUE
 
 ! - - - - -  - -
 ! set INISTP for photoz
@@ -8599,9 +8592,9 @@
       endif
 
       INISTP(IPAR)  =  STP
-551      format('Dynamic INISTP_PHOTOZ -> STD(PDF)/3 = ', F6.4)
-550      format('Fixed INISTP_PHOTOZ = ', F6.4)
-	 if(LPRINT) CALL PRINT_ITERINFO(SNLC_CCID,ITER,BANNER)
+551   format('Dynamic INISTP_PHOTOZ -> STD(PDF)/3 = ', F6.4)
+550   format('Fixed INISTP_PHOTOZ = ', F6.4)
+      if(LPRINT) CALL PRINT_ITERINFO(SNLC_CCID,ITER,BANNER)
     endif
 
 ! - - - - - - - - - 
@@ -9819,11 +9812,11 @@
     DO ifilt     = 1, NFILTDEF_SURVEY
        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
        cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-	 if ( INDEX(BANDLIST, cfilt(1:1) ) > 0 ) then
+       if ( INDEX(BANDLIST, cfilt(1:1) ) > 0 ) then
           PRIOR_USE_FILT_SNCID_FILE(ifilt_obs) = .TRUE.
        else
           PRIOR_USE_FILT_SNCID_FILE(ifilt_obs) = .FALSE.
-	 endif
+       endif
     ENDDO
 
 ! disable feature to add/drop filters
@@ -9908,58 +9901,57 @@
        LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
        cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)
        if ( IPAR == IPAR_zPHOT ) then
-	     cVAR = 'zHD' // char(0)
-	     LENV = 3
-	 endif
+          cVAR = 'zHD' // char(0)
+          LENV = 3
+       endif
 
 !  Jan 2025: construct column of fit par ERROR
        cERR = cVAR(1:LENV) // 'ERR' // char(0)
 
-	 CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,  & 
-              DVAL,    CTMP, LENV, 40)  ! return DVAL
+       CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,  & 
+            DVAL,    CTMP, LENV, 40)  ! return DVAL
        CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cERR, ABORT_FLAG,  & 
-              DVAL_ERR, CTMP, LENV, 40)  ! return DVAL_ERR
+            DVAL_ERR, CTMP, LENV, 40)  ! return DVAL_ERR
 
        VALID_INIVAL = ( DVAL > -999.0  )
        VALID_PRIOR  = ( DVAL > -999.0 .and. DVAL_ERR > 0.0 )
-	 STATUS_INIVAL = '' ; STATUS_PRIOR = ''
-	 if ( .NOT. VALID_INIVAL ) then
-	     N_NOTVALID_INIVAL = N_NOTVALID_INIVAL + 1
-	     STATUS_INIVAL = '*** INVALID *** '
-	  endif
-	 if ( .NOT. VALID_PRIOR ) then
-	     N_NOTVALID_PRIOR = N_NOTVALID_PRIOR + 1
-	     STATUS_PRIOR = '*** INVALID *** '
-	  endif
+       STATUS_INIVAL = '' ; STATUS_PRIOR = ''
+       if ( .NOT. VALID_INIVAL ) then
+          N_NOTVALID_INIVAL = N_NOTVALID_INIVAL + 1
+          STATUS_INIVAL = '*** INVALID *** '
+       endif
+       if ( .NOT. VALID_PRIOR ) then
+          N_NOTVALID_PRIOR = N_NOTVALID_PRIOR + 1
+          STATUS_PRIOR = '*** INVALID *** '
+       endif
 
        if ( USE_INIVAL_SNCID_FILE ) then
-          INIVAL(IPAR) = DVAL	   ! load initial value for fit
+          INIVAL(IPAR) = DVAL   ! load initial value for fit
           if ( VBOSE ) then
-	      CTMP = 'INIVAL-' // cVAR(1:LENV)
-            write(6,44) CTMP, DVAL, SNLC_CCID, STATUS_INIVAL
-         endif
-	 endif ! end USE_INIVAL_SNCID_FILE
-
-	 if ( USE_PRIOR_SNCID_FILE ) then
-            INIVAL(IPAR) = DVAL
-            PRIOR_VAL = DVAL
-            PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
-	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = PRIOR_VAL     ! Gauss mean
-	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = PRIOR_ERR     ! Gauss sigma
-
-	    if ( VBOSE ) then
-	      CTMP = 'PRIOR-' // cVAR(1:LENV)
-            write(6,45)  & 
-                 CTMP, PRIOR_VAL, PRIOR_ERR, SNLC_CCID, STATUS_PRIOR
-            call FLUSH(6)
+             CTMP = 'INIVAL-' // cVAR(1:LENV)
+             write(6,44) CTMP, DVAL, SNLC_CCID, STATUS_INIVAL
           endif
-	endif
+       endif ! end USE_INIVAL_SNCID_FILE
+
+       if ( USE_PRIOR_SNCID_FILE ) then
+          INIVAL(IPAR) = DVAL
+          PRIOR_VAL = DVAL
+          PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
+          PRIOR_FITPAR_SNCID_FILE(1,IPAR) = SNGL(PRIOR_VAL)     ! Gauss mean
+          PRIOR_FITPAR_SNCID_FILE(2,IPAR) = SNGL(PRIOR_ERR)     ! Gauss sigma
+          
+          if ( VBOSE ) then
+             CTMP = 'PRIOR-' // cVAR(1:LENV)
+             write(6,45) CTMP, PRIOR_VAL, PRIOR_ERR, SNLC_CCID, STATUS_PRIOR
+             call FLUSH(6)
+          endif
+       endif
 
  50   CONTINUE
 
- 44     format(T8, A14, ' : ', G10.3,  & 
+44     format(T8, A14, ' : ', G10.3,  & 
                   ' from list file: CID=', A10, 3x, A)
- 45     format(T8, A14, ' : ', G10.3, ' +_ ', G10.3,  & 
+45     format(T8, A14, ' : ', G10.3, ' +_ ', G10.3,  & 
                   ' from list file: CID=', A10, 3x, A)
 
     CALL FLUSH(6)
@@ -10606,9 +10598,9 @@
          PARLIST_SN(2) = x1
          PARLIST_SN(3) = FITPAR(IPAR_COLOR)   ! c or AV
          PARLIST_SN(4) = xx1
-	   PARLIST_SN(5) = 0.0                  ! x2                 (July 29 2024)
+         PARLIST_SN(5) = 0.0                  ! x2                 (July 29 2024)
 
-	   PARLIST_HOST(1) = 0.0  ! cannot fit RV
+         PARLIST_HOST(1) = 0.0  ! cannot fit RV
          PARLIST_HOST(2) = 0.0  ! cannot fit AV
          PARLIST_HOST(3) = -9.0 ! cannot fit logMass
 
@@ -12460,7 +12452,7 @@
 
     MEAN = PRIOR_FITPAR_SNCID_FILE(1,IPAR)
     ERR  = PRIOR_FITPAR_SNCID_FILE(2,IPAR)
-    DIF  = VAL - MEAN
+    DIF  = SNGL(VAL) - MEAN
     CHI2_PRIOR_SNCID_FILE = (DIF/ERR)**2
 
     RETURN
@@ -14873,7 +14865,6 @@
     if ( FUDGE_COVAR .EQ. 0.0  ) return
 
 ! ------------------------
-444   CONTINUE
 
     RHOABS = ABS(RHO)
     RHOSGN = RHO / ABS(RHO)
@@ -15388,8 +15379,8 @@
        ENDDO
 
        DO ipar = 1, MXFITPAR
-          FITVAL_ALLFILT(ipar) = FITVAL(ipar,ITER-1)
-          FITERR_ALLFILT(ipar) = FITERR(ipar,ITER-1)
+          FITVAL_ALLFILT(ipar) = SNGL( FITVAL(ipar,ITER-1) )
+          FITERR_ALLFILT(ipar) = SNGL( FITERR(ipar,ITER-1) )
        ENDDO
 
 !  init final results to dummy values.
@@ -15431,7 +15422,7 @@
 
     IF ( ITER .EQ. NFIT_ITERATION ) THEN
 
-       FILTLIST_FIT_USE = ALLFILTLIST_FIT
+       FILTLIST_FIT_USE = ALLFILTLIST_FIT(1:64)
        NFILT_OBS_USEFIT = NOBS_ALLFILT
 
        DO IFILTDEF = 1, MXFILT_ALL
@@ -16153,8 +16144,8 @@
        ENDDO
 
        DO ipar = 1, MXFITPAR
-           FITVAL_ALLFILT(ipar) = FITVAL(ipar,ITER-1)
-           FITERR_ALLFILT(ipar) = FITERR(ipar,ITER-1)
+           FITVAL_ALLFILT(ipar) = SNGL( FITVAL(ipar,ITER-1) )
+           FITERR_ALLFILT(ipar) = SNGL( FITERR(ipar,ITER-1) )
        ENDDO
 
     ENDIF
@@ -16182,7 +16173,7 @@
     ITERLAST = ITERLAST_FITRESTMAG(NFILTDEF_FITRESTMAG)
     IF ( ITER .GT. ITERLAST ) THEN
 
-       FILTLIST_FIT_USE = ALLFILTLIST_FIT
+       FILTLIST_FIT_USE = ALLFILTLIST_FIT(1:64)
        NFILT_OBS_USEFIT = NOBS_ALLFILT
 
        DO IFILT = 1, MXFILT_ALL
@@ -16896,13 +16887,13 @@
     IF ( DOFIT_PHOTOZ ) THEN
       if ( PHOTOZ_DROPFILTER(ifilt_obs)) RETURN ! drop this filter
 
-	! check option to force filters from previous fit stored in external file
-	if ( USE_PRIOR_SNCID_FILE ) then
-        LFITFUN_FILT = PRIOR_USE_FILT_SNCID_FILE(ifilt_obs)
-	  RETURN
-	endif
+      ! check option to force filters from previous fit stored in external file
+      if ( USE_PRIOR_SNCID_FILE ) then
+         LFITFUN_FILT = PRIOR_USE_FILT_SNCID_FILE(ifilt_obs)
+         RETURN
+      endif
 
-    ENDIF
+   ENDIF
 
 ! -----------------------------------
 
@@ -17699,7 +17690,7 @@
 ! ---------------------
 92    CONTINUE
     c1err = 'Could not open SALT2_DICTFILE: '
-    c2err = SALT2_DICTFILE
+    c2err = SALT2_DICTFILE(1:84)
     CALL MADABORT("DMP_DICTFILE", c1err, c2err)
 
 888   CONTINUE
@@ -19489,8 +19480,6 @@
 
     CALL SNTABLE_FILL(ID)  ! generic C function
 
-400   CONTINUE
-
     CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
 
 ! ------------------------------------
@@ -19590,10 +19579,10 @@
        if ( ipar == IPAR_ITER )  GOTO 900
        if ( ipar == IPAR_ISN  )  GOTO 900
        if ( ipar == IPAR_SHAPE2) GOTO 900
-       if ( ipar == IPAR_MB	 ) GOTO 900
+       if ( ipar == IPAR_MB  )   GOTO 900
        VARNAME = 'CHI2PRIOR_' // PARNAME_STORE(ipar)
-	 LENNAME = INDEX(VARNAME,' ') -1
-	 VARNAME = VARNAME(1:LENNAME) // ':F' // char(0)
+       LENNAME = INDEX(VARNAME,' ') -1
+       VARNAME = VARNAME(1:LENNAME) // ':F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_CHI2PRIOR(ipar),  & 
                     VARNAME, 1,     LENBLOCK, 20 )
 900   CONTINUE

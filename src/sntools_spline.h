@@ -56,8 +56,9 @@
 
 // GSL STEFFEN availability flag (guarded)
 #ifndef GSL_INTERP_STEFFEN
-#define GSL_INTERP_STEFFEN
+#define GSL_INTERP_STEFFENxxx
 #endif
+
 
 // - - - - - - - - - - - - - - - - - - - - - -
 // Capacity and mode constants

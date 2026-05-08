@@ -23771,6 +23771,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v12_01g) *****
 
+   Begin new sntools_spline.c[h] that will be a more general replacement for
+   sntools_zPDF_spline.c[h]. The former is will on both quantiles and logmass
+   vs. zgrid. New spline code is invoked with DEBUG_FLAG = 28.
+   ../util/set_Cpreproc_flags.py was updated as well to protect Midway
+   from steffan spline option.
+
          *****  USEFUL(v12_01g) *****
 
    Begin fixing -Wall compilation warnings (tons of them)

@@ -986,7 +986,27 @@
     SUBROUTINE FITPAR_INI(IERR)
 ! 
 ! One-time user init: (read input, open files, etc ...)
-! 
+! Flow chart:
+!  -> RDFITNML
+!  -> FITRESTMAG_INI
+!  -> FITMAGDIF_INI
+!  -> SIMFIT_IDEAL_INI
+!  -> FITMODEL_INI
+!  -> SEDMODEL_INI
+!  -> SETCUTS_FITWIN_TREST
+!  -> PHOTOZ_ANA(0,0,ISTAT) 
+!  -> INIT_FUDGE_FITERR
+!  -> FITINI_PRIORS
+!      -> FITINI_PKMJDPRIOR
+!      -> FITINI_ZPRIOR  [METHOD_SPLINE_QUANTILES set here]
+!      -> FITINI_MUPRIOR
+!      -> FITINI_AVPRIOR
+!      -> FITINI_FLATPRIOR
+!      -> MAKE_TABLE_PRIORS
+
+!  -> FITINI_TABLEVAR
+!  -> DMP_SNMJD_INTERP
+!  -> FITINI_EPVAR   
 ! 
 ! Jul 19 2019: overhaul arguments to INIT_GENMAG_SNOOPY
 ! 
@@ -1071,11 +1091,10 @@
 
     DO ipar = 1, MXFITSTORE
        write(PARNAME_STORE(ipar),20) ipar
-20       format('BIDON', I3.3)
+20     format('BIDON', I3.3)
     ENDDO
 
-    PARNAME_STORE(IPAR_ITER)    = 'ITER'
-
+    PARNAME_STORE(IPAR_ITER)   = 'ITER'
     PARNAME_STORE(IPAR_ISN)    = 'ISN'
 
 ! init to model that fits for extinction and MU;
@@ -1155,8 +1174,8 @@
     Len1 = INDEX(SURVEY_FILTERS,' ') - 1
     Len2 = INDEX(FILTLIST_FIT,  ' ') - 1
     IF ( Len2 .LT. Len1 ) THEN
-         print*,'  WARNING: fitting filter subset  ',  & 
-           FILTLIST_FIT(1:Len2),'  from  ', SURVEY_FILTERS(1:Len1)
+       print*,'  WARNING: fitting filter subset  ',  & 
+            FILTLIST_FIT(1:Len2),'  from  ', SURVEY_FILTERS(1:Len1)
     ENDIF
 
 
@@ -1166,11 +1185,9 @@
 ! if it does not exist, then set covFile = '' so that
 ! the default is used.
 
-    if (   fitcovar_file .EQ. 'SIM'  & 
-        .or. fitcovar_file .EQ. 'sim' ) then
-
-      len1    = INDEX(SNDATA_PREFIX, ' ' ) - 1
-      fitcovar_file = SNDATA_PREFIX(1:len1) // '_COVAR.DAT'
+    if ( fitcovar_file .EQ. 'SIM' .or. fitcovar_file .EQ. 'sim' ) then
+       len1    = INDEX(SNDATA_PREFIX, ' ' ) - 1
+       fitcovar_file = SNDATA_PREFIX(1:len1) // '_COVAR.DAT'
     endif
 
 ! check option to fit restmags.
@@ -1727,8 +1744,7 @@
       ctmp = ''
       if ( LREPEAT_ITER ) CTMP = '(again)'
       write(global_banner,400) ITER, CCID(1:LCHAR), CTMP
-400     format('FITPAR_PREP: Begin FIT-ITERATION ', I2,  & 
-               ' for CID ', A, 3x, A )
+400   format('FITPAR_PREP: Begin FIT-ITERATION ', I2,  ' for CID ', A, 3x, A )
       CALL PRBANNER( global_banner(1:68) )
     ENDIF
 
@@ -11542,7 +11558,7 @@
 ! ==========================================
     SUBROUTINE FITINI_ZPRIOR(LSTAT)
 ! 
-! Created DEc 30, 2006 by R.Kessler
+! Created  by R.Kessler
 ! 
 ! Initialize photoZ prior using host photoZ.
 ! Fills PRIOR_CHI2GRID array with Gaussian with sigma=1.0
@@ -11552,10 +11568,8 @@
 ! Prior chi2 =  [ (Z - Zhost) / scale*ERROR_Zhost ]^2 .
 ! 
 ! where scale = PRIOR_ZERRSCALE scales the error.
-! 
-! 
+!  
 ! ------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
@@ -11566,10 +11580,8 @@
     LOGICAL  LSTAT  ! (O) T => prior is defined
 
     INTEGER IPAR, IZ
-
-    REAL*8  & 
-         tmp, Zpull_BINSIZE, Zpull, XZ  & 
-        ,CHI2, PROB, SQSIG, SQDIF, GNORM
+    REAL*8 tmp, Zpull_BINSIZE, Zpull, XZ 
+    REAL*8 CHI2, PROB, SQSIG, SQDIF, GNORM
 
 ! -------------- BEGIN ---------------
 
@@ -11578,8 +11590,8 @@
     global_banner = ''
 
     if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_STEFFEN) .or.  & 
-          BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_LINEAR)) then
-       OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix user mistake
+         BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_LINEAR)) then
+       OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix likely user mistake
     endif
 
     if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then
@@ -11590,6 +11602,8 @@
     endif
 
 ! check quantile mask independent of other mask bits
+! BEWARE: METHOD_SPLINE_QUANTILES is actually not used since init_spline was moved to base code.
+
     if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
       METHOD_SPLINE_QUANTILES = "CUBIC"    ! default 28 Mar, 2024
       if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN)) then

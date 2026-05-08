@@ -4227,11 +4227,11 @@
             TBLDMPFCN_NCALL     = NCALL_FCNFLAG(IFLAG)
             TBLDMPFCN_IFLAG     = IFLAG
             TBLDMPFCN_ITER      = ITER
-            TBLDMPFCN_ZSN       = ZSN
-            TBLDMPFCN_PEAKMJD   = PEAKMJD
-            TBLDMPFCN_DISTANCE  = DISTPAR
-            TBLDMPFCN_SHAPEPAR  = SHAPEPAR(1)
-            TBLDMPFCN_COLORPAR  = COLORPAR
+            TBLDMPFCN_ZSN       = SNGL(ZSN)
+            TBLDMPFCN_PEAKMJD   = SNGL(PEAKMJD)
+            TBLDMPFCN_DISTANCE  = SNGL(DISTPAR)
+            TBLDMPFCN_SHAPEPAR  = SNGL(SHAPEPAR(1))
+            TBLDMPFCN_COLORPAR  = SNGL(COLORPAR)
             TBLDMPFCN_CHI2PRIOR(0) = SNGL(CHI2INI)
        endif  ! end of DUMP
 
@@ -4352,35 +4352,33 @@
 ! covariance matrix each time. The other EP_XXX arrays are
 ! computed inside LAST if-block.
 
-      R4EP_ALL(epoch,JEP_MODELFLUX)     = flux_model
-      R4EP_ALL(epoch,JEP_MODELFLUX_ERR) = flux_model_err
-      R4EP_ALL(epoch,JEP_FLUX_ERRTOT)   = flux_errtot
+      R4EP_ALL(epoch,JEP_MODELFLUX)     = SNGL(flux_model)
+      R4EP_ALL(epoch,JEP_MODELFLUX_ERR) = SNGL(flux_model_err)
+      R4EP_ALL(epoch,JEP_FLUX_ERRTOT)   = SNGL(flux_errtot)
 
       IF ( LAST ) THEN
 
 ! increment SNRMAX for fitted epochs only
          if ( LFITDATA ) then
            R4BAND_SNRMAX_FIT(ifilt) =  & 
-                MAX ( R4BAND_SNRMAX_FIT(ifilt), SNR_FIT )
+                MAX ( R4BAND_SNRMAX_FIT(ifilt), SNGL(SNR_FIT) )
            R4BAND_SNRMAX_RAW(ifilt) =  & 
-                MAX ( R4BAND_SNRMAX_RAW(ifilt), SNR_RAW )
+                MAX ( R4BAND_SNRMAX_RAW(ifilt), SNGL(SNR_RAW) )
          endif
 
          if ( flux_model .GT. 0.0 ) then
-           mag_tmp = -2.5 * dlog10(flux_model)    &  ! model-mag_{obs}
-                     + ZP_FLUXCAL
-
-           R4EP_ALL(epoch,JEP_MODELMAG)     = mag_tmp
-           R4EP_ALL(epoch,JEP_MODELMAG_ERR) = mag_err
+           mag_tmp = -2.5 * dlog10(flux_model) + ZP_FLUXCAL  ! model-mag_{obs}
+           R4EP_ALL(epoch,JEP_MODELMAG)     = SNGL(mag_tmp)
+           R4EP_ALL(epoch,JEP_MODELMAG_ERR) = SNGL(mag_err)
          endif
 
          mag_tmp = SNLC_MAG(epoch)
          IF( USE_MWCOR) mag_tmp = mag_tmp - SNLC_MWXT_MAG(ifilt)
-         R4EP_ALL(epoch,JEP_DATAMAG)     = mag_tmp
+         R4EP_ALL(epoch,JEP_DATAMAG)     = SNGL(mag_tmp)
          R4EP_ALL(epoch,JEP_DATAMAG_ERR) = SNLC_MAG_ERRPLUS(epoch)
 
-         R4EP_ALL(epoch,JEP_XTHOST)   = XTAV
-         R4EP_ALL(epoch,JEP_MWXT)     = XTMW
+         R4EP_ALL(epoch,JEP_XTHOST)   = SNGL(XTAV)
+         R4EP_ALL(epoch,JEP_MWXT)     = SNGL(XTMW)
 
          IF ( LREST_FITMODEL ) THEN
            R4EP_ALL(epoch,JEP_KCOR)       = SNGL(MAG_KCOR(1))

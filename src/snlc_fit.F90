@@ -55,7 +55,7 @@
         ,IPAR_SHAPE  & 
         ,IPAR_SHAPE2  & 
         ,IPAR_AV  & 
-        ,IPAR_RV, IPAR_AVRV  & 
+        ,IPAR_RV, sIPAR_AVRV  & 
         ,IPAR_DLMAG, IPAR_ZPHOT  & 
         ,IPAR_X0, IPAR_COLOR   &  ! for SALT2
         ,IPAR_MB               &  ! for SALT2
@@ -4383,12 +4383,12 @@
          R4EP_ALL(epoch,JEP_MWXT)     = XTMW
 
          IF ( LREST_FITMODEL ) THEN
-           R4EP_ALL(epoch,JEP_KCOR)       = MAG_KCOR(1)
-           R4EP_ALL(epoch,JEP_KCOR_ERR)   = MAG_KCOR(2)
-           R4EP_ALL(epoch,JEP_AVWARP)     = AVWARP
+           R4EP_ALL(epoch,JEP_KCOR)       = SNGL(MAG_KCOR(1))
+           R4EP_ALL(epoch,JEP_KCOR_ERR)   = SNGL(MAG_KCOR(2))
+           R4EP_ALL(epoch,JEP_AVWARP)     = SNGL(AVWARP)
 
            arg = 0.4*(MAG_KCOR(1) + DISTPAR)
-           R4EP_ALL(epoch,JEP_DATAFLUX_REST)= flux_data * 10.0**(arg)
+           R4EP_ALL(epoch,JEP_DATAFLUX_REST) = SNGL(flux_data * 10.0**(arg))
          ENDIF
 
 
@@ -4407,22 +4407,22 @@
 
          sqsig = flux_data_errtot**2 + flux_model_err**2
 
-         R4EP_ALL(epoch,JEP_RATIO)       = RATIO
-         R4EP_ALL(epoch,JEP_RATIO_ERR)   = RATIO_ERR
-         R4EP_ALL(epoch,JEP_RESID)       = dif
-         R4EP_ALL(epoch,JEP_RESID_ERR)   = dsqrt ( sqsig )
-         R4EP_ALL(epoch,JEP_MAGDIF)      = magdif
-         R4EP_ALL(epoch,JEP_TREST)       = Trest
-         R4EP_ALL(epoch,JEP_TOBS)        = Tobs
-         R4EP_ALL(epoch,JEP_MJD)         = MJDFIT
-         R4EP_ALL(epoch,JEP_DELCHI2)     = DELCHI2
-         FCN_FITCHI2(0)          = chi2tot - CHI2INI
+         R4EP_ALL(epoch,JEP_RATIO)       = SNGL(RATIO)
+         R4EP_ALL(epoch,JEP_RATIO_ERR)   = SNGL(RATIO_ERR)
+         R4EP_ALL(epoch,JEP_RESID)       = SNGL(dif)
+         R4EP_ALL(epoch,JEP_RESID_ERR)   = SNGL( dsqrt(sqsig) )
+         R4EP_ALL(epoch,JEP_MAGDIF)      = SNGL(magdif)
+         R4EP_ALL(epoch,JEP_TREST)       = SNGL(Trest)
+         R4EP_ALL(epoch,JEP_TOBS)        = SNGL(Tobs)
+         R4EP_ALL(epoch,JEP_MJD)         = SNGL(MJDFIT)
+         R4EP_ALL(epoch,JEP_DELCHI2)     = SNGL(DELCHI2)
+         FCN_FITCHI2(0)          = SNGL(chi2tot - CHI2INI)
 
          DT1 = abs(Trest)
          DT2 = abs( R4BAND_TREST_NEARPEAK(ifilt_obs) )
          if ( DT1 < DT2 ) then
-           R4BAND_XTMW_NEARPEAK(ifilt_obs)  = XTMW
-           R4BAND_TREST_NEARPEAK(ifilt_obs) = Trest
+           R4BAND_XTMW_NEARPEAK(ifilt_obs)  = SNGL(XTMW)
+           R4BAND_TREST_NEARPEAK(ifilt_obs) = SNGL(Trest)
            I4BAND_EP_NEARPEAK(ifilt_obs)    = epoch
          endif
 
@@ -4462,19 +4462,19 @@
          if ( LFITDATA .and. (.NOT.LFLAG_USESIM) ) then
 
            FCN_FITCHI2(ifilt)  =  & 
-             FCN_FITCHI2(ifilt)  + sqdif / sqsig_nofudge  ! DELCHI2
+             FCN_FITCHI2(ifilt)  + SNGL(sqdif / sqsig_nofudge)  ! DELCHI2
 
-           if ( Trest .LT. R4SN_Tearly ) R4SN_Tearly = Trest
-           if ( Trest .GT. R4SN_Tlate  ) R4SN_Tlate  = Trest
+           if ( Trest .LT. R4SN_Tearly ) R4SN_Tearly = SNGL(Trest)
+           if ( Trest .GT. R4SN_Tlate  ) R4SN_Tlate  = SNGL(Trest)
 
-           if ( MJD .LT. R4SN_MJDmin ) R4SN_MJDmin = MJD
-           if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = MJD
+           if ( MJD .LT. R4SN_MJDmin ) R4SN_MJDmin = SNGL(MJD)
+           if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = SNGL(MJD)
 
            ! sums used for initializing photoz x0/MU
            if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. SCALE_NBIN_COURSE_PHOTOZ > 0 ) then
-              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig
-              R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig
-              R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig
+              R4SN_FFSUM_DATA   = SNGL(R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig )
+              R4SN_FFSUM_MODEL  = SNGL(R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig )
+              R4SN_FFSUM_CROSS  = SNGL(R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig )
            endif
 
          endif
@@ -4583,7 +4583,7 @@
        chi2tot = chi2tot + logdet
       ENDIF
 
-      FCN_FITCHI2(0) = chi2tot - chi2ini
+      FCN_FITCHI2(0) = SNGL(chi2tot - chi2ini)
 
     ENDIF  ! end of USE_FITCOV if block
 
@@ -8327,6 +8327,9 @@
     USE SNLCINP_NML
     USE FILTCOM
     USE FITRESTCOM
+
+    IMPLICIT NONE  ! added May 7 2026
+
 ! CDE,SNFITPAR.
 
     INTEGER  & 
@@ -8338,7 +8341,7 @@
     INTEGER  IPAR, IPRINT, MASK, NQ
     LOGICAL  LZDONE, LPRINT
     REAL*8 ZHOST, ZHOST_ERR,  ZMIN, ZMAX, z, s, c, d
-    REAL*8 ztmp_min, ztmp_max
+    REAL*8 ztmp_min, ztmp_max, STP
     REAL   t_start, t_end
     LOGICAL  LPZ_AUTO_INISTP, LDMP_REFAC
     CHARACTER BANNER*100, CZTMP*20, CCID_forC*(MXCHAR_CCID)
@@ -8604,7 +8607,7 @@
 
 888   CONTINUE
 
-    REDSHIFT_FIT = INIVAL(IPAR_zPHOT)
+    REDSHIFT_FIT = SNGL( INIVAL(IPAR_zPHOT) )
 
     if ( STDOUT_UPDATE ) then
        CALL CPU_TIME(t_end)
@@ -8905,8 +8908,8 @@
 439       format(T5,'UVLAM_EXTRAP -> restore RESTLAMBDA to: ', 2F8.0 )
        endif
        call flush(6)
-       RESTLAMBDA_USEFIT(1) = RESTLAMBDA_SAVE(1)
-       RESTLAMBDA_USEFIT(2) = RESTLAMBDA_SAVE(2)
+       RESTLAMBDA_USEFIT(1) = SNGL( RESTLAMBDA_SAVE(1) )
+       RESTLAMBDA_USEFIT(2) = SNGL( RESTLAMBDA_SAVE(2) )
     endif
 
     RETURN
@@ -9504,7 +9507,7 @@
 ! save initial values before they are modified
 
     DO ipar = 1, IPAR_MAX
-      INIVAL_START(ipar) = INIVAL(ipar)
+      INIVAL_START(ipar) = SNGL( INIVAL(ipar) )
     ENDDO
 
     if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 2")
@@ -9532,17 +9535,15 @@
 ! -----------------------------------------------------
 ! Now check PEAKMJD by testing 1/2-sigma steps
 
-442   CONTINUE
-
-    PEAKMJD_INI  = INIVAL(IPAR_PEAKMJD)
-    PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
+    PEAKMJD_INI  = SNGL( INIVAL(IPAR_PEAKMJD) )
+    PEAKMJD_SAVE = SNGL( INIVAL(IPAR_PEAKMJD) )
     DIFMJD_MIN   = INIVAL_GRIDSEARCH_DPEAKMJD(1)
     DIFMJD_MAX   = INIVAL_GRIDSEARCH_DPEAKMJD(2)
     DIFMJD_BIN   = INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
 !     D. Jones color grid search
-    COLOR_INI  = INIVAL(IPAR_COLOR)
-    COLOR_SAVE = INIVAL(IPAR_COLOR)
+    COLOR_INI   = SNGL( INIVAL(IPAR_COLOR) )
+    COLOR_SAVE  = SNGL( INIVAL(IPAR_COLOR) )
     COLOR_MIN   = INIVAL_GRIDSEARCH_COLOR(1)
     COLOR_MAX   = INIVAL_GRIDSEARCH_COLOR(2)
     COLOR_BIN   = INIVAL_GRIDSEARCH_COLOR(3)
@@ -9572,8 +9573,8 @@
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
       if ( CHI8 .LT. CHI8MIN ) then
           chi8min = chi8
-          PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
-          COLOR_SAVE = INIVAL(IPAR_COLOR)
+          PEAKMJD_SAVE = SNGL( INIVAL(IPAR_PEAKMJD) )
+          COLOR_SAVE   = SNGL( INIVAL(IPAR_COLOR) )
       endif
       DIFMJD = DIFMJD + DIFMJD_BIN
 400   CONTINUE

@@ -1586,8 +1586,7 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
   //
   //
 
-  FILTERCAL_DEF *FILTERCAL;
-  // xxx mark  int MEMF  = NBL * sizeof(float);
+  FILTERCAL_DEF *FILTERCAL = NULL ;
   int MEMD  = NBL * sizeof(double);
   int MEMI  = NBL * sizeof(int);
   
@@ -2124,7 +2123,7 @@ double get_calib_primary_mag(int OPT, int ifiltdef) {
   //  OPT = OPT_FRAME_REST or OPT_FRAME_OBS
   //  ifiltdef = absolute filter index
 
-  FILTERCAL_DEF *FILTERCAL ;
+  FILTERCAL_DEF *FILTERCAL = NULL ;
   int    ifilt ;
   double mag = 0.0 ;
   char fnam[] = "get_calib_primary_mag";  (void)fnam;
@@ -2135,7 +2134,9 @@ double get_calib_primary_mag(int OPT, int ifiltdef) {
     { FILTERCAL = &CALIB_INFO.FILTERCAL_REST; }
   else if ( OPT == OPT_FRAME_OBS )
     { FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ; }
-  
+  else 
+    { abort_calib_frame(OPT, fnam); }
+
   ifilt = FILTERCAL->IFILTDEF_INV[ifiltdef];
   mag   = FILTERCAL->PRIMARY_MAG[ifilt];
 
@@ -2177,7 +2178,7 @@ void get_calib_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
   // Return information about filter "ifiltdef" for
   // OPT_FRAME = 0(REST) or 1(OBS)
   
-  FILTERCAL_DEF *FILTERCAL;
+  FILTERCAL_DEF *FILTERCAL = NULL ;
   int ifilt, ilam ;
   char fnam[] = "get_calib_filterTrans" ;
 
@@ -2245,7 +2246,7 @@ void get_calib_filterLam(int OPT_FRAME, int ifiltdef,
   // Return wavelength array for filter ifiltdef;
   // OPT_FRAME = 0(REST) or 1(OBS)
   
-  FILTERCAL_DEF *FILTERCAL;
+  FILTERCAL_DEF *FILTERCAL = NULL ;
   int ifilt, ilam ;
   char fnam[] = "get_calib_filterLam" ;
 
@@ -2290,7 +2291,7 @@ void get_calib_filtlam_stats(int OPT_FRAME, int ifiltdef,
 			    double *lammin, double *lammax) {
 
   int  ifilt;
-  FILTERCAL_DEF *FILTERCAL;
+  FILTERCAL_DEF *FILTERCAL = NULL;
   char fnam[] = "get_calib_filtlam_stats" ;
 
   // ----------- BEGIN ----------
@@ -2328,7 +2329,7 @@ void get_calib_filtindex_map(int OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
   // and inverse map.
 
   int  ifilt, ifiltdef ;
-  FILTERCAL_DEF *FILTERCAL;
+  FILTERCAL_DEF *FILTERCAL = NULL ;
   char fnam[] = "get_calib_filtindex_map" ;
 
   // ---------- BEGIN ------------
@@ -2339,7 +2340,6 @@ void get_calib_filtindex_map(int OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
     { FILTERCAL = &CALIB_INFO.FILTERCAL_REST; }
   else 
     { abort_calib_frame(OPT_FRAME, fnam); }
-  //  ifilt      = FILTERCAL->IFILTDEF_INV[ifiltdef];    
 
   *NFILTDEF = FILTERCAL->NFILTDEF ;
   for(ifilt=0; ifilt < *NFILTDEF; ifilt++ ) {
@@ -2361,7 +2361,7 @@ void get_calib_filtindex_map__(int *OPT_FRAME, int *NFILTDEF, int *IFILTDEF_MAP,
 double get_calib_zpoff_file(int OPT_FRAME, int ifiltdef) {
   // Return ZPOFF read from ZPOFF.DAT file in filter directory
 
-  FILTERCAL_DEF *FILTERCAL;
+  FILTERCAL_DEF *FILTERCAL = NULL ;
   char fnam[] = "get_calib_zpoff_file" ;
 
   // ----------- BEGIN -------------

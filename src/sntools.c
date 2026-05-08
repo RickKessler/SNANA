@@ -1611,8 +1611,8 @@ void get_obs_atFLUXMAX(char *CCID, int NOBS,
   int USE_MJDatFMAXCLUMP = (USE_MJDatFLUXMAX2 || USE_MJDatFLUXMAX3) ;
 
   int USE_BACKUP_SNRCUT, ITER, NITER, IMJD, IMJDMAX=0 ;
-  int     NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0, *NSNRCUT;
-  double  WGT_SNRCUT_MAXSUM, WGT_SNRCUT_SUM, *WGT_SNRCUT ; 
+  int     NOBS_SNRCUT=0, NSNRCUT_MAXSUM=0, *NSNRCUT=NULL;
+  double  WGT_SNRCUT_MAXSUM, WGT_SNRCUT_SUM, *WGT_SNRCUT=NULL ; 
   int IFILTOBS, o, omin, omax, omin2, omax2, o_sort, NOTHING ;
   int MALLOC=0 ;
   double SNR, SNRCUT=0.0, SNRMAX=0.0, FLUXMAX[MXFILTINDX] ;
@@ -8823,7 +8823,6 @@ int NZ_HOSTGALz(int MXBIN, float *Z_LIST, char *CCID) {
   //   CCID   : current CID; for diagnostics only
   //
   int  iz, NZ = 0 ; 
-  bool SMALL_QZNEG = false;
   int  LDMP = 0 ;
   char fnam[] = "NZ_HOSTGALz";  (void)fnam;
 
@@ -9391,7 +9390,7 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *key_stop, char *
   //
   // May 6 2026: stop reading when key_stop is reached (avoid reading very long file)
 
-  int n_key, k, len ;
+  int n_key, k ;
   char **key_list, c_get[MXWORDLINE_PARSE_WORDS];
   FILE *fp;
 
@@ -9905,13 +9904,13 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
   struct stat statbuf, statbuf_gz;
   bool FOUNDIT = false;
   int  jstat=0, jstat_gz=0, ipath, NPATH ;
-  float fmem = 0.0 ;
+  float fmem = 0.0 ;  (void)fmem;
   char *path, **PATH, sepKey[] = " ";  
   char  tmpName[MXPATHLEN], tmpName_gz[MXPATHLEN+10] ;
   char fnam[] = "find_pathfile";
   // ------------- BEGIN -----------
 
-  fmem = malloc_strlist(+1, MXPATH_CHECK, MXPATHLEN, &PATH );
+  fmem = malloc_strlist(+1, MXPATH_CHECK, MXPATHLEN, &PATH ); 
 
   splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,
 	       &NPATH, &PATH[1] ); // <== returned
@@ -10165,7 +10164,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   int ipath, NPATH ;
   bool IS_OPEN = false ;
   char **PATH, sepKey[]= " " ; 
-  float fmem;
+  float fmem;  (void)fmem;
   FILE *fp ;
   char fnam[] = "snana_openTextFile" ;
 
@@ -10448,7 +10447,7 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
 
   int NPATH, ipath;
   char **PATH, sepKey[] = " " ;
-  float fmem;
+  float fmem;  (void)fmem;
 
   char fnam[200];
   concat_callfun_plus_fnam(funCall, "abort_openTextFile", fnam);

@@ -452,7 +452,7 @@ $(BIN)/snana.exe :  $(OBJ_SNANA)
 	$(OBJ_SNANA) \
 	$(LCFITSIO)  $(LGSL) \
 	$(LROOT) -lm  $(CPPLIB)
-	(cd $(OBJ); rm snana.o )	
+	(cd $(OBJ); rm snana.o; rm *.mod )
 
 # -------------------------------------------------
 # SN light curve fitter 
@@ -465,7 +465,7 @@ $(BIN)/snlc_fit.exe : $(OBJ_SNFIT)
 	$(OBJ_SNFIT) 	\
 	$(LCFITSIO)  $(LGSL) 	\
 	$(LROOT) -lm $(CPPLIB)
-	(cd $(OBJ); rm snlc_fit.o )
+	(cd $(OBJ); rm snlc_fit.o; rm *.mod )
 
 # -------------------------------------------------
 # PSNID photometric classifier (Jun 2012)

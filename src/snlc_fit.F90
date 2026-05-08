@@ -138,7 +138,7 @@
        ,MASK_CHI2_SIGMA_LOGDET  = 4   &  ! Eventually should become default
        ,MASK_CHI2_SIGMA_IGNORE  = 128    ! Compute quantity for output, but do not use in fit
 
-    CHARACTER METHOD_SPLINE_QUANTILES*20
+!    CHARACTER METHOD_SPLINE_QUANTILES*20 ! XXX MARK 
 
   END MODULE SNFITPAR
 
@@ -4873,7 +4873,7 @@
          ! get the probability at this redshift
 
          if(DEBUG_FLAG == 28) then
-            PROBZ = eval_spline(INDEX_SPLINE_QUANTILE_ZPHOT, ZSN)
+            PROBZ = eval_spline(IND_OFF_SPLINE_QUANTILE_ZPHOT+1, ZSN)
          else
             PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
          endif
@@ -11574,7 +11574,7 @@
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
-
+    USE SNLCINP_NML
     IMPLICIT NONE
 
     LOGICAL  LSTAT  ! (O) T => prior is defined

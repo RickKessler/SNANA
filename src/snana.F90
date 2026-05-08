@@ -17367,6 +17367,10 @@
     LOGICAL   :: BIGGER_z
 
     CHARACTER FNAM*20
+
+! external C functions
+    REAL*8, EXTERNAL :: eval_spline_gen
+
 ! ------------- BEGIN ---------------
 
     FNAM = 'SET_SNHOST_QZPHOT'
@@ -17408,15 +17412,23 @@
     if ( STDOUT_UPDATE ) IPRINT = 1
 
     if (DEBUG_FLAG == 28 ) THEN
-       ! REFACTORED  NEWCALL GOES HERE MAY, 2026
-       INDEX_SPLINE = -9
-       CALL init_spline(INDEX_SPLINE_QUANTILE_ZPHOT, NQ, QPROB, QZPHOT,  &
+       ! Use new generalized spline (sntools_spline_gen.c).
+       ! Note arg order: x=QZPHOT (redshift), y=QPROB (percentile) for CDF spline.
+       CALL init_spline(INDEX_SPLINE_QUANTILE_ZPHOT, NQ, QZPHOT, QPROB,  &
             SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
             METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
-            "QUANTILE_ZPHOT" // char(0), &
+            "QUANTILE_ZPHOT" // char(0),  &
             IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
-       PRINT*, 'XXX DEBUG FLAG = ', DEBUG_FLAG
-       STOP
+       ! diagnostic: confirm new code path was taken and print slot info
+       PRINT*, ' '
+       PRINT*, 'XXX DEBUG_FLAG=28: init_spline_gen returned'
+       PRINT*, 'XXX   CID    = ', SNLC_CCID(1:ISNLC_LENCCID)
+       PRINT*, 'XXX   NQ     = ', NQ
+       PRINT*, 'XXX   IERR   = ', IERR
+       PRINT*, 'XXX   MEAN   = ', MEAN
+       PRINT*, 'XXX   STD    = ', STD
+       CALL dump_spline_gen(INDEX_SPLINE_QUANTILE_ZPHOT)
+       PRINT*, ' '
     else
        ! LEGACY CALL
        CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
@@ -17433,6 +17445,79 @@
 
     return
     END SUBROUTINE SET_SNHOST_QZPHOT
+
+! =============================================
+    SUBROUTINE SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, &
+                                          LM_MEAN, LM_STD, IERR)
+!
+! Created May 2026 A.Mitra
+! Fit a spline through the per-galaxy logmass(z) grid stored in
+! SNHOSTz_LOGMASS(IGAL), then return the Gaussian-marginalized
+! logmass mean and std using the host photo-z and its uncertainty.
+!
+! Inputs:
+!   METHOD_SPLINE  : interpolation method ("LINEAR","CUBIC","STEFFEN")
+!   IGAL           : sparse host index (1..MXSNHOST)
+! Outputs:
+!   LM_MEAN        : Gaussian-weighted mean logmass
+!   LM_STD         : corresponding standard deviation
+!   IERR           : 0=ok, -1=negative z, -2=non-monotonic z, -9=no data
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+
+    CHARACTER :: METHOD_SPLINE*(*)
+    INTEGER   :: IGAL
+    REAL*8    :: LM_MEAN, LM_STD
+    INTEGER   :: IERR
+
+! local var
+    INTEGER   :: NZ, iz, LM, IPRINT
+    REAL*8    :: Z_LIST(MXBIN_SNHOSTz), LMASS_LIST(MXBIN_SNHOSTz)
+    REAL*8    :: MEAN, STD
+    REAL*8    :: Z_PH, Z_PH_ERR
+
+    CHARACTER FNAM*30
+! ------------- BEGIN ---------------
+
+    FNAM = 'SET_SNHOST_LOGMASS_SPLINE'
+    IERR    = -9
+    LM_MEAN = -9.0D0
+    LM_STD  =  0.0D0
+
+    NZ = SNHOSTz_LOGMASS(IGAL)%NZ
+    if ( NZ <= 0 ) RETURN   ! no logmass grid for this galaxy
+
+    ! copy from TYPE arrays to plain REAL*8 arrays for C call
+    do iz = 1, NZ
+       Z_LIST(iz)    = DBLE( SNHOSTz_LOGMASS(IGAL)%Z_LIST(iz)   )
+       LMASS_LIST(iz)= DBLE( SNHOSTz_LOGMASS(IGAL)%VAL_LIST(iz) )
+    enddo
+
+    LM     = INDEX(METHOD_SPLINE,' ') - 1
+    IPRINT = 0
+    if ( STDOUT_UPDATE ) IPRINT = 1
+
+    ! fit spline through (z, logmass) grid -- DIRECT mode (no "QUANTILE" in name)
+    CALL init_spline(INDEX_SPLINE_LOGMASS_ZGRID, NZ, Z_LIST, LMASS_LIST, &
+         SNLC_CCID(1:ISNLC_LENCCID)  // char(0),  &
+         METHOD_SPLINE(1:LM)         // char(0),  &
+         "LOGMASS_ZGRID"             // char(0),  &
+         IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
+
+    if ( IERR /= 0 ) RETURN   ! bad z grid; caller handles
+
+    ! Gaussian-marginalized logmass over photo-z uncertainty
+    Z_PH     = DBLE( SNHOST_ZPHOT(IGAL) )
+    Z_PH_ERR = DBLE( SNHOST_ZPHOT_ERR(IGAL) )
+
+    CALL eval_spline_gen_integral(INDEX_SPLINE_LOGMASS_ZGRID, &
+                                  Z_PH, Z_PH_ERR, LM_MEAN, LM_STD)
+
+    return
+    END SUBROUTINE SET_SNHOST_LOGMASS_SPLINE
 
 ! =============================================
     SUBROUTINE SET_SNHOST_ZPHOT()

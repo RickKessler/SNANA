@@ -4746,15 +4746,15 @@
         ,MUMAX      = 60.      ! max distance mod.
 
 ! functions
-    REAL*8  & 
-         CHI2_PRIOR, CHI2_PRIOR_SNCID_FILE  & 
-        ,PRIOR_ZPULL  & 
-        ,PRIOR_MUPULL  & 
-        ,GET_RV8  & 
+    REAL*8  &
+         CHI2_PRIOR, CHI2_PRIOR_SNCID_FILE  &
+        ,PRIOR_ZPULL  &
+        ,PRIOR_MUPULL  &
+        ,GET_RV8  &
         ,eval_zPDF_spline, DLMAG_REF &
-        ,eval_spline
+        ,eval_spline, eval_spline_gen
 
-    EXTERNAL eval_zPDF_spline, eval_spline
+    EXTERNAL eval_zPDF_spline, eval_spline, eval_spline_gen
 
 ! ------------- BEGIN --------------
 
@@ -4859,10 +4859,10 @@
          ! get the probability at this redshift
 
          if(DEBUG_FLAG == 28) then
-            PROBZ = eval_SPLINE(ZSN)
+            PROBZ = eval_spline_gen(INDEX_SPLINE_QUANTILE_ZPHOT, ZSN)
          else
             PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
-         endif   
+         endif
         if ( PROBZ > 0.0 ) then
            CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
         else

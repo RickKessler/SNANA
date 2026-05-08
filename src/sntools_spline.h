@@ -4,11 +4,11 @@
 //
 // Core capability: given any arrays x[N] and y[N], fit a spline and then
 // evaluate it at:
-//   - a single query point x            --> eval_spline_gen(index, x)
-//   - an array of query points x[M]     --> eval_spline_gen_array(index, M, x, y_out)
+//   - a single query point x            --> eval_spline(index, x)
+//   - an array of query points x[M]     --> eval_spline_array(index, M, x, y_out)
 //
 // Additional capability for photo-z marginalization of a y(z) quantity:
-//   - Gaussian-weighted mean/std of y(x) --> eval_spline_gen_integral(...)
+//   - Gaussian-weighted mean/std of y(x) --> eval_spline_integral(...)
 //   Used for: given logmass(z_grid), return <logmass> marginalized over
 //   a Gaussian photo-z PDF G(z; z_ph, z_ph_err).
 //
@@ -56,7 +56,7 @@
 
 // GSL STEFFEN availability flag (guarded)
 #ifndef GSL_INTERP_STEFFEN
-#define GSL_INTERP_STEFFENxxx
+#define GSL_INTERP_STEFFEN 
 #endif
 
 
@@ -121,12 +121,12 @@ void init_spline(int index, int NVAL,
 // DIRECT mode: returns interpolated y(x).
 // DERIV  mode: returns d[CDF]/dx normalized to val_max -- the PDF P(x).
 // Returns 0.0 if x is outside [xmin, xmax].
-double eval_spline_gen(int index, double x);
+double eval_spline(int index, double x);
 
 // Evaluate spline at an array of query points.
-// Fills y_out[N_query] with eval_spline_gen(index, x_query[i]) for each i.
+// Fills y_out[N_query] with eval_spline(index, x_query[i]) for each i.
 // Useful for computing a PDF or logmass curve over a redshift grid.
-void eval_spline_gen_array(int index, int N_query,
+void eval_spline_array(int index, int N_query,
                             double *x_query, double *y_out);
 
 // Gaussian-weighted integral of y(x) over the spline domain.
@@ -134,15 +134,15 @@ void eval_spline_gen_array(int index, int N_query,
 //   mean_out = int[ y(x) * G(x) dx ] / int[ G(x) dx ]
 //   std_out  = sqrt( int[ (y(x)-mean_out)^2 * G(x) dx ] / int[G(x) dx] )
 // Primary use: logmass(z) marginalized over photo-z uncertainty:
-//   eval_spline_gen_integral(INDEX_LOGMASS, z_ph, z_ph_err, &lm_mean, &lm_std)
+//   eval_spline_integral(INDEX_LOGMASS, z_ph, z_ph_err, &lm_mean, &lm_std)
 // Also defined for DERIV mode (convolution of PDF with Gaussian).
 // If x_sigma <= 0, returns point estimate at x_center and std_out = 0.
-void eval_spline_gen_integral(int index,
+void eval_spline_integral(int index,
                                double x_center, double x_sigma,
                                double *mean_out, double *std_out);
 
 // Print a diagnostic summary of spline slot 'index' to stdout.
-void dump_spline_gen(int index);
+void dump_spline(int index);
 
 // - - - - - - - - - - - - - - - - - - - - - -
 // Fortran (gfortran) wrappers  [ trailing __ naming convention ]
@@ -160,15 +160,15 @@ void   init_spline__(int *index, int *NVAL,
                           double *mean, double *std_dev, int *error_flag,
                           int len_cid, int len_method);
 
-double eval_spline_gen__(int *index, double *x);
+double eval_spline__(int *index, double *x);
 
-void   eval_spline_gen_array__(int *index, int *N_query,
+void   eval_spline_array__(int *index, int *N_query,
                                 double *x_query, double *y_out);
 
-void   eval_spline_gen_integral__(int *index,
+void   eval_spline_integral__(int *index,
                                    double *x_center, double *x_sigma,
                                    double *mean_out, double *std_out);
 
-void   dump_spline_gen__(int *index);
+void   dump_spline__(int *index);
 
 #endif  // SNTOOLS_SPLINE_GEN_H

@@ -4766,9 +4766,9 @@
         ,PRIOR_MUPULL  &
         ,GET_RV8  &
         ,eval_zPDF_spline, DLMAG_REF &
-        ,eval_spline, eval_spline_gen
+        ,eval_spline
 
-    EXTERNAL eval_zPDF_spline, eval_spline, eval_spline_gen
+    EXTERNAL eval_zPDF_spline, eval_spline
 
 ! ------------- BEGIN --------------
 
@@ -4873,7 +4873,7 @@
          ! get the probability at this redshift
 
          if(DEBUG_FLAG == 28) then
-            PROBZ = eval_spline_gen(INDEX_SPLINE_QUANTILE_ZPHOT, ZSN)
+            PROBZ = eval_spline(INDEX_SPLINE_QUANTILE_ZPHOT, ZSN)
          else
             PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
          endif

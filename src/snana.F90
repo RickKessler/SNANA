@@ -17369,7 +17369,7 @@
     CHARACTER FNAM*20
 
 ! external C functions
-    REAL*8, EXTERNAL :: eval_spline_gen
+    REAL*8, EXTERNAL :: eval_spline
 
 ! ------------- BEGIN ---------------
 
@@ -17427,7 +17427,7 @@
        PRINT*, 'XXX   IERR   = ', IERR
        PRINT*, 'XXX   MEAN   = ', MEAN
        PRINT*, 'XXX   STD    = ', STD
-       CALL dump_spline_gen(INDEX_SPLINE_QUANTILE_ZPHOT)
+       CALL dump_spline(INDEX_SPLINE_QUANTILE_ZPHOT)
        PRINT*, ' '
     else
        ! LEGACY CALL
@@ -17513,7 +17513,7 @@
     Z_PH     = DBLE( SNHOST_ZPHOT(IGAL) )
     Z_PH_ERR = DBLE( SNHOST_ZPHOT_ERR(IGAL) )
 
-    CALL eval_spline_gen_integral(INDEX_SPLINE_LOGMASS_ZGRID, &
+    CALL eval_spline_integral(INDEX_SPLINE_LOGMASS_ZGRID, &
                                   Z_PH, Z_PH_ERR, LM_MEAN, LM_STD)
 
     return

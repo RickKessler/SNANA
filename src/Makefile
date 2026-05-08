@@ -495,7 +495,7 @@ $(BIN)/psnid.exe : $(OBJ_PSNID)
 	$(OBJ_PSNID) 		\
 	$(LCFITSIO) $(LGSL) 	\
 	$(LROOT) -lm  $(CPPLIB)
-	(cd $(OBJ); rm psnid.o)
+	(cd $(OBJ); rm psnid.o; rm *.mod )
 
 # -------------------------------------------------
 # K corrections and LC templates 

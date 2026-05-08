@@ -242,19 +242,19 @@ void init_spline(int index, int NVAL,
 
 
 // ============================================================
-double eval_spline_gen(int index, double x) {
+double eval_spline(int index, double x) {
     // Evaluate spline slot 'index' at a single query point x.
     // DIRECT: returns interpolated y(x).
     // DERIV:  returns normalized PDF P(x) = d[CDF]/dx / val_max.
     // Returns 0.0 for x outside [xmin, xmax].
 
-    char fnam[] = "eval_spline_gen";
+    char fnam[] = "eval_spline";
     double y;
     SPLINE_GEN_DEF *sp = &SPLINE_GEN_ARRAY[index];
 
     if (!sp->initialized) {
         sprintf(c1err, "Spline slot %d ('%s') not initialized", index, sp->name);
-        sprintf(c2err, "Call init_spline before eval_spline_gen");
+        sprintf(c2err, "Call init_spline before eval_spline");
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
@@ -269,15 +269,15 @@ double eval_spline_gen(int index, double x) {
     }
     return y;
 
-} // end eval_spline_gen
+} // end eval_spline
 
 
 // ============================================================
-void eval_spline_gen_array(int index, int N_query,
+void eval_spline_array(int index, int N_query,
                             double *x_query, double *y_out) {
     // Evaluate spline slot 'index' at each of the N_query points in x_query[].
     // Writes results into y_out[N_query].
-    // Points outside [xmin, xmax] are set to 0.0 (same as eval_spline_gen).
+    // Points outside [xmin, xmax] are set to 0.0 (same as eval_spline).
     //
     // Example uses:
     //   -- compute PDF on a fine z grid for integration
@@ -285,14 +285,14 @@ void eval_spline_gen_array(int index, int N_query,
 
     int i;
     for (i = 0; i < N_query; i++) {
-        y_out[i] = eval_spline_gen(index, x_query[i]);
+        y_out[i] = eval_spline(index, x_query[i]);
     }
 
-} // end eval_spline_gen_array
+} // end eval_spline_array
 
 
 // ============================================================
-void eval_spline_gen_integral(int index,
+void eval_spline_integral(int index,
                                double x_center, double x_sigma,
                                double *mean_out, double *std_out) {
     // Gaussian-weighted integral of y(x) (or P(x) for DERIV mode).
@@ -309,21 +309,21 @@ void eval_spline_gen_integral(int index,
     // Degenerate case (x_sigma <= 0): returns point estimate at x_center.
     //
     // Primary use: logmass(z) marginalized over photo-z Gaussian uncertainty.
-    //   eval_spline_gen_integral(INDEX_LOGMASS, z_ph, z_ph_err,
+    //   eval_spline_integral(INDEX_LOGMASS, z_ph, z_ph_err,
     //                            &lm_mean, &lm_std)
 
-    char fnam[] = "eval_spline_gen_integral";
+    char fnam[] = "eval_spline_integral";
     SPLINE_GEN_DEF *sp = &SPLINE_GEN_ARRAY[index];
 
     if (!sp->initialized) {
         sprintf(c1err, "Spline slot %d ('%s') not initialized", index, sp->name);
-        sprintf(c2err, "Call init_spline before eval_spline_gen_integral");
+        sprintf(c2err, "Call init_spline before eval_spline_integral");
         errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
 
     // degenerate case: no uncertainty -- just return point estimate
     if (x_sigma <= 0.0) {
-        *mean_out = eval_spline_gen(index, x_center);
+        *mean_out = eval_spline(index, x_center);
         *std_out  = 0.0;
         return;
     }
@@ -382,19 +382,19 @@ void eval_spline_gen_integral(int index,
 
     *std_out = (sum_w > 0.0 && sum_sq > 0.0) ? sqrt(sum_sq / sum_w) : 0.0;
 
-} // end eval_spline_gen_integral
+} // end eval_spline_integral
 
 
 // ============================================================
-void dump_spline_gen(int index) {
+void dump_spline(int index) {
     // Print diagnostic summary of slot 'index' to stdout.
 
     if (!SPLINE_GEN_INIT_DONE) {
-        printf(" xxx dump_spline_gen: not yet initialized\n");
+        printf(" xxx dump_spline: not yet initialized\n");
         return;
     }
     SPLINE_GEN_DEF *sp = &SPLINE_GEN_ARRAY[index];
-    printf(" xxx dump_spline_gen[%d]:\n", index);
+    printf(" xxx dump_spline[%d]:\n", index);
     printf(" xxx   name='%s'  method=%s  mode=%s  initialized=%d\n",
            sp->name, sp->method,
            (sp->mode == SPLINE_GEN_MODE_DERIV) ? "DERIV" : "DIRECT",
@@ -405,7 +405,7 @@ void dump_spline_gen(int index) {
            sp->mean, sp->std_dev, sp->val_max);
     fflush(stdout);
 
-} // end dump_spline_gen
+} // end dump_spline
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -431,21 +431,21 @@ void init_spline__(int *index, int *NVAL,
                     mean, std_dev, error_flag);
 }
 
-double eval_spline_gen__(int *index, double *x) {
-    return eval_spline_gen(*index, *x);
+double eval_spline__(int *index, double *x) {
+    return eval_spline(*index, *x);
 }
 
-void eval_spline_gen_array__(int *index, int *N_query,
+void eval_spline_array__(int *index, int *N_query,
                               double *x_query, double *y_out) {
-    eval_spline_gen_array(*index, *N_query, x_query, y_out);
+    eval_spline_array(*index, *N_query, x_query, y_out);
 }
 
-void eval_spline_gen_integral__(int *index,
+void eval_spline_integral__(int *index,
                                  double *x_center, double *x_sigma,
                                  double *mean_out, double *std_out) {
-    eval_spline_gen_integral(*index, *x_center, *x_sigma, mean_out, std_out);
+    eval_spline_integral(*index, *x_center, *x_sigma, mean_out, std_out);
 }
 
-void dump_spline_gen__(int *index) {
-    dump_spline_gen(*index);
+void dump_spline__(int *index) {
+    dump_spline(*index);
 }

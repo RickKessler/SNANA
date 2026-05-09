@@ -67,7 +67,7 @@ CC   = gcc
 #  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
-EXTRA_FLAGS = -O2   -Wall   # xxx RESTORE
+EXTRA_FLAGS = -O2  # -Wall   # xxx RESTORE
 #EXTRA_FLAGS = -g -fbounds-check  # valgrind --leak-check=full
 
 
@@ -225,7 +225,7 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/SIMSED_extractSpec.exe	\
 	$(BIN)/SIMSED_check.exe		\
 	$(BIN)/SIMSED_rebin.exe		\
-	$(BIN)/simlib_coadd.ex
+	$(BIN)/simlib_coadd.exe
 
 #	$(BIN)/nearnbr_maxFoM.exe	\
 #	$(BIN)/nearnbr_apply.exe	\

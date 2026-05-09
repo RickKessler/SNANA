@@ -537,7 +537,11 @@ int load_REDCOV_FLUXERRMODEL(char *ITEM_REDCOV, char *FIELD) {
   }
 
   // set FIELDLIST based on FIELDGRP; 
-  sprintf(ptr_FIELDLIST, "%s", ptr_FIELDGRP); // set default FIELDLIST
+
+  char FIELDGRP[40]; sprintf(FIELDGRP,"%s", ptr_FIELDGRP); // use FIELDGRP to avoid -Wall warnings
+  sprintf(ptr_FIELDLIST, "%s", FIELDGRP); // set default FIELDLIST
+  // xxx mark sprintf(ptr_FIELDLIST, "%.40s", ptr_FIELDGRP); // set default FIELDLIST
+
   set_FIELDLIST_FLUXERRMODEL(ptr_FIELDGRP, ptr_FIELDLIST);
 
   COVINFO_FLUXERRMODEL[NREDCOV].REDCOV = REDCOV ;

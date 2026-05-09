@@ -214,8 +214,8 @@
        SNTABLE_LIST_DEFAULT*60           = 'SNANA  FITRES'  &
        ,METHOD_SPLINE_QUANTILES_DEFAULT*8 = 'CUBIC'  ! default; may change in LC fit
     INTEGER, PARAMETER ::        &
-         INDEX_SPLINE_QUANTILE_ZPHOT = 1 &
-         ,INDEX_SPLINE_LOGMASS_ZGRID = 2 
+         IND_OFF_SPLINE_QUANTILE_ZPHOT = 0 &
+         ,IND_OFF_SPLINE_LOGMASS_ZGRID = 10 
         
 
     INTEGER, PARAMETER :: I8 = selected_int_kind(18)
@@ -1703,7 +1703,8 @@
         ,SIMVAR_CUTWIN_STRING*(MXCHAR_CUTNAME)  &  ! I: cuts on SIM_XXX
         ,EARLYLC_STRING*(MXCHAR_CUTNAME)        &  ! I: see manual
         ,REQUIRE_EPOCHS_STRING*100   &  ! I: e.g., 'riz 10 7 20' uses CUTWIN_SNRMAX
-        ,DUMP_STRING*100            ! 'funName CID-list'
+        ,DUMP_STRING*100          &  ! 'funName CID-list'
+        ,METHOD_SPLINE_QUANTILES*20 ! I: string specifying quantile spline method    
 
     INTEGER  & 
          NFIT_ITERATION        &  ! I: number of fit iterations
@@ -1909,7 +1910,7 @@
          ,cutwin_snr_nodetect  & 
          ,PRIVATE_CUTWIN_STRING, PRIVATE_VARNAME_READLIST  & 
          ,SIMVAR_CUTWIN_STRING  & 
-         ,EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING  & 
+         ,EARLYLC_STRING, REQUIRE_EPOCHS_STRING, DUMP_STRING, METHOD_SPLINE_QUANTILES  & 
 ! 
          ,SNCUT_SNRMAX, SNCUT_HOST_SBFLUX, SNCUT_NOBS_TREST  & 
          ,EPCUT_SNRMIN, EPCUT_SKYSIG, EPCUT_PSFSIG  & 
@@ -11406,6 +11407,7 @@
     EARLYLC_STRING        = ''
     REQUIRE_EPOCHS_STRING =  ''
     DUMP_STRING           = ''
+    METHOD_SPLINE_QUANTILES = METHOD_SPLINE_QUANTILES_DEFAULT
 
 ! init HOST logicals
     EXIST_SNHOST_ZPHOT    = .FALSE.
@@ -17226,7 +17228,7 @@
 
     do IGAL = SNHOST_NMATCH2, 1, -1
        if ( IGAL <= MXSNHOST ) then
-          CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES_DEFAULT, IGAL, IERR)
+          CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IGAL, IERR)
        endif
     enddo
 
@@ -17340,7 +17342,7 @@
 
 
 ! =============================================
-    SUBROUTINE SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IGAL, IERR)
+    SUBROUTINE SET_SNHOST_QZPHOT(METHOD_SPLINE, IGAL, IERR)
 !
 ! Created Nov 30 2025:
 ! If there are host photot-z quanitiles, compute MEAN and STDDEV
@@ -17355,14 +17357,14 @@
 
     IMPLICIT NONE
 
-    CHARACTER :: METHOD_SPLINE_QUANTILES*(*)  ! (I) method to interpolate PDF
+    CHARACTER :: METHOD_SPLINE*(*)  ! (I) method to interpolate PDF
     INTEGER   :: IGAL                         ! (I) sparse host index
     INTEGER   :: IERR                         ! (O) return error code (0 = no error)
 
 ! local var
     INTEGER*8 :: GALID
-    CHARACTER*(MXCHAR_CCID)  CCID
-    INTEGER   :: NQ, q, LM, IPRINT
+    CHARACTER*(2*MXCHAR_CCID)  CCID_GALID
+    INTEGER   :: NQ, q, LM, IPRINT, INDEX_SPLINE
     REAL*8    :: QZPHOT(MXZPHOT_Q), QPROB(MXZPHOT_Q), MEAN, STD
     LOGICAL   :: BIGGER_z
 
@@ -17378,7 +17380,15 @@
     NQ = SNHOSTz_QUANTILE_ZPHOT(IGAL)%NZ
    
     if ( NQ <= 0 ) RETURN
+    GALID = SNHOST_OBJID(IGAL)
 
+
+    WRITE(CCID_GALID, 50) SNLC_CCID(1:ISNLC_LENCCID), GALID
+50  FORMAT(A,'/', I12.12 )
+
+
+    INDEX_SPLINE = IND_OFF_SPLINE_QUANTILE_ZPHOT+IGAL
+    
     do q = 1, NQ
 
        QPROB(q)    = DBLE(SNHOSTz_QUANTILE_ZPHOT(IGAL)%VAL_LIST(q)) / 100.  ! 0 <= PROB <= 1
@@ -17387,10 +17397,8 @@
        if ( q > 1 .and. QZPHOT(q) > -8.0 ) then
           BIGGER_z = QZPHOT(q) > QZPHOT(q-1) 
           if ( .not. BIGGER_z ) then
-             CCID   = SNLC_CCID
-             GALID = SNHOST_OBJID(IGAL)
              CALL PRINT_PREABORT_BANNER(FNAM//char(0), 40)
-             print*,'   CID   = ', CCID(1:ISNLC_LENCCID)
+             print*,'   CCID_GALID   = ', CCID_GALID
              print*,'   IGAL, GALID = ', igal, GALID
              print*,'   NQZPHOT     = ', NQ
              write(C1ERR,61) q-1, q, QZPHOT(q-1), QZPHOT(q)
@@ -17407,18 +17415,18 @@
        endif     ! end check on monotonic
     enddo        ! end loop over q
     
-    LM = INDEX(METHOD_SPLINE_QUANTILES,' ') - 1
-    IPRINT    = 0   ! set to 1 for dump
+    LM = INDEX(METHOD_SPLINE,' ') - 1
+   IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
     if (DEBUG_FLAG == 28 ) THEN
        ! Use new generalized spline (sntools_spline_gen.c).
        ! Note arg order: x=QZPHOT (redshift), y=QPROB (percentile) for CDF spline.
-       CALL init_spline(INDEX_SPLINE_QUANTILE_ZPHOT, NQ, QZPHOT, QPROB,  &
-            SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
-            METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
+       CALL init_spline(INDEX_SPLINE, NQ, QZPHOT, QPROB,  &
+            CCID_GALID    // char(0),  &
+            METHOD_SPLINE(1:LM) // char(0),  &
             "QUANTILE_ZPHOT" // char(0),  &
-            IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
+            IPRINT, MEAN, STD, IERR, ISNLC_LENCCID+15, LM)
        ! diagnostic: confirm new code path was taken and print slot info
        PRINT*, ' '
        PRINT*, 'XXX DEBUG_FLAG=28: init_spline_gen returned'
@@ -17427,13 +17435,13 @@
        PRINT*, 'XXX   IERR   = ', IERR
        PRINT*, 'XXX   MEAN   = ', MEAN
        PRINT*, 'XXX   STD    = ', STD
-       CALL dump_spline(INDEX_SPLINE_QUANTILE_ZPHOT)
+       CALL dump_spline(INDEX_SPLINE)
        PRINT*, ' '
     else
        ! LEGACY CALL
        CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
             SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
-            METHOD_SPLINE_QUANTILES(1:LM) // char(0),  &
+            METHOD_SPLINE(1:LM) // char(0),  &
             IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
     endif
 
@@ -17474,7 +17482,7 @@
     INTEGER   :: IERR
 
 ! local var
-    INTEGER   :: NZ, iz, LM, IPRINT
+    INTEGER   :: NZ, iz, LM, IPRINT, INDEX_SPLINE
     REAL*8    :: Z_LIST(MXBIN_SNHOSTz), LMASS_LIST(MXBIN_SNHOSTz)
     REAL*8    :: MEAN, STD
     REAL*8    :: Z_PH, Z_PH_ERR
@@ -17487,6 +17495,7 @@
     LM_MEAN = -9.0D0
     LM_STD  =  0.0D0
 
+    INDEX_SPLINE = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
     NZ = SNHOSTz_LOGMASS(IGAL)%NZ
     if ( NZ <= 0 ) RETURN   ! no logmass grid for this galaxy
 
@@ -17501,7 +17510,7 @@
     if ( STDOUT_UPDATE ) IPRINT = 1
 
     ! fit spline through (z, logmass) grid -- DIRECT mode (no "QUANTILE" in name)
-    CALL init_spline(INDEX_SPLINE_LOGMASS_ZGRID, NZ, Z_LIST, LMASS_LIST, &
+    CALL init_spline(INDEX_SPLINE, NZ, Z_LIST, LMASS_LIST, &
          SNLC_CCID(1:ISNLC_LENCCID)  // char(0),  &
          METHOD_SPLINE(1:LM)         // char(0),  &
          "LOGMASS_ZGRID"             // char(0),  &
@@ -17513,8 +17522,8 @@
     Z_PH     = DBLE( SNHOST_ZPHOT(IGAL) )
     Z_PH_ERR = DBLE( SNHOST_ZPHOT_ERR(IGAL) )
 
-    CALL eval_spline_integral(INDEX_SPLINE_LOGMASS_ZGRID, &
-                                  Z_PH, Z_PH_ERR, LM_MEAN, LM_STD)
+    !CALL eval_spline_integral(INDEX_SPLINE_LOGMASS_ZGRID, &
+    !                              Z_PH, Z_PH_ERR, LM_MEAN, LM_STD)
 
     return
     END SUBROUTINE SET_SNHOST_LOGMASS_SPLINE

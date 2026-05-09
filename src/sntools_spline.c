@@ -41,9 +41,13 @@ static void _spline_gen_global_init(void) {
 // Infer evaluation mode from the slot name.
 // Names containing "QUANTILE" use DERIV mode (PDF from CDF derivative).
 // All others use DIRECT mode (plain interpolation).
-static int _get_mode_from_name(const char *name) {
-    if (strstr(name, "QUANTILE") != NULL) { return SPLINE_GEN_MODE_DERIV; }
-    return SPLINE_GEN_MODE_DIRECT;
+// BEWARE this function is fragile
+static int _get_mode_from_name(const char *name)
+{
+  int MODE = SPLINE_GEN_MODE_DIRECT; // default is interpolate y vs x
+    if (strstr(name, "QUANTILE") != NULL) { MODE =  SPLINE_GEN_MODE_DERIV; }
+    if (strstr(name, "QZPHOT") != NULL) { MODE =  SPLINE_GEN_MODE_DERIV; } 
+    return MODE;
 }
 
 // Free GSL objects for a slot if they were previously allocated.
@@ -229,10 +233,10 @@ void init_spline(int index, int NVAL,
 
     if (verbose) {
         printf("\t init_spline[%d] '%s'  method=%s  mode=%s  N=%d"
-               "  x=[%.4f, %.4f]\n",
+               "  x=[%.4f, %.4f], CID=%s \n",
                index, sp->name, sp->method,
                (sp->mode == SPLINE_GEN_MODE_DERIV) ? "DERIV" : "DIRECT",
-               NVAL, sp->xmin, sp->xmax);
+               NVAL, sp->xmin, sp->xmax, cid);
         printf("\t   mean=%.4f  std=%.4f  val_max=%.4f  CID=%s\n",
                *mean, *std_dev, sp->val_max, cid);
         fflush(stdout);

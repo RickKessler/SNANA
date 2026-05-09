@@ -683,7 +683,7 @@ void PSNID_INIT_TEMPLATES(char *templates_nonIa_list,
     flt2 = SNGRID_PSNID[TYPEINDX_NONIA_PSNID].FILTERS ;
 
     if ( strcmp(flt1,flt2) != 0 ) {
-      sprintf(c1err,"Filter mismatch: %s(Ia) != %s(NONIA)", 
+      sprintf(c1err,"Filter mismatch: %.40s(Ia) != %.40s(NONIA)", 
 	      flt1, flt2);
       sprintf(c2err,"Remake GRID-template file or choose another.");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
@@ -764,7 +764,7 @@ void  psnid_init_nonIa_ignore(char *templates_nonIa_list,
       if ( IMATCH > 0 ) 
 	{ SNGRID_PSNID[TYPEINDX].NON1A_ITYPE_AUTO[IMATCH] *= -1 ; }
       else {
-	sprintf(c1err,"Could not find NONIA_NAME = '%s'", name);
+	sprintf(c1err,"Could not find NONIA_NAME = '%.*s'", MXCHAR_MSGERR-20, name);
 	sprintf(c2err,"Check namelist variable TEMPLATES_NONIA_IGNORE");
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
       }

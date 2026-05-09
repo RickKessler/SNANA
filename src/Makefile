@@ -225,8 +225,7 @@ SNANA_EXECUTABLES	=		\
 	$(BIN)/SIMSED_extractSpec.exe	\
 	$(BIN)/SIMSED_check.exe		\
 	$(BIN)/SIMSED_rebin.exe		\
-	$(BIN)/simlib_coadd.exe		\
-	$(BIN)/unfold_snpar.exe
+	$(BIN)/simlib_coadd.ex
 
 #	$(BIN)/nearnbr_maxFoM.exe	\
 #	$(BIN)/nearnbr_apply.exe	\
@@ -968,19 +967,6 @@ $(BIN)/SIMSED_check.exe : \
 
 
 # -------------
-# unfold_snpar
-
-$(OBJ)/unfold_snpar.o : $(SRC)/unfold_snpar.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/unfold_snpar.c )
-
-$(BIN)/unfold_snpar.exe : $(OBJ)/unfold_snpar.o  $(OBJ)/sntools.o $(OBJ)/sntools_output.o
-	$(FFC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/unfold_snpar.o	\
-	$(OBJ)/sntools.o 	\
-	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB) 
-	(cd $(OBJ); rm unfold_snpar.o )
-
 
 # ================================================
 # legacy codes no longer compiled by default

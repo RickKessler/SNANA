@@ -972,22 +972,6 @@ $(BIN)/SIMSED_check.exe : \
 # legacy codes no longer compiled by default
 # ================================================
 
-
-# -------------
-# sim filter-calib
-
-$(OBJ)/filtercal_sim.o : $(SRC)/filtercal_sim.c
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(SRC)/filtercal_sim.c )
-
-$(BIN)/filtercal_sim.exe : \
-	$(OBJ)/filtercal_sim.o  $(OBJ)/sntools.o
-	$(CC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/filtercal_sim.o  \
-	$(OBJ)/sntools.o \
-	$(LCERN)  -lm $(LGSL)
-	(cd $(OBJ); rm filtercal_sim.o )
-
-
 # -------------
 # simualate effects of atmosphere
 
@@ -1005,48 +989,6 @@ $(BIN)/atmosphere_sim.exe : \
 
 
 # -------------------------------------------------
-# compile sntools_nearnbr (.o only)
-
-$(OBJ)/sntools_nearnbr.o : $(SRC)/sntools_nearnbr.c $(SRC)/sntools_nearnbr.h
-	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS)  $(SRC)/sntools_nearnbr.c )
-
-$(OBJ)/kdtree.o : $(SRC)/kdtree.c $(SRC)/kdtree.h
-	(cd $(OBJ); \
-	$(CC) $(SNCFLAGS)  $(SRC)/kdtree.c )
-
-# nearnbr_maxFoM (Jun 2013)
-
-$(OBJ)/nearnbr_maxFoM.o : $(SRC)/nearnbr_maxFoM.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) \
-	$(SRC)/nearnbr_maxFoM.c )
-
-$(BIN)/nearnbr_maxFoM.exe :  \
-	$(OBJ)/nearnbr_maxFoM.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o 
-	$(CC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/nearnbr_maxFoM.o \
-	$(OBJ)/sntools.o  	\
-	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO)  -lm $(CPPLIB)
-	(cd $(OBJ); rm nearnbr_maxFoM.o )
-
-# --------------------
-# nearnbr_apply (Jan 2017)
-
-$(OBJ)/nearnbr_apply.o : $(SRC)/nearnbr_apply.c $(SNTOOLS_OUTPUT)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO)  \
-	$(SRC)/nearnbr_apply.c )
-
-$(BIN)/nearnbr_apply.exe :  \
-	$(OBJ)/nearnbr_apply.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o  $(OBJ)/sntools_nearnbr.o 
-	$(CC) -o $@ $(SNLDFLAGS) \
-	$(OBJ)/nearnbr_apply.o \
-	$(OBJ)/sntools.o  	\
-	$(OBJ)/sntools_gridmap.o \
-	$(OBJ)/sntools_nearnbr.o \
-	$(OBJ_OUTPUT)		\
-	$(LGSL) $(LCERN) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
-	(cd $(OBJ); rm nearnbr_apply.o )
 
 
 ####################  END ##########################################

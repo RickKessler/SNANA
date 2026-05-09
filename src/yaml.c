@@ -2362,7 +2362,7 @@ yaml_emitter_dump_node(yaml_emitter_t *emitter, int index)
     }
 
     emitter->anchors[index-1].serialized = 1;
-
+    
     switch (node->type) {
         case YAML_SCALAR_NODE:
             return yaml_emitter_dump_scalar(emitter, node, anchor);

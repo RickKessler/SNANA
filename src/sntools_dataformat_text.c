@@ -2255,9 +2255,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   // - - - - -
   // May 2026: check to skip read for override vars with NULL_ON_MISSING_EVENT 
   int len0 = strlen(word0);
-  char word0_nocolon[40];
+  char word0_nocolon[100];
   sprintf(word0_nocolon,"%s", word0);  word0_nocolon[len0-1] = '\0';
-  //  if ( match_override_missing_event(word0_nocolon) ) { return true; }
+  if ( match_override_missing_event(word0_nocolon) ) { return true; }
 					 
   // - - - - -
 

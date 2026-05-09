@@ -789,7 +789,7 @@ int PSNID_BEST_DOFIT(char *CCID, int NOBS, int *IFILT,
   int ***minchisq_ind;
   int nOutlier=0;
   double **evidence;
-  char fnam[] = "PSNID_BEST_DOFIT" ;
+  char fnam[] = "PSNID_BEST_DOFIT" ;  (void)fnam;
 
   // ---------- BEGIN -------------
 
@@ -1715,7 +1715,11 @@ double psnid_best_mwxtmag(int ifilt)
   double AV, MWEBV, XTMW ;
   MWEBV = DATA_PSNID_DOFIT.MWEBV ;
   AV    = RV_MWDUST * MWEBV ;
-  XTMW  = AV * PSNID_INPUTS.XTMW_at_AV1[ifilt] ;
+  if ( ifilt >= 0 ) 
+    { XTMW  = AV * PSNID_INPUTS.XTMW_at_AV1[ifilt] ; }
+  else
+    { XTMW = 0.0 ; }
+
   return  XTMW ;
 }
 // end of psnid_best_mwxtmag
@@ -3493,7 +3497,7 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
   // 3. DIST = xx   z = xx  chi2/dof = xx/xx
 
   int  itype_best, OPT_ZPRIOR ;
-  char DISPLAYTEXT[80], text_zprior[60], text_bestfit[20];
+  char DISPLAYTEXT[120], text_zprior[60], text_bestfit[20];
   double z, zerr;
 
   itype_best = PSNID_BEST_RESULTS.FINAL_ITYPE[0];
@@ -3541,7 +3545,7 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
   // NOTE: sntools_grid.c need to read name of column: SHAPE -> DELTA, etc ..
   int  this_type ;  // which GRID file, 1 or 2
   int  ISHAPE, INDX_SIM, INDX_SPARSE, LEN ;
-  char text_shape[40], parName[40], *NAME  ;
+  char text_shape[80], parName[40], *NAME  ;
   double SHAPE ;
 
   if   ( itype == PSNID_ITYPE_SNIA ) { this_type = 1; }
@@ -4181,7 +4185,7 @@ int psnid_bestType_cuts(int z) {
   int ITYPE_BEST_PBAYES=-9, ITYPE_BEST_CUTS = -9 ;
   int i, npt, LDMP=0 ;
   double chi2red, chi2, PBAYES, FITPROB, PBAYES_MAX=-1.0;
-  char fnam[] = "psnid_bestType_cuts" ;
+  char fnam[] = "psnid_bestType_cuts" ;  (void)fnam;
 
   // --------------- BEGIN -----------------
 
@@ -5682,7 +5686,6 @@ void PSNID_BEST_INIT(void) {
   // Mar 31 2013
   // One-time initializations before fitting and before data are read.
 
-  int NVAR ;
   char fnam[] = "PSNID_BEST_INIT" ;
 
   // ------------- BEGIN -----------
@@ -5802,7 +5805,7 @@ void  PSNID_BEST_TABLEFILE_COMMENTS(void) {
   // for hbook or root file.
 
   int itype ;
-  char comment[100], *KEY;
+  char comment[120], *KEY;
   // --------------- BEGIN ------------
 
   for ( itype=0; itype < PSNID_NTYPES; itype++ ) {   
@@ -5814,13 +5817,13 @@ void  PSNID_BEST_TABLEFILE_COMMENTS(void) {
   // write unique keys for templates
   KEY = SNGRID_PSNID[TYPEINDX_SNIA_PSNID].UNIQUE_KEY ;
   if ( strlen(KEY) > 1 )  { 
-    sprintf(comment,"GRIDKEY(TEMPLATES_SNIA)  = %s", KEY); 
+    sprintf(comment,"GRIDKEY(TEMPLATES_SNIA)  = %.80s", KEY); 
     STORE_TABLEFILE_COMMENT(comment);
   }
 	  
   KEY = SNGRID_PSNID[TYPEINDX_NONIA_PSNID].UNIQUE_KEY  ;
   if ( strlen(KEY) > 1 )  { 
-    sprintf(comment, "GRIDKEY(TEMPLATES_NONIA) = %s", KEY ); 
+    sprintf(comment, "GRIDKEY(TEMPLATES_NONIA) = %.80s", KEY ); 
     STORE_TABLEFILE_COMMENT(comment);
   }
 	  
@@ -5910,7 +5913,7 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
   //               instead of TMAX
   //
 
-  int   ivar, ID, t, z, ISIA, IPAR, *USE4NN ;
+  int   ivar, ID, t, z, ISIA, IPAR ;
   int   ifilt_obs, USE  ;
 
   int    *IPTR ;
@@ -5942,7 +5945,7 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
   sprintf(ptrVARNAME,"ZPRIOR");  
   //  psnid_dump_VARNAME(LDMP,ptrVARNAME);
   if ( DO_ADDCOL) {
-    sprintf(TABLENAME,"%s:I", ptrVARNAME);
+    sprintf(TABLENAME,"%.40s:I", ptrVARNAME);
     IPTR = &PSNID_INPUTS.OPT_ZPRIOR ;
     SNTABLE_ADDCOL(ID, CBLOCK, IPTR, TABLENAME, 0 );
   }
@@ -5952,7 +5955,7 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
   sprintf(ptrVARNAME,"ITYPE_BEST");   
   //  psnid_dump_VARNAME(LDMP,ptrVARNAME);
   if ( DO_ADDCOL) {
-    sprintf(TABLENAME,"%s:I", ptrVARNAME);
+    sprintf(TABLENAME,"%.40s:I", ptrVARNAME);
     IPTR = &PSNID_BEST_RESULTS.FINAL_ITYPE[0] ;
     SNTABLE_ADDCOL(ID, CBLOCK, IPTR, TABLENAME, 1); 
   }
@@ -5962,7 +5965,7 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
   sprintf(ptrVARNAME,"SIM_ITYPE");   
   //  psnid_dump_VARNAME(LDMP,ptrVARNAME);
   if ( DO_ADDCOL) {
-    sprintf(TABLENAME,"%s:I", ptrVARNAME);
+    sprintf(TABLENAME,"%.40s:I", ptrVARNAME);
     IPTR = &SIMVAR_PSNID.ITYPE ;
     SNTABLE_ADDCOL(ID, CBLOCK, IPTR, TABLENAME, 1);
   }

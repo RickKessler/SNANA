@@ -254,7 +254,7 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
   bool NONLIN_PER_PIX    = (OPTMASK_NONLIN & OPTMASK_NONLIN_PER_PIX ) > 0 ;
   int LDMP = DUMPFLAG_NONLIN ;
   
-  double scale_nonlin,  Fpe_tot, flux_scale_count;
+  double scale_nonlin,  Fpe_tot, flux_scale_count, rtmp;
   char   fnam[] = "GET_NONLIN" ;
 
   // --------------- BEGIN ----------------
@@ -323,7 +323,7 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
     double  Fpix_sky   = (Fpe_sky/NEA) ; //sky per pixel
     int    MXpix       = (int)4.*NEA_over_PI + 2; // max Npix for NEA
     double *PSF_grid   = (double*) malloc(MXpix * sizeof(double));
-    double sum_PSF     = 0.0, PSFmax = 0.0, invsum_PSF, PSF ;
+    double sum_PSF     = 0.0, PSFmax = 0.0, invsum_PSF=0.0, PSF=0.0 ;
     double sigsq_PSF   = 0.25*NEA_over_PI; // sigma^2 for effective Gauss PSF
     double RSQ_BORDER  = NEA_over_PI ;   // effective RSQ at border of NEA
     int    npix_psf = 0, i ;
@@ -373,7 +373,7 @@ double GET_NONLIN(char *CCID, char *cfilt, double Texpose, double NEA, double *F
       printf(" xxx \t Fpix_sky = %.4f -> %.4f(nonlin)\n",
 	     Fpix_sky, Fpix_sky_nonlin );
 
-      double rtmp = PSFmax / sum_PSF ;
+      rtmp = PSFmax / sum_PSF ;
       printf(" xxx \t npix_psf=%d  MXpix=%d  sum_PSF=%.4f  PSFmax/sum_PSF = %.3f\n",
 	     npix_psf, MXpix, sum_PSF, rtmp ); fflush(stdout);
     }

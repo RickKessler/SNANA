@@ -61,8 +61,8 @@ template<> std::vector<char>& cnpy::operator+=(std::vector<char>& lhs, const cha
 
 void cnpy::parse_npy_header(unsigned char* buffer,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order) {
     //std::string magic_string(buffer,6);
-    uint8_t major_version = *reinterpret_cast<uint8_t*>(buffer+6);
-    uint8_t minor_version = *reinterpret_cast<uint8_t*>(buffer+7);
+    // uint8_t major_version = *reinterpret_cast<uint8_t*>(buffer+6);
+    // uint8_t minor_version = *reinterpret_cast<uint8_t*>(buffer+7);
     uint16_t header_len = *reinterpret_cast<uint16_t*>(buffer+8);
     std::string header(reinterpret_cast<char*>(buffer+9),header_len);
 
@@ -196,7 +196,7 @@ cnpy::NpyArray load_the_npz_array(FILE* fp, uint32_t compr_bytes, uint32_t uncom
     if(nread != compr_bytes)
         throw std::runtime_error("load_the_npy_file: failed fread");
 
-    int err;
+    int err;  (void)err;
     z_stream d_stream;
 
     d_stream.zalloc = Z_NULL;

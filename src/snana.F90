@@ -28073,7 +28073,6 @@
 
     OPT   = 2
     NGRID = NGRID_FINAL
-    ! xxx mark HOFF  = HOFF_MARG
     CALL INTEGPDF( OPT, MAX_INTEGPDF, NGRID, DBLE(NSIGMA), NEVAL, IERR )
 
 ! compute integration time.
@@ -28117,49 +28116,6 @@
 !  OPT=1 => first estimate with small NGRID
 !  OPT=2 => final estimate with final NGRID
 ! 
-! 
-! histograms are booked / filled for
-! 
-!  HOFF          : function value for each call
-!  HOFF + ipar   : pdf for each floated "ipar"
-! 
-! 
-!  Feb 24, 2007: major upgrade to iterate if problem
-!                is detected. See LREDO logic.
-! 
-!                PDFERR(ipar) is now the RMS of the pdf distribution.
-! 
-! Apr 28, 2007:
-!  on 2nd iteration when prob at edge is too high, make more robust
-!  estimate of integration region. Previously, integ-region was extended
-!  by three times the shift in PDFVAL. Now, a Gaussian profile is
-!  assumed, and an effective SIGMA is computed based on prob(at edge)
-!  and current PDFVAL(ipar).  The integration limmit is then
-!  changed to PDFVAL + NSIGMA*SIGMA
-!  This improvement should help when MINUIT returns an error that
-!  is way too small, but is still not flagged by BADERR.
-! 
-! May 3, 2007: accept MAX_INTEGPDF as argument
-! 
-! Aug 20, 2008: change MXPAR from 8 to 10
-!               (to accomodate IPAR_LUMIPAR2 in STRETCH2 model)
-! 
-! Oct 16, 2009:
-!      use OPT=1,2 to determine which NGRID-iteration
-!      Compute covariance & correlations: PDFCORMAT(ipar1,ipar2)
-! 
-!      Fill PDRPROB2(ipar)
-! 
-! Jan 4, 2010: add IERR argument. For PDF=0 error, abort only
-!              if OPT=2. This gives both NGRID values a chance
-!              to  succeed.
-! 
-! Oct 01, 2012: use LCPLOT utility instead of HBOOK1 and HPAK
-! 
-! Feb 06, 2013: replace LCPLOT util with SNHIST
-! 
-! Jun 10 2013: protect ABORT when LPDFZERO=T using user namelist
-!              ABORT_ON_MARGPDF0
 ! 
 ! -------------------------------------------------
 
@@ -28297,8 +28253,7 @@
 
 ! --------------------------------------------
 ! check if integration should proceed.
-! Allow no more than three tries ... give "BEWARE" warning
-! after 3 tries.
+! Allow no more than three tries ... give "BEWARE" warning after 3 tries.
 
     IF ( NPASS .GT. 1 ) THEN
 

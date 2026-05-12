@@ -1,6 +1,6 @@
 ! F77 -> F90 translation created 2025-11-29 with command:
 !   ../util/convert_snana_f77_to_f90.py snana.car
-
+!
 ! May 4-6: fix -Wall compilation warnings (in anticipation of autotools)
 !
 ! May 6 2026: define MARK_USED macro to suppress "unused argument" with -Wall compile flag
@@ -2292,7 +2292,9 @@
         ,MNSTAT_COV          ! ISTAT returned from MNSTAT: see minuit manual
 
     CHARACTER  & 
-         PARNAME_STORE(MXFITSTORE)*(MXCHAR_PARNAME)  ! stored parameter names
+       PARNAME_STORE(MXFITSTORE)*(MXCHAR_PARNAME)   &       ! stored parameter names
+      ,VARLIST_PDF_STORE(MXFITPAR)*(MXCHAR_PARNAME)   ! array storage for VARLIST_PDF
+
     INTEGER  & 
          PAROPT_STORE(MXFITSTORE)  ! storage options for output
 
@@ -2300,7 +2302,7 @@
          FLOATPAR(MXFITPAR)    &  ! T => ipar is floated in fit
         ,USEPDF_MARG           &  ! T => use margin. pdf-avg instead of fit-values
         ,LREPEAT_ITER          &  ! internal flag for repeated iteration
-        ,LREPEAT_MINOS        ! repeat entire fit with MINOS (May 2018)
+        ,LREPEAT_MINOS            ! repeat entire fit with MINOS (May 2018)
 
 
 
@@ -7287,14 +7289,14 @@
 
 ! local var
 
-    INTEGER iArg, LL, ilast, iuse, NVERLOC
+    INTEGER iArg, LL, ilast, iuse, NVERLOC, NARG
     CHARACTER STRING_LIST*(MXCHAR_PATH)
     CHARACTER ARG*(MXCHAR_ARG), ARGLIST(MXKEY_ARGS)*(MXCHAR_ARG)
     LOGICAL FOUND_MATCH, DO_STOP, LDMP
 
 ! functions
     LOGICAL MATCH_NMLKEY, FOUND_MATCH_NMLKEY
-    INTEGER PARSE_INTLIST
+    INTEGER PARSE_INTLIST, PARSE_COMMASEP_LIST
 
 ! ------------- BEGIN -------------
 
@@ -7317,8 +7319,8 @@
       ARGLIST(1) = ''
 
        if ( MATCH_NMLKEY('VERSION_PHOTOMETRY',1,iArg,ARGLIST) ) then
-          CALL PARSE_COMMASEP_LIST('VERSION_PHOTOMETRY',  & 
-                                       ARGLIST(1))
+          NARG = PARSE_COMMASEP_LIST('VERSION_PHOTOMETRY',  & 
+               ARGLIST(1))
 
        else if(MATCH_NMLKEY('VERSION_PHOTOMETRY_WILDCARD',  & 
                       1, iArg, ARGLIST) ) then
@@ -7532,7 +7534,7 @@
        else if ( MATCH_NMLKEY('PHOTFLAG_BITLIST_REJECT',  & 
                    1, iArg, ARGLIST) ) then
          if ( ARGLIST(1) .NE. 'NONE' ) then
-            CALL PARSE_COMMASEP_LIST('PHOTFLAG_BITLIST',ARGLIST(1))
+            NARG = PARSE_COMMASEP_LIST('PHOTFLAG_BITLIST', ARGLIST(1))
          endif
 
        else if ( MATCH_NMLKEY('PHOTFLAG_DETECT',  & 
@@ -7683,20 +7685,18 @@
        else if ( MATCH_NMLKEY('SNCCID_LIST',  & 
                    1, iArg, ARGLIST) ) then
          if ( ARGLIST(1) .NE. 'NONE' ) then
-            CALL PARSE_COMMASEP_LIST('SNCCID_LIST', ARGLIST(1))
-! xxx mark              CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
+            NARG = PARSE_COMMASEP_LIST('SNCCID_LIST', ARGLIST(1))
          endif
 
        else if ( MATCH_NMLKEY('SNCCID_IGNORE',   &  ! July 2023
                    1, iArg, ARGLIST) ) then
          if ( ARGLIST(1) .NE. 'NONE' ) then
-            CALL PARSE_COMMASEP_LIST('SNCCID_IGNORE', ARGLIST(1))
+            NARG = PARSE_COMMASEP_LIST('SNCCID_IGNORE', ARGLIST(1))
          endif
 
        else if ( MATCH_NMLKEY('SNCID_LIST_FILE',  & 
                    1, iArg, ARGLIST) ) then
          SNCID_LIST_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
-! xxx mark           CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
 
        else if ( MATCH_NMLKEY('OPT_SNCID_LIST',  & 
                    1, iArg, ARGLIST) ) then
@@ -14113,7 +14113,7 @@
   END FUNCTION PARSE_INTLIST
 
 ! ===========================================
-    SUBROUTINE PARSE_COMMASEP_LIST(KEY,LINE)
+    INTEGER FUNCTION PARSE_COMMASEP_LIST(KEY,LINE)
 
 ! Created May 30 2019
 ! Parse command LINE argument and load global array
@@ -14121,9 +14121,11 @@
 ! E.g., KEY = 'SNCCID_LIST and  LINE = '2004hq,2006ab' ->
 !    SNCCID_LIST = '2004hq', '2006ab'
 ! 
-
-
+!      
+! May 2026: check for VARLIST_PDF; return NWD
+! 
     USE SNDATCOM
+    USE SNANAFIT
     USE SNLCINP_NML
 
     IMPLICIT NONE
@@ -14146,28 +14148,31 @@
     DO iwd = 1, NWD
 
        if ( KEY .EQ. 'SNCCID_LIST' ) then
-          CALL get_PARSE_WORD_fortran(iwd,  & 
-                         SNCCID_LIST(iwd), LL)
+          CALL get_PARSE_WORD_fortran(iwd, SNCCID_LIST(iwd), LL)
 
        else if ( KEY .EQ. 'SNCCID_IGNORE' ) then
-          CALL get_PARSE_WORD_fortran(iwd,  & 
-                         SNCCID_IGNORE(iwd), LL)
+          CALL get_PARSE_WORD_fortran(iwd, SNCCID_IGNORE(iwd), LL)
 
        else if ( KEY .EQ. 'VERSION_PHOTOMETRY' ) then
-          CALL get_PARSE_WORD_fortran(iwd,  & 
-                         VERSION_PHOTOMETRY(iwd), LL)
+          CALL get_PARSE_WORD_fortran(iwd, VERSION_PHOTOMETRY(iwd), LL)
 
        else if ( KEY .EQ. 'PHOTFLAG_BITLIST' ) then
           CALL get_PARSE_WORD_fortran(iwd, WDTMP, LL)
           read(WDTMP,*) PHOTFLAG_BITLIST_REJECT(iwd)
+
+       else if ( KEY .EQ. 'VARLIST_PDF' ) then
+          CALL get_PARSE_WORD_fortran(iwd, VARLIST_PDF_STORE(iwd), LL)
+
        endif
 
 !        LL = INDEX(SNCCID_LIST(iwd),' ') - 1
 !        print*,' xxx SNCCID = |', SNCCID_LIST(iwd)(1:LL), '|'
     ENDDO
 
-    RETURN
-  END SUBROUTINE PARSE_COMMASEP_LIST
+    PARSE_COMMASEP_LIST = NWD
+    RETURN 
+
+  END FUNCTION PARSE_COMMASEP_LIST
 
 ! ====================================================
     INTEGER FUNCTION PARSE_NML_STRINGLIST(STRLIST,NCHAR)
@@ -27973,7 +27978,7 @@
 
 
 ! =======================================
-    SUBROUTINE MARG_DRIVER(OPT, MAX_INTEGPDF, NGRID_FINAL, NSIGMA)
+    SUBROUTINE MARG_DRIVER(OPT, MAX_INTEGPDF, NGRID_FINAL, NSIGMA, VARLIST_PDF)
 ! 
 ! Created Aug 3, 2006 by R.Kessler
 ! 
@@ -27987,6 +27992,7 @@
 ! OPT = OPT_INTEGPDF_QUITCHI2 = 2     abort FCNSNLC if chi2 > quitchi2 
 ! OPT = OPT_INTEGPDF_FULL     = 1      do full FCNSNLC evaluation 
 !
+! May 2026: pass new arg: VARLIST_PDF
 ! -------------------------------------------
 
     USE SNDATCOM
@@ -28004,14 +28010,19 @@
 
     REAL  NSIGMA     ! (I) integrate +_ NSIGMA for exact pdf.
 
+    CHARACTER VARLIST_PDF*60  ! (I) comma-sep list of variables to marginalize PDF
+
 ! local var
-    INTEGER JTIME1, JTIME2, JDIFTIME, NEVAL, LL, NGRID, IERR  
+    INTEGER JTIME1, JTIME2, JDIFTIME, NEVAL, LL, NGRID, IERR
+    INTEGER ipar, ipar2, NVAR_PDF, j
+    LOGICAL APPLY_USER_VARLIST, FLOATPAR_SAVE(MXFITPAR)
     character  copt*6
     REAL*8 TMP
 
 ! functions
 
 ! FCN args
+    INTEGER PARSE_COMMASEP_LIST
     DOUBLE PRECISION  USRFUN
     EXTERNAL USRFUN
 
@@ -28036,6 +28047,28 @@
 
     COPT = 'GRID'   ! only option so far
 
+    if ( VARLIST_PDF(1:3) .NE. 'ALL' ) then
+       NVAR_PDF = PARSE_COMMASEP_LIST('VARLIST_PDF', VARLIST_PDF )  ! May 2026
+       APPLY_USER_VARLIST = .TRUE.
+
+       ! modify FLOATPAR array to include only elements in VARLIST_PDF_STORE
+       do ipar = 1, MXFITPAR
+          FLOATPAR_SAVE(ipar) = FLOATPAR(ipar)
+          FLOATPAR(ipar)      = .FALSE.
+          do ipar2 = 1, NVAR_PDF
+             if ( PARNAME_STORE(ipar) .EQ. VARLIST_PDF_STORE(ipar2) ) then
+                FLOATPAR(ipar) = .TRUE.
+             endif
+          enddo
+       enddo
+
+       print*,' xxx VARLIST_PDF   = ', VARLIST_PDF_STORE 
+       print*,' xxx PARNAME_STORE = ', (PARNAME_STORE(j), j=1, 10)
+       print*,' xxx FLOATPAR      = ', FLOATPAR
+       STOP
+    else
+       APPLY_USER_VARLIST = .FALSE.
+    endif
 ! -----------------
 
     write(6,19) SNLC_CCID, NSIGMA, copt
@@ -28097,6 +28130,13 @@
 
 ! call utility to store PDF results
     CALL PDF_STORE()
+
+    
+    if ( APPLY_USER_VARLIST ) then  ! restore original FLOATPAR
+       do  ipar = 1, MXFITPAR
+          FLOATPAR(ipar) = FLOATPAR_SAVE(ipar)
+       enddo
+    endif
 
     RETURN
   END SUBROUTINE MARG_DRIVER

@@ -1,6 +1,6 @@
 ! F77 -> F90 translation created 2025-11-29 with command:
 !   ../util/convert_snana_f77_to_f90.py snlc_fit.car
-
+!
 ! Include base snana code to read/write data and apply cuts
 #include "snana.F90" 
 
@@ -654,6 +654,8 @@
     CHARACTER  & 
          FUDGE_FITERR_PASSBANDS*(MXFILT_ALL) ! I: apply err-fudge to these bands
 
+    CHARACTER VARLIST_PDF*60  ! I: list of variables to marginalize PSF (default='ALL')
+
 ! allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
     CHARACTER  & 
         FITWIN_TREST_FILTER*120    ! I: e.g., 'gr -10.0 50.0  iz 0 50'
@@ -722,7 +724,7 @@
          ,RANGEt_COURSE_PHOTOZ, RANGEz_COURSE_PHOTOZ &
          ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ  & 
          ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT  & 
-         ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF  & 
+         ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF, VARLIST_PDF  & 
          ,PRIOR_AVEXP, PRIOR_AVWGT, PRIOR_AVRES, PRIOR_MJDSIG  & 
          ,PRIOR_ZERRSCALE, PRIOR_MUERRSCALE, DOPRIOR_DLMAG  & 
          ,PRIOR_COLOR_RANGE, PRIOR_COLOR_SIGMA  & 
@@ -3868,7 +3870,7 @@
         OPT = OPT_INTEGPDF_QUITCHI2
       ENDIF
 
-      CALL MARG_DRIVER(OPT,  MAX_INTEGPDF, NGRID_PDF, NSIGMA )
+      CALL MARG_DRIVER(OPT,  MAX_INTEGPDF, NGRID_PDF, NSIGMA, VARLIST_PDF)
 
 !   for PHOTOZ fit, check if filters were added/dropped which
 !   can happen if photoZ_marg - photoZ_fit is  large enough.
@@ -4283,6 +4285,7 @@
       sqdif    = dif * dif
 
       IF ( USE_FITCOV ) THEN
+         ! xxx .xyz print*,' xxx ifitdata, cov =', ifitdata, covmat2(ifitdata,ifitdata)
          sqsig         = 1.0 / covmat2(ifitdata,ifitdata)
          delchi2_diag  = sqdif / sqsig
       ENDIF
@@ -6933,6 +6936,7 @@
 ! ---------------------------------
     NGRID_PDF      = 0
     NSIGMA_PDF     = 4
+    VARLIST_PDF    = 'ALL'
     MAX_INTEGPDF   = 3
 
     PRIOR_AVEXP(1)   = 1.0E9   ! prior = exp(-AV/PRIOR_AVEXP)
@@ -7607,6 +7611,9 @@
 
       else if (MATCH_NMLKEY('NSIGMA_PDF', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) NSIGMA_PDF
+
+      else if (MATCH_NMLKEY('VARLIST_PDF', 1,i,ARGLIST)) then
+          VARLIST_PDF = ARGLIST(1)(1:20)
 
       else if (MATCH_NMLKEY('OPT_COVAR', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) OPT_COVAR
@@ -8832,7 +8839,6 @@
           write(6,438) RESTLAMBDA_MODEL(1), RESTLAMBDA_MODEL(2)
 438       format(T5,'UVLAM_EXTRAP -> extend RESTLAMBDA for COURSEGRID to: ', 2F8.0 )
        endif
-       ! .xyz
     endif
 ! ------------------------------------------------------
 ! start t, z,c,s course-grid loop
@@ -12917,7 +12923,7 @@
 ! Cut on fit prob
 
     xval = LCPROBCHI2_STORE(1)
-    LTMP = xval .GE.  FITWIN_PROB(1) .and.  &   ! .xyz
+    LTMP = xval .GE.  FITWIN_PROB(1) .and.  &  
            xval .LE.  FITWIN_PROB(2)
 
     if ( LTMP ) then

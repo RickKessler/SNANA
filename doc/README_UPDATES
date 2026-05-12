@@ -23807,4 +23807,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         MXPAR_SNFITSIO -> 800 (was 600); needs more allowance
         with 3rd host added to output.
 
+    snlc_fit.F90:
+      + add new &FITINP VARLIST_PDF
+
 END: 

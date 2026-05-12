@@ -79,7 +79,7 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   sprintf(zPDF_spline.method_spline, "%s", method_spline);
   zPDF_spline.zmin   = zphot_q_list[0];
   zPDF_spline.zmax   = zphot_q_list[N_Q-1];
-  int NBIN_SPLINE    = 20; // Warning -- hack 
+  int NBIN_SPLINE    = 100; // Warning -- hack 
   zPDF_spline.dz     = (zPDF_spline.zmax - zPDF_spline.zmin)/(double)NBIN_SPLINE ;
   
   // check that percentile list covers 0 and 1.0
@@ -137,20 +137,25 @@ void init_zPDF_spline(int N_Q, double* percentile_list, double* zphot_q_list,
   zmin = zphot_q_list[0] ;
   zmax = zphot_q_list[N_Q-1] ;
   dz   = zPDF_spline.dz ;
-  for( z = zmin; z <= zmax; z += dz ) {
+  if (LDMP) {printf("XXX %s zmin = %le, zmax = %le  \n", fnam,zmin,zmax);  fflush(stdout);}
+  for( z = zmin; z <= zmax+0.5*dz; z += dz ) {
+    if (z > zmax) z = zmax;
+    if ( LDMP) { printf("XXX %s iz = %d, z = %le \n",fnam,iz,z); fflush(stdout); }
     pdf = gsl_spline_eval_deriv(zPDF_spline.spline, z, zPDF_spline.acc);
     if (pdf < 0.) {pdf = 0.0 ;} // avoid unphysical negative probability
     pdf_store[iz] =  pdf; iz++; 
     if ( pdf > pdf_max ) { pdf_max = pdf; }
-    if ( LDMP) { printf("XXX %s iz = %d, z = %le, pdf = %le \n",fnam,iz,z, pdf); }
+    if ( LDMP) { printf("XXX %s iz = %d, z = %le, pdf = %le \n",fnam,iz,z, pdf); fflush(stdout); }
     sum     += z*pdf;
     sum_pdf += pdf;
   }
+  if (LDMP) {printf("XXX %s Compute Standard Deviation \n", fnam);  fflush(stdout);}
 
 
+  
   *mean = sum/sum_pdf ;
   iz = 0; 
-  for( z = zmin; z <= zmax; z += dz){
+  for( z = zmin; z <= zmax+0.5*dz; z += dz){
     pdf = pdf_store[iz]; iz++;
     sum_sq += (z - *mean)*(z - *mean)*pdf;
   }

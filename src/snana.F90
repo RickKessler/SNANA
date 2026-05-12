@@ -27860,11 +27860,12 @@
 
     DO 40 ipar = 1, NFITPAR_MN
        PDFVAL(ipar) = FITVAL(ipar,NFIT_ITERATION)
+       PDFERR(ipar) = FITERR(ipar,NFIT_ITERATION)  ! May 2026
 
 ! reset PDF-marginalized values for floated parameters
        IF ( FLOATPAR(ipar) ) then
-          PDFERR(ipar)  = -9.0
           PDFVAL(ipar)  = -9.0
+          PDFERR(ipar)  = -9.0
        ENDIF
 
 ! zero the covariance matrix
@@ -27901,9 +27902,7 @@
 
     INTEGER IPAR, NDOF, i
 
-    DOUBLE PRECISION  & 
-          GRAD8(MXFITPAR)  & 
-         ,CHI8, USRFUN
+    DOUBLE PRECISION  GRAD8(MXFITPAR), CHI8, USRFUN
 
     REAL  PCHI2
     EXTERNAL USRFUN
@@ -28016,7 +28015,7 @@
     INTEGER JTIME1, JTIME2, JDIFTIME, NEVAL, LL, NGRID, IERR
     INTEGER ipar, ipar2, NVAR_PDF, j
     LOGICAL APPLY_USER_VARLIST, FLOATPAR_SAVE(MXFITPAR)
-    character  copt*6
+    character  METHOD*6
     REAL*8 TMP
 
 ! functions
@@ -28033,9 +28032,8 @@
     if ( NGRID_FINAL .LE. 0 ) RETURN
 
 ! keep track of integration times.
+    
     NCALL_INTEGPDF     = NCALL_INTEGPDF + 1
-    TIME_INTEGPDF      = JDIFTIME
-    TIMESUM_INTEGPDF   = TIMESUM_INTEGPDF + JDIFTIME
 
 ! set chi2 value for FCN function to quit
 
@@ -28045,7 +28043,7 @@
       FITCHI2_QUIT = 1.0E20
     ENDIF
 
-    COPT = 'GRID'   ! only option so far
+    METHOD = 'GRID'   ! only option so far
 
     if ( VARLIST_PDF(1:3) .NE. 'ALL' ) then
        NVAR_PDF = PARSE_COMMASEP_LIST('VARLIST_PDF', VARLIST_PDF )  ! May 2026
@@ -28062,26 +28060,24 @@
           enddo
        enddo
 
-       print*,' xxx VARLIST_PDF   = ', VARLIST_PDF_STORE 
-       print*,' xxx PARNAME_STORE = ', (PARNAME_STORE(j), j=1, 10)
-       print*,' xxx FLOATPAR      = ', FLOATPAR
-       STOP
     else
        APPLY_USER_VARLIST = .FALSE.
     endif
 ! -----------------
+    
+    if ( STDOUT_UPDATE ) then
+       write(6,19) SNLC_CCID, NSIGMA, METHOD
+19     format(/,T5,'MARG_DRIVER(CID ',A6,'): ',  & 
+            'compute P.D.F(+- ',F3.1,' sigma)', 2x, 'method=', A)
+       print*,'    VARLIST_PDF = ', VARLIST_PDF(1:20)
+       IF ( FITCHI2_QUIT  < 1.0E19 ) then
+          print*,'   CPU-saver ON  => FCNSNLC quits when CHI2 > ', FITCHI2_QUIT
+       ELSE
+          print*,'   CPU-saver OFF => FCNSNLC always computes full CHI2.'
+       ENDIF
+       CALL FLUSH(6)
+    endif
 
-    write(6,19) SNLC_CCID, NSIGMA, copt
-19    format(/,T5,'MARG_DRIVER(CID ',A6,'): ',  & 
-            'compute P.D.F(+- ',F3.1,' sigma)', 2x, 'method=',A)
-
-    IF ( FITCHI2_QUIT  < 1.0E19 ) then
-      print*,'   CPU-saver ON  => FCNSNLC quits when CHI2 > ', FITCHI2_QUIT
-    ELSE
-      print*,'   CPU-saver OFF => FCNSNLC always computes full CHI2.'
-    ENDIF
-
-    CALL FLUSH(6)
 
     USEPDF_MARG  = .TRUE.
     ISTAGE_SNANA = ISTAGE_TEST
@@ -28112,31 +28108,31 @@
 
     JTIME2   = TIME()
     JDIFTIME = JTIME2 - JTIME1
+    TIMESUM_INTEGPDF   = TIMESUM_INTEGPDF + JDIFTIME ! cumulative over all events
+    TIMEAVG_INTEGPDF   = INT( DBLE(TIMESUM_INTEGPDF)/DBLE(NCALL_INTEGPDF) )
 
-    LL = INDEX(SNLC_CCID,' ') - 1
-    write(6,80) NEVAL, JDIFTIME, SNLC_CCID(1:LL)
-80    format(T5,'MARG_DRIVER: Finished ',I7,' function calls in ',  & 
-               I4,' seconds  (SN ', A,')'   )
-    print*,' '
+    if ( STDOUT_UPDATE ) then
+       LL = INDEX(SNLC_CCID,' ') - 1
+       write(6,80) NEVAL, JDIFTIME, SNLC_CCID(1:LL)
+80     format(T5,'MARG_DRIVER: Finished ',I7,' function calls in ',  & 
+            I4,' seconds  (SN ', A,')'   )
 
-    ! - - - - -
-    tmp                = DBLE(TIMESUM_INTEGPDF)/DBLE(NCALL_INTEGPDF)
-    TIMEAVG_INTEGPDF   = INT(TMP+0.5)
-    if ( mod(NCALL_INTEGPDF,5) .EQ. 0 ) then
+!       write(6,81) NCALL_INTEGPDF, TIMEAVG_INTEGPDF
+!81     format(T6,'(Avg INTEGPDF TIME over ',I4,' events: ', I4,' sec)' )
        print*,' '
-       print*,'   (AVERAGE INTEGPDF TIME: ',  TIMEAVG_INTEGPDF,'  seconds)'
-       print*,' '
+
     endif
 
-! call utility to store PDF results
-    CALL PDF_STORE()
-
-    
-    if ( APPLY_USER_VARLIST ) then  ! restore original FLOATPAR
+! restore original FLOATPAR (if altered above)
+    if ( APPLY_USER_VARLIST ) then  
        do  ipar = 1, MXFITPAR
           FLOATPAR(ipar) = FLOATPAR_SAVE(ipar)
        enddo
     endif
+
+! call utility to store PDF results
+    CALL PDF_STORE()
+    
 
     RETURN
   END SUBROUTINE MARG_DRIVER
@@ -28666,8 +28662,7 @@
 
 
 ! =======================================
-    SUBROUTINE INTEGRANGE(IPAR,NGRID,NSIGMA,PDFLAST,  & 
-            LREDO,RANGE)
+    SUBROUTINE INTEGRANGE(IPAR,NGRID,NSIGMA,PDFLAST, LREDO,RANGE)
 
 ! 
 ! Created Apr 30, 2007 by R.Kessler
@@ -28780,8 +28775,8 @@
 
     IF ( LFIRST ) THEN
 
-       USE_PDFERR = PDFERR(ipar) .GT. 0.0
-       LSYMERR = abs(FITERR_RATIO(ipar,ITER)-1.0) .LT. 0.20
+       USE_PDFERR = PDFERR(ipar) > 0.0
+       LSYMERR = abs(FITERR_RATIO(ipar,ITER)-1.0) <  0.20
 
        IF ( USE_PDFERR ) THEN  ! PDF error gives better estimate
          TMP_PLUS    =  XNSIG * PDFERR(ipar)

@@ -3964,6 +3964,9 @@
 !   define DELCHI2_NOFUDGE to make test with DELCHI2_REJECT;
 !   fixes long-standing bug when FUDGEALL_ITER1_MAXFRAC is set.
 ! 
+! May 12 2026: use LFITDATA logical to protect divide-by-zero in 
+!                sqsig = 1.0 / covmat2(ifitdata,ifitdata)
+!               [Finally caught by debug flag]
 ! ---------------------------------------------------
     USE SNDATCOM
     USE SNFITCOM
@@ -4144,7 +4147,6 @@
 
 ! ------------------------------------
 
-
     DO 102 ifitdata   = 1, NFITDATA_LOC
 
       epoch           = EPLIST_FIT(ifitdata)
@@ -4284,8 +4286,7 @@
       dif      = flux_data - flux_model
       sqdif    = dif * dif
 
-      IF ( USE_FITCOV ) THEN
-         ! xxx .xyz print*,' xxx ifitdata, cov =', ifitdata, covmat2(ifitdata,ifitdata)
+      IF ( USE_FITCOV .and. LFITDATA ) THEN
          sqsig         = 1.0 / covmat2(ifitdata,ifitdata)
          delchi2_diag  = sqdif / sqsig
       ENDIF
@@ -14250,6 +14251,7 @@
 ! 
 ! Nov 10 2015: move divide-by-zero protection; see Flux_model
 ! 
+! May 12 2026: protect SQ1 and SQ2 from divide-by-zero 
 ! --------------------
 
 
@@ -14280,7 +14282,7 @@
 
 ! ---------------- BEGIN ------------
 
-    LDMP = .FALSE.  ! debug-dump flag
+    LDMP       = .FALSE.  ! debug-dump flag
     USE_RENORM = .FALSE.
 
     cfilt   = filtdef_string(ifilt_obs:ifilt_obs)
@@ -14290,6 +14292,12 @@
     SUM_RATIO   = 0.
     WSUM_RATIO  = 0.
     Tnear       = 99999.  ! epoch closest to peak
+
+    if ( LDMP ) then
+       print*,' xxx ------------------------------------------------- '
+       print*,' xxx FPKRAT DUMP for CID=',SNLC_CCID(1:12), '    IFILT_OBS=', IFILT_OBS
+       call flush(6)
+    endif
 
     DO 50 ifitdata = 1, NFITDATA
 
@@ -14316,29 +14324,35 @@
        IF ( LREST_FITMODEL .and. LKCOR ) then
          arg     = 0.4 * (kcor - PEAK_KCOR_MODEL(ifilt))
          Frat    = Frat * 10.0**(arg)
-         ! xxx mark Frat    = Frat * TEN8**(arg)
        ENDIF
 
 ! include data and model error for error on FPKRAT:
-       if ( FLux > 0.0 .or.  flux_model > 0.0 ) then
-         SQ1 = (flux_err/Flux)**2
-         SQ2 = (flux_model_err/flux_model)**2
-         Fraterr = Frat * sqrt(SQ1+SQ2)
+       if ( FLux > 0.0 .or. flux_model > 0.0 ) then
+          if ( LDMP ) then
+             write(6,652) ifitdata, Trest, flux, flux_err, flux_model, flux_model_err
+652          format(' xxx idata=',I3, 2x, 'Trest=', F6.1, 2x, &
+                  'Flux=', F9.2,'+-', F8.2, 3x,   &
+                  'Flux_nmodel=', F9.2,'+-', F8.2 )
+             call flush(6)
+          endif
+          SQ1 = 0.0;  SQ2 = 0.0
+          if ( FLUX       > 0.0 ) SQ1 = (flux_err/Flux)**2
+          if ( FLUX_MODEL > 0.0 ) SQ2 = (flux_model_err/flux_model)**2 
+          Fraterr = Frat * sqrt(SQ1+SQ2)
        ELSE
-         Fraterr = -9.0
+          Fraterr = -9.0
        ENDIF
 
        FPKRAW(iep)                 = Frat
        R4EP_ALL(iep,JEP_FPKRAT)    = Frat
        R4EP_ALL(iep,JEP_FPKRATERR) = Fraterr
 
-! 3/06/2009:
-! check if this epoch is used to re-normalize
-! the peak from the model.
+! check if this epoch is used to re-normalize the peak from the model.
 
-       LRENORM  = Trest .GE. TREST_PEAKRENORM(1) .and.  & 
-                    Trest .LE. TREST_PEAKRENORM(2) .and.  & 
-                    Flux_model > 0.0   ! Nov 10 2015 - avoid divide-by-0
+       LRENORM  = &
+            Trest .GE. TREST_PEAKRENORM(1) .and.  & 
+            Trest .LE. TREST_PEAKRENORM(2) .and.  & 
+            Flux_model > 0.0    ! avoid divide-by-0
 
        IF ( LRENORM ) THEN
          USE_RENORM = .TRUE.
@@ -14362,8 +14376,8 @@
 
          if ( LDMP ) then
             write(6,660) cfilt, ratio, ratio_err, Trest
-660           format(' xxxx ',A,'-Data/Model ratio = ',  & 
-                   F6.3,' +- ', F6.3,'  at Trest=',F5.1,' days ' )
+660         format(' xxxx ',A,'-Data/Model ratio = ',  & 
+                 F6.3,' +- ', F6.3,'  at Trest=',F5.1,' days ' )
          endif
 
          if ( abs(Trest) .LT. abs(Tnear) ) then

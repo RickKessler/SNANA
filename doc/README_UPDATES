@@ -23809,5 +23809,5 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_fit.F90:
       + add new &FITINP VARLIST_PDF
-
+      + fix a few divide-by-zero bugs (FCNSNLC and FKPRAT)
 END: 

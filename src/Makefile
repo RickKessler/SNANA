@@ -68,7 +68,7 @@ CC   = gcc
   PROFILEFLAG = 
 
 EXTRA_FLAGS = -O2  # -Wall   # xxx RESTORE
-#EXTRA_FLAGS = -g -fbounds-check  # -ffpe-trap=invalid,zero,overflow # valgrind --leak-check=full
+#EXTRA_FLAGS = -g -fbounds-check  -ffpe-trap=invalid,zero,overflow # valgrind --leak-check=full
 
 
 # check if gcc version is 10 or higher (9.2020)

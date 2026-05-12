@@ -61,7 +61,6 @@ namespace cnpy {
     };
    
     using npz_t = std::map<std::string, NpyArray>; 
-    size_t fret;  // RK - May 2026
     char BigEndianTest();
     char map_type(const std::type_info& t);
     template<typename T> std::vector<char> create_npy_header(const std::vector<size_t>& shape);
@@ -122,7 +121,7 @@ namespace cnpy {
 
         std::vector<char> header = create_npy_header<T>(true_data_shape);
         size_t nels = std::accumulate(shape.begin(),shape.end(),1,std::multiplies<size_t>());
-
+	size_t fret;  // RK - May 2026
         fret = fseek(fp,0,SEEK_SET);
         fret = fwrite(&header[0],sizeof(char),header.size(),fp);
         fret = fseek(fp,0,SEEK_END);
@@ -139,6 +138,7 @@ namespace cnpy {
         FILE* fp = NULL;
         uint16_t nrecs = 0;
         size_t global_header_offset = 0;
+	size_t fret;  // RK - May 2026
         std::vector<char> global_header;
 
         if(mode == "a") fp = fopen(zipname.c_str(),"r+b");
@@ -212,7 +212,7 @@ namespace cnpy {
         footer += (uint16_t) 0; //zip file comment length
 
         //write everything
-	size_t fret ;  // RK May 2026
+	// .xyz size_t fret ;  // RK May 2026
         fret = fwrite(&local_header[0],sizeof(char),local_header.size(),fp);
         fret = fwrite(&npy_header[0],sizeof(char),npy_header.size(),fp);
         fret = fwrite(data,sizeof(T),nels,fp);

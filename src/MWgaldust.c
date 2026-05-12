@@ -2572,6 +2572,7 @@ void fits_read_subimg1
    DSIZE    nskip;
    DSIZE    nread;
    FILE  *  pFILEin;
+   int   fret;
 
    pFILEin = pFILEfits[fileNum];
    size = fits_size_from_bitpix_(&bitpix);
@@ -2580,7 +2581,7 @@ void fits_read_subimg1
    nskip = pStart[nel-1];
    for (ii=0; ii < nel-1; ii++) nskip = nskip * pNaxis[ii];
    ipos = ftell(pFILEin);
-   fseek(pFILEin, (ipos + size*nskip), 0);
+   fret = fseek(pFILEin, (ipos + size*nskip), 0);
 
    if (nel > 1) {
       for (iloop=0; iloop < pEnd[nel-1]-pStart[nel-1]+1; iloop++)
@@ -2597,7 +2598,7 @@ void fits_read_subimg1
    nskip = pNaxis[nel-1] - pEnd[nel-1] - 1;
    for (ii=0; ii < nel-1; ii++) nskip = nskip * pNaxis[ii];
    ipos = ftell(pFILEin);
-   fseek(pFILEin, (ipos + size*nskip), 0);
+   fret = fseek(pFILEin, (ipos + size*nskip), 0);
 }
 
 /******************************************************************************/
@@ -2639,6 +2640,7 @@ DSIZE fits_read_point_
 
    int      fileNum;
    int      ipos;
+   int      fret ;
    char     pPrivR[] = "r\0";
    FILE  *  pFILEin;
 
@@ -2665,7 +2667,7 @@ DSIZE fits_read_point_
    size = fits_size_from_bitpix_(&bitpix);
    memSize = size;
    ccalloc_(&memSize, (void **)&pData);
-   fseek(pFILEin, (ipos + size*iloc), 0);
+   fret = fseek(pFILEin, (ipos + size*iloc), 0);
    retval = 1 - (int)fread(pData, size, 1, pFILEin);
 #ifdef LITTLE_ENDIAN
    fits_byteswap(bitpix, 1, pData);
@@ -2943,6 +2945,7 @@ DSIZE fits_write_fits_data_
    int      k;
    int      size;
    int      retval;
+   size_t   fret;  // R.Kessler May 2026
 
    /* Write the number of data points indicated */
    size = fits_size_from_bitpix_(pBitpix);
@@ -2960,7 +2963,7 @@ DSIZE fits_write_fits_data_
    if (j != 0) {
       k = 1;
       for (i=j; i<(2880/size); i++)
-       fwrite(datum_zero, size, k, pFILEfits[*pFilenum]);
+	{ fret = fwrite(datum_zero, size, k, pFILEfits[*pFilenum]); }
    }
 
    return retval;

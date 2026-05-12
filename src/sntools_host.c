@@ -2448,7 +2448,7 @@ void read_head_HOSTLIB(FILE *fp) {
     if ( strcmp(c_get,"GAL:") == 0 )  {
       // rewind doesn't work for gzip file
       // xxxx snana_rewind(fp, INPUTS.HOSTLIB_FILE, HOSTLIB.GZIPFLAG );  
-      fseek(fp,-4,SEEK_CUR); //rewind to before 1st GAL key
+      int fret = fseek(fp,-4,SEEK_CUR); //rewind to before 1st GAL key
       return ;
     }
 

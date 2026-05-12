@@ -155,7 +155,7 @@ void cnpy::parse_npy_header(FILE* fp, size_t& word_size, std::vector<size_t>& sh
 void cnpy::parse_zip_footer(FILE* fp, uint16_t& nrecs, size_t& global_header_size, size_t& global_header_offset)
 {
     std::vector<char> footer(22);
-    fseek(fp,-22,SEEK_END);
+    int   fret = fseek(fp,-22,SEEK_END);
     size_t res = fread(&footer[0],sizeof(char),22,fp);
     if(res != 22)
         throw std::runtime_error("parse_zip_footer: failed fread");
@@ -300,7 +300,7 @@ cnpy::NpyArray cnpy::npz_load(std::string fname, std::string varname) {
 
         //read in the extra field
         uint16_t extra_field_len = *(uint16_t*) &local_header[28];
-        fseek(fp,extra_field_len,SEEK_CUR); //skip past the extra field
+        int fret = fseek(fp,extra_field_len,SEEK_CUR); //skip past the extra field
         
         uint16_t compr_method = *reinterpret_cast<uint16_t*>(&local_header[0]+8);
         uint32_t compr_bytes = *reinterpret_cast<uint32_t*>(&local_header[0]+18);
@@ -314,7 +314,7 @@ cnpy::NpyArray cnpy::npz_load(std::string fname, std::string varname) {
         else {
             //skip past the data
             uint32_t size = *(uint32_t*) &local_header[22];
-            fseek(fp,size,SEEK_CUR);
+            int fret = fseek(fp,size,SEEK_CUR);
         }
     }
 

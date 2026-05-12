@@ -61,7 +61,7 @@ namespace cnpy {
     };
    
     using npz_t = std::map<std::string, NpyArray>; 
-
+    size_t fret;  // RK - May 2026
     char BigEndianTest();
     char map_type(const std::type_info& t);
     template<typename T> std::vector<char> create_npy_header(const std::vector<size_t>& shape);
@@ -123,10 +123,10 @@ namespace cnpy {
         std::vector<char> header = create_npy_header<T>(true_data_shape);
         size_t nels = std::accumulate(shape.begin(),shape.end(),1,std::multiplies<size_t>());
 
-        fseek(fp,0,SEEK_SET);
-        fwrite(&header[0],sizeof(char),header.size(),fp);
-        fseek(fp,0,SEEK_END);
-        fwrite(data,sizeof(T),nels,fp);
+        fret = fseek(fp,0,SEEK_SET);
+        fret = fwrite(&header[0],sizeof(char),header.size(),fp);
+        fret = fseek(fp,0,SEEK_END);
+        fret = fwrite(data,sizeof(T),nels,fp);
         fclose(fp);
     }
 
@@ -150,13 +150,13 @@ namespace cnpy {
             //below, we will write the the new data at the start of the global header then append the global header and footer below it
             size_t global_header_size;
             parse_zip_footer(fp,nrecs,global_header_size,global_header_offset);
-            fseek(fp,global_header_offset,SEEK_SET);
+            fret = fseek(fp,global_header_offset,SEEK_SET);
             global_header.resize(global_header_size);
             size_t res = fread(&global_header[0],sizeof(char),global_header_size,fp);
             if(res != global_header_size){
                 throw std::runtime_error("npz_save: header read error while adding to existing zip");
             }
-            fseek(fp,global_header_offset,SEEK_SET);
+            fret = fseek(fp,global_header_offset,SEEK_SET);
         }
         else {
             fp = fopen(zipname.c_str(),"wb");
@@ -212,11 +212,12 @@ namespace cnpy {
         footer += (uint16_t) 0; //zip file comment length
 
         //write everything
-        fwrite(&local_header[0],sizeof(char),local_header.size(),fp);
-        fwrite(&npy_header[0],sizeof(char),npy_header.size(),fp);
-        fwrite(data,sizeof(T),nels,fp);
-        fwrite(&global_header[0],sizeof(char),global_header.size(),fp);
-        fwrite(&footer[0],sizeof(char),footer.size(),fp);
+	size_t fret ;  // RK May 2026
+        fret = fwrite(&local_header[0],sizeof(char),local_header.size(),fp);
+        fret = fwrite(&npy_header[0],sizeof(char),npy_header.size(),fp);
+        fret = fwrite(data,sizeof(T),nels,fp);
+        fret = fwrite(&global_header[0],sizeof(char),global_header.size(),fp);
+        fret = fwrite(&footer[0],sizeof(char),footer.size(),fp);
         fclose(fp);
     }
 

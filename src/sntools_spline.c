@@ -108,8 +108,10 @@ static void _compute_stats(SPLINE_GEN_DEF *sp) {
     int    ix, NBIN = NBIN_SPLINE_GEN;
     double x, val, sum_wval, sum_w, sum_sq, val_max;
     double xmin = sp->xmin, xmax = sp->xmax, dx = sp->dx;
+    int LDMP = 0; // May 2026 AM
 
     double *store = (double *)malloc((NBIN + 2) * sizeof(double));
+    char fnam[]="_compute_stats";
 
     sum_wval = sum_w = val_max = 0.0;
     ix = 0;
@@ -150,7 +152,9 @@ static void _compute_stats(SPLINE_GEN_DEF *sp) {
         ix++;
     }
     sp->std_dev = (sum_w > 0.0 && sum_sq > 0.0) ? sqrt(sum_sq / sum_w) : 0.0;
-
+    if(LDMP) {
+      printf("XXX %s sum_w(sum_pdf) = %le, sum_sq = %le \n",fnam,sum_w,sum_sq);
+    }
     free(store);
 }
 

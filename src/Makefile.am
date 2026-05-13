@@ -43,7 +43,7 @@ AM_LDFLAGS = $(MYLDFLAGS)
 # tack on flag to provide git version to C/fortran codes
 AM_CFLAGS += -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
 
-bin_PROGRAMS = snana.exe sntable_dump.exe sntable_combine.exe combine_fitres.exe SALT2mu.exe wfit.exe kcor.exe snlc_sim.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe unfold_snpar.exe snlc_fit.exe psnid.exe
+bin_PROGRAMS = snana.exe sntable_dump.exe sntable_combine.exe combine_fitres.exe SALT2mu.exe wfit.exe kcor.exe snlc_sim.exe SIMSED_extractSpec.exe SIMSED_check.exe SIMSED_rebin.exe simlib_coadd.exe snlc_fit.exe psnid.exe
 
 sntable_dump_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) -lm $(GSLCBLASLIB) -lpthread -lz -lstdc++ $(ROOTLIBS)
 
@@ -74,8 +74,6 @@ SIMSED_rebin_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -
 
 simlib_coadd_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
-
-unfold_snpar_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lpthread -lstdc++ $(ROOTLIBS)
 
 snana_exe_LDADD =  $(CFITSIOLIB) $(GSLLIB) $(GSLCBLASLIB) -lm -lstdc++ $(ROOTLIBS) $(FCLIBS)
 
@@ -108,7 +106,7 @@ wfit_exe_SOURCES = sntools.c sntools_output.cpp sntools_npz.cpp cnpy.cpp sntools
 kcor_exe_SOURCES = kcor.c sntools.c MWgaldust.c sntools_spectrograph.c genmag_SEDtools.c sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_output.cpp sntools_cosmology.c
 
 
-sntools_snana_SRC = sntools.c sntools_gridmap.c sntools_nonlinearity.c sntools_fluxErrModels.c sntools_fluxErrModels_legacy.c sntools_simeff_obsolete.c sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_modelgrid_read.c sntools_calib.c sntools_output.cpp yaml.c MWgaldust.c sntools_cosmology.c multiseason.c
+sntools_snana_SRC = sntools.c sntools_gridmap.c sntools_nonlinearity.c sntools_fluxErrModels.c sntools_fluxErrModels_legacy.c sntools_simeff_obsolete.c sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_modelgrid_read.c sntools_calib.c sntools_output.cpp yaml.c MWgaldust.c sntools_cosmology.c multiseason.c 
 
 genmag_fit_SRC = genmag_stretch2.c genmag_mlcs2k2.c genmag_SALT2.c genmag_BAYESN.c genmag_snoopy.c genmag_S11DM15.c genmag_extinction.c genmag_extrap.c genmag_SEDtools.c
 
@@ -129,12 +127,10 @@ SIMSED_rebin_exe_SOURCES = SIMSED_rebin.c sntools.c genmag_SEDtools.c sntools_ou
 
 simlib_coadd_exe_SOURCES = simlib_coadd.c MWgaldust.c sntools.c sntools_output.cpp sntools_cosmology.c
 
-unfold_snpar_exe_SOURCES = unfold_snpar.c sntools.c sntools_output.cpp 
-
-SNTOOLS_SNANA_SRC = sntools.c sntools_gridmap.c sntools_nonlinearity.c sntools_fluxErrModels.c sntools_fluxErrModels_legacy.c sntools_simeff_obsolete.c sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_zPDF_spline.c sntools_modelgrid_read.c sntools_calib.c sntools_output.cpp yaml.c MWgaldust.c sntools_cosmology.c multiseason.c
+SNTOOLS_SNANA_SRC = sntools.c sntools_gridmap.c sntools_nonlinearity.c sntools_fluxErrModels.c sntools_fluxErrModels_legacy.c sntools_simeff_obsolete.c sntools_dataformat_fits.c sntools_dataformat_text.c sntools_data.c sntools_zPDF_spline.c sntools_modelgrid_read.c sntools_calib.c sntools_output.cpp yaml.c MWgaldust.c sntools_cosmology.c multiseason.c sntools_spline.c
 
 
-snlc_fit_exe_SOURCES = snlc_fit.F90 $(sntools_snana_SRC) sntools_genSmear.c sntools_devel.c sntools_zPDF_spline.c minuit.F $(genmag_fit_SRC)
+snlc_fit_exe_SOURCES = snlc_fit.F90 $(sntools_snana_SRC) sntools_genSmear.c sntools_devel.c sntools_spline.c sntools_zPDF_spline.c minuit.F $(genmag_fit_SRC)
 
 snana_exe_SOURCES = snana.F90 minuit.F $(SNTOOLS_SNANA_SRC)
 

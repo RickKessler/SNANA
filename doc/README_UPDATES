@@ -23795,7 +23795,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          to avoid abort.
        + fix bug setting IFLAG_SPECID_EFFZERO
            (left-over bug from recent REFAC_SEARCHEFF)
-
+     
     genmag_extrap.c:
        call print_genmag_extrap_table() from init stage to show
        dimming vs. rest-frame phase and wavelength.
@@ -23806,6 +23806,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_dataformat_fits.h
         MXPAR_SNFITSIO -> 800 (was 600); needs more allowance
         with 3rd host added to output.
+
+    sntools_dataformat_text.c
+       Fix to write and read TEXPOSE column in PHOT table ...
+       if SNDATA.TEXPOSE[1] > 0
 
     snlc_fit.F90:
       + add new &FITINP VARLIST_PDF

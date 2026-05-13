@@ -917,6 +917,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   // Oct 2021: add IMGNUM
   // Jan 23 2022: write MAG[ERR] for real data
   // May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
+  // May 13 2026: add TEXPOSE column if TEXPOSE > 0
 
   char OBSKEY[] = "OBS:" ;
   //  bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
@@ -929,8 +930,9 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
-  bool WRFLAG_DETNUM     = (SNDATA.DETNUM[1] >= 0);
-  bool WRFLAG_IMGNUM     = (SNDATA.IMGNUM[1] >= 0);
+  bool WRFLAG_DETNUM     = (SNDATA.DETNUM[1]  >= 0   );
+  bool WRFLAG_IMGNUM     = (SNDATA.IMGNUM[1]  >= 0   );
+  bool WRFLAG_TEXPOSE    = (SNDATA.TEXPOSE[1] >= 0.1 );
   bool WRFLAG_METADATA   = true;
   bool WRFLAG_MAG        = false; 
 
@@ -986,7 +988,11 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
       { NVAR++ ;  strcat(VARLIST,"PSF "); }
     
     NVAR++ ;  strcat(VARLIST,"SKY_SIG ");
+
     if ( WRFLAG_SKYSIG_T ) { NVAR++ ;  strcat(VARLIST,"SKY_SIG_T "); }
+
+    if ( WRFLAG_TEXPOSE )  { NVAR++ ;  strcat(VARLIST,"TEXPOSE "); }  // May 13 2026
+
 
     if ( WRFLAG_ATMOS ) { 
       NVAR += 3 ; 
@@ -1094,6 +1100,11 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
       if ( WRFLAG_SKYSIG_T ) {
 	sprintf(cval, "%.3le ",  SNDATA.SKY_SIG_T[ep] ); 
+	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
+      }
+
+      if ( WRFLAG_TEXPOSE ) {
+	sprintf(cval,"%6.1f ", SNDATA.TEXPOSE[ep]);
 	NVAR_WRITE++ ;    strcat(LINE_EPOCH,cval);
       }
 
@@ -1773,11 +1784,14 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   IVAROBS_SNTEXTIO.PSF_SIG = IVAROBS_SNTEXTIO.NEA = -9;
   IVAROBS_SNTEXTIO.PSF_FWHM = -9;
   IVAROBS_SNTEXTIO.SKYSIG = IVAROBS_SNTEXTIO.SKYSIG_T = -9;
+  IVAROBS_SNTEXTIO.TEXPOSE  = -9;
+
   IVAROBS_SNTEXTIO.GAIN = -9;
   IVAROBS_SNTEXTIO.PHOTFLAG = IVAROBS_SNTEXTIO.PHOTPROB = -9 ;
   IVAROBS_SNTEXTIO.XPIX     = IVAROBS_SNTEXTIO.YPIX = -9;
   IVAROBS_SNTEXTIO.DETNUM   = IVAROBS_SNTEXTIO.IMGNUM = -9;
   IVAROBS_SNTEXTIO.dRA      = IVAROBS_SNTEXTIO.dDEC = IVAROBS_SNTEXTIO.AIRMASS = -9;
+
 
   IVAROBS_SNTEXTIO.SIMEPOCH_MAG      = -9 ;
   IVAROBS_SNTEXTIO.SIMEPOCH_DCR_dRA  = -9 ;
@@ -1853,6 +1867,9 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.SKYSIG = ivar; }  
     else if (strcmp(varName,"SKY_SIG_T") == 0 ||strcmp(varName,"SKYSIG_T")==0) 
       { IVAROBS_SNTEXTIO.SKYSIG_T = ivar; }
+
+    else if ( strcmp(varName,"TEXPOSE") == 0 ) 
+      { IVAROBS_SNTEXTIO.TEXPOSE = ivar; } 
 
     else if ( strcmp(varName,"GAIN") == 0 ) 
       { IVAROBS_SNTEXTIO.GAIN = ivar; }  
@@ -3173,6 +3190,11 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
     if ( IVAROBS_SNTEXTIO.IMGNUM >= 0 ) {
       str = SNTEXTIO_FILE_INFO.STRING_LIST[IVAROBS_SNTEXTIO.IMGNUM] ;
       sscanf(str, "%d", &SNDATA.IMGNUM[ep] );
+    }
+
+    if ( IVAROBS_SNTEXTIO.TEXPOSE >= 0 ) {
+      dval = get_dbl_sntextio_obs(IVAROBS_SNTEXTIO.TEXPOSE, ep);
+      SNDATA.TEXPOSE[ep] = (float)dval;
     }
 
     // - - - Atmos/DCR variables - - - 

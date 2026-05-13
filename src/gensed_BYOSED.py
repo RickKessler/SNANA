@@ -12,7 +12,7 @@ import optparse
 import configparser
 import pandas
 import sys
-from scipy.interpolate import RectBivariateSpline,interp1d,interp2d,interpn,griddata
+from scipy.interpolate import RectBivariateSpline,interp1d,RegularGridInterpolator,interpn,griddata
 from ast import literal_eval
 from scipy.stats import rv_continuous,gaussian_kde,norm as normal
 from copy import copy
@@ -131,7 +131,7 @@ class gensed_BYOSED(gensed_base):
 				self.wave = np.unique(wave)
 				self.wavelen = len(self.wave)
 
-				self.sedInterp=interp2d(self.phase,self.wave,self.flux.T,kind='linear',bounds_error=True)
+				self.sedInterp=RegularGridInterpolator((self.phase,self.wave),self.flux,method='linear',bounds_error=True)
 				
 				self.phase_data={}
 				
@@ -265,7 +265,7 @@ class gensed_BYOSED(gensed_base):
 				if not newSN and np.round(trest,6) in self.phase_data.keys():
 					return copy(self.phase_data[np.round(trest,6)])
 
-				fluxsmear=np.array(self.sedInterp(trest,self.wave).flatten())
+				fluxsmear=np.array(self.sedInterp(np.column_stack([np.full(len(self.wave),trest),self.wave])))
 				orig_fluxsmear=copy(fluxsmear)
 
 				if self.options.magsmear!=0.0 and (self.sn_id!=external_id or self.magsmear is None):

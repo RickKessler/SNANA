@@ -77,6 +77,8 @@ void wr_sntextio_datafile__(char *OUTFILE);
 
 void wr_dataformat_text_HEADER(FILE *fp ) ;
 void wr_dataformat_text_HOSTGAL(FILE *fp) ;
+void wr_dataformat_text_HOSTGALz(FILE *fp, HOSTGALz_DEF *HOSTGALz);
+
 void wr_dataformat_text_PRIVATE(FILE *fp) ;
 
 void wr_dataformat_text_SIMPAR(FILE *fp ) ;
@@ -120,3 +122,6 @@ void check_head_sntextio(int OPT);
 double get_dbl_sntextio_obs(int IVAROBS, int ep);
 bool allow_but_ignore_sntextio(int opt, char *varName);
 
+int rd_sntextio_SNDATA_HOSTGALz(int iwd0, char *KEY, HOSTGALz_DEF *HOSTGALz);
+
+// END:

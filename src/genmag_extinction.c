@@ -74,7 +74,7 @@ void fill_binInfo_XTMAG(void) {
   KCOR_BININFO_DEF  *BININFO;
   double RVinv;
   int i, NBIN;
-  char fnam[] = "fill_binInfo_XTMAG" ;
+  char fnam[] = "fill_binInfo_XTMAG" ;  (void)fnam;
 
   // ------------- BEGIN -----------
 
@@ -181,13 +181,10 @@ double eval_XTMAG_AV1(int ifilt, double Trest, double RVinv) {
 
   FILTERCAL_DEF *FILTERCAL_REST = &CALIB_INFO.FILTERCAL_REST ;
   
-  int    ifiltdef  = FILTERCAL_REST->IFILTDEF[ifilt];
   int    NBL_FILT  = FILTERCAL_REST->NBIN_LAM[ifilt] ;
 
   int    NBL_SED   = CALIB_INFO.BININFO_LAM.NBIN;
-  int    NBT_SED   = CALIB_INFO.BININFO_T.NBIN;
   double Trest_MIN = CALIB_INFO.BININFO_T.RANGE[0];
-  double Trest_MAX = CALIB_INFO.BININFO_T.RANGE[1];
   double Trest_BIN = CALIB_INFO.BININFO_T.BINSIZE ;
 
   double AV1    = 1.0 ;
@@ -251,7 +248,7 @@ void dump_XTMAG(double Trest) {
   int i, ifilt, ifiltdef, lenf ;
   double RVinv, XTMAG_AV1, RV, AV1=1.0 ;
   char   *name, band[4] ;
-  char fnam[] = "dump_XTMAG" ;
+  char fnam[] = "dump_XTMAG" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -299,7 +296,7 @@ double genmag_extinction(int ifiltdef, double Trest, double RV, double AV ) {
 
   int    ifilt = CALIB_INFO.FILTERCAL_REST.IFILTDEF_INV[ifiltdef];
   double XTMAG=0.0, XTMAG_AV1, GRIDVAL_LIST[3];
-  char fnam[] = "genmag_extinction" ;
+  char fnam[] = "genmag_extinction" ;  (void)fnam;
 
   // ----------- BEGIN ----------
 

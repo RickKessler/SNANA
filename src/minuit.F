@@ -309,11 +309,11 @@ C         GET NEW BOUNDS FROM NEW WIDTH BWID
   150 IF (BWID .LE. ZERO)  GO TO 10
   200 CONTINUE
       ALB = AL/BWID
-      LWID=ALB
+      LWID = int(ALB)
       IF (ALB .LT. ZERO)  LWID=LWID-1
       BL = BWID*FLOAT(LWID)
       ALB = AH/BWID + 1.0
-      KWID = ALB
+      KWID = int(ALB)
       IF (ALB .LT. ZERO)  KWID=KWID-1
       BH = BWID*FLOAT(KWID)
       NB = KWID-LWID
@@ -571,7 +571,7 @@ C
       XUP = U(KE1) + DEVS*WERR(KI1)
       YLO = U(KE2) - DEVS*WERR(KI2)
       YUP = U(KE2) + DEVS*WERR(KI2)
-      NGRID = WORD7(4)
+      NGRID = int( WORD7(4) )
       IF (NGRID .LE. 0)  THEN
           NGRID=25
           NX = MIN(NPAGWD-15,NGRID)
@@ -916,7 +916,7 @@ C           The minimum
       U1MIN = U(KE1)
       U2MIN = U(KE2)
       IERRF = 0
-      CFROM = CHERE
+      CFROM = CHERE(1:8)
       NFCNFR = NFCNCO
       IF (ISW(5) .GE. 0)  THEN
          WRITE (ISYSWR,'(1X,A,I4,A)')
@@ -1155,7 +1155,7 @@ C                                     Error returns
       CSTATU = 'FAILED'
  2000 CALL FLUSH(6)
       CONTINUE
-      CFROM = CHERE
+      CFROM = CHERE(1:8)
       NFCNFR = NFCNCO
       RETURN
       END
@@ -2133,7 +2133,7 @@ C                                        .  derivatives calc by fcn
   120 DD = (BLIM(IEXT)-ALIM(IEXT))*0.5 *COS(X(IINT))
       GRD(IINT) = GIN(IEXT)*DD
   150 CONTINUE
-  200 RETURN
+c xxx mark  200 RETURN
       END
       SUBROUTINE MNDUMMY()
 C
@@ -3222,7 +3222,7 @@ C           sure that WORD7(1)=0. if LLIST=0
      +        MAXP,' PARAMETERS.'
         ENDIF
       ENDIF
-      NFCNMX = WORD7(1)
+      NFCNMX = int(WORD7(1))
       IF (NFCNMX .LE. 0)  NFCNMX = 200 + 100*NPAR + 5*NPAR**2
       EPSI = WORD7(2)
       IF (EPSI .LE. ZERO)  EPSI = 0.1 * UP
@@ -3241,7 +3241,7 @@ C                normal case: recognized MINUIT command . . . . . . .
    90 CONTINUE
       IF (CWORD(1:4) .EQ. 'MINO') I = 5
       IF (I.NE.6 .AND. I.NE.7 .AND. I.NE.8 .AND. I.NE.23)  THEN
-         CFROM = CNAME(I)
+         CFROM = CNAME(I)(1:8)
          NFCNFR = NFCN
       ENDIF
 C              1    2    3    4    5    6    7    8    9   10
@@ -3309,7 +3309,7 @@ C                                        . . (also release) ....
          GO TO 5000
       ENDIF
       DO 950 ILIST= 1, LLIST
-      IEXT = PLIST(ILIST)
+      IEXT = int(PLIST(ILIST))
       CHWHY = ' IS UNDEFINED.'
       IF (IEXT .LE. 0)         GO TO 930
       IF (IEXT .GT. NU)        GO TO 930
@@ -3352,7 +3352,7 @@ C                                        . . (also release) ....
       IF (ISW(5) .GT. 1)  CALL MNPRIN(5,AMIN)
       GO TO 5000
 C                                        . . . . . . . . . . restore
- 1000 IT = WORD7(1)
+ 1000 IT = int(WORD7(1))
       IF (IT.GT.1 .OR. IT.LT.0)  GO TO 1005
       LFREED = (NPFIX .GT. 0)
       CALL MNFREE(IT)
@@ -3371,7 +3371,7 @@ C                                        . . . . . . . . . . release
       GO TO 901
 C                                       . . . . . . . . . . scan . . .
  1200 CONTINUE
-      IEXT = WORD7(1)
+      IEXT = int(WORD7(1))
       IF (IEXT .LE. 0)  GO TO 1210
       IT2 = 0
       IF (IEXT .LE. NU)  IT2 = NIOFEX(IEXT)
@@ -3383,8 +3383,8 @@ C                                       . . . . . . . . . . scan . . .
       GO TO 5000
 C                                        . . . . . . . . . . contour
  1300 CONTINUE
-      KE1 = WORD7(1)
-      KE2 = WORD7(2)
+      KE1 = int( WORD7(1) )
+      KE2 = int( WORD7(2) )
       IF (KE1 .EQ. 0)  THEN
          IF (NPAR .EQ. 2)  THEN
             KE1 = NEXOFI(1)
@@ -3418,7 +3418,7 @@ C                                        . . . . . . . . . . improve
       IERFLG = 4
       GO TO 5000
 C                                        . . . . . . . . . . call fcn
- 1700 IFLAG = WORD7(1)
+ 1700 IFLAG = int( WORD7(1) )
       NPARX = NPAR
       F = UNDEFI
       CALL FCN(NPARX,GIN,F,U,IFLAG,FUTIL)
@@ -3442,7 +3442,7 @@ C                                        . . . . . . . . . . standard
  1800 CALL STAND
       GO TO 5000
 C                                       . . . return, stop, end, exit
- 1900 IT = WORD7(1)
+ 1900 IT = int( WORD7(1) )
       IF (FVAL3 .NE. AMIN .AND. IT .EQ. 0)  THEN
         IFLAG = 3
         IF (ISW(5) .GE. 0)
@@ -3483,13 +3483,13 @@ CCCC      IF (INDEX(CWORD,'SET') .GT. 0)  GO TO 700
 C                                       . . . . . . . . . . MNContour
  2400 CONTINUE
       EPSI = 0.05 * UP
-      KE1 = WORD7(1)
-      KE2 = WORD7(2)
+      KE1 = int(WORD7(1))
+      KE2 = int(WORD7(2))
       IF (KE1.EQ.0 .AND. NPAR.EQ.2) THEN
          KE1 = NEXOFI(1)
          KE2 = NEXOFI(2)
          ENDIF
-      NPTU = WORD7(3)
+      NPTU = int(WORD7(3))
       IF (NPTU .LE. 0)  NPTU=20
       IF (NPTU .GT. MXPT)  NPTU = MXPT
       NFCNMX =  100*(NPTU+5)*(NPAR+1)
@@ -4079,7 +4079,7 @@ C                restore last parameter in fixed list  -- IPFIX(NPFIX)
   300 CONTINUE
 C         if different from internal, external values are taken
       CALL MNEXIN(X)
-  400 RETURN
+c xxx mark  400 RETURN
   500 FORMAT (' CALL TO MNFREE IGNORED.  THERE ARE NO FIXED PA',
      + 'RAMETERS'/)
   510 FORMAT (' CALL TO MNFREE IGNORED.  ARGUMENT GREATER THAN ONE'/)
@@ -5527,7 +5527,7 @@ C
       ITAUR = 1
       EPSI = 0.1*UP
       NPFN=NFCN
-      NLOOP = WORD7(2)
+      NLOOP = int( WORD7(2) )
       IF (NLOOP .LE. 0)  NLOOP = NPAR + 4
       NPARX = NPAR
       NPARP1=NPAR+1
@@ -5623,7 +5623,8 @@ C         point * better than jl, calculate new point **
 
       CALL MNCALF(FCN,PSTST,YCALF,FUTIL)
       YSTST = YCALF
-   66 IF (YSTST .LT. Y(JL))  GO TO 67
+c xxx mark 66  IF (YSTST .LT. Y(JL))  GO TO 67
+      IF (YSTST .LT. Y(JL))  GO TO 67
       CALL MNRAZZ(YSTAR,PSTAR,Y,JH,JL)
       GO TO 50
    67 CALL MNRAZZ(YSTST,PSTST,Y,JH,JL)
@@ -6313,7 +6314,7 @@ C
       CFROM = 'SET LIM '
       NFCNFR = NFCN
       CSTATU= 'NO CHANGE '
-      I2 = WORD7(1)
+      I2 = int(WORD7(1))
       IF (I2 .GT. MAXEXT .OR. I2 .LT. 0)  GO TO 900
       IF (I2 .GT. 0)  GO TO 30
 C                                     set limits on all parameters
@@ -8244,7 +8245,8 @@ C
       LOGICAL   LWARN, LREPOR, LIMSET, LNOLIM, LNEWMN, LPHEAD
 C
       DIMENSION PLIST(MAXP)
-      CHARACTER CNAMK*10, CRDBUF*(*) , CELMNT*20 , COMAND*(MAXCWD)
+c xxx mark      CHARACTER CNAMK*10, CRDBUF*(*) , CELMNT*20 , COMAND*(MAXCWD)
+      CHARACTER CNAMK*30, CRDBUF*(*) , CELMNT*20 , COMAND*(MAXCWD)
 C
       LENBUF = LEN(CRDBUF)
 C                     find out whether fixed or free-field format
@@ -8263,7 +8265,7 @@ C                             skip leading blanks if any
 C                               parameter number integer
       CELMNT = CRDBUF(ISTART:KAPO1-1)
       READ (CELMNT,'(BN,F20.0)',ERR=180) FK
-      K = FK
+      K = int(FK)
       IF (K .LE. 0)  GO TO 210
       CNAMK = 'PARAM '//CELMNT
       IF (KAPO2-KAPO1 .GT. 1) CNAMK = CRDBUF(KAPO1+1:KAPO2-1)
@@ -8296,7 +8298,7 @@ C          old (fixed-field) format
   150 CONTINUE
       READ (CRDBUF, 158,ERR=180)  XK,CNAMK,UK,WK,A,B
   158 FORMAT (BN,F10.0, A10, 4F10.0)
-      K = XK
+      K = int(XK)
       IF (K .EQ. 0)  GO TO 210
 C          parameter format cracked, implement parameter definition
   170 CALL MNPARM(K,CNAMK,UK,WK,A,B,IERR)
@@ -8547,7 +8549,7 @@ C
       CHARACTER CTITL*50, CWORD*(MAXCWD), CUNDEF*10, CFROM*8,
      +          CVRSN*6,  COVMES(0:3)*22, CSTATU*10, CHPT*1
       LOGICAL   LWARN, LREPOR, LIMSET, LNOLIM, LNEWMN, LPHEAD
-      CHARACTER CHBUFI*4, CHBUF2*30
+      CHARACTER CHBUFI*4, CHBUF2*32
       PINTI = PEXTI
       IGO = NVARL(I)
       IF (IGO .EQ. 4)  THEN
@@ -8707,8 +8709,8 @@ C         convert points to grid positions
       YPT(I) = ANY-AY*YPT(I) - BY
  300  CONTINUE
 
-      NXBEST = AX*XBEST + BX
-      NYBEST = ANY  - AY*YBEST - BY
+      NXBEST = int(AX*XBEST + BX)
+      NYBEST = int(ANY  - AY*YBEST - BY)
 C         print the points
       NY = NY + 2
       NX = NX + 2
@@ -8732,9 +8734,9 @@ C         print the points
       IF (ISP1 .GT. NXYPT)  GO TO 350
 C         find the points to be plotted on this line
         DO 341 K= ISP1,NXYPT
-      KS = YPT(K)
+      KS = int(YPT(K))
       IF (KS .GT. I)  GO TO 345
-      IX = XPT(K)
+      IX = int(XPT(K))
       IF (CLINE(IX:IX) .EQ.   CDOT)  GO TO 340
       IF (CLINE(IX:IX) .EQ. CBLANK)  GO TO 340
       IF (CLINE(IX:IX) .EQ.CHPT(K))  GO TO 341
@@ -8772,7 +8774,7 @@ C
       CHMESS = ' '
       IF (OVERPR) CHMESS='   Overprint character is &'
       WRITE (NUNIT,'(25X,A,G13.7,A)') 'ONE COLUMN=',BWIDX, CHMESS
-  500 RETURN
+c xxx mark  500 RETURN
       END
 *
 * $Id: minuit.F,v 1.5 2017/09/11 22:25:21 rkessler Exp $
@@ -9438,8 +9440,9 @@ CCx      CALL MNWARN('W',CFROM,
 CCx     +   'MATRIX FORCED POS-DEF BY ADDING '//CHBUFF//' TO DIAGONAL.')
   217 CONTINUE
 C
-  550 FORMAT (' EIGENVALUES OF SECOND-DERIVATIVE MATRIX:' )
-  551 FORMAT (7X,6E12.4)
+c xxx mark  550 FORMAT (' EIGENVALUES OF SECOND-DERIVATIVE MATRIX:' )
+c xxx mark   551 FORMAT (7X,6E12.4)
+
       RETURN
       END
 *
@@ -9579,7 +9582,7 @@ C
       ENDIF
       JH = 1
       NPARP1 = NPAR+1
- 20   CONTINUE
+c xxx mark  20   CONTINUE
       DO 25 J=2,NPARP1
       IF (Y(J) .GT. Y(JH))  JH = J
    25 CONTINUE
@@ -10455,12 +10458,12 @@ C
       EXTERNAL FCN,FUTIL
       XLREQ = MIN(WORD7(3),WORD7(4))
       XHREQ = MAX(WORD7(3),WORD7(4))
-      NCALL = WORD7(2) + 0.01
+      NCALL = int( WORD7(2) + 0.01 )
       IF (NCALL .LE. 1)  NCALL = 41
       IF (NCALL .GT. MAXCPT)  NCALL = MAXCPT
       NCCALL = NCALL
       IF (AMIN .EQ. UNDEFI)  CALL MNAMIN(FCN,FUTIL)
-      IPARWD = WORD7(1) + 0.1
+      IPARWD = int(WORD7(1) + 0.1)
       IPAR = MAX(IPARWD, 0)
       IINT = NIOFEX(IPAR)
       CSTATU = 'NO CHANGE'
@@ -10521,7 +10524,7 @@ C         main scanning loop over parameter IPAR
         UBEST = UNEXT
         CSTATU= 'IMPROVED  '
         ENDIF
-  530 CONTINUE
+C xxx mark   530 CONTINUE
       UNEXT = UNEXT + STEP
   600 CONTINUE
 C         finished with scan of parameter IPAR
@@ -10672,7 +10675,7 @@ C
       EXTERNAL FCN,FUTIL
       PARAMETER (TWOPI=2.0*3.141593)
       DIMENSION  XBEST(MNI), XMID(MNI)
-      MXFAIL = WORD7(1)
+      MXFAIL = int(WORD7(1))
       IF (MXFAIL .LE. 0)  MXFAIL=100+20*NPAR
       MXSTEP = 10*MXFAIL
       IF (AMIN .EQ. UNDEFI)  CALL MNAMIN(FCN,FUTIL)
@@ -10978,7 +10981,7 @@ C                                        . . . . . . . . . . set known
 C
 C                                        . . . . . . . . . . set param
    20 CONTINUE
-      IPRM = WORD7(1)
+      IPRM = int(WORD7(1))
       IF (IPRM .GT. NU)  GO TO 25
       IF (IPRM .LE. 0)   GO TO 25
       IF (NVARL(IPRM) .LT. 0)  GO TO 25
@@ -11002,7 +11005,7 @@ C                                        . . . . . . . . . . set covar
 C   this command must be handled by MNREAD, and is not Fortran-callable
       GO TO 3000
 C                                        . . . . . . . . . . set print
-   60 ISW(5) = WORD7(1)
+   60 ISW(5) = int(WORD7(1))
       GO TO 4000
 C                                        . . . . . . . . . . set nograd
    70 ISW(3) = 0
@@ -11031,11 +11034,11 @@ C         it is illegal.
   100 CONTINUE
       GO TO 3000
 C                                        . . . . . . . . . . set width
-  110 NPAGWD = WORD7(1)
+  110 NPAGWD = int(WORD7(1))
       NPAGWD = MAX(NPAGWD,50)
       GO TO 4000
 C                                        . . . . . . . . . . set lines
-  120 NPAGLN = WORD7(1)
+  120 NPAGLN = int(WORD7(1))
       GO TO 4000
 C                                        . . . . . . . . . . set nowarn
   130 LWARN = .FALSE.
@@ -11056,13 +11059,13 @@ C                                        . . . . . . . . . . set title
 C   this command must be handled by MNREAD, and is not Fortran-callable
       GO TO 3000
 C                                        . . . . . . . . . set strategy
-  170 ISTRAT = WORD7(1)
+  170 ISTRAT = int(WORD7(1))
       ISTRAT = MAX(ISTRAT,0)
       ISTRAT = MIN(ISTRAT,2)
       IF (ISW(5) .GT. 0)  GO TO 1172
       GO TO 4000
 C                                       . . . . . . . . . set page throw
-  190 NEWPAG = WORD7(1)
+  190 NEWPAG = int(WORD7(1))
       GO TO 1190
 C                                        . . . . . . . . . . set epsmac
   210 IF (WORD7(1).GT.ZERO .AND. WORD7(1).LT.0.1) EPSMAC = WORD7(1)
@@ -11070,7 +11073,7 @@ C                                        . . . . . . . . . . set epsmac
       GO TO 1210
 C                                        . . . . . . . . . . set outputfile
   220 CONTINUE
-      IUNIT = WORD7(1)
+      IUNIT = int(WORD7(1))
       ISYSWR = IUNIT
       ISTKWR(1) = IUNIT
       IF (ISW(5) .GE. 0) GO TO 1220
@@ -11089,7 +11092,7 @@ C                                        . . . . . . . . . . set nodebug
 C                                        . . . . . . . . . . set debug
   280 ISET = 1
   281 CONTINUE
-      IDBOPT = WORD7(1)
+      IDBOPT = int(WORD7(1))
       IF (IDBOPT .GT. NUMDBG) GO TO 288
       IF (IDBOPT .GE. 0) THEN
           IDBG(IDBOPT) = ISET
@@ -12057,11 +12060,11 @@ C                        first argument really begins in col IC1
       IC = LEND + 1
   108 IC2 = IC-1
 C                            end of first argument is in col IC2
-  110 CONTINUE
+c xxx mark  110 CONTINUE
       CUNIT = CRDBUF(IC1:IC2)
       WRITE (ISYSWR,'(A,A)') ' UNIT NO. :',CUNIT
       READ (CUNIT,'(BN,F10.0)',ERR=500) FUNIT
-      IUNIT = FUNIT
+      IUNIT = int(FUNIT)
       IF (IUNIT .EQ. 0)  GO TO 200
 C                             skip blanks and commas, find file name
       DO 120 IC= IC2+1,LEND

@@ -276,7 +276,7 @@ int main(int argc, char **argv) {
 
   int ifile ;
   char str_cputime[60];
-  char fnam[] = "main" ;
+  char fnam[] = "main" ;  (void)fnam;
 
   // ----------------- BEGIN --------
 
@@ -431,8 +431,8 @@ void  init_misc(void) {
 // ===============================
 void  PARSE_ARGV(int argc, char **argv) {
 
-  int  i, NFFILE=0 ;
-  char fnam[] = "PARSE_ARGV" ;
+  int  i ;
+  char fnam[] = "PARSE_ARGV" ;  (void)fnam;
 
   //----------- BEGIN --------------
 
@@ -574,7 +574,7 @@ bool keyarg_match(char *arg, char *keyname_base) {
   bool match = false;
   int  k;
   char key_list[NKEY_CHECK][80];
-  char fnam[] = "keyarg_match";
+  char fnam[] = "keyarg_match";  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -600,7 +600,7 @@ void parse_FFILE(char *arg) {
 
   int ifile, nfile_add=0, NFFILE = INPUTS.NFFILE;
   char **file_list;
-  char fnam[] = "parse_FFILE" ;
+  char fnam[] = "parse_FFILE" ;  (void)fnam;
   
   // ----------- BEGIN -------------
 
@@ -660,12 +660,12 @@ void ADD_FITRES(int ifile) {
  
   int  ivar, ivarstr, j, isn, isn2, NMATCH2, isys ;
   int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST ;
-  int  index=-9, REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
-  bool is_csv ;
+  int  index=-9; (void)index;
+  int REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
   char FFILE[2*MXPATHLEN];
   char *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME] ;
-  char *ptr_CTAG, ccid[60],  cmd[2*MXPATHLEN];
-  char fnam[] = "ADD_FITRES" ;
+  char *ptr_CTAG, ccid[60],  cmd[2*MXPATHLEN+40] ;
+  char fnam[] = "ADD_FITRES" ;  (void)fnam;
 
   // ----------- BEGIN -----------
 
@@ -685,11 +685,10 @@ void ADD_FITRES(int ifile) {
       sprintf(PREFIX_CSV, "TMP_%lld", ihash );
     }
     sprintf(FFILE, "%s_ADD_IFILE%3.3d.FITRES", PREFIX_CSV, ifile );
-    // xxx sprintf(cmd,"/home/rkessler/SNANA/util/convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
     sprintf(cmd,"convertcsv2snana.py -i %s -o %s", INPUTS.FFILE[ifile], FFILE);
     printf(" Convert csv format to SNANA-key format with command\n\t %s\n", cmd);
     fflush(stdout);
-    isys = system(cmd);
+    isys = system(cmd);  (void)isys;
     NFILE_CSV++ ;
   }
 
@@ -709,7 +708,7 @@ void ADD_FITRES(int ifile) {
       }
     }
     if ( IFILE_FIRST_SNANA >= 0 ) {
-      printf("\t First SNANA ifile = %d (%return) \n",
+      printf("\t First SNANA ifile = %d (%s) \n",
 	     IFILE_FIRST_SNANA, FFILE );
     }
   }
@@ -767,8 +766,8 @@ void ADD_FITRES(int ifile) {
     // Sep 19 2019: make sure first column is CID
     if ( ivar == IVARSTR_CCID ) {
       if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
-	sprintf(c1err,"Unrecognized first column: %s", VARNAME);
-	sprintf(c2err,"Check %s", FFILE );
+	sprintf(c1err,"Unrecognized first column: %.*s", MXCHAR_VARNAME, VARNAME);
+	sprintf(c2err,"Check %.*s", MXCHAR_MSGERR, FFILE );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
       }
     }
@@ -814,13 +813,10 @@ void ADD_FITRES(int ifile) {
     if ( NTAG_DEJA > 0 ) {
       iappend = ifile+1; // first iappend is 2
 
-      /* xxx mark delete 
-      printf("\t ADD_FITRES WARNING: VARNAME=%s already exists: ", ptr_CTAG);
-      printf("append %d \n", iappend );
-      xxxx */
-
-      printf("\t   VARNAME=%s already exists: rename to %s_%d\n", ptr_CTAG, ptr_CTAG, iappend);
-      sprintf( VARNAME_COMBINE[NVAR], "%s_%d", ptr_CTAG, iappend );
+      char RENAME[MXCHAR_VARNAME];
+      sprintf(RENAME,"%s_%d", ptr_CTAG, iappend);
+      printf("\t   VARNAME=%s already exists: rename to %s\n", ptr_CTAG, RENAME);
+      sprintf( VARNAME_COMBINE[NVAR], "%s", RENAME );
     }
 
     NVARALL_FITRES++ ;     NVAR = NVARALL_FITRES ;
@@ -910,7 +906,7 @@ int match_CID_orig(int ifile, int isn2) {
 
   char ccid[MXSTRLEN], ccid2[MXSTRLEN] ;
   int isn;
-  //  char fnam[] = "match_CID_orig" ;
+  char fnam[] = "match_CID_orig" ;  (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -945,7 +941,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
   int  MXUPDATE = 10;
   int  ivarstr, IVARSTR, IVARTOT, ivar, ICAST, TMPMOD ;
   char ccid2[MXSTRLEN_CID];
-  char fnam[] = "ADD_FITRES_VARLIST" ;
+  char fnam[] = "ADD_FITRES_VARLIST" ;  (void)fnam;
 
   // --------- BEGIN ------------
 
@@ -980,7 +976,7 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
       if (  isnan(FITRES_VALUES.FLT_TMP[ivar][isn2]) !=0 ) {
 	sprintf(c1err,"isnan for FLT_TMP[ivar=%d][isn=%d] = %f", 
 		ivar, isn2, FITRES_VALUES.FLT_TMP[ivar][isn2]  );
-	sprintf(c2err,"varname = %s", VARNAME_COMBINE[ivar] );
+	sprintf(c2err,"varname = %.*s", MXCHAR_VARNAME, VARNAME_COMBINE[ivar] );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       
@@ -1077,7 +1073,7 @@ void  fitres_malloc_flt(int ifile, int NVAR, int MAXLEN) {
   // MAXLEN is an estimate of the max array length to allocate.
 
   int ivar, isn, IVAR_ALL, NTOT, MEMF ;
-  //  char fnam[] = "fitres_malloc_flt" ;
+  char fnam[] = "fitres_malloc_flt" ;  (void)fnam;
 
   // ---------- BEGIN ------------
 
@@ -1129,7 +1125,7 @@ void  fitres_malloc_str(int ifile, int NVAR, int MAXLEN) {
   //
   // Apr 27 2020: init STR_ALL and STR_TMP to 'NULL'
 
-  //  char fnam[] = "fitres_malloc_str" ;
+  char fnam[] = "fitres_malloc_str" ;  (void)fnam;
   int ivar, IVAR_ALL, isn, MEMC, NTOT ;
   
   // ---------- BEGIN ------------
@@ -1268,10 +1264,10 @@ void WRITE_SNTABLE(void) {
 
   double zHD;
   int GZIPFLAG = 0 ;
-  int ivar, ivarstr, isn, ICAST, CIDint ;
-  int IFILETYPE, NOUT, out, SKIP ;
+  int ivar, ivarstr, isn, ICAST, CIDint, NOUT, out, SKIP ;
+  int IFILETYPE; (void)IFILETYPE;
 
-  char  fnam[] = "WRITE_SNTABLE" ;
+  char  fnam[] = "WRITE_SNTABLE" ;  (void)fnam;
   // --------------- BEGIN ------------
 
   NOUT = 0 ;
@@ -1296,7 +1292,6 @@ void WRITE_SNTABLE(void) {
 	    INPUTS.OUTPREFIX_COMBINE, ptrSuffix_text ); 
     outFile_text_override(OUTFILE[NOUT],&GZIPFLAG); 
     sprintf(openOpt,"%s new", ptrSuffix_text);
-    //    IFILETYPE = TABLEFILE_OPEN(OUTPREFIX_COMBINE,openOpt);
     IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);
     NOUT++ ;
   }
@@ -1440,7 +1435,7 @@ void WRITE_SNTABLE(void) {
   if ( GZIPFLAG )  { 
     char cmd[400];
     sprintf(cmd,"gzip %s", INPUTS.OUTFILE_TEXT);
-    int isys = system(cmd); 
+    int isys = system(cmd);  (void)isys; 
   }
 
   return;
@@ -1552,7 +1547,7 @@ void relabel_rownum(int ifile) {
   int NSN = NEVT_READ[ifile];
   int isn, rownum=0 ;
 
-  char fnam[] = "relabel_rownum";
+  char fnam[] = "relabel_rownum"; (void)fnam;
   
   // --------- BEGIN ----------
 
@@ -1581,7 +1576,7 @@ void WRITE_YAML(void) {
   FILE *fp;
   char *outfile = INPUTS.OUTFILE_YAML;
   double t_tot = (t_end - t_start)/60.0;  // total proc time, minutes
-  char fnam[] = "WRITE_YAML";
+  char fnam[] = "WRITE_YAML";  (void)fnam;  
   
   // ------------ BEGIN ---------------
   if ( strlen(outfile) == 0 ) { return; }

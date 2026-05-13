@@ -38,6 +38,8 @@
  Dec 22 2023: write SIM_WGT_POPULATION 
  Mar 14 2024: write and read MASK_REDSHIFT_SOURCE
  Oct 31 2025: write SIM_PEAKMAG with f7.4 format instead of f6.3
+ Apr 07 2026: fix awful bug and read SIM_WGT_POPULATION so that text formatted
+               BCOR works in BBC
 
 *************************************************/
 
@@ -96,8 +98,6 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   //  + rename IAUC key to NAME_IAUC key
   //  + write NAME_IAUC and NAME_TRANSIENT only for real data.
   
-  char comment[80];
-
   char COMMENT_FAKEFLAG[4][80] = {
     "data",
     "fakes overlaid on images",
@@ -109,7 +109,7 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   bool IS_SIM       = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
   bool IS_BLINDTEST =  SNDATA.WRFLAG_BLINDTEST;
   
-  char SURVEY_ARG[100];
+  char SURVEY_ARG[200];
   char fnam[] = "wr_dataformat_text_HEADER" ;
 
   // ------------ BEGIN -----------
@@ -119,7 +119,7 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   int LENS = strlen(SNDATA.SUBSURVEY_NAME);
   int OVP  = strcmp(SNDATA.SURVEY_NAME,SNDATA.SUBSURVEY_NAME);
   if ( LENS > 0 && OVP!=0 ) 
-    { sprintf(SURVEY_ARG, "%s(%s)", 
+    { sprintf(SURVEY_ARG, "%s(%.60s)", 
 	      SNDATA.SURVEY_NAME, SNDATA.SUBSURVEY_NAME ); }
   else
     { sprintf(SURVEY_ARG, "%s", SNDATA.SURVEY_NAME); }
@@ -246,10 +246,10 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
 
   // write sim-truth variables to data file header (text format)
 
-  int NTMP, NPAR, ipar, ifilt, ifilt_obs, iscat ;
+  int  NPAR, ipar, iscat ;
   char key[80], ctmp[100] ;  
   float parval, parval2;
-  char fnam[] = "wr_dataformat_text_SIMPAR" ;
+  char fnam[] = "wr_dataformat_text_SIMPAR" ;  (void)fnam;
 
   // ------------ BEGIN -----------
   // write SIM-truth params
@@ -430,7 +430,7 @@ void wr_dataformat_text_SIMPAR(FILE *fp) {
     }
   }
 
-  sprintf(ctmp,"bits 1,2=> found by software,spec" );
+  sprintf(ctmp,"bits 0,1,2 => DETECT+LOGIC, SPEC-CONFIRM, zHOST" );
   fprintf(fp, "SIM_SEARCHEFF_MASK:  %d  # %s \n", 
 	  SNDATA.SIM_SEARCHEFF_MASK, ctmp );
 
@@ -546,7 +546,7 @@ void wr_dataformat_text_KEYVAL(FILE *fp, char *KEY, double DVAL) {
   // on DVAL.
 
   double abs_dval = fabs(DVAL);
-  char fnam[] = "wr_dataformat_text_KEYVAL";
+  char fnam[] = "wr_dataformat_text_KEYVAL";  (void)fnam;
 
   // --------- BEGIN ---------
 
@@ -570,7 +570,7 @@ void wr_dataformat_text_FILTERPAR(FILE *fp, char *KEY, char *COMMENT,
   int  MXVAL_PER_LINE=14;
   int ifilt, ifilt_obs, NTMP;
   char FORMAT_LOCAL[40];
-  char fnam[] = "wr_dataformat_text_FILTERPAR" ;
+  char fnam[] = "wr_dataformat_text_FILTERPAR" ;  (void)fnam;
 
   // ------------ BEGIN ---------
 
@@ -595,7 +595,7 @@ void wr_dataformat_text_FILTERPAR_D(FILE *fp, char *KEY, char *COMMENT,
 
   char FORMAT_LOCAL[40];
   int ifilt, ifilt_obs, NTMP, MXVAL_PER_LINE=14;
-  char fnam[] = "wr_dataformat_text_FILTERPAR" ;
+  char fnam[] = "wr_dataformat_text_FILTERPAR" ;  (void)fnam;
 
   // ------------ BEGIN ---------
 
@@ -624,39 +624,44 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
   //
 
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
-  bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
+  //  bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
   bool IS_SIM  = ( SNDATA.FAKE == FAKEFLAG_LCSIM);
 
-  int N_Q      = SNDATA.HOSTGAL_NZPHOT_Q;
-  int ifilt, ifilt_obs, NTMP, igal, NGAL, j;
+  int ifilt, NTMP, igal, NGAL ;
 
-  char PREFIX[20] = "HOSTGAL";
-  char filtlist[MXFILTINDX], ctmp[100] ;
+  char PREFIX[20] = "HOSTGAL", PREFIXz[20] = "HOSTGALz" ; 
+  char filtlist[MXFILTINDX], ctmp[120] ;
  
-  char fnam[] = "wr_dataformat_text_HOSTGAL" ;
+  char fnam[] = "wr_dataformat_text_HOSTGAL" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
   sprintf(filtlist,"%s", SNDATA_FILTER.LIST );
-
-  NGAL = SNDATA.HOSTGAL_NMATCH[1];
-  if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }
 
   fprintf(fp, "%s_NMATCH:      %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[0] );
   fprintf(fp, "%s_NMATCH2:     %d  \n",  
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
 
-  if ( N_Q > 0 ) {
-    fprintf(fp, "%s_%s:  %d  # number of photo-z quantiles\n",  
-	    PREFIX, STRING_NZPHOT_Q, N_Q );
+  
+
+  /* xxxxxxx mark delete xxxxxxxxx
+  if ( !REFAC_DATA_FLAG ) {
+    N_Q      = SNDATA.HOSTGAL_NZPHOT_Q; // legacy key
+    if ( N_Q > 0 ) {
+      fprintf(fp, "%s_%s:  %d  # number of photo-z quantiles\n",  
+	      PREFIX, STRING_NZPHOT_Q, N_Q );
+    }
   }
+  xxxxxxxxx end mark xxxxx*/
 
   // - - - - - -
+  NGAL = SNDATA.HOSTGAL_NMATCH[1];
+  if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }  // for storage
 
   for(igal=0; igal < NGAL; igal++ ) {
 
-    if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d", igal+1); }
+    get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz);
 
     // SNDATA.SIM_HOSTLIB_GALID 
     ctmp[0] = 0;
@@ -676,7 +681,9 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
 
-    if ( N_Q > 0) {
+    /* xxxxxxx mark delete xxxxxxxxxx
+    if ( N_Q > 0 && !REFAC_DATA_FLAG ) {
+      // legacy
       float *zq = SNDATA.HOSTGAL_ZPHOT_Q[igal];
       int   *p  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q ;
 
@@ -690,6 +697,7 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
       fprintf(fp, "\n");
       fflush(fp);
     }
+    xxxxxxxx end mark xxxxxx*/
 
     if ( !RDTEXT || SNDATA.HOSTGAL_SPECZ[igal] > 0.0 ) {
       fprintf(fp, "%s_SPECZ:       %.5f  +- %.5f \n", PREFIX,
@@ -772,7 +780,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     if ( (SNDATA.HOSTGAL_USEMASK & 1) > 0 ) {
       fprintf(fp, "%s_MAG:    ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
 	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAG[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
@@ -783,7 +790,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     if ( (SNDATA.HOSTGAL_USEMASK & 2) > 0 ) {
       fprintf(fp, "%s_MAGERR: ", PREFIX ); NTMP=0;    
       for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-	ifilt_obs = SNDATA_FILTER.MAP[ifilt] ;
 	fprintf(fp,"%7.3f ", SNDATA.HOSTGAL_MAGERR[igal][ifilt] );
 	NTMP++ ;
 	if ( NTMP == 10 ) { fprintf(fp,"\n    ");  NTMP=0; }
@@ -792,6 +798,12 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     }
     
     fprintf(fp,"\n");
+
+    if ( REFAC_DATA_FLAG > 0 ) {
+      // Apr 13 2026: write HOSTGALz fields
+      wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
+      wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_LOGMASS[igal]);
+    }
 
   } // end igal loop
 
@@ -826,6 +838,42 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 } // end wr_dataformat_text_HOSTGAL
 
 
+void wr_dataformat_text_HOSTGALz(FILE *fp, HOSTGALz_DEF *HOSTGALz) {
+
+  // Created Apr 2026
+  // write HOSTGALz info 
+  //   HOSTGALz_NBIN_XXX:       number of z bins
+  //   HOSTGALZ_[varname_z]:    <list of redshifts>
+  //   HOSTGALZ_[varname_val]:  <list of values>
+  //
+  int iz, NZ = HOSTGALz->NZ;
+  char line_z[MXPATHLEN], line_val[MXPATHLEN], line_val2[MXPATHLEN], cval[20];
+  char fnam[] = "wr_dataformat_text_HOSTGALz" ;  (void)fnam;
+
+  // ------------- BEGIN ----------
+  
+  fprintf(fp,"%s:  %d \n", HOSTGALz->VARNAME_NZ, HOSTGALz->NZ);
+
+  if ( NZ > 0 ) {
+    sprintf(line_z,    "%s: ", HOSTGALz->VARNAME_Z);
+    sprintf(line_val,  "%s: ", HOSTGALz->VARNAME_VAL);
+    sprintf(line_val2, "%s: ", HOSTGALz->VARNAME_VAL2);
+    for(iz=0; iz < NZ; iz++ ) {
+      sprintf(cval, "%.4f ", HOSTGALz->Z_LIST[iz]   );  strcat(line_z,cval); 
+      sprintf(cval, "%.2f ", HOSTGALz->VAL_LIST[iz] );  strcat(line_val,cval); 
+      sprintf(cval, "%.2f ", HOSTGALz->VAL2_LIST[iz]);  strcat(line_val2,cval); 
+    }
+    fprintf(fp,"%s\n", line_z) ; 
+    fprintf(fp,"%s\n", line_val) ; 
+    if ( HOSTGALz->USE_VAL2 ) { fprintf(fp,"%s\n", line_val2) ; }
+  }
+
+  fprintf(fp,"\n");
+  fflush(fp);
+  return;
+
+} // end wr_dataformat_text_HOSTGALz 
+
 // ===================================
 void wr_dataformat_text_PRIVATE(FILE *fp) {
 
@@ -834,9 +882,9 @@ void wr_dataformat_text_PRIVATE(FILE *fp) {
 
   int NVAR_PRIVATE = SNDATA.NVAR_PRIVATE ;
   int ivar, IVAL ;
-  double DVAL, DTMP;
+  double DVAL;
   char *KEY ;
-  char fnam[] = "wr_dataformat_text_PRIVATE" ;
+  char fnam[] = "wr_dataformat_text_PRIVATE" ;  (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -871,8 +919,8 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   // May 16 2023: check WRFLAG_ATMOS to write RA,DEC,AIRMASS per obs
 
   char OBSKEY[] = "OBS:" ;
-  bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
-  bool WRFLAG_BLINDTEST  = SNDATA.WRFLAG_BLINDTEST ;
+  //  bool ISMODEL_FIXMAG    = ( SNDATA.SIM_MODEL_INDEX == MODEL_FIXMAG );
+  //  bool WRFLAG_BLINDTEST  = SNDATA.WRFLAG_BLINDTEST ;
   bool WRFLAG_PHOTPROB   = SNDATA.WRFLAG_PHOTPROB ;
   bool WRFLAG_PHOTFLAG   = true;
   bool WRFLAG_ATMOS      = SNDATA.WRFLAG_ATMOS;
@@ -888,7 +936,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   bool IS_DATA = ( SNDATA.FAKE == FAKEFLAG_DATA);
   bool RDTEXT  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_TEXT);
-  bool RDFITS  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_FITS);
+  //  bool RDFITS  = (FORMAT_SNDATA_READ == FORMAT_SNDATA_FITS);
   bool FOUND_METADATA ;
   double MJD ;
   int  ep, NVAR, NVAR_EXPECT, NVAR_WRITE;
@@ -1139,9 +1187,9 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
   int  NMJD_TOT   = GENSPEC.NMJD_TOT ;
   int  NMJD_PROC  = GENSPEC.NMJD_PROC ;  // Feb 24 2021
   
-  int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR, NVAR_EXPECT ;
-  int  imjd, ilam, ifilt, ifilt_obs ;
-  double L0, L1, LCEN, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
+  int  NBLAM_TOT, NBLAM_VALID, NBLAM_WR, IDSPEC, IS_HOST, NVAR ;
+  int  imjd, ilam ;
+  double L0, L1, FLAM, FLAMERR, GENFLAM, GENMAG, WARP, SNR ;
   double SCALE;
 
   char VARLIST[200], tmpLine[200], cval[40] ;
@@ -1237,7 +1285,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
     fflush(fp); 
 
     NBLAM_WR = 0 ;
-    NVAR_EXPECT = NVAR ;
 
     for(ilam=0; ilam < NBLAM_TOT; ilam++ ) {
 
@@ -1250,7 +1297,6 @@ void  wr_dataformat_text_SNSPEC(FILE *fp) {
 
       L0      = GENSPEC.LAMMIN_LIST[imjd][ilam];
       L1      = GENSPEC.LAMMAX_LIST[imjd][ilam];
-      LCEN    = 0.5*(L0+L1);
 
       NVAR = 0; sprintf(tmpLine,"SPEC: ");
       sprintf(cval, "%8.2f ",   L0);       NVAR++ ; strcat(tmpLine,cval);
@@ -1318,7 +1364,7 @@ void RD_SNTEXTIO_INIT(int init_num) {
   // init_sum = 2 --> 2nd init; RD_SNFITSTIO_INIT already called
   //        so avoid re-mallocing strings.
 
-  char fnam[] = "RD_SNTEXTIO_INIT" ;
+  char fnam[] = "RD_SNTEXTIO_INIT" ;  (void)fnam;
 
   SNTEXTIO_VERSION_INFO.NVERSION        = 0 ;
   SNTEXTIO_VERSION_INFO.NFILE           = 0 ;
@@ -1432,7 +1478,7 @@ int rd_sntextio_list(void) {
   int  RETCODE_FITS = -1;
   int  NFILE_LAST = SNTEXTIO_VERSION_INFO.NFILE ;
 
-  char firstFile[MXPATHLEN], FIRSTFILE[MXPATHLEN];
+  char firstFile[MXPATHLEN], FIRSTFILE[2*MXPATHLEN];
   char fnam[] = "rd_sntextio_list" ;
 
   // ------------- BEGIN --------------
@@ -1474,7 +1520,7 @@ int rd_sntextio_list(void) {
 void rd_sntextio_malloc_list(int OPT, int NFILE) {
   
   int i;
-  char fnam[] = "rd_sntextio_malloc_list" ;
+  char fnam[] = "rd_sntextio_malloc_list" ;  (void)fnam;
   // ---------- BEGIN ----------
 
 
@@ -1508,19 +1554,18 @@ void  rd_sntextio_global(void) {
   // May 25 2023: use PySEDMODEL_CHOICE_LIST and remove hard-coded PySEDMODEL names
   // Mar 25 2024: Read number of quantiles
   // Jul 23 2025: read ZP_FLUXCAL
+  // Apr 07 2026: read SIM_WGT_POPULATION
 
   int   MSKOPT     = MSKOPT_PARSE_TEXT_FILE ;
-  int  NVERSION    = SNTEXTIO_VERSION_INFO.NVERSION ;
   char *firstFile  = SNTEXTIO_VERSION_INFO.DATA_FILE_LIST[0];
   char *DATA_PATH  = SNTEXTIO_VERSION_INFO.DATA_PATH ;
-  char FIRSTFILE[MXPATHLEN] ;
+  char FIRSTFILE[2*MXPATHLEN] ;
   int  langC  = LANGFLAG_PARSE_WORDS_C ;
-  int  NWD, iwd, ITMP, LENKEY, NVAR, NPAR, i ;
+  int  NWD, iwd, ITMP,  NVAR, NPAR, i ;
   bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM, FOUND_FAKEKEY=false ;
-  bool IS_PRIVATE, IS_ZPHOT_Q;
-  bool IS_HOSTLIB, IS_SIMSED, IS_LCLIB;
+  bool IS_PRIVATE, IS_HOSTLIB, IS_SIMSED, IS_LCLIB;
   int  ICHOICE_PySEDMODEL;
-  char word0[100], word1[100], word2[100], parName[40];    
+  char word0[100], word1[100], parName[40];    
   char fnam[] = "rd_sntextio_global" ;
   int  LDMP = 0 ;
   // ---------- BEGIN ----------
@@ -1545,7 +1590,6 @@ void  rd_sntextio_global(void) {
     HAS_PARENTH  =  strstr(word0,"("  ) != NULL  ;
     IS_TMP       =  HAS_COLON && HAS_PARENTH ;
     IS_PRIVATE   =  strstr(word0,"PRIVATE")       != NULL && IS_TMP ;
-    IS_ZPHOT_Q   =  strstr(word0,"ZPHOT_Q")       != NULL  ;
     IS_HOSTLIB   =  strstr(word0,"SIM_HOSTLIB")   != NULL && IS_TMP ;
     IS_SIMSED    =  strstr(word0,"SIMSED_")       != NULL && IS_TMP ;
     IS_LCLIB     =  strstr(word0,"LCLIB_PARAM")   != NULL && IS_TMP ;
@@ -1599,24 +1643,21 @@ void  rd_sntextio_global(void) {
       NVAR = SNDATA.NVAR_PRIVATE ;
       copy_keyword_nocolon(word0,SNDATA.PRIVATE_KEYWORD[NVAR]);
     }
-    else if (IS_ZPHOT_Q){
+
+    /* xxxxxxxx end mark xxxxxxxxxx
+    else if (IS_ZPHOT_Q && !REFAC_DATA_FLAG ) {
+      // legacy write
       if ( strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 )
 	{ iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.HOSTGAL_NZPHOT_Q, fnam ) ; }
 
-      if ( strcmp(word0,"HOSTGAL_PERCENTILE_ZPHOT_Q:") == 0 )
-      {
-	int N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-	int q;
-	for (q = 0; q <N_Q; q ++){
-	  iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q], fnam ) ;
-	}
-	
-
-
+      if ( strcmp(word0,"HOSTGAL_PERCENTILE_ZPHOT_Q:") == 0 )  {
+	int q, N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
+	for (q = 0; q <N_Q; q ++)
+	  { iwd++; get_PARSE_WORD_INT(langC,iwd,&SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q],fnam); }
       }
-
-     
     }
+    xxxxxxxxx end mark xxxxxxxxxx */
+
     else if ( IS_HOSTLIB ) { 
       NPAR = SNDATA.NPAR_SIM_HOSTLIB;
       copy_keyword_nocolon(word0,SNDATA.SIM_HOSTLIB_KEYWORD[NPAR]);
@@ -1665,6 +1706,10 @@ void  rd_sntextio_global(void) {
       else if ( strcmp(word0,"SIM_MWRV:") == 0 ) {
 	iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_MWRV, fnam ) ;
       }
+      else if ( strcmp(word0,"SIM_WGT_POPULATION:") == 0 ) {
+	iwd++; get_PARSE_WORD_FLT(langC, iwd, &SNDATA.SIM_WGT_POPULATION, fnam ) ;
+      }
+
       else if ( strstr(word0,"SIM_STRONGLENS") != NULL ) {
 	SNDATA.SIM_SL_FLAG = 1 ;
       }
@@ -1699,8 +1744,9 @@ void  rd_sntextio_global(void) {
 void copy_keyword_nocolon(char *key_in, char *key_out) {
   int lenkey = strlen(key_in);
   sprintf(key_out, "%s", key_in) ;
-  if ( strstr(key_out,COLON) != NULL ) 
-    { sprintf(&key_out[lenkey-1],"") ; }
+  if ( strstr(key_out,COLON) != NULL ) { key_out[lenkey-1] = 0; } 
+  // xxx mark delete { sprintf(&key_out[lenkey-1],"") ; }
+
   return;
 } // end copy_keyword_nocolon
 
@@ -2030,7 +2076,7 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
   char *DATA_PATH = SNTEXTIO_VERSION_INFO.DATA_PATH ;
   char *fileName  = SNTEXTIO_VERSION_INFO.DATA_FILE_LIST[ifile];
   
-  char FILENAME[MXPATHLEN]; 
+  char FILENAME[2*MXPATHLEN]; 
   int  NWD, iwd; 
   bool LRD_NEXT = false;
   char fnam[] = "RD_SNTEXTIO_EVENT";
@@ -2133,15 +2179,15 @@ void RD_SNTEXTIO_EVENT(int OPTMASK, int ifile_inp) {
 
   // - - - - - 
   // temp code to check reading of ZPHOT quantiles
-  int LDMP_Q = 0 ;
-  if ( LDMP_Q && SNDATA.HOSTGAL_NZPHOT_Q > 0 ) {
-    int ivar, pct;  float zq;
+  int LDMP_Q = 0, igal=0, NZ= SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ ;
+  if ( LDMP_Q && NZ > 0 ) {
+    int iz, pct;  float zq;
     printf(" xxx ------------------------------- \n");
-    printf(" xxx %s: ZPHOT_Q DUMP for CID=%s \n", fnam, SNDATA.CCID);
-    for(ivar=0; ivar < SNDATA.HOSTGAL_NZPHOT_Q; ivar++ ) {
-      zq  = SNDATA.HOSTGAL_ZPHOT_Q[0][ivar];
-      pct = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar];
-      printf(" xxx %s: ZPHOT_Q[%d] = %.4f \n", fnam, pct, zq);
+    printf(" xxx %s: QUANTILE_ZPHOT DUMP for CID=%s \n", fnam, SNDATA.CCID);
+    for(iz=0; iz < NZ; iz++ ) {
+      zq  = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].Z_LIST[iz];
+      pct = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].VAL_LIST[iz] ;
+      printf(" xxx %s: QZPHOT[%2d] = %.4f  QPERCENT = %d\n", fnam, iz, zq, pct);
       fflush(stdout);
     }
   }
@@ -2173,6 +2219,8 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   //
   // Dec 10 2021: refactor to enable header_override.
   // Feb 10 2022: read zphot quantile info
+  // Apr 14 2026: call rd_sntextio_SNDATA_HOSTGALz (quantiles)
+  // May 07 2026: check match_override_missing_event()
 
   int  NFILT     = SNDATA_FILTER.NDEF;
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
@@ -2185,23 +2233,33 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   int    iwd0      = *iwd_file ; // never changes
   int    iwd       = *iwd_file ; // iwd increments
-  int    igal, ivar, NVAR, ipar, NPAR, ifilt, ifilt_obs;
-  int    NRD, NRD_ERR, len_word0, N_Q ;
+  int    igal, ivar, NVAR, ipar ;
+  int    NRD, NRD_ERR, len_word0, NZ ;
   int    IVAL;
   float  FVAL, FVAL_ERR ;
   double DVAL=-9.0, DVAL_ERR=-9.0; 
   bool   IS_PRIVATE, PLUS_MINUS = false ;  
   char word0[100], word1_val[100], word2_pm[100],  word3_err[100];
-  char PREFIX[40], KEY[80], KEY_ERR[80], KEY_TEST[80], ARG_TMP[80];
+  char PREFIX[40], PREFIXz[40], KEY[80], KEY_ERR[100], KEY_TEST[80] ;
   char STRVAL[40];
   char fnam[] = "parse_SNTEXTIO_HEAD" ;
 
   // ------------ BEGIN -----------g
 
+
   get_PARSE_WORD(langC, iwd, word0, fnam);
 
   // bail if there is no colon in key word
   if ( strchr(word0,':') == NULL ) { return true; }
+
+  // - - - - -
+  // May 2026: check to skip read for override vars with NULL_ON_MISSING_EVENT 
+  int len0 = strlen(word0);
+  char word0_nocolon[100];
+  sprintf(word0_nocolon,"%s", word0);  word0_nocolon[len0-1] = '\0';
+  if ( match_override_missing_event(word0_nocolon) ) { return true; }
+					 
+  // - - - - -
 
   // bail when reaching first obs
   if ( strcmp(word0,"OBS:") == 0 ) { return false; }
@@ -2229,7 +2287,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   // check for header_override (Dec 2021)
   len_word0 = strlen(word0);
-  sprintf(KEY,"%s", word0); KEY[len_word0-1] = 0;
+  sprintf(KEY,"%.*s", len_word0, word0); KEY[len_word0-1] = 0; // erase colon
   sprintf(KEY_ERR, "%s_ERR", KEY);
   NRD     = RD_OVERRIDE_FETCH(CCID, GALID, KEY,     &DVAL,     STRVAL);    // return DVAL
   NRD_ERR = RD_OVERRIDE_FETCH(CCID, GALID, KEY_ERR, &DVAL_ERR, STRVAL);  
@@ -2344,14 +2402,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   }
   else if ( strcmp(word0,"REDSHIFT_FINAL_ERR:") == 0 ) {
     SNDATA.REDSHIFT_FINAL_ERR = FVAL;
-  }
-
-  
+  }  
   else if ( strcmp(word0,"MASK_REDSHIFT_SOURCE:") == 0 ) {
     SNDATA.MASK_REDSHIFT_SOURCE = (int)FVAL;
   }
 
-  
   else if ( strcmp(word0,"REDSHIFT_CMB:") == 0 ) {
     SNDATA.REDSHIFT_FINAL = FVAL ;
     if(PLUS_MINUS) { SNDATA.REDSHIFT_FINAL_ERR = FVAL_ERR; }
@@ -2393,23 +2448,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       get_PARSE_WORD_NFLT(langC, NFILT, iwd0+1, SNDATA.HOSTGAL_SB_FLUXCAL, fnam);
       iwd = iwd0 + NFILT;
     } 
-    else if ( strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 ) {
-      SNDATA.HOSTGAL_NZPHOT_Q = IVAL ;
-    }
-    else if ( strcmp(word0,"HOSTGAL_PERCENTILE_ZPHOT_Q:") == 0 ) {
-      N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-      float fval_tmp[MXBIN_ZPHOT_Q];
-      get_PARSE_WORD_NFLT(langC, N_Q, iwd0+1, fval_tmp, fnam);
-      iwd = iwd0 + N_Q;
-      for(ivar=0; ivar < N_Q; ivar++ ) 
-	{ SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ivar] = (int)fval_tmp[ivar]; }
-    }
-    
 
     // - - - - - 
     for(igal=0; igal < MXHOSTGAL; igal++ ) {
-      sprintf(PREFIX,"HOSTGAL");
-      if ( igal > 0 ) { sprintf(PREFIX,"HOSTGAL%d",igal+1); }
+
+      get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz);
       
       sprintf(KEY_TEST,"%s_OBJID:", PREFIX); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {
@@ -2432,11 +2475,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 	if(PLUS_MINUS) { SNDATA.HOSTGAL_SPECZ_ERR[igal]=FVAL_ERR; }	
       }
 
-      sprintf(KEY_TEST,"%s_%s:", PREFIX, PREFIX_ZPHOT_Q); 
-      if ( strcmp(word0,KEY_TEST) == 0 ) {
-	N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-	get_PARSE_WORD_NFLT(langC,N_Q,iwd0+1, SNDATA.HOSTGAL_ZPHOT_Q[igal], fnam);
-      }
+      NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
+      iwd = iwd0 + NZ;
+      
+      NZ = rd_sntextio_SNDATA_HOSTGALz(iwd0, word0, &SNDATA.HOSTGALz_LOGMASS[igal]);
+      iwd = iwd0 + NZ;
 
       sprintf(KEY_TEST,"%s_RA:", PREFIX); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {
@@ -2504,8 +2547,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   } // end HOSTGAL
       
-  else if ( strcmp(word0,"PEAKMJD:") == 0 || 
-	    strcmp(word0,"SEARCH_PEAKMJD:") == 0 ) {
+  else if ( strcmp(word0,"PEAKMJD:") == 0 || strcmp(word0,"SEARCH_PEAKMJD:") == 0 ) {
     SNDATA.SEARCH_PEAKMJD = FVAL;
   }
 
@@ -2777,6 +2819,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
 
   } // end SIM_LCSIM
 
+  // - - - - -  -
 
   /*
   printf(" xxx %s check word0 = '%s'  cnt=%d\n", 
@@ -2789,6 +2832,45 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   return true ;
 
 } // end parse_SNTEXTIO_HEAD
+
+
+// =========================================================
+int rd_sntextio_SNDATA_HOSTGALz(int iwd0, char *KEY, HOSTGALz_DEF *HOSTGALz) {
+
+  // Created Apr 14 2026
+  // Read keys for passed HOSTGALz object;
+  // info read is passed back on the input HOSTGALz struct.
+  // Function returns number of values read.
+
+  int langC = LANGFLAG_PARSE_WORDS_C;
+  int  NRD = 0, LENKEY = strlen(KEY);
+  char KEY_noColon[60];
+  char fnam[] = "rd_sntextio_SNDATA_HOSTGALz" ;
+
+  // ------------- BEGIN -------------
+
+  sprintf(KEY_noColon,"%s", KEY); 
+  KEY_noColon[LENKEY-1] = 0; // remove colon
+
+  if ( strcmp(KEY_noColon,HOSTGALz->VARNAME_NZ) == 0 ) {
+    // check  number of z-bins
+    get_PARSE_WORD_INT(langC, iwd0+1, &HOSTGALz->NZ, fnam );
+    NRD = 1;
+  }
+  else if ( strcmp(KEY_noColon,HOSTGALz->VARNAME_Z) == 0 ) {
+    // check redshift list
+    NRD = HOSTGALz->NZ;
+    get_PARSE_WORD_NFLT(langC, NRD, iwd0+1, HOSTGALz->Z_LIST, fnam);     
+  }
+  else if ( strcmp(KEY_noColon,HOSTGALz->VARNAME_VAL) == 0 ) {
+    // check value list
+    NRD = HOSTGALz->NZ;
+    get_PARSE_WORD_NFLT(langC, NRD, iwd0+1, HOSTGALz->VAL_LIST, fnam);     
+  }
+
+
+  return NRD;
+} // end rd_sntextio_SNDATA_HOSTGALz
 
 // ========================================================
 void parse_plusminus_sntextio(char *word, char *key, int *iwd_file, 
@@ -2817,7 +2899,6 @@ void parse_plusminus_sntextio(char *word, char *key, int *iwd_file,
   int iwd = *iwd_file;
   char next_word[60], KEY[60], KEY_ERR[60];
   int  langC  =  LANGFLAG_PARSE_WORDS_C ;
-  int  lenkey = strlen(key);
   char fnam[] = "parse_plusminus_sntextio" ;
 
   // ------------ BEGIN --------
@@ -2961,11 +3042,11 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
   int  iwd       = *iwd_file ;
-  int  ep, ivar, lenstr, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
+  int  ep=1, ivar, lenstr, NVAR = SNTEXTIO_FILE_INFO.NVAROBS ;
   bool DONE_OBS = false ;
   float PSF_FWHM ;
   double dval;
-  char word0[100], PREFIX[40], KEY_TEST[80], *varName, *str;
+  char word0[100], *str;
   char STRING[40];  
   char fnam[] = "parse_SNTEXTIO_OBS";
 
@@ -2975,7 +3056,7 @@ bool parse_SNTEXTIO_OBS(int *iwd_file) {
 
   if ( strstr(word0,"END")       != NULL ) { DONE_OBS = true; }
   if ( strcmp(word0,"NSPECTRA:") == 0    ) { DONE_OBS = true; }
-  if ( DONE_OBS ) { *iwd_file-- ; return false; }
+  if ( DONE_OBS ) { iwd--; *iwd_file = iwd ; return false; }
 
 
   if ( strcmp(word0,"OBS:") == 0 ) {
@@ -3192,7 +3273,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   
   int  iwd     = *iwd_file ;
   int  langC   = LANGFLAG_PARSE_WORDS_C ;
-  int  ID, ivar, NBLAM, ilam ; 
+  int  ivar, NBLAM, ilam ; 
   int  ISPEC   = SNTEXTIO_FILE_INFO.NSPEC_READ-1 ;
   double MJD ;
   char word0[100], *str ;
@@ -3226,7 +3307,7 @@ bool parse_SNTEXTIO_SPEC(int *iwd_file) {
   else if ( strcmp(word0,"SPECTRUM_MJD:") == 0 ) {
     iwd++ ;  get_PARSE_WORD_DBL(langC, iwd, &MJD, fnam );
     GENSPEC.MJD_LIST[ISPEC] = MJD ;
-    // xxx mark GENSPEC.TOBS_LIST[ISPEC]= MJD - SNDATA.SEARCH_PEAKMJD ; // Oct 29 2025: for comment field only
+
     if ( MJD > 0.0 ) 
       { GENSPEC.IS_HOST[ISPEC] = 0 ; } // is SN spectrum
     else

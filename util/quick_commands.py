@@ -21,7 +21,7 @@
 # Jan 31 2024: fix bug finding DOCANA keys for --extract_sim_input  option
 # Feb 21 2025: add option --table_file_dupl
 # Jun 17 2025: add option --idsurvey to work with --diff
-#
+# Apr 19 2026: optional 2nd arg to --table_file_dupl is column to check for duplicates
 # ==================================================================
 
 import os, sys, argparse, subprocess, yaml, tarfile, fnmatch, glob
@@ -169,8 +169,8 @@ def get_args():
     parser.add_argument("-D", "--diff_data", nargs='+', 
                         help=msg, type=str,default=None)
 
-    msg = "table file name to search for duplicates and print list to stdout"
-    parser.add_argument("--table_file_dupl", help=msg, type=str,default=None)
+    msg = "table file name to search/print duplicates; optional 2nd arg is which column to check"
+    parser.add_argument("--table_file_dupl", help=msg, default=None, nargs="+")
 
 
 # SIMLIB_OUT ...
@@ -936,12 +936,20 @@ def rewrite_cov_file(args):
 
 def find_duplicates(args) :
     # Created Feb 21 2025
-    table_file = args.table_file_dupl
+    table_file = args.table_file_dupl[0]
+
 
     # define possible ID keys for table
     COLNAME_ID_LIST = [ 'ROW', 'CID', 'GAL' ]
 
-    df  = pd.read_csv(table_file, comment="#", sep=r'\s+')
+    # check option (2nd arg) to search duplicates in another column
+    if len(args.table_file_dupl) > 1 :
+        user_colname_check  = args.table_file_dupl[1] 
+        COLNAME_ID_LIST = [ user_colname_check ]
+    else:
+        user_colname_check = None
+
+    df           = pd.read_csv(table_file, comment="#", sep=r'\s+')
     column_names = df.columns.tolist()
     colname_id   = None
 
@@ -952,7 +960,7 @@ def find_duplicates(args) :
     if colname_id :
         print(f" Found column {colname_id} to search for duplicates")
     else:
-        sys.exit(f"\n ERROR: Could not find any of {COLNAME_ID_LIST} \n\t to search duplicates ")
+        sys.exit(f"\n ERROR: Could not find colname {COLNAME_ID_LIST} \n\t to search duplicates ")
 
     id_list = df[colname_id].astype(str).to_list()
 
@@ -960,18 +968,21 @@ def find_duplicates(args) :
     dupes = [x for x in id_list if x in seen or seen.add(x)]
 
     ndup = len(dupes)
-    print(f"\n Found {ndup} duplicates: \n\t {dupes}")
+    print(f"\n Found {ndup} {colname_id} duplicates: \n\t {dupes}")
+
+    if ndup == 0          : return
+    if user_colname_check : return
 
     # - - - - - - - - - - - - -  -
     # print more information for each duplicate:
-    COLNAME_EXTRA_LIST = [ 'IDSURVEY', 'FIELD', 'zHD', 'ZTRUE', 'ZTRUE_CMB' ]
+    COLNAME_EXTRA_LIST = [ 'IDSURVEY', 'FIELD', 'zHD', 'ZTRUE', 'ZTRUE_CMB', 'HOST_OBJID' ]
     colname_extras     = []
     for col in COLNAME_EXTRA_LIST:
         if col in column_names:
             colname_extras.append(col)
     print(f"\n Found extra columns: {colname_extras}")
 
-    if len(colname_extras) > 0:
+    if  len(colname_extras) > 0:
         arg_cid_dupes = ','.join(dupes)
         arg_var_extra = ','.join(colname_extras)
         cmd_table    = f"{get_fitres_values_script} "\

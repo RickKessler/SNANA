@@ -30,10 +30,22 @@
 # Dec 19 2025:
 #   +  allow ID column to be anywhwere; no longer has to be first column
 #   +  allow plotting x:stddev(y) to plot stddev(y) vs x
+#
+# Feb 06 2026: enable plotting strings by replacing with integers; see object_labels
+# Feb 17 2026: 
+#     + fix stdev calculation in get_weighted_stats, when @W option is used
+#                 (original AI-pasted code was wrong)
+#     + fix to work with multiple @@WGTVAR values, same as with multuple @@CUT or @@V or @@TFILE.
+#
+# Mar 16 2026: new inputs @@HLINE and @@VLINE to draw horizontal and/or vertical line(s)
+# Mar 23 2026: fix to work with comma-sep csv as well as space-sep csv file.
+# Mar 25 2026: fix bugs from Mar 23 change to allow comma-sep csv
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from   matplotlib import colors
 
@@ -54,7 +66,7 @@ from collections import Counter
 NXBIN_AUTO  = 30        # number of x-bins of user does not provide @@BOUNDS arg
 NXYBIN_AUTO = 20        # auto nbin for hist2d (if @@BOUNDS is not given)
 
-DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')' ]  # for @@VARIABLE 
+DELIMITER_VAR_LIST  = [ '+', '-', '/', '*', ':', '(', ')', ',' ]  # for @@VARIABLE 
 DELIMITER_CUT_LIST  = [ '&', '|', '>=', '<=', '>', '<',      # for @@CUT
                         '==', '!=', '=', '*', '+', '-', '/',
                         '~' , '.str.contains' ] 
@@ -114,7 +126,7 @@ NMAX_CID_LIST = 50  # max number of CIDs to print for @@OPT CID_LIST
 # can be used in variables (@V) and weigts (@@WGTFUN).
 NUMPY_FUNC_DICT = {
     'exp'         :  'np.exp'  ,
-    'log10'       :  'np.log'  ,   # works for log and log10        
+    'log10'       :  'np.log10' ,   # works for log and log10        
     'log'         :  'np.log'  ,   # works for log and log10
     'sqrt'        :  'np.sqrt' ,
     'abs'         :  'np.abs'  ,
@@ -124,8 +136,11 @@ NUMPY_FUNC_DICT = {
     'sin'         :  'np.sin'  ,
     'tan'         :  'np.tan'  ,        
     'heaviside'   :  'np.heaviside',
-    'min'         :  'np.min',
-    'max'         :  'np.max'
+    'minimum'     :  'np.minimum',
+    'min'         :  'np.minimum',
+    'maximum'     :  'np.maximum',
+    'max'         :  'np.maximum',
+    'dummy'       :  'np.dummy'
 }
 NUMPY_FUNC_LIST = list(NUMPY_FUNC_DICT.keys())
 
@@ -195,6 +210,7 @@ HACK_FLAG_DICT = {
     'help'              : HACK_FLAG_HELP    
 }
 
+COMMA = ','
 
 # ================================
 
@@ -208,6 +224,7 @@ This plot unility works on
   * M0DIF files from BBC
   * HOSTLIB files used in simulation
   * any file with same format that has VARNAMES key
+  * csv file
 
 BEWARE that conventional dashes for command-line input keys are replaced 
 with @@ ; e.g., --VARIABLE in any other python code is @@VARIABLE here ...
@@ -229,7 +246,10 @@ and two types of command-line input delimeters
       INPUTS FOR PLOT CONTENT 
      ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-@@VARIABLE or @V:
+@@TFILE or @T (or @@tfile or @t)
+  Specify one or more table files. More than 1 table results in overlay.
+
+@@VARIABLE or @V or @v:
   Input table files are loaded with pandas dataframes, and therefore input variables
   are internally converted to pandas notation. For instance, to plot redshift 
   distribution requires user input
@@ -528,6 +548,10 @@ plot_table.py @@TFILE File1.FITRES File2.FITRES \\
    @@VARIABLE zHD:mB - 3.1*c + 0.16*x1 - MU \\
    @@CUT "IDSURVEY < 15 & zHD>0.1" 
 
+plot_table.py @@t File1.FITRES File2.FITRES \\  # same as prevous, but use @t and @v
+   @v zHD:mB - 3.1*c + 0.16*x1 - MU \\
+   @@CUT "IDSURVEY < 15 & zHD>0.1" 
+
 plot_table.py @@TFILE scone_predict_diff.text \\
    @@VARIABLE PROB_SCONE_2:PROB_SCONE_1 \\
    @@CUT "PROB_SCONE_2 > 0"
@@ -543,7 +567,6 @@ def setup_logging():
     #logging.basicConfig(level=logging.DEBUG,
     logging.basicConfig(level=logging.INFO,
         format="[%(levelname)8s | %(message)s")
-    # xxx mark format="[%(levelname)8s |%(filename)21s:%(lineno)3d]   %(message)s")
     logging.getLogger("matplotlib").setLevel(logging.ERROR)
     logging.getLogger("seaborn").setLevel(logging.ERROR)
     return
@@ -553,7 +576,7 @@ def get_args():
 
     msg = "required: Name of TABLE file or space delineated list of " \
           "different TABLE files. If >1 TFILE, plots are overlaid"
-    parser.add_argument('@@TFILE', '@@tfile', help=msg, nargs="+")
+    parser.add_argument('@T', '@@TFILE', '@t', '@@tfile', help=msg, nargs="+")
     
     msg = "required: Variable(s) to plot from table file, or function of variables." \
           "For the histogram, counts are normalised to the first table file."
@@ -566,7 +589,7 @@ def get_args():
     parser.add_argument('@e', '@@error', default=None, help=msg, nargs="+" )
 
     msg = 'variable to reweight 1D plot'
-    parser.add_argument('@W', '@@WGTVAR', '@w', default=None, help=msg)
+    parser.add_argument('@W', '@@WGTVAR', '@w', default=[None], help=msg, nargs="+" )
     
     msg = "WEIGHT function(s) for 1D hist only; e.g., 1-0.5*x+3*x**2"
     parser.add_argument('@@WGTFUN', '@@wgtfun', default=[None], help=msg, nargs="+" )
@@ -611,6 +634,12 @@ def get_args():
 
     msg = "Extra text on plot"
     parser.add_argument('@@TEXT', '@@text', default=None, help=msg, nargs="+")    
+
+    msg = "dashed horizontal lines on plot (enter list of Y-coords"
+    parser.add_argument('@@HLINE', '@@hline', default=None, help=msg, nargs="+")    
+
+    msg = "dashed vertical lines on plot (enter list of X-coords"
+    parser.add_argument('@@VLINE', '@@vline', default=None, help=msg, nargs="+")    
 
     msg = "Override default legend on plot (space sep list per TFILE); auto-compute location"
     parser.add_argument('@@LEGEND', '@@legend', default=None, help=msg, nargs="+")
@@ -713,14 +742,16 @@ def arg_prep_driver(args):
     n_var_orig      = len(args.VARIABLE)
     n_cut_orig      = len(args.CUT)
     n_wgtfun_orig   = len(args.WGTFUN)
+    n_wgtvar_orig   = len(args.WGTVAR)
     tfile_list      = copy.copy(args.TFILE)
     var_list        = copy.copy(args.VARIABLE)
     cut_list        = copy.copy(args.CUT)
     wgtfun_list     = copy.copy(args.WGTFUN)
+    wgtvar_list     = copy.copy(args.WGTVAR)
 
-    name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WGTFUN' ]
-    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_wgtfun_orig ]
-    arg_list_list  = [ tfile_list,   var_list,   cut_list,   wgtfun_list   ]
+    name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WGTFUN', '@@WGTVAR'  ]
+    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_wgtfun_orig, n_wgtvar_orig ]
+    arg_list_list  = [ tfile_list,   var_list,   cut_list,   wgtfun_list,   wgtvar_list   ]
 
     # abort if more than 1 table file and more than 1 cut are requested.
     # However, allow 2 table files and 2 WGTFUNs
@@ -740,6 +771,7 @@ def arg_prep_driver(args):
     var_list     = arg_list_list[1]
     cut_list     = arg_list_list[2]
     wgtfun_list  = arg_list_list[3]    
+    wgtvar_list  = arg_list_list[4]    
         
     # - - - -
 
@@ -761,7 +793,7 @@ def arg_prep_driver(args):
     args.var_list        = var_list
     args.cut_list        = cut_list
     args.wgtfun_list     = wgtfun_list
-    
+    args.wgtvar_list     = wgtvar_list
     # - - - - -
 
     args.use_err_list = True  # default
@@ -1082,18 +1114,6 @@ def arg_prep_axis(ndim,name_arg, arg_axis):
     return arg_axis
 
 
-# xxxxxxxxx mark delete Dec 19 2025 xxxxxxx
-#def numpy_fun_replace(var)  :
-    # replace user functions (e.g., exp or sqrt) with numpy
-    # functions (e.g. np.exp or np.sqrt). If np.xxx is already
-    # defined, then avoid replacement.
-#    for fun, np_fun in NUMPY_FUNC_DICT.items():            
-#        if fun in var and np_fun not in var:
-#            var = var.replace(fun,np_fun)
-#    return var
-# xxxxxxxx end mark 
-
-
 def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
     # Created Aug 21 2024
@@ -1165,6 +1185,7 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 
         if valid_str_last:
 
+            # append list
             split_list.append(str_last)
 
             if is_number(str_last) or "'" in str_last or '"' in str_last :
@@ -1274,7 +1295,8 @@ def translate_VARIABLE(VARIABLE):
             tmp_append = STR_df + tmp_str
             table_var_list.append(tmp_str)
         elif tmp_type == STRTYPE_NPFUNC :
-            tmp_append = STR_np + tmp_str
+            # xxx mark delete Feb 18 2026  tmp_append = STR_np + tmp_str
+            tmp_append = NUMPY_FUNC_DICT[tmp_str]  
         else:
             pass
         
@@ -1521,9 +1543,10 @@ def set_axis_labels(args, plot_info):
 
     # - - - - - - 
     axis_dict['xaxis_label']  = xlabel
-    axis_dict['yaxis_label']  = ylabel            
+    axis_dict['yaxis_label']  = ylabel  
+
     plot_info.axis_dict_list[0]    = axis_dict
-    
+
     return  # end set_axis_labels
 
 def more_human_readable(label_orig):
@@ -1601,7 +1624,6 @@ def set_custom_bounds_dict(args,plot_info):
         if abin > 0.0:
             epsilon   = (amax-amin) * 1.0e-8
             nbin_float = (amax-amin+epsilon)/abin        # axis nbin
-            # xxx mark nbin_float = (amax-amin+1.0e-8)/abin        # axis nbin BUG
         else:
             nbin_float = 0.0
             nbin = 0  # allowed for y-axis if not used
@@ -1654,6 +1676,7 @@ def read_tables(args, plot_info):
     ps_list         = args.prescale_list
     frac_list       = args.fraction_list
     wgtfun_list     = args.wgtfun_list
+    wgtvar_list     = args.wgtvar_list
     legend_list     = args.legend_list
     alpha_list      = args.alpha_list
     marker_list     = args.marker_list
@@ -1668,9 +1691,9 @@ def read_tables(args, plot_info):
     same_tfiles = (len(set(tfile_list)) == 1)
     nrow_tot = 0
     
-    for tfile, var, axis_dict, cut, prescale, fraction, wgtfun, legend, alpha, marker in \
+    for tfile, var, axis_dict, cut, prescale, fraction, wgtfun, wgtvar, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
-            cut_list, ps_list, frac_list, wgtfun_list, legend_list, alpha_list, marker_list):
+            cut_list, ps_list, frac_list, wgtfun_list, wgtvar_list, legend_list, alpha_list, marker_list):
 
         varname_x      = axis_dict['x']
         varname_nodf_x = varname_x.replace(STR_df,'')  # for diagnostic print 
@@ -1697,17 +1720,17 @@ def read_tables(args, plot_info):
             # variables exist.
             # count number of rows to skip before VARNAMES; e.g., skip DOCANA for HOSTLIB 
 
-            varname_idrow, nrow_skip = check_table_varnames(tfile,args.raw_var_list)
+            varname_idrow, nrow_skip, colsep = check_table_varnames(tfile,args.raw_var_list)
             plot_info.varname_idrow  = varname_idrow            
             usecol_list = [ varname_idrow ] + args.raw_var_list
-            if args.WGTVAR and args.WGTVAR not in usecol_list: 
-                usecol_list += [ args.WGTVAR ]  # 9.18.2025
-                if OPT_HIST not  in args.OPT:
-                    sys.exit(f"\n ERROR: must use HIST option with @@WGTVAR")
+
+            if wgtvar:
+                if wgtvar_list[0] not in usecol_list:
+                    usecol_list += wgtvar_list
 
             # read table and store in data frame.
             # only read needed columms to reduce memory consumption.
-            df  = pd.read_csv(tfile, comment="#", sep=r"\s+",
+            df  = pd.read_csv(tfile, comment="#", sep=colsep,      # sep=r"\s+",
                               usecols  = usecol_list,
                               skiprows = nrow_skip,
                               nrows    = NROWS )
@@ -1741,6 +1764,7 @@ def read_tables(args, plot_info):
         nrow        = len(df)
         nrow_tot   += nrow
         name_legend = legend
+        axis_list = []
 
         logging.info(f"\t Read nrow={nrow}  for {name_legend}")
 
@@ -1757,38 +1781,55 @@ def read_tables(args, plot_info):
 
         try:
             MASTER_DF_DICT[key]['df'].loc[:,'x_plot_val'] = eval(varname_x)
-            if args.WGTVAR :
-                varname_wgt = f"df.{args.WGTVAR}"
+
+            if wgtvar :
+                varname_wgt = f"df.{wgtvar}"
                 MASTER_DF_DICT[key]['df'].loc[:,'weights']     = eval(varname_wgt)
             else:
                 MASTER_DF_DICT[key]['df'].loc[:,'weights']     = 1.0 # default weight
 
             xmin = np.amin(df['x_plot_val'])
             xmax = np.amax(df['x_plot_val'])
+            dtype_x = str(df['x_plot_val'].dtype) 
+            axis_list.append('x')
+
             logging.info(f"\t x-axis({varname_nodf_x}) range : {xmin} to {xmax}") 
             if varname_xerr is not None:
                 MASTER_DF_DICT[key]['df'].loc[:,'x_plot_err'] = eval(varname_xerr)
-            
+
             if args.NDIM == 2:
                 MASTER_DF_DICT[key]['df'].loc[:,'y_plot_val'] = eval(varname_y)
                 ymin = np.amin(df['y_plot_val'])
                 ymax = np.amax(df['y_plot_val'])
+                dtype_y = str(df['y_plot_val'].dtype)  # Feb 6 2026
+                axis_list.append('y')
                 logging.info(f"\t y-axis({varname_nodf_y}) range : {ymin} to {ymax}")  
                 if varname_yerr is not None:
                     MASTER_DF_DICT[key]['df'].loc[:,'y_plot_err'] = eval(varname_yerr)
             else:
                 ymin = None
                 ymax = None
-            
+                dtype_y = None
+
         except AttributeError:
             sys.exit(f"\n ERROR: Couldn't set bounds for axis_dict={axis_dict} and {tfile}")
 
         # store min and max for each variable to plot
-        table_bounds_key_list = [ 'xmin', 'xmax', 'ymin', 'ymax' ]
-        table_bounds_val_list = [  xmin,   xmax,   ymin,   ymax  ]
+        table_bounds_key_list = [ 'xmin', 'xmax', 'ymin', 'ymax', 'dtype_x', 'dtype_y' ]
+        table_bounds_val_list = [  xmin,   xmax,   ymin,   ymax,   dtype_x,   dtype_y  ]
         for tmp_key, tmp_val in zip(table_bounds_key_list, table_bounds_val_list):
             MASTER_DF_DICT[key][tmp_key] = tmp_val
-    
+
+    # - - - - - - - - -
+    # Feb 2026: for strings (dtype=object, manually convert to integers and update xmin, xmax)
+    #  This prep must be done after ALL tables are read because later tables may contain
+    #  strings not in the earlier tables. E.g., if first table contains 'A' and 'Q' strings,
+    #  it cannot be converted to integer list if later table has 'A', 'B', 'C'. 
+    object_labels_dict = {}
+    for i, which_axis in enumerate(axis_list) :
+        object_labels, args.BOUNDS = prep_object_axis(which_axis, MASTER_DF_DICT, args )
+        object_labels_dict[which_axis] = object_labels
+
     # - - - - - - - -
     logging.info("Finished loading all table files.")
     logging.info("# - - - - - - - - - - ")
@@ -1798,10 +1839,96 @@ def read_tables(args, plot_info):
         sys.exit('\n\t ABORT')
             
     # load output namespace
-    plot_info.MASTER_DF_DICT = MASTER_DF_DICT
-    
+    plot_info.MASTER_DF_DICT     = MASTER_DF_DICT
+    plot_info.object_labels_dict = object_labels_dict  # pass info for plotting strings (None for float)
+
     return
     # end read_tables
+
+
+def prep_object_axis(which_axis, MASTER_DF_DICT, args ):
+
+    # Created Feb 6 2026 by R.Kessler
+    # which_axis = 'x' or 'y'
+    # Replace string values with integers 0 to N_unique_strings,
+    # and update min/max ranges accordingly.
+    # Input MASTER_DF_DICT is modified !!!
+
+    varname = which_axis + '_plot_val'  # col name to modify in table(s)
+
+    unique_values = []
+    for key_tf  in MASTER_DF_DICT:
+        dtype = MASTER_DF_DICT[key_tf]['dtype_' + which_axis]
+        if dtype == 'object' or dtype == 'str' :
+            df    = MASTER_DF_DICT[key_tf]['df']
+            unique_values += df[varname].unique().tolist()
+           
+    if len(unique_values) == 0 : return None, args.BOUNDS
+
+    logging.info('')
+    logging.info(f"Prepare {which_axis}-axis for strings")
+
+    # - - - - - - -
+    # get unique string list among all of the tables
+    unique_values = sorted(list(set(unique_values)))
+    n_unique      = len(unique_values)
+    axis_values   = [ i+0.5 for i in range(0,n_unique) ]
+
+    object_to_int_dict = {}
+    for i, u in enumerate(unique_values):
+        object_to_int_dict[u] = i
+
+    logging.info(f"\t object_to_int replacement:  {object_to_int_dict}")
+
+    # for each row in each table, replace string with corresponding integer value
+    for key_tf  in MASTER_DF_DICT:
+        df = MASTER_DF_DICT[key_tf]['df']
+        df[varname] = df[varname].replace(object_to_int_dict)
+
+        # update main dictionary for plotting as if original table has int values
+        MASTER_DF_DICT[key_tf]['df'] = df
+        MASTER_DF_DICT[key_tf][which_axis + 'min'] = 0
+        MASTER_DF_DICT[key_tf][which_axis + 'max'] = n_unique
+
+        # add new dictionary element with labels for plotting 
+        MASTER_DF_DICT[key_tf][which_axis + '_object_labels' ] = unique_values
+
+
+    # - - - - - -
+    # force args.BOUNDS to match number of strings, but be careful in 2D plots to preserve
+    # user bounds for float axis and only modify the string axis.
+    # Also beware that y-axis change can only be done if user specifies x-axis bounds;
+    # passing only y-axis bounds is not allowed
+    # Logic here is a bit nasty
+
+    
+    NDIM_PLOT   = args.NDIM
+    BOUNDS_orig = args.BOUNDS
+    BOUNDS      = BOUNDS_orig
+
+    new_bounds   = f'0 {n_unique} 1'  
+    ndim_bounds  = 0  # dimention of user bounds, not dimension of plot
+    if BOUNDS_orig: 
+        ndim_bounds = len(BOUNDS_orig.split(COLON))
+
+    if NDIM_PLOT == 1 and ndim_bounds <= 1 and which_axis == 'x' :
+        BOUNDS  = new_bounds  # trivial case of replacing None with  new bounds
+
+    if ndim_bounds <= 1 and which_axis == 'y' :
+        pass   # can't do anything here, otherwise code crashed later
+
+    if ndim_bounds == 2 :
+        B_SPLIT = BOUNDS.split(COLON)
+        new_bounds_dict = { 'x': new_bounds + COLON + B_SPLIT[1], 'y': B_SPLIT[0] + COLON + new_bounds }
+        BOUNDS = new_bounds_dict[which_axis]
+
+    if BOUNDS != BOUNDS_orig:
+        logging.info(f"\t update BOUNDS = {BOUNDS_orig}  -->  {BOUNDS}")
+ 
+    logging.info('')
+    return (unique_values, axis_values), BOUNDS  # list of strings,  list of integers
+
+    # end of prep_object_axis
 
 def set_xbins(args, plot_info):
 
@@ -1820,7 +1947,7 @@ def set_xbins(args, plot_info):
 
     else:
         # fetch xmin/maxfrom the data that was read in read_tables()
-        # Make sure get min/max among all variables plotted
+        # Make sure get min/max among all tables
         xmin =  1.0E20
         xmax = -1.0e20
         for key_tf  in MASTER_DF_DICT:
@@ -1879,9 +2006,19 @@ def check_table_varnames(tfile, var_list):
     MXROW_SKIP = 200 # stop checking after this many lines
 
     format_table = None
+    colsep       = r"\s+"  # default column separator is whitespace
 
     for line in t:
-        wdlist = line.split()
+
+        line  = line.rstrip()  # remove trailing space and linefeed 
+        if len(line) == 0: line = '#'  # protect checking line[0] below
+
+        if line[0] != '#' and COMMA in line:
+            colsep = COMMA
+            wdlist = line.split(COMMA)
+        else:
+            wdlist = line.split()
+
         if len(wdlist) == 0 :
             nrow_read += 1
             continue
@@ -1895,7 +2032,7 @@ def check_table_varnames(tfile, var_list):
 
         if wdlist[0] == 'VARNAMES:' :            
             table_var_list = wdlist[1:]
-            format_table = FORMAT_SNANA_TABLE
+            format_table   = FORMAT_SNANA_TABLE
             break
         else:
             nrow_read += 1    
@@ -1905,7 +2042,8 @@ def check_table_varnames(tfile, var_list):
 
     if format_table == FORMAT_SNANA_TABLE:
         nrow_skip = nrow_read
-        logging.info(f"\t Format = {FORMAT_SNANA_TABLE}: found {nrow_skip} rows to skip before 'VARNAMES:' key")
+        logging.info(f"\t Format = {FORMAT_SNANA_TABLE}: found {nrow_skip} " \
+                     f"rows to skip before 'VARNAMES:' key")
     elif format_table == FORMAT_CSV:
         nrow_skip = 0
         logging.info(f"\t Format = {FORMAT_CSV}")
@@ -1922,6 +2060,9 @@ def check_table_varnames(tfile, var_list):
 
     n_idrow = len(varname_idrow)
     if n_idrow != 1 :
+        print(f"\nPre-ABORT dump")
+        print(f"  VALID_IDROW_LIST = {VALID_IDROW_LIST}")
+        print(f"  table_var_list = {table_var_list}")
         sys.exit(f"\n ERROR: found {n_idrow} ID columns: {varname_idrow}\n\t One and only one is allowed. ")
 
     varname_idrow = varname_idrow[0]  # switch from list back to scaler
@@ -1932,13 +2073,13 @@ def check_table_varnames(tfile, var_list):
     for var in var_list:
         if var not in table_var_list:
             n_missing += 1
-            logging.error(f"Missing {var} in {tfile}")
+            logging.error(f"Missing '{var}' in {tfile}")
         if n_missing > 0:
             logging.fatal(f"Missing {n_missing} variables; check @V and @@ERROR args.")
             sys.exit(f"\n\t ABORT")
 
 
-    return varname_idrow, nrow_skip
+    return varname_idrow, nrow_skip, colsep
 
     # end check_table_varnames
 
@@ -1952,7 +2093,6 @@ def poisson_interval(k, alpha=0.32):
     from scipy.stats import chi2
     a = alpha
     low, high = (chi2.ppf(a/2, 2*k) / 2, chi2.ppf(1-a/2, 2*k + 2) / 2)
-
     low[k == 0]  = 0.0
     high[k == 0] = 0.0    
     
@@ -2378,6 +2518,8 @@ def get_info_plot1d(args, info_plot_dict):
     sig_nmad    = get_sig_nmad(x_val_list, w_val_list) 
     frac_outlier= get_frac_outlier(x_val_list, args.OUTLIER_RANGE)
 
+    #sys.exit(f"\n xxx x_val_list = \n{x_val_list}") # xxx REMOVE
+
     stat_dict = {  # value        add legend    format
         STAT_NAME_N       : [ int(nevt),  do_nevt,
                               stat_format(STAT_NAME_N,nevt)         ],
@@ -2495,13 +2637,17 @@ def get_weighted_stats(values, weights):
 
     # Calculate the normalization factor for an unbiased estimate
     sum_of_weights         = np.sum(weights)
-    sum_of_squared_weights = np.sum(weights**2)
     
-    if sum_of_weights == 0 or (sum_of_weights**2 - sum_of_squared_weights) == 0:
-        return 0.0 # Handle cases where weighted variance is undefined
+    # xxxxxxxxxxxxxxx this snippet from AI seems to be wrong xxxxxxxxxxx
+    # sum_of_squared_weights = np.sum(weights**2)
+    # if sum_of_weights == 0 or (sum_of_weights**2 - sum_of_squared_weights) == 0:
+    #    return 0.0 # Handle cases where weighted variance is undefined
+    #
+    # denominator = sum_of_weights - (sum_of_squared_weights / sum_of_weights)
+    # xxxxxxxxxxxxxxxx
 
-    denominator = sum_of_weights - (sum_of_squared_weights / sum_of_weights)
-    
+    denominator = sum_of_weights # RK fix, Feb 17 2026
+
     if denominator <= 0: # Avoid division by zero or negative values for the variance
         return 0.0
 
@@ -2600,7 +2746,6 @@ def compute_ratio(yval0_list, errl0_list, erru0_list,
         # when y0=0 or y0=y1, which messes up polynomial fits to ratio.
 
         logging.info("\t Compute binomial error for ratio.")
-        # xxx mark Oct 17 2025   p  = yval0_list/yval1_list
         p          = (yval0_list+.01)/(yval1_list+.02)  # avoid zero error, Oct 2025
         cov_ratio  = p*(1-p) / yval1_list
         err        = np.sqrt(cov_ratio)
@@ -2880,19 +3025,26 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
     # Created July 21 2024 by R.Kessler
     # wrapper for lots of plt. calls that are repeated several times.
-    
+    # Feb 6 2026; check for strings to plot; show object_values
+
     OPT          = args.OPT    
     do_logy      = OPT_LOGY      in OPT
     do_grid      = OPT_GRID      in OPT
     do_diag_line = OPT_DIAG_LINE in OPT
-    
+    hline_list   = args.HLINE
+    vline_list   = args.VLINE
+
     bounds_dict   = plot_info.bounds_dict
     axis_dict     = plot_info.axis_dict_list[0] # ?? fragile?
+
+    object_labels_dict = plot_info.object_labels_dict  # for strings only (Feb 2026)
     
     custom_bounds = bounds_dict['custom']
     xmin          = bounds_dict['xmin']
     xmax          = bounds_dict['xmax']
     set_ylim      = axis_dict['set_ylim']
+
+
     
     if do_logy:
         plt.yscale("log")
@@ -2916,8 +3068,18 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
     if do_diag_line:
         x = np.linspace(xmin,xmax,100);  y = x
-        plt.plot(x,y, zorder=10)
+        plt.plot(x,y, zorder=10, linestyle='--')
     
+    if hline_list:
+        for y_hline in hline_list:
+            x = np.linspace(xmin,xmax,10);  y = [ float(y_hline) ]*10
+            plt.plot(x, y, zorder=10, linestyle='--', color='black')
+
+    if vline_list:
+        for x_vline in vline_list:
+            y = np.linspace(ymin,ymax,10);  x = [ float(x_vline) ]*10
+            plt.plot(x, y, zorder=10, linestyle='--', color='black')
+
     fsize_label = 12 * args.FONTSIZE_SCALE
     xlabel  = axis_dict['xaxis_label']
     ylabel  = axis_dict['yaxis_label']    
@@ -2935,6 +3097,17 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
         plt.xticks(np.arange(xmin, xmax, step=0.05)) 
         plt.yticks(np.arange(ymin, ymax, step=0.10)) 
     
+    
+    if object_labels_dict['x'] is not None:
+        object_values = object_labels_dict['x'][0]  # string label per x-axis value
+        axis_values   = object_labels_dict['x'][1]  # integer list of axis values
+        plt.xticks( axis_values , object_values, rotation=55 )
+
+    if object_labels_dict.setdefault('y',None) :
+        object_values = object_labels_dict['y'][0]  # string label per x-axis value
+        axis_values   = object_labels_dict['y'][1]  # integer list of axis values
+        plt.yticks( axis_values , object_values )
+
     # - - - - -
     fsize_legend   = 10 * args.FONTSIZE_SCALE
     fsize_legend   = hack_value('fsize_legend', fsize_legend, args)
@@ -3177,8 +3350,11 @@ if __name__ == "__main__":
 
     setup_logging()
     logging.info("# ========== BEGIN plot_table.py  ===============")
+    logging.info(f"matliblib version: {matplotlib.__version__}")
+    logging.info('')
     logging.info(f"Full command: {' '.join(sys.argv)}")
-    
+    logging.info('')
+
     args = get_args()
                               
     # prepare input args
@@ -3194,13 +3370,15 @@ if __name__ == "__main__":
     for var in  args.var_list: 
         set_axis_dict(args, plot_info, var)
 
+    read_tables(args, plot_info)  # read each input file and store data frames (before custom bounds)
+
     # set custom bounds if user passes @@BOUNDS
     set_custom_bounds_dict(args,plot_info)
 
     # set args for hist2d if 2d histogram is requested
     set_hist2d_args(args, plot_info)
 
-    read_tables(args, plot_info)  # read each input file and store data frames
+    # xxx mark read_tables(args, plot_info)  # read each input file and store data frames
 
     # set x bins based on custom bounds or auto bounds
     set_xbins(args, plot_info)

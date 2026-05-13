@@ -74,7 +74,7 @@ struct GRIDGEN_INPUTS {
 typedef struct {
 
   int   IVERSION ;          // internal version
-  char  UNIQUE_KEY[100];
+  char  UNIQUE_KEY[500];
 
   char  SURVEY[60];
   char  MODEL[MXPATHLEN];

@@ -23300,7 +23300,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    SALT2mu.c
      + in function exec_mnparm(), always set REPEAT flag to false so that
        all init is redone -> fixed bug in dust2dust using SUBPROCESS.
-     + few SUBPROCESS fixes for revining dust2dust
+     + few SUBPROCESS fixes for reviving dust2dust
+
      + add SNTABLE_AUTOSTORE_RESET() commands in read_data_override() and in
        parse_cidFile_data() so that cid_select_file and datafile_override
        do not interfere with each other. Caught by R.Camillaro doing Unite analysis.
@@ -23329,6 +23330,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + disable scatter for GRIDGEN option (for PSNID)
 
  
+  
    rename sntools_npz.c to sntools_npz.cpp (for autotools)
 
    remove src/fcasplit.F src/SIMSED_fudge.c    util/obdatamc.py
@@ -23486,12 +23488,342 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       See https://github.com/RickKessler/SNANA/issues/1607 and
           https://github.com/RickKessler/SNANA/issues/1605
 
+    snlc_fit.F90
+       Default PRIOR_AVEXP  = 0.334 -> 1E9 (flat)
+       Default PRIOR_MJDSIG = 20.0  -> 1E9 (flat)
+       Beware for fitting BayeSN, MLCS, SNOOPY
+
+       New flat-top prior on DMU = MU-MU_theory:
+         PRIOR_DMU_RANGE(2) and PRIOR_DMU_SIGMA (gauss roll-off)
+       Beware that original PRIOR_MUERRSCALE is based on errors on Om,w0,wa
+
+    snlc_sim.c
+      fixed nasty memory leak using spectrograph feature; see free(NULL_FLAMERR_LIST)
+   
          *****  USEFUL(v12_01c) *****
+
+    snana.F90: 
+      + Read WRITE_MASK_HEAD into SIM_WRITE_MASK and set logical for
+        SIM_COMPACT_noFLUXCAL to identify (roman-desc) sim in which
+        only MJD, BAND, SIM_MAGOBS appear in PHOT file and there is 
+        no FLUXCAL[ERR]
+      + new &SNLCINP  [SIM_]HEADER_OVERRIDE_DIR pointing to a folder
+        of header overrides
+
+     snlc_fit.F90
+      + new option to make table of priors for plotting;    
+          see https://github.com/RickKessler/SNANA/issues/1612
+      + new option to make table of MARGPDF with SNTABLE_LIST 'SNANA PDF'
+
+     Subtle +HOSTNBR fixes for sim;
+         see https://github.com/RickKessler/SNANA/issues/1615
 
          *****  MISCELLANEOUS(v12_01c) *****
 
      snlc_sim.c:
        + fix malloc bug in function prep_GENPDF_FLAT(); 
            see https://github.com/RickKessler/SNANA/issues/1606
+       + fix subtle bug truncating HOST_NMATCH <= MXHOSTGAL (=2)
+       + new util REQUEST_USER_SPECTRA() used to decide whether or not
+         to abort in init_genSpec; fixes problem of SIMSED.SNIax abort
+         when a SPECTROGRAPH table exists but no spectra are requested.
+
+     plot_table.py
+       + enable plotting strings (e.g., FIELD or SURVEY) and print string
+         label under each tick mark. Works for 1D or 2D plots.
+       + fix STDEV calculation using WGTVAR  (fix AI bug that I missed last Sep 2025)
+       + allow multipe @@WGTVAR values to overlay with different weights
+       + new option @@HLINE and @@VLINE to draw horizontal or vertical line(s)
+          in dashed black
+       + fix to work with comma-sep csv file and space sep csv.
+
+     snana.F90;  
+       + add &SNLCINP input CUTWIN_HOST_NMATCH
+       + fix dumb ENVreplace bug related to HEADER_OVERRIDE_FILE
+
+     sntools_data.c / RD_OVERRIDE_INIT():
+       + fix bug with resolving ENV in path for HEADER override. First file
+         in list gets resolved by command line parser, but not the 2nd file.
+         ENVreplace was called after REQUIRE_DOCANA check, so moved 
+         this call to before REQUIRE_DOCANA check.
+
+       + abort on mix of header-override files key by CID and GALID;
+         must be all keyed by CID or GALID
+       + if HOSTGAL_PHOTOZ in on override list and REDSHIFT_FINAL < 0,
+          update REDSHIFT_FINAL and REDSHIFT_HELIO (and their errors)
+
+     sntools_dataformat_fits.c:
+       + fix bug updating QUANTILE overrides to re-written FITS file;
+          quantile values were fine; bug was in defining column name,
+       
+     SALT2mu.c:
+       - fix sort_IDSAMPLE_biasCor to properly account for zSPEC/zPHOT;
+          see https://github.com/RickKessler/SNANA/issues/1610
+       - for SUBPROCESS-opened files that never close (for D2DFIT), replace rewind
+         with new rewind_and_purge() in sntools.c to actually remove contents
+         of file; this change removes strange artifacts from previous STDOUT lines 
+         appearing in current STDOUT file. 
+       - fix subtle bug in applyCut_chi2max() so that probcc_beams is loaded;
+         here is change for regress test that includes this cut:
+             TASK113_SALT2mu_DES3YR_COVADD  :  mis-match (REF != TEST)
+               ==> REF:  fit-Beta = 3.1122e+00 +/- 1.4986e-01
+               ==> TEST: fit-Beta = 3.1122e+00 +/- 1.4968e-01
+       - add call to release_all_malloc() at end of job;
+          mainly to avoid false errors using valgrind.
+
+   sntools_trigger.c[h]:
+      - enable spec-efficiency map for SNRSUM_REST_V of spectrograph
+      - in gen_SEARCHEFF_SPEC, field MATCH was evaluated but not checked,
+        meaning the FIELD key in SEARCHEFF_SPEC_FILE was ignored --> fixed.
+      - new optional key in zHOST map: OPT_FIELDMATCH_REQUIRE; see manual
+
+      - set APPLYMASK_SEARCHEFF_zSPEC (8) to allow user to select 
+        zSPEC from either SPECID or from zHOST; e.g
+          APPLY_SEARCHEFF_MASK: 9 # 1(pipeline + 8(zSPEC)
+
+      - sim input "REFAC_SEARCHEFF_MAP: 1" implements refactor
+        to use same SPEC-EFF tools/maps on zHOST EFF.
+
+   sntools_genGauss_asym.c:
+     + inside prepIndex_GENGAUSS(), add array bound protection before calling
+       copy_GENGAUSS_ASYM(); should fix dust2dust crash.
+
+   submit_prog_combine.py: fix bug to avoid scooping up tables other than FITRES
+
+
+# =============================================================
+         v12_01d (Mar 24 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01d) *****
+
+    sntools_trigger.c[h]: 
+      For simulation, finish refactor (previous SNANA tag) to treat 
+      SPECEFF_FILE and zHOST_FILE with same underlying code, which should
+      add more flexibility to each map.
+      See INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP  = 0.
+      REFAC not yet default.
+
+         *****  USEFUL(v12_01d) *****
+
+    For photo-z fits, &FINTINP input UVLAM_EXTRAPFLUX is automatically
+    used for blue edge RESTLAMBDA for initial parameter estimates,
+    and then original RESTLAMBDA range is restored for MINUIT fit.
+    See manual section 5.12.6 Avoiding Filter Drop-outs at High PhotoZ.
+
+         *****  MISCELLANEOUS(v12_01d) *****
+
+   sntools_trigger.c
+      + refactor IFILTOBS_SEARCHEFF_VARNAME(...) to inlude int OPT
+        to check for band at begging or end of VARNAME string;
+        allows parsing e.g., J_obs or PEAKMAG_J
+
+   sntools_host.c:
+     + minor refac to read HOSTLIB varnames before checking map files
+       (SPEC, zHOST, GENPD) that contain HOSTLIB variables. 
+       This enables precise checking of which map variables are in
+       the hostlib, so no longer need implicit assumptions about
+       which map variables are in HOSTLIB.
+       
+# =============================================================
+         v12_01e (Apr 3 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01e) *****
+
+    snlc_sim.c: set default INPUTS.REFAC_SEARCHEFF_MAP=1 to release
+        refactor from previous versions for SPEC_FILE and zHOST_FILE.
+        See https://github.com/RickKessler/SNANA/issues/1619
+
+   Add REFAC_DATA_FLAG input to snlc_sim.exe and snana.exe/snlc_fit.exe 
+   to begin adding z-dependent grids to data stream:
+      HOSTGALz_QUANTILE_ZHOT
+      HOSTGALz_LOGMASS
+   First goal is to replace original fixed-length quantiles (NZPHOT_Q=11) 
+   with HOSTGALz_QUANTILE_ZPHOT structure, which allow aribtray NZPHOT_Q 
+   for each event and each NBR host, and allows aribtrary PERCENT grid as well
+   (i.e., PERCENT grid need not be uniform). Second goal is to add HOSTGALz_LOGMASS
+   grid that includes ZGRID[iz], VALGRID[iz], ERRGRID[iz].
+   Set REFAC_DATA_FLAG=1, and there is no going back,
+
+         *****  USEFUL(v12_01e) *****
+
+
+         *****  MISCELLANEOUS(v12_01e) *****
+
+   sntools.c
+     + subtle bug fix in store_PARSE_WORDS to work with newly released
+       refactor.
+
+  create_covariance.py:
+     fix to work without biasCor by adding --nbin_z arg so that user
+     can define number of z-bins rather than BiasCor defining this.
+
+  sntools_dataformat_text.c:
+    + fix awful bug and read SIM_WGT_POPULATION so that text formatted                             
+      BCOR works in BBC  
+
+  sntools_host.c:
+     + for +HOSTNBR option, fix dumb bug from Feb 23 fix (speedup ok)
+       bug added here  https://github.com/RickKessler/SNANA/issues/1615
+       and fixed here  https://github.com/RickKessler/SNANA/issues/1636
+     + in aappend_HOSTLIB_STOREPAR(), skip WGTMAP check if HOSTLIB_GALID_FORCE>0;
+        this fixes spurious abort using HOSTLIB_GALID_FORCE.
+
+   sntools_output.cpp
+     + change void SNTABLE_AUTOSTORE_READ to int function that returns
+       number or rows matching CID; allows parsing things like a light curve
+       or quantiles.
+
+   snlc_fit.F90
+      when using SNCID_LIST_FILE for syst shift, apply FITPROB cut at
+      10% of FITWIN_PROB(1) to remove rare catastrophic fits for 
+      small systematic shift.
+
+   snlc_sim.c: 
+    + add new utility check_parse_args_for_COLON(..) to abort if any
+      arguments contain a ':' which means a key has been read 
+      (intead of required arg) by mistake.
+      This utility has been added for all keys in parse_input_CUTWIN(),
+      and over time this utility should be added to more keys with
+      many args that could lead to user-input mistakes.
+
+   + new sim input GENRANGE_PEAKMJD_EXCLUDE: xx yy
+     to allow for big gaps; e.g., between two seasons or between
+     pilot and main survey.
+
+   quick_commands.py
+     --table_file_dupl has optional 2nd arg = column name to check for duplicates.
+     E.g.
+          quick_commands.py --table_file_dupl FITOPT001.FITRES  HOST_OBJID
+     will check for duplicate HOST_OBJID.
+
+  SWITCH to REFAC_DATA_FLAG=1, and no going back:
+     TASK087_SIMFIT_DES5YR_QZPHOT5   :  mis-match (REF != TEST)
+		==> REF:  ZPHOT-72 = 0.66770 +/- 0.5237E-02(P)
+		==> TEST: ZPHOT-72 = 0.66767 +/- 0.1379E-01(P)
+     TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
+		==> REF:  ZPHOT-72 = 0.65832 +/- 0.8917E-02(P)
+		==> TEST: ZPHOT-72 = 0.65796 +/- 0.5290E-02(P)
+
+   snana.F90
+     + remove obsolete subroutines INIT_REFORMAT_SALT2 WRSALT2_2.
+       and remove SNLCINP OPT_REFORMAT_SALT2
+
+   sntools_genPDF.c: abort if any varname has SIM_ prefix
+
+   psnid_tools.c
+     + update to use ZP_FLUXCAL from data header (no longer hard-coded tp 27.5)
+
+   TO-DO LIST:
+     + increase MXCHAR_CCID->32 for big LSST object IDs:  snana.F90, sndata.h 
+   Reminder To-DO next tag:
+     - MXHOSTGAL                 = 2 --> 3
+     - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4
+
+
+# =============================================================
+         v12_01f (Apr 26 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01f) *****
+
+     - MXHOSTGAL                 = 2 --> 3
+     - ZEROPOINT_FLUXCAL_DEFAULT = 27.5 -> 31.4 (nJY)
+
+         *****  USEFUL(v12_01f) *****
+
+         *****  MISCELLANEOUS(v12_01f) *****
+
+
+   Collatoral damage from ZP_FLUXCAL change:
+     psnid: fixed hard-wired 27.5 to use ZP_FLUXCAL
+     scone: need to fix one hard-wired 27.5
+     SuperNNova: need to ask Anais about ZP change
+
+
+   switching ZEROPOINT_FLUXCAL_DEFAULT resulted in a few small regression failures
+   in LCFITs from very slight changes in FLUXCAL:
+
+    TASK013_SIMFIT_SALT2_DES_ZPHOT5_SNonly  :
+        ==> REF:  ZPHOT-1227 = 0.3757 +- .0146(stat)
+        ==> TEST: ZPHOT-1227 = 0.3757 +- .0025(stat)
+   
+    TASK023_SIMFIT_ROMAN_ZPHOT       
+        ==> REF:  zPHOT-4 = 1.2712 +/- 0.3038E-01(P)
+        ==> TEST: zPHOT-4 = 1.2745 +/- 0.1996E-01(P)
+
+    TASK041_SIMFIT_NON1ASED_DES 
+        ==> REF:  DLMAG-22 = 41.584 +/- 0.1619
+        ==> TEST: DLMAG-22 = 41.584 +/- 0.1614
+
+   TASK044_SIMFIT_SIMSED_FLASH1    
+       ==> REF:  x0-50008 = 0.68955E-04 +/- 0.2717E-05(P)
+       ==> TEST: x0-50008 = 0.68954E-04 +/- 0.2717E-05(P)   
+
+   TASK120_SCONE_PREDICT_DES3YR_SIM  
+       ==> REF:  scone_predict_des3yr_sim = 1039,0.48471913
+       ==> TEST: scone_predict_des3yr_sim = 1039,0.48609486
+
+   TASK121_SCONE_PREDICT_DES3YR_DATA  
+       ==> REF:  scone_predict_des3yr_data = 1297026,0.48158652
+       ==> TEST: scone_predict_des3yr_data = 1297026,0.48291832
+
+# =============================================================
+         v12_01g (Apr 26 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01g) *****
+
+   Begin new sntools_spline.c[h] that will be a more general replacement for
+   sntools_zPDF_spline.c[h]. The former is will on both quantiles and logmass
+   vs. zgrid. New spline code is invoked with DEBUG_FLAG = 28.
+   ../util/set_Cpreproc_flags.py was updated as well to protect Midway
+   from steffan spline option.
+
+         *****  USEFUL(v12_01g) *****
+
+   Begin fixing -Wall compilation warnings (tons of them)
+
+   Allow new key  "NULL_ON_MISSING_EVENT: 1" inside HEADER_OVERRIDE_FILE
+   to skip reading the override variables from data file so that they
+   remain NULL if not in the override file. Initial reason is photo-z systmatics
+   where zPHOT(sys) are missing for some events that have zPHOT(baseline);
+   we don't want to use zPHOT(baseline) in the systematic test.
+   See manual.
+
+         *****  MISCELLANEOUS(v12_01g) *****
+
+    snlc_sim.c:
+       + for "DNDZ: FLAT" set z range in parse_input_RATEPAR() 
+         to avoid abort.
+       + fix bug setting IFLAG_SPECID_EFFZERO
+           (left-over bug from recent REFAC_SEARCHEFF)
+
+    genmag_extrap.c:
+       call print_genmag_extrap_table() from init stage to show
+       dimming vs. rest-frame phase and wavelength.
+
+    sntools_trigger.c[h]
+      + remove legacy functions from recent REFAC_SEARCHEFF.
+
+    sntools_dataformat_fits.h
+        MXPAR_SNFITSIO -> 800 (was 600); needs more allowance
+        with 3rd host added to output.
+
+    snlc_fit.F90:
+      + add new &FITINP VARLIST_PDF
+      + fix a few divide-by-zero bugs (FCNSNLC and FKPRAT)
+
+    ALL: make all calls to fread, fwrite, fseek return to valid arg;
+        e.g.. replace "fread(...) with "fret = fread(...)"
+
+
+    As part of testing new sntools_spline.c[h] against legacy sntools_zPDF_spline,
+    legacy NBIN=20 was changed to NBIN=100 to match the newer code for comparing
+    results. This change in NBIN results in very small changes in Quantile results
+    in regression test:
+       TASK087_SIMFIT_DES5YR_QZPHOT5   :  mis-match (REF != TEST)
+             ==> REF:  ZPHOT-72 = 0.66768 +/- 0.2028E-01(P)
+             ==> TEST: ZPHOT-72 = 0.66766 +/- 0.2017E-01(P)
+       TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
+             ==> REF:  ZPHOT-72 = 0.65831 +/- 0.7417E-02(P)
+             ==> TEST: ZPHOT-72 = 0.65781 +/- 0.2210E-01(P)
 
 END: 

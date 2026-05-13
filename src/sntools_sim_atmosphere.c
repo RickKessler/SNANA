@@ -45,7 +45,7 @@ void INIT_ATMOSPHERE(void) {
   int ifilt, ifilt_obs, NLAM, ilam, MEMD ;
   double lamavg_flat, lamavg_calstar, n_calstar, lam, n_site;
   char *cfilt ;
-  char fnam[] = "INIT_ATMOSPHERE" ;
+  char fnam[] = "INIT_ATMOSPHERE" ;  (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -143,7 +143,7 @@ void INIT_ATMOSPHERE(void) {
 
   if ( REQUIRE_RESPOLY ) { 
 
-    double SNR, ANGRES, STATRES;
+    double SNR, STATRES;
     GENPOLY_DEF *RESPOLY = &INPUTS_ATMOSPHERE.DCR_COORDRES_POLY;
 
     if ( RESPOLY->ORDER < 0 ) {
@@ -202,7 +202,7 @@ void  read_stellar_sed_atmos(void) {
 
   char *ptrFile = INPUTS_ATMOSPHERE.SEDSTAR_FILE;
   int    MEMD = sizeof(double);
-  char fnam[] = "read_stellar_sed_atmos" ;
+  char fnam[] = "read_stellar_sed_atmos" ;  (void)fnam;
 
   // ----------- BEGIN -----------
 
@@ -240,7 +240,7 @@ void init_stellar_sed_atmos(int ifilt_obs) {
   int    MEMD         = NLAM_FILTER * sizeof(double);
   int ilam;
   double lamavg, lam, trans, flux_star, sum0=0.0, sum1=0.0 ;
-  char fnam[] = "init_stellar_sed_atmos" ;
+  char fnam[] = "init_stellar_sed_atmos" ;  (void)fnam;
 
   // ---------- BEGIN ----------
 
@@ -275,9 +275,8 @@ void GEN_ATMOSPHERE_DRIVER(void) {
   // Created May 2023 by R.Kessler
   // Driver routine to simulate atmoshperic effects
 
-  int NEPOCH = GENLC.NEPOCH ;
   int ep;
-  char fnam[] = "GEN_ATMOSPHERE_DRIVER" ;
+  char fnam[] = "GEN_ATMOSPHERE_DRIVER" ;  (void)fnam;
 
   // ------------ BEGIN ----------
 
@@ -309,8 +308,7 @@ void GEN_ATMOSPHERE_DRIVER(void) {
 void INIT_EVENT_ATMOSPHERE(void) {
 
   // Init stuff for each event
-  int ifilt, ifilt_obs;
-  char fnam[] = "INIT_EVENT_ATMOSPHERE";
+  char fnam[] = "INIT_EVENT_ATMOSPHERE";  (void)fnam;
 
   // ------------ BEGIN ----------
 
@@ -327,7 +325,7 @@ void INIT_EVENT_ATMOSPHERE(void) {
 void reset_COORD_AVG(COORD_AVG_DEF *COORD_AVG) {
 
   int ifilt, ifilt_obs ;
-  char fnam[] = "reset_COORD_AVG" ;
+  char fnam[] = "reset_COORD_AVG" ;  (void)fnam;
   // ---------- BEGIN -------
 
   COORD_AVG->AVG = COORD_AVG->SUM = COORD_AVG->WGTSUM = 0.0 ;
@@ -346,7 +344,7 @@ void sum_COORD_AVG(COORD_AVG_DEF *COORD,
 		   double RA_OBS, double WGT, int IFILT_OBS) {
 
   // Increment sums for wgtd avg in COORD struct.
-  char fnam[] = "sum_COORD_AVG" ;
+  char fnam[] = "sum_COORD_AVG" ;  (void)fnam;
 
   // --------- BEGIN -------
 
@@ -399,7 +397,7 @@ void gen_airmass(int epoch) {
   double test_RA     = 149.;
   double test_DEC    = 2.2 ;
 
-  char fnam[] = "gen_airmass" ;
+  char fnam[] = "gen_airmass" ;  (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -432,10 +430,7 @@ void gen_airmass(int epoch) {
   if ( geoLAT > 1000.0 || geoLON > 1000.0 ) { return; }    
 
   double JD2000   = 2451545.0;
-  int    iMJD     = (int)MJD;       // MJD of previous midnight
   double JD       = MJD + 2400000.5 ;
-  double JD0      = (double)iMJD + 2400000.5 ;
-  double D_UT     = JD0 - JD2000 ;
   double T_U      = (JD - JD2000)/36525.0 ; //Number of Julian Centuries since J2000.0
 
   // compute h = hourAngle = Local Siderial Time (LST) - RA
@@ -450,8 +445,6 @@ void gen_airmass(int epoch) {
   // compute airmass ...
   double sin_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY];
   double cos_geoLAT = SURVEY_INFO.cos_geoLAT[IDSURVEY];
-  double sin_LON    = GENLC.sin_GLON ;
-  double cos_LON    = GENLC.cos_GLON ;
 
   // avoid re-computing trig functions for each obs
   double sin_DEC    = GENLC.sin_DEC ;
@@ -515,7 +508,6 @@ void genSmear_coords(int epoch) {
   double PSF_FWHM = SIMLIB_OBS_GEN.PSF_FWHM[epoch];
 
   int IFILT_OBS  = GENLC.IFILT_OBS[epoch];
-  int detectFlag = SEARCHEFF_DATA.detectFlag[epoch-1] ; // regular C index
 
 
   bool VALID_DCR_SHIFT = ( GENLC.RA_dcr_shift[epoch] < COORD_SHIFT_NULL_DEG );
@@ -526,7 +518,7 @@ void genSmear_coords(int epoch) {
   double STATRES_TRUE_asec, STATRES_OBS_asec;
   double ANGRES_TRUE_asec, ANGRES_TRUE_deg, ran_RA, ran_DEC, WGT ;
   double ANGRES_OBS_asec,  ANGRES_OBS_deg;
-  char fnam[] = "genSmear_coords" ;
+  char fnam[] = "genSmear_coords" ;  (void)fnam;
 
   // ----------- BEGIN ---------
 
@@ -598,24 +590,24 @@ void gen_dcr_coordShift(int ep) {
   int  OPTMASK      = INPUTS_ATMOSPHERE.OPTMASK;
   bool DO_DCR_COORD = (OPTMASK & ATMOSPHERE_OPTMASK_DCR_COORD) > 0 ;
 
-  double ALTITUDE   = GENLC.ALTITUDE[ep];
-  double AIRMASS    = GENLC.AIRMASS[ep];
-  double ANG_ZENITH = GENLC.ANG_ZENITH[ep];
-  double tan_ZENITH = GENLC.tan_ZENITH[ep];
-  int    IFILT_OBS  = GENLC.IFILT_OBS[ep];
+  //  double ALTITUDE   = GENLC.ALTITUDE[ep];
+  //  double AIRMASS    = GENLC.AIRMASS[ep];
+  //  double ANG_ZENITH = GENLC.ANG_ZENITH[ep];
+  //  double tan_ZENITH = GENLC.tan_ZENITH[ep];
+  //  int    IFILT_OBS  = GENLC.IFILT_OBS[ep];
   
-  double RA         = GENLC.RA ;  // true RA 
-  double DEC        = GENLC.DEC ; // true DEC   
-  double LON        = GENLC.GLON; // SN coord
-  double LAT        = GENLC.GLAT ;
+  //  double RA         = GENLC.RA ;  // true RA 
+  //  double DEC        = GENLC.DEC ; // true DEC   
+  //  double LON        = GENLC.GLON; // SN coord
+  //  double LAT        = GENLC.GLAT ;
   double sin_DEC    = GENLC.sin_DEC;
   double cos_DEC    = GENLC.cos_DEC ;
   double sin_h      = GENLC.sin_h[ep];
 
   int IDSURVEY      = GENLC.IDSURVEY ;
-  double geoLAT     = SURVEY_INFO.geoLAT[IDSURVEY];  // telescope geo coord
-  double geoLON     = SURVEY_INFO.geoLON[IDSURVEY] ;
-  double geoALT     = SURVEY_INFO.geoALT[IDSURVEY] ;
+  //  double geoLAT     = SURVEY_INFO.geoLAT[IDSURVEY];  // telescope geo coord
+  //  double geoLON     = SURVEY_INFO.geoLON[IDSURVEY] ;
+  //  double geoALT     = SURVEY_INFO.geoALT[IDSURVEY] ;
   double sin_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY] ;
   double cos_geoLAT = SURVEY_INFO.cos_geoLAT[IDSURVEY] ;
 
@@ -623,8 +615,7 @@ void gen_dcr_coordShift(int ep) {
   // e.g., pre-explosion or at late times where model-mags are 
   // extrapolated and thus there is no SED
   double SHIFT_NULL = COORD_SHIFT_NULL_DEG ;
-  double wave_sed_wgted;
-  char fnam[] = "gen_dcr_coordShift" ;
+  char fnam[] = "gen_dcr_coordShift" ;  (void)fnam;  
 
   // -------------- BEGIN -----------
 
@@ -708,7 +699,6 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
 
   int    IFILT_OBS      = GENLC.IFILT_OBS[ep];
   int    IFILT          = IFILTMAP_SEDMODEL[IFILT_OBS] ;
-  int    NMJD_TOT       = GENSPEC.NMJD_TOT ;
   double MJD            = GENLC.MJD[ep];
   double TOBS           = GENLC.epoch_obs[ep];
   double tan_ZENITH     = GENLC.tan_ZENITH[ep];
@@ -717,7 +707,7 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
   int    IMJD ;
   double n_site;  // index of refrac at site
 
-  char fnam[] = "compute_DCR_angle" ;
+  char fnam[] = "compute_DCR_angle" ; (void)fnam;
 
   // ------------ BEGIN ----------
 
@@ -725,7 +715,7 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
   IMJD = IMJD_GENSPEC(MJD);
 
   if ( IMJD < 0 ) {
-    sprintf(c1err,"Unable to find SED IMJD for MJD=%f" );
+    sprintf(c1err,"Unable to find SED IMJD for:" );
     sprintf(c2err,"ep=%d  MJD=%.4f  Tobs=%.2f", ep, MJD, TOBS);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
@@ -743,7 +733,6 @@ double compute_DCR_angle(int ep, int DUMPFLAG) {
   int NLAM_SED    = INPUTS_SPECTRO.NBIN_LAM;
   double *ptrFLUXSED    = GENSPEC.GENFLUX_LIST[IMJD];   // transient SED
   double *ptrLAMSED     = INPUTS_SPECTRO.LAMAVG_LIST;
-  double  LAMSED_BINSIZE = INPUTS_SPECTRO.LAMBIN_LIST[0];
 
   double sum0_SED=0.0, sum1_SED=0.0 ;
   double sum0_CAL=0.0, sum1_CAL=0.0 ;
@@ -816,11 +805,10 @@ void test_compute_dcr(void) {
   // Compute DCR on a grid of airmass and LAM to compute with 
   // Table 1 in Fillipenko 1982.
 
-  int    IDSURVEY = 12; // LSST
   double LAMMIN_TEST=3000.0, LAMMAX_TEST=10000.0, LAMBIN_TEST=1000.0;
-  double airmass, tanz, z, lam, dcr ;
-  int    DUMPFLAG = 0 ;
-  char fnam[] = "test_compute_dcr" ;
+  double airmass, lam, dcr ;
+  int    DUMPFLAG = 0 ;  (void)DUMPFLAG;
+  char fnam[] = "test_compute_dcr" ;  (void)fnam;
 
   // ---------- BEGIN ---------
 
@@ -835,8 +823,6 @@ void test_compute_dcr(void) {
 
   // - - - - - 
   for ( airmass = 1.0; airmass < 4.0; airmass += 1.0 ) {
-    z = acos(1.0/airmass);
-    tanz = tan(z);
     printf(" %6.3f    ", airmass);
 
     for(lam=LAMMIN_TEST ; lam < LAMMAX_TEST; lam+=LAMBIN_TEST ) {
@@ -874,7 +860,7 @@ double compute_index_refrac_atmos(double LAM, int DUMPFLAG) {
 
   double denom_T, tmp0, tmp1, tmp2, r ;
   double ONE = 1.0;
-  char fnam[] = "compute_index_refrac_atmos" ;
+  char fnam[] = "compute_index_refrac_atmos" ;  (void)fnam;
 
   // ---------- BEGIN ----------
 
@@ -934,8 +920,8 @@ void gen_dcr_magShift(int ep) {
   bool VALID_DCR_SHIFT  = (  dcr_shift_deg < COORD_SHIFT_NULL_DEG );
 
   int    LDMP = ( GENLC.CID == -2 ) ;
-  double fracPSF, PSF_FWHM, mag_shift ;
-  char fnam[] = "gen_dcr_magShift" ;
+  double fracPSF, PSF_FWHM, mag_shift=0.0 ;
+  char fnam[] = "gen_dcr_magShift" ;  (void)fnam;
 
   // ---------- BEGIN -------------
 

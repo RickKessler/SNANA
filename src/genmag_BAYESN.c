@@ -30,6 +30,8 @@ Each sample counts as 0.01 seconds.
 
   Oct 29 2025 RK - 2D error map model is now default; impacts LC fitting (no impact on sim)
 
+  May 1 2026 RK - minor fixes to avoid -Wall compilation warnings.
+
 ********************************************/
 
 #include "stdio.h"
@@ -38,6 +40,7 @@ Each sample counts as 0.01 seconds.
 #include "gsl/gsl_linalg.h"
 #include "gsl/gsl_cblas.h"
 #include "gsl/gsl_matrix.h"
+#include <gsl/gsl_blas.h>   // RK May 1 2026 ... fix gsl_blas_dgemv warnings
 #include "fitsio.h"
 #include "sntools.h"
 #include "genmag_SEDtools.h"
@@ -110,10 +113,12 @@ void read_BAYESN_inputs(char * filename) {
     double N_TAU =  -1.0;
     double N_SIG =  -1.0;
 
-    double *L_Sigma_epsilon;
-    double *W0;
-    double *W1;
+    double *L_Sigma_epsilon = NULL;
+    double *W0 = NULL;
+    double *W1 = NULL;
     
+    bool is_malloc_W0=false, is_malloc_W1=false, is_malloc_epsilon=false; // RK
+
     // we need something to store the current scalar value from the YAML file
     double this_scalar = 0.0;
     // and something to point to the current BayeSN variable being populated
@@ -121,6 +126,7 @@ void read_BAYESN_inputs(char * filename) {
     double *bayesn_var_dptr = &this_scalar;
     int i;
 
+    // ----------- BEGIN ----------
     sprintf(BANNER, "%s : Begin reading BAYESN model components from %s", fnam, filename);
     print_banner(BANNER);
 
@@ -140,17 +146,26 @@ void read_BAYESN_inputs(char * filename) {
          printf("Parser error %d\n", parser.error);
          exit(EXIT_FAILURE);
       }
-    
+
+      // May 1 2026 RK - to avoid -Wall compilation warnings, 
+      //  re-cast yaml's unsigned char value to regular char.
+      const char *scalar_value = (const char*)event.data.scalar.value;
+
+      // - - - - 
       // We check what kind of event we get 
       switch(event.type)
       {
       // blank line
-      case YAML_NO_EVENT: puts("No event!"); break;
-      case YAML_STREAM_START_EVENT: puts("Reading BayeSN YAML file"); break;
-      case YAML_STREAM_END_EVENT:   puts("Done loading from BayeSN YAML file");   break;
-    
-      /* Block delimeters - I don't actually need to do anything with these events */
-      /*
+      case YAML_NO_EVENT: 
+	puts("No event!"); break;
+      case YAML_STREAM_START_EVENT: 
+	puts("Reading BayeSN YAML file"); break;
+      case YAML_STREAM_END_EVENT: 
+	puts("Done loading from BayeSN YAML file");   break;
+	
+
+	// Block delimeters - I don't actually need to do anything with these events 
+	// May 1 2026 RK - put this case checks back to avoid -Wall compile warnings
       case YAML_DOCUMENT_START_EVENT: puts("<b>Start Document</b>"); break;
       case YAML_DOCUMENT_END_EVENT:   puts("<b>End Document</b>");   break;
       case YAML_MAPPING_START_EVENT:  puts("<b>Start Mapping</b>");  break;
@@ -158,7 +173,6 @@ void read_BAYESN_inputs(char * filename) {
       case YAML_ALIAS_EVENT:  
           printf("Got alias (anchor %s)\n", event.data.alias.anchor); 
           break;
-      */
     
       // the events we care about are all "Scalar" events
       // even if the data being read is a vector or a matrix, it is parsed element-by-element
@@ -167,19 +181,19 @@ void read_BAYESN_inputs(char * filename) {
           // we need to require three events to define the sizes of the rest of the arrays
           // these HAVE to be the first three events in the YAML file
           // but within those three, they can be in any order
-          if (strcmp(event.data.scalar.value, "N_LAM")==0)
+          if (strcmp(scalar_value, "N_LAM")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &N_LAM;
               break;
           }
-          if (strcmp(event.data.scalar.value, "N_TAU")==0)
+          if (strcmp(scalar_value, "N_TAU")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &N_TAU;
               break;
           }
-          if (strcmp(event.data.scalar.value, "N_SIG")==0)
+          if (strcmp(scalar_value, "N_SIG")==0)
           {
               datatype = 1; 
               bayesn_var_dptr = &N_SIG;
@@ -187,13 +201,13 @@ void read_BAYESN_inputs(char * filename) {
           }
 
           // 20230911 - GSN - need to get the wavelengths from the file
-          if (strcmp(event.data.scalar.value, "L_FILTER_CEN_MIN")==0)
+          if (strcmp(scalar_value, "L_FILTER_CEN_MIN")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &BAYESN_MODEL_INFO.l_filter_cen_min;
               break;
           }
-          if (strcmp(event.data.scalar.value, "L_FILTER_CEN_MAX")==0)
+          if (strcmp(scalar_value, "L_FILTER_CEN_MAX")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &BAYESN_MODEL_INFO.l_filter_cen_max;
@@ -203,25 +217,25 @@ void read_BAYESN_inputs(char * filename) {
 
     
           // next we'll define how to handle the scalars
-          if (strcmp(event.data.scalar.value, "M0")==0)
+          if (strcmp(scalar_value, "M0")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &BAYESN_MODEL_INFO.M0;
               break;
           }
-          if (strcmp(event.data.scalar.value, "SIGMA0")==0)
+          if (strcmp(scalar_value, "SIGMA0")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &BAYESN_MODEL_INFO.SIGMA0;
               break;
           }
-          if (strcmp(event.data.scalar.value, "RV")==0)
+          if (strcmp(scalar_value, "RV")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &BAYESN_MODEL_INFO.RV;
               break;
           }
-          if (strcmp(event.data.scalar.value, "TAUA")==0)
+          if (strcmp(scalar_value, "TAUA")==0)
           {
               datatype = 1;
               bayesn_var_dptr = &BAYESN_MODEL_INFO.TAUA;
@@ -229,7 +243,7 @@ void read_BAYESN_inputs(char * filename) {
           }
     
           // next we'll define the vectors
-          if (strcmp(event.data.scalar.value, "L_KNOTS")==0)
+          if (strcmp(scalar_value, "L_KNOTS")==0)
           {
               datatype = 2;
               BAYESN_MODEL_INFO.lam_knots = malloc(sizeof(double)*(int)N_LAM);
@@ -240,7 +254,7 @@ void read_BAYESN_inputs(char * filename) {
               bayesn_var_dptr = &BAYESN_MODEL_INFO.lam_knots[col];
               break;
           }
-          if (strcmp(event.data.scalar.value, "TAU_KNOTS")==0)
+          if (strcmp(scalar_value, "TAU_KNOTS")==0)
           {
               datatype = 2;
               BAYESN_MODEL_INFO.tau_knots = malloc(sizeof(double)*(int)N_TAU);
@@ -253,31 +267,34 @@ void read_BAYESN_inputs(char * filename) {
           }
     
           // finally parse the 2D matrices
-          if (strcmp(event.data.scalar.value, "W0")==0)
+	  int LEN_W0W1     = (int)N_LAM * (int)N_TAU ;
+	  int LEN_EPSILON  = (int)N_SIG * (int)N_SIG ;
+          if (strcmp(scalar_value, "W0")==0 )
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-              W0 = malloc(sizeof(double)*(int)N_LAM*(int)N_TAU);
+	      W0  = calloc(LEN_W0W1, sizeof(double)) ; is_malloc_W0 = true;
               row = 0;
               col = 0;
               bayesn_var_dptr = &W0[col];
               break;
           }
-          if (strcmp(event.data.scalar.value, "W1")==0)
+          if (strcmp(scalar_value, "W1")==0)
           {
               datatype = 3;
               rowsize = (int) N_TAU;
-              W1 = malloc(sizeof(double)*(int)N_LAM*(int)N_TAU);
+	      W1  = calloc(LEN_W0W1, sizeof(double)) ; is_malloc_W1 = true;
               row = 0;
               col = 0;
               bayesn_var_dptr = &W1[col];
               break;
           }
-          if (strcmp(event.data.scalar.value, "L_SIGMA_EPSILON")==0)
+          if (strcmp(scalar_value, "L_SIGMA_EPSILON")==0)
           {
               datatype = 3;
               rowsize = (int) N_SIG;
-              L_Sigma_epsilon = malloc(sizeof(double)*(int)N_SIG*(int)N_SIG);
+              L_Sigma_epsilon = calloc(LEN_EPSILON, sizeof(double));   
+	      is_malloc_epsilon = true;
               row = 0;
               col = 0;
               bayesn_var_dptr = &L_Sigma_epsilon[col];
@@ -286,7 +303,7 @@ void read_BAYESN_inputs(char * filename) {
     
           if (datatype !=0 )
           {
-              this_scalar = atof(event.data.scalar.value);
+              this_scalar = atof(scalar_value);
     
               // if we read a scalar we're done with one read
               if (datatype == 1)
@@ -369,24 +386,27 @@ void read_BAYESN_inputs(char * filename) {
     BAYESN_MODEL_INFO.L_Sigma_epsilon = gsl_matrix_alloc(BAYESN_MODEL_INFO.n_sig_knots 
                                                          ,BAYESN_MODEL_INFO.n_sig_knots);
 
+    int k = 0, j;  
     // finally initalize the GSL matrices 
-    int k = 0, j;
-    for (i = 0; i < BAYESN_MODEL_INFO.n_lam_knots; i++)
-    {
-        for (j = 0; j < BAYESN_MODEL_INFO.n_tau_knots; j++)
-        {
-            k = i*BAYESN_MODEL_INFO.n_tau_knots + j;
-            gsl_matrix_set(BAYESN_MODEL_INFO.W0, i, j, W0[k]);
-            gsl_matrix_set(BAYESN_MODEL_INFO.W1, i, j, W1[k]);
-        }
+    if ( is_malloc_W0 && is_malloc_W1 ) {
+      for (i = 0; i < BAYESN_MODEL_INFO.n_lam_knots; i++)   {
+	for (j = 0; j < BAYESN_MODEL_INFO.n_tau_knots; j++)
+	  {
+	    k = i*BAYESN_MODEL_INFO.n_tau_knots + j;
+	    gsl_matrix_set(BAYESN_MODEL_INFO.W0, i, j, W0[k]);
+	    gsl_matrix_set(BAYESN_MODEL_INFO.W1, i, j, W1[k]);
+	  }
+      }
     }
-    for (i = 0; i < BAYESN_MODEL_INFO.n_sig_knots; i++)
-    {
-        for (j = 0; j < BAYESN_MODEL_INFO.n_sig_knots; j++)
-        {
-            k = i*BAYESN_MODEL_INFO.n_sig_knots + j;
-            gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[k]);
-        }
+
+    if ( is_malloc_epsilon ) {
+      for (i = 0; i < BAYESN_MODEL_INFO.n_sig_knots; i++)  {
+	for (j = 0; j < BAYESN_MODEL_INFO.n_sig_knots; j++)
+	  {
+	    k = i*BAYESN_MODEL_INFO.n_sig_knots + j;
+	    gsl_matrix_set(BAYESN_MODEL_INFO.L_Sigma_epsilon, i, j, L_Sigma_epsilon[k]);
+	  }
+      }
     }
 
     return ;
@@ -421,10 +441,6 @@ int init_genmag_BAYESN(
   // Oct 13 2025:
   //     ST - more fine-grained control of extrapolation
 
-  int  ised;
-  int  retval = 0   ;
-  int  ABORT_on_LAMRANGE_ERROR = 0;
-  int  ABORT_on_BADVALUE_ERROR = 1;
   char fnam[] = "init_genmag_BAYESN";
 
   // -------------- BEGIN --------------
@@ -498,8 +514,7 @@ int init_genmag_BAYESN(
   }
   
   // this loads all the BAYESN model components into the BAYESN_MODEL_INFO struct
-  char version[60], yaml_file[MXPATHLEN];
-
+  char version[60], yaml_file[MXPATHLEN+20];
   extract_MODELNAME(MODEL_VERSION, BAYESN_MODELPATH, version);
   sprintf(yaml_file, "%s/BAYESN.YAML", BAYESN_MODELPATH);
   read_BAYESN_inputs(yaml_file);
@@ -535,6 +550,7 @@ int init_genmag_BAYESN(
 		     ,&S0->NLAM, S0->LAM, &S0->LAMSTEP
 		     ,S0->FLUX,  S0->FLUXERR
 		     ,&nflux_nan);
+  (void)istat;
 
   if ( NFILT_SEDMODEL == 0 ) {
     sprintf(c1err,"No filters defined ?!?!?!? " );
@@ -685,7 +701,7 @@ void genmag_BAYESN(
 
   int      OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW;
   double * PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW;
-  double   z1, meanlam_obs, meanlam_rest, ZP, PARDUM=0.0 ; 
+  double   z1, meanlam_obs, meanlam_rest, ZP; 
   double   t0, t1, f0, f1, flux ;
 
   int      MEMD        = sizeof(double)*Nobs;
@@ -695,7 +711,7 @@ void genmag_BAYESN(
   int    * preexp_flag = malloc(MEMD); // ST
 
   char   * cfilt ;
-  int      ifilt = 0, i, o ; 
+  int      ifilt = 0, o ; 
   
   // allocate matrices for the spline operations
   gsl_vector_view j_lam;
@@ -709,7 +725,7 @@ void genmag_BAYESN(
   int     nday_model, nlam_model, ilam_model_blue, ilam_model_red ;
   double *lam_filt_array, lamstep_filt, *trans_filt_array;
   double *lam_model_array, *day_model_array;
-  double  mag, lamstep_model, daystep_model, dlam_tmp, dday_tmp;
+  double  lamstep_model, daystep_model, dlam_tmp, dday_tmp;
   
   bool    USE_TABLE_XTMW   = true ;
   bool    USE_TABLE_XThost = true ;
@@ -764,7 +780,7 @@ void genmag_BAYESN(
   
   // get the SN-model wavelengths and times
   nlam_model       = BAYESN_MODEL_INFO.S0.NLAM;
-  nday_model       = BAYESN_MODEL_INFO.S0.NDAY;
+  nday_model       = BAYESN_MODEL_INFO.S0.NDAY;  (void)nday_model;
   lam_model_array  = BAYESN_MODEL_INFO.S0.LAM;
   day_model_array  = BAYESN_MODEL_INFO.S0.DAY;
   lamstep_model    = BAYESN_MODEL_INFO.S0.LAMSTEP; // RK
@@ -802,8 +818,6 @@ void genmag_BAYESN(
   // interpolate the filter wavelengths on to the model in the observer frame
   // usually this is OK because the filters are more coarsely defined than the model
   // that may not be the case with future surveys and we should revisit
-  int    this_nlam  = ilam_model_red - ilam_model_blue + 1;
-  int    OPT_INTERP = 1 ;         // 1=linear, 2=quadratic
   int    q_lam, q_day;
   double this_lam, lam_model ;
   double this_trans, tr0, tr1, frac ;
@@ -1013,7 +1027,7 @@ int  init_magerr_map_BAYESN(void) {
   int OPT_EXTRAP = 0 ;  // 1-> extrap, 0->return error, -1->abort outside range
   char MAPNAME[] = "MAGERR_BAYESN" ;
   char KEY_ROW[] = "MAGERR:" ;
-  char magerr_map_file[MXPATHLEN];
+  char magerr_map_file[2*MXPATHLEN];
   FILE *fp;
   
   int istat = 0;
@@ -1084,16 +1098,9 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
   //   parList_HOST:  host parmas (TBD ...)
   int istat ;
   double magerr = MAGERR_UNDEFINED ;
-  double Trest_local = Trest;
   double wave_local  = wavelength;
   char fnam[] = "get_magerr_BAYESN" ;
   // ----------- BEGIN ------------
-  
-  /* xxxxx mark delete 9.24.2025 by R.Kessler xxxxxx
-  magerr = 0.01; // original hack default
-  if ( !ENABLE_TEST_BAYESN ) { return magerr; }
-  xxxxxxxx end mark xxxxxxxx */
-
 
   // if we get here, try new magerr model based on z=0.01 sims with EXPSOURE_TIME >>> 1/
 
@@ -1108,6 +1115,7 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
   else if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_MAP ) {
     double data[2] = { Trest, wavelength } ;
     istat = interp_GRIDMAP(&GRIDMAP_MAGERR_BAYESN, data, &magerr );
+    (void)istat;
   }
 
   return magerr;

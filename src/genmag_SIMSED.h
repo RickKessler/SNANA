@@ -19,7 +19,7 @@
 
 #define SIMSED_INFO_FILENAME    "SED.INFO" 
 #define SIMSED_BINARY_FILENAME  "SED.BINARY" 
-char SIMSED_INFO_FILENAME_FULL[MXPATHLEN] ;
+char SIMSED_INFO_FILENAME_FULL[2*MXPATHLEN] ;
 
 // useful numbers
 
@@ -52,7 +52,7 @@ bool ISWGTMAP_SIMSED;  // True = user-provided SIMSED_WGTMAP file
 ***********************************************/
 
 char SIMSED_PATHMODEL[MXPATHLEN];
-char SIMSED_KCORFILE[MXPATHLEN];
+char SIMSED_KCORFILE[2*MXPATHLEN];
 // xxx mark delete Dec 2021 char SIMSED_PATHBINARY[MXPATHLEN]; 
 
 struct { 

@@ -19,6 +19,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <glob.h>
+#include <fcntl.h>
 
 #include "sndata.h"
 
@@ -79,6 +80,7 @@
 #define COLON      ":"              // to split colon-sep strings
 #define PERCENT    "%"              // idem for %-sep strings
 #define PLUS       "+"
+#define MINUS      "-"
 #define STAR       "*"
 #define DOT        "."
 #define ALL        "ALL"
@@ -227,8 +229,9 @@ struct {
 
 
 // errsmsg parameters
-char c1err[200];   // for kcorerr utility
-char c2err[200];   // for kcorerr utility
+#define MXCHAR_MSGERR 200
+char c1err[MXCHAR_MSGERR+20];   // for kcorerr utility
+char c2err[MXCHAR_MSGERR+20];   // for kcorerr utility
 char BANNER[200];
 int  EXIT_ERRCODE;  // program error code set by program (Jan 2019)
 
@@ -313,7 +316,7 @@ struct {
 typedef struct  {
   int ORDER;       // 2 -> 2nd order -> a + b*x + c*x^2
   double COEFF_RANGE[MXORDER_GENPOLY][2]; // range for each coeff.
-  char   STRING[200]; // string that was parsed to get COEFF_RANGEs
+  char   STRING[160]; // string that was parsed to get COEFF_RANGEs
   char   VARNAME[40]; // optional variable name
 } GENPOLY_DEF ;
 
@@ -537,6 +540,12 @@ int init_SNPATH(void);
 int init_SNDATA_EVENT(void) ;  // init SNDATA struct (for each event)
 int init_SNDATA_GLOBAL(void); // init SNDATA globals (one-time init)
 void set_SNDATA_FILTER(char *filter_list);
+void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN, 
+			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2) ;
+void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) ;
+void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX, char *PREFIXz);
+int  NZ_HOSTGALz(int MXBIN, float *Z_LIST, char *CCID);
+void compute_implicit_percentiles(int NBIN_TOT, int NBIN_VALID, double *PCT_LIST);
 
 void init_GENSPEC_GLOBAL(void) ;
 void init_GENSPEC_EVENT(int ISPEC, int NBLAM);
@@ -674,9 +683,9 @@ int   match_cid_hash__(char *cid, int *ilist, int *isn);
 void read_VARNAMES_KEYS(FILE *fp, int MXVAR, int NVAR_SKIP, char *callFun,
 			int *NVAR, int *NKEY, int *UNIQUE, char **VARNAMES );
 
-void read_YAML_VALS(char *fileName, char *key_list, char *callFun, 
+void read_YAML_VALS(char *fileName, char *key_list, char *key_stop, char *callFun, 
 		    double *val_list);
-void read_yaml_vals__(char *fileName, char *key_list, char *callFun, 
+void read_yaml_vals__(char *fileName, char *key_list, char *key_stop, char *callFun, 
 		      double *val_list);
 
 unsigned int *CIDMASK_LIST;  int  MXCIDMASK, NCIDMASK_LIST ;
@@ -784,8 +793,13 @@ void remove_string_termination(char *STRING, int LEN) ;
 
 void splitString(char *string, char *sep, char *callFun, int MXsplit,
 		 int *Nsplit, char **ptrSplit );
+
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
+
+void nsplitString(char *string, char *sepList, char *callFun, int MXsplit,
+		  int *Nsplit, char **ptrSplit, char *sep );
+
 void split2doubles(char *string, char *sep, double *dval) ;
 void split2floats(char *string, char *sep, float *fval) ;
 
@@ -811,6 +825,8 @@ void fprint_banner (FILE *FP, const char *banner ) ;
 
 // shells to open text file
 void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *callFun);
+
+void rewind_and_purge(FILE *fp);
 
 FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK, int *GZIPFLAG, char *fnam) ;
 FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
@@ -977,5 +993,7 @@ float malloc_shortint2D(int opt, int LEN1, int LEN2,
 			short int ***array2D );
 float malloc_shortint4D(int opt, int LEN1, int LEN2, int LEN3, int LEN4,
 			short int *****array4D );
+
+float malloc_strlist(int opt, int LEN1, int LEN2, char ***strlist );
 
 // ============== END OF FILE =============

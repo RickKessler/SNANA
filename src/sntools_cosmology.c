@@ -29,7 +29,7 @@ void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName,
   int ipar;
   int MEMD   = MXMAP_HzFUN * sizeof(double);
   bool WR_OUTFILE;
-  char fnam[] = "init_HzFUN_INFO";
+  char fnam[] = "init_HzFUN_INFO"; (void)fnam;
 
   // ----------- BEGIN ------------
 
@@ -126,7 +126,7 @@ void write_HzFUN_FILE(HzFUN_INFO_DEF *HzFUN_INFO ) {
   FILE *fp; 
   double logz, z, Hz ;
   int  iz;
-  char fnam[] = "write_HzFUN_FILE" ;
+  char fnam[] = "write_HzFUN_FILE" ; (void)fnam;
   
   // ---------- BEGIN ------------
 
@@ -352,7 +352,7 @@ double dVdz(double z, HzFUN_INFO_DEF *HzFUN_INFO) {
 double Hzinv_integral(double zmin, double zmax, HzFUN_INFO_DEF *HzFUN_INFO) {
 
   double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0];
-  double H0_per_sec = H0 / ( 1.0E6 * PC_km);
+  //  double H0_per_sec = H0 / ( 1.0E6 * PC_km);
   double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM];
   double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL];
 
@@ -404,13 +404,13 @@ double Hainv_integral(double amin, double amax, HzFUN_INFO_DEF *HzFUN_INFO) {
   // dz/E(z) :  z=1/a-1   dz = -da/a^2
 
   double H0 = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0];
-  double H0_per_sec = H0 / ( 1.0E6 * PC_km);
+  //  double H0_per_sec = H0 / ( 1.0E6 * PC_km);
   double OM = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OM];
   double OL = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_OL];
 
   int ia, Nabin ;
   double da, Hz, xa, atmp, ztmp, tmp, sum, Hzinv, KAPPA, SQRT_KAPPA ; 
-  char fnam[] = "Hainv_integral";
+  char fnam[] = "Hainv_integral"; (void)fnam;
 
   // ------ return integral c*r(z) = int c*dz/H(z) -------------
   // Note that D_L = (1+z)*Hzinv_integral
@@ -459,7 +459,7 @@ double Hzfun(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO ) {
   // Driver to return H(zCMB) from analytic wCDM, or from interpolating map.
   bool   USE_MAP = HzFUN_INFO->USE_MAP ;
   double Hz ;
-  char fnam[] = "Hzfun" ;
+  char fnam[] = "Hzfun" ; (void)fnam;
 
   // ------ returns H(z) -------------
   
@@ -516,7 +516,7 @@ double Hzfun_interp(double zCMB, HzFUN_INFO_DEF *HzFUN_INFO) {
     double *zMAP   = HzFUN_INFO->zCMB_MAP ;   // zCMB array from map
     double *HzMAP  = HzFUN_INFO->HzFUN_MAP ;  // H(z) array from map
     double Hz;
-    char fnam[] = "Hzfun_interp";
+    char fnam[] = "Hzfun_interp"; (void)fnam;
 
     Hz = interp_1DFUN(OPT_INTERP, zCMB, Nzbin, zMAP, HzMAP, fnam);
     return(Hz);
@@ -535,7 +535,7 @@ double dLmag ( double zCMB, double zHEL, double vPEC,
 
   bool  DO_VPEC_COR = true; // default should be true
   double rz, dl, arg, mu, zero=0.0 ;
-  char fnam[] = "dLmag";
+  char fnam[] = "dLmag"; (void)fnam;
   
   // ----------- BEGIN -----------
   rz     = Hzinv_integral(zero,zCMB,HzFUN_INFO) ;
@@ -570,14 +570,11 @@ double dLmag_anisotropic (double mu_isotropic, double zCMB, double zHEL, double 
   // First model (Visser 2004, https://ui.adsabs.harvard.edu/abs/2004CQGra..21.2603V)
   // implemented by A.Sah
 
-  double mu, dl ;
-  char fnam[] = "dLmag_anisotropic";
+  double mu = -9.0 , dl ;
+  char *MODEL_NAME = ANISOTROPY_INFO->MODEL_NAME ;
+  char fnam[] = "dLmag_anisotropic";  (void)fnam;
 
   // --------- BEGIN ----------
-
-  double GLON      = ANISOTROPY_INFO->GLON;
-  double GLAT      = ANISOTROPY_INFO->GLAT;
-  char *MODEL_NAME = ANISOTROPY_INFO->MODEL_NAME ;
 
   if ( strcmp(MODEL_NAME,"V04") == 0 ) {
     double H0     = HzFUN_INFO->COSPAR_LIST[ICOSPAR_HzFUN_H0];
@@ -664,7 +661,7 @@ double zcmb_dLmag_invert( double MU, HzFUN_INFO_DEF *HzFUN_INFO,
   double vPEC = 0.0 ;
   double DMU_CONVERGE = 1.0E-4 ;
   int    NITER=0;
-  char fnam[] = "zcmb_dLmag_invert" ;
+  char fnam[] = "zcmb_dLmag_invert" ;  (void)fnam;
 
   // ---------- BEGIN ----------
 
@@ -738,7 +735,7 @@ double zhelio_zcmb_translator (double z_input, double RA, double DEC,
  ****************/
 
   double  ra_gal, dec_gal, ss, ccc, c1, c2, c3, vdotn, z_out  ;
-  char fnam[] = "zhelio_zcmb_translator" ;
+  char fnam[] = "zhelio_zcmb_translator" ; (void)fnam;
 
   // --------------- BEGIN ------------
 

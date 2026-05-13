@@ -139,13 +139,14 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   char
     BANNER[120]
-    ,tmpFile[MXPATHLEN]
+    ,tmpFile[2*MXPATHLEN]
     ,sedFile[MXPATHLEN]
-    ,bin1File[MXPATHLEN]  // SED binary file
-    ,bin2File[MXPATHLEN]  // flux-table binary file
+    ,bin1File[2*MXPATHLEN]  // SED binary file
+    ,bin2File[2*MXPATHLEN]  // flux-table binary file
     ,sedcomment[40], version[60], kcorFile_gz[MXPATHLEN]
     ;
 
+  size_t fret;
   FILE *fpbin1, *fpbin2 ;
 
   struct stat statbuf ; // to check if BINARY dir exists
@@ -320,7 +321,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
     if ( SIMSED_BINARY_INFO.RDFLAG_SED ) {
       // read from binary file
-      fread(sedFile, sizeof(sedFile), 1, fpbin1 );
+      fret = fread(sedFile, sizeof(sedFile), 1, fpbin1 );
       if ( strcmp(tmpFile,sedFile) != 0 ) {
 	printf("\n\n");
 	printf("BINARY   SED File: '%s' \n", sedFile );
@@ -333,8 +334,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       printf("  Read %s SED surface from binary file : \n", sedcomment);
       fflush(stdout);
 
-      fread( &NSEDBINARY, sizeof(int   ),   1,        fpbin1 );
-      fread( SEDBINARY,   sizeof(float ), NSEDBINARY, fpbin1 );
+      fret = fread( &NSEDBINARY, sizeof(int   ),   1,        fpbin1 );
+      fret = fread( SEDBINARY,   sizeof(float ), NSEDBINARY, fpbin1 );
       pack_SEDBINARY(-1);  // transfer SEDBINARY to TEMP_SEDMODEL struct
 
     } else {      
@@ -393,9 +394,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     if ( SIMSED_BINARY_INFO.WRFLAG_SED ) {
 
       pack_SEDBINARY(+1);   // transfer SEDMODEL to SEDBINARY array
-      fwrite( tmpFile,     sizeof(tmpFile), 1,          fpbin1 ) ;
-      fwrite( &NSEDBINARY, sizeof(int  ),   1,          fpbin1 ) ;
-      fwrite( SEDBINARY,   sizeof(float),  NSEDBINARY, fpbin1 ) ;
+      fret = fwrite( tmpFile,     sizeof(tmpFile), 1,          fpbin1 ) ;
+      fret = fwrite( &NSEDBINARY, sizeof(int  ),   1,          fpbin1 ) ;
+      fret = fwrite( SEDBINARY,   sizeof(float),  NSEDBINARY, fpbin1 ) ;
     }
 
     print_ranges_SEDMODEL("SED-BINARY", &TEMP_SEDMODEL);
@@ -414,14 +415,14 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
   if ( SIMSED_BINARY_INFO.WRFLAG_FLUX ) {
     IZSIZE = sizeof(REDSHIFT_SEDMODEL) ;
-    fwrite(NBIN_SEDMODEL_FLUXTABLE, sizeof(NBIN_SEDMODEL_FLUXTABLE),1,fpbin2);
-    fwrite(&IZSIZE, sizeof(IZSIZE),    1, fpbin2); // size of REDSHIFT struct
-    fwrite(&REDSHIFT_SEDMODEL, IZSIZE, 1, fpbin2); 
+    fret = fwrite(NBIN_SEDMODEL_FLUXTABLE, sizeof(NBIN_SEDMODEL_FLUXTABLE),1,fpbin2);
+    fret = fwrite(&IZSIZE, sizeof(IZSIZE),    1, fpbin2); // size of REDSHIFT struct
+    fret = fwrite(&REDSHIFT_SEDMODEL, IZSIZE, 1, fpbin2); 
 
     if ( BINARYFLAG_KCORFILENAME ) 
-      { fwrite(SIMSED_KCORFILE,  MXPATHLEN, 1, fpbin2 ); }
+      { fret = fwrite(SIMSED_KCORFILE,  MXPATHLEN, 1, fpbin2 ); }
 
-    fwrite(PTR_SEDMODEL_FLUXTABLE, ISIZE_SEDMODEL_FLUXTABLE,1,fpbin2);
+    fret = fwrite(PTR_SEDMODEL_FLUXTABLE, ISIZE_SEDMODEL_FLUXTABLE,1,fpbin2);
     fclose(fpbin2);
     printf("\n  Write filter-integral flux-table to binary file: \n");
     printf("\t %s \n\n", bin2File);
@@ -464,6 +465,9 @@ void open_SEDBINARY(char *binFile, bool force_create,
   //
   // Dec 14 2021: add force_create arg.
   //
+
+  size_t fret;
+  char fnam[] = "open_SEDBINARY" ; (void)fnam;
   // ----------- BEGIN -----------
 
   *RDFLAG = *WRFLAG = false ; *fpbin = NULL;
@@ -482,14 +486,14 @@ void open_SEDBINARY(char *binFile, bool force_create,
 	   IVERSION_SIMSED_BINARY);
     printf("\n");
     fflush(stdout);
-    fwrite(&IVERSION_SIMSED_BINARY, sizeof(int *), 1, *fpbin ) ;
+    fret = fwrite(&IVERSION_SIMSED_BINARY, sizeof(int *), 1, *fpbin ) ;
   }
   else {
     *RDFLAG = true ;
     printf("\n Read SED-BINARY file for quicker init: \n");
     printf("  %s\n", binFile );
     IVERSION_SIMSED_BINARY = -9 ;
-    fread(&IVERSION_SIMSED_BINARY, sizeof(int *),  1, *fpbin);
+    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int *),  1, *fpbin);
     printf("\t (read SED-binary format version=%d)\n", 
 	   IVERSION_SIMSED_BINARY);
     printf("\n");
@@ -552,7 +556,7 @@ void read_SIMSED_flux(char *sedFile, char *sedComment) {
   //
 
   int nflux_nan;
-  char fnam[] = "read_SIMSED_flux";
+  char fnam[] = "read_SIMSED_flux";  (void)fnam;
 
   // -------------- BEGIN -----------------
 
@@ -593,6 +597,7 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
   int NERR, idim, IZSIZE_RD, IZSIZE_ACTUAL;
   bool LZSAME, LZOK, LZBAD, LZMIN_OK, LZMAX_OK, LNZBIN_OK, MATCH_KCOR_FILE ;
   int NBINTMP[NDIM_SEDMODEL_FLUXTABLE+1]  ;
+  size_t fret;
 
   struct REDSHIFT_SEDMODEL_TYPE  ZTMP ;
 
@@ -613,9 +618,9 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
   IZSIZE_ACTUAL = sizeof(REDSHIFT_SEDMODEL);
 
   // read header info
-  fread( NBINTMP,           sizeof(NBINTMP),    1, fp);
-  fread(&IZSIZE_RD,         sizeof(IZSIZE_RD),  1, fp);
-  fread(&REDSHIFT_SEDMODEL, IZSIZE_ACTUAL,      1, fp);
+  fret = fread( NBINTMP,           sizeof(NBINTMP),    1, fp);
+  fret = fread(&IZSIZE_RD,         sizeof(IZSIZE_RD),  1, fp);
+  fret = fread(&REDSHIFT_SEDMODEL, IZSIZE_ACTUAL,      1, fp);
 
   if ( IZSIZE_RD != IZSIZE_ACTUAL ) {
 
@@ -693,7 +698,7 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
   // ---------------------------------
   // read name of kcor file form binary, and check for match of full path
   if ( BINARYFLAG_KCORFILENAME ) {
-    fread(kcorFile_tmp, MXPATHLEN, 1, fp );
+    fret = fread(kcorFile_tmp, MXPATHLEN, 1, fp );
     MATCH_KCOR_FILE = ( strcmp_ignoregz(SIMSED_KCORFILE,kcorFile_tmp) == 0  );
 
     if ( !MATCH_KCOR_FILE ) {
@@ -785,7 +790,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // open & read info file
 
   ptrFile = SIMSED_INFO_FILENAME_FULL ;
-  sprintf(ptrFile, "%s/%s",PATHMODEL, SIMSED_INFO_FILENAME);
+  sprintf(ptrFile, "%s/%s", PATHMODEL, SIMSED_INFO_FILENAME);
   SEDMODEL.IPAR_TEMPLATE_INDEX = -9;
   SEDMODEL.IPAR_WGT            = -9; // Feb 28 2024 
 
@@ -795,7 +800,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
-    sprintf(c2err,"%s", ptrFile);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, ptrFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -862,7 +867,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
     if ( strcmp(c_get,"PARNAMES:") == 0 ) {
       FOUND_REQUIRE_LIST[IPAR_PARNAMES] = true;
-      fgets(string_parnames, 200, fp);
+      char *fg = fgets(string_parnames, 200, fp);  (void)fg;
       NPAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, string_parnames,fnam);
       // A.G
       if ( ISWGTMAP_SIMSED ) {
@@ -979,7 +984,7 @@ int read_SIMSED_INFO(char *PATHMODEL) {
     }
     if ( NKEY_MISSING > 0 ) {
       sprintf(c1err,"SED.INFO file missing required keys %s", keyname_missing);
-      sprintf(c2err,"Check %s",  ptrFile );
+      sprintf(c2err,"Check %.*s",  MXCHAR_MSGERR, ptrFile );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
   }
@@ -1070,9 +1075,10 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   int NSED = SEDMODEL.NSURFACE ;
   int ised, istat, size, MXsize, ised_MXsize, NDAY ;
-  char sedFile[MXPATHLEN], sedFile_gz[MXPATHLEN], comment[60] ;
+  size_t fret ;
+  char sedFile[2*MXPATHLEN], sedFile_gz[2*MXPATHLEN+10], comment[60] ;
   struct stat statbuf ; 
-  char fnam[] = "set_SIMSED_MXDAY";
+  char fnam[] = "set_SIMSED_MXDAY";  (void)fnam;
 
   // ---------------- BEGIN -----------------
 
@@ -1103,13 +1109,12 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   int NDAY_PAD = 5; // allow for largest file to not have max NDAY
   if ( RDFLAG_BINARY ) {
-    fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);
-    // xxx mark if ( IVERSION_SIMSED_BINARY >=4 ) { SEDMODEL.MXDAY += NDAY_PAD ; }
+    fret = fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);
   }
   else {
     SEDMODEL.MXDAY = NDAY + NDAY_PAD ; // leave a little slop in file sizes
     if ( WRFLAG_BINARY ) 
-      { fwrite(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin); }
+      { fret = fwrite(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin); }
   }
 
   // allocate DAY array for each SED (Aug 2017)
@@ -1210,6 +1215,8 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
       }
 
       istat = interp_GRIDMAP(&GRIDMAP, PARVALUES, &WGT_INTERP) ;
+      (void)istat;
+
       SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT] = WGT_INTERP;
       //printf("xxx %s ISED = %d WGT_INTERP = %le\n", fnam, ISED, WGT_INTERP);
 
@@ -1404,7 +1411,8 @@ void checkBinary_SIMSED(char *binaryFile) {
       printf("%s\n\n", line);
       
       sprintf(rm,"rm %s", binaryFile);
-      int isys = system(rm); return ;
+      int isys = system(rm);  (void)isys;
+      return ;
     }
   } // end ifile loop
 
@@ -1474,7 +1482,7 @@ void genmag_SIMSED(
 
   double  meanlam_obs, meanlam_rest, ZP, z1, Tobs, Trest, flux, arg, Sinterp  ;
   int ifilt, epobs, OPT_COLORLAW    ;
-  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_MAG, LRETURN_FLUX, LSED_SELECT ;
+  int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_FLUX, LSED_SELECT ;
   double AV, XT_MW, XT_HOST, *PARLIST_COLORLAW, PARDUM=0.0 ;
   double magobs, magerr, tmpPar;
   char *cfilt ;
@@ -1487,10 +1495,9 @@ void genmag_SIMSED(
   // set default optopn and then parse OPTMASK
 
   LDMP_BADFLUX = LRETURN_FLUX = LDMP_DEBUG = 0 ;
-  LRETURN_MAG  = 1;
   LSED_SELECT  = 0;
 
-  if ( (OPTMASK & 1) > 0 ) { LRETURN_MAG    = 0; LRETURN_FLUX = 1; }
+  if ( (OPTMASK & 1) > 0 ) { LRETURN_FLUX = 1; }
   if ( (OPTMASK & 2) > 0 ) { LDMP_BADFLUX   = 1; }
 
   if ( (OPTMASK & OPTMASK_GEN_SIMSED_WGT) > 0 ) { LSED_SELECT    = 1; }

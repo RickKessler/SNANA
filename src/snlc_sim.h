@@ -173,29 +173,30 @@ struct {
 
 
 // define auxillary files produced with data files.
+#define MXCHAR_AUX_FILE 2*MXPATHLEN + 50
 typedef struct { // SIMFILE_AUX_DEF
 
   // required outputs
-  FILE *FP_LIST;    char  LIST[MXPATHLEN] ;
-  FILE *FP_README;  char  README[MXPATHLEN] ;
-  FILE *FP_HIDE_README;  char  HIDE_README[MXPATHLEN] ; // for BLIND option
+  FILE *FP_LIST;    char  LIST[MXCHAR_AUX_FILE] ;
+  FILE *FP_README;  char  README[MXCHAR_AUX_FILE] ;
+  FILE *FP_HIDE_README;  char  HIDE_README[MXCHAR_AUX_FILE] ; // for BLIND option
 
   // optional outputs
-  FILE *FP_DUMP;        char  DUMP[MXPATHLEN] ;
-  FILE *FP_IGNORE;      char  IGNORE[MXPATHLEN] ;
-  FILE *FP_DUMP_SL;     char  DUMP_SL[MXPATHLEN] ;
-  FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXPATHLEN] ;
-  FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXPATHLEN] ;  
-  FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXPATHLEN] ;
-  FILE *FP_DUMP_TRAINSALT;  char  DUMP_TRAINSALT[MXPATHLEN] ;  
-  FILE *FP_DUMP_MWCL;   char  DUMP_MWCL[MXPATHLEN] ; 
-  FILE *FP_DUMP_RATE;   char  DUMP_RATE[MXPATHLEN] ; 
-  FILE *FP_YAML;        char  YAML[MXPATHLEN] ;  // Aug 10 2020, for submit_batch
-  char PATH_FILTERS[MXPATHLEN]; // directory instead of file
+  FILE *FP_DUMP;        char  DUMP[MXCHAR_AUX_FILE] ;
+  FILE *FP_IGNORE;      char  IGNORE[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_SL;     char  DUMP_SL[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_DCR;    char  DUMP_DCR[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_NOISE;  char  DUMP_NOISE[MXCHAR_AUX_FILE] ;  
+  FILE *FP_DUMP_SPEC;   char  DUMP_SPEC[MXCHAR_AUX_FILE] ;
+  FILE *FP_DUMP_TRAINSALT;  char  DUMP_TRAINSALT[MXCHAR_AUX_FILE] ;  
+  FILE *FP_DUMP_MWCL;   char  DUMP_MWCL[MXCHAR_AUX_FILE] ; 
+  FILE *FP_DUMP_RATE;   char  DUMP_RATE[MXCHAR_AUX_FILE] ; 
+  FILE *FP_YAML;        char  YAML[MXCHAR_AUX_FILE] ;  // Aug 10 2020, for submit_batch
+  char PATH_FILTERS[MXCHAR_AUX_FILE]; // directory instead of file
 
   // optional outputs (just filename, not pointer)
-  char  ZVAR[MXPATHLEN] ;   // optional zvariation file
-  char  GRIDGEN[MXPATHLEN]; // optional GRID-output
+  char  ZVAR[MXCHAR_AUX_FILE] ;   // optional zvariation file
+  char  GRIDGEN[MXCHAR_AUX_FILE]; // optional GRID-output
 
   // char string to write each line to memory, and then
   // one ASCI write per line instead of per value.
@@ -205,13 +206,13 @@ typedef struct { // SIMFILE_AUX_DEF
 
 
 // Mar 2016: create typedefs for NON1A
-typedef struct {  //INPUTS_NON1ASED_DEF
+typedef struct {  
 
   int IFLAG_GEN;
 
   // NON1ASED inputs from sim-input file
-  char  PATH[MXPATHLEN];                // user-defined path to NON1A seds
-  char  LISTFILE[MXPATHLEN];           // $PATH/NON1A.LIST
+  char  PATH[MXPATHLEN+50];                // user-defined path to NON1A seds
+  char  LISTFILE[MXPATHLEN+80];           // $PATH/NON1A.LIST
   int   NKEY ;                         // number of user NON1A keys
   char  KEYLIST[MXNON1A_KEY][40];      // list of user NON1A keys
 
@@ -528,6 +529,7 @@ struct INPUTS {
   // restores settings for DES-SN5YR/V24: 
   // +=1(Fitz99 approx), +=2(no host NBR); 3 -> both
   int RESTORE_DES5YR;    
+  int REFAC_DATA_FLAG;
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file
   char SIMLIB_OPENFILE[MXPATHLEN];  // name of opened files (internal)
@@ -548,7 +550,7 @@ struct INPUTS {
   int  SIMLIB_NREPEAT ;  // repeat each ID this many times (for less reading)
   int  SIMLIB_MXREPEAT ; // used only with BPOLY Galactic rate model
   double SIMLIB_MINSEASON ; // min season length (days); default=0
-
+  double SIMLIB_MJD_SHIFT ; // shift every MJD in simlib (e.g. to overlap real images)
   int    SIMLIB_IDSKIP[MXREAD_SIMLIB]; // list of SIMLIB IDs to skip
   int    NSKIP_SIMLIB ;       // number of SIMLIB_IDSKIP values read
 
@@ -646,7 +648,8 @@ struct INPUTS {
   long long HOSTLIB_GALID_FORCE ;    // force this GALID
   double HOSTLIB_ABMAG_FORCE ;    // for ABmag on galmag and gal spec
   double HOSTLIB_ABMAG_OFFSET ;   // add this ABmag offset to each galmag
-  double HOSTLIB_FIXRAN_RADIUS ;  // fix random number of radius
+  double HOSTLIB_FIXRAN_WGT   ;   // fix random number of picking which Sersic profile
+  double HOSTLIB_FIXRAN_RADIUS ;  // fix random number for radius
   double HOSTLIB_FIXRAN_PHI ;     // fix random number for phi
   double HOSTLIB_FIXSERSIC[4];    // fix sersic a,b,n,a_rot
   int    HOSTLIB_NREPEAT_GALID_SNPOS; // allow repeating same GALID and SNPOS
@@ -682,8 +685,8 @@ struct INPUTS {
   char GENPREFIX[200];       // filename prefix (default=GENVERSION)
   char GENSOURCE[20];       // 'RANDOM'  or  'DATA-VERSION'
   char GENMODEL[MXPATHLEN] ; // source model name, with optional path
-  char MODELPATH[MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
-  char MODELNAME[100];       // stripped from GENMODEL
+  char MODELPATH[2*MXPATHLEN]; // path to model (formerly GENLC.MODELPATH)
+  char MODELNAME[200];       // stripped from GENMODEL
 
   INPUTS_GENPDF_DEF GENPDF;
 
@@ -742,8 +745,9 @@ struct INPUTS {
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
   double GENRANGE_MJD_EXCLUDE[2]; // exclude this MJD region (6/2025)
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
+  double GENRANGE_PEAKMJD_EXCLUDE[2]; // exclude this PEAKMJD region (4/2026)
   double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED
-  // xxx mark del  double GENRANGE_PEAKMAG[2] ;  // OR among filters (Mar 2016)
+
   float  GENRANGE_TREST[2];     // relative to peak, days
   float  GENRANGE_TOBS[2];      // for GRID option
   float  GENSIGMA_PEAKMJD;      // option to estimate PEAKMJD for data file
@@ -802,8 +806,9 @@ struct INPUTS {
   GENGAUSS_ASYM_DEF GENGAUSS_RISETIME_SHIFT ;
   GENGAUSS_ASYM_DEF GENGAUSS_FALLTIME_SHIFT ;
 
-  double  FIXMAG[2] ; // for observer-frame FIXMAG model
+  double  FIXMAG[2] ;       // for observer-frame FIXMAG model
   int     GENFRAME_FIXMAG;  // GENFRAME_OBS or GENFRAME_REST
+  int     FLAG_FIXMAG;      // 1(fixmag)-> fixed mag per event; 2(ranmag) -> ran mag per obs
 
   // SIMSED parameters & ranges
   int   USE_BINARY_SIMSED;  // 1 => use binary files fof faster I/O
@@ -1075,8 +1080,8 @@ struct GENLC {
 
   SIMFILE_AUX_DEF SIMFILE_AUX ; // controls auxilary output files 
 
-  char SURVEY_NAME[40];    // name of survey in SIMLIB
-  char SUBSURVEY_NAME[40]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
+  char SURVEY_NAME[60];    // name of survey in SIMLIB
+  char SUBSURVEY_NAME[60]; // subsurvey; e.g,, CFA3 is subsurvey for LOWZ
   int  SUBSURVEY_ID;       // IDSURVEY for SUBSURVEY
   int  IDSURVEY ;
   char primary[40];              // name of primary (AB, VEGA, BD17 ...)
@@ -1162,7 +1167,7 @@ struct GENLC {
   double GENMAG_OFF_GLOBAL ;  // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
 
   char  SNTEMPLATE[80];
-  char  SNTYPE_NAME[MXPATHLEN];   // 1a, 1b, 1c, II, etc ...
+  char  SNTYPE_NAME[60];   // 1a, 1b, 1c, II, etc ...
 
   char  DISTANCE_NAME[40];    // DLMAG, mB, ...
   char  COLORPAR_NAME[40];    // c, AV ...
@@ -1950,6 +1955,8 @@ void   get_SIMLIB_SCALES( int ifilt_obs, double *SHIFT_ZPT,
 double SIMLIB_angsep_min(int NSTORE, double RA, double DEC,
 			 double *RA_STORE, double *DEC_STORE);
 
+void   check_parse_args_for_COLON(int ncheck, char **WORDS);
+
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 
 // xxx mark del Aug 11 2025 void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE);
@@ -1995,6 +2002,7 @@ int    parse_input_SIMGEN_DUMP(char **WORDS, int keySource);
 int    parse_input_SIMSED(char **WORDS, int keySource);
 int    parse_input_SIMSED_PARAM(char **WORDS);
 int    parse_input_SIMSED_COV(char **WORDS, int keySource );
+int    parse_input_SEARCHEFF(char **WORDS, int keySource );
 void   parse_input_SIMLIB_NSKIPMJD(char *STRING);
 void   parse_input_SIMSED_SUBSET(char *PARNAME, char *STRINGOPT);
 
@@ -2173,6 +2181,8 @@ double genmodel_Tshift(double T, double z);
 void   init_simvar(void);        // one-time init of counters, etc ..
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
+bool   REQUEST_USER_SPECTRA(void); // return TRUE if there is a request for spectra
+
 void   init_genSEDMODEL(void); // generic init for SEDMODEL
 void   init_read_calib_wrapper(void); // formerly called init_kcor
 void   init_covar_mlcs2k2(void);    // init GENLC.COVAR array
@@ -2247,7 +2257,6 @@ void   init_DNDZ_Rate(void) ; // extraGalactic rate vs. redshift
 void   init_DNDB_Rate(void) ; // Galactic Rate vs. l & b
 
 int  GENRANGE_CUT(void);
-// xxx mark int  GENMAG_CUT(void);
 
 
 void DASHBOARD_DRIVER(void);

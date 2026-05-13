@@ -166,7 +166,7 @@ struct {
   int    USE ;
   double GLOBAL ; // global scale  ... or ...
   GENPOLY_DEF POLY ;  // polynominal function of ...
-  char VARNAME[20];   // this variable name
+  char VARNAME[40];   // this variable name
 } GENSMEAR_SCALE ;
 
 // ---------- USRFUN struct -----------------
@@ -237,8 +237,8 @@ struct GENSMEAR_OIR {
   double Cholesky[NBAND_OIR][NBAND_OIR];
 
   // path and filenames
-  char MODELPATH[MXPATHLEN] ;
-  char INFO_FILE[MXPATHLEN] ;
+  char MODELPATH[2*MXPATHLEN] ;
+  char INFO_FILE[2*MXPATHLEN+50] ;
 
   // inputs from OIR.INFO file
   int      NCOLOR ;
@@ -267,7 +267,7 @@ struct GENSMEAR_COVSED {
   int OPTMASK ;
 
   char    MODEL_PATH[MXPATHLEN], VERSION[80] ;
-  char    COVSED_FILE[MXPATHLEN];
+  char    COVSED_FILE[2*MXPATHLEN];
   int     REBIN_LAM;
   double  LAMPAIR_DEBUG[2];
 
@@ -307,9 +307,9 @@ struct GENSMEAR_VCR {
   int      USE ;
 
   // path and filenames
-  char MODELPATH[MXPATHLEN] ;
-  char INFO_FILE[MXPATHLEN] ;
-  char VSI_FILE[MXPATHLEN];
+  char MODELPATH[2*MXPATHLEN+20] ;
+  char INFO_FILE[2*MXPATHLEN+50] ;
+  char VSI_FILE[2*MXPATHLEN+50];
 
   // inputs from VCR.INFO file
   int      NCOLOR ;

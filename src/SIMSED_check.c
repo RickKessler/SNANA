@@ -90,7 +90,7 @@ void  SIMSED_warning_summary(void);
 int main(int argc, char **argv) {
 
   int OPTMASK = OPTMASK_INIT_SIMSED_TESTMODE;
-  char fnam[] = "main" ;
+  char fnam[] = "main" ;  (void)fnam;
   
   // ------------ BEGIN ------------
 
@@ -111,8 +111,8 @@ int main(int argc, char **argv) {
   NWARNTOT_MAGDAY_SLOPE2   = 0 ;
   NWARNTOT_MAGDIF_LASTPEAK = 0 ;
 
-  int ised, NDAY, NLAM ;
-  char *sedFile, SEDFILE[MXPATHLEN] ;
+  int ised ;
+  char *sedFile, SEDFILE[MXPATHLEN+20] ;
   char comment[60] ;
   for(ised=1; ised <= SEDMODEL.NSURFACE; ised++ ) {
     sedFile = SEDMODEL.FILENAME[ised];
@@ -144,8 +144,8 @@ int main(int argc, char **argv) {
 // ******************************************
 void parse_args(int argc, char **argv) {
 
-  int i, ipar,  ep, ilast, iuse ;
-  char fnam[] = "parse_args" ;
+  int i, ilast, iuse ;
+  char fnam[] = "parse_args" ;  (void)fnam;
 
   // ---------- BEGIN --------
 
@@ -199,8 +199,8 @@ void parse_args(int argc, char **argv) {
 // =====================================
 void SIMSED_check_DRIVER(int ised) {
 
-  int iday, ifilt ;
-  char fnam[] = "SIMSED_check_DRIVER" ;
+  int ifilt ;
+  char fnam[] = "SIMSED_check_DRIVER" ;  (void)fnam;
 
   // --------- BEGIN ---------
 
@@ -234,7 +234,7 @@ void define_boxFilters(void) {
 
   int ifilt;
   double xtmp, xi, LAMRANGE, LAMBIN ;
-  char fnam[] = "define_boxFilters" ;
+  char fnam[] = "define_boxFilters" ;  (void)fnam;
 
   // ----------- BEGIN ----------
 
@@ -276,9 +276,9 @@ void  load_FLUX_BOXFILT(void) {
   double LAMMIN = TEMP_SEDMODEL.LAMMIN ;
   double LAMBIN = LAMBIN_BOXFILT ;
 
-  double FLUXTMP, FLUXMAX[MXBOXFILT], LAM ;
+  double FLUXTMP,  LAM ;
   int iday, ifilt, ilam, jflux ;
-  char fnam[] = "load_FLUX_BOXFILT" ;
+  char fnam[] = "load_FLUX_BOXFILT" ;  (void)fnam;
 
   // ---------- BEGIN -----------
 
@@ -357,7 +357,7 @@ void SIMSED_check_lastDay(int ised, int ifilt) {
   double FLUX_LAST = BOXFILT[ifilt].FLUX_LAST ;
   double MAGDIF;
   char warnString[80];
-  char fnam[] = "SIMSED_check_lastDay" ;
+  char fnam[] = "SIMSED_check_lastDay" ;  (void)fnam;
 
   // ------------ BEGIN --------
 
@@ -383,8 +383,6 @@ void SIMSED_check_slope(int ised, int ifilt) {
   // check mag/day slopes
 
   int NDAY = TEMP_SEDMODEL.NDAY; 
-  int JMINLAM  = (int)LAMRANGE_BOXFILT[ifilt][0] ;
-  int JMAXLAM  = (int)LAMRANGE_BOXFILT[ifilt][1] ;
   double FPEAK =  BOXFILT[ifilt].FLUX_PEAK ;
 
   int    IDAY, iday, SKIP ;
@@ -392,7 +390,7 @@ void SIMSED_check_slope(int ised, int ifilt) {
   double DAYDIF01, DAYDIF12, DAYAVG01, DAYAVG12 ;
   double MAGSLOPE01, MAGSLOPE12, D2MAGD2DAY ;
   char warnString[80] ;
-  char fnam[] = "SIMSED_check_slope";
+  char fnam[] = "SIMSED_check_slope";  (void)fnam;
 
   // ------------- BEGIN ---------
 
@@ -454,59 +452,6 @@ void SIMSED_check_slope(int ised, int ifilt) {
 } // end SIMSED_check_slope
 
 
-/* xxxx
-// ==============================================
-void SIMSED_check_slope(int ised, int ifilt) {
-  
-  // check mag/day slopes
-
-  int NDAY = TEMP_SEDMODEL.NDAY; 
-  int JMINLAM  = (int)LAMRANGE_BOXFILT[ifilt][0] ;
-  int JMAXLAM  = (int)LAMRANGE_BOXFILT[ifilt][1] ;
-  double FPEAK =  BOXFILT[ifilt].FLUX_PEAK ;
-
-  int iday ;
-  double FLAST, FNOW, DAYNOW, DAYLAST, DAYDIF, MAGDIF;
-  double MAGSLOPE1, MAGSLOPE2, MAGSLOPE1_LAST ;
-  char warnString[80] ;
-  char fnam[] = "SIMSED_check_slope";
-
-  // ------------- BEGIN ---------
-
-  FLAST = BOXFILT[ifilt].FLUX[0];  
-  DAYLAST  = TEMP_SEDMODEL.DAY[0];
-
-  for(iday=1; iday < NDAY; iday++ ) {
-
-    DAYNOW   = TEMP_SEDMODEL.DAY[iday] ;
-    DAYDIF   = DAYNOW - DAYLAST ;
-    if ( DAYDIF < WARNPAR_DAYDIF ) { continue ; }
-
-    FNOW  = BOXFILT[ifilt].FLUX[iday];
-    if ( FLAST/FPEAK < WARNPAR_PEAKFRAC ) { goto STORE_LAST ; }
-    if ( FNOW/FPEAK  < WARNPAR_PEAKFRAC ) { goto STORE_LAST ; }
-
-    //    if ( FLAST == 0 || FNOW == 0 ) { continue ; }
-
-    MAGDIF   = -2.5*log10(FNOW/FLAST);
-    MAGSLOPE1 = MAGDIF/DAYDIF ;
-
-    if ( fabs(MAGSLOPE1) > WARNVAL_MAGDAY_SLOPE1 ) {
-      SIMSED_WARNSTRING(ised,ifilt, warnString);
-      printf("    %s: MAG/DAY = %.2f/%.2f = %.2f (DAY=%.2f) \n", 
-	     warnString, MAGDIF, DAYDIF, MAGSLOPE1, DAYNOW );
-      NWARNTMP_MAGDAY_SLOPE1++ ;
-      NWARNTOT_MAGDAY_SLOPE1++ ;
-    }
-
-  STORE_LAST:
-    FLAST = FNOW ;   DAYLAST = DAYNOW ;
-  }
-
-  return;
-
-} // end SIMSED_check_slope
-xxx */
 
 void SIMSED_WARNSTRING(int ised, int ifilt, char *string) {
   //  return string = "WARNING[ised=%d, %d<LAM<%d]"

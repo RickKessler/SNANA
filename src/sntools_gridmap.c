@@ -75,7 +75,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
   double *TMPVAL, *TMPVAL_LAST, *DIFVAL_LAST, DDIF, DIF;
 
-  int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK, NDIM_TMP, NVAR_TMP ;
+  int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK, NDIM_TMP;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
   char  LINE[200], word[80] ;
 
@@ -277,11 +277,11 @@ void malloc_GRIDMAP(int OPT, GRIDMAP_DEF *gridmap, int NFUN, int NDIM, int MAPSI
       gridmap->FUNVAL[ifun] = (double *)malloc(MEMD);      
     }
 
-    sprintf(string,"allocate %.2f MB for %d bins", MEMORY, MAPSIZE);
+    sprintf(string,"allocate %.2f MB for %d bins and NFUN=%d", MEMORY, MAPSIZE, NFUN);
     gridmap->MEMORY = MEMORY ;
   }
   else {
-    sprintf(string,"free GRIDMAP %d ", gridmap->ID );
+    sprintf(string,"free GRIDMAP %d with NFUN=%d", gridmap->ID, NFUN );
 
     free(gridmap->NBIN);
     free(gridmap->VALMIN);
@@ -509,6 +509,7 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
 
   int  LDMP=0 ;
   bool outside_bound, too_lo, too_hi ;
+  char cval[20];
   char fnam[] = "interp_GRIDMAP" ;
 
   // ---------- BEGIN ------------
@@ -685,8 +686,11 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
     sprintf(c1err,"Could not compute CORNER_WGT for gridmap ID=%d", 
 	    gridmap->ID );
     sprintf(c2err,"%s", "data = ") ;
-    for ( ivar=0; ivar < NVAR; ivar++ ) 
-      { sprintf(c2err,"%s %f", c2err, *(data+ivar) ) ; }
+    for ( ivar=0; ivar < NVAR; ivar++ ) {
+      sprintf(cval," %f", data[ivar]);
+      strcat(c2err, cval);
+      // xxx mark sprintf(c2err,"%s %f", c2err, data[ivar] ) ;   //.xyz
+    }
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -784,7 +788,7 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
   //
 
   int LDMP = 0 ;
-  int i, NPT, NPT_LAST, OFFSET_LAST, OFFSET ;
+  int i, NPT_LAST, OFFSET_LAST, OFFSET ;
   char fnam[] = "init_1DINDEX" ;
 
   // --------- BEGIN ----------
@@ -805,7 +809,6 @@ void init_1DINDEX(int ID, int NDIM, int *NPT_PERDIM ) {
   for ( i=0; i < NDIM; i++ ) {
 
     NPT_PERDIM_1DINDEX[ID][i]  = NPT_PERDIM[i]; 
-    NPT                        = NPT_PERDIM[i]; 
     OFFSET_1DINDEX[ID][i] = OFFSET  = 0 ;
 
     if ( i > 0 ) {

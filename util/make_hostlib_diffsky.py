@@ -16,6 +16,9 @@ import pandas as pd
 
 import opencosmo as oc
 import numpy as np
+from pathlib import Path
+
+from astropy.cosmology import LambdaCDM
 
 # =======
 
@@ -25,9 +28,8 @@ KEY_HOSTLIB_FILE         = "HOSTLIB_FILE"
 KEY_CUTWIN               = "CUTWIN"
 KEY_MAG_5SIG             = "MAG_5SIG"
 KEY_HOSTLIB_GALID        = "GALID"
+KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
 
-
-RANSEED = 234237905   # used to ensure same random subsets for smaller HOSTLIBs
 
 REF_DICT = {
     'REF1': [ 'Heitmann+ 2021 (N-body sim)',
@@ -36,13 +38,18 @@ REF_DICT = {
 
 
 # hard-wire sersic indices for each galaxy component
-SERSIC_INDEX_DICT = {  'n_disk': 1.0,    'n_bulge': 4.0 }
-
+SERSIC_INDEX_DICT = {  'n_disk_Sersic': 1.0,    'n_bulge_Sersic': 4.0 }
 
 VARNAME_VPEC     = "VPEC"
 VARLIST_FOR_VPEC = [ 'vx', 'vy', 'vz', 'ra', 'dec' ] # needed to compute VPEC
 VARNAME_RA       = 'ra'
 VARNAME_DEC      = 'dec'
+
+DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
+DIFFSKY_ANGLE_PREFIX = "psi"
+
+# columns computed at the pandas level (after HDF5→pandas conversion); excluded from HDF5 select
+ADDCOL_PD_NAMES = ['logsfr_obs']
 
 # ============================
 def setup_logging():
@@ -63,6 +70,8 @@ def get_args():
     msg = "print data columns containing substring (or all to list all columns), then quit"
     parser.add_argument("-p", "--print_column_substring", help=msg, type=str, default=None)
 
+    msg = "lc-core wildcard (e.g., 14) to select subset of lc-core*{wildcard}* files"
+    parser.add_argument("-w", "--wildcard_lc", help=msg, type=str, default=None)
 
     # parse it
     args = parser.parse_args()
@@ -99,12 +108,13 @@ HOSTLIB_VARNAMES_MAP:
 #   diffsky       HOSTLIB        HOSTLIB
 #   varname       varname        format
 #  - - - - - - - - - - - - - - - - - - - - - - -
--  galaxy_id       GALID           15d
+-  core_tag        GALID           15d
 -  redshift_true   ZTRUE_CMB       6.4f
 -  ra              RA_GAL          11.6f
 -  dec             DEC_GAL         11.6f
--  beta_disk       a0_Sersic       5.2f
--  alpha_disk      b0_Sersic       5.2f
+-  beta_disk_Sersic   a0_Sersic       5.2f
+-  alpha_disk_Sersic  b0_Sersic       5.2f
+-  n_disk_Sersic      n0_Sersic       3.1f
 #
 -  lsst_u          u_obs           6.3f
 -  lsst_g          g_obs           6.3f
@@ -150,49 +160,47 @@ def read_yaml(path):
         return yaml.safe_load(f.read())
     # end read_yaml
 
+def addcol_galid(cat_inp, config):
+    cat_out         = cat_inp
+    config['USE_SERIAL_TAG'] = False
+    
+    colname_diffsky_list = list( config['hostlib_varname_dict'].keys() )
+    if 'serial_tag' not in colname_diffsky_list:
+        return cat_out
 
-def addcol_vpec(cat_inp, config):
+    config['USE_SERIAL_TAG'] = True
+    
+    offset_tag = 1000000
+    logging.info('')
+    logging.info(f"Append serial_tag -> GALID with offset = {offset_tag}")
+    
+    serial_tag_list = np.arange(len(cat_out)) + offset_tag
+    cat_out         = cat_out.with_new_columns(serial_tag = serial_tag_list)
+    return cat_out
 
+
+    
+def cosmological_distances(redshift_true, cosmology):
+    D_A = cosmology.angular_diameter_distance(redshift_true)
+    # D_L = cosmology.luminosity_distance(redshift_true)
+    return {'D_A': D_A }
+
+def addcol_distances(cat_inp, config):
+    
+    n_row   = len(cat_inp)
     cat_out = cat_inp
 
-    # if there is no VPEC request, then bail
-    HOSTLIB_VARNAMES_LIST = config['HOSTLIB_VARNAMES_LIST']
-    if VARNAME_VPEC not in HOSTLIB_VARNAMES_LIST: return cat_out
-
+    logging.info(f"Append angle-diameter distances D_A : ")
     t0 = time.time()
-
-    tmp  = cat_out.select(VARLIST_FOR_VPEC).get_data()
-    vx       = np.array( tmp['vx'] )
-    vy       = np.array( tmp['vy'] )
-    vz       = np.array( tmp['vz'] )
-    ra_deg       = np.array( tmp['ra'] )
-    dec_deg      = np.array( tmp['dec'] )  # -90 to +90
-    theta_deg    = 90 - dec_deg            # 0 to 180
     
-    ra_rad     = np.radians(ra_deg)
-    theta_rad  = np.radians(theta_deg)
-    
-    # convert ra,dec to cartesion coords on unit sphere
-    x = np.sin(theta_rad) * np.cos(ra_rad)  # ra_rad or ra_rad - PI ?
-    y = np.sin(theta_rad) * np.sin(ra_rad)
-    z = np.cos(theta_rad)
-    
-    vpec      = x*vx + y*vy + z*vz
-    vpec_dict = { 'vpec' : vpec }
+    cat_out = cat_out.evaluate(cosmological_distances,
+                               cosmology = cat_out.cosmology,
+                               insert=True, vectorize=True)
 
-    logging.info('')
-    logging.info(f"Append vpec = x*vx + y*vy + z*vz")
-    cat_out = cat_out.with_new_columns(**vpec_dict)
-    
-    print_proc_time(t0, "ADDCOL_VPEC", None)
-
-    del tmp;
-    del vx;  del vy;  del vz
-    del x ;  del y ;  del z
-
+    print_proc_time(t0, "ADDCOL_DISTANCES", None)    
+    #sys.exit(f"\n xxx DEBUG STOP xxx \n{cat_out[0:10]}")
     return cat_out
-    # end addcol_vpec
-    
+
 def addcol_sersic_indices(cat_inp, config):
 
     n_row   = len(cat_inp)
@@ -218,7 +226,170 @@ def addcol_sersic_indices(cat_inp, config):
     return cat_out
     # end addcol_sersic_indices
 
+
+def addcol_sersic_sizes(cat_inp, config):
+
+    # For each alpha_xxx (kpc), add alpha_xxx_sersic (arcsec)
+    # For each beta_xxx  (kpc), add beta_xxx_sersic (arcsec)
+
+    t0 = time.time()
     
+    # To be modified ; below needs to be complete re-written
+    n_row   = len(cat_inp)
+    cat_out = cat_inp
+    HOSTLIB_VARNAMES_MAP = config[KEY_HOSTLIB_VARNAMES_MAP]
+
+    search_prefix_list = ['alpha', 'beta' ]
+
+    # galaxy size d(kpc) and D_A(Mpc) so
+    #  theta = (.001*d/D_A) is in radians
+    #  1 rad = (180/PI)*2600 = 206264.81 arcsec 
+    #  fac   = .001 * 206264.81
+    #  size_arcsec = fac * size_kpc / D_A
+    
+    arsec_per_rad = (180.0/3.14159) * 3600.0
+    fac           = .001 * arsec_per_rad       # size(arcsec) = fac * d/D_A
+    
+    logging.info('')  # .xyz
+    logging.info('Append Sersic sizes (arcsec) computed from physical sizes (kpc):')
+    addcol_dict = {}
+    D_A         = cat_out.select(['D_A']).get_data().value    
+    for row in HOSTLIB_VARNAMES_MAP:
+        colname_add = row.split()[0]  # orig column with _Sersic does not exist
+        for prefix in search_prefix_list:
+            lenp = len(prefix)
+            if colname_add[0:lenp] == prefix:
+                colname_exist = colname_add.split('_Sersic')[0]
+                logging.info(f"\t Append  {colname_add:<20} = {colname_exist}/D_A  ")
+                size_kpc    = cat_out.select([colname_exist]).get_data().value
+                size_arcsec = (size_kpc/D_A) * fac
+                #print(f" xxx size_arcsec = {size_arcsec[0:10]}")
+                addcol_dict[f"{colname_add}"] = size_arcsec
+
+    # - - - -
+    #sys.exit("\n xxx DEBUG STOP")
+    
+    if len(addcol_dict) > 0 :
+        cat_out = cat_out.with_new_columns(**addcol_dict)
+
+    print_proc_time(t0, "ADDCOL_SERSIC_ARCSEC", None)            
+    #sys.exit(f"\n xxx addcol_dict = \n{addcol_dict} ")
+
+    return cat_out
+    # end addcol_sersic_sizes
+
+
+# logsfr_obs = logssfr_obs + logsm_obs is computed at the pandas level in add_col_pd
+
+
+
+def _get_mag_bands(config):
+    """Return list of diffsky-side mag band column names from MAG_5SIG config."""
+    MAG_5SIG = config.get(KEY_MAG_5SIG, [])
+    return [row.split()[0] for row in MAG_5SIG]
+
+
+def inject_mag_columns(df_cat, config):
+    """Inject pre-computed magnitude columns into df_cat from the OVERRIDE_FILE parquet.
+
+    Join key: core_tag (HDF5, int64 read via h5py) ↔ serial_tag (parquet, int64).
+    Both are the same LastJourney halo ID stored as true int64 — exact match, no
+    precision loss. df_cat must contain a 'core_tag' column (added temporarily by
+    convert_galaxy_cat_to_pandas when OVERRIDE_FILE is set); it is dropped after join.
+    Mag errors are recomputed from MAG_5SIG after the merge.
+    """
+    override_file = config[KEY_OVERRIDE_FILE]
+    parquet_file  = os.path.splitext(override_file)[0] + '.parquet'
+
+    if os.path.exists(parquet_file):
+        logging.info(f"inject_mag_columns: reading parquet {parquet_file}")
+        df_mag = pd.read_parquet(parquet_file)
+    else:
+        logging.info(f"inject_mag_columns: reading HOSTLIB text {override_file}")
+        with open(override_file) as f:
+            for i, line in enumerate(f):
+                if line.startswith("VARNAMES:"):
+                    header_line = i
+                    break
+        df_mag = pd.read_csv(override_file, sep=r"\s+", skiprows=header_line, header=0)
+
+    logging.info(f"  inject table: {len(df_mag):,} rows, columns: {list(df_mag.columns)}")
+
+    # Determine which mag columns to pull from the parquet
+    hostlib_varname_dict = config['hostlib_varname_dict']   # diffsky → hostlib
+    mag_bands = _get_mag_bands(config)                       # diffsky names e.g. ['des_g',...]
+
+    cols_to_merge = ['serial_tag']
+    rename_map    = {}
+    for band in mag_bands:
+        if band in df_mag.columns:
+            cols_to_merge.append(band)
+        else:
+            hlib_name = hostlib_varname_dict.get(band)
+            if hlib_name and hlib_name in df_mag.columns:
+                rename_map[hlib_name] = band
+                cols_to_merge.append(hlib_name)
+            else:
+                logging.warning(f"  inject_mag_columns: band '{band}' not in parquet — filling 0.0")
+                df_cat[band] = 0.0
+
+    if rename_map:
+        df_mag = df_mag.rename(columns=rename_map)
+        cols_to_merge = [rename_map.get(c, c) for c in cols_to_merge]
+
+    # Left-merge on core_tag (df_cat) ↔ serial_tag (parquet) — both int64, exact match
+    n_before = len(df_cat)
+    df_cat = df_cat.merge(
+        df_mag[cols_to_merge].rename(columns={'serial_tag': 'core_tag'}),
+        on='core_tag', how='left'
+    )
+
+    # Drop core_tag — it was added temporarily for the join, not a HOSTLIB output column
+    df_cat = df_cat.drop(columns=['core_tag'])
+
+    n_missing = df_cat[mag_bands[0]].isna().sum() if mag_bands else 0
+    if n_missing > 0:
+        logging.warning(f"  inject_mag_columns: {n_missing}/{n_before} galaxies have no mag match — filling 0.0")
+        for band in mag_bands:
+            df_cat[band] = df_cat[band].fillna(0.0)
+
+    logging.info(f"  inject_mag_columns: merged mags for {n_before - n_missing:,}/{n_before:,} galaxies")
+
+    return df_cat
+
+
+def add_col_pd(df_cat, config):
+    """Add columns via simple pandas arithmetic (after HDF5→pandas conversion).
+    Called after inject_mag_columns so mag values are present in both modes."""
+
+    logging.info('')
+    logging.info('========== COMPUTE/APPEND COLUMNS (pandas) ===============')
+
+    t0 = time.time()
+
+    # logsfr = logssfr + logmass
+    logging.info("  Append logsfr_obs = logssfr_obs + logsm_obs")
+    df_cat['logsfr_obs'] = df_cat['logssfr_obs'] + df_cat['logsm_obs']
+
+    print_proc_time(t0, "ADDCOL_LOGSFR", None)
+
+    # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes)
+    MAG_5SIG = config.get(KEY_MAG_5SIG, [])
+    if MAG_5SIG:
+        t0 = time.time()
+        logging.info('  Append mag error columns:')
+        for row in MAG_5SIG:
+            band     = row.split()[0]
+            band_err = band + '_err'
+            m5sig    = float(row.split()[1])
+            powm5    = 0.2 * math.pow(10.0, -0.2 * m5sig)
+            logging.info(f"\t append {band_err} using m5sig = {m5sig}")
+            df_cat[band_err] = powm5 * np.power(10.0, 0.2 * df_cat[band].values)
+        print_proc_time(t0, "ADDCOL_MAGERR", None)
+
+    return df_cat  # end add_col_pd
+
+
 def check_Sersic_definitions(config):
 
     # sanity check to make sure that a,b,n are defined for each sersic component,
@@ -269,75 +440,116 @@ def get_Sersic_list(config):
     return sersic_list_dict
 
 
-def addcol_mag_errors(cat_inp, config):
+# mag errors are computed at the pandas level in add_col_pd
 
-    # if MAG_5SIG is defined, add columns with mag errors
-    
-    cat_out = cat_inp
-    MAG_5SIG = config.setdefault(KEY_MAG_5SIG,None)
-
-    if not MAG_5SIG:  return cat_out
+def add_col_diffsky(cat_inp, config):
+    """Add columns that require the HDF5/opencatalogs API (distances, Sersic geometry, GALID).
+    Simple arithmetic columns (logsfr, mag errors) are deferred to add_col_pd."""
 
     logging.info('')
-    logging.info('Append mag error columns:')
+    logging.info('========== COMPUTE/APPEND COLUMNS (HDF5) ===============')
 
-    t0 = time.time()
-    
-    mag_err_dict = {}
-    for row in MAG_5SIG:
-        str_band     = row.split()[0]
-        str_band_err = str_band + '_err'
-        m5sig        = float(row.split()[1])
-        powm5        = 0.2*math.pow(10.0,-0.2*m5sig)
+    cat_out = cat_inp
 
-        logging.info(f"\t append {str_band_err} using m5sig = {m5sig}")
+    # add GALID tag
+    cat_out = addcol_galid(cat_out, config)
 
-        mag_np = cat_out.select([str_band]).get_data().value
-        mag_err_np     = powm5*np.power(10.0,+0.2*mag_np)
-        mag_err_dict[f"{str_band_err}"] = mag_err_np
+    cat_out = addcol_distances(cat_out, config)
 
-    # append the mag err columns
-    cat_out = cat_out.with_new_columns(**mag_err_dict)    
+    # add sersic indices
+    cat_out = addcol_sersic_indices(cat_out, config)
 
-    del m5sig; del powm5
-    del mag_np; del mag_err_np; del mag_err_dict
-    
-    print_proc_time(t0, "ADDCOL_MAGERR", None)
-    
-    return cat_out
+    # add sersic angular sizes computed from physical sizes
+    cat_out = addcol_sersic_sizes(cat_out, config)
+
+    return cat_out  # end add_col_diffsky
+
 
 def read_galaxy_cat(args, config):
 
+    logging.info('')
     t0 = time.time()
     cat_dir  = config[KEY_CAT_DIR]
     
     if not os.path.exists(cat_dir):
         sys.exit(f"\n ERROR: cannot find galaxy catalog dir:\n\t{cat_dir}")
 
+    # if symbolic link, then print resolved file
+    cat_path = Path(cat_dir)
+    if cat_path.is_symlink():
+        cat_dir_symlink = cat_dir
+        cat_path_resolved = cat_path.resolve()
+        cat_dir           = str(cat_path_resolved)
+        logging.info(f"Resolve catalog dir symlink:")
+        logging.info(f"\t {cat_dir_symlink}")
+        logging.info(f"\t  --->")
+        logging.info(f"\t {cat_dir}")
+        logging.info('')
+        config[KEY_CAT_DIR] = cat_dir
+        
     # fragile-alert reading catalog files with specific prefix
-    wildcard = f"{cat_dir}/lc_cores-*.hdf5"  # fragile alert; should read standard list file
+
+    if args.wildcard_lc:
+        wildcard = f"{cat_dir}/lc_cores-*{args.wildcard_lc}*.hdf5"  
+    else:
+        wildcard = f"{cat_dir}/lc_cores-*.hdf5"  
+
+    #args.lc_wildcard
+
     catalog_files = sorted( glob.glob(wildcard) )
 
+    # - - - -
+    # check columns in first file
+    ds0 = oc.open( *[ catalog_files[0] ] )
     if args.print_column_substring:
-        catalog_files = [ catalog_files[0] ]  # keep only first file for listing columns
+        print_columns(args.print_column_substring, ds0.columns, ds0.descriptions)        
+    
+    check_diffsky_columns(config, ds0)
+    del ds0
+    # - - - -
         
     n_file = len(catalog_files)
     
     logging.info(f"Read {n_file} galaxy catalog files from {cat_dir}")
 
-    ds = oc.open(*catalog_files)
+    ds = oc.open(*catalog_files, synth_cores=True)
+    
     n_row = len(ds)
     logging.info(f"Done reading dataset with {n_row:,} rows")
     print_proc_time(t0,"READ_CATALOG", n_row)
-        
-    if args.print_column_substring:
-        print_columns(args.print_column_substring, ds.columns)        
-
         
     # - - - - - - 
     return ds
 
     # end read_galaxy_cat
+
+def check_diffsky_columns(config, ds):
+
+    # abort if user-requested diffksy column is not available
+    hostlib_varname_dict = config['hostlib_varname_dict']
+
+    # these are computed and hence don't exist in catalog
+    exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr' ]
+
+    # if OVERRIDE_FILE is configured, mag band columns are not in HDF5 — skip them
+    if KEY_OVERRIDE_FILE in config:
+        exception_list += _get_mag_bands(config)
+
+    nerr = 0
+    for varname in list(hostlib_varname_dict):
+
+        SKIPIT = False
+        for e in exception_list:
+            if e in varname:
+                SKIPIT = True
+
+        VALID = varname in ds.columns or SKIPIT
+        if not VALID:
+            print(f" ERROR: column {varname} is not available in catalog")
+            nerr+=1
+    if nerr > 0:
+        sys.exit(f"\n FATAL ERROR: {nerr} missing columns.")
+    return
 
 def apply_cuts(cat_inp, config):
 
@@ -354,17 +566,20 @@ def apply_cuts(cat_inp, config):
         cutvar = row.split()[0]
         cutmin = float(row.split()[1])
         cutmax = float(row.split()[2])
-        logging.info(f"\t Apply cut {cutmin} < {cutvar} < {cutmax} ")
+        logging.info(f"   Apply cut {cutmin} < {cutvar} < {cutmax} ")
         cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
-
+        n_row_out = len(cat_out)
+        logging.info(f"\t n_row after {cutvar} cut: {n_row_out} ")
+        
     n_row_out = len(cat_out)
+    logging.info('')
     logging.info(f" Cuts reduce {n_row_inp:,} rows to {n_row_out:,} rows")
 
     print_proc_time(t0, "APPLY_CUTS", None)
     
     return cat_out   # end apply_cuts
 
-def print_columns(substring, column_list):
+def print_columns(substring, column_list, descript_list):
 
     # inputs:
     #   substring      : print columns containing this substring
@@ -375,7 +590,12 @@ def print_columns(substring, column_list):
     else:
         filtered_list = [x for x in column_list if substring in x]
                
-    print(f"\n DIFFSKY Columns: \n{filtered_list}")
+    print(f"\n DIFFSKY Columns:")
+
+    for col in filtered_list:
+        descript = descript_list[col]
+        print(f"   {col:20s}:  {descript}")
+        
     sys.exit("\nDone listing columns")
     
     return   # end print_columns
@@ -416,14 +636,13 @@ def parse_varname_map(config):
     config['HOSTLIB_VARNAMES_LIST']   = HOSTLIB_VARNAMES_LIST    
     config['FOUND_GALID']             = FOUND_GALID
     
-    #sys.exit(f"\n xxx hostlib_varname_dict = \n{hostlib_varname_dict} \n\n xxx hostlib_format_dict =\n{hostlib_format_dict}")
     return config
 
 
-def open_hostlib_files(config):
+def parse_hostlib_info(config):
 
     # parse list of HOSTLIBs;
-    # open each output HOSTLIB file and store area fraction to include.
+    # for each output HOSTLIB file, store area fraction to include.
     
     HOSTLIB_VARNAMES_STRING = config['HOSTLIB_VARNAMES_STRING'] 
     hostlib_dict = {}
@@ -432,19 +651,16 @@ def open_hostlib_files(config):
     HOSTLIB_FILE_LIST = config[KEY_HOSTLIB_FILE]
     for row in HOSTLIB_FILE_LIST:
         hostlib_file = row.split()[0]
-        area_frac    = float(row.split()[1])
-        
-        fp = open(hostlib_file,"wt")
+        area_frac    = float(row.split()[1])            
         hostlib_dict[hostlib_file] = {
             'area_frac'  : area_frac ,
-            'fp'         : fp ,
-            'ra_range'   : [] ,
+            'ra_range'   : [] ,  # to be computed and filled later ..
             'dec_range'  : []
         }
         area_frac_list.append(area_frac)
 
     area_frac_max  = max(area_frac_list)
-    n_hostlib = len(HOSTLIB_FILE_LIST)
+    n_hostlib      = len(HOSTLIB_FILE_LIST)
 
     # store more goodies on config blocl
     config['n_hostlib']      = n_hostlib
@@ -452,6 +668,7 @@ def open_hostlib_files(config):
     config['area_frac_max']  = area_frac_max
         
     return config
+
 
 def write_hostlib_header(fp, hlib_file, ngal, config):
 
@@ -491,12 +708,16 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
         
     fp.write(f"  USAGE_KEY:  HOSTLIB_FILE \n")
     fp.write(f"  USAGE_CODE: snlc_sim.exe \n")
-    fp.write(f"  NOTES: \n")
-    fp.write(f"  - extracted from diffsky catalog {cat_dir_base} \n")
-    fp.write(f"  - ngal      = {ngal} \n")
-    fp.write(f"  - ra_range  = {str_ra}      # degrees \n")
-    fp.write(f"  - dec_range = {str_dec}     # degrees \n")    
+    fp.write(f"  \n")
+    fp.write(f"  DIFFSKY_NOTES: \n")
+    fp.write(f"    CATALOG:    {cat_dir_base} \n")
+    fp.write(f"    NGAL:       {ngal} \n")
+    fp.write(f"    RA_RANGE:   {str_ra}      # degrees \n")
+    fp.write(f"    DEC_RANGE:  {str_dec}     # degrees \n")
 
+    if config['USE_SERIAL_TAG'] :
+        fp.write("#   WARNING: GALID is sequential number unrelated to diffsky cat\n")
+        
     fp.write(f"\n")
     fp.write(f"  HOSTLIB_VARNAMES_MAP: \n")
     for row in HOSTLIB_VARNAMES_MAP:
@@ -522,6 +743,7 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     fp.write(f"  - creation code  {CODE} \n")
     fp.write(f"  - creation date  {TSTAMP} \n")
     fp.write(f"  - created by user={USERNAME} on node={HOSTNAME}  \n")
+
     fp.write(f"DOCUMENTATION_END: \n")
     fp.write(f"\n")
 
@@ -535,67 +757,58 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
 def convert_galaxy_cat_to_pandas(galaxy_cat, config):
 
     logging.info(f"Convert galaxy catalog to pandas: ")
-    
+
     hostlib_varname_dict = config['hostlib_varname_dict']
     cat_var_list         = list(hostlib_varname_dict.keys())
+
+    # exclude columns computed at pandas level — not present in HDF5 catalog
+    cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
+
+    if KEY_OVERRIDE_FILE in config:
+        # Exclude mag band columns and their errors — not in HDF5, will be injected from parquet
+        mag_bands    = _get_mag_bands(config)
+        mag_err_cols = [b + '_err' for b in mag_bands]
+        cat_var_list = [v for v in cat_var_list if v not in mag_bands and v not in mag_err_cols]
+        # Add core_tag temporarily — needed as join key in inject_mag_columns
+        if 'core_tag' not in cat_var_list:
+            cat_var_list.append('core_tag')
+        logging.info(f"  (OVERRIDE_FILE mode: excluding mag bands from HDF5 select, adding core_tag for join)")
 
     t0 = time.time()
     df_cat = galaxy_cat.select(cat_var_list).get_data().to_pandas()
     print_proc_time(t0, "CONVERT_TO_PANDAS", None )
     logging.info(f"")
-    
+
+    # convert radians to degrees
+    if 'RAD' in DIFFSKY_ANGLE_UNIT:
+        convert_angle_unit_degrees(df_cat)
+
     return df_cat
 
-def get_random_subset(args, config, galaxy_cat):
+def convert_angle_unit_degrees(df_cat):
 
-    t0 = time.time()
-    nmax_gal             = config['nmax_gal']
-    hostlib_varname_dict = config['hostlib_varname_dict']
-    CUTWIN               = config[KEY_CUTWIN]
-    
-    cat_var_list = list(hostlib_varname_dict.keys())
+    # convert angle units from rad to degree; keep same column name
+    substr             = DIFFSKY_ANGLE_PREFIX
+    colname_angle_list = df_cat.columns[df_cat.columns.str.contains(substr)].tolist()
+    colname_angle      = colname_angle_list[0]
+    n_col              = len(colname_angle_list)
 
-    logging.info(f"")
-    
-    # fetch astropy table
-    n_row     = 0
-    ntake_gal = nmax_gal   # start with guess
-    while n_row < nmax_gal:
-        logging.info(f"Select random subset of {ntake_gal:,} rows ...")
-
-        galaxy_subset = galaxy_cat \
-            .take(ntake_gal, at="random") \
-            .select(cat_var_list) \
-            .get_data() 
-            
-        n_row = len(galaxy_subset)
-        if n_row < nmax_gal:
-            comment = f"too few; try again"
-        else:
-            comment = f">= {nmax_gal:,}; stop selecting rows"
-            
-        logging.info(f"\t --> {n_row:,} rows selected  ({comment})")
-        ntake_gal = int(1.1 * ntake_gal * nmax_gal / n_row)
+    if n_col > 1:
+        sys.exit(f"\n ERROR: ambiguous angle column: \n" \
+                 f"\t {colname_angle_list} all contain '{substr}'\n")
         
-    # - - - -
-            # convert to data frame
-    df = galaxy_subset.to_pandas()
-
-    print_proc_time(t0, "RANDOM_SUBSET", None)
+    df_cat[colname_angle] = np.degrees(df_cat[colname_angle])
+    return
     
-    return df
-
 def get_hostlib_row_format(row_val_list , config):
 
-    # for input row, return row for HOSTLIB with user-specified format per item
+    # for input row, return row for HOSTLIB with user-specified format per item        
+    hostlib_format_dict  = config['hostlib_format_dict']
+    var_hlib_list  = list(hostlib_format_dict.keys() )
+    fmt_hlib_list  = list(hostlib_format_dict.values() )
 
-    hostlib_format_dict = config['hostlib_format_dict']
-    var_list  = list(hostlib_format_dict.keys() )
-    fmt_list  = list(hostlib_format_dict.values() )
-
-    #sys.exit(f"\n xxx val_list = \n{row_val_list} \n xxx var_list = \n{var_list}  \n xxx fmt_list = \n {fmt_list}")
     row_hostlib = ''   
-    for val, fmt in zip(row_val_list, fmt_list) :
+    for val, fmt in zip(row_val_list, fmt_hlib_list) :
         row_hostlib += f"{val:{fmt}} "
 
     #sys.exit(f"\n xxx row = \n{row_val_list} \n\t --> \n {row_hostlib} ")
@@ -689,7 +902,7 @@ def get_n_update_stdout(nrow_cat):
     return n_update_stdout
 
 def write_hostlib_files(args, config, df_cat):
-
+    
     t0 = time.time()
     
     hostlib_format_dict = config['hostlib_format_dict']
@@ -716,7 +929,8 @@ def write_hostlib_files(args, config, df_cat):
 
         logging.info(f"\t prepare row mask and DOCANA header for {hlib_file} ...")
 
-        fp      = hlib_dict['fp']
+        fp      = open(hlib_file,"wt")
+        hlib_dict['fp'] = fp  # store for GAL keys below
         ra_min  = hlib_dict['ra_range'][0]
         ra_max  = hlib_dict['ra_range'][1]
         dec_min = hlib_dict['dec_range'][0]
@@ -787,52 +1001,46 @@ if __name__ == "__main__":
     setup_logging()
     logging.info("# ========== BEGIN make_simsed_binaries ===============")
 
+    logging.info(f"opencosmo version: {oc.__version__}")
+    
     t_start = time.time()
     args   = get_args() 
     config = read_yaml(args.config_file)
 
-    # make sure Sersic column definitinos are consistent to avoid crash later
+    # make sure Sersic column definitions are consistent to avoid crash later
     check_Sersic_definitions(config)
-    
+
     # parse varname mapping between diffsky and hostlib
-    config     = parse_varname_map(config)
+    config   = parse_varname_map(config)
 
-    # open each hostlib file
-    config       = open_hostlib_files(config)
+    # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
+    config  = parse_hostlib_info(config)
 
-    # fetch entire galaxy catalog
+    # fetch entire galaxy catalog from HDF5
     galaxy_cat  = read_galaxy_cat(args, config)
 
     # apply cuts
     galaxy_cat  = apply_cuts(galaxy_cat, config)
 
-    # - - - - - - - - - - - - - - - - - - - - - - - - 
-    # add columns computed from other columns
-
-    logging.info('')
-    logging.info('========== COMPUTE/APPEND COLUMNS ===============')
-    
-    # add vpec
-    galaxy_cat = addcol_vpec(galaxy_cat, config)    
-
-    # add sersic indices
-    galaxy_cat = addcol_sersic_indices(galaxy_cat, config)
-
-    # check option to add and compute mag_error for each band
-    galaxy_cat = addcol_mag_errors(galaxy_cat, config)
+    # add columns that need the HDF5/opencatalogs API (distances, Sersic geometry, GALID)
+    galaxy_cat = add_col_diffsky(galaxy_cat, config)
 
     logging.info('==================================================')
     logging.info('')
-    
-    # - - - - - - - - - - - - - - - - - - - - -  -
-    # xxx mark delete df_cat = get_random_subset(args, config, galaxy_cat)
 
     df_cat = convert_galaxy_cat_to_pandas(galaxy_cat, config)
+
+    if KEY_OVERRIDE_FILE in config:
+        # Inject pre-computed mags from parquet; join on core_tag ↔ serial_tag (both int64)
+        df_cat = inject_mag_columns(df_cat, config)
+
+    # add columns via pandas arithmetic (logsfr, mag errors) — works in both modes
+    df_cat = add_col_pd(df_cat, config)
 
     # figure out coordinate range for each hostlib
     config['hostlib_dict'] = get_coord_ranges(df_cat, config)
 
-    # x x x x x
+    # write hostlib file(s)
     write_hostlib_files(args, config, df_cat)
 
     print_proc_time(t_start, "TOTAL", None)

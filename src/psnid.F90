@@ -235,6 +235,7 @@
 ! -------------------------------------
 
     USE SNPAR
+    USE CTRLCOM
     USE PSNIDCOM
     USE SNCUTS
     USE SNLCINP_NML
@@ -403,10 +404,6 @@
 
     INTEGER LEN_FMT, OPT
 
-! variables for legacy options
-    CHARACTER DMPFILE_forC*(MXCHAR_FILENAME)
-    INTEGER LEN_DMPFILE
-
 ! external functions
     EXTERNAL  PSNID_BEST_INIT_SNTABLE
 
@@ -467,7 +464,6 @@
 
 ! declare subroutine args
 
-    INTEGER ISN  ! (I) sparse SN index
     INTEGER IERR ! (O) 0 => OK
 
 ! local variables
@@ -482,12 +478,11 @@
         ,FLUXDATA8(MXEPOCH)  & 
         ,FLUXERR8(MXEPOCH)  & 
         ,FLUXSIM8(MXEPOCH)  & 
-        ,XTMW8(MXEPOCH)  & 
         ,Z8(3), ZERR8(3)  & 
         ,MWEBV8, MWEBVERR8
 
 
-    CHARACTER CCID*(MXCHAR_CCID), CFILT*2
+    CHARACTER CCID*(MXCHAR_CCID)
 
 ! functions
     INTEGER   PSNID_BEST_DOFIT, PSNID_BEST2_DOFIT
@@ -540,7 +535,6 @@
        FLUXDATA8(NOBS) = DBLE( SNLC_FLUXCAL(ep) )
        FLUXERR8(NOBS)  = DBLE ( SNLC_FLUXCAL_ERRTOT(ep) )
        FLUXSIM8(NOBS)  = DBLE ( SIM_EPFLUXCAL(ep) )  ! Jan 2020
-!          XTMW8(NOBS)     = SNLC_XTMW_FLUXFRAC(ifilt)
 
        IFILTLIST_PSNID(NOBS) = IFILTINV_PSNID(IFILT_OBS)
 
@@ -643,8 +637,8 @@
     IMPLICIT NONE
 
 
-    INTEGER   IFILT, IFILT_OBS, i, LEN_ROOT, LEN_PATH
-    CHARACTER CFILT*2, TMPDIR*200
+    INTEGER   IFILT, IFILT_OBS, LEN_ROOT, LEN_PATH
+    CHARACTER CFILT*2
 
 ! functions
     INTEGER FILTINDX
@@ -855,34 +849,34 @@
        LL = INDEX ( ARG, ' ' ) - 1
 
      if ( MATCH_NMLKEY('METHOD_NAME', 1,i,ARGLIST) ) then
-          METHOD_NAME = ARGLIST(1)
+          METHOD_NAME = ARGLIST(1)(1:60)
 
       else if ( MATCH_NMLKEY('FILTLIST_FIT', 1,i,ARGLIST) ) then
-          FILTLIST_FIT = ARGLIST(1)
+          FILTLIST_FIT = ARGLIST(1)(1:100)
 
       else if ( MATCH_NMLKEY('FILTLIST_PEAKMAG_STORE',  & 
                    1, i, ARGLIST) ) then
-          FILTLIST_PEAKMAG_STORE = ARGLIST(1)
+          FILTLIST_PEAKMAG_STORE = ARGLIST(1)(1:100)
 
       else if ( MATCH_NMLKEY('TEMPLATES_SNIa TEMPLATES_SNIA',  & 
                    1, i, ARGLIST) ) then
-          TEMPLATES_SNIa = ARGLIST(1)
+          TEMPLATES_SNIa = ARGLIST(1)(1:MXCHAR_FILENAME)
 
       else if ( MATCH_NMLKEY('TEMPLATES_NONIa TEMPLATES_NONIA',  & 
                    1, i, ARGLIST) ) then
-          TEMPLATES_NONIa = ARGLIST(1)
+          TEMPLATES_NONIa = ARGLIST(1)(1:MXCHAR_FILENAME)
 
       else if(MATCH_NMLKEY('PRIVATE_TEMPLATES_PATH',1,i,ARGLIST))then
-          PRIVATE_TEMPLATES_PATH = ARGLIST(1)
+          PRIVATE_TEMPLATES_PATH = ARGLIST(1)(1:MXCHAR_PATH);
 
       else if(MATCH_NMLKEY('MODELNAME_MAGERR', 1,i,ARGLIST))then
           READ(ARGLIST(1),*) MODELNAME_MAGERR
 
       else if(MATCH_NMLKEY('TEMPLATES_NONIA_LIST', 1,i,ARGLIST))then
-          TEMPLATES_NONIA_LIST = ARGLIST(1)
+          TEMPLATES_NONIA_LIST = ARGLIST(1)(1:MXCHAR_FILENAME)
 
       else if(MATCH_NMLKEY('TEMPLATES_NONIA_IGNORE', 1,i,ARGLIST))then
-          TEMPLATES_NONIA_IGNORE = ARGLIST(1)
+          TEMPLATES_NONIA_IGNORE = ARGLIST(1)(1:MXCHAR_FILENAME)
 
       else if(MATCH_NMLKEY('AV_TAU', 1,i,ARGLIST))then
           READ(ARGLIST(1),*) AV_TAU
@@ -1051,7 +1045,7 @@
 ! then pass them to C function.
 ! 
 ! Feb 25 2020: pass DEBUG_FLAG to C code.
-
+! Apr 23 2026: pass ZP_FLUXCAL as first inpu
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -1060,7 +1054,7 @@
     IMPLICIT NONE
 
 
-    INTEGER NVAR, L1, LSTR, LNN, NFILE, i, IVAR, iter
+    INTEGER NVAR, L1, LSTR, i, iter
     REAL*8    INPUT_ARRAY(200)
     CHARACTER INPUT_STRING*2000
 
@@ -1069,6 +1063,9 @@
 ! ---------------- BEGIN -----------
 
     NVAR = 0
+
+    NVAR = NVAR + 1
+    INPUT_ARRAY(NVAR) = ZP_FLUXCAL  ! Apr 2026
 
 ! start with &SNLCINP values
     NVAR = NVAR + 1
@@ -1261,11 +1258,7 @@
 
     IMPLICIT NONE
 
-! xxxxxxxx mark del Nov 28 2025 xxxxxx
-! xx+CDE,SNFITPAR.
-! xxxxxxxxxxxxxx
-
-    INTEGER MXFUNPLOT, NFUNPLOT, iplot, LENCCID
+    INTEGER MXFUNPLOT, NFUNPLOT, iplot
 
 ! functions
     INTEGER  PSNID_GET_NFIT, DOPLOT_PSNID

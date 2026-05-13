@@ -5,7 +5,16 @@
 # Pippin did this task interactively, and for DES-SN5YR it takes
 # about 4-5 hr of wall time ... dividing this task among cores
 # should greatly reduce the wall time.
-
+#
+# Feb 11 2026: 
+#   + fix bug; copy ALL.DONE when all is finished at end of merge_cleanup_final
+#       For symlinks, ALL.DONE is copied during PREP stage.
+#   + if everything is a symlink, don't bother submitting into slurm
+#      (no need to wait in q for nothing)
+#     
+# Mar 18 2026: fix bug to pick out only the FITRES files and ignore other
+#              table files; see modification to INPUT_BASE
+#
 
 import os, sys, shutil, yaml, glob
 import logging
@@ -23,7 +32,14 @@ COLNUM_COMBINE_MERGE_CPU      = 5
 
 # define files produced by submit_batch_jobs that are needed
 # to mimic another output dir from submit_batch_jobs
-MIMIC_FILE_LIST = [MERGE_LOG_FILE, SUBMIT_INFO_FILE, DEFAULT_DONE_FILE ]
+# Make it look like real job by copying SUBMIT.INFO first,
+# then copy other files when all is finished.
+
+STAGE_PREP = "PREP"
+STAGE_DONE = "DONE"
+STAGE_FORCE_COPY = "FORCE_COPY"  
+MIMIC_FILE_LIST      = [SUBMIT_INFO_FILE, MERGE_LOG_FILE, DEFAULT_DONE_FILE ]
+MIMIC_STAGE_LIST     = [STAGE_PREP,       STAGE_DONE,     STAGE_DONE        ]
 
 # =============================================================
 class combine_fitres(Program):
@@ -53,7 +69,7 @@ class combine_fitres(Program):
 
         self.prep_combine_inputs()
         self.prep_combine_outdirs()
-        self.prep_combine_mimic_outdirs()
+        self.prep_combine_mimic_outdirs(STAGE_PREP)
         self.prep_combine_symlinks()
         return
 
@@ -93,6 +109,12 @@ class combine_fitres(Program):
             else:
                 MIMIC_OUTDIR_INP = None
                 MIMIC_OUTDIR_OUT = None
+
+            # make sure to pick out ONLY the FITRES tables;
+            # ignore other tables such as SNANA, LCPLOT, etc ...
+            # If user did not specify *FITRES* in the wildcard, add it here
+            if '.FITRES' not in INPUT_BASE:
+                INPUT_BASE += '.FITRES*'
 
             if INPUT_TOPDIR :  
                 INPUT_BASE     = f"{INPUT_TOPDIR}/{INPUT_BASE}"
@@ -190,19 +212,35 @@ class combine_fitres(Program):
         return
         # end prep_combine_outdirs
 
-    def prep_combine_mimic_outdirs(self):
+    def prep_combine_mimic_outdirs(self, stage):
 
+        # Copy files based on stage = PREP or DONE.
+        # SUBMIT.INFO can be copied during PREP stage, but ALL.DONE
+        # must be copied at DONE stage so that pippin isn't fooled into
+        # starting BBC too soon.
+        #
+        # A tricky issue is when the combine_fitres args = None, meaning
+        # it's a symbolic link. In this case, there is no submission and
+        # therefore STAGE_FORCE_COPY is used to force all files copied during PREP stage.
+
+        combine_arg_list      = self.config_prep['combine_arg_list']  # None -> symlink
         mimic_outdir_inp_list = self.config_prep['mimic_outdir_inp_list']
         mimic_outdir_out_list = self.config_prep['mimic_outdir_out_list']
         use_mimic_list = []
 
         logging.info(f"") 
-        logging.info(f" Mimic submit_batch outdirs with {MIMIC_FILE_LIST} for: ")
+        logging.info(f" Mimic submit_batch outdirs at {stage}-STAGE for {MIMIC_FILE_LIST}: ")
 
-        for mimic_outdir_inp, mimic_outdir_out in zip(mimic_outdir_inp_list, mimic_outdir_out_list):
-            if mimic_outdir_inp and mimic_outdir_inp not in use_mimic_list:
+        for combine_arg, mimic_outdir_inp, mimic_outdir_out in \
+            zip(combine_arg_list, mimic_outdir_inp_list, mimic_outdir_out_list):
+
+            stage_tmp = stage  # default
+            if combine_arg is None:   stage_tmp = STAGE_FORCE_COPY
+
+            USE_INP   = mimic_outdir_inp and mimic_outdir_inp not in use_mimic_list
+            if USE_INP:
                 logging.info(f"   + {mimic_outdir_out}")
-                self.mimic_outdir_submit_batch(mimic_outdir_inp, mimic_outdir_out)
+                self.mimic_outdir_submit_batch(stage_tmp, mimic_outdir_inp, mimic_outdir_out)
                 use_mimic_list.append(mimic_outdir_inp)
                                            
         return
@@ -221,20 +259,27 @@ class combine_fitres(Program):
 
         return
 
-    def mimic_outdir_submit_batch(self, mimic_outdir_inp, mimic_outdir_out):
+    def mimic_outdir_submit_batch(self, stage, mimic_outdir_inp, mimic_outdir_out):
         
         #logging.info(f" Copy {MIMIC_FILE_LIST} to {mimic_outdir_out}")
 
-        for mimic_file in MIMIC_FILE_LIST:
-            source_file = f"{mimic_outdir_inp}/{mimic_file}"
-            dest_file   = f"{mimic_outdir_out}/{mimic_file}"
-            if not os.path.exists(source_file):
-                msgerr = [ f"Cound not find {source_file} to copy" ]
-                util.log_assert(False, msgerr)
-            
-            shutil.copy2(source_file, dest_file)
+        for mimic_stage, mimic_file in zip(MIMIC_STAGE_LIST, MIMIC_FILE_LIST):
 
+            do_copy = ( stage == STAGE_FORCE_COPY ) or ( stage == mimic_stage )
+            if do_copy :
+                source_file = f"{mimic_outdir_inp}/{mimic_file}"
+                dest_file   = f"{mimic_outdir_out}/{mimic_file}"
+                if not os.path.exists(source_file):
+                    msgerr = [ f"Cound not find {source_file} to copy" ]
+                    util.log_assert(False, msgerr)
+            
+                if 'DONE' in source_file:
+                    shutil.copy(source_file, dest_file)  # current time stamp for ALL.DONE
+                else:
+                    shutil.copy2(source_file, dest_file) # preserve original time stamp
+        # - - - - -
         return
+        # end mimic_outdir_submit_batch
 
     def write_command_file(self, icpu, f):
 
@@ -251,18 +296,19 @@ class combine_fitres(Program):
         n_job_local    = 0     
         ii = 0
         for i, combine_args in enumerate(combine_arg_list):
-            if combine_args is not None :  
 
-                n_job_local += 1
-                if ii % n_core == icpu:                
-                    key_unique = key_unique_list[i]
+            if combine_args is None: continue  # all symbolic links, nothing more to do
 
-                    job_info_combine   = self.prep_JOB_INFO_combine(combine_args, key_unique)
-                    util.write_job_info(f, job_info_combine, icpu)
-
-                    job_info_merge = self.prep_JOB_INFO_merge(icpu, n_job_local, False)
-                    util.write_jobmerge_info(f, job_info_merge, icpu)
-
+            n_job_local += 1
+            if ii % n_core == icpu:                
+                key_unique = key_unique_list[i]
+                
+                job_info_combine   = self.prep_JOB_INFO_combine(combine_args, key_unique)
+                util.write_job_info(f, job_info_combine, icpu)
+                
+                job_info_merge = self.prep_JOB_INFO_merge(icpu, n_job_local, False)
+                util.write_jobmerge_info(f, job_info_merge, icpu)
+                
                 ii += 1
 
         return
@@ -345,6 +391,15 @@ class combine_fitres(Program):
                 jobnum += 1
 
         util.write_merge_file(f, MERGE_INFO, [] )
+
+        # if all jobs are symbolic links, write ALL.DONE because
+        # base submit_batch code won't do it [since merge process is not called]
+        if jobnum == 0:
+            output_dir   = self.config_prep['output_dir']  
+            done_file    = f"{output_dir}/{DEFAULT_DONE_FILE}"
+            with open(done_file,"wt") as f:
+                f.write(f"{STRING_SUCCESS}\n")
+
         return
         # end create_merge_table
 
@@ -457,13 +512,23 @@ class combine_fitres(Program):
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
         util.compress_files(+1, script_dir, "CPU*", "CPU", "" )
-
+        
         logging.info("")
+
+        # do final MIMIC copy here so that ALL.DONE appears after all is merged
+        # read relevant info from SUBMIT.INFO before calling this
+        self.prep_combine_mimic_outdirs(STAGE_DONE)
+
         # end merge_cleanup_final                        
 
     def merge_config_prep(self,output_dir):
+        
+        # read/prep a few things needed for merge process
+
         submit_info_yaml = self.config_prep['submit_info_yaml']
         self.config_prep['key_unique_list'] = submit_info_yaml['JOBNAME_LIST']
+        self.prep_combine_inputs() # Feb 11 2026 
+
         return
 
    

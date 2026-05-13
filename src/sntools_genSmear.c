@@ -233,7 +233,7 @@ void init_genSmear_randoms(int NRANGauss, int NRANFlat) {
   // malloc memory to hold Gauss and flat randoms for each event.
 
   int MEMD;
-  char fnam[] = "init_genSmear_randoms";
+  char fnam[] = "init_genSmear_randoms"; (void)fnam;
 
   // ------------ BEGIN --------------
 
@@ -276,7 +276,7 @@ void load_genSmear_randoms(int CID, double gmin, double gmax, double RANFIX) {
   int  LDMP = 0 ;
 
   int iran;
-  char fnam[] = "load_genSmear_randoms" ;
+  char fnam[] = "load_genSmear_randoms" ; (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -348,9 +348,9 @@ void get_genSmear(double *parList, int NLam, double *Lam,
   // May 31 2021: refactor to pass parList that includes logMass
 
   double Trest   = parList[0];
-  double x1      = parList[1];
-  double c       = parList[2];
-  double logMass = parList[3];
+  // double x1      = parList[1];
+  // double c       = parList[2];
+  // double logMass = parList[3];
 
   int ilam, repeat ;
   char fnam[] = "get_genSmear" ;
@@ -447,7 +447,7 @@ int repeat_genSmear(double Trest, int NLam, double *Lam) {
   int LDMP    = 0 ;
   double LAMMIN = Lam[0];
   double LAMMAX = Lam[NLam-1];
-  char fnam[] = "repeat_genSmear";
+  char fnam[] = "repeat_genSmear";  (void)fnam;
 
   // ------------ BEGIN ------------
 
@@ -515,7 +515,7 @@ void update_genSmear_COVLAM_debug(double *magSmear) {
 
   double mtmp, XN, SUM, SQSUM, MEAN[2], RMS[2], COV_01, RHO ;
   int i, N;
-  char fnam[] = "update_genSmear_COVLAM_debug" ;
+  char fnam[] = "update_genSmear_COVLAM_debug" ; (void)fnam;
 
   // ----------- BEGIN -------
 
@@ -721,7 +721,7 @@ double get_genSmear_SCALE(double *parList) {
 
   double x1 = parList[1];
   double c  = parList[2];
-  double m  = parList[3];
+  //  double m  = parList[3];
 
   double SCALE  = 1.0 ;
   double VAL;
@@ -907,7 +907,7 @@ void init_genSmear_CCM89(double *LAMRANGE) {
 
   int    NLAM, I8 ;
   double sig, REF, LAM, LAMBIN;
-  char fnam[] = "init_genSmear_CCM89" ;
+  char fnam[] = "init_genSmear_CCM89" ;  (void)fnam;
 
   // --------- BEGIN ------------
 
@@ -1082,7 +1082,6 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   double COLOR_DISP_MAX = 5.0;
   double zmin = GENRANGE_REDSHIFT[0];
   int   NSIGMA_CRAZY = 0;
-  double SIGMA_CRAZY = 2.0 ;
   char dispFile[MXPATHLEN] ;  
   char fnam[] = "init_genSmear_SALT2" ;
 
@@ -1152,7 +1151,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   // ----
 
   int    NRANGEN, ilam, NLAM, NNODE, LAST=0 ;
-  double LAM, LAM2=0.0, MINLAM, MAXLAM, MAXLAM_LOOP, DLAM, SIG ;
+  double LAM, LAM2=0.0, MINLAM, MAXLAM, DLAM, SIG ;
   double F0, F1, FUDGE, L0;
 
   // apply sigma-scale fudge so that lambda-interpolated model
@@ -1177,7 +1176,7 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
 
   // print info
   int NBIN = GENSMEAR_SALT2.SIGCOH_LAM.NBIN ;
-  char tmpLine[100];
+  char tmpLine[200], ctmp[60];
 
   if ( NBIN == 1 ) {
     sprintf(tmpLine, "SIGCOH = %5.3f",  GENSMEAR_SALT2.SIGCOH_LAM.YVAL[0] );
@@ -1185,12 +1184,31 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   else {
     sprintf(tmpLine, "SIGCOH = " );
     for(ilam=0; ilam < NBIN; ilam++ ) 
-      { sprintf(tmpLine, "%s %5.3f", 
-		tmpLine, GENSMEAR_SALT2.SIGCOH_LAM.YVAL[ilam] ); }
-    sprintf(tmpLine, "%s for LAM =", tmpLine );
-    for(ilam=0; ilam < NBIN; ilam++ ) 
-      { sprintf(tmpLine, "%s %.1f", 
-		tmpLine, GENSMEAR_SALT2.SIGCOH_LAM.XVAL[ilam] );} 
+      { 
+	sprintf(ctmp," %5.3f", GENSMEAR_SALT2.SIGCOH_LAM.YVAL[ilam]);
+	strcat(tmpLine, ctmp);
+
+	/* xxxxxx mark delete May 4 2026 xxxxxx
+	sprintf(tmpLine, "%s %5.3f", 
+		tmpLine, GENSMEAR_SALT2.SIGCOH_LAM.YVAL[ilam] ); 
+	xxxxxx end mark xxxxxxx */
+
+      }
+
+    sprintf(ctmp," for LAM ="); strcat(tmpLine, ctmp);
+    // xxx mark delete sprintf(tmpLine, "%s for LAM =", tmpLine );
+
+    for(ilam=0; ilam < NBIN; ilam++ ) {
+      sprintf(ctmp," %.1f", GENSMEAR_SALT2.SIGCOH_LAM.XVAL[ilam]);
+      strcat(tmpLine, ctmp);
+
+      /* xxxxxxx mark delete
+      sprintf(tmpLine, "%s %.1f", 
+		tmpLine, GENSMEAR_SALT2.SIGCOH_LAM.XVAL[ilam] );
+      xxxxxx end mark xxx */
+
+    } 
+
   }
   printf("    %s\n", tmpLine);
 
@@ -1214,7 +1232,6 @@ void  init_genSmear_SALT2(char *versionSALT2, char *smearModel,
   NNODE  = 0 ;
   MINLAM = GENSMEAR_SALT2.MINLAM ;
   MAXLAM = GENSMEAR_SALT2.MAXLAM ;
-  MAXLAM_LOOP = MAXLAM + DLAM ; 
 
   // Apr 2022
   // make sure that lam-range in salt2_color_dispersion.dat covers
@@ -1331,7 +1348,7 @@ void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D_DEF *SIGCOH_LAM,
 
   if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
       sprintf(c1err,"Cannot open infoFile " );
-      sprintf(c2err,"%s", INFO_FILE);
+      sprintf(c2err,"%.*s", MXCHAR_MSGERR, INFO_FILE);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;    
   }
 
@@ -1357,7 +1374,7 @@ void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D_DEF *SIGCOH_LAM,
   if ( NBIN == 0  ){
     sprintf(c1err,"Could not find '%s' or %s in SALT2 info-file:", 
 	    KEY1, KEY2);
-    sprintf(c2err,"%s", INFO_FILE) ;
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, INFO_FILE) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }
 
@@ -1542,7 +1559,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
   double *ptrSIGCOH = GENSMEAR_SALT2.SIGCOH_LAM.YVAL ;
   int OPT_INTERP=1;
 
-  int    ilam, INODE, N, LDMP, NLAM ;
+  int    ilam, INODE, N, LDMP;
   double lam, rCOH, r0, r1, SMEAR0=0.0, SMEAR, MINLAM, MAXLAM ;
   double LAM_NODE[2], MAG_NODE[2];
   char   fnam[] = "get_genSmear_SALT2";
@@ -1558,7 +1575,7 @@ void get_genSmear_SALT2(double Trest, int NLam, double *Lam,
 	   fnam, Trest, NLam, Lam[0], ptrSIGCOH[0] );
   }
 
-  NLAM   = GENSMEAR_SALT2.NLAM ;  
+  // int  NLAM   = GENSMEAR_SALT2.NLAM ;  
   MINLAM = GENSMEAR_SALT2.MINLAM ;
   MAXLAM = GENSMEAR_SALT2.MAXLAM ;
   
@@ -1716,9 +1733,6 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
   double COVAR_diag_EWSiCa[NBAND_C11] = { 0.03, 0.02, 0.03, 0.03, 0.06  };
   */
 
-  double COVAR1[NBAND_C11* NBAND_C11] ;
-  double COVAR2[NBAND_C11][NBAND_C11] ;
-
   double CC, COVred, tmp, covscale_v ;
   int i,j, N ;
   int MEMD = NBAND_C11 * NBAND_C11 * sizeof(double);
@@ -1762,11 +1776,9 @@ void  init_genSmear_Chotard11(int OPT_farUV) {
       CC   = COVAR_diag_EWSi[i] * COVAR_diag_EWSi[j];
       if ( i == j ) { CC += COV_DIAG_FUDGE ; }
 
-      COVAR2[i][j] = COVred * CC ; // xxx REMOVE
       GENSMEAR_C11.DECOMP.COVMAT1D[N] = COVred * CC * COV_SCALE;
 
       N++ ;  
-      COVAR1[N-1] = COVAR2[i][j] * COV_SCALE ; // xxx REMOVE
 
       printf(" %7.4f ", COVred );
     }
@@ -1980,7 +1992,7 @@ void read_VCR_INFO(void) {
 
   if ( (fp = fopen(infoFile,"rt") ) == NULL ) {
     sprintf(c1err,"Cannot open info file:");
-    sprintf(c2err,"%s", infoFile);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, infoFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
 
@@ -2333,7 +2345,7 @@ void  parse_VCR_colorString(int ic) {
   cstr = GENSMEAR_VCR.COLOR_STRING[ic] ;
   len = strlen(cstr);
   if ( len != 3 ) {
-    sprintf(c1err,"Invalid VCR color definition: '%s' (len=%d !=3)", 
+    sprintf(c1err,"Invalid VCR color definition: '%.100s' (len=%d !=3)", 
 	    cstr, len );
     sprintf(c2err,"Color def must be of the form 'X-Y'");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
@@ -2342,8 +2354,7 @@ void  parse_VCR_colorString(int ic) {
   // make sure we have a dash as 2nd element.
   sprintf(c2,"%c", cstr[1] );
   if (strcmp(c2,"-") != 0 ) {
-    sprintf(c1err,"Invalid VCR color definition: '%s'  (2nd char ne '-'", 
-	    cstr);
+    sprintf(c1err,"Invalid VCR color definition: '%.100s'  (2nd char ne '-'",  cstr);
     sprintf(c2err,"Color def must be of the form 'X-Y'");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
@@ -3033,7 +3044,7 @@ void read_OIR_INFO(void) {
   
   if ( (fp = fopen(infoFile,"rt") ) == NULL ) {
     sprintf(c1err,"Cannot open info file:");
-    sprintf(c2err,"%s", infoFile);
+    sprintf(c2err,"%.*s", MXCHAR_MSGERR, infoFile);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
 
@@ -3106,7 +3117,7 @@ void sort_OIR_BANDS(void) {
   // and fill ORDERED arrays.
 
   int ORDER =  1; // --> increasing order
-  int NBAND, IFILTDEF, IFILTDEF_B, iband, isort, NC ;
+  int NBAND, IFILTDEF, IFILTDEF_B, iband, isort ;
   int IFILTDEF_LIST[MXFILTINDX];
   int INDSORT[MXFILTINDX];
   double LAMCEN, LAMCEN_LIST[MXFILTINDX];
@@ -3129,7 +3140,6 @@ void sort_OIR_BANDS(void) {
   
   // sort by increasing wavelength
   sortDouble(NBAND, LAMCEN_LIST, ORDER, INDSORT);
-  NC = GENSMEAR_OIR.NCOLOR ;
       
   IFILTDEF_B = INTFILTER("B");
 
@@ -3154,12 +3164,11 @@ void sort_OIR_BANDS(void) {
 // ****************************************
 void  prep_OIR_COVAR(void) {
 
+  /* xxxx mark delete May 4 2026 xxxxxx
   int ic1, ic2, NC, N;
-  double S1, S2, rho, COV ;
-  //  char fnam[] = "prep_OIR_COVAR" ;
-
+  double S1, S2, rho ;
+  char fnam[] = "prep_OIR_COVAR" ;
   // ------------- BEGIN ----------
-
   NC = NBAND_OIR ;
   N  = 0 ;
   for(ic1=0; ic1<NC; ic1++ ) {
@@ -3167,12 +3176,13 @@ void  prep_OIR_COVAR(void) {
       rho = GENSMEAR_OIR.COLOR_CORMAT[ic1][ic2] ;
       S1  = GENSMEAR_OIR.COLOR_SIGMA[ic1] ;
       S2  = GENSMEAR_OIR.COLOR_SIGMA[ic2] ;
-      COV = (S1 * S2 * rho) ;
+      // COV = (S1 * S2 * rho) ;
       // xxx      printf("hiiiiiiiiiii8 %f\n",S1);
       N++ ;
 
     }  // ic2
   }    // ic1
+  xxxxxxxx end mark xxxxxx */
 
 } // end of   prep_OIR_COVAR
 
@@ -3278,8 +3288,8 @@ void parse_COVSED_INFO_FILE(void) {
 
   char *ptrPATH    = GENSMEAR_COVSED.MODEL_PATH;
   char info_file[] = "COVSED.INFO";
-  char *INFO_FILE  = (char*) malloc ( MXPATHLEN * sizeof(char) );
-  char c_get[80], covsed_file[100];
+  char *INFO_FILE  = (char*) malloc ( 2*MXPATHLEN * sizeof(char) );
+  char c_get[80], covsed_file[MXPATHLEN];
   FILE *fp;
   char fnam[] = "parse_COVSED_INFO_FILE";
 
@@ -3295,7 +3305,7 @@ void parse_COVSED_INFO_FILE(void) {
 
   if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
       sprintf(c1err,"Cannot open required info File " );
-      sprintf(c2err,"%s", INFO_FILE);
+      sprintf(c2err,"%.*s", MXCHAR_MSGERR, INFO_FILE);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;    
   }
   
@@ -3441,13 +3451,13 @@ void readFits_genSmear_COVSED(char *fileName) {
 
   // read wave column
   NREAD = NBIN_WAVE;  istat=0;
-  fits_read_col_dbl(fp, ICOL_WAVE, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+  fits_read_col_dbl(fp, ICOL_WAVE, FIRSTROW, FIRSTELEM, NREAD, NULL_D,
 		    GENSMEAR_COVSED.WAVE, &anynul, &istat);
   snfitsio_errorCheck("read WAVE bins", istat);
   
   // read covmat into 1D array
   NREAD = NBIN_COVMAT;  istat=0;
-  fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_1D,
+  fits_read_col_dbl(fp, ICOL_COVMAT, FIRSTROW, FIRSTELEM, NREAD, NULL_D,
 		    GENSMEAR_COVSED.DECOMP.COVMAT1D, &anynul, &istat);
   snfitsio_errorCheck("read COVMAT1D", istat);
 
@@ -3631,7 +3641,7 @@ int  nval_genSmear_override(char *inputKey, char *parName) {
   // The 2nd call returns nval=4 and parName = "MYLIST"
   //
   
-  int nval, br0, br1, LENKEY, i ;
+  int nval, br0, br1, i ;
   char c1[4];
   char cbr0[] = "[" ;
   char cbr1[] = "]" ;
@@ -3644,7 +3654,6 @@ int  nval_genSmear_override(char *inputKey, char *parName) {
 
   // check for optional brackets containing nval.
   
-  LENKEY = strlen(inputKey);
   br0 = strcspn(inputKey, cbr0 );
   br1 = strcspn(inputKey, cbr1 );
 
@@ -3680,7 +3689,6 @@ void  store_genSmear_override(char *parName, int NVAL, double *tmpList) {
   // to store parameter values.
 
   int N, i ;
-  char cval[20];
   char fnam[] = "store_genSmear_override" ;
 
   // ------------- BEGIN ----------
@@ -3895,7 +3903,7 @@ void  check_genSmear_phaseCor(void) {
   int    IBIN_CHECK = -10 ;
   int    NBIN       = GENSMEAR_PHASECOR.NBIN ;
   double EXPTAU     = GENSMEAR_PHASECOR.INPUT_EXPTAU;
-  double DT_CHECK[10], T0, m0, m1, RHO_PREDICT, RHO_CHECK;
+  double DT_CHECK[10], m0, m1, RHO_PREDICT, RHO_CHECK;
   char fnam[] = "check_genSmear_phaseCor" ;
 
   // ------------- BEGIN ------------
@@ -3937,7 +3945,6 @@ void  check_genSmear_phaseCor(void) {
     XN      = (double)NSUM ;
     SIG     = GENSMEAR_PHASECOR.INPUT_MAGSMEAR ;
     SQSIG   = SIG*SIG;
-    T0      = GENSMEAR_PHASECOR.GRID_PHASE[IBIN_CHECK];
 
     sumCHECK    = GENSMEAR_PHASECOR.sumCHECK ;    // sum(m0)
     SUMCHECK    = GENSMEAR_PHASECOR.SUMCHECK[0] ; // sum(m0^2)

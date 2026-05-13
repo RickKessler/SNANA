@@ -15,9 +15,10 @@
     split IFILE_SNFITSIO into IFILE_RD_SNFITSIO and IFILE_WR_SNFITSIO;
     Same for NFILE_SNFITSIO.
 
+  May 4 2026: MXPAR_SNFITSIO -> 800 (was 600)
+
 **************************************************/
 
-// xxx mark delete Aug 7 2025   #define REFAC_SNFITSIO 1
 
 // ==================================
 // global variables
@@ -34,7 +35,8 @@
 #define OPTMASK_SNFITSIO_DONE   16  // done reading data version
 
 #define MXFILE_SNFITSIO     500  // max number of fits-files to read
-#define MXPAR_SNFITSIO      600  // max number of header variables
+#define MXPAR_SNFITSIO      800  // max number of header variables
+#define MXELEMENT_SNFITSIO  100  // max elements per vector write (Apr 2026)
 
 #define SNFITSIO_EOE_MARKER  -777.0  // from era of 9-track tapes
 
@@ -116,12 +118,15 @@ typedef struct {
 
   // cast of each header parameter (float, double, int ...)
   char  form[MXPAR_SNFITSIO][4] ;
-  char *ptrForm[MXPAR_SNFITSIO] ;
+  char *ptrForm[MXPAR_SNFITSIO] ; // points to form, for fits utility
+  int iform[MXPAR_SNFITSIO] ;     // integer representation
+
+  // Apr 7 2026 : n_ele=1 for scalar, >1 for vector (e.g. HOSTGALz_QUANTILE)
+  int n_element[MXPAR_SNFITSIO]; 
 
   // these are all set to blank
   char *ptrUnit[MXPAR_SNFITSIO] ;
-
-  int iform[MXPAR_SNFITSIO] ;
+ 
 
 } SNFITSIO_TABLEDEF ;
 
@@ -131,14 +136,16 @@ SNFITSIO_TABLEDEF WR_SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO];
 struct { 
   // temp values to fill Header table
   char          *value_A  ;  // ascii/text
-  float          value_1E ;  // 4-byte float
-  double         value_1D ;  // 8-byte double
-  int            value_1J ;  // 4-byte signed int
-  short int      value_1I ;  // 2-byte signed int
-  unsigned short value_1U ;  // 2-byte unsigned int
-  unsigned int   value_1V ;  // 4-byte unsigned int
-  long long      value_1K ;  // 8 bytte long long int
+  float          value_E ;  // 4-byte float
+  double         value_D ;  // 8-byte double
+  int            value_J ;  // 4-byte signed int
+  short int      value_I ;  // 2-byte signed int
+  unsigned short value_U ;  // 2-byte unsigned int
+  unsigned int   value_V ;  // 4-byte unsigned int
+  long long      value_K ;  // 8 bytte long long int
   
+  float         *list_E ; // pointer to list of 4-byte floats
+
   int NROW ; // increment number of rows written
 
   // index used to speed search for header-param column during update
@@ -149,19 +156,19 @@ struct {
 
 
 #define IFORM_A   1
-#define IFORM_1J  2
-#define IFORM_1I  3
-#define IFORM_1E  4
-#define IFORM_1D  5
-#define IFORM_1K  6
+#define IFORM_J  2
+#define IFORM_I  3
+#define IFORM_E  4
+#define IFORM_D  5
+#define IFORM_K  6
 #define MXFORM_SNFITSIO 10
 
 #define NULL_A      "NULL"
-#define NULL_1J     (int)-9
-#define NULL_1I     (short)-9
-#define NULL_1E     (float)-9.0
-#define NULL_1D     (double)-9.0
-#define NULL_1K     (long long)-9
+#define NULL_J     (int)-9
+#define NULL_I     (short)-9
+#define NULL_E     (float)-9.0
+#define NULL_D     (double)-9.0
+#define NULL_K     (long long)-9
 
 
 struct  {
@@ -173,11 +180,11 @@ struct  {
 
 // index is type (0=HEAD or 1=PHOT)
 char     ***RD_SNFITSIO_TABLEVAL_A[MXTYPE_SNFITSIO] ; 
-int       **RD_SNFITSIO_TABLEVAL_1J[MXTYPE_SNFITSIO] ;
-short     **RD_SNFITSIO_TABLEVAL_1I[MXTYPE_SNFITSIO] ;
-float     **RD_SNFITSIO_TABLEVAL_1E[MXTYPE_SNFITSIO] ;
-double    **RD_SNFITSIO_TABLEVAL_1D[MXTYPE_SNFITSIO] ;
-long long **RD_SNFITSIO_TABLEVAL_1K[MXTYPE_SNFITSIO] ;
+int       **RD_SNFITSIO_TABLEVAL_J[MXTYPE_SNFITSIO] ;
+short     **RD_SNFITSIO_TABLEVAL_I[MXTYPE_SNFITSIO] ;
+float     **RD_SNFITSIO_TABLEVAL_E[MXTYPE_SNFITSIO] ;
+double    **RD_SNFITSIO_TABLEVAL_D[MXTYPE_SNFITSIO] ;
+long long **RD_SNFITSIO_TABLEVAL_K[MXTYPE_SNFITSIO] ;
 
 // define absolute head-par indices for required elements
 int IPAR_SNFITSIO_SNID ;
@@ -237,19 +244,27 @@ void wr_snfitsio_global_zphot_q(fitsfile *fp);
 void wr_snfitsio_SET_SUBSURVEY_FLAG(void);
 
 void wr_snfitsio_init_head(void);
+void wr_snfitsio_init_host(int igal, int itype);
 void wr_snfitsio_init_phot(void);
 void wr_snfitsio_init_spec(void);
+
 void wr_snfitsio_addCol(char *tform, char *name, int  itype);
-void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype); 
-void wr_snfitsio_addCol_HOSTGAL_PROERTIES(char *prefix, int itype);
+
+void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ); 
+void wr_snfitsio_addCol_HOSTGAL_PROPERTIES(char *prefix);
+void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz );
+void check_NZ_HOSTGALz_snfitsio(int MXBIN, int NZ0, int NZ1, 
+				char *VARNAME0, char *VARNAME1, char *callFun);
 
 void WR_SNFITSIO_UPDATE(void);
 void wr_snfitsio_update_head(void);
 void wr_snfitsio_update_phot(int ep);
 void wr_snfitsio_update_spec(int imjd);
-void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype );
+
+void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ); 
 void wr_snfitsio_fillTable_filters (int *COLNUM_INDX, char *PREFIX, int ITYPE, float *VAL) ;
 void wr_snfitsio_fillTable_filtersD(int *COLNUM_INDX, char *PREFIX, int ITYPE, double *VAL) ;
+void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int ITYPE, HOSTGALz_DEF *HOSTGALz);
 
 void WR_SNFITSIO_END(int OPTMASK);
 
@@ -297,6 +312,8 @@ int RD_SNFITSIO_INT(int isn, char *parName, int    *parList, int *ipar);
 int RD_SNFITSIO_SHT(int isn, char *parName, short int *parList, int *ipar);
 int RD_SNFITSIO_FLT(int isn, char *parName, float  *parList, int *ipar);
 int RD_SNFITSIO_DBL(int isn, char *parName, double *parList, int *ipar);
+int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz);
+
 int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
 void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
 			  double *FLAM, double *FLAMERR, double *GENFLAM);
@@ -304,7 +321,9 @@ void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX,
 int   ifile_snfitsio(int isn);
 
 void  check_required_headkeys(int OPTMASK) ; 
-int   formIndex_snfitsio(char *form) ;
+// xxx mark int   formIndex_snfitsio(char *form, char *callFun) ;
+int   index_tform_snfitsio(char *form, char *callFun) ;
+int   nelem_tform_snfitsio(char *form, char *callFun) ;
 
 void SET_RDMASK_SNFITSIO(int N, int *mask) ;
 

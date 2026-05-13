@@ -151,7 +151,7 @@ void parse_snoopy_modelinfo(char *modelPath ) {
 
   if (! (fp = fopen(infoFile, "rt"))) { 
     sprintf(c1err,"Could not find info file:" ); 
-    sprintf(c2err," '%s'", infoFile ) ;
+    sprintf(c2err," '%.*s'", MXCHAR_MSGERR, infoFile ) ;
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
    
@@ -226,7 +226,7 @@ void gridinterp_snoopy(int ifilt, double shape,
   IPTRLC_OFF[1] = SNGRID_SNOOPY.PTR_GRIDGEN_LC[ILC+1] ;
 
   SHAPE_MIN   = SNGRID_SNOOPY.VALUE[IPAR_GRIDGEN_SHAPEPAR][index_shape] ;
-  SHAPE_MAX   = SNGRID_SNOOPY.VALUE[IPAR_GRIDGEN_SHAPEPAR][index_shape+1] ;
+  SHAPE_MAX   = SNGRID_SNOOPY.VALUE[IPAR_GRIDGEN_SHAPEPAR][index_shape+1] ; (void)SHAPE_MAX;
   ratio_shape = (shape -  SHAPE_MIN)/SHAPE_BIN ;
 
   // make sure that 1st word is BEGIN-LC marker
@@ -256,7 +256,7 @@ void gridinterp_snoopy(int ifilt, double shape,
       { index_Trest-- ; }
 
     TREST_MIN   = SNGRID_SNOOPY.VALUE[IPAR_GRIDGEN_TREST][index_Trest] ;
-    TREST_MAX   = SNGRID_SNOOPY.VALUE[IPAR_GRIDGEN_TREST][index_Trest+1] ;
+    TREST_MAX   = SNGRID_SNOOPY.VALUE[IPAR_GRIDGEN_TREST][index_Trest+1] ; (void)TREST_MAX;
     ratio_Trest = (Trest - TREST_MIN)/TREST_BIN ;
 
     /*

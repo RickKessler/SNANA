@@ -103,6 +103,11 @@
 #    + treat one version same as multiple version so that same OUTPUT_BBCFIT 
 #       name appears in out dirs (see SNANA git issue 1603
 #
+# Mar 3 2026: write contents of INPFILE+ key into SUBMIT.INFO file; see INPFILE_LIST
+#
+# Apr 22 2026: implement CONFIG keys SIMFILE_BIASCOR and SIMFILE_CCPRIOR
+#              to override default simfile(s) based on FITOPT_LABEL
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -168,6 +173,8 @@ TAG_REJECT_STAGE_BIASCOR0    = "BIASCOR0"  # check events rejected from biasCor 
 KEY_ROW               = "ROW:"
 
 KEY_FITOPTxMUOPT      = 'FITOPTxMUOPT'
+KEY_SIMFILE_BIASCOR   = 'SIMFILE_BIASCOR' 
+KEY_SIMFILE_CCPRIOR   = 'SIMFILE_CCPRIOR'
 BLOCKNAME_FITOPT_MAP  = 'FITOPT_MAP'
 
 #  Allow either of two keys
@@ -862,10 +869,7 @@ class BBC(Program):
             # original FITRES file
             fitopt_map = FITOPT_MAP[fitopt_num].split()
             fitopt_num_outlist_map.append(fitopt_map)
-            n_fitopt    += 1
-            
-
-        #print(f"\n xxx map = {fitopt_num_outlist_map} \n")
+            n_fitopt    += 1 
 
         # - - - - - - - - - 
         logging.info(f"\n Prepare output FITOPT list:")
@@ -888,9 +892,58 @@ class BBC(Program):
         # prepare FITOPT_OUT_LIST table for SUBMIT.INFO file
         self.make_FITOPT_OUT_LIST()
 
+        # check for simfile(s) to replace default (Apr 2026)
+        replace_fitopt_simfile_biascor_dict = \
+                self.replace_fitopt_simfile(fitopt_num_outlist, KEY_SIMFILE_BIASCOR)
+        replace_fitopt_simfile_ccprior_dict = \
+                self.replace_fitopt_simfile(fitopt_num_outlist, KEY_SIMFILE_CCPRIOR)
+
+        #print(f"\n xxx replace_fitopt_simfile_biascor_dict \n{replace_fitopt_simfile_biascor_dict} \n")
+        #print(f"\n xxx replace_fitopt_simfile_ccprior_dict \n{replace_fitopt_simfile_ccprior_dict} \n")
+        #sys.exit(f"\n xxx map = {fitopt_num_outlist} \n") #RCC
+
+        self.config_prep['replace_fitopt_simfile_biascor_dict'] = replace_fitopt_simfile_biascor_dict
+        self.config_prep['replace_fitopt_simfile_ccprior_dict'] = replace_fitopt_simfile_ccprior_dict
 
         return
         # end bbc_prep_fitopt_outlist(self)
+
+    def replace_fitopt_simfile(self, fitopt_num_list, keyname_simfile):
+
+        # Created Apr 2026 by R.Chen and R.Kessler
+        # return dictionary where each key is a fitopt in fitopt_num_list (e.g., FITOPT003)
+        # and keyname_simfile is the key in the input CONFIG block that connects
+        # FITOPT label to a biascor to REPLACE the nominal biascor.
+        # Note that FITOPT num strings can change if user moves things around in
+        # th FITOPT yaml input for pippin, but the label is assumed to always be
+        # the same.
+
+
+        replace_dict = {}
+
+        CONFIG        = self.config_yaml['CONFIG']
+        simfile_dict  = CONFIG.setdefault(keyname_simfile, [] ) 
+        # xxx if not simfile_dict: return replace_dict
+
+        FITOPT_OUT_LIST = self.config_prep['FITOPT_OUT_LIST'] 
+        n_replace = 0
+        fitopt_num_replace_list = []
+        for row in FITOPT_OUT_LIST:
+            fitopt_num = row[0]
+            label      = row[2]
+            replace_dict[fitopt_num] = None
+            msgerr = [' ', f'Check {keyname_simfile} for {fitopt_num} / {label} file', ' ' ] 
+            #print(f"\t xxx {fitopt_num} -> {label}")
+            if label in simfile_dict:
+                #simfile_dict[label] += '_xxx' # xxx REMOVE
+                replace_dict[fitopt_num] = simfile_dict[label]
+                self.check_file_exists(simfile_dict[label],msgerr)
+                n_replace += 1
+                print(f"\t replace {keyname_simfile} for {fitopt_num} / {label}")
+            else:
+                replace_dict[fitopt_num] = None
+
+        return replace_dict 
 
     def make_FITOPT_OUT_LIST(self):
 
@@ -1577,10 +1630,14 @@ class BBC(Program):
         # Feb 2024: check optional list of external FITRES files to include
         CONFIG   = self.config_yaml['CONFIG']
         key = 'INPFILE+'
+        INFILE_LIST = []
         if key in CONFIG:
             for infile in CONFIG[key]:
                 infile = os.path.expandvars(infile)
+                INFILE_LIST.append(infile)
                 cat_list += f",{infile}"
+
+        self.config_prep['INFILE_LIST'] = INFILE_LIST # Mar 3 2026: for SUBMIT.INFO file
 
         return cat_list
 
@@ -1872,6 +1929,9 @@ class BBC(Program):
         use_wfit     = self.config_prep['use_wfit']
         sync_evt     = self.config_prep['sync_evt_list'][0]
 
+        replace_simfile_biascor = self.config_prep['replace_fitopt_simfile_biascor_dict'][fitopt_num]
+        replace_simfile_ccprior = self.config_prep['replace_fitopt_simfile_ccprior_dict'][fitopt_num]
+        
         # check option to use different code (JOBNAME)
         if 'JOBNAME' in muopt_arg :
             program = os.path.expandvars(muopt_arg.split()[1])
@@ -1908,6 +1968,12 @@ class BBC(Program):
         if USE_INPDIR:
             version_datafile = version + self.suffix_splitran(n_splitran,1)
             arg_list.append(f"  datafile=../{version_datafile}/{input_ff}")
+
+        # 4.22.2026 - check option to override default simfiles based on FITOPT (for PASTRY);
+        if replace_simfile_biascor :
+            arg_list.append(f"   simfile_biascor={replace_simfile_biascor}")
+        if replace_simfile_ccprior :
+            arg_list.append(f"   simfile_ccprior={replace_simfile_ccprior}")
 
         arg_list.append(f"  write_yaml=1")
 
@@ -2032,6 +2098,7 @@ class BBC(Program):
         muopt_num_list    = self.config_prep['muopt_num_list']
         muopt_label_list  = self.config_prep['muopt_label_list']
         inpdir_list       = self.config_prep['inpdir_list']
+        inpfile_list      = self.config_prep['INFILE_LIST']
         survey_list       = self.config_prep['survey_list']
         n_splitran        = self.config_prep['n_splitran']
         use_wfit          = self.config_prep['use_wfit']
@@ -2087,6 +2154,11 @@ class BBC(Program):
             f.write("INPDIR_LIST:\n")
             for inpdir in inpdir_list:  f.write(f"  - {inpdir}\n")
 
+        if len(inpfile_list) > 0:  # Mar 2026
+            f.write("\n")
+            f.write("INPFILE_LIST:   # external files appended to those in INPDIR_LIST\n")
+            for inpfile in inpfile_list:  f.write(f"  - {inpfile}\n")
+            
         f.write("\n")
         f.write("SURVEY_LIST:\n")
         for survey in survey_list:    f.write(f"  - {survey}\n")
@@ -2889,6 +2961,14 @@ class BBC(Program):
     def write_fitpar_summary_row(self, f, row, bbc_yaml):
         # created Feb 2025
         # Write summary for this MERGE.LOG row to file pointer f
+        # Note that the summary includes much more info than MERGE.LOG
+        # and hence takes many rows.
+        #
+        # Mar 2026: 
+        #    + add FITIOT_LABEL as comment after each FITOPT_ARGS; same for MUOPT
+        #       This addition is only for human readability.
+        #    + remove \\ from args
+        #
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         FITOPT_LIST      = submit_info_yaml['FITOPT_OUT_LIST']
@@ -2912,7 +2992,6 @@ class BBC(Program):
 
         frac_reject = float(NEVT_REJECT_BIASCOR)/float(NEVT_DATA)
 
-
         key_opt      = f"{fitopt_num}_{muopt_num}"
         comment_grep = f"{version}  {key_opt}"
 
@@ -2920,16 +2999,30 @@ class BBC(Program):
         f.write(f" \n")
         f.write(f"{pad }- {key_opt}: \n")
 
+        indx_fitopt_label = 2
+        indx_fitopt_args  = 3
+        indx_muopt_label  = 1
+        indx_muopt_args   = 2
+
+        FITOPT_LABEL = FITOPT_LIST[ifit][indx_fitopt_label]
+        FITOPT_ARGS  = FITOPT_LIST[ifit][indx_fitopt_args]
+        MUOPT_LABEL  = MUOPT_LIST[imu][indx_muopt_label]
+        MUOPT_ARGS   = MUOPT_LIST[imu][indx_muopt_args]
+
+        # if ARGS =  'KEY\\(inner\\)', remove backslashes to get 'KEY(inner)'
+        FITOPT_ARGS = FITOPT_ARGS.replace('\\','')
+        MUOPT_ARGS  = MUOPT_ARGS.replace('\\','')
+
         # check list sizes to accomodate noINPDIR option
         n_list = 0
         if FITOPT_LIST : n_list = len(FITOPT_LIST)
         if n_list > 0 :
-            f.write(f"{pad}    FITOPT: {FITOPT_LIST[ifit][3]} \n")
+            f.write(f"{pad}    FITOPT: {FITOPT_ARGS}   #  {FITOPT_LABEL} \n")
 
         n_list = 0
         if MUOPT_LIST : n_list = len(MUOPT_LIST)
         if n_list > 0 :
-            f.write(f"{pad}    MUOPT:  {MUOPT_LIST[imu][2]} \n")
+            f.write(f"{pad}    MUOPT:  {MUOPT_ARGS}    # {MUOPT_LABEL} \n")
 
         f.write(f"{pad}    NEVT:   {NEVT_DATA}, {NEVT_BIASCOR}, {NEVT_CCPRIOR}"
                 f"        # DATA, BIASCOR, CCPRIOR for {comment_grep}\n")
@@ -3027,12 +3120,15 @@ class BBC(Program):
         # prepare w-varnames for varnames
         varlist_w = f"{varname_w} {varname_w}sig"
         varname_FoM = ''
+        varname_rho_w0wa = ''
+
         if use_wfit_w0wa :
             varlist_w += f" {varname_wa} {varname_wa}sig"  #w0waCDM
             varname_FoM = 'FoM'
+            varname_rho_w0wa = 'rho_w0wa'
 
         varnames = f"VARNAMES: ROW VERSION FITOPT MUOPT  " \
-                   f"{varlist_w}  {varname_omm} {varname_omm}_sig  "\
+                   f"{varlist_w} {varname_rho_w0wa} {varname_omm} {varname_omm}_sig "\
                    f"CHI2 NDOF NWARN {varname_FoM}  LABEL"
 
         # read the whole MERGE.LOG file to figure out where things are
@@ -3075,17 +3171,18 @@ class BBC(Program):
             # extract wfit values into local variables
             wfit_values_dict = util.get_wfit_values(wfit_yaml)
             
-            w       = wfit_values_dict['w']  
-            w_sig   = wfit_values_dict['w_sig']
-            wa      = wfit_values_dict['wa']    
-            wa_sig  = wfit_values_dict['wa_sig']
-            omm     = wfit_values_dict['omm']  
-            omm_sig = wfit_values_dict['omm_sig']
-            chi2    = wfit_values_dict['chi2'] 
-            sigint  = wfit_values_dict['sigint']
-            ndof    = wfit_values_dict['ndof']
-            FoM     = wfit_values_dict['FoM']
-            nwarn   = wfit_values_dict['nwarn']
+            w         = wfit_values_dict['w']  
+            w_sig     = wfit_values_dict['w_sig']
+            wa        = wfit_values_dict['wa']    
+            wa_sig    = wfit_values_dict['wa_sig']
+            omm       = wfit_values_dict['omm']  
+            omm_sig   = wfit_values_dict['omm_sig']
+            rho_w0wa  = wfit_values_dict['rho_w0wa'] 
+            chi2      = wfit_values_dict['chi2'] 
+            sigint    = wfit_values_dict['sigint']
+            ndof      = wfit_values_dict['ndof']
+            FoM       = wfit_values_dict['FoM']
+            nwarn     = wfit_values_dict['nwarn']
             self.wfit_cpu_sum += wfit_values_dict['cpu_minutes']
 
             w_ran   = int(wfit_values_dict['w_ran']) 
@@ -3094,7 +3191,7 @@ class BBC(Program):
 
             if use_wfit_w0wa :
                 w0 = w ; w0_sig = w_sig
-                str_w     = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f}"
+                str_w     = f"{w0:7.4f} {w0_sig:6.4f} {wa:7.4f} {wa_sig:6.4f} {rho_w0wa:7.4f}"
                 str_FoM   = f"{FoM:.1f}"
             else:
                 str_w      = f"{w:7.4f} {w_sig:6.4f}"

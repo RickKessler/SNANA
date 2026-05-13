@@ -64,7 +64,9 @@
 #
 # Sep 03 2025:
 #   + for --merge_reste, untar remaining PIP*.tar.gz files
-#   + ...
+#   
+# Feb 18 2026: add 'PDF' to list of table extensions (for marginalized PDF)
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -94,7 +96,7 @@ LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 ITABLE_TEXT  = 0
 ITABLE_HBOOK = 1
 ITABLE_ROOT  = 2
-TABLE_NAME_LIST    = [SUFFIX_FITRES, 'SNANA', 'LCPLOT'] # for TEXT format only
+TABLE_NAME_LIST    = [SUFFIX_FITRES, 'SNANA', 'LCPLOT', 'PDF' ] # for TEXT format only
 
 FORMAT_TEXT  = 'TEXT'
 FORMAT_HBOOK = 'HBOOK'

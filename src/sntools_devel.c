@@ -14,7 +14,7 @@ void  init_genSmear_devel(int opt) {
   // Invoke with
   // snlc_sim.exe <myInput>  GENMAG_SMEAR_SCALE(DEVEL) <opt>
   //
-  char fnam[] = "init_genSmear_devel" ;
+  char fnam[] = "init_genSmear_devel" ; (void)fnam;
 
   OPT_DEVEL = opt; // store global
   printf("\n %s: OPT_DEVEL = %d \n", fnam, opt);
@@ -32,13 +32,15 @@ double get_genSmear_devel(double *parList) {
   // Invoke with
   //   snlc_sim.exe <myInput>  GENMAG_SMEAR_SCALE(DEVEL) <opt>
 
+  /* 
   double Trest = parList[0]; // (MJD-PEAKMJD)/(1+z)
   double x1    = parList[1]; // SALT2 x1
   double c     = parList[2]; // SALT2 c
   double m     = parList[3]; // logMass
+  */
 
   double SCALE = 1.0 ;
-  char fnam[] = "get_genSmear_devel" ;
+  char fnam[] = "get_genSmear_devel" ;  (void)fnam;
 
   // ------------ BEGIN -------------
 

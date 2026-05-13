@@ -55,7 +55,6 @@
 #define MXCHAR_FILENAME  300
 #define MXCHAR_VARLIST   2000  
 #define MXCHAR_VARNAME   60
-// xxx#define MXCHAR_CCID      20  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_MODELNAME 32  // max length of model name (e.g., SALT2.Guy10)
 
 #define MXVAR_TABLE      800  // max number of variables in 1 table
@@ -279,7 +278,7 @@ struct SPECPAK_OUTPUT {
   int  OPT_TEXT_FORMAT ;  // integer index for above (-9 -> no text output)
 
   // set user-passed variables that change with each SN
-  char    CCID[40];
+  char    CCID[MXCHAR_CCID];
   int     NLAMBIN_TOT;    // sum of lam bins for each event
   int     ID_LIST[MXSPEC_SPECPAK];
   int     NLAMBIN_LIST[MXSPEC_SPECPAK];
@@ -351,12 +350,13 @@ struct SNTABLE_AUTOSTORE {
 // define LASTREAD structure to speed up AUTOSTORE lookup
 // when CCID is repeated.
 struct LASTREAD_AUTOSTORE  {
-  int  IFILE, IROW;
+  int  IFILE, IROW[2];
   char CCID[MXCHAR_CCID];
 } LASTREAD_AUTOSTORE ;
 
 // generic strings for errmsg 
-char MSGERR1[200], MSGERR2[200] ;
+#define MXCHAR_MSGERR 200
+char MSGERR1[MXCHAR_MSGERR+20], MSGERR2[MXCHAR_MSGERR+20] ;
 char SNANA_VERSION[100] ;
 
 #define KEYNAME_VERSION_PHOTOMETRY "VERSION_PHOTOMETRY:"
@@ -502,7 +502,7 @@ extern"C" {
   int sntable_autostore_init__(char *fileName, char *tableName, 
 			       char *varList,int *optMask);
 
-  void SNTABLE_AUTOSTORE_READ(char *CCID, char *varName, int *ISTAT, 
+  int SNTABLE_AUTOSTORE_READ(char *CCID, char *varName, int *ISTAT, 
 			      double *DVAL, char *CVAL );    // output value
   void sntable_autostore_read__(char *CCID, char *varName, int *ISTAT,
 				double *DVAL, char *CVAL);  // output value

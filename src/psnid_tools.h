@@ -76,7 +76,7 @@ int  USEFLAG_TEMPLATES_PSNID[MXTYPEINDX_PSNID+1] ;   // logical flag
 char TEMPLATES_FILE_PSNID[MXTYPEINDX_PSNID+1][200] ;    // vs. TYPEINDX
 char TEMPLATETYPE_PSNID[MXTYPEINDX_PSNID+1][8] ;   // vs. TYPEINDX
 
-char PATH_TEMPLATES_PSNID[200];
+char PATH_TEMPLATES_PSNID[MXPATHLEN+50];
 
 // define structure of inputs that are passed to psnid during init stage
 struct  PSNID_INPUTS  {
@@ -155,6 +155,8 @@ struct  PSNID_INPUTS  {
   char SNANA_VERSION[20] ; // snana version
 
   double XTMW_at_AV1[MXFILTINDX] ;  // Galactic extinctoin at AV=1
+
+  double ZP_FLUXCAL;  // Apr 2026
 
 } PSNID_INPUTS ;
 

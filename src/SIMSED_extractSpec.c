@@ -259,7 +259,6 @@ struct INPUTS {
 
 } INPUTS ;
 
-// char SIMSED_PATHMODEL[200];
 char specFile[200]; // name of output spec file
 
 double SNRLAM[NXSNR];
@@ -294,8 +293,8 @@ int FLUX_ERRFLAG ;
 // ====================================
 int main(int argc, char **argv) {
 
-  char fnam[] = "main" ;
   int ep, i;
+  char fnam[] = "main" ;  (void)fnam;
   
   // ------------ BEGIN ------------
 
@@ -367,7 +366,7 @@ void init_inputs(void) {
 
   int ep;
   int iSNR;
-  char fnam[] = "init_inputs";
+  char fnam[] = "init_inputs";  (void)fnam;
 
   INPUTS.ISEED = 12345;
   INPUTS.NEPOCH = 0;
@@ -412,7 +411,7 @@ void init_inputs(void) {
 void parse_args(int argc, char **argv) {
 
   int i, ipar,  ep, ilast, iuse ;
-  char fnam[] = "parse_args" ;
+  char fnam[] = "parse_args" ;   (void)fnam;
   double Trest, parval, z1 ;
 
   // ---------- BEGIN --------
@@ -646,7 +645,6 @@ void parse_epochs(char *epFile) {
     ,strTrest[100], specFile[200]
     ,strLaminit[100], strLamfinal[100] 
     ,strSNR[100], strSNRLAMBIN[100]
-    ,fnam[] = "parse_epochs";
     ;
 
   int N, iSNR;
@@ -654,8 +652,9 @@ void parse_epochs(char *epFile) {
     Trest
     ,Laminit, Lamfinal
     ,Snr, Snrlambin
-    ,z1
     ;
+
+  char fnam[] = "parse_epochs"; (void)fnam;
 
   // ------------- BEGIN --------------
 
@@ -767,25 +766,10 @@ void write_banner(int ep) {
   // read Trest and optional spectrum filename on each line op *epFile.
   
   FILE *fp;
-  char 
-    *ptrtok
-    ,line[200]
-    ,tmpline[200]
-    ,strTrest[100]
-    ,specFile[200]
-    ,ctmp[80]
-    ,fnam[] = "write_banner" ;
-    ;
-
-  int 
-    istat
-    ,N
-    ,ERRFLAG
-    ;
-  double Trest ;
-
+  char specFile[200], ctmp[80] ;
+  int  istat, ERRFLAG    ;
+  char fnam[] = "write_banner" ; (void)fnam;
   // ------------- BEGIN --------------
-
 
   if ( strcmp(INPUTS.TYPE,"SNANA") != 0 || ep > 1 ) { return; }
 
@@ -845,20 +829,8 @@ void write_header(int ep) {
   // If INPUTS.TYPE is SNANA, write banner for each epoch
   
   FILE *fp;
-  char 
-    *ptrtok
-    ,line[200]
-    ,tmpline[200]
-    ,strTrest[100]
-    ,specFile[200]
-    ,ctmp[80]
-    ;
-
-  int 
-    istat
-    ,ilam
-    ,Nlam
-    ;
+  char specFile[200], ctmp[80] ;
+  int istat, ilam, Nlam;
   double Tobs, z, Laminit, Lamfinal ;
 
   // ------------- BEGIN --------------
@@ -922,7 +894,7 @@ void init_SIMSED_PATH(void) {
     ;
 
   int EXIST_PRIVATE_PATH, EXIST_SNDATA_ROOT ;
-  char fnam[] = "init_SIMSED_PATH" ;
+  char fnam[] = "init_SIMSED_PATH" ;  (void)fnam;
 
   // ------------ BEGIN --------
 
@@ -952,17 +924,16 @@ void init_SIMSED_PATH(void) {
 
 
   if ( EXIST_PRIVATE_PATH ) {
-    sprintf( SIMSED_PATHMODEL, "%s/%s", PRIVATE_PATH, VERSION );
+    sprintf( SIMSED_PATHMODEL, "%.240s/%.60s", PRIVATE_PATH, VERSION );
     printf("   %s = %s \n", PRIVATE_MODELPATH_NAME, PRIVATE_PATH  );
   }
   else {
-    sprintf( SIMSED_PATHMODEL, "%s/models/SIMSED/%s", 
+    sprintf( SIMSED_PATHMODEL, "%.200s/models/SIMSED/%.60s", 
              SNDATA_ROOT, VERSION );
     printf("   %s: SNDATA_ROOT = %s \n", fnam, SNDATA_ROOT );
     fflush(stdout);
   }
   
-  printf(" xxx %s: done here. \n", fnam);
   fflush(stdout);
 
 } // end of init_SIMSED_PATH
@@ -970,8 +941,6 @@ void init_SIMSED_PATH(void) {
 
 // ============================================
 void interp_prep(void) {
-
-  char fnam[] = "interp_prep" ;
 
   int 
     ipar, istat, I0SED, I1SED, ISED, RDFLAG
@@ -989,8 +958,9 @@ void interp_prep(void) {
     ,PARVAL_CORNER[MXPARAM]
     ;
 
-  char ctmp[80];
+  char ctmp[80], cval[20];
 
+  char fnam[] = "interp_prep" ; (void)fnam;
   // ------------- BEGIN --------------
 
   NCORNERS = 1;
@@ -1003,7 +973,7 @@ void interp_prep(void) {
 
     NCORNERS *= 2 ;
 
-    istat  = get_SEDMODEL_INDICES( ipar, parval, &I0SED, &I1SED ); 
+    istat  = get_SEDMODEL_INDICES( ipar, parval, &I0SED, &I1SED ); (void)istat;
 
     if ( I1SED == I0SED ) {
       parval += 1.0E-8 ;
@@ -1052,7 +1022,11 @@ void interp_prep(void) {
       else
         { WGT *= (1.0 - GRIDFRAC[ipar]) ; }
 
-      if ( LDMP_CORNER ) { sprintf(ctmp,"%s%d ", ctmp, J01); }
+      if ( LDMP_CORNER ) { 
+	sprintf(cval,"%d", J01);
+	strcat(ctmp, cval);
+	// xxx mark delete sprintf(ctmp,"%s%d ", ctmp, J01); 
+      }
     } // ipar
 
 
@@ -1067,7 +1041,8 @@ void interp_prep(void) {
     }
     
     if ( LDMP_CORNER && RDFLAG ) { 
-      sprintf(ctmp, "%s)", ctmp ) ;
+      //xxx mark delete      sprintf(ctmp, "%s)", ctmp ) ;
+      strcat(ctmp,")");
       printf("\t %s ISED=%4d  WGT=%10.6f (%s) \n", 
 	     ctmp, ISED, WGT, SEDMODEL.FILENAME[ISED] ) ;
     }
@@ -1101,7 +1076,7 @@ void add_gal(void) {
   double interp_lam; 
   double interp_galflux;
   int ilam;
-  char fnam[] = "add_gal" ;
+  char fnam[] = "add_gal" ; (void)fnam;
 
   if ( INPUTS.GALFRAC <= 0.0 ) {
     return;
@@ -1131,7 +1106,7 @@ void prep_gal(void) {
   double interp_galflux;
   int epoch = -1;
   int ilam;
-  char fnam[] = "prep_gal" ;
+  char fnam[] = "prep_gal" ;  (void)fnam;
 
   if ( INPUTS.GALFRAC <= 0.0 ) {
     return;
@@ -1173,14 +1148,9 @@ void read_simsed(void) {
   // from SIMSED parameters
 
   int ised, icorner, nflux_nan ;
-
   double TREST_RANGE[2] ;
-
-  char 
-    sedFile_full[200]
-    ,sedcomment[100]
-    ,fnam[] = "read_simsed" 
-    ;
+  char  sedFile_full[MXPATHLEN+20], sedcomment[100] ;
+  char fnam[] = "read_simsed" ; (void)fnam;
 
   // ------------- BEGIN --------------
 
@@ -1234,7 +1204,7 @@ int ISED_MATCH(double *parval) {
   double sumdif, sumdif_min, dif ;
   int ised_match, ised, ipar ;
 
-  char fnam[] = "ISED_MATCH" ;
+  char fnam[] = "ISED_MATCH" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -1292,21 +1262,18 @@ void getSpec(int ep) {
   //
   // -----------------------
 
-  int 
-     iday_match, iday_mid, iday
-    ,ilam, jflux, jjflux, k, kk, icorner
-    ,RDFLAG, ISED
-    ;
+  int iday_match, iday_mid, iday,
+    ilam, jflux, jjflux, k, kk, icorner  ;
 
   double 
     Trest
     ,tdif_min, dif
     ,flux, fluxerr, lam
     ,a_day[3], a_flux[3], a_fluxerr[3]
-    ,Fscale, Ftmp, WGT
+    ,Fscale,  WGT
     ;
 
-  char fnam[] = "getSpec" ;
+  char fnam[] = "getSpec" ; (void)fnam;
   int OPT_INTERP  = 1 ; // 1=linear, 2=quadratic
   int NBIN_INTERP = 3 ;
 
@@ -1372,7 +1339,6 @@ void getSpec(int ep) {
       for ( icorner=0; icorner < CORNER.NSTORE; icorner++ ) {
 
 	WGT    = CORNER.WGT[icorner] / CORNER.WGTSUM ;
-	ISED   = CORNER.ISED[icorner] ;
 
 	for ( k=0; k <= 2; k++ ) {
 	  kk       =  k - 1 ;  // -1, 0, +1
@@ -1414,12 +1380,10 @@ void obsSpec(void) {
   // to observer frame. 
 
   double 
-    LAM
-    ,SPECLAM_REST[MXBIN_LAMSED_SEDMODEL]
+     SPECLAM_REST[MXBIN_LAMSED_SEDMODEL]
     ,SPECFLUX_REST[MXBIN_LAMSED_SEDMODEL]
     ,SPECFLUXERR_REST[MXBIN_LAMSED_SEDMODEL]
-    ,z, mu, snr
-    ,z1, zfactor, DLratio, SQDLratio
+    ,z, mu, z1, zfactor, SQDLratio
     ;
 
   int ilam ;
@@ -1438,7 +1402,6 @@ void obsSpec(void) {
 
   z   = INPUTS.REDSHIFT ;
   mu  = INPUTS.DLMAG ;
-  snr = INPUTS.SNR ;
 
   z1      = 1.0 + z;
   zfactor = 1. / z1 ;
@@ -1465,16 +1428,12 @@ void fudgeSNR(int ep) {
   // NOTE that SPECFLUX and SPECFLUXERR are 
   // input, output arrays. 
 
-  double 
-    snr, snrScale, snrlambin, snrSpec 
-    ,lam_binsize
-    ,ranGauss, ranFlux
-    ,F, FERR, LAM, Z1
-    ; 
+  double  snr, snrScale, snrlambin, snrSpec 
+    ,lam_binsize, ranFlux, F, FERR, LAM ; 
 
-  int ilam, iSNR, whereLAM, whereSNR;
+  int ilam, whereLAM, whereSNR;
 
-  char fnam[] = "fudgeSNR" ;
+  char fnam[] = "fudgeSNR" ; (void)fnam;
 
   // ---------- BEGIN ------------
 
@@ -1536,10 +1495,11 @@ void wrSpec(int ep) {
     ctmp[80]
     ,ctmperr[80] 
     ,ctmpheader[80]
-    ,line[80]
+    ,line[2*MXPATHLEN]
     ,specFile[200]
-    ,fnam[] = "wrSpec"
     ;
+
+  char  fnam[] = "wrSpec" ; (void)fnam;
 
   // -------------- BEGIN ---------------
 
@@ -1625,24 +1585,10 @@ void write_footer(int ep) {
   // read Trest and optional spectrum filename on each line op *epFile.
 
   FILE *fp;
-  char
-    *ptrtok
-    ,line[200]
-    ,tmpline[200]
-    ,strTrest[100]
-    ,specFile[200]
-    ,ctmp[80]
-    ;
-
-  int
-    istat
-    ,N
-    ,ERRFLAG
-    ;
-  double Trest ;
+  char specFile[200], ctmp[80]    ;
+  int istat ;
 
   // ------------- BEGIN --------------
-
 
   if ( strcmp(INPUTS.TYPE,"SNANA") != 0 || ep < INPUTS.NEPOCH ) { return; }
 
@@ -1673,11 +1619,9 @@ void write_footer(int ep) {
 
     printf(" %s footer to : %s \n", ctmp, specFile );
 
-    ERRFLAG = (FLUX_ERRFLAG  || INPUTS.SNR > 1.0E-9 ) ;
-
     fprintf(fp, "#END:\n");
 
-fclose(fp);
+    fclose(fp);
 
 } // end of write_footer
 
@@ -1688,7 +1632,7 @@ void init_getSNR(int *wsnr, int *wlam, double lam, int ep) {
   // this subroutine finds the appropriate first SNR wavelength
   // index wlam and first non-zero SNR value index wsnr
 
-  int iSNR, i;
+  int iSNR;
 
   iSNR = 0;
   while(lam > SNRLAM[*wlam+1] && iSNR < NXSNR-1 ) {
@@ -1716,7 +1660,6 @@ double getSNR(int *wsnr, int *wlam, double lam, int ep) {
 
   // JLM_ARGS: please ABORT if lam is invalid 
 
-  int    iSNR, i;
   double slope, intercept;
   double snr, DIF_SNR, DIF_LAM ;
 

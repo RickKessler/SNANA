@@ -15,6 +15,8 @@
 #   + if valid row key (e.g. SNID) is not in column 0, them automatically move it
 #     to row 0
 #
+# Mar 23 2026: replace VOID with '-999' for empty values
+
 import os, sys, argparse, csv
 
 VALID_ROWID_LIST = [ "CID", "SNID", "snid", "ROW", "GALID", "STARID" ]
@@ -78,7 +80,8 @@ def read_csv_file(csv_file):
 
             if '' in row:
                 j = row.index('')
-                row[j] = 'VOID'
+                # XXX mark delete Mar 23 2026  row[j] = 'VOID' # kills plot_table
+                row[j] = '-999'
 
     #print(f" xxx varname_list = {varname_list}")
     #print(f" xxx row_list = {row_list}")

@@ -61,8 +61,8 @@ template<> std::vector<char>& cnpy::operator+=(std::vector<char>& lhs, const cha
 
 void cnpy::parse_npy_header(unsigned char* buffer,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order) {
     //std::string magic_string(buffer,6);
-    uint8_t major_version = *reinterpret_cast<uint8_t*>(buffer+6);
-    uint8_t minor_version = *reinterpret_cast<uint8_t*>(buffer+7);
+    // uint8_t major_version = *reinterpret_cast<uint8_t*>(buffer+6);
+    // uint8_t minor_version = *reinterpret_cast<uint8_t*>(buffer+7);
     uint16_t header_len = *reinterpret_cast<uint16_t*>(buffer+8);
     std::string header(reinterpret_cast<char*>(buffer+9),header_len);
 
@@ -154,6 +154,7 @@ void cnpy::parse_npy_header(FILE* fp, size_t& word_size, std::vector<size_t>& sh
 
 void cnpy::parse_zip_footer(FILE* fp, uint16_t& nrecs, size_t& global_header_size, size_t& global_header_offset)
 {
+  // int fret;
     std::vector<char> footer(22);
     fseek(fp,-22,SEEK_END);
     size_t res = fread(&footer[0],sizeof(char),22,fp);
@@ -196,7 +197,7 @@ cnpy::NpyArray load_the_npz_array(FILE* fp, uint32_t compr_bytes, uint32_t uncom
     if(nread != compr_bytes)
         throw std::runtime_error("load_the_npy_file: failed fread");
 
-    int err;
+    int err;  (void)err;
     z_stream d_stream;
 
     d_stream.zalloc = Z_NULL;

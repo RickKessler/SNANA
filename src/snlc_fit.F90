@@ -1,8 +1,12 @@
 ! F77 -> F90 translation created 2025-11-29 with command:
 !   ../util/convert_snana_f77_to_f90.py snlc_fit.car
-
+!
 ! Include base snana code to read/write data and apply cuts
 #include "snana.F90" 
+
+
+! May 6 2026: define MARK_USED macro to suppress "unused argument" with -Wall compile flag
+#define MARK_USED(FOO) IF(.FALSE.)THEN;DO;IF(SIZE(SHAPE(FOO))==-1) EXIT;ENDDO;ENDIF
 
 ! *********************************************************
 ! Created June 2006   by R.Kessler
@@ -51,7 +55,7 @@
         ,IPAR_SHAPE  & 
         ,IPAR_SHAPE2  & 
         ,IPAR_AV  & 
-        ,IPAR_RV, IPAR_AVRV  & 
+        ,IPAR_RV, sIPAR_AVRV  & 
         ,IPAR_DLMAG, IPAR_ZPHOT  & 
         ,IPAR_X0, IPAR_COLOR   &  ! for SALT2
         ,IPAR_MB               &  ! for SALT2
@@ -134,7 +138,7 @@
        ,MASK_CHI2_SIGMA_LOGDET  = 4   &  ! Eventually should become default
        ,MASK_CHI2_SIGMA_IGNORE  = 128    ! Compute quantity for output, but do not use in fit
 
-    CHARACTER METHOD_SPLINE_QUANTILES*20
+!    CHARACTER METHOD_SPLINE_QUANTILES*20 ! XXX MARK 
 
   END MODULE SNFITPAR
 
@@ -549,8 +553,10 @@
         ,PRIOR_SHAPE2_SIGMA     &  ! I: sigma for guassian roll-off on FLAT prior
         ,PRIOR_COLOR_RANGE(2)   &  ! I: min,max for FLAT SHAPE prior
         ,PRIOR_COLOR_SIGMA      &  ! I: sigma for guassian roll-off on FLAT prior
-        ,PRIOR_LUMIPAR_RANGE(2)   &  ! I: idem, legacy variable
-        ,PRIOR_LUMIPAR_SIGMA      &  ! I: idem, legacy variable
+        ,PRIOR_LUMIPAR_RANGE(2)   &  ! I: legacy input for PRIOR_SHAPE_RANGE
+        ,PRIOR_LUMIPAR_SIGMA      &  ! I: legacy_input for PRIOR_SHAPE_SIGMA
+        ,PRIOR_DMU_RANGE(2)       &  ! I: min/max for prior on mu-mu_theory
+        ,PRIOR_DMU_SIGMA          &  ! I: Gauss roll-offf
         ,PRIOR_DELTA_PROFILE(4)   &  ! I: DELTA-prior pars: sig(low,up)   min (for MLCS2k2)
 ! 
         ,FUDGE_COVAR       &  ! I: fudge normalized covariances (0=> no fudge)
@@ -648,6 +654,8 @@
     CHARACTER  & 
          FUDGE_FITERR_PASSBANDS*(MXFILT_ALL) ! I: apply err-fudge to these bands
 
+    CHARACTER VARLIST_PDF*60  ! I: list of variables to marginalize PSF (default='ALL')
+
 ! allow TREST-cut to depend on filter (to override global FITWIN_TREST cut)
     CHARACTER  & 
         FITWIN_TREST_FILTER*120    ! I: e.g., 'gr -10.0 50.0  iz 0 50'
@@ -716,13 +724,14 @@
          ,RANGEt_COURSE_PHOTOZ, RANGEz_COURSE_PHOTOZ &
          ,NEVAL_MCMC_PHOTOZ, PARLIST_MCMC_PHOTOZ  & 
          ,FUDGE_COVAR, SCALE_COVAR, LANDOLT_COLOR_SHIFT  & 
-         ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF  & 
+         ,NGRID_PDF, NSIGMA_PDF, MAX_INTEGPDF, VARLIST_PDF  & 
          ,PRIOR_AVEXP, PRIOR_AVWGT, PRIOR_AVRES, PRIOR_MJDSIG  & 
          ,PRIOR_ZERRSCALE, PRIOR_MUERRSCALE, DOPRIOR_DLMAG  & 
          ,PRIOR_COLOR_RANGE, PRIOR_COLOR_SIGMA  & 
          ,PRIOR_SHAPE_RANGE, PRIOR_SHAPE_SIGMA  & 
          ,PRIOR_SHAPE2_RANGE, PRIOR_SHAPE2_SIGMA  & 
          ,PRIOR_LUMIPAR_RANGE, PRIOR_LUMIPAR_SIGMA   &  ! legacy
+         ,PRIOR_DMU_RANGE, PRIOR_DMU_SIGMA           &
          ,PRIOR_DELTA_PROFILE  & 
          ,OPT_PRIOR, OPT_PRIOR_AV  & 
          ,OPT_MNSTAT_COV, SIMFIT_IDEAL_PRESCALE  & 
@@ -833,7 +842,6 @@
     REAL  & 
          FITVAL_ALLFILT(20)   &  ! MXFITPAR = 12, so 20 gives extra room
         ,FITERR_ALLFILT(20)
-
 
 
   END MODULE ALLFILTCOM
@@ -979,7 +987,27 @@
     SUBROUTINE FITPAR_INI(IERR)
 ! 
 ! One-time user init: (read input, open files, etc ...)
-! 
+! Flow chart:
+!  -> RDFITNML
+!  -> FITRESTMAG_INI
+!  -> FITMAGDIF_INI
+!  -> SIMFIT_IDEAL_INI
+!  -> FITMODEL_INI
+!  -> SEDMODEL_INI
+!  -> SETCUTS_FITWIN_TREST
+!  -> PHOTOZ_ANA(0,0,ISTAT) 
+!  -> INIT_FUDGE_FITERR
+!  -> FITINI_PRIORS
+!      -> FITINI_PKMJDPRIOR
+!      -> FITINI_ZPRIOR  [METHOD_SPLINE_QUANTILES set here]
+!      -> FITINI_MUPRIOR
+!      -> FITINI_AVPRIOR
+!      -> FITINI_FLATPRIOR
+!      -> MAKE_TABLE_PRIORS
+
+!  -> FITINI_TABLEVAR
+!  -> DMP_SNMJD_INTERP
+!  -> FITINI_EPVAR   
 ! 
 ! Jul 19 2019: overhaul arguments to INIT_GENMAG_SNOOPY
 ! 
@@ -1004,36 +1032,18 @@
 
 ! local var
 
-    LOGICAL  LTMP
-
-    INTEGER  & 
-         ipar, ipar2, istat, len1, len2, len3, len4, len5, LL,j  & 
-        ,LEN_VERS, LEN_NAME
-
-! variables for PARSE_FILTSTRING:
-    INTEGER IAFILT(MXFILT_OBS), ifiltdef, ifiltr
-    INTEGER NF_UNDEF, NF_DEF, NF_ABORT, NSURFACE
-    REAL    XAFILT(MXFILT_OBS)
+    INTEGER  ipar, ipar2, istat, len1, len2, len3, LL, LEN_VERS, LEN_NAME
+    INTEGER ifiltdef, ifiltr, NF_UNDEF, NF_DEF, NSURFACE, i, OPTMASK
     REAL    ERRMAX
+    REAL*8  LAMRANGE8(2)
 
     CHARACTER  & 
-         snsed_file*(MXCHAR_FILENAME)  & 
-        ,cfilt*2  & 
+         cfilt*2  & 
         ,cfilt_rest*(MXFILT_REST)  & 
         ,cfilt_defined*(MXFILT_ALL)  & 
         ,cfilt_undefined*(MXFILT_ALL)  & 
         ,covFile*(MXCHAR_FILENAME)  & 
-        ,tmpName*(MXCHAR_FILENAME)  & 
-        ,ctmp*4  & 
-        ,chis*80
-
-! args for GET_FLUX_FITFUN
-    INTEGER isn, ifilt, ifilt_obs, opt, i, NFILT
-    INTEGER ilam, NLAM, hid, OPTMASK
-    REAL*4  Z4
-
-! misc.
-    REAL*8   DUM8, LAMRANGE8(2)
+        ,tmpName*(MXCHAR_FILENAME) 
 
 ! define functions
 
@@ -1049,7 +1059,6 @@
         ,INIT_GENMAG_SNOOPY  & 
         ,INIT_GENMAG_EXTINCTION
 
-    REAL*8  GET_FLUX_FITFUN
     INTEGER FILTINDX
 
 ! ------------------- BEGIN ---------------------
@@ -1083,11 +1092,10 @@
 
     DO ipar = 1, MXFITSTORE
        write(PARNAME_STORE(ipar),20) ipar
-20       format('BIDON', I3.3)
+20     format('BIDON', I3.3)
     ENDDO
 
-    PARNAME_STORE(IPAR_ITER)    = 'ITER'
-
+    PARNAME_STORE(IPAR_ITER)   = 'ITER'
     PARNAME_STORE(IPAR_ISN)    = 'ISN'
 
 ! init to model that fits for extinction and MU;
@@ -1167,8 +1175,8 @@
     Len1 = INDEX(SURVEY_FILTERS,' ') - 1
     Len2 = INDEX(FILTLIST_FIT,  ' ') - 1
     IF ( Len2 .LT. Len1 ) THEN
-         print*,'  WARNING: fitting filter subset  ',  & 
-           FILTLIST_FIT(1:Len2),'  from  ', SURVEY_FILTERS(1:Len1)
+       print*,'  WARNING: fitting filter subset  ',  & 
+            FILTLIST_FIT(1:Len2),'  from  ', SURVEY_FILTERS(1:Len1)
     ENDIF
 
 
@@ -1178,11 +1186,9 @@
 ! if it does not exist, then set covFile = '' so that
 ! the default is used.
 
-    if (   fitcovar_file .EQ. 'SIM'  & 
-        .or. fitcovar_file .EQ. 'sim' ) then
-
-      len1    = INDEX(SNDATA_PREFIX, ' ' ) - 1
-      fitcovar_file = SNDATA_PREFIX(1:len1) // '_COVAR.DAT'
+    if ( fitcovar_file .EQ. 'SIM' .or. fitcovar_file .EQ. 'sim' ) then
+       len1    = INDEX(SNDATA_PREFIX, ' ' ) - 1
+       fitcovar_file = SNDATA_PREFIX(1:len1) // '_COVAR.DAT'
     endif
 
 ! check option to fit restmags.
@@ -1317,15 +1323,15 @@
 ! depends on which IR filters are used.
 
        CALL GET_LAMRANGE_MLCS2k2(LAMRANGE8(1),LAMRANGE8(2))
-       RESTLAMBDA_MODEL(1) = LAMRANGE8(1)
-       RESTLAMBDA_MODEL(2) = LAMRANGE8(2)
+       RESTLAMBDA_MODEL(1) = SNGL( LAMRANGE8(1) )
+       RESTLAMBDA_MODEL(2) = SNGL( LAMRANGE8(2) )
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SNOOPY ) THEN
 
 
        CALL GET_LAMRANGE_snoopy(LAMRANGE8(1),LAMRANGE8(2))
-       RESTLAMBDA_MODEL(1) = LAMRANGE8(1)
-       RESTLAMBDA_MODEL(2) = LAMRANGE8(2)
+       RESTLAMBDA_MODEL(1) = SNGL( LAMRANGE8(1) )
+       RESTLAMBDA_MODEL(2) = SNGL( LAMRANGE8(2) )
        PARNAME_STORE(IPAR_SHAPE) = 'STRETCH'
        OPTMASK = 0
        ISTAT = INIT_GENMAG_SNOOPY(tmpName, OPTMASK,  & 
@@ -1387,12 +1393,12 @@
 
     CUTWIN_FITPAR(1,IPAR_PEAKMJD) = FITWIN_PEAKMJD(1)
     CUTWIN_FITPAR(2,IPAR_PEAKMJD) = FITWIN_PEAKMJD(2)
-    CUTWIN_FITPAR(1,IPAR_SHAPE) = FITWIN_SHAPE(1)
-    CUTWIN_FITPAR(2,IPAR_SHAPE) = FITWIN_SHAPE(2)
-    CUTWIN_FITPAR(1,IPAR_AV)    = FITWIN_COLOR(1)
-    CUTWIN_FITPAR(2,IPAR_AV)    = FITWIN_COLOR(2)
-    CUTWIN_FITPAR(1,IPAR_ZPHOT) = FITWIN_ZPHOT(1)
-    CUTWIN_FITPAR(2,IPAR_ZPHOT) = FITWIN_ZPHOT(2)
+    CUTWIN_FITPAR(1,IPAR_SHAPE)   = FITWIN_SHAPE(1)
+    CUTWIN_FITPAR(2,IPAR_SHAPE)   = FITWIN_SHAPE(2)
+    CUTWIN_FITPAR(1,IPAR_AV)      = FITWIN_COLOR(1)
+    CUTWIN_FITPAR(2,IPAR_AV)      = FITWIN_COLOR(2)
+    CUTWIN_FITPAR(1,IPAR_ZPHOT)   = FITWIN_ZPHOT(1)
+    CUTWIN_FITPAR(2,IPAR_ZPHOT)   = FITWIN_ZPHOT(2)
 
 ! cuts on offDiag cov already set since it's the same cut on each element.
 ! Here set diagonal cuts for each fitPar.
@@ -1415,10 +1421,8 @@
 
 ! determin RESTLAMBDA_USEFIT based on user FITRANGE and that
 ! defined by the model
-    RESTLAMBDA_USEFIT(1) =  & 
-           MAX(RESTLAMBDA_MODEL(1),RESTLAMBDA_FITRANGE(1))
-    RESTLAMBDA_USEFIT(2) =  & 
-           MIN(RESTLAMBDA_MODEL(2),RESTLAMBDA_FITRANGE(2))
+    RESTLAMBDA_USEFIT(1) = MAX(RESTLAMBDA_MODEL(1),RESTLAMBDA_FITRANGE(1))
+    RESTLAMBDA_USEFIT(2) = MIN(RESTLAMBDA_MODEL(2),RESTLAMBDA_FITRANGE(2))
 
     print*,'  '
     write(6,350) 'SN-MODEL', RESTLAMBDA_MODEL
@@ -1539,7 +1543,6 @@
     INTEGER IERR ! (O) 0=OK
 
     INTEGER ipar
-    REAL*8    DUMPAR
     CHARACTER FNAM*12
 ! ------------- BEGIN ----------------
     IERR = 0
@@ -1609,7 +1612,6 @@
 
 ! local var
 
-    INTEGER LL
 
 ! ------------------- BEGIN ---------------------
     IERR = 0
@@ -1674,12 +1676,8 @@
 
 ! local var
 
-    INTEGER  & 
-          NPAR, ipar, bit  & 
-        , ifilt, ifilt_obs, ifilt_rest1, ifilt_rest2, ifilt_rest_iter1  & 
-        , istat, NUSE_FILT, OPT, LL, L2, LCHAR
-
-    REAL*8 LAMMIN,LAMMAX, LAMAVG, Z8, Z8TEST, GRAD(MXFITPAR)
+    INTEGER  ipar, bit, ifilt, ifilt_obs, OPT, LL, LCHAR
+    REAL*8 LAMMIN,LAMMAX, LAMAVG, Z8, Z8TEST
     REAL*4 Z4, LMIN4
 
     CHARACTER CFILT*1, CCID*(MXCHAR_CCID), CTMP*8
@@ -1747,8 +1745,7 @@
       ctmp = ''
       if ( LREPEAT_ITER ) CTMP = '(again)'
       write(global_banner,400) ITER, CCID(1:LCHAR), CTMP
-400     format('FITPAR_PREP: Begin FIT-ITERATION ', I2,  & 
-               ' for CID ', A, 3x, A )
+400   format('FITPAR_PREP: Begin FIT-ITERATION ', I2,  ' for CID ', A, 3x, A )
       CALL PRBANNER( global_banner(1:68) )
     ENDIF
 
@@ -1998,7 +1995,7 @@
 
     INTEGER ITER  ! (I) SN index and iteraion
 
-    INTEGER  epoch, ifilt, i, ep, ivar
+    INTEGER  ifilt, ep, ivar
 
 ! ----------- BEGIN -------------
 
@@ -2110,14 +2107,10 @@
 
 ! local var
 
-    INTEGER  & 
-         IFILT, IFILT_OBS, CID, LCID, IERR, NFIT_PLOT  & 
-        ,OPT, hid, i, IERR_MARG
-
-    LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT
-    LOGICAL LMAXFRAC, LCHI2REJ, CRAZY
+    INTEGER CID, LCID, i, IERR_MARG
+    LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT, CRAZY
     REAL FRACERRDIF, FITPROB, SHAPE, COLOR
-    character sdir*20, chis*40, ccid*(MXCHAR_CCID)
+    character ccid*(MXCHAR_CCID)
 
 ! function
     LOGICAL CRAZYFITERR, DOPLOT_SNLC
@@ -2136,19 +2129,19 @@
 ! check cuts on 1st-iteration FITPROB and fit pars
     IF ( ITER==1 ) THEN
        FITPROB = FITPROBCHI2_STORE(1)
-       SHAPE   = FITVAL(IPAR_SHAPE,ITER)
-       COLOR   = FITVAL(IPAR_COLOR,ITER)
+       SHAPE   = SNGL(FITVAL(IPAR_SHAPE,ITER))
+       COLOR   = SNGL(FITVAL(IPAR_COLOR,ITER))
        IF( FITPROB < FITWIN_PROB_ITER1(1) .or.  & 
-             FITPROB > FITWIN_PROB_ITER1(2) ) THEN
-           ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
+            FITPROB > FITWIN_PROB_ITER1(2) ) THEN
+          ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
        ENDIF
        IF( SHAPE < FITWIN_SHAPE_ITER1(1) .or.  & 
-             SHAPE > FITWIN_SHAPE_ITER1(2) ) THEN
-           ERRFLAG = ERRFLAG_FIT_SHAPE_ITER1
+            SHAPE > FITWIN_SHAPE_ITER1(2) ) THEN
+          ERRFLAG = ERRFLAG_FIT_SHAPE_ITER1
        ENDIF
        IF( COLOR < FITWIN_COLOR_ITER1(1) .or.  & 
-             COLOR > FITWIN_COLOR_ITER1(2) ) THEN
-           ERRFLAG = ERRFLAG_FIT_COLOR_ITER1
+            COLOR > FITWIN_COLOR_ITER1(2) ) THEN
+          ERRFLAG = ERRFLAG_FIT_COLOR_ITER1
        ENDIF
        if ( ERRFLAG > 0 ) RETURN
     ENDIF
@@ -2224,7 +2217,7 @@
 ! check for crazy errors, unless:
 !   + plotchi2-debugger is on, or
 
-    CRAZY = CRAZYFITERR(isn,iter)
+    CRAZY = CRAZYFITERR(iter)
 
     IF ( CRAZY ) THEN
       write(6,222) CCID(1:LCID)
@@ -2360,7 +2353,7 @@
   END SUBROUTINE FITPAR_ANA 
 
 ! ================================================
-    LOGICAL FUNCTION CRAZYFITERR(isn,iter)
+    LOGICAL FUNCTION CRAZYFITERR(iter)
 
 ! Returns TRUE if a crazy fit error is identified.
 ! Jan 28 2020: check for crazy-small errors too, only if floated.
@@ -2374,7 +2367,7 @@
 
     IMPLICIT NONE
 
-    INTEGER ISN, ITER ! (I) ! SN index & fit-iteration
+    INTEGER  ITER ! (I) ! SN index & fit-iteration
     REAL ERR_COLOR, ERR_SHAPE, ERR_DIST, ERR_PKMJD, ERR_ZPHOT
     LOGICAL  & 
         LNAN,  & 
@@ -2384,11 +2377,11 @@
 
     CRAZYFITERR = .FALSE.
 
-    ERR_COLOR =  FITERR(IPAR_COLOR,ITER)
-    ERR_SHAPE =  FITERR(IPAR_SHAPE,ITER)
-    ERR_DIST  =  FITERR(IPAR_DLMAG,ITER)
-    ERR_PKMJD =  FITERR(IPAR_PEAKMJD,ITER)
-    ERR_ZPHOT =  FITERR(IPAR_ZPHOT,ITER)
+    ERR_COLOR =  SNGL( FITERR(IPAR_COLOR,ITER) )
+    ERR_SHAPE =  SNGL( FITERR(IPAR_SHAPE,ITER) )
+    ERR_DIST  =  SNGL( FITERR(IPAR_DLMAG,ITER) )
+    ERR_PKMJD =  SNGL( FITERR(IPAR_PEAKMJD,ITER) )
+    ERR_ZPHOT =  SNGL( FITERR(IPAR_ZPHOT,ITER) )
 
     FLOAT_COLOR = FLOATPAR(IPAR_COLOR)
     FLOAT_SHAPE = FLOATPAR(IPAR_SHAPE)
@@ -2667,7 +2660,7 @@
              IPAR2 = IPAR_LIST(j)
              COV_TMP = COV_UPD(i,j)
              if ( i == j ) then
-                LCERR_STORE(IPAR) = sqrt(COV_TMP/X0JACOB(i,i))
+                LCERR_STORE(IPAR) = SNGL( sqrt(COV_TMP/X0JACOB(i,i)) )
              else
                 FITERRMAT(IPAR,IPAR2) = COV_TMP/X0JACOB(i,j)
              endif
@@ -2677,7 +2670,7 @@
 ! update MBERR based on updated x0ERR
        X0ERR = LCERR_STORE(IPAR_X0)
        MBERR = X0ERR * abs(SF)
-       LCERR_STORE(IPAR_MB) = MBERR
+       LCERR_STORE(IPAR_MB) = SNGL(MBERR)
     ENDIF
 
 ! --- check dump options ----
@@ -2710,7 +2703,7 @@
 
     IMPLICIT NONE
 
-    INTEGER IFITDATA, iep, imjd, ifilt
+    INTEGER IFITDATA, iep
     REAL    FLUXCAL, FLUXCAL_ERR
 
 ! -------------- BEGIN -------------
@@ -2788,7 +2781,7 @@
 
     IF ( mod(NWD,3) .NE. 0 ) then
       C1ERR = 'Invalid FITWIN_TREST_FILTER = '
-      C2ERR = FITWIN_TREST_FILTER
+      C2ERR = FITWIN_TREST_FILTER(1:80)
       CALL MADABORT("SETCUTS_FITWIN_TREST", C1ERR, C2ERR)
     ENDIF
 
@@ -2869,7 +2862,7 @@
 ! local var
 
     INTEGER  & 
-         IFILT_OBS, IFILT, ILAM, LEN_SURVEY, OPT_FRAME, i  & 
+         IFILT_OBS, IFILT, OPT_FRAME, i  & 
         ,LEN1, LEN2, LEN_NAME, ISTAT, NLAM, OPTMASK  & 
         ,NZBIN, OPT_FILTER_UPDATE_SAVE
 
@@ -2885,8 +2878,6 @@
         ,SURVEY_NAME_FILTER*(2*MXCHAR_SURVEY)  & 
         ,TMP_FITMODEL*(MXCHAR_FILENAME), TMP_EXTRAP*10  & 
         ,BLANK*8, CFILT1*2, cfilt*(MXFILT_ALL)
-
-    LOGICAL LBX
 
 ! functions
 
@@ -3020,21 +3011,20 @@
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_BAYESN ) THEN
 
-!       BAYESN BLOCK created Nov 2022
-	OPTMASK = 0
-	if(debug_flag == 821) then
-         OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
-	endif
+       !       BAYESN BLOCK created Nov 2022
+       OPTMASK = 0
+       if(debug_flag == 821) then
+          OPTMASK = 2048  ! enable test mode (Aug. 21 2025 M. Chernyashevskyy)
+       endif
 
 
-      ISTAT=INIT_GENMAG_BAYESN(TMP_FITMODEL,TMP_EXTRAP,OPTMASK,BLANK,  & 
-                  LEN_NAME,10,8)
+       ISTAT=INIT_GENMAG_BAYESN(TMP_FITMODEL,TMP_EXTRAP,OPTMASK,BLANK,  & 
+            LEN_NAME,10,8)
 
 ! turn on covariance model by default,
 ! unless user specifically sets OPT_COVAR=0
-      IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
-      if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0
-
+       IF ( OPT_COVAR_FLUX .EQ. -9 ) OPT_COVAR_FLUX    = 1
+       if ( .not. USE_MODEL_MAGERR ) OPT_COVAR_FLUX    = 0
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SIMSED ) THEN
 
@@ -3093,7 +3083,7 @@
     LOGICAL   USED, LAM1, LAM2
     INTEGER   ifilt, IFILT_OBS, NFILT_UNDEFINED
     CHARACTER cfilt*2
-    DOUBLE PRECISION GRAD(MXFITPAR), ZSIM, Z1SIM, LAMREST
+    DOUBLE PRECISION GRAD(MXFITPAR), Z1SIM, LAMREST
 
 ! function(s)
     DOUBLE PRECISION  USRFUN   ! for SIMCHI2_CHEAT
@@ -3186,20 +3176,16 @@
 ! local var
 
     REAL*8  & 
-         PHOTOZ_VAL, PHOTOZ1_VAL, PHOTOZ_ERR, Z, ZZ  & 
-        ,LAMOBS, LAMREST  & 
+         PHOTOZ_VAL, PHOTOZ1_VAL, PHOTOZ_ERR, Z, ZZ, LAMOBS & 
         ,ZMIN, Z1MIN,  DZatMIN, DZ1ZatMIN  & 
         ,ZMAX, Z1MAX,  DZatMAX, DZ1ZatMAX  & 
         ,MJD, PEAKMJD, Trest, Z1  & 
         ,ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR
 
-    REAL  & 
-         CUTWIN_SNANA(2)  & 
-        ,TLIST(MXEPOCH), SNRLIST(MXEPOCH)  & 
-        ,Z4, FITPROB, SNR, SHAPE, COLOR
+    REAL CUTWIN_SNANA(2), TLIST(MXEPOCH), SNRLIST(MXEPOCH), Z4, SNR
 
     INTEGER  & 
-         IFILT, IFILT_OBS, N, NFILT_CUT, NFILT  & 
+         IFILT, IFILT_OBS, NFILT_CUT, NFILT  & 
         ,IFITDATA, NTLIST, iep, LCID, MSKCUT  & 
         ,FLIST(MXEPOCH)  & 
         ,NFILTDROP, IFILTDROP  & 
@@ -3207,7 +3193,7 @@
 
     LOGICAL   LCUT, LDMP, LZTEST, LDROP, LADD
     CHARACTER cfilt1*12, cfiltdrop*20, cfiltadd*20, ccid*(MXCHAR_CCID)
-    character VERB*8, msgerr*20
+    character VERB*8
 
 ! function
     REAL TRESTzCUT
@@ -3234,8 +3220,8 @@
       PHOTOZ_RANGE_KCOR(2) = CUTWIN_REDSHIFT(2)
       if ( LREST_FITMODEL ) then
          CALL GET_KCOR_ZRANGE(ZMIN_KCOR, ZMAX_KCOR, ZBIN_KCOR)
-         PHOTOZ_RANGE_KCOR(1) = ZMIN_KCOR
-         PHOTOZ_RANGE_KCOR(2) = ZMAX_KCOR + 4.0*ZBIN_KCOR
+         PHOTOZ_RANGE_KCOR(1) = SNGL(ZMIN_KCOR)
+         PHOTOZ_RANGE_KCOR(2) = SNGL(ZMAX_KCOR + 4.0*ZBIN_KCOR)
       endif
 
 
@@ -3348,8 +3334,8 @@
         endif
 
 ! store valid z-range in global
-        PHOTOZ_DROPFILTER_MIN(ifilt_obs) = ZMIN
-        PHOTOZ_DROPFILTER_MAX(ifilt_obs) = ZMAX
+        PHOTOZ_DROPFILTER_MIN(ifilt_obs) = SNGL(ZMIN)
+        PHOTOZ_DROPFILTER_MAX(ifilt_obs) = SNGL(ZMAX)
 
         Z1MIN = 1. + ZMIN
         Z1MAX = 1. + ZMAX
@@ -3364,14 +3350,14 @@
 
 ! keep track of filter that is closest to getting dropped.
         if ( abs(DZatMIN) < abs(PHOTODZ_MIN(iter)) ) then
-          PHOTODZ_MIN(iter)   = DZatMIN
-          PHOTODZ1Z_MIN(iter) = DZ1ZatMIN
+          PHOTODZ_MIN(iter)   = SNGL(DZatMIN)
+          PHOTODZ1Z_MIN(iter) = SNGL(DZ1ZatMIN)
           IFILT_NEARDROP      = IFILT_OBS
         endif
 
         if ( abs(DZatMAX) < abs(PHOTODZ_MIN(iter)) ) then
-          PHOTODZ_MIN(iter)   = DZatMAX
-          PHOTODZ1Z_MIN(iter) = DZ1ZatMAX
+          PHOTODZ_MIN(iter)   = SNGL(DZatMAX)
+          PHOTODZ1Z_MIN(iter) = SNGL(DZ1ZatMAX)
           IFILT_NEARDROP      = IFILT_OBS
         endif
 
@@ -3446,11 +3432,11 @@
       VERB = ''
       IF( LDROP ) THEN
          VERB = 'Dropped'
-         CFILT1 = cfiltdrop
+         CFILT1 = cfiltdrop(1:12)
       ENDIF
       IF( LADD  ) THEN
          VERB = 'Added'
-         CFILT1 = cfiltadd
+         CFILT1 = cfiltadd(1:12)
       ENDIF
 
       if ( STDOUT_UPDATE ) then
@@ -3472,11 +3458,10 @@
         if ( PHOTOZ_DROPFILTER(ifilt_obs) ) GOTO 200
 
         MJD           = SNLC8_MJD(iep) - MJDOFF
-	  SNR           = SNLC_SNR(iep)
-
+        SNR           = SNLC_SNR(iep)
         Trest         = (MJD - PEAKMJD) / z1
         NTLIST        = NTLIST + 1
-        TLIST(NTLIST) = Trest
+        TLIST(NTLIST) = SNGL(Trest)
         FLIST(NTLIST) = ifilt_obs
         SNRLIST(NTLIST) = SNR
 
@@ -3570,16 +3555,6 @@
 
 800   CONTINUE
 
-! xxxxxx mark delete July 23 2024 xxxxxxxxxxxx
-! check FITPROB on 1st iter (apr 2024)
-!      IF ( ITER==1 ) THEN
-!         FITPROB = FITPROBCHI2_STORE(1)
-!         IF( FITPROB < FITWIN_PROB_ITER1(1) ) THEN
-!             ERRFLAG = ERRFLAG_FIT_FITPROB_ITER1
-!         ENDIF
-!      ENDIF
-! xxxxxxxxxxxxxxxxxxx
-
 ! after 1st iteration, SKIP SN if photoz no longer respects z-range for each filter.
     IF ( ITER > 1 .OR. LREPEAT_ITER ) THEN
        LZTEST = LTEST_ZPHFILTER(ITER, PHOTOZ_VAL, PHOTOZ_ERR,  & 
@@ -3620,9 +3595,9 @@
 ! local var
 
     REAL*8  ZMIN, ZMAX
-    INTEGER IFILT, IFILT_OBS, LCID
+    INTEGER IFILT, IFILT_OBS
     LOGICAL LZTEST
-    CHARACTER CFILT1*1, CCID*(MXCHAR_CCID)
+    CHARACTER CFILT1*1
 
 ! ------------- BEGIN -------------
 
@@ -3808,26 +3783,19 @@
 
 ! local var
 
-    REAL NSIGMA, Z1
-    INTEGER  & 
-         OPT, HOFF, iep, ifilt, ifilt_obs, NDOF, LL  & 
-        ,ITER, IFILTBAD
-
-    LOGICAL LTMP
-
-    REAL FITPROB, CHI2
-    LOGICAL  LFITPROB, LMARG, LZPHOT
-
+    INTEGER  OPT, ifilt, ifilt_obs, NDOF, LL, ITER, IFILTBAD
+    REAL FITPROB, CHI2, NSIGMA
     REAL*8  CHI8, ZPH8, ZPHERR8
-
-    CHARACTER CFILT1*1
+    LOGICAL  LFITPROB, LMARG, LZPHOT, LTMP
 
 ! functions
-    REAL    LCPROBCHI2
     REAL*8  PROB_CHI2NDOF
     LOGICAL LTEST_ZPHFILTER
 
 ! --------------- BEGIN ---------------
+
+    MARK_USED(isn)
+    MARK_USED(DOPDFPLOT)
 
     ERRFLAG = 0  ! init to OK
 
@@ -3849,7 +3817,7 @@
          LC_MARGCHI2(ifilt) = FCN_FITCHI2(ifilt)
 
          CHI8 = DBLE(LC_FITCHI2(ifilt))
-         LC_FITPROB(ifilt)  = PROB_CHI2NDOF(CHI8, NDOF)
+         LC_FITPROB(ifilt)  = SNGL( PROB_CHI2NDOF(CHI8, NDOF) )
          LC_MARGPROB(ifilt) = LC_FITPROB(ifilt)
        endif
 
@@ -3887,8 +3855,6 @@
     ENDIF
 
 ! ---------------------------------------------------------
-
-
 ! Check for too-tiny errors.
     CALL FITERR_ADJUST()
 
@@ -3900,14 +3866,11 @@
       OPT    = OPT_INTEGPDF_FULL  ! default is full chi2 evaluation
 
 ! now check for reasons to quit FCNSNLC early (to save CPU time)
-
       IF ( OPT_COVAR_FLUX .LE. 0 .or. COVMAT_MIN .GE. 0.0 ) then
         OPT = OPT_INTEGPDF_QUITCHI2
       ENDIF
 
-      HOFF = 0
-      CALL MARG_DRIVER(HOFF, OPT,  & 
-                      MAX_INTEGPDF, NGRID_PDF, NSIGMA )
+      CALL MARG_DRIVER(OPT,  MAX_INTEGPDF, NGRID_PDF, NSIGMA, VARLIST_PDF)
 
 !   for PHOTOZ fit, check if filters were added/dropped which
 !   can happen if photoZ_marg - photoZ_fit is  large enough.
@@ -3939,7 +3902,7 @@
          LTMP = NDOF .GT. 0 .and. LC_MARGCHI2(ifilt) .GE. 0.0
          if ( LTMP ) then
             CHI8 = DBLE( LC_MARGCHI2(ifilt) )
-            LC_MARGPROB(ifilt) = PROB_CHI2NDOF(CHI8, NDOF)
+            LC_MARGPROB(ifilt) = SNGL( PROB_CHI2NDOF(CHI8, NDOF) )
          else
             LC_MARGPROB(ifilt) = 1.0
          endif
@@ -4001,6 +3964,9 @@
 !   define DELCHI2_NOFUDGE to make test with DELCHI2_REJECT;
 !   fixes long-standing bug when FUDGEALL_ITER1_MAXFRAC is set.
 ! 
+! May 12 2026: use LFITDATA logical to protect divide-by-zero in 
+!                sqsig = 1.0 / covmat2(ifitdata,ifitdata)
+!               [Finally caught by debug flag]
 ! ---------------------------------------------------
     USE SNDATCOM
     USE SNFITCOM
@@ -4022,29 +3988,29 @@
 ! local arguments
 
     INTEGER  & 
-         ISN, ITER, ifilt, ipar, IFILT_obs, epoch, imjd, ifitdata  & 
-        ,NFITDATA_LOC, irow, icol, IERR, ep  & 
+         ISN, ITER, ifilt, ipar, IFILT_obs, epoch, ifitdata  & 
+        ,NFITDATA_LOC, NFITDATA_LAM_REJECT, irow, icol, IERR, ep  & 
         ,NFITDATA_FILT(0:MXFILT_OBS), NDMPFCN(0:MXFILT_OBS)
 
     character cfilt*1
 
     DOUBLE PRECISION  & 
          ZSN, ZZ, CHI2INI, SHAPEPAR(2), DISTPAR, COLORPAR  & 
-        ,x0, S2a, S2b, MU, RVHOST, PEAKMJD, Trest, Tobs  & 
+        ,RVHOST, PEAKMJD, Trest, Tobs  & 
         ,AVRV, MWAV, MWEBV, XTAV, XTMW, MJD, MJDFIT  & 
         ,flux_data, flux_data_errtot, flux_data_sqerrtot  & 
         ,signoise_data, signoise_model  & 
         ,flux_model, flux_model_err ,flux_model_sqerr  & 
         ,flux_fudge_sqerr, flux_fudge_err, flux_errtot  & 
-        ,errtmp, arg, RATIO, RATIO_ERR, WGT, MAGDIF, SNR_FIT, SNR_RAW  & 
+        ,errtmp, arg, RATIO, RATIO_ERR, MAGDIF, SNR_FIT, SNR_RAW  & 
         ,AVwarp, mag_kcor(2), mag_tmp, mag_err  & 
         ,dif, sqdif, sqsig, inv_sqsig, sqsig_nofudge  & 
         ,delchi2, delchi2_diag, delchi2_sigma, delchi2_nofudge  & 
-        ,chi2_offdiag, delchi2_offdiag  & 
+        ,chi2_offdiag  & 
         ,chi2filt_sigma(MXFILT_OBS),chi2sum_sigma,chi2filt(MXFILT_OBS)  & 
         ,errfrac, DEL_FLUX(MXFIT_DATA)  & 
         ,FF, COV_INV, x1, DT1, DT2, CHI2PRIOR(0:MXFITPAR)  & 
-        ,LAMAVG, LAMREST, XVAL4COV(MXFITPAR)
+        ,LAMAVG, LAMREST, XVAL4COV(MXFITPAR), scale_chi2, chi2save
 
     LOGICAL  & 
          LFLAG_FIRST_MN   &  ! first call from MINUIT (IFLAG=2)
@@ -4054,22 +4020,25 @@
         ,LFLAG_FAST       &  ! speed up if possible (for pdf integration)
         ,LFLAG_FIT, LFLAG_PRIOR_ONLY, LFLAG_SIGMA_ONLY  & 
         ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LREJECT2, LFITDATA  & 
-        ,FIRSTFILT, LASTFILT, LMWCOR, LIGNORE, LTMP, LMUFIX, LPOSFLUX  & 
+        ,FIRSTFILT, LASTFILT, LTMP, LMUFIX, LPOSFLUX  & 
         ,FIRST_ITER  & 
         ,REJECT_TREST, REJECT_MJD, REJECT_SIGNOISE, REJECT_DELCHI2  & 
         ,DO_LOGDET, DUMP_FCNCHI2
 
-    CHARACTER CVAR*8, star*1
+    CHARACTER CVAR*20, star*1
     REAL*8 logdet, LAST_FLUXERR, logdet_offset
 
 
 ! functions
     REAL*8  & 
-         FCNCHI2_PRIOR, FCNCHI2_SIGMA, DLMAG8_REF  & 
+         FCNCHI2_PRIOR, FCNCHI2_SIGMA & 
         ,GET_RV8, GET_DIST8, SALT2xx1, getlogdeterminant
     LOGICAL FIRST_ITERATION
 
-! ----------- BEGIN ------------
+! ----------- BEGIN FCNSNLC ------------
+
+    MARK_USED(NVAR)
+    MARK_USED(GRAD(1))
 
     CHI2TOT = 1.0E7
 
@@ -4097,6 +4066,7 @@
     ELSE
        NFITDATA_LOC = NFITDATA
     ENDIF
+    NFITDATA_LAM_REJECT = 0
 
 ! extract parameters into local variables
 
@@ -4177,7 +4147,6 @@
 
 ! ------------------------------------
 
-
     DO 102 ifitdata   = 1, NFITDATA_LOC
 
       epoch           = EPLIST_FIT(ifitdata)
@@ -4193,8 +4162,10 @@
       LAMAVG    = DBLE( FILTOBS_LAMAVG(ifilt_obs) )
       LAMREST   = LAMAVG /ZZ
 
-      if ( LAMREST > RESTLAMBDA_USEFIT(2) ) GOTO 102
-      if ( LAMREST < RESTLAMBDA_USEFIT(1) ) GOTO 102
+      if ( LAMREST < RESTLAMBDA_USEFIT(1) .or. LAMREST > RESTLAMBDA_USEFIT(2) ) then
+         if ( LFITDATA ) NFITDATA_LAM_REJECT = NFITDATA_LAM_REJECT + 1
+         goto 102
+      endif
 
       MJD                = R8EP_MJD(ifitdata)
       MJDFIT             = MJD - MJDOFF
@@ -4273,11 +4244,11 @@
             TBLDMPFCN_NCALL     = NCALL_FCNFLAG(IFLAG)
             TBLDMPFCN_IFLAG     = IFLAG
             TBLDMPFCN_ITER      = ITER
-            TBLDMPFCN_ZSN       = ZSN
-            TBLDMPFCN_PEAKMJD   = PEAKMJD
-            TBLDMPFCN_DISTANCE  = DISTPAR
-            TBLDMPFCN_SHAPEPAR  = SHAPEPAR(1)
-            TBLDMPFCN_COLORPAR  = COLORPAR
+            TBLDMPFCN_ZSN       = SNGL(ZSN)
+            TBLDMPFCN_PEAKMJD   = SNGL(PEAKMJD)
+            TBLDMPFCN_DISTANCE  = SNGL(DISTPAR)
+            TBLDMPFCN_SHAPEPAR  = SNGL(SHAPEPAR(1))
+            TBLDMPFCN_COLORPAR  = SNGL(COLORPAR)
             TBLDMPFCN_CHI2PRIOR(0) = SNGL(CHI2INI)
        endif  ! end of DUMP
 
@@ -4315,7 +4286,7 @@
       dif      = flux_data - flux_model
       sqdif    = dif * dif
 
-      IF ( USE_FITCOV ) THEN
+      IF ( USE_FITCOV .and. LFITDATA ) THEN
          sqsig         = 1.0 / covmat2(ifitdata,ifitdata)
          delchi2_diag  = sqdif / sqsig
       ENDIF
@@ -4398,43 +4369,41 @@
 ! covariance matrix each time. The other EP_XXX arrays are
 ! computed inside LAST if-block.
 
-      R4EP_ALL(epoch,JEP_MODELFLUX)     = flux_model
-      R4EP_ALL(epoch,JEP_MODELFLUX_ERR) = flux_model_err
-      R4EP_ALL(epoch,JEP_FLUX_ERRTOT)   = flux_errtot
+      R4EP_ALL(epoch,JEP_MODELFLUX)     = SNGL(flux_model)
+      R4EP_ALL(epoch,JEP_MODELFLUX_ERR) = SNGL(flux_model_err)
+      R4EP_ALL(epoch,JEP_FLUX_ERRTOT)   = SNGL(flux_errtot)
 
       IF ( LAST ) THEN
 
 ! increment SNRMAX for fitted epochs only
          if ( LFITDATA ) then
            R4BAND_SNRMAX_FIT(ifilt) =  & 
-                MAX ( R4BAND_SNRMAX_FIT(ifilt), SNR_FIT )
+                MAX ( R4BAND_SNRMAX_FIT(ifilt), SNGL(SNR_FIT) )
            R4BAND_SNRMAX_RAW(ifilt) =  & 
-                MAX ( R4BAND_SNRMAX_RAW(ifilt), SNR_RAW )
+                MAX ( R4BAND_SNRMAX_RAW(ifilt), SNGL(SNR_RAW) )
          endif
 
          if ( flux_model .GT. 0.0 ) then
-           mag_tmp = -2.5 * dlog10(flux_model)    &  ! model-mag_{obs}
-                     + ZP_FLUXCAL
-
-           R4EP_ALL(epoch,JEP_MODELMAG)     = mag_tmp
-           R4EP_ALL(epoch,JEP_MODELMAG_ERR) = mag_err
+           mag_tmp = -2.5 * dlog10(flux_model) + ZP_FLUXCAL  ! model-mag_{obs}
+           R4EP_ALL(epoch,JEP_MODELMAG)     = SNGL(mag_tmp)
+           R4EP_ALL(epoch,JEP_MODELMAG_ERR) = SNGL(mag_err)
          endif
 
          mag_tmp = SNLC_MAG(epoch)
          IF( USE_MWCOR) mag_tmp = mag_tmp - SNLC_MWXT_MAG(ifilt)
-         R4EP_ALL(epoch,JEP_DATAMAG)     = mag_tmp
+         R4EP_ALL(epoch,JEP_DATAMAG)     = SNGL(mag_tmp)
          R4EP_ALL(epoch,JEP_DATAMAG_ERR) = SNLC_MAG_ERRPLUS(epoch)
 
-         R4EP_ALL(epoch,JEP_XTHOST)   = XTAV
-         R4EP_ALL(epoch,JEP_MWXT)     = XTMW
+         R4EP_ALL(epoch,JEP_XTHOST)   = SNGL(XTAV)
+         R4EP_ALL(epoch,JEP_MWXT)     = SNGL(XTMW)
 
          IF ( LREST_FITMODEL ) THEN
-           R4EP_ALL(epoch,JEP_KCOR)       = MAG_KCOR(1)
-           R4EP_ALL(epoch,JEP_KCOR_ERR)   = MAG_KCOR(2)
-           R4EP_ALL(epoch,JEP_AVWARP)     = AVWARP
+           R4EP_ALL(epoch,JEP_KCOR)       = SNGL(MAG_KCOR(1))
+           R4EP_ALL(epoch,JEP_KCOR_ERR)   = SNGL(MAG_KCOR(2))
+           R4EP_ALL(epoch,JEP_AVWARP)     = SNGL(AVWARP)
 
            arg = 0.4*(MAG_KCOR(1) + DISTPAR)
-           R4EP_ALL(epoch,JEP_DATAFLUX_REST)= flux_data * 10.0**(arg)
+           R4EP_ALL(epoch,JEP_DATAFLUX_REST) = SNGL(flux_data * 10.0**(arg))
          ENDIF
 
 
@@ -4453,22 +4422,22 @@
 
          sqsig = flux_data_errtot**2 + flux_model_err**2
 
-         R4EP_ALL(epoch,JEP_RATIO)       = RATIO
-         R4EP_ALL(epoch,JEP_RATIO_ERR)   = RATIO_ERR
-         R4EP_ALL(epoch,JEP_RESID)       = dif
-         R4EP_ALL(epoch,JEP_RESID_ERR)   = dsqrt ( sqsig )
-         R4EP_ALL(epoch,JEP_MAGDIF)      = magdif
-         R4EP_ALL(epoch,JEP_TREST)       = Trest
-         R4EP_ALL(epoch,JEP_TOBS)        = Tobs
-         R4EP_ALL(epoch,JEP_MJD)         = MJDFIT
-         R4EP_ALL(epoch,JEP_DELCHI2)     = DELCHI2
-         FCN_FITCHI2(0)          = chi2tot - CHI2INI
+         R4EP_ALL(epoch,JEP_RATIO)       = SNGL(RATIO)
+         R4EP_ALL(epoch,JEP_RATIO_ERR)   = SNGL(RATIO_ERR)
+         R4EP_ALL(epoch,JEP_RESID)       = SNGL(dif)
+         R4EP_ALL(epoch,JEP_RESID_ERR)   = SNGL( dsqrt(sqsig) )
+         R4EP_ALL(epoch,JEP_MAGDIF)      = SNGL(magdif)
+         R4EP_ALL(epoch,JEP_TREST)       = SNGL(Trest)
+         R4EP_ALL(epoch,JEP_TOBS)        = SNGL(Tobs)
+         R4EP_ALL(epoch,JEP_MJD)         = SNGL(MJDFIT)
+         R4EP_ALL(epoch,JEP_DELCHI2)     = SNGL(DELCHI2)
+         FCN_FITCHI2(0)          = SNGL(chi2tot - CHI2INI)
 
          DT1 = abs(Trest)
          DT2 = abs( R4BAND_TREST_NEARPEAK(ifilt_obs) )
          if ( DT1 < DT2 ) then
-           R4BAND_XTMW_NEARPEAK(ifilt_obs)  = XTMW
-           R4BAND_TREST_NEARPEAK(ifilt_obs) = Trest
+           R4BAND_XTMW_NEARPEAK(ifilt_obs)  = SNGL(XTMW)
+           R4BAND_TREST_NEARPEAK(ifilt_obs) = SNGL(Trest)
            I4BAND_EP_NEARPEAK(ifilt_obs)    = epoch
          endif
 
@@ -4489,7 +4458,7 @@
             REJECT_SIGNOISE = (signoise_data < SIGNOISE_REJECT)
 
             LREJECT  =  & 
-                    REJECT_DELCHI2 .or. REJECT_SIGNOISE .or.  & 
+                    REJECT_DELCHI2 .or. REJECT_SIGNOISE .or.  &   
                     REJECT_TREST   .or. REJECT_MJD
 
             LREJECT2  =  & 
@@ -4508,26 +4477,19 @@
          if ( LFITDATA .and. (.NOT.LFLAG_USESIM) ) then
 
            FCN_FITCHI2(ifilt)  =  & 
-             FCN_FITCHI2(ifilt)  + sqdif / sqsig_nofudge  ! DELCHI2
+             FCN_FITCHI2(ifilt)  + SNGL(sqdif / sqsig_nofudge)  ! DELCHI2
 
-           if ( Trest .LT. R4SN_Tearly ) R4SN_Tearly = Trest
-           if ( Trest .GT. R4SN_Tlate  ) R4SN_Tlate  = Trest
+           if ( Trest .LT. R4SN_Tearly ) R4SN_Tearly = SNGL(Trest)
+           if ( Trest .GT. R4SN_Tlate  ) R4SN_Tlate  = SNGL(Trest)
 
-           if ( MJD .LT. R4SN_MJDmin ) R4SN_MJDmin = MJD
-           if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = MJD
+           if ( MJD .LT. R4SN_MJDmin ) R4SN_MJDmin = SNGL(MJD)
+           if ( MJD .GT. R4SN_MJDmax ) R4SN_MJDmax = SNGL(MJD)
 
            ! sums used for initializing photoz x0/MU
            if ( LFLAG_USER .and. SNR_RAW > 3.0 .and. SCALE_NBIN_COURSE_PHOTOZ > 0 ) then
-
-! xxxxxxxxxxxxxxxxxxxxxx
-!              write(6,668) zsn, Trest, flux_data, flux_model
-!668           format(' xxx FCN: z=',F5.3,'  Trest=', F6.1,'  F(data,model) = ', 2F10.1 )
-!              call flush(6)  ! xxx REMOVE
-! xxxxxxxxxxxxxxxxxxxxx
-
-              R4SN_FFSUM_DATA   = R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig
-              R4SN_FFSUM_MODEL  = R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig
-              R4SN_FFSUM_CROSS  = R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig
+              R4SN_FFSUM_DATA   = SNGL(R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig )
+              R4SN_FFSUM_MODEL  = SNGL(R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig )
+              R4SN_FFSUM_CROSS  = SNGL(R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig )
            endif
 
          endif
@@ -4636,36 +4598,43 @@
        chi2tot = chi2tot + logdet
       ENDIF
 
-      FCN_FITCHI2(0) = chi2tot - chi2ini
+      FCN_FITCHI2(0) = SNGL(chi2tot - chi2ini)
 
     ENDIF  ! end of USE_FITCOV if block
 
     if ( LFLAG_LAST_MN .and. ITER > 1 .and. DUMP_FCNCHI2 )  then
         write(6,6655) chi2tot, chi2tot-chi2_offdiag, chi2_offdiag
-6655      format(' xxx FCN_CHI2(tot, diag, offdiag) = ', 3F12.1)
+6655    format(' xxx FCN_CHI2(tot, diag, offdiag) = ', 3F12.1)
         print*,' '
         call flush(6)
+    endif
+
+
+! - - - - -
+! 3/24/2026 playground test to account for tossed obs in photo-z fit due to rest-frame wave
+    if ( DEBUG_FLAG == 325 .and. NFITDATA_LAM_REJECT > 0 ) then
+       scale_chi2 = DBLE( NFITDATA_FILT(0)+NFITDATA_LAM_REJECT) / DBLE(NFITDATA_FILT(0))
+       chi2save   = chi2tot
+       chi2tot    = scale_chi2*(chi2tot-chi2ini) + chi2ini
+!       write(6,6663) NFITDATA_FILT(0), NFITDATA_LAM_REJECT, scale_chi2, &
+!            chi2ini, chi2save, chi2tot
+!6663   format(T2,' xxx NDOF(tot,rej) = ', 2I4, '  scale_chi2=', F7.3, &
+!            '  chi2tot(ini,orig,scaled) = ', 3F9.1 )
+!       call flush(6)
     endif
 
 ! - - - - - - -
     IF ( LDMPFCN_LOC ) THEN
        write(6,6665) chi2tot,  NFITDATA_FILT(0)
-6665     format(T5,'CHI2-FINAL(all filters)    = ', F10.2,3x,  & 
-                   'NFITDATA=', I5)
+6665   format(T5,'CHI2-FINAL(all filters)    = ', F10.2,3x,  'NFITDATA=', I5)
        print*,'      ********* END OF FCN DUMP ********** '
-	 print*,' '
+       print*,' '
        CALL FLUSH(6)
 
        TBLDMPFCN_CHI2TOT = sngl(chi2tot)
        CALL TABLE_DMPFCN(isn)
     ENDIF
 
-! xxxxxxxxxxxxxxxxxxxxxx
-!    print*,' xxx XVAL(t0,x1,c,d,z) = ', &
-!         SNGL(XVAL(3)), SNGL(XVAL(4)), SNGL(XVAL(6)), SNGL(XVAL(9)), SNGL(XVAL(8)), '  &
-!         CHI2=', SNGL(CHI2TOT)
-!    call flush(6)
-! xxxxxxxxxxxxxxxxxxxxx
 
     RETURN
   END SUBROUTINE FCNSNLC
@@ -4755,7 +4724,7 @@
 ! Jan 2024: check prior for IPAR_SHAPE2 (2nd SHAPE param)
 ! Jan 2025: call CHI2_PRIOR_SNCID_FILE for USE_PRIOR_SNCID_FILE = T
 ! Dec 2025: if PROBz <=0, force chi2prior = 1000 
-!
+! Mar 2026: add flat-top prior on DMU = MU - MU_THEORY
 ! --------------
 
     USE SNDATCOM
@@ -4773,14 +4742,13 @@
 
 ! local args
 
-    INTEGER  IPAR, ISN, IERR, IPAR_DIST, q
+    INTEGER  IPAR, ISN, IPAR_DIST
 
     REAL*8  & 
-         CHI2INI, CHI2TMP  & 
-        ,COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN  & 
-        ,arg_tmp, DIF, pull, EFF, SQSIG, PROBZ, DVAL
+         CHI2TMP, COLOR, COLORMAX, RV, SHAPE(2), PEAKMJD, DIST, MU, ZSN  & 
+        ,arg_tmp, DIF, pull, PROBZ, DVAL
 
-    LOGICAL LTMP, LBADVAL, DO_QUANTILES, DO_BESTZ_GAUSS
+    LOGICAL LTMP, LBADVAL, DO_QUANTILES
 
 ! define max color and MU for which exponential priorchi2 is used
 ! to prevent MINUIT from probing extreme values.
@@ -4792,14 +4760,15 @@
         ,MUMAX      = 60.      ! max distance mod.
 
 ! functions
-    REAL*8  & 
-         CHI2_PRIOR, CHI2_PRIOR_SNCID_FILE  & 
-        ,PRIOR_ZPULL  & 
-        ,PRIOR_MUPULL  & 
-        ,GET_RV8  & 
-        ,eval_zPDF_spline
+    REAL*8  &
+         CHI2_PRIOR, CHI2_PRIOR_SNCID_FILE  &
+        ,PRIOR_ZPULL  &
+        ,PRIOR_MUPULL  &
+        ,GET_RV8  &
+        ,eval_zPDF_spline, DLMAG_REF &
+        ,eval_spline
 
-    EXTERNAL eval_zPDF_spline
+    EXTERNAL eval_zPDF_spline, eval_spline
 
 ! ------------- BEGIN --------------
 
@@ -4849,7 +4818,6 @@
 ! translate SALT2 params into distance modulus
        MU = 30.0 - 2.5*log10(DIST)  & 
             + (SALT2alpha*SHAPE(1)) - (SALT2beta * COLOR)
-
        COLORMAX = CMAX_SALT2
     ENDIF
 
@@ -4901,11 +4869,14 @@
 !  load local variables for user-specified options from &SNLCINP OPT_PHOTOZ
       DO_QUANTILES    = btest(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)
 
-
       if ( DO_QUANTILES ) then
-        ! get the probability at this redshift
-        PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
-! xxx mark        if ( PROBZ .le. 0. ) PROBZ = 1.0E-20
+         ! get the probability at this redshift
+
+         if(DEBUG_FLAG == 28) then
+            PROBZ = eval_spline(IND_OFF_SPLINE_QUANTILE_ZPHOT+1, ZSN)
+         else
+            PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
+         endif
         if ( PROBZ > 0.0 ) then
            CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )
         else
@@ -4923,8 +4894,15 @@
          CALL DUMP_ZPHOT_PRIOR(ZSN,PROBZ)
       endif
 
-      pull    = PRIOR_MUPULL(isn,ZSN,MU)
-      CHI2TMP = CHI2_PRIOR(ipar_DLMAG,pull)
+      IF ( PRIOR_MUERRSCALE < 9.0 ) THEN
+         pull    = PRIOR_MUPULL(isn, ZSN, MU)
+         CHI2TMP = CHI2_PRIOR(ipar_DLMAG, pull) 
+      ELSE IF ( PRIOR_DMU_RANGE(2) < 8.0 ) THEN
+         DIF = MU - DLMAG_REF(ZSN)   ! change to interpolating grid for speed ?
+         CHI2TMP = CHI2_PRIOR(ipar_DLMAG, DIF) 
+      ELSE
+         CHI2TMP = 0.0
+      ENDIF
       CHI2PRIOR(IPAR_DLMAG) = CHI2PRIOR(IPAR_DLMAG) + CHI2TMP
 
     ENDIF
@@ -4946,11 +4924,6 @@
       CHI2PRIOR(IPAR_COLOR)  = CHI2_PRIOR(IPAR_COLOR,COLOR)
     ENDIF
 
-    ! xxxxxxxxxx mark delete
-    !print*,' xxx x1,c=', sngl(SHAPE(1)), sngl(color), &
-    !       '  chi2_prior=', sngl(CHI2PRIOR(IPAR_SHAPE)), sngl(CHI2PRIOR(IPAR_COLOR))
-    !call flush(6)
-    ! xxxxxxxxxx 
 
 ! =================================================
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) GOTO 888 ! restore 6/19/23
@@ -5081,9 +5054,7 @@
 
 ! local args
 
-    INTEGER IFILT_OBS
     REAL*8  SIGRAT, LAST_FLUXERR
-    CHARACTER CFILT*2
 
 ! function
     LOGICAL FIRST_ITERATION
@@ -5099,9 +5070,9 @@
           LAST_FLUXERR = DBLE( R4EP_LAST(iepoch,JEP_DATAFLUX_ERR) )
     ELSE
        WRITE(c1err,601)OPT_CHI2_SIGMA
-601      FORMAT('Invalid OPT_CHI2_SIGMA =',i5)
+601    FORMAT('Invalid OPT_CHI2_SIGMA =',i5)
        c2err='OPT_CHI2_SIGMA must include bit for flux error baseline'
-	 CALL MADABORT('FCNCHI2_SIGMA', c1err, c2err );
+       CALL MADABORT('FCNCHI2_SIGMA', c1err, c2err );
     ENDIF
 
     if ( LAST_FLUXERR .LE. 1.0E-11 ) RETURN
@@ -5187,12 +5158,10 @@
         ,MAG_XTMW_OBS(MXFILT_ALL)  & 
         ,KCOR_TMP(MXFILT_ALL)  & 
         ,KCORERR_TMP(MXFILT_ALL)  & 
-        ,KCOR_NOAVWARP(MXFILT_ALL)  & 
         ,AVWARP_TMP(MXFILT_ALL)  & 
         ,MAG_OBS_TMP(MXFILT_ALL)  & 
         ,MAG_TMP1, MAG_TMP2, MWXT_TMP  & 
-        ,SQMAGERR, MAGERR_KCOR  & 
-        ,MAG_COR, MAG_PEAK, MAG_OBS  & 
+        ,SQMAGERR, MAGERR_KCOR, MAG_OBS  & 
         ,FLUX, ARG, MJD, XT  & 
         ,STR1, STR2, DELTA, DM15  & 
         ,BX_synth, B_synth  & 
@@ -5238,7 +5207,7 @@
     LOGICAL  & 
           LTMP  & 
          ,LBESS_OBS, LSNXTAV, LSNXTMW, ISREST, ISOBS  & 
-         ,LDMP, NEEDU,  DOKCOR13, LCRAZYMAG, DOMBSALT2  & 
+         ,LDMP, NEEDU,  DOKCOR13, LCRAZYMAG  & 
          ,ABORT_ON_DMP
 
 ! functions
@@ -5248,25 +5217,18 @@
         ,GENMAG_MLCS2K2  & 
         ,GENMAG_SNOOPY  & 
         ,LANDOLT_CONVERT
-!     &  ,FILTINDX
 
     LOGICAL FILTBTEST
 
     REAL*8  & 
-         GET_MAGLC8  & 
-        ,GET_MWXT8      &  ! get MW extinct
-        ,GET_SNXT8      &  ! get hostgal extinct
-        ,genmag_extinction  & 
-        ,GET_AVWARP8    &  ! get AV needed to warp SN SED
-        ,GET_KCORERR_LEGACY   &  ! get Kcor error
+         genmag_extinction  & 
         ,eval_kcor_table_AVWARP   &  ! C code
         ,eval_kcor_table_LCMAG    &  ! C code
         ,eval_kcor_table_MWXT    &  ! C code
         ,GET_KCOR_DRIVER         &  ! C code
         ,GET_KCORERR             &  ! C code
         ,GALextinct     &  ! returns approx MW extinction
-        ,KCORFUN8  & 
-        ,DLMAG8_REF  & 
+        ,DLMAG_REF  & 
         ,SALT2x0calc, SALT2xx1, SALT2zz, SALT2x2  & 
         ,PARLIST_SN(10), PARLIST_HOST(10)
 
@@ -5524,7 +5486,7 @@
            SALT2x0 = TEN8**DIST    ! MU
 
         else if ( OPT_SALT2FIT .EQ. 2  ) then
-           MUTMP = (DIST + DLMAG8_REF(ZSN))   ! DIST is really MUDIF
+           MUTMP = (DIST + DLMAG_REF(ZSN))   ! DIST is really MUDIF
            SALT2x0 = SALT2x0calc(ZERO8,ZERO8, ZERO8, ZERO8, MUTMP )
 
         else if ( OPT_SALT2FIT .EQ. 4  ) then  ! emulate Julien/snfit
@@ -5595,7 +5557,7 @@
 
 ! translate fit-params into SALT2 language
 
-        MUTMP   = (DIST + DLMAG8_REF(ZSN))   ! DIST is really MUDIF
+        MUTMP   = (DIST + DLMAG_REF(ZSN))   ! DIST is really MUDIF
         SALT2x0 = TEN8** (-0.4*MUTMP )      ! borrow SALT2x0 for now
 
         SALT2x1 = 0.0  ! unused shape-par variable for SIMSED
@@ -6135,12 +6097,12 @@
     DOUBLE PRECISION  S2a, S2b, x0, MUREF
 
 ! function
-    DOUBLE PRECISION  SALT2x0calc, DLMAG8_REF
+    DOUBLE PRECISION  SALT2x0calc, DLMAG_REF
 
 ! ---------- BEGIN -----------
 
     GET_DIST8 = 0.0
-    MUREF     = DLMAG8_REF(Z)
+    MUREF     = DLMAG_REF(Z)
 
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
        S2a = DBLE(SALT2alpha)
@@ -6185,24 +6147,15 @@
 
 ! local var
 
-    INTEGER  & 
-          j, LM, L0, L1, L2, L3  & 
-         ,LEN_MODELNAME, LEN_ROOT, LEN_PATH, LEN_VERS
+    INTEGER  j, LM, L0, LEN_MODELNAME, LEN_ROOT, LEN_PATH, LEN_VERS
 
     character  & 
          STRUP*(MXCHAR_MODELNAME)  & 
         ,STRLO*(MXCHAR_MODELNAME)  & 
-        ,tmpFile*(MXCHAR_FILENAME)  & 
         ,mtmp*(MXCHAR_MODELNAME)  & 
-        ,strdefault*20  & 
         ,USER_FITMODEL_NAME*(MXCHAR_FILENAME)  & 
         ,C_FITMODEL*(MXCHAR_FILENAME)  & 
         ,C_PATH*(MXCHAR_FILENAME), C_VERSION*(MXCHAR_MODELNAME)
-
-    LOGICAL USE_DEFAULT
-
-! functions
-    CHARACTER*80 RDSTRING
 
 ! ------------ BEGIN --------------
 
@@ -6390,20 +6343,19 @@
 
     REAL*8  & 
          Flux8, Z8, DISTPAR8, COLORPAR8  & 
-        ,RVHOST8, DLMAG8, SHAPEPAR8(2)  & 
+        ,RVHOST8, DLMAG, SHAPEPAR8(2)  & 
         ,AVwarp8, KCOR8(2), MAGERR8, MWEBV8  & 
         ,ERRFRAC8, XTAV, XTMW  & 
         ,FITPARLOC8(IPAR_MAX)  & 
         ,SIMPARLOC8(IPAR_MAX)  & 
-        ,MAGTMP8, ARG8  & 
-        ,X08, S2a, S2b
+        ,MAGTMP8, ARG8  
 
     INTEGER ipar
-    LOGICAL LDMP, LFLUX, LREST_COSMO, LMUFIX
+    LOGICAL LDMP, LREST_COSMO, LMUFIX
 
 
 ! function
-    REAL*8  USRFUN, DLMAG8_REF, GET_RV8, GET_DIST8
+    REAL*8  USRFUN, DLMAG_REF, GET_RV8, GET_DIST8
 
 ! -------------- BEGIN ----------------
 
@@ -6442,7 +6394,7 @@
 
         LMUFIX = DOFIT_PHOTOZ .and. (INISTP_DLMAG .EQ. 0.0)
         if ( LMUFIX ) THEN
-           DLMAG8   = DLMAG8_REF(Z8)
+           DLMAG   = DLMAG_REF(Z8)
            DISTPAR8 = GET_DIST8(Z8,SHAPEPAR8(1),COLORPAR8,ONE8)
         endif  ! LMMUFIX
 
@@ -6483,7 +6435,7 @@
     ELSE IF ( LREST_COSMO ) THEN
 
       magtmp8 = -2.5*DLOG10(FLUX8) + ZP_FLUXCAL  & 
-                  -(XTMW + KCOR8(1) + DLMAG8_REF(Z8) )
+                  -(XTMW + KCOR8(1) + DLMAG_REF(Z8) )
 
       if ( OPT .EQ. 3 ) magtmp8 = magtmp8 - XTAV
 
@@ -6498,7 +6450,7 @@
 !        print*,' XXXXX ------------------------------------- '
 !        print*,' XXXXX ifilt_obs, Tobs = ', ifilt_obs, T8obs
 !        print*,' XXXXX XTMW, KCOR = ', XTMW, KCOR8(1)
-!        print*,' XXXXX Z, MU = ', Z8, DLMAG8_REF(Z8)
+!        print*,' XXXXX Z, MU = ', Z8, DLMAG_REF(Z8)
 !        print*,' XXXXX FLUX8, MAGTMP8 = ', FLUX8, MAGTMP8
 ! -------------
 
@@ -6749,8 +6701,6 @@
     REAL CUTINI(2), TMPCUT
     LOGICAL USE_AVPRIOR
 
-    CHARACTER ctmp*4
-
 ! ------------------- BEGIN ---------------------
 
     CALL PRBANNER ( " READ &FITINP NAMELIST" )
@@ -6795,11 +6745,11 @@
     ENDDO
 
     DO i = 1, 2
-      FITWIN_ZPULL(i)      = CUTINI(i)
-      FITWIN_ZPHOT(i)      = CUTINI(i)
-      FITWIN_COLOR(i)      = CUTINI(i)
-      FITWIN_SHAPE(i)      = CUTINI(i)
-      FITWIN_PROB(i)       = CUTINI(i)
+      FITWIN_ZPULL(i)        = CUTINI(i)
+      FITWIN_ZPHOT(i)        = CUTINI(i)
+      FITWIN_COLOR(i)        = CUTINI(i)
+      FITWIN_SHAPE(i)        = CUTINI(i)
+      FITWIN_PROB(i)         = CUTINI(i)
       FITWIN_PROB_ITER1(i)   = CUTINI(i)
       FITWIN_SHAPE_ITER1(i)  = CUTINI(i)
       FITWIN_COLOR_ITER1(i)  = CUTINI(i)
@@ -6895,6 +6845,7 @@
     OPT_PHOTOZ       = 0
     PHOTODZ_REJECT   = 0.05    ! initial W.A.G; users should test this
     PHOTODZ1Z_REJECT = -99.0   ! no cut
+
     PHOTOZ_BOUND(1)  = 1.0E-6
     PHOTOZ_BOUND(2)  = 1.4
     PHOTOZ_ITER1_LAMRANGE(1) =  4000.  ! default => skip UV region;
@@ -6986,15 +6937,16 @@
 ! ---------------------------------
     NGRID_PDF      = 0
     NSIGMA_PDF     = 4
+    VARLIST_PDF    = 'ALL'
     MAX_INTEGPDF   = 3
 
-    PRIOR_AVEXP(1)   = 0.334   ! prior = exp(-AV/PRIOR_AVEXP)
+    PRIOR_AVEXP(1)   = 1.0E9   ! prior = exp(-AV/PRIOR_AVEXP)
     PRIOR_AVEXP(2)   = 1.0E9   ! prior = exp(-AV/PRIOR_AVEXP)
     PRIOR_AVWGT(1)   = 1.0     ! relative wgt of 1st expon
     PRIOR_AVWGT(2)   = 0.0     ! relative wgt of 2nd expon
 
     PRIOR_AVRES      = 0.0     ! smear AV prior by this resolution
-    PRIOR_MJDSIG     = 20.0    ! sigma for gauss prior on PEAKMJD (days)
+    PRIOR_MJDSIG     = 1.04    ! sigma for gauss prior on PEAKMJD (days)
     PRIOR_ZERRSCALE  = 1000.01   ! default is no prior
     PRIOR_MUERRSCALE = 1000.01   ! default is no prior
     DOPRIOR_DLMAG    = .FALSE.
@@ -7023,6 +6975,10 @@
     PRIOR_COLOR_RANGE(1) = -9.0
     PRIOR_COLOR_RANGE(2) = +9.0
     PRIOR_COLOR_SIGMA    =  0.01  ! Gauss roll-off at edges of flat prior 
+
+    PRIOR_DMU_RANGE(1) = -9.0  ! 3/2026
+    PRIOR_DMU_RANGE(2) = +9.0
+    PRIOR_DMU_SIGMA    =  0.1
 
 ! Aug 17 2015: from snlc_sim.defaults since this is no longer read
     PRIOR_DELTA_PROFILE(1) =  0.23  ! sigma(low)
@@ -7137,6 +7093,8 @@
       PRIOR_SHAPE2_RANGE(2)   = +8.0
       PRIOR_COLOR_RANGE(1)   = -8.0
       PRIOR_COLOR_RANGE(2)   = +8.0
+      PRIOR_DMU_RANGE(1)     = -9.0
+      PRIOR_DMU_RANGE(2)     =  9.0
       PRIOR_DELTA_PROFILE(4) =  1.0
     ENDIF
 
@@ -7232,10 +7190,7 @@
 
     IMPLICIT NONE
 
-    INTEGER  & 
-         i, ifilt, ifiltdef, iplus, NF  & 
-        ,L1, L2, N
-
+    INTEGER  i, ifilt, ifiltdef, L1, L2, N
     CHARACTER FNAM*20, ctmp*4
     LOGICAL LDEF
 
@@ -7254,7 +7209,7 @@
       if ( ctmp .NE. ' ' ) then
          ifiltdef = FILTINDX(ctmp)
          if ( ifiltDEF .LE.  0 ) then
-           c1err = 'Invalid FILTLIST_FIT = ' // FILTLIST_FIT
+           c1err = 'Invalid FILTLIST_FIT = ' // FILTLIST_FIT(1:60)
            c2err = 'Check &FITINP namelist'
            CALL MADABORT(FNAM, c1err, c2err)
          endif
@@ -7349,7 +7304,7 @@
       LL = INDEX ( ARG, ' ' ) - 1
 
       if ( MATCH_NMLKEY('FITMODEL_NAME', 1,i,ARGLIST) ) then
-          FITMODEL_NAME = ARGLIST(1)
+          FITMODEL_NAME = ARGLIST(1)(1:80)
 
       else if ( MATCH_NMLKEY('SALT2alpha', 1,i,ARGLIST) ) then
           READ(ARGLIST(1),*) SALT2alpha
@@ -7433,7 +7388,7 @@
           READ(ARGLIST(2),*) FUDGE_FITERR_RESTLAM(2)
 
       else if(MATCH_NMLKEY('FUDGE_FITERR_PASSBANDS',1,i,ARGLIST)) then
-          FUDGE_FITERR_PASSBANDS = ARGLIST(1)
+          FUDGE_FITERR_PASSBANDS = ARGLIST(1)(1:80)
 
       else if(MATCH_NMLKEY('FUDGEALL_MAXFRAC',1,i,ARGLIST)) then
           READ(ARGLIST(1),*) FUDGEALL_MAXFRAC
@@ -7645,11 +7600,21 @@
       else if (MATCH_NMLKEY('PRIOR_COLOR_SIGMA', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) PRIOR_COLOR_SIGMA
 
+      else if (MATCH_NMLKEY('PRIOR_DMU_RANGE', 2,i,ARGLIST)) then
+          READ(ARGLIST(1),*) PRIOR_DMU_RANGE(1)
+          READ(ARGLIST(2),*) PRIOR_DMU_RANGE(2)
+
+      else if (MATCH_NMLKEY('PRIOR_DMU_SIGMA', 1,i,ARGLIST)) then
+          READ(ARGLIST(1),*) PRIOR_DMU_SIGMA
+
       else if (MATCH_NMLKEY('NGRID_PDF', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) NGRID_PDF
 
       else if (MATCH_NMLKEY('NSIGMA_PDF', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) NSIGMA_PDF
+
+      else if (MATCH_NMLKEY('VARLIST_PDF', 1,i,ARGLIST)) then
+          VARLIST_PDF = ARGLIST(1)(1:20)
 
       else if (MATCH_NMLKEY('OPT_COVAR', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) OPT_COVAR
@@ -7795,10 +7760,10 @@
           READ(ARGLIST(1),*) LAMREST_MODEL_SMOOTH
 
       else if(MATCH_NMLKEY('FILTER_FITMAGDIF',1,i,ARGLIST)) then
-          FILTER_FITMAGDIF = ARGLIST(1)
+          FILTER_FITMAGDIF = ARGLIST(1)(1:4)
 
       else if(MATCH_NMLKEY('FILTLIST_FITRESTMAG',1,i,ARGLIST)) then
-          FILTLIST_FITRESTMAG = ARGLIST(1)
+          FILTLIST_FITRESTMAG = ARGLIST(1)(1:12)
 
       else if(MATCH_NMLKEY('LUMIFIX_FITRESTMAG',1,i,ARGLIST)) then
           READ(ARGLIST(1),*) LUMIFIX_FITRESTMAG   ! legacy
@@ -7813,20 +7778,20 @@
           READ(ARGLIST(1),*) DLAMTOL_FITRESTMAG
 
       else if(MATCH_NMLKEY('FILTLIST_FIT', 1,i,ARGLIST)) then
-          FILTLIST_FIT = ARGLIST(1)
+          FILTLIST_FIT = ARGLIST(1)(1:80)
 
       else if(MATCH_NMLKEY('FILTLIST_DMPFCN', 1,i,ARGLIST)) then
-          FILTLIST_DMPFCN = ARGLIST(1)
+          FILTLIST_DMPFCN = ARGLIST(1)(1:20)
 
       else if(MATCH_NMLKEY('FILTLIST_DMPFUN', 1,i,ARGLIST)) then
-          FILTLIST_DMPFUN = ARGLIST(1)
+          FILTLIST_DMPFUN = ARGLIST(1)(1:20)
 
       else if(MATCH_NMLKEY('TREST_DMPFUN', 2,i,ARGLIST)) then
           READ(ARGLIST(1),*) TREST_DMPFUN(1)
           READ(ARGLIST(2),*) TREST_DMPFUN(2)
 
       else if(MATCH_NMLKEY('NEARFILT_IGNORE_REST',1,i,ARGLIST)) then
-          NEARFILT_IGNORE_REST = ARGLIST(1)
+          NEARFILT_IGNORE_REST = ARGLIST(1)(1:20)
 
       else if(MATCH_NMLKEY('LTRACE',1,i,ARGLIST)) then
           READ(ARGLIST(1),*) LTRACE
@@ -7886,7 +7851,7 @@
 
 ! - - -
       else if(MATCH_NMLKEY('CCID_DUMP_CHI2_MATRIX', 1,i,ARGLIST)) then
-          CCID_DUMP_CHI2_MATRIX = ARGLIST(1)
+          CCID_DUMP_CHI2_MATRIX = ARGLIST(1)(1:20)
 
        endif
 
@@ -7935,7 +7900,7 @@
 
 ! local var
 
-    INTEGER  NPAR, ipar, ITER_LAST
+    INTEGER  ipar, ITER_LAST
     REAL*8   PEAKMJD, VALTMP, ERRTMP
     LOGICAL  FIRST_ITER, JG
 
@@ -8252,7 +8217,7 @@
 
 
     IF ( INIVAL_PEAKMJD .GT. 40000. )  & 
-           INIVAL_PEAKMJD = INIVAL_PEAKMJD - MJDOFF
+           INIVAL_PEAKMJD = INIVAL_PEAKMJD - SNGL(MJDOFF)
 
     IF ( INIVAL_PEAKMJD .GT. NULLVAL )  & 
            INIVAL(IPAR_PEAKMJD) = INIVAL_PEAKMJD
@@ -8287,9 +8252,9 @@
     IF ( USESIM_INIVAL .or. DOFIT_IDEAL ) THEN
 
        if ( STDOUT_UPDATE ) then
-	    write(6,420) USESIM_INIVAL, DOFIT_IDEAL
-420         format('   Set INIVAL = SIM value (USESIM_INIVAL=',L2,  & 
-                 '  DOFIT_IDEAL=',L2,')' )
+          write(6,420) USESIM_INIVAL, DOFIT_IDEAL
+420       format('   Set INIVAL = SIM value (USESIM_INIVAL=',L2,  & 
+               '  DOFIT_IDEAL=',L2,')' )
           call flush(6)
        endif
        INIVAL(IPAR_PEAKMJD)  = SIM_PEAKMJD
@@ -8371,6 +8336,7 @@
 ! Nov 07 2024: fix bug setting PHOTODZ_REJECT for zSPEC
 ! Dec 19 2024: print time to process this function
 ! Feb 02 2026: set LZDONE=T inside BTEST(MASK,BIT_BESTZ_GAUSS) if-block
+! May 06 2026: check ABORT_ON_MISSING_QZPHOT
 ! --------------------------------------------
 
     USE SNDATCOM
@@ -8379,32 +8345,34 @@
     USE SNLCINP_NML
     USE FILTCOM
     USE FITRESTCOM
+
+    IMPLICIT NONE  ! added May 7 2026
+
 ! CDE,SNFITPAR.
 
     INTEGER  & 
          iter   &  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
-         ,IERR ! (O) error flag
+         ,IERR     ! (O) error flag
 
 ! local var
 
-    INTEGER  IPAR, NZBIN, NCBIN, NSBIN, IPRINT, LM, MASK
-    LOGICAL  LZDONE, LAST_ITER, ISMODEL_SALT2, LPRINT
-    REAL*8 ZHOST, ZHOST_ERR, ZPHOT_LAST, ZMIN, ZMAX, z, s, c, d
-    REAL*8 ztmp_min, ztmp_max
+    INTEGER  IPAR, IPRINT, MASK, NQ
+    LOGICAL  LZDONE, LPRINT
+    REAL*8 ZHOST, ZHOST_ERR,  ZMIN, ZMAX, z, s, c, d
+    REAL*8 ztmp_min, ztmp_max, STP
     REAL   t_start, t_end
-    LOGICAL  LDMP_Q, LPZ_AUTO_INISTP, REFAC,  LDMP_REFAC
-    CHARACTER BANNER*60, CZTMP*20, CCID_forC*(MXCHAR_CCID)
+    LOGICAL  LPZ_AUTO_INISTP, LDMP_REFAC
+    CHARACTER BANNER*100, CZTMP*20, CCID_forC*(MXCHAR_CCID)
 
     REAL*8 MXRATIO_INIVAL_ZPHOT ! fix INIVAL_ZPHIOT if zERR/z < this
+    REAL*8 MEAN, STD
+
+    CHARACTER FNAM*14
 
 ! FCNSNLC args
 
-    INTEGER IFLAG, q, IERR_ZPDF
-    REAL*8  & 
-          GRAD(MXFITPAR)  & 
-         ,CHI2GUESS, CHI2END, CHI2MIN, CHI2, INIVAL_SHIFT  & 
-         ,ZPHOT_Q(MXZPHOT_Q), ZPHOT_PROB(MXZPHOT_Q), MEAN, STD
-    CHARACTER FNAM*14
+    INTEGER IFLAG
+    REAL*8  GRAD(MXFITPAR), CHI2GUESS, CHI2 
     REAL*8 GET_DIST8, USRFUN
     LOGICAL LEGACY
     EXTERNAL USRFUN, init_zPDF_spline
@@ -8509,21 +8477,20 @@
 
     ELSE IF ( BTEST(MASK,BIT_PHOTOZ_QUANTILES) ) THEN ! R.Chen Jun 2022
 
+       NQ = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
+       if ( NQ <= 0 ) THEN
+          if ( ABORT_ON_MISSING_QZPHOT ) then
+             c1err = 'Missing zPDF quantiles for photo-z fit to CID=' // SNLC_CCID
+             c2err = 'To skip such events, set &SNLCINP ABORT_ON_MISSING_QZPHOT=F'
+             CALL MADABORT(FNAM, c1err, c2err)
+          else
+             IERR = -1  ! May 2026 : skip event
+             return
+          endif
+       endif
 
-      if ( SNHOST_NZPHOT_Q .le. 0 ) THEN
-          c1err = 'zPDF quantiles requested for photo-z fit'
-          c2err = 'but there are no zPDF quantiles in the data.'
-          CALL MADABORT(FNAM, c1err, c2err)
-      endif
-
-      CALL SET_SNHOST_QZPHOT(METHOD_SPLINE_QUANTILES, IERR_ZPDF)
       MEAN = SNHOST_QZPHOT_MEAN(1) 
       STD  = SNHOST_QZPHOT_STD(1)  
-
-      if (IERR_ZPDF .NE. 0 ) then
-	   IERR = ERRFLAG_FITPREP_QUANTILES
-	   return
-      endif
 
 !     initialize at Q50
       INIVAL(ipar) = MEAN
@@ -8540,8 +8507,8 @@
 
 ! - - - - - -
 ! Dec 2024: load global zprior summary here instead of in PHOTOZ_STORE
-    PRIOR_PHOTOZ     =  INIVAL(ipar)
-    PRIOR_PHOTOZ_ERR =  max(0.001, STD * PRIOR_ZERRSCALE)
+    PRIOR_PHOTOZ     =  SNGL( INIVAL(ipar) )
+    PRIOR_PHOTOZ_ERR =  max(0.001, SNGL(STD) * PRIOR_ZERRSCALE)
     PRIOR_COMMENT    =  CZTMP
 
 ! - - - - - - - -
@@ -8607,7 +8574,6 @@
        CALL INIPAR_PHOTOZ_COURSEGRID(CHI2GUESS,LZDONE)
     endif
 
- 444  CONTINUE
 
 ! update x0-bound for SALT2
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
@@ -8617,8 +8583,6 @@
     ENDIF
 
     CALL FCNSNLC(NFITPAR_MN,GRAD,CHI2,INIVAL,IFLAG,USRFUN)
-
-777   CONTINUE
 
 ! - - - - -  - -
 ! set INISTP for photoz
@@ -8636,9 +8600,9 @@
       endif
 
       INISTP(IPAR)  =  STP
-551      format('Dynamic INISTP_PHOTOZ -> STD(PDF)/3 = ', F6.4)
-550      format('Fixed INISTP_PHOTOZ = ', F6.4)
-	 if(LPRINT) CALL PRINT_ITERINFO(SNLC_CCID,ITER,BANNER)
+551   format('Dynamic INISTP_PHOTOZ -> STD(PDF)/3 = ', F6.4)
+550   format('Fixed INISTP_PHOTOZ = ', F6.4)
+      if(LPRINT) CALL PRINT_ITERINFO(SNLC_CCID,ITER,BANNER)
     endif
 
 ! - - - - - - - - - 
@@ -8658,7 +8622,7 @@
 
 888   CONTINUE
 
-    REDSHIFT_FIT = INIVAL(IPAR_zPHOT)
+    REDSHIFT_FIT = SNGL( INIVAL(IPAR_zPHOT) )
 
     if ( STDOUT_UPDATE ) then
        CALL CPU_TIME(t_end)
@@ -8764,23 +8728,22 @@
     REAL*8 C_SAVE, CMIN, CMAX, CBIN, c
     REAL*8 T_SAVE, TMIN, TMAX, TBIN, t  ! Dec 11 2025 PKMJD
     REAL*8 Fmodel_SCALE, Fmodel_SCALE_SAVE, d, d_SAVE, d_cospar
-    REAL*8 POWZ1, ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
+    REAL*8 ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
+    REAL*8 RESTLAMBDA_SAVE(2) 
     INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER
-    REAL SCALE_ALL, SCALE_z
+    REAL SCALE_ALL
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
-
-    REAL*8  d_tmp, dsave_tmp, tmp, chi2_tmp, chi2min_tmp  ! for DEBUG test
-    INTEGER jd_tmp
-
+    LOGICAL REFAC_LAMRANGE
     CHARACTER FNAM*28
     REAL*8 GET_DIST8, USRFUN
     EXTERNAL USRFUN
 
 ! ------------- BEGIN ------------
 
-  
+    MARK_USED(ZBIN)
+
     FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
     
     ITER  = 1
@@ -8864,24 +8827,38 @@
     ENDIF
 
 
+    ! Mar 24 2026: open wavelength range if UVLAM_EXTRAPFLUX is set;
+    !        DEBUG_FLAG = -324 restores legacy code to ignore UVLAM_EXTRAPFLUX.
+    REFAC_LAMRANGE = ( DEBUG_FLAG .NE. -324 )
+    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then
+       RESTLAMBDA_SAVE(1) = RESTLAMBDA_USEFIT(1)
+       RESTLAMBDA_SAVE(2) = RESTLAMBDA_USEFIT(2)
+       RESTLAMBDA_USEFIT(1) = RESTLAMBDA_MODEL(1) 
+       RESTLAMBDA_USEFIT(2) = RESTLAMBDA_MODEL(2) 
+
+       if ( STDOUT_UPDATE ) then
+          write(6,438) RESTLAMBDA_MODEL(1), RESTLAMBDA_MODEL(2)
+438       format(T5,'UVLAM_EXTRAP -> extend RESTLAMBDA for COURSEGRID to: ', 2F8.0 )
+       endif
+    endif
 ! ------------------------------------------------------
 ! start t, z,c,s course-grid loop
 
-    DO 53 it  = 1, NTBIN
+    DO 53 it  = 1, NTBIN   ! MJD (time) bins
        t = TMIN + dble(it-1) * TBIN
        INIVAL(IPAR_PEAKMJD) = t
 
-    DO 55 iz  = 1, NZBIN
+    DO 55 iz  = 1, NZBIN   ! redshift (or 1+zphot) bins
 
       zvar  = ZVAR_MIN + dble(iz-1)*ZVAR_BIN  ! 1/(1+z) (not z)
       z = ZVAR / ( 1 - ZVAR )                 ! translate back to z
       INIVAL(IPAR_zPHOT)  = z
 
-    DO 57 is = 1, NSBIN
+    DO 57 is = 1, NSBIN    ! shape
       s = SMIN + dble(is-1) * SBIN
       INIVAL(IPAR_SHAPE) = s
 
-    DO 59 ic  = 1, NCBIN
+    DO 59 ic  = 1, NCBIN   ! color
       c       = CMIN + dble(ic-1)*CBIN
       INIVAL(IPAR_COLOR)  = c
 
@@ -8938,6 +8915,16 @@
     INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
     INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
     OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
+
+    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then ! restore user wave range
+       if ( STDOUT_UPDATE ) then
+          write(6,439) RESTLAMBDA_SAVE(1), RESTLAMBDA_SAVE(2)
+439       format(T5,'UVLAM_EXTRAP -> restore RESTLAMBDA to: ', 2F8.0 )
+       endif
+       call flush(6)
+       RESTLAMBDA_USEFIT(1) = SNGL( RESTLAMBDA_SAVE(1) )
+       RESTLAMBDA_USEFIT(2) = SNGL( RESTLAMBDA_SAVE(2) )
+    endif
 
     RETURN
   END SUBROUTINE INIPAR_PHOTOZ_COURSEGRID
@@ -9037,7 +9024,7 @@
 
     INTEGER IFLAG, NTMP, itry, NPAR, i, IPAR, IPAR_LIST(MXFITPAR)
     REAL*8 CHI2min, DIF, AVG, STEP, VAL, ran
-    REAL*8 z,s,c,t0,d, dmu, x0cosmo, x0
+    REAL*8 z,s,c,t0, dmu, x0cosmo, x0
     REAL*8 CHI2, CHI2_LAST, ARG, PROB, VALMIN, VALMAX
     REAL*8 MCMC_STEPVAL(MXFITPAR), MCMC_TRYVAL(MXFITPAR)
     REAL*8 GRAD(MXFITPAR), BND_LOCAL(2,MXFITPAR)
@@ -9225,8 +9212,6 @@
     USE SNFILECOM
 
     IMPLICIT NONE
-
-    CHARACTER NAME_COLOR*12, NAME_STRETCH*12
     LOGICAL IS_SALT2, IS_BAYESN, IS_MLCS2k2, USER_c, USER_s, USER_t
 
     ! ---------- BEGIN ---------
@@ -9298,7 +9283,7 @@
 
     ELSE
        c1err = 'Course bins not defined for FITMODEL_NAME = '
-       c2err =  FITMODEL_NAME 
+       c2err =  FITMODEL_NAME(1:80)
        CALL MADABORT ('INIT_COURSEBIN_PHOTOZ', c1err, c2err )
     ENDIF
 
@@ -9313,8 +9298,7 @@
   END SUBROUTINE INIT_COURSEBIN_PHOTOZ
 
 ! ====================================================
-  SUBROUTINE SET_COURSEBIN_PHOTOZ(IPAR,ITER,  & 
-         NBIN, PARBIN, PARMIN, PARMAX)
+  SUBROUTINE SET_COURSEBIN_PHOTOZ(IPAR, ITER, NBIN, PARBIN, PARMIN, PARMAX)
 ! 
 ! Created March 25, 2012 by R.Kessler
 ! 
@@ -9341,10 +9325,12 @@
     REAL*8  PARBIN,PARMIN,PARMAX  ! (O) binsize, min and max
 ! local args
 
-    REAL*8 PEAKMJD_ESTIMATE, ZMIN, ZMAX, ZVAR_MIN, ZVAR_MAX
+    REAL*8 PEAKMJD_ESTIMATE, ZMIN, ZMAX
     LOGICAL IS_SALT2, IS_BAYESN, DO_COLOR, DO_SHAPE, DO_PEAKMJD, DO_ZPHOT
 
 ! --------------- BEGIN ---------------
+
+    MARK_USED(ITER)
 
 ! hard-code color range for SALT2 model (Dec 2014)
     IS_SALT2   = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
@@ -9465,27 +9451,25 @@
 ! local var
 
     INTEGER  & 
-         CID, IFILT, IFILT_OBS, NFILT, LTMP, i, ipar  & 
-        ,IPAR_ADJUST, NF, NZ, LCHAR, LCHAR2
+         CID, IFILT, IFILT_OBS, NFILT, LTMP, ipar  & 
+        ,IPAR_ADJUST, NF, LCHAR, LCHAR2
 
     LOGICAL LPRINT
-    LOGICAL LZFIT, FIRST_ITER, DO_PEAKMJD, DO_COLOR
-    CHARACTER BANNER*60, CFILT*(MXFILT_ALL), cpar*20
+    LOGICAL   FIRST_ITER, DO_PEAKMJD, DO_COLOR
+    CHARACTER BANNER*100, CFILT*(MXFILT_ALL), cpar*20
 
     REAL  & 
-         RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux  & 
-        ,CHI2, CHI2RED, Xsig, ZTMP  & 
+         RATIO_FLUX(MXFILT_ALL), RATIO_FLUX_AVG, rflux, CHI2RED  & 
         ,PEAKMJD_INI, PEAKMJD_SAVE  & 
         ,DIFMJD_MIN, DIFMJD_MAX, DIFMJD_BIN, DIFMJD  & 
         ,COLOR_INI, COLOR_SAVE, COLOR_MIN, COLOR_MAX, COLOR_BIN, COLOR  & 
-        ,PHOTOZ_INI, PHOTOZ_SAVE, PHOTOZ_STP  & 
         ,INIVAL_START(IPAR_MAX), RTMP(MXFILT_ALL)
 
     REAL*8  T8, Z8
 
 ! FCNSNLC args
     INTEGER IFLAG
-    REAL*8 GRAD(MXFITPAR), CHI8INI, CHI8END, CHI8MIN, CHI8, CHI8TEST
+    REAL*8 GRAD(MXFITPAR), CHI8INI, CHI8END, CHI8MIN, CHI8
 
 ! functions
     REAL  DATA_MODEL_RATIO
@@ -9537,7 +9521,7 @@
 ! save initial values before they are modified
 
     DO ipar = 1, IPAR_MAX
-      INIVAL_START(ipar) = INIVAL(ipar)
+      INIVAL_START(ipar) = SNGL( INIVAL(ipar) )
     ENDDO
 
     if ( LTRACE ) CALL DMPTRACE("INSIDE FITINI_ADJUST: 2")
@@ -9565,17 +9549,15 @@
 ! -----------------------------------------------------
 ! Now check PEAKMJD by testing 1/2-sigma steps
 
-442   CONTINUE
-
-    PEAKMJD_INI  = INIVAL(IPAR_PEAKMJD)
-    PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
+    PEAKMJD_INI  = SNGL( INIVAL(IPAR_PEAKMJD) )
+    PEAKMJD_SAVE = SNGL( INIVAL(IPAR_PEAKMJD) )
     DIFMJD_MIN   = INIVAL_GRIDSEARCH_DPEAKMJD(1)
     DIFMJD_MAX   = INIVAL_GRIDSEARCH_DPEAKMJD(2)
     DIFMJD_BIN   = INIVAL_GRIDSEARCH_DPEAKMJD(3)
 
 !     D. Jones color grid search
-    COLOR_INI  = INIVAL(IPAR_COLOR)
-    COLOR_SAVE = INIVAL(IPAR_COLOR)
+    COLOR_INI   = SNGL( INIVAL(IPAR_COLOR) )
+    COLOR_SAVE  = SNGL( INIVAL(IPAR_COLOR) )
     COLOR_MIN   = INIVAL_GRIDSEARCH_COLOR(1)
     COLOR_MAX   = INIVAL_GRIDSEARCH_COLOR(2)
     COLOR_BIN   = INIVAL_GRIDSEARCH_COLOR(3)
@@ -9605,8 +9587,8 @@
       CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8,INIVAL,IFLAG,USRFUN)
       if ( CHI8 .LT. CHI8MIN ) then
           chi8min = chi8
-          PEAKMJD_SAVE = INIVAL(IPAR_PEAKMJD)
-          COLOR_SAVE = INIVAL(IPAR_COLOR)
+          PEAKMJD_SAVE = SNGL( INIVAL(IPAR_PEAKMJD) )
+          COLOR_SAVE   = SNGL( INIVAL(IPAR_COLOR) )
       endif
       DIFMJD = DIFMJD + DIFMJD_BIN
 400   CONTINUE
@@ -9837,11 +9819,11 @@
     DO ifilt     = 1, NFILTDEF_SURVEY
        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
        cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
-	 if ( INDEX(BANDLIST, cfilt(1:1) ) > 0 ) then
+       if ( INDEX(BANDLIST, cfilt(1:1) ) > 0 ) then
           PRIOR_USE_FILT_SNCID_FILE(ifilt_obs) = .TRUE.
        else
           PRIOR_USE_FILT_SNCID_FILE(ifilt_obs) = .FALSE.
-	 endif
+       endif
     ENDDO
 
 ! disable feature to add/drop filters
@@ -9926,59 +9908,57 @@
        LENV = INDEX(PARNAME_STORE(IPAR),' ') - 1
        cVAR = PARNAME_STORE(IPAR)(1:LENV) // char(0)
        if ( IPAR == IPAR_zPHOT ) then
-	     cVAR = 'zHD' // char(0)
-	     LENV = 3
-	 endif
+          cVAR = 'zHD' // char(0)
+          LENV = 3
+       endif
 
 !  Jan 2025: construct column of fit par ERROR
        cERR = cVAR(1:LENV) // 'ERR' // char(0)
 
-	 CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,  & 
-              DVAL,    CTMP, LENV, 40)  ! return DVAL
+       CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cVAR, ABORT_FLAG,  & 
+            DVAL,    CTMP, LENV, 40)  ! return DVAL
        CALL MATCH_CIDLIST_PARVAL(INDEX_CID_MATCH, cERR, ABORT_FLAG,  & 
-              DVAL_ERR, CTMP, LENV, 40)  ! return DVAL_ERR
+            DVAL_ERR, CTMP, LENV, 40)  ! return DVAL_ERR
 
        VALID_INIVAL = ( DVAL > -999.0  )
        VALID_PRIOR  = ( DVAL > -999.0 .and. DVAL_ERR > 0.0 )
-	 STATUS_INIVAL = '' ; STATUS_PRIOR = ''
-	 if ( .NOT. VALID_INIVAL ) then
-	     N_NOTVALID_INIVAL = N_NOTVALID_INIVAL + 1
-	     STATUS_INIVAL = '*** INVALID *** '
-	  endif
-	 if ( .NOT. VALID_PRIOR ) then
-	     N_NOTVALID_PRIOR = N_NOTVALID_PRIOR + 1
-	     STATUS_PRIOR = '*** INVALID *** '
-	  endif
+       STATUS_INIVAL = '' ; STATUS_PRIOR = ''
+       if ( .NOT. VALID_INIVAL ) then
+          N_NOTVALID_INIVAL = N_NOTVALID_INIVAL + 1
+          STATUS_INIVAL = '*** INVALID *** '
+       endif
+       if ( .NOT. VALID_PRIOR ) then
+          N_NOTVALID_PRIOR = N_NOTVALID_PRIOR + 1
+          STATUS_PRIOR = '*** INVALID *** '
+       endif
 
        if ( USE_INIVAL_SNCID_FILE ) then
-          INIVAL(IPAR) = DVAL	   ! load initial value for fit
+          INIVAL(IPAR) = DVAL   ! load initial value for fit
           if ( VBOSE ) then
-	      CTMP = 'INIVAL-' // cVAR(1:LENV)
-            write(6,44) CTMP, DVAL, SNLC_CCID, STATUS_INIVAL
-         endif
-	 endif ! end USE_INIVAL_SNCID_FILE
+             CTMP = 'INIVAL-' // cVAR(1:LENV)
+             write(6,44) CTMP, DVAL, SNLC_CCID, STATUS_INIVAL
+          endif
+       endif ! end USE_INIVAL_SNCID_FILE
 
-	 if ( USE_PRIOR_SNCID_FILE ) then
+       if ( USE_PRIOR_SNCID_FILE ) then
           INIVAL(IPAR) = DVAL
           PRIOR_VAL = DVAL
           PRIOR_ERR = SET_PRIOR_FITPAR_SIG(IPAR,DVAL_ERR)
-	    PRIOR_FITPAR_SNCID_FILE(1,IPAR) = PRIOR_VAL     ! Gauss mean
-	    PRIOR_FITPAR_SNCID_FILE(2,IPAR) = PRIOR_ERR     ! Gauss sigma
-
-	    if ( VBOSE ) then
-	      CTMP = 'PRIOR-' // cVAR(1:LENV)
-            write(6,45)  & 
-                 CTMP, PRIOR_VAL, PRIOR_ERR, SNLC_CCID, STATUS_PRIOR
-            call FLUSH(6)
+          PRIOR_FITPAR_SNCID_FILE(1,IPAR) = SNGL(PRIOR_VAL)     ! Gauss mean
+          PRIOR_FITPAR_SNCID_FILE(2,IPAR) = SNGL(PRIOR_ERR)     ! Gauss sigma
+          
+          if ( VBOSE ) then
+             CTMP = 'PRIOR-' // cVAR(1:LENV)
+             write(6,45) CTMP, PRIOR_VAL, PRIOR_ERR, SNLC_CCID, STATUS_PRIOR
+             call FLUSH(6)
           endif
-	endif
+       endif
 
  50   CONTINUE
 
-
- 44     format(T8, A14, ' : ', G10.3,  & 
+44     format(T8, A14, ' : ', G10.3,  & 
                   ' from list file: CID=', A10, 3x, A)
- 45     format(T8, A14, ' : ', G10.3, ' +_ ', G10.3,  & 
+45     format(T8, A14, ' : ', G10.3, ' +_ ', G10.3,  & 
                   ' from list file: CID=', A10, 3x, A)
 
     CALL FLUSH(6)
@@ -10021,7 +10001,7 @@
 
 ! local args
     REAL*8  PRIOR_SIG, SCALE_SIGMA, SIG_FLOOR, MAGERR_MIN
-    LOGICAL LX2, LX3, LNOzPRIOR
+    LOGICAL LX2, LX3
 
 ! ------------- BEGIN ----------
     PRIOR_SIG = DVALSIG
@@ -10294,7 +10274,7 @@
 
 ! Mar 2013: optional FITMAGDIF
     IF ( FILTER_FITMAGDIF .NE. '' ) THEN
-       cfilt = FILTER_FITMAGDIF
+       cfilt = FILTER_FITMAGDIF(1:1)
 
        NPLOTPAR        = NPLOTPAR + 1
        ipar            = NPLOTPAR
@@ -10358,7 +10338,6 @@
 
 ! local var
 
-    CHARACTER cfilt*1
     INTEGER   ifilt_rest1, ifilt_rest2, ifilt_obs, ifilt
     REAL Z, LAMDIF_MIN
 
@@ -10434,27 +10413,24 @@
 ! local var
 
     INTEGER  & 
-         ifilt, ifilt_obs, ifilt_rest, ifilt1, ifilt2, ISTAT  & 
+         ifilt_obs, ifilt_rest, ISTAT  & 
         ,irow, icol, J1, N, ep, ep_row, ep_col  & 
-        ,IR(MXFIT_DATA), IFILT_COV(MXFIT_DATA)  & 
-        ,IFAIL, JFAIL, IFROW, IFCOL, LCCID, NONZERO  & 
-        ,FIRSTITER_USECOV
+        ,IFILT_COV(MXFIT_DATA), LCCID, NONZERO
 
     REAL*8  & 
-         COVTMP, RHO, Z, MWEBV, RHO_TMP, DET, ARG  & 
+         COVTMP, RHO, Z, MWEBV, RHO_TMP & 
         ,TOBS(MXFIT_DATA)  & 
         ,TREST(MXFIT_DATA)  & 
         ,COVMAG_ERR(MXFIT_DATA)  & 
-        ,SQMAGERR, SQFLUXERR, FF  & 
-        ,R1, R2, F1, F2, ERR1, ERR2, FUDGE_SQERR, ERRSCALE  & 
-        ,COV_MWXT, COV_MODEL, COV_DATA, COV_TMP, x0, x1, xx1, c  & 
+        ,SQMAGERR, R1, R2, ERR1, ERR2, FUDGE_SQERR  & 
+        ,COV_MWXT, COV_MODEL, COV_DATA, x1, xx1  & 
         ,PARLIST_SN(10), PARLIST_HOST(10)
 
     LOGICAL  & 
         LPRINT, USE_DIAG_ONLY, LTMP, LDIAG, FIRST_ITER, CHECK_COV  & 
        ,LMWXT
 
-    character BANNER*60, ccid*(MXCHAR_CCID), FNAM*12
+    character BANNER*80, ccid*(MXCHAR_CCID), FNAM*12
 
 ! functions
     INTEGER  & 
@@ -10629,9 +10605,9 @@
          PARLIST_SN(2) = x1
          PARLIST_SN(3) = FITPAR(IPAR_COLOR)   ! c or AV
          PARLIST_SN(4) = xx1
-	   PARLIST_SN(5) = 0.0                  ! x2                 (July 29 2024)
+         PARLIST_SN(5) = 0.0                  ! x2                 (July 29 2024)
 
-	   PARLIST_HOST(1) = 0.0  ! cannot fit RV
+         PARLIST_HOST(1) = 0.0  ! cannot fit RV
          PARLIST_HOST(2) = 0.0  ! cannot fit AV
          PARLIST_HOST(3) = -9.0 ! cannot fit logMass
 
@@ -10818,7 +10794,7 @@
 
     INTEGER  & 
          IFILT, IFILT_OBS, IREJ, IMJD, ep, EPMIN, EPMAX  & 
-        ,N, OPT, IF1, IF2, ifit, ivar, REJECT, REJECT2
+        ,N, OPT, IF1, IF2, ivar, REJECT, REJECT2
 
     INTEGER ITER_DMP / -1 /
     REAL  & 
@@ -10830,7 +10806,7 @@
 
     REAL*8 FTMP8, MAGERR8, MJD8
 
-    LOGICAL LTMP, LREJECT, LREJECT2
+    LOGICAL  LREJECT, LREJECT2
 
     character cfilt*1
 
@@ -11249,29 +11225,18 @@
 ! 
 ! Apr 7 2020: init AV prior for SNOOPY as well as MLCS2k2
 ! 
+! Feb 15 2026: call MAKE_TABLE_PRIORS
 ! ------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
+    USE CTRLCOM
 
     IMPLICIT NONE
 
-    INTEGER  ibin, ipar, NPRIOR
-
-    REAL*8 tmp(2), prob, chi2, arg, xmin(2), xmax(2), xbin, x , wgt
-
-    LOGICAL LSTAT
-
-! histogram args
-
-    INTEGER NB(2), LL, NDIM, LCHIS, HOFF, hid, ifilt
-    CHARACTER chis*80
-
-! function
-
-    REAL*8 CHI2_PRIOR
+    INTEGER  ibin, ipar, NPRIOR, ifilt
+    LOGICAL  LSTAT
 
 ! -------------- BEGIN ----------
 
@@ -11325,7 +11290,6 @@
 ! check OPT_PRIOR after MJD prior is set.
 
     IF ( OPT_PRIOR .EQ. 0  ) GOTO 900
-
 ! - - - - - - -  -
 ! Set PhotoZ PRIOR for SN-photoZ fit.
 ! 
@@ -11336,7 +11300,7 @@
          USE_PRIOR(ipar_zPHOT)  = .TRUE.
       ENDIF
 
-      CALL FITINI_MUPRIOR(LSTAT)
+      CALL FITINI_MUPRIOR(LSTAT)  ! check prior using OM,w0,wa errors
       IF ( LSTAT ) THEN
          NPRIOR = NPRIOR + 1
          USE_PRIOR(ipar_DLMAG)  = .TRUE.
@@ -11392,64 +11356,183 @@
        USE_PRIOR(IPAR)   = .TRUE.
     ENDIF
 
+    ipar = IPAR_DLMAG  ! Mar 19, 2026
+    CALL FITINI_FLATPRIOR(IPAR,LSTAT)
+    IF ( LSTAT ) THEN
+       NPRIOR = NPRIOR + 1
+       USE_PRIOR(IPAR)   = .TRUE.
+    ENDIF
+
 
     IF ( NPRIOR .EQ. 0 ) THEN
       CALL PRBANNER("FITINI_PRIOR: NO PRIORS DEFINED" )
     ENDIF
 
-! -----------------------------------------
-! plot chi2 from prior in monitor plot
-! use CHI2_PRIOR function
 
-900   CONTINUE
-    if ( .NOT. USE_TABLEFILE ) RETURN
+! check opton to make table to monitor propr (debug/diagnostic)
+900 CONTINUE
 
-    NDIM = 1  ; WGT = 1.0 ! 1D histos
-    HOFF = 980
-    DO 50 ipar = 1, IPAR_MAX
-
-       if ( .not. USE_PRIOR(ipar) ) goto 50
-
-59       format( A,' from ',A,'-prior vs. ', A )
-
-! make plot with very fine binning to check interpolation
-       xbin    = 0.2*PRIOR_BINSIZE(ipar)
-       xmin(1) = PRIOR_RANGE(1,IPAR) - xbin/2.0
-       xmax(1) = PRIOR_RANGE(2,IPAR) + xbin/2.0
-       nb(1)   = int( (xmax(1) - xmin(1) + 0.1*xbin)/xbin )
-
-       LL = INDEX ( PARNAME_STORE(ipar), ' ' ) - 1
-       LCHIS = 25+2*LL
-
-       hid = HOFF + ipar
-       write(chis,59) 'prob',  & 
-               PARNAME_STORE(ipar)(1:LL), PARNAME_STORE(ipar)(1:LL)
-       chis = chis(1:LCHIS) // char(0)
-       CALL SNHIST_INIT(NDIM, HID, CHIS, NB, xmin, xmax, 80)
-
-       hid = HOFF + 10 + ipar
-       write(chis,59) 'chi2',  & 
-               PARNAME_STORE(ipar)(1:LL), PARNAME_STORE(ipar)(1:LL)
-       chis = chis(1:LCHIS) // char(0)
-       CALL SNHIST_INIT(NDIM, HID, CHIS, NB, xmin, xmax, 80)
-
-    DO 51 ibin = 1, NB(1)
-         tmp(1)  = PRIOR_RANGE(1,IPAR) + xbin * float(ibin-1)
-         chi2    = CHI2_PRIOR(ipar,tmp(1))
-         arg     = min(40.0,chi2/2.0)
-         prob    = dexp(-arg)
-
-         HID = HOFF +  0 + ipar
-         CALL SNHIST_FILL ( NDIM, HID, tmp, prob)
-
-         HID = HOFF + 10 + ipar
-         CALL SNHIST_FILL ( NDIM, HID, tmp, chi2 )
-
-51    CONTINUE
-50    CONTINUE
+    CALL MAKE_TABLE_PRIORS()
 
     RETURN
   END SUBROUTINE FITINI_PRIORS
+
+
+  SUBROUTINE MAKE_TABLE_PRIORS()
+
+    ! Created Feb 2026
+    ! make single diagnostic table with
+    !  ROW  VARNAME  VALUE  CHI2
+    !
+    ! All priors are lumped into a single table and VARNAME defines which variable.
+    ! Here the table is defined and loaded.
+
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNFITCOM
+    USE CTRLCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+    
+    CHARACTER VARLIST*80, CBLOCK*20, TEXTFMT*20, TEXTFMT_forC*20
+    INTEGER   ID, LENBL, LENVAR, LENFMT, LENTOT, IPAR, ibin, NVAR_PRIOR
+
+    ! define variables for plot table
+    CHARACTER VARNAME*20, COMMENT_forC*100, plot_example*100
+    REAL*8    DVALGRID, DPROBGRID, DCHI2GRID, DCHI2FUN, dmin, dbin
+    INTEGER   ROWNUM
+
+    ! functions
+
+    REAL*8 CHI2_PRIOR
+    EXTERNAL  & 
+          SNTABLE_ADDCOL  & 
+         ,SNTABLE_ADDCOL_int  & 
+         ,SNTABLE_ADDCOL_flt  & 
+         ,SNTABLE_ADDCOL_dbl  & 
+         ,SNTABLE_ADDCOL_str
+
+! ---------------- BEGIN ------------
+
+    IF ( OPT_TABLE(ITABLE_PRIOR) == 0 ) RETURN
+    if ( JOBSPLIT(1) > 1 ) RETURN   ! only ISPLIT=1 for batch mode
+
+    ID       = IDTABLE_PRIOR
+    CBLOCK   = 'PRIOR' // char(0)
+    LENBL    = 5
+
+    TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_PRIOR)
+    LENFMT   = INDEX(TEXTFMT,' ') - 1
+    TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+    CALL SNTABLE_CREATE(ID, CBLOCK, TEXTFMT_forC,  LENBL, LENFMT)  ! C fun
+
+    ! make list of fit variables with prior, for comments below
+    VARLIST = ' '
+    LENTOT  = 1
+    NVAR_PRIOR = 0
+    DO 40 ipar = 1, IPAR_MAX
+       if (  USE_PRIOR(ipar) ) then
+          VARNAME = PARNAME_STORE(ipar)
+          LENVAR  = INDEX(VARNAME,' ') - 1
+          VARLIST = VARLIST(1:LENTOT) // " " // VARNAME(1:LENVAR)
+          LENTOT  = LENTOT + LENVAR + 1
+          NVAR_PRIOR = NVAR_PRIOR + 1
+          if ( NVAR_PRIOR == 1 ) then
+             plot_example = &
+                  '  plot_table.py @@tfile <tfile> ' // &
+                  '@V VALGRID:PROBGRID @@CUT "VARNAME=''' // &
+                  VARNAME(1:LENVAR) // '''" ' // char(0)
+          endif
+       endif
+40  continue
+
+    ! store comments   
+    CALL STORE_TABLEFILE_COMMENT(' '//char(0), 2)
+
+    COMMENT_forC = 'Columns:' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 20)
+
+    COMMENT_forC = '  VARNAME:   name of LC-fitted param with prior: ' &
+         // VARLIST(1:LENTOT) // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 80)
+
+    COMMENT_forC = '  VALGRID:   param value on stored grid' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    COMMENT_forC = '  PROBGRID:  prior-PROB value on grid' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    COMMENT_forC = '  CHI2GRID:  prior-chi2 value on grid [-2ln(PROBGRID)]' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    COMMENT_forC = '  CHI2FUN:   CHI2_PRIOR FUNCTION value (expect CHI2FUN=CHI2GRID)' // char(0)
+    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+
+    CALL STORE_TABLEFILE_COMMENT("Plot_example:"//char(0), 20)
+    CALL STORE_TABLEFILE_COMMENT(plot_example, 90)
+
+    CALL STORE_TABLEFILE_COMMENT(' '//char(0), 2)
+    ! - - - - 
+
+    write(6,10) CBLOCK, ID
+ 10   format(T6,'Create BLOCK(1:LENBL) = ',A,'  for TABLE ID = ', I5)
+    call flush(6)
+
+    ! init table
+
+    VARLIST = 'ROW:I' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ROWNUM,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'VARNAME:C*20' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, VARNAME,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'VALGRID:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DVALGRID,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'PROBGRID:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DPROBGRID,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'CHI2GRID:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DCHI2GRID,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+    VARLIST = 'CHI2FUN:D' // char(0)
+    LENVAR  = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DCHI2FUN,  & 
+              VARLIST(1:LENVAR)//char(0), 1, LENBL, LENVAR )
+
+
+    ! load table
+    ROWNUM = 0   
+    DO 50 ipar = 1, IPAR_MAX
+       if ( .not. USE_PRIOR(ipar) ) goto 50
+       dmin = PRIOR_RANGE(1,IPAR)
+       dbin = PRIOR_BINSIZE(ipar)
+       VARNAME = PARNAME_STORE(ipar)
+    DO 51 ibin = 1, NBIN_PRIOR
+       ROWNUM   = ROWNUM + 1
+       DVALGRID     = dmin + dbin * DBLE(ibin)
+       DPROBGRID    = PRIOR_PROBGRID(ibin,ipar)
+       DCHI2GRID    = PRIOR_CHI2GRID(ibin,ipar)
+       DCHI2FUN     = CHI2_PRIOR(ipar,DVALGRID)
+       CALL SNTABLE_FILL(ID)  ! C function
+51    CONTINUE
+50    CONTINUE
+
+
+  END SUBROUTINE MAKE_TABLE_PRIORS
+
+
 
   SUBROUTINE FITINI_PRIOR_MUERR()
     ! Created DEC 5 2025 by Jonah Medoff
@@ -11462,7 +11545,7 @@
     IMPLICIT NONE
     REAL :: DZBIN = 0.01
     REAL :: ZMIN, ZMAX
-    INTEGER :: NBIN, i
+    INTEGER :: NBIN
     ! begin
     ZMIN = PHOTOZ_BOUND(1)
     ZMAX = PHOTOZ_BOUND(2)
@@ -11474,7 +11557,7 @@
 ! ==========================================
     SUBROUTINE FITINI_ZPRIOR(LSTAT)
 ! 
-! Created DEc 30, 2006 by R.Kessler
+! Created  by R.Kessler
 ! 
 ! Initialize photoZ prior using host photoZ.
 ! Fills PRIOR_CHI2GRID array with Gaussian with sigma=1.0
@@ -11484,24 +11567,20 @@
 ! Prior chi2 =  [ (Z - Zhost) / scale*ERROR_Zhost ]^2 .
 ! 
 ! where scale = PRIOR_ZERRSCALE scales the error.
-! 
-! 
+!  
 ! ------------------------
-
 
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
-
+    USE SNLCINP_NML
     IMPLICIT NONE
 
     LOGICAL  LSTAT  ! (O) T => prior is defined
 
     INTEGER IPAR, IZ
-
-    REAL*8  & 
-         tmp, Zpull_BINSIZE, Zpull, XZ  & 
-        ,CHI2, PROB, SQSIG, SQDIF, GNORM
+    REAL*8 tmp, Zpull_BINSIZE, Zpull, XZ 
+    REAL*8 CHI2, PROB, SQSIG, SQDIF, GNORM
 
 ! -------------- BEGIN ---------------
 
@@ -11510,8 +11589,8 @@
     global_banner = ''
 
     if (BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_STEFFEN) .or.  & 
-          BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_LINEAR)) then
-       OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix user mistake
+         BTEST(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES_LINEAR)) then
+       OPT_PHOTOZ = IBSET(OPT_PHOTOZ, BIT_PHOTOZ_QUANTILES) ! fix likely user mistake
     endif
 
     if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS) ) then
@@ -11522,6 +11601,8 @@
     endif
 
 ! check quantile mask independent of other mask bits
+! BEWARE: METHOD_SPLINE_QUANTILES is actually not used since init_spline was moved to base code.
+
     if ( BTEST(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES) ) then
       METHOD_SPLINE_QUANTILES = "CUBIC"    ! default 28 Mar, 2024
       if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_STEFFEN)) then
@@ -11530,8 +11611,7 @@
       if (btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES_LINEAR)) then
         METHOD_SPLINE_QUANTILES = "LINEAR"
       endif
-      write(global_banner,23)  & 
-                PRIOR_ZERRSCALE,METHOD_SPLINE_QUANTILES
+      write(global_banner,23)  PRIOR_ZERRSCALE, METHOD_SPLINE_QUANTILES
     endif
 
     if ( global_banner .EQ. '' ) then
@@ -11600,7 +11680,6 @@
 ! 
 ! ------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -11620,10 +11699,18 @@
     DOPRIOR_DLMAG = ( PRIOR_MUERRSCALE .LT. 999.0 )
     IF ( .NOT. DOPRIOR_DLMAG ) RETURN
 
+    ! here we have MU prior based on OM,w0,wa errors. 
+    ! abort if flat DMU prior is also specified since only one is allowed/
+    if ( PRIOR_DMU_RANGE(2) < 0.8 .OR. PRIOR_DMU_RANGE(1)  > -8.0 ) then
+      c1err = 'Cannot define both DMU priors; '      
+      c2err = 'pick either PRIOR_MUERRSCALE  or  PRIOR_DMU_RANGE'
+      CALL MADABORT ( "FITINI_MUPRIOR", c1err, c2err )
+    endif
+
     IPAR     = IPAR_DLMAG  ! local variable
 
     write(global_banner,21) PRIOR_MUERRSCALE
-21    format('INIT Gaussian DLMAG PRIOR with error-scale=',F6.2 )
+21    format('INIT Gaussian DLMAG PRIOR with error-scale=', F6.2 )
     CALL PRBANNER(global_banner)
     print*,' '
 
@@ -11808,24 +11895,25 @@
         ,VAR_BINSIZE  & 
         ,XVAR  & 
         ,VAR  & 
-        ,CHI2, PROB, PROBMIN  & 
+        ,CHI2, PROB & 
         ,SQSIG  & 
         ,SQDIF, DIF  & 
         ,ARG  & 
         ,PTMP, PMIN, SIGTMP, ARGTMP  & 
         ,VAR0
 
-    character comment_prior*60
+    character comment_prior*60, PARNAME*60
     LOGICAL LLO, LHI, DO_DELTA_PROFILE, LFLAT
     LOGICAL IS_SALT2,  IS_SNOOPY
-    LOGICAL IS_SHAPE, IS_SHAPE2, IS_COLOR, IS_zPHOT
+    LOGICAL IS_SHAPE, IS_SHAPE2, IS_COLOR, IS_zPHOT, IS_DMU
     LOGICAL IS_BAYESN, IS_MODEL_FLATCOLOR
 
 ! -------------- BEGIN ---------------
 
     LSTAT    = .FALSE.
     comment_prior = ' '
-    LFLAT = .TRUE.  ! default is flat between Guass-rolls
+    LFLAT   = .TRUE.  ! default is flat between Guass-rolls
+
 
     IS_SALT2  = ( FITMODEL_INDEX .EQ. MODEL_SALT2 )
     IS_SNOOPY = ( FITMODEL_INDEX .EQ. MODEL_SNOOPY )
@@ -11836,10 +11924,13 @@
     IS_SHAPE  = ( IPAR .EQ. IPAR_SHAPE  )
     IS_SHAPE2 = ( IPAR .EQ. IPAR_SHAPE2 )
     IS_zPHOT  = ( IPAR .EQ. IPAR_zPHOT .and. DOFIT_PHOTOZ )
+    IS_DMU    = ( IPAR .EQ. IPAR_DLMAG .and. PRIOR_DMU_RANGE(2) < 8.0 )
 
     DO_DELTA_PROFILE = IPAR .EQ. IPAR_SHAPE  & 
                    .and. FITMODEL_INDEX .EQ. MODEL_MLCS2k2  & 
                    .and. PRIOR_DELTA_PROFILE(4) .LT. 1.0
+
+    PARNAME = PARNAME_STORE(ipar)
 
     IF ( IS_SHAPE ) THEN
         RANGE(1) = PRIOR_SHAPE_RANGE(1)
@@ -11883,28 +11974,34 @@
         RANGE(1) = PHOTOZ_RANGE_KCOR(1)
         RANGE(2) = PHOTOZ_RANGE_KCOR(2)
         SIGMA    = 0.2
+
+    ELSE IF ( IS_DMU ) THEN  ! March 19 2026
+       RANGE(1) = PRIOR_DMU_RANGE(1)
+       RANGE(2) = PRIOR_DMU_RANGE(2)
+       SIGMA    = PRIOR_DMU_SIGMA
+       PARNAME  = 'DMU'
     ELSE
         RETURN
     ENDIF
 
 ! -------------------------------------
-    LL = INDEX( PARNAME_STORE(ipar), ' ' ) - 1
-    write(global_banner,23) PARNAME_STORE(ipar)(1:LL), RANGE, SIGMA
-23    format('INIT ',A,' PRIOR: ',F5.2,' to ',F5.2,  & 
-           '  Gauss roll sigma=',F5.2 )
+    LL = INDEX( PARNAME, ' ' ) - 1
+    write(global_banner,23) PARNAME(1:LL), RANGE, SIGMA
+23    format('INIT ',A,' PRIOR: ',F5.2,' to ',F5.2, '  Gauss roll sigma=',F5.2 )
 
     CALL PRBANNER(global_banner(1:68))
-    print*,' '
-    print*, '  ', comment_prior
-    CALL FLUSH(6)
 
+    if ( comment_prior .NE. ' ' ) then
+       print*,' '
+       print*, '  ', comment_prior
+       CALL FLUSH(6)
+    endif
 ! define range as defined range +- 10 sigmas.
 
     tmp = 10. * SIGMA
     if ( tmp < 2.0 ) tmp = 2.0   ! Feb 2026 : avoid prior truncation for c,x1
     PRIOR_RANGE(1,IPAR) = RANGE(1) - tmp
     PRIOR_RANGE(2,IPAR) = RANGE(2) + tmp
-
 
     IF ( LFLAT ) THEN
       FLATPRIOR_RANGE(1,IPAR) = RANGE(1)
@@ -12269,8 +12366,9 @@
     DOUBLE PRECISION FUNCTION CHI2_PRIOR(ipar, PARVAL)
 ! 
 ! Return chi2 penality for prior.
-! IPAR is the fitpar index;
-! FITPAR is the value to look up the prior.
+! Inputs: 
+!   IPAR is the fitpar index;
+!   FITPAR is the value to look up the prior; could be par value or pull
 ! 
 ! Mar 2024: refactor to use interp_1DFUN (C fun in sntools.c)
 !       and get rid of very old/obscure interpolcation code.
@@ -12361,7 +12459,7 @@
 
     MEAN = PRIOR_FITPAR_SNCID_FILE(1,IPAR)
     ERR  = PRIOR_FITPAR_SNCID_FILE(2,IPAR)
-    DIF  = VAL - MEAN
+    DIF  = SNGL(VAL) - MEAN
     CHI2_PRIOR_SNCID_FILE = (DIF/ERR)**2
 
     RETURN
@@ -12485,30 +12583,40 @@
         ,sigmu_w0, sigmu_wa, sigmu_om
 
 ! functions
-    REAL*8 DLMAG8_REF
+    REAL*8 DLMAG_REF
 ! ------------ BEGIN -------------
+
+    MARK_USED(isn)
 
     PRIOR_MUPULL = 0.0
     if ( .NOT. DOPRIOR_DLMAG ) RETURN
 
-    muref = DLMAG8_REF(ZSN)
+    ! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    ! Mar 24 2026 : stop here until it is fixed
+    !print*,' '
+    !print*,' ERROR: DMU prior based on cospar uncertainties is BROKEN'
+    !print*,'        Need to compute dmu w.r.t. DLMAG_REF_GRID'
+    !STOP                 
+    ! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+    muref = DLMAG_REF(ZSN)
 
 ! Now get DLMAG with w shifted by its uncertainty
     W_SAVE    = W0_REF(1)
     W0_REF(1) = W0_REF(1) + W0_REF(2)
-    mu_w0     = DLMAG8_REF(ZSN)
+    mu_w0     = DLMAG_REF(ZSN)
     W0_REF(1) = W_SAVE
 
 ! Nov 7 2025: Now get DLMAG with wa shifted by its uncertainty
     W_SAVE    = WA_REF(1)
     WA_REF(1) = WA_REF(1) + WA_REF(2)
-    mu_wa     = DLMAG8_REF(ZSN)
+    mu_wa     = DLMAG_REF(ZSN)
     WA_REF(1) = W_SAVE
 
 ! now get DLMAG with OMAT shifted by its uncertainty
     OMAT_SAVE    = OMAT_REF(1)
     OMAT_REF(1)  = OMAT_REF(1) + OMAT_REF(2)
-    mu_om        = DLMAG8_REF(ZSN)
+    mu_om        = DLMAG_REF(ZSN)
     OMAT_REF(1)  = OMAT_SAVE
 
 ! now add mu-shifts in quadrature (ignore correlations)
@@ -12565,7 +12673,6 @@
 ! 
 ! ------------------------------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -12581,24 +12688,10 @@
 
 ! local var
 
-    INTEGER  & 
-         cid, LCID, year, epoch, imjd  & 
-        ,ifilt, ifilt_obs, cutbit, ipar, ipar2  & 
-        ,ETYPE, MXERRBAD, NERRBAD, NERROK, ifitdata, NTLIST
-
-    REAL  & 
-         MJD, PEAKMJD, Tobs, Trest  & 
-        ,TMIN,TMAX, TGAPMAX, T0GAPMAX  & 
-        ,XN, xval, zpull, ERR_overz1, z1, TRESTCUT, TRESTCUT_EXTEND  & 
-        ,TLIST(MXEPOCH)
-
-    LOGICAL LTMP, LTMP1, LTMP2, DOFIT_SPECZ, LVBOSE, LCOV
-
-    CHARACTER  & 
-         BANNER*60  & 
-        ,cfilt*1  & 
-        ,CCID*(MXCHAR_CCID)  & 
-        ,CLINE*72
+    INTEGER LCID, ipar, ipar2, ETYPE, MXERRBAD, NERRBAD, NERROK
+    REAL PEAKMJD, xval, zpull, ERR_overz1, z1, TRESTCUT, TRESTCUT_EXTEND 
+    LOGICAL LTMP, DOFIT_SPECZ, LVBOSE, LCOV
+    CHARACTER  BANNER*80, CCID*(MXCHAR_CCID), CLINE*72
 
 ! functions
 
@@ -12606,27 +12699,34 @@
 
 ! ----------------- BEGIN ----------------
 
-    LVBOSE = STDOUT_UPDATE  ! Jun 2024
+    MARK_USED(isn)
+
+    LVBOSE = STDOUT_UPDATE 
 
     CCID = SNLC_CCID
-    LCID = ISNLC_LENCCID  ! INDEX(CCID,' ')
+    LCID = ISNLC_LENCCID  
 
     if ( LVBOSE ) then
        write(BANNER,20) CCID(1:LCID)
-20       format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
+20     format('FITANA_CUTS: APPLY FIT-CUTS TO SN ',A )
        CALL PRBANNER(BANNER)
     endif
 
     LCUTS = .TRUE.  ! init output argument
 
 ! Jan 4 2021
-! check option to use SNCID list and skip cuts ... but always
-! reject events that are pegged to the edge of the shape prior range
+! check option to use SNCID list (for event syncing to FITOPT000)
+! and skip cuts ... 
+! but always reject events that are pegged to the edge of the shape prior range
+! Apr 14 2026 ... and apply FITPROB cut at 10% if user cut
     if ( USE_SNCID_FILE  ) THEN
        xval = LCVAL_STORE(ipar_shape)
        if ( xval < PRIOR_SHAPE_RANGE(1) + 0.05 ) LCUTS = .FALSE.
        if ( xval > PRIOR_SHAPE_RANGE(2) - 0.05 ) LCUTS = .FALSE.
-       RETURN
+
+       xval = LCPROBCHI2_STORE(1)
+       if ( xval < FITWIN_PROB(1)/10.0 ) LCUTS = .FALSE.  ! Aor 14 2026
+       RETURN 
     endif
 
     DOFIT_SPECZ = .NOT. DOFIT_PHOTOZ
@@ -12639,7 +12739,7 @@
         PEAKMJD_SANITY(2) = CUTWIN_PEAKMJD(2) + 20.0
     endif
 
-    PEAKMJD   = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
+    PEAKMJD   = SNGL( LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF )
 
     LTMP =  ( PEAKMJD .GT. PEAKMJD_SANITY(1) )  & 
         .and. ( PEAKMJD .LT. PEAKMJD_SANITY(2) )
@@ -12783,19 +12883,12 @@
 
     DO 172 ipar2 = 1, IPAR_MAX
 
-       xval = FITERRMAT(ipar,ipar2)
+       xval = SNGL( FITERRMAT(ipar,ipar2) )
        if ( abs(xval+9.0) < 1.0E-6 ) goto 172 ! not fitted
 
        LTMP = xval .GE.  cutwin_fitcov(1,ipar,ipar2) .and.  & 
                 xval .LE.  cutwin_fitcov(2,ipar,ipar2)
        if ( .not. LTMP ) LCOV=.FALSE.
-
-! xxxxxxxxx
-!         write(6,177) ipar,ipar2, LTMP, FITERRMAT(ipar,ipar2),
-!     &       cutwin_fitcov(1,ipar,ipar2), cutwin_fitcov(2,ipar,ipar2)
-177      format(' xxx COVCUT(',i2,',',i2, ')=', L2, ' for COV=',G11.3,  & 
-                '  [CUTWIN=', G10.2, ' to ' , G10.2,']' )
-! xxxxxxxxx
 
 172   CONTINUE
 170   CONTINUE
@@ -12831,8 +12924,8 @@
 ! Cut on fit prob
 
     xval = LCPROBCHI2_STORE(1)
-    LTMP = xval .GE.  fitwin_prob(1) .and.  & 
-             xval .LE.  fitwin_prob(2)
+    LTMP = xval .GE.  FITWIN_PROB(1) .and.  &  
+           xval .LE.  FITWIN_PROB(2)
 
     if ( LTMP ) then
        write(CLINE,161) 'FITPROB', xval, 'PASSES'
@@ -12995,9 +13088,9 @@
 
     INTEGER  & 
          IFILT, IFILT_OBS, IFILT_RST, ifitdata, iep, ipar, NPAR, i  & 
-        ,IERR, NTLIST,  NFILT, NFADD, isort  & 
+        ,NTLIST,  NFILT, NFADD, isort  & 
         ,FLIST(MXEPOCH)  & 
-        ,MODE, ORDER, NSORT, INDEX_SORT(MXFILT_OBS)   &  ! SORTZV args
+        ,ORDER, INDEX_SORT(MXFILT_OBS)   &  ! SORTZV args
         ,MASK_STORE_VAL, MASK_STORE_ERR, MASK_STORE_SUM
 
     REAL  & 
@@ -13009,11 +13102,10 @@
          Z8, MU8REF, MU8FIT, MU8  & 
         ,x08, x18, c8, S2a8, S2b8, mb8
 
-    LOGICAL USE, LNON
+    LOGICAL USE
 
 ! function
-    REAL   LCPROBCHI2
-    REAL*8 DLMAG8_REF, SALT2mBcalc
+    REAL*8 DLMAG_REF, SALT2mBcalc
 
     EXTERNAL SORTFLOAT
 
@@ -13046,8 +13138,8 @@
     NTLIST = 0
     DO 100 ifitdata = 1, NFITDATA
         iep       = EPLIST_FIT(ifitdata)
-        MJD       = SNLC8_MJD(iep)
-        Tobs      = MJD - (PEAKMJD + MJDOFF)
+        MJD       = SNGL(SNLC8_MJD(iep))
+        Tobs      = MJD - SNGL(PEAKMJD + MJDOFF)
         Trest     = Tobs / z1
         NTLIST    = NTLIST + 1
         TLIST(NTLIST) = Trest
@@ -13160,8 +13252,8 @@
 
     IF ( LSIM_SNANA ) THEN
       NPAR = NPAR + 1             ! SIM chi2 (Dec 2013)
-      FITVAL_STORE(NPAR) = SIMCHI2_CHEAT
-      LCVAL_STORE(NPAR)  = SIMCHI2_CHEAT
+      FITVAL_STORE(NPAR) = SNGL(SIMCHI2_CHEAT)
+      LCVAL_STORE(NPAR)  = SNGL(SIMCHI2_CHEAT)
     ENDIF
 
 ! now the fit-probs ...
@@ -13317,7 +13409,7 @@
 
     NPAR = NPAR + 1
       Z8  = FITVAL_STORE(IPAR_zPHOT)  ! Zspec or Zphot
-      MU8REF = DLMAG8_REF(Z8)
+      MU8REF = DLMAG_REF(Z8)
 
       IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
          x08  = FITVAL_STORE(IPAR_X0)
@@ -13334,10 +13426,10 @@
          MU8    = LCVAL_STORE(IPAR_DLMAG)  ! might be marginalized
       ENDIF
 
-      FITVAL_STORE(NPAR) = MU8FIT - MU8REF
+      FITVAL_STORE(NPAR) = SNGL(MU8FIT - MU8REF)
       FITERR_STORE(NPAR) = FITERR_STORE(IPAR_DLMAG)
 
-      LCVAL_STORE(NPAR) = MU8 - MU8REF
+      LCVAL_STORE(NPAR) = SNGL(MU8 - MU8REF)
       LCERR_STORE(NPAR) = LCERR_STORE(IPAR_DLMAG)
 
 ! store delzph for photoz fits.
@@ -13400,7 +13492,7 @@
     LOGICAL LOADVAL, LOADERR, DO_AVG, DO_SUM
     REAL    VAL_STORE
     INTEGER IFILTOBS_ORIG, IFILTOBS_REMAP, IFILT_REMAP
-    INTEGER IFILTOBS, IFILT_ORIG, IFILT_REMAP_TMP, NFILT_STORE
+    INTEGER IFILT_ORIG, IFILT_REMAP_TMP, NFILT_STORE
 
 ! ---------- BEGIN -------------
 
@@ -13501,7 +13593,7 @@
 
 !  local var
 
-    REAL NSIGMA, EPLUS, EMINUS, Z1tmp, Z2tmp, RTMP, ZERR
+    REAL    EPLUS, EMINUS, Z1tmp, Z2tmp, RTMP, ZERR, cERR
     INTEGER IPAR, ITER
     LOGICAL LBAD
 
@@ -13541,15 +13633,13 @@
 
 ! check for too-big error that gives Z - 4\sigma_z < 0
 
-       Z1tmp = FITVAL(ipar,ITER)  & 
-               - NSIGMA_PDF * FITERR_MINUS(IPAR,ITER)
-       Z2tmp = FITVAL(ipar,ITER)  & 
-               + NSIGMA_PDF * FITERR_PLUS(IPAR,ITER)
+       Z1tmp = SNGL( FITVAL(ipar,ITER) - NSIGMA_PDF * FITERR_MINUS(IPAR,ITER) )
+       Z2tmp = SNGL( FITVAL(ipar,ITER) + NSIGMA_PDF * FITERR_PLUS(IPAR,ITER)  )
 
        LBAD  = Z1tmp .LT. INIBND(1,IPAR)
        if ( NGRID_PDF .GT. 0 .and. LBAD ) then
-         EMINUS = (FITVAL(ipar,ITER)-INIBND(1,IPAR))/NSIGMA_PDF
-         EPLUS  = FITERR_PLUS(IPAR,ITER)
+         EMINUS = SNGL( (FITVAL(ipar,ITER)-INIBND(1,IPAR))/NSIGMA_PDF )
+         EPLUS  = SNGL( FITERR_PLUS(IPAR,ITER) )
          FITERR_MINUS(IPAR,ITER) = -EMINUS
          FITERR_RATIO(IPAR,ITER) =  EPLUS / EMINUS
          FITERR(IPAR,ITER)       =  (EMINUS + EPLUS)/2.
@@ -13557,14 +13647,14 @@
 
 ! Dec 2011:
 ! check for too-tiny error. Should be at least .4 * color error
-! or at least .02.
 
-       ZERR = FITERR(IPAR,ITER)
-       RTMP = ZERR/FITERR(IPAR_COLOR,ITER)
+       ZERR = SNGL( FITERR(IPAR,ITER) )
+       cERR = SNGL( FITERR(IPAR_COLOR,ITER) )
+       RTMP = ZERR/cERR 
        if ( RTMP .LT. 0.4 ) then
-           ZERR = 0.4 * FITERR(IPAR_COLOR,ITER)
+           ZERR = 0.4 * cERR
        endif
-! c         IF ( ZERR .LT. 0.02 ) ZERR = 0.02
+
        FITERR(IPAR,ITER) = ZERR
 
     ENDIF
@@ -13711,7 +13801,7 @@
 
     IMPLICIT NONE
 
-    REAL*8  mB, mbtmp, MBERR, x0, x0tmp, x0err
+    REAL*8  mB, MBERR, x0, x0err
 
 ! functions
     REAL*8  SALT2mBcalc
@@ -13723,13 +13813,11 @@
 
     MB    = SALT2mBcalc( X0 )
     MBERR = 2.5 * (X0err/X0)/log(10.0)
-! xxx      MBERR = 2.5 * (X0err/X0)/LOGTEN
 
 ! store mB and it error, and its COV
 
-
-    LCVAL_STORE(IPAR_MB)  = mb
-    LCERR_STORE(IPAR_MB)  = mberr
+    LCVAL_STORE(IPAR_MB)  = SNGL(mb)
+    LCERR_STORE(IPAR_MB)  = SNGL(mberr)
     FITERRMAT(IPAR_MB,IPAR_MB) = mberr*mberr  ! covariance
 
     RETURN
@@ -13761,7 +13849,7 @@
         iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
 
 ! local
-    INTEGER NZPHOT_Q
+    INTEGER NQZPHOT
     REAL Zhost
 
 ! ---------------- BEGIN ---------------
@@ -13778,12 +13866,12 @@
 ! check for host photoZ
 
       Zhost    = SNHOST_ZPHOT(1)
-      NZPHOT_Q = SNHOST_NZPHOT_Q
 
-! xxx mark delete Dec 8 2025  DOFIT_PHOTOZ_HOST =   (Zhost > 0.0 ) .and. (PRIOR_ZERRSCALE .LT. 10.0)
+
+      NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
       DOFIT_PHOTOZ_HOST =  & 
-           (Zhost > 0.0 .or. NZPHOT_Q > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
+           (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
 
       DOFIT_PHOTOZ_noHOST = .NOT. DOFIT_PHOTOZ_HOST
 
@@ -13845,22 +13933,15 @@
 
 ! local var
 
-    REAL  & 
-         zfit,  zfiterr  & 
-        ,zhost, zhosterr  & 
-        ,zmagerr  & 
-        ,zdif, zerr, zpull, Z1  & 
-        ,TCOR
-
-    INTEGER NFTMIN, NFTMAX, LENC
-
+    REAL zfit,  zfiterr, zhost, zhosterr, zmagerr, zdif, zerr, zpull 
+    INTEGER LENC
     REAL*8  MU8(2), Z8(2), DZ8, DZDMU, MUREF
 
     character CZPRIOR*20
-! xxx mark      LOGICAL LPZ_PHOT, LPZ_BEST, LPZ_QUANTILE
+
 ! functions
 
-    REAL*8  DLMAG8_REF
+    REAL*8  DLMAG_REF
 
 ! ------------ BEGIN -----------
 
@@ -13882,13 +13963,13 @@
     Z8(1) = dble(Zfit)
     Z8(2) = Z8(1) + dZ8
 
-    MU8(1) = DLMAG8_REF(Z8(1))
-    MU8(2) = DLMAG8_REF(Z8(2))
+    MU8(1) = DLMAG_REF(Z8(1))
+    MU8(2) = DLMAG_REF(Z8(2))
     MUREF  = MU8(1)
 
     DZDMU = ( Z8(2) - Z8(1) ) / ( MU8(1) - MU8(2) )  ! local derivative
 
-    zmagerr = SNMAGRMS_for_PHOTOZ * abs(DZDMU)
+    zmagerr = SNGL( SNMAGRMS_for_PHOTOZ * abs(DZDMU) )
 
 ! -------
     zdif  = zfit - zhost
@@ -13938,7 +14019,7 @@
 ! in any way.
 
     IF ( DOFIT_PHOTOZ .and. INISTP_DLMAG .EQ. 0.0 ) THEN
-       LCVAL_STORE(IPAR_DLMAG) = MUREF
+       LCVAL_STORE(IPAR_DLMAG) = SNGL(MUREF)
     ENDIF
 
     RETURN
@@ -13963,29 +14044,22 @@
 
 ! local var
 
-    REAL  & 
-         TCOR  & 
-        ,RTMP(MXFILT_ALL,10)
+    REAL TCOR, RTMP(MXFILT_ALL,10)
 
-    INTEGER  & 
-         ifilt, kk, i, ipar  & 
-        ,ifilt_obs  & 
-        ,NFILT, NFTMP  & 
-        ,IERR  & 
-        ,ITMP(MXFILT_ALL,10)  & 
-        ,NTMP
+    INTEGER  ifilt, kk, i, ifilt_obs, NFILT, NFTMP, ITMP(MXFILT_ALL,10), NTMP
 
     CHARACTER  & 
-         BANNER*60  & 
+         BANNER*80  & 
         ,CCID*(MXCHAR_CCID)  & 
         ,CCHI2(4)*8  & 
         ,CFILT(MXFILT_ALL)*1
 
-    REAL*8  EFF8, LCVAL8(MXFITPAR)
 
     DATA  CCHI2 / 'TOTAL' , 'DATA', 'PRIOR', 'SIGMA' /
 
 ! ------------------- BEGIN -----------------
+
+    MARK_USED(isn)
 
     IF ( .NOT. STDOUT_UPDATE ) RETURN ! Jun 2024
 
@@ -14060,7 +14134,7 @@
 ! write Trest fit range relative to exact SIM_PEAKMJD
 
     IF ( LSIM_SNANA ) THEN
-       TCOR = FITVAL_STORE(IPAR_PEAKMJD) - (SIM_PEAKMJD-MJDOFF)
+       TCOR = SNGL( FITVAL_STORE(IPAR_PEAKMJD) - (SIM_PEAKMJD-MJDOFF) )
        write(6,770) CCID(1:KK),  & 
                 R4SN_Tearly+TCOR, R4SN_Tlate+TCOR, 'SIM'
     ENDIF
@@ -14069,12 +14143,6 @@
           3x,'(relative to ',A,'-PEAKMJD)' )
 
 771   format(T4, 'MJD   FIT RANGE(',A,'): ', F7.1,' to ', F7.1 )
-
-! write  rest-frame peakmags
-
-
-777   format(T4, A, '(',A,') : ',  $)
-778   format(F6.2, $ )
 
 ! -----------------------------------
 ! print chi2 and prob for 1:TOTAL,  2:DATA,  3:PRIOR,   4:SIGMA
@@ -14183,6 +14251,7 @@
 ! 
 ! Nov 10 2015: move divide-by-zero protection; see Flux_model
 ! 
+! May 12 2026: protect SQ1 and SQ2 from divide-by-zero 
 ! --------------------
 
 
@@ -14198,13 +14267,13 @@
 
 ! local var
 
-    INTEGER IMJD, ifilt, ifilto, ifiltr, iep, ifitdata
+    INTEGER ifilt, ifilto, iep, ifitdata
 
     REAL  & 
          kcor, flux, flux_err, Flux_model, Flux_model_err  & 
         ,Frat, Fraterr, arg, FPKRAW(MXEPOCH)  & 
         ,z1, Trest, MJD, PEAKMJD  & 
-        ,Tnear, Terr, ratio, ratio_err, sum_ratio, wsum_ratio  & 
+        ,Tnear, ratio, ratio_err, sum_ratio, wsum_ratio  & 
         ,wgt, sq1, sq2, PEAK_MODEL_RENORM
 
     LOGICAL LRENORM, USE_RENORM, LDMP, LKCOR
@@ -14213,16 +14282,22 @@
 
 ! ---------------- BEGIN ------------
 
-    LDMP = .FALSE.  ! debug-dump flag
+    LDMP       = .FALSE.  ! debug-dump flag
     USE_RENORM = .FALSE.
 
     cfilt   = filtdef_string(ifilt_obs:ifilt_obs)
     z1      = 1. + REDSHIFT_FIT
-    PEAKMJD = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
+    PEAKMJD = SNGL( LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF )
 
-      SUM_RATIO   = 0.
-      WSUM_RATIO  = 0.
-      Tnear       = 99999.  ! epoch closest to peak
+    SUM_RATIO   = 0.
+    WSUM_RATIO  = 0.
+    Tnear       = 99999.  ! epoch closest to peak
+
+    if ( LDMP ) then
+       print*,' xxx ------------------------------------------------- '
+       print*,' xxx FPKRAT DUMP for CID=',SNLC_CCID(1:12), '    IFILT_OBS=', IFILT_OBS
+       call flush(6)
+    endif
 
     DO 50 ifitdata = 1, NFITDATA
 
@@ -14231,7 +14306,7 @@
        ifilto     = I4EP_ALL(iep,IEP_IFILT_OBS)
        if ( ifilto .NE. IFILT_OBS ) goto 50
 
-       MJD        = R8EP_MJD(ifitdata)
+       MJD        = SNGL(R8EP_MJD(ifitdata))
        Trest      = (MJD - PEAKMJD) / z1
        ifilt      = I4EP_ALL(iep,IEP_IFILT)
 
@@ -14248,29 +14323,36 @@
        LKCOR = abs(kcor-NULLVAL) > 1.0
        IF ( LREST_FITMODEL .and. LKCOR ) then
          arg     = 0.4 * (kcor - PEAK_KCOR_MODEL(ifilt))
-         Frat    = Frat * TEN8**(arg)
+         Frat    = Frat * 10.0**(arg)
        ENDIF
 
 ! include data and model error for error on FPKRAT:
-       if ( FLux > 0.0 .or.  flux_model > 0.0 ) then
-         SQ1 = (flux_err/Flux)**2
-         SQ2 = (flux_model_err/flux_model)**2
-         Fraterr = Frat * sqrt(SQ1+SQ2)
+       if ( FLux > 0.0 .or. flux_model > 0.0 ) then
+          if ( LDMP ) then
+             write(6,652) ifitdata, Trest, flux, flux_err, flux_model, flux_model_err
+652          format(' xxx idata=',I3, 2x, 'Trest=', F6.1, 2x, &
+                  'Flux=', F9.2,'+-', F8.2, 3x,   &
+                  'Flux_nmodel=', F9.2,'+-', F8.2 )
+             call flush(6)
+          endif
+          SQ1 = 0.0;  SQ2 = 0.0
+          if ( FLUX       > 0.0 ) SQ1 = (flux_err/Flux)**2
+          if ( FLUX_MODEL > 0.0 ) SQ2 = (flux_model_err/flux_model)**2 
+          Fraterr = Frat * sqrt(SQ1+SQ2)
        ELSE
-         Fraterr = -9.0
+          Fraterr = -9.0
        ENDIF
 
        FPKRAW(iep)                 = Frat
        R4EP_ALL(iep,JEP_FPKRAT)    = Frat
        R4EP_ALL(iep,JEP_FPKRATERR) = Fraterr
 
-! 3/06/2009:
-! check if this epoch is used to re-normalize
-! the peak from the model.
+! check if this epoch is used to re-normalize the peak from the model.
 
-       LRENORM  = Trest .GE. TREST_PEAKRENORM(1) .and.  & 
-                    Trest .LE. TREST_PEAKRENORM(2) .and.  & 
-                    Flux_model > 0.0   ! Nov 10 2015 - avoid divide-by-0
+       LRENORM  = &
+            Trest .GE. TREST_PEAKRENORM(1) .and.  & 
+            Trest .LE. TREST_PEAKRENORM(2) .and.  & 
+            Flux_model > 0.0    ! avoid divide-by-0
 
        IF ( LRENORM ) THEN
          USE_RENORM = .TRUE.
@@ -14294,8 +14376,8 @@
 
          if ( LDMP ) then
             write(6,660) cfilt, ratio, ratio_err, Trest
-660           format(' xxxx ',A,'-Data/Model ratio = ',  & 
-                   F6.3,' +- ', F6.3,'  at Trest=',F5.1,' days ' )
+660         format(' xxxx ',A,'-Data/Model ratio = ',  & 
+                 F6.3,' +- ', F6.3,'  at Trest=',F5.1,' days ' )
          endif
 
          if ( abs(Trest) .LT. abs(Tnear) ) then
@@ -14353,7 +14435,6 @@
 
     IMPLICIT NONE
 
-    INTEGER i
     REAL s, c, s_scale, c_scale
 
 ! ------------ BEGIN -------------
@@ -14402,24 +14483,15 @@
 
     IMPLICIT NONE
 
-    INTEGER  & 
-         ifilt  ! (I) IFILT_OBS or IFILT_REST (depends on CFRAME)
-
+    INTEGER  ifilt        ! (I) IFILT_OBS or IFILT_REST (depends on CFRAME)
     CHARACTER CFRAME*(*)  ! (I) 'REST' or 'OBS' or 'REST2'
 
-    REAL*8  & 
-         MJD  & 
-        ,FLUX, FLUXERR  & 
-        ,MAG,  MAGERR  & 
-        ,KCOR
+    REAL*8  MJD, FLUX, FLUXERR, MAG, MAGERR, KCOR
 
 ! local var
 
-    REAL*8  & 
-         TREF, MAGOFF, TOBS, MAGOFF_REST  & 
-        ,SQSIG_FLUX, PKMJD, LAMMIN, LAMMAX, Z1, Z
-
-    INTEGER OPT, OPT_KCOR, ipar1, ipar2, i, NLAM, LL
+    REAL*8  TREF, MAGOFF, TOBS, MAGOFF_REST, SQSIG_FLUX, PKMJD
+    INTEGER OPT, OPT_KCOR
     LOGICAL LOBS, LREST, LDMP
 
     CHARACTER CFILT1, CFRAME_LOC*8
@@ -14559,16 +14631,16 @@
     if ( CFRAME(1:3) .EQ. 'OBS' ) THEN
       IFILT = IFILTDEF_INVMAP_SURVEY(ifiltdef) ! get sparse index
 
-      PEAKMAG_OBS_MODEL(ifilt)     = MAG
-      PEAKMAG_OBS_MODEL_ERR(ifilt) = MAGERR
+      PEAKMAG_OBS_MODEL(ifilt)     = SNGL(MAG)
+      PEAKMAG_OBS_MODEL_ERR(ifilt) = SNGL(MAGERR)
 
-      PEAKFLUX_OBS_MODEL(ifilt)     = FLUX
-      PEAKFLUX_OBS_MODEL_ERR(ifilt) = FLUXERR
+      PEAKFLUX_OBS_MODEL(ifilt)     = SNGL(FLUX)
+      PEAKFLUX_OBS_MODEL_ERR(ifilt) = SNGL(FLUXERR)
 
-      PEAK_KCOR_MODEL(ifiltdef)        = KCOR
+      PEAK_KCOR_MODEL(ifiltdef)        = SNGL(KCOR)
     ELSE
-      PEAKMAG_REST_MODEL(ifiltdef)     = MAG
-      PEAKMAG_REST_MODEL_ERR(ifiltdef) = MAGERR
+      PEAKMAG_REST_MODEL(ifiltdef)     = SNGL(MAG)
+      PEAKMAG_REST_MODEL_ERR(ifiltdef) = SNGL(MAGERR)
     ENDIF
 
     RETURN
@@ -14728,7 +14800,7 @@
 
 ! local var
 
-    REAL*8 COV, R1, R2, ERR1, ERR2, F1, F2
+    REAL*8 R1, R2, ERR1, ERR2, F1, F2
     INTEGER IFILT1, IFILT2
 
 ! -------------- BEGIN --------------
@@ -14772,7 +14844,7 @@
 
     INTEGER irow, icol   ! (I) matrix location
     REAL*8  RHO          ! (I) un-fudged rho = COV[1,2]/sig1*sig2
-    LOGICAL LPRINT       ! (I) print comment
+
 ! local var
 
     REAL*8 RHOSGN, RHOABS, RHOTMP
@@ -14813,7 +14885,6 @@
     if ( FUDGE_COVAR .EQ. 0.0  ) return
 
 ! ------------------------
-444   CONTINUE
 
     RHOABS = ABS(RHO)
     RHOSGN = RHO / ABS(RHO)
@@ -14978,7 +15049,7 @@
 
     INTEGER, PARAMETER :: JOBS=1, JFIT=2
 
-    INTEGER  IFITDATA, IFILT, IFILT_OBS, IMJD, j, ep
+    INTEGER  IFITDATA, IFILT_OBS, j, ep
     INTEGER  NITER, OPTWGT, NEP
 
     CHARACTER CFILT*1
@@ -15065,8 +15136,8 @@
       MAG_LIST_VMAX(ifilt_Vmax)   = PEAKMAG_OBS_MODEL(IFILT_Vmax)
       TREST_LIST_VMAX(ifilt_Vmax) = 0.0
     ELSE
-      MAG_LIST_VMAX(ifilt_Vmax)   = MAG_atmax(JFIT)
-      TREST_LIST_VMAX(ifilt_Vmax) = Trest_atmax(JFIT)
+      MAG_LIST_VMAX(ifilt_Vmax)   = SNGL( MAG_atmax(JFIT) )
+      TREST_LIST_VMAX(ifilt_Vmax) = SNGL( Trest_atmax(JFIT) )
     ENDIF
 
 
@@ -15113,12 +15184,12 @@
        zmax = zmax * 10.0**(0.2*(MAGDIF))
        d    = GET_DIST8(zmax,SHAPE,COLOR,ONE8) ! compute dist: x0 or mu
 
-       LCVAL_STORE(IPAR_zPHOT) = zmax
+       LCVAL_STORE(IPAR_zPHOT) = SNGL(zmax)
 
        IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
-          LCVAL_STORE(IPAR_DLMAG)  = d_save * d/d0  ! scale x0
+          LCVAL_STORE(IPAR_DLMAG)  = SNGL(d_save * d/d0)
        ELSE
-          LCVAL_STORE(IPAR_DLMAG)  = d_save + (d0-d) ! MU-dif -> UNTESTED!
+          LCVAL_STORE(IPAR_DLMAG)  = SNGL(d_save + (d0-d)) ! MU-dif -> UNTESTED!
        ENDIF
 
        CALL MODELMAG_CALC(IFILT_OBS, 'OBS', MJD,  & 
@@ -15165,12 +15236,12 @@
 
 ! -----------
 ! store results in globals
-    Z_LIST_VMAX(ifilt_Vmax)     = zmax
-    VOL_LIST_VMAX(ifilt_Vmax)   = Vmax
+    Z_LIST_VMAX(ifilt_Vmax)     = SNGL(zmax)
+    VOL_LIST_VMAX(ifilt_Vmax)   = SNGL(Vmax)
 
 ! restore LCVAL_STORE values
-    LCVAL_STORE(IPAR_zPHOT) = z_save
-    LCVAL_STORE(IPAR_DLMAG)  = d_save
+    LCVAL_STORE(IPAR_zPHOT)  = SNGL(z_save)
+    LCVAL_STORE(IPAR_DLMAG)  = SNGL(d_save)
 
     RETURN
   END SUBROUTINE VMAX_ANA
@@ -15193,12 +15264,12 @@
 
     IMPLICIT NONE
 
-    LOGICAL    L0, L1, L2, LX
+    LOGICAL    L0, L1
     INTEGER  & 
          iter, IFLAG, NFILT, NFILT_ALL  & 
         ,IFILTDEF, IFILT, NFIT_PER_SN
 
-    CHARACTER  FILTLIST*(MXFILT_ALL), CFILT*2, CTMP*28
+    CHARACTER  FILTLIST*(MXFILT_ALL), CTMP*28
 
 ! function
     INTEGER FILTINDX
@@ -15303,7 +15374,7 @@
 ! local var
 
     LOGICAL LMATCH, USE
-    INTEGER ipar, ifilt, ifiltdef, iflag, LL
+    INTEGER ipar, ifiltdef, iflag, LL
     CHARACTER CFILTDEF*2
 
 ! -------------- BEGIN -----------
@@ -15328,8 +15399,8 @@
        ENDDO
 
        DO ipar = 1, MXFITPAR
-          FITVAL_ALLFILT(ipar) = FITVAL(ipar,ITER-1)
-          FITERR_ALLFILT(ipar) = FITERR(ipar,ITER-1)
+          FITVAL_ALLFILT(ipar) = SNGL( FITVAL(ipar,ITER-1) )
+          FITERR_ALLFILT(ipar) = SNGL( FITERR(ipar,ITER-1) )
        ENDDO
 
 !  init final results to dummy values.
@@ -15371,7 +15442,7 @@
 
     IF ( ITER .EQ. NFIT_ITERATION ) THEN
 
-       FILTLIST_FIT_USE = ALLFILTLIST_FIT
+       FILTLIST_FIT_USE = ALLFILTLIST_FIT(1:64)
        NFILT_OBS_USEFIT = NOBS_ALLFILT
 
        DO IFILTDEF = 1, MXFILT_ALL
@@ -15468,7 +15539,7 @@
 
     LOGICAL DO_MAGDIF, DO_LCPLOT
     INTEGER IFLAG, IFILTOBS, LCID, NFUNPLOT, NDOF, IFILT
-    REAL    ERR1, ERR2, FITPROB
+    REAL    ERR1, ERR2
     REAL*8  CHI8, PROB8
 
     CHARACTER CCID*40
@@ -15650,8 +15721,7 @@
     INTEGER ITER ! (I) fit iteration
 
 ! local var
-    INTEGER EP, EPMIN, EPMAX, IMJD, IFILT_OBS
-    REAL*8  PS, MAGOFF, SCALE
+    REAL*8  PS
     LOGICAL REJECT_PRESCALE  ! function
 
 ! ----------------- BEGIN ---------------
@@ -15809,7 +15879,7 @@
 ! check when to store results of IDEAL fit
     IF ( DOFIT_IDEAL_EVENT .and. ITER .EQ. NFIT_ITERATION_IDEAL) THEN
       DO ipar = 1, NFITPAR_MN
-         FITPAR_IDEAL(ipar) = FITVAL(IPAR,ITER)
+         FITPAR_IDEAL(ipar) = SNGL( FITVAL(IPAR,ITER) )
       ENDDO
 
 ! compute mB from x0 (Jan 28 2018)
@@ -15843,10 +15913,7 @@
 
     IMPLICIT NONE
 
-    INTEGER  & 
-         NFILT, NTMP, IERR, IFILT, IFILTDEF  & 
-        ,i, ITER, LL, NPLOT_PER_SN
-
+    INTEGER  NFILT, NTMP, IERR, IFILT, IFILTDEF, i, ITER, NPLOT_PER_SN
     CHARACTER CFILT*2
 
 ! function
@@ -15994,7 +16061,7 @@
        IF ( .NOT. LFILTDEF_OBS(ifiltdef)  ) THEN
          c1err = 'FILTLIST_FITRESTMAG = ' // cfilt //  & 
                   ' is not in kcor file.'
-         c2err = 'Check ' // CALIB_FILE
+         c2err = 'Check ' // CALIB_FILE(1:80)
          CALL MADABORT("FITRESTMAG_INI", c1err, c2err )
        ENDIF
 200   CONTINUE
@@ -16054,12 +16121,11 @@
         ,J, JKEEP, LL, NBRA, NTRY, itry, ITERLAST, IPAR  & 
         ,IFILTDEF_MAP_SAVE(MXFILT_OBS)
 
-    REAL LAMAVG, LAMREST(3), LAMTMP, Z, DLAM_TOL
-    REAL SNRMAX, SNRMAX1, SNRMAX2
+    REAL LAMAVG, LAMREST(3), LAMTMP, Z, DLAM_TOL, SNRMAX
     CHARACTER CFILTOBS_LIST*(MXFILT_OBS), CTMP*4, CFILTDEF*2
 
-    LOGICAL L_BRACKET, L_MATCH, L_USE, L_SNR, L_KEEP
-    LOGICAL SKIPTEST, LSNR, LSNR1, LSNR2
+    LOGICAL L_BRACKET, L_MATCH, L_USE, L_KEEP
+    LOGICAL SKIPTEST, LSNR
 
 ! function
     INTEGER BRACKET_FILTERLIST
@@ -16098,8 +16164,8 @@
        ENDDO
 
        DO ipar = 1, MXFITPAR
-           FITVAL_ALLFILT(ipar) = FITVAL(ipar,ITER-1)
-           FITERR_ALLFILT(ipar) = FITERR(ipar,ITER-1)
+           FITVAL_ALLFILT(ipar) = SNGL( FITVAL(ipar,ITER-1) )
+           FITERR_ALLFILT(ipar) = SNGL( FITERR(ipar,ITER-1) )
        ENDDO
 
     ENDIF
@@ -16127,7 +16193,7 @@
     ITERLAST = ITERLAST_FITRESTMAG(NFILTDEF_FITRESTMAG)
     IF ( ITER .GT. ITERLAST ) THEN
 
-       FILTLIST_FIT_USE = ALLFILTLIST_FIT
+       FILTLIST_FIT_USE = ALLFILTLIST_FIT(1:64)
        NFILT_OBS_USEFIT = NOBS_ALLFILT
 
        DO IFILT = 1, MXFILT_ALL
@@ -16561,8 +16627,8 @@
     CALL PEAKMAG_CALC(ifiltdef, 'REST')
 
 ! restore nominal values
-    LCVAL_STORE(IPAR_SHAPE)   = SHAPE_FIT
-    LCVAL_STORE(IPAR_COLOR)   = COLOR_FIT
+    LCVAL_STORE(IPAR_SHAPE)   = SNGL(SHAPE_FIT)
+    LCVAL_STORE(IPAR_COLOR)   = SNGL(COLOR_FIT)
 
 ! PEAKMAG_REST was evaluated for the best-fit model assuming
 ! DLMAG=0 or x0=1. But we need the standardization part of x0.
@@ -16576,11 +16642,8 @@
 !       print*,' xxx MAGCOR = ', MAGCOR,'  for CID=', SNLC_CCID
 
 ! save fitted rest mag and error
-    FITRESTMAG(IFILT)     = PEAKMAG_REST_MODEL(ifiltdef)  & 
-                            + MAGCOR
-
-!      FITRESTMAG_ERR(IFILT) = PEAKMAG_REST_MODEL_ERR(ifiltdef)
-    FITRESTMAG_ERR(IFILT) = 1.0857*x0err/x0     ! Mar 30 2014
+    FITRESTMAG(IFILT)     = SNGL(PEAKMAG_REST_MODEL(ifiltdef)  + MAGCOR)
+    FITRESTMAG_ERR(IFILT) = SNGL(1.0857*x0err/x0)
 
 ! ------------------------
 ! print one-line summary.
@@ -16655,7 +16718,6 @@
 ! subroutine args
     INTEGER IFILTREST      ! (I) absolute value of rest-frame filter
     REAL*8  SHAPE, COLOR   ! (I)
-    REAL*8  SHAPE2
 
 ! local args
 
@@ -16751,7 +16813,7 @@
          MAGREST    = MAGOBS + KCOR - SNLC_DLMAG
          ARG        = 0.4*(ZP_FLUXCAL - MAGREST)
          FLUX_REST  = 10.0**(ARG)
-         R4EP_ALL(ep,JEP_DATAFLUX_REST) = FLUX_REST
+         R4EP_ALL(ep,JEP_DATAFLUX_REST) = SNGL(FLUX_REST)
          I4EP_ALL(ep,IEP_IFILT_REST1)   = IFILTREST
        ELSE
          MAGREST   = -999
@@ -16824,8 +16886,7 @@
     REAL*8 oneplusZ, LAMZ
     REAL*4 Z4, LMIN4
 
-    LOGICAL DOTEST_Z
-    LOGICAL DOTEST_NONZ, ISSURVEY, NOEPOCHS
+    LOGICAL ISSURVEY, NOEPOCHS
 
 ! function
     INTEGER NEAREST_IFILTDEF_WRAPPER
@@ -16846,13 +16907,13 @@
     IF ( DOFIT_PHOTOZ ) THEN
       if ( PHOTOZ_DROPFILTER(ifilt_obs)) RETURN ! drop this filter
 
-	! check option to force filters from previous fit stored in external file
-	if ( USE_PRIOR_SNCID_FILE ) then
-        LFITFUN_FILT = PRIOR_USE_FILT_SNCID_FILE(ifilt_obs)
-	  RETURN
-	endif
+      ! check option to force filters from previous fit stored in external file
+      if ( USE_PRIOR_SNCID_FILE ) then
+         LFITFUN_FILT = PRIOR_USE_FILT_SNCID_FILE(ifilt_obs)
+         RETURN
+      endif
 
-    ENDIF
+   ENDIF
 
 ! -----------------------------------
 
@@ -17080,7 +17141,7 @@
     REAL VEGA_MAG_LANDOLT(MXFILT_ALL)
 
 ! functions
-    REAL*8 GET_MAGLC8, EVAL_KCOR_TABLE_LCMAG
+    REAL*8  EVAL_KCOR_TABLE_LCMAG
     INTEGER LANDOLT_CONVERT
 
 ! --------------- BEGIN ---------------
@@ -17649,7 +17710,7 @@
 ! ---------------------
 92    CONTINUE
     c1err = 'Could not open SALT2_DICTFILE: '
-    c2err = SALT2_DICTFILE
+    c2err = SALT2_DICTFILE(1:84)
     CALL MADABORT("DMP_DICTFILE", c1err, c2err)
 
 888   CONTINUE
@@ -17767,19 +17828,15 @@
 
     INTEGER  & 
          IFLAG       &  ! (I) SN sparse index
-        ,OPTMJD     ! (I) 0=>use PEAKMJD, 1=> use MJD from file.
+        ,OPTMJD         ! (I) 0=>use PEAKMJD, 1=> use MJD from file.
 
 ! local args
 
-    INTEGER  & 
-         LTMP, imjd, NMJD, ipar & 
-        ,CID, CID_TMP  & 
-        ,IFILT, IFILT_OBS, IFILT_RST
+    INTEGER  LTMP, imjd, NMJD, ipar, IFILT, IFILT_OBS
 
     REAL*8  & 
          MJD8, MJD8_LAST, MJD8LIST(MXINTERP)  & 
-        ,FLUX8, FLUX8ERR  & 
-        ,MAG8, MAG8ERR, KCOR8
+        ,FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8
 
     REAL  & 
           TOBS, TREST, PKMJD  & 
@@ -17788,14 +17845,10 @@
          ,MAGOBS_INTERP(MXFILT_ALL)  & 
          ,MAGERROBS_INTERP(MXFILT_ALL)  & 
          ,KCOR_INTERP(MXFILT_ALL)  & 
-         ,MAGRST_INTERP(MXFILT_ALL)   &  ! model mags
-         ,MAGERRRST_INTERP(MXFILT_ALL)   &  ! model mags
-         ,MAGRST2_INTERP(MXFILT_ALL)  &  ! training mags
-         ,MAGERRRST2_INTERP(MXFILT_ALL)  &  ! training mags
          ,VAL, ERR
 
     CHARACTER CCID*(MXCHAR_CCID), BAND*2
-    LOGICAL LDMP, LSKIP, ADDFLAG
+    LOGICAL LDMP,  ADDFLAG
 
 ! ------------ BEGIN -----------
 
@@ -17805,7 +17858,7 @@
       RETURN
     ENDIF
 
-    PKMJD = LCVAL_STORE(IPAR_PEAKMJD) + MJDOFF
+    PKMJD = LCVAL_STORE(IPAR_PEAKMJD) + sngl(MJDOFF)
 
 ! open output file.
     IF ( IFLAG .EQ. 0 ) THEN
@@ -17866,18 +17919,18 @@
            CALL MODELMAG_CALC(ifilt_obs, 'OBS', MJD8,  & 
                  FLUX8, FLUX8ERR, MAG8, MAG8ERR, KCOR8 ) ! return args
 
-           FLUXOBS_INTERP(ifilt_obs)    = FLUX8
-           FLUXERROBS_INTERP(ifilt_obs) = FLUX8ERR
-           MAGOBS_INTERP(ifilt_obs)     = MAG8
-           MAGERROBS_INTERP(ifilt_obs)  = MAG8ERR
-           KCOR_INTERP(ifilt_obs)       = KCOR8
+           FLUXOBS_INTERP(ifilt_obs)    = SNGL(FLUX8)
+           FLUXERROBS_INTERP(ifilt_obs) = SNGL(FLUX8ERR)
+           MAGOBS_INTERP(ifilt_obs)     = SNGL(MAG8)
+           MAGERROBS_INTERP(ifilt_obs)  = SNGL(MAG8ERR)
+           KCOR_INTERP(ifilt_obs)       = SNGL(KCOR8)
 
         endif
       ENDDO
 ! -------------------------
 ! write results to output file.
 
-      TOBS = MJD8 - PKMJD
+      TOBS = SNGL(MJD8 - PKMJD)
       TREST = TOBS / ( 1.0 + REDSHIFT_FIT )
 
       if ( MJD8 < 1.0 ) GOTO 4000
@@ -17935,7 +17988,7 @@
        VAL = FITVAL_STORE(ipar)
        ERR = FITERR_STORE(ipar)
 
-       if ( IPAR .EQ. IPAR_PEAKMJD ) VAL = VAL + MJDOFF
+       if ( IPAR .EQ. IPAR_PEAKMJD ) VAL = VAL + SNGL(MJDOFF)
 
        LTMP = INDEX ( PARNAME_STORE(ipar), ' ' ) - 1
        write(LUNINTERP,420) PARNAME_STORE(ipar)(1:LTMP), VAL, ERR
@@ -17954,7 +18007,7 @@
 ! ----------------------------------
 92    CONTINUE
     c1err = 'Could not open MAG-INTERP output file '
-    c2err = SNMJD_OUT_FILE
+    c2err = SNMJD_OUT_FILE(1:80)
     CALL MADABORT("DMP_SNMJD_INTERP", c1err, c2err)
 
     RETURN
@@ -17980,17 +18033,9 @@
     USE SNLCINP_NML
 ! CDE,CWNTCOM.
 
-    INTEGER  & 
-         i, i2, ifilt, ifilt_obs, ifilt_obs2  & 
-        ,iep, ipar, ipar1, ipar2, ICOV, ITER
-
-    character  & 
-         cfilt1*2, cfilt2*2  & 
-        ,cfilt1_lower*2, cfilt2_lower*2
-
-    LOGICAL LF2, NONSURVEY
+    INTEGER  i, ifilt, ifilt_obs, iep, ipar, ipar1, ipar2, ICOV, ITER
+    LOGICAL NONSURVEY
     REAL RHO, COV
-
     REAL*8 PKMJD8, XTMW
 
 ! --------------- BEGIN -------------
@@ -18013,11 +18058,11 @@
        IPAR2 = IPAR_TBL_COV(2,ICOV)
 
        if ( NGRID_PDF .LE. 0 ) then
-          RHO = FITCORMAT(ipar1,ipar2)
-          COV = FITERRMAT(ipar1,ipar2)
+          RHO = SNGL( FITCORMAT(ipar1,ipar2) )
+          COV = SNGL( FITERRMAT(ipar1,ipar2) )
        else
-          RHO = PDFCORMAT(ipar1,ipar2)
-          COV = PDFERRMAT(ipar1,ipar2)
+          RHO = SNGL( PDFCORMAT(ipar1,ipar2) )
+          COV = SNGL( PDFERRMAT(ipar1,ipar2) )
        endif
 
        TBL_COV(ICOV)    = COV
@@ -18046,8 +18091,8 @@
 !           print*,' xxx iep,ifilt, ifiltobs = ', iep, ifilt, ifilt_obs
 
           if ( iep > 0 ) then
-             XTMW          = R4EP_ALL(iep,JEP_MWXT)  ! mag
-             TBL_XTMW(i)   = 10**(-0.4*XTMW)         ! flux-frac
+             XTMW          = R4EP_ALL(iep,JEP_MWXT)        ! mag
+             TBL_XTMW(i)   = SNGL(10**(-0.4*XTMW))         ! flux-frac
              TBL_SNRMAX(i) = R4BAND_SNRMAX_FIT(ifilt)
           endif
        endif
@@ -18205,11 +18250,11 @@
         ,VBAND_PKMJD(MXFILT_OBS)  & 
         ,VBAND_PKMJD_ERR(MXFILT_OBS)  & 
 ! 
-        ,FLUX, COR, FPEAK, FPERR, PKMJD  & 
+        ,COR, FPEAK, FPERR, PKMJD  & 
         ,TMIN, TMAX, TBIN, xi, TOBS
 
     INTEGER  & 
-         LENCCID, NOBS, i, ifilt, ifilt_obs, NFILT, NBT, indxR4  & 
+         LENCCID, NOBS, i, ifilt, ifilt_obs, NFILT, NBT  & 
         ,NFILTARG, IFILTARG, IFILTARG_MAP_SURVEY(MXFILT_ALL), NDOF  & 
         ,IFILTOBS_REMAP, IFILT_REMAP_TMP  & 
         ,VFILTOBS(MXEP_SNLCPAK)  & 
@@ -18611,15 +18656,10 @@
 
 ! local var
 
-    INTEGER i, LENNAME, LENFMT
+    INTEGER LENNAME, LENFMT
     CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
-    LOGICAL CREATE_FILE
 
 ! ----------------- BEGIN ------------------------
-
-!  xxxx      ID = IDTABLE_FITRES
-
-! ----------------------------------
 
     IF ( IFLAG == IFLAG_INI ) THEN
 
@@ -18727,13 +18767,10 @@
 ! local var
     INTEGER, PARAMETER :: IPAR_START=3   ! skip ISN and ITER for CWN
 
-    INTEGER  & 
-          IFILT, IFILT_OBS, OPT_STORE, USE4TEXT  & 
-         ,LENLIST, LENPKMJD, LENNAME, LENNAME2, LENBLOCK, LENPACK  & 
-         ,NTPAR_MIN, NTPAR_MAX, NTPAR, ipar
+    INTEGER IFILT, LENLIST, LENPKMJD, LENNAME, LENBLOCK
+    INTEGER NTPAR_MIN, NTPAR_MAX, ipar, USE4TEXT
 
-    LOGICAL   LTMP
-    CHARACTER varlist*1000, VARNAME*60, STR_IPACK*40, CBLOCK*40
+    CHARACTER varlist*1000, VARNAME*60, CBLOCK*40
     CHARACTER CFILT*1, SUFFIX_R*12, SUFFIX_I*12, PNAM*40
 
     LOGICAL  SKIPTABLE_FITPAR  ! function
@@ -19268,8 +19305,8 @@
 
 ! local var
 
-    INTEGER ipar,  LENNAME, LENPACK
-    character CTMP*20, C2*2, STR_IPACK*40, NAME*40
+    INTEGER ipar,  LENNAME
+    character CTMP*20, C2*2, NAME*40
 
 ! ----------- BEGIN ------------
 
@@ -19428,10 +19465,7 @@
     INTEGER   ISN   ! 0->init, otherwise fill
 
 ! local
-    INTEGER ID, i, ep, LENNAME, LENFMT
-    INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
-    REAL    Tobs, z, x0, x1, c, MWEBV
-    REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
+    INTEGER ID, LENNAME, LENFMT
     CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
 
 ! ----------------- BEGIN ------------------------
@@ -19466,8 +19500,6 @@
 
     CALL SNTABLE_FILL(ID)  ! generic C function
 
-400   CONTINUE
-
     CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
 
 ! ------------------------------------
@@ -19495,10 +19527,7 @@
 
 ! local var
 
-    INTEGER  & 
-          IPAR, IFILT, IFILT_OBS  & 
-         ,LENLIST, LENNAME, LENBLOCK, LENPACK
-
+    INTEGER  IPAR, LENNAME, LENBLOCK
     CHARACTER VARNAME*60, CBLOCK*40
 
     EXTERNAL  & 
@@ -19570,10 +19599,10 @@
        if ( ipar == IPAR_ITER )  GOTO 900
        if ( ipar == IPAR_ISN  )  GOTO 900
        if ( ipar == IPAR_SHAPE2) GOTO 900
-       if ( ipar == IPAR_MB	 ) GOTO 900
+       if ( ipar == IPAR_MB  )   GOTO 900
        VARNAME = 'CHI2PRIOR_' // PARNAME_STORE(ipar)
-	 LENNAME = INDEX(VARNAME,' ') -1
-	 VARNAME = VARNAME(1:LENNAME) // ':F' // char(0)
+       LENNAME = INDEX(VARNAME,' ') -1
+       VARNAME = VARNAME(1:LENNAME) // ':F' // char(0)
        CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBLDMPFCN_CHI2PRIOR(ipar),  & 
                     VARNAME, 1,     LENBLOCK, 20 )
 900   CONTINUE
@@ -19736,9 +19765,7 @@
 
 ! local var
 
-    INTEGER  & 
-          IFILT, IFILT_OBS, USE4TEXT  & 
-         ,LENLIST, LENNAME, LENBLOCK, LENPACK
+    INTEGER IFILT, IFILT_OBS, LENBLOCK
 
     CHARACTER VARNAME*60, CBLOCK*40, CNFIT*20, CFILT*2
 

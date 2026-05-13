@@ -150,9 +150,11 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
   // Called by readFile routine and command-line read function.
   //
   // Jun 11 2020: moved from snlc_sim.h, and set USE=true.
-
+  // Mar 12 2026: add array bound check before calling copy_GENGAUSS_ASYM(...);
+  //              this bug may have caused Dust2Dust to crash
+  //
   char *ptrName = genGauss->NAME;
-  //  char fnam[] = "prepIndex_GENGAUSS" ;
+  char fnam[] = "prepIndex_GENGAUSS" ;
   // ---------- BEGIN ---------
 
   // if genGauss name is not set, then set name and FUNINDEX
@@ -167,7 +169,15 @@ void prepIndex_GENGAUSS(char *varName, GENGAUSS_ASYM_DEF *genGauss ) {
   // some kind of global operation or init is needed.
 
   int FUNINDEX = genGauss->FUNINDEX ;
-  copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );
+  if ( FUNINDEX < MXGENGAUSS )  {  
+    copy_GENGAUSS_ASYM( genGauss, &GENGAUSS_ASYM_LIST[FUNINDEX] );  
+  }
+  else if ( FUNINDEX == MXGENGAUSS ) {
+    printf("  %s WARNING: FUNINDEX=%d -> no more saving copies of genGauss\n", fnam, FUNINDEX);
+    fflush(stdout);
+  }
+
+  return ;
 
 } // end prepIndex_GENGAUSS
 
@@ -177,7 +187,7 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
   // Created July 12 2021
   // Dec 2023: fixed to work for double-Gaussian.
 
-  double peak             = genGauss->PEAK ;
+  //  double peak             = genGauss->PEAK ;
   double siglo            = genGauss->SIGMA[0] ; 
   double sighi            = genGauss->SIGMA[1] ;
   double *peakrange       = genGauss->PEAKRANGE ; 
@@ -256,199 +266,6 @@ double funVal_GENGAUSS_ASYM(double x, GENGAUSS_ASYM_DEF *genGauss) {
 
 } // end funVal_GENGAUSS_ASYM
 
-// ********************************************************
-double getRan_GENGAUSS_ASYM_bug(GENGAUSS_ASYM_DEF *genGauss) {
-
-  // Created May 2012: 
-  //
-  // return random Guassian number with above params
-  // If siglo & sighi > 100*(hi-lo), then just assume a flat
-  // distribution between lo & hi.
-  // Same as getRan_GaussAsym, but here a struct is passed with all the args.
-  //
-  //  ******** BUGGY **********
-  // Apr 14 2016: sigmax -> 10*range [was 100*range]
-  // Apr 20 2016: check NGRID option to snap to grid
-  // Aug 30 2016: add call to skewNormal().
-  // Oct 02 2016: compute rangeDif after DO_GRID if-block (bug fix)
-  // Mar 29 2017: check for 2nd peak
-  // Feb 28 2018: check for correlated randoms (see 'redCor')
-  // Jun 12 2020: 
-  //   + remove skewnormal (never worked)
-  //   + return -9 if !USE
-  // 
-  // July 2 2021 
-  //  + Implementing PEAKRANGE with Bodie, Rick, Dillon
-  //  + rename exec_GENGAUSS_ASYM -> getRan_GENGAUSS_ASYM
-  //
-  double peak, peakrange[2], lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
-  double gridsize, grid0, prob_expon_rewgt;
-  int NTRY, DO_SKEWSIGMA, DO_GRID, DO_PEAKRANGE;
-  int NGRID, FUNINDEX, j ;
-  int USE_PEAK1, USE_PEAK2, MXTRY = 1000, LDMP=0 ;
-  double ranval=-9.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
-  char *NAME  = genGauss->NAME;
-  char fnam[] = "getRan_GENGAUSS_ASYM_bug" ;
-
-  // ---------- BEGIN -------------
-
-  //  LDMP = (strstr(NAME,"SALT2") != NULL ); // xxx REMOVE
-
-  // always burn random to stay synced.
-  ran1 = getRan_Flat1(ILIST_GETRAN_GENGAUSS) ;
-
-  if ( !genGauss->USE ) {  return(ranval);  }
-
-  USE_PEAK1 = 1;
-  USE_PEAK2 = 0;
-
-  // check optional 2nd peak (Mar 2017)
-  PROB2 = genGauss->PROB2 ;
-  if ( PROB2 > 0.0000001 ) {
-    ran2 = getRan_Flat1(ILIST_GETRAN_GENGAUSS) ;
-    if ( ran2 < PROB2 ) {
-      peak         = genGauss->PEAK2 ;
-      peakrange[0] = peak ;
-      peakrange[1] = peak ; 
-      siglo        = genGauss->SIGMA2[0] ;
-      sighi        = genGauss->SIGMA2[1] ;
-      skewlo = skewhi = 0.0 ;
-      USE_PEAK1       = 0;
-    }
-  }
-
-  //  ******** BUGGY **********
-
-  if ( USE_PEAK1 ) {
-    peak           = genGauss->PEAK ;
-    peakrange[0]   = genGauss->PEAKRANGE[0] ; 
-    peakrange[1]   = genGauss->PEAKRANGE[1] ;
-    siglo          = genGauss->SIGMA[0] ;
-    sighi          = genGauss->SIGMA[1] ;
-    skewlo         = genGauss->SKEW[0] ;
-    skewhi         = genGauss->SKEW[1] ;
-  }
-
-  // Dec 2023: check option to rewgt prob by adjust sigma
-  prob_expon_rewgt = genGauss->PROB_EXPON_REWGT;
-  if ( prob_expon_rewgt != 1.0 ) {
-    double rewgt = 1.0/sqrt(prob_expon_rewgt) ;
-    siglo  *= rewgt ;
-    sighi  *= rewgt ;
-    skewlo *= rewgt ;
-    skewhi *= rewgt ;
-  }
-
-  lo          = genGauss->RANGE[0] ;
-  hi          = genGauss->RANGE[1] ;
-  NGRID       = genGauss->NGRID ;
-  FUNINDEX    = genGauss->FUNINDEX ;
-
-  RANGE[0]=lo; RANGE[1]=hi;
-
-  // abort on crazy NGRID value
-  if ( NGRID < 0 || NGRID > 100 ) {
-    print_preAbort_banner(fnam);
-    printf("\t peak = %f \n", peak);
-    printf("\t range(lo,hi) = %f, %f \n", lo, hi );
-    printf("\t sigma(lo,hi) = %f, %f \n", siglo, sighi );
-    printf("\t prob_expon_rewgt = %f \n", prob_expon_rewgt);
-    sprintf(c1err,"Crazy NGRID=%d", NGRID );
-    errmsg(SEV_FATAL, 0, fnam, c1err, "" );
-  }
-
-  gridsize = grid0 = -9.0 ;
-  DO_GRID = ( NGRID >=2 && hi>lo && siglo>0.0 && sighi>0.0 );
-  if ( DO_GRID ) {
-    // compute gridsize here to allow command-line override of RANGE
-    gridsize = (hi-lo)/(double)(NGRID-1) ;
-    grid0    = lo ; // store first grid location
-    lo   -= gridsize/2.0 ;
-    hi   += gridsize/2.0 ;
-  } 
-
-  rangeDif = hi-lo;
-  NTRY  = 0;
-  sigmax = 10.*rangeDif ;
-  DO_SKEWSIGMA  = ( fabs(skewlo)  > 1.0E-9 || fabs(skewhi) > 1.0E-9 ) ;
-  DO_PEAKRANGE  = (peakrange[1] - peakrange[0]) > 1.0E-12 ;
-
-  //  ******** BUGGY **********
-
-  if ( LDMP ) {
-    printf("\t xxx ----------------- %s ------------ \n", NAME);
-    printf("\t xxx peak = %f \n", peak);
-    printf("\t xxx range(lo,hi) = %f, %f \n", lo, hi );
-    printf("\t xxx sigma(lo,hi) = %f, %f \n", siglo, sighi );
-    printf("\t xxx DO_GRID=%d  sigmax=%f \n", DO_GRID, sigmax);
-    printf("\t xxx rangeDif=%f   ran1=%f \n", rangeDif, ran1);
-    fflush(stdout);
-  }
-
-  // always burn random to stay synced.
-
-  if ( lo == hi ) {
-    ranval = lo ;    // delta function
-  }
-  else if ( siglo > sigmax && sighi > sigmax ) {
-    ranval = lo + rangeDif*ran1 ;  // flat distribution
-  }
-  else {
-  GENVAL:
-    NTRY++ ;
-    if ( NTRY > MXTRY ) {
-      print_preAbort_banner(fnam) ;
-      dump_GENGAUSS_ASYM(genGauss) ;
-      printf(" DO_SKEW[SIGMA] = %d, %d \n",  DO_SKEWSIGMA);
-
-      sprintf(c1err,"Could not find %s RANDOM after %d tries ", 
-	      NAME, NTRY );
-      sprintf(c2err,"Something is crazy.");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
-    }
-    
-    if ( DO_SKEWSIGMA  )  {
-      xlo = lo - peak ;
-      xhi = hi - peak ;
-      ranval = peak + getRan_skewGauss(xlo,xhi,siglo,sighi,skewlo,skewhi); 
-    }
-    else if ( DO_PEAKRANGE ) { //PROB = 1 extended over peak range
-      double peakrangeinterval = peakrange[1] - peakrange[0] ; 
-      ranval = peakrange[0] + getRan_GaussAsym(siglo,sighi,peakrangeinterval);
-    }
-
-    else { //prob = 1 only at peak
-      ranval = peak + getRan_GaussAsym(siglo,sighi, 0.) ; 
-    }
-
-    if ( ranval < lo ) { goto GENVAL;  } 
-    if ( ranval > hi ) { goto GENVAL;  } 
-  }
-
-  //  ******** BUGGY **********
-
-  // April 2016: check option to snap to grid
-  if ( DO_GRID ) {
-    double ranval_orig = ranval ;
-    int    ibin = (int)((ranval_orig-lo)/gridsize) ;
-    double xbin = (double)ibin ;
-    ranval      = grid0 + (xbin*gridsize) ;
-
-    /*
-    printf(" xxx ranval=%.3f->0.3f  ibin=%d  grid0=%.3f\n",
-    ranval_orig, ranval, ibin, grid0); fflush(stdout); */
-  }
-
-  if ( LDMP ) {
-    printf("\t xxx ranval = %f \n", ranval); 
-    fflush(stdout);
-  }
-
-  //  ******** BUGGY **********
-
-  return(ranval) ;
-
-} // end of getRan_GENGAUSS_ASYM_bug
 
 
 // ********************************************************
@@ -466,11 +283,10 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
   //
 
   double peak, peakrange[2], lo, hi, siglo, sighi, skewlo, skewhi, xlo, xhi ; 
-  double gridsize, grid0, prob_expon_rewgt, rewgt_sig ;
-  int DO_SKEWSIGMA, DO_GRID, DO_PEAKRANGE;
-  int NGRID, FUNINDEX, j ;
+  double gridsize, grid0,  rewgt_sig ;
+  int DO_SKEWSIGMA, DO_GRID, DO_PEAKRANGE, NGRID ;
   int USE_PEAK1, USE_PEAK2, NTRY=0, MXTRY = 1000, LDMP=0 ;
-  double ranval=-9.0, rangeDif, RANGE[2], sigmax, ran1, ran2, PROB2 ;
+  double ranval=-9.0, rangeDif, sigmax, ran1, ran2, PROB2 ;
   char *NAME  = genGauss->NAME;
   char fnam[] = "getRan_GENGAUSS_ASYM" ;
 
@@ -487,19 +303,24 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
 
   rewgt_sig = 1.0/genGauss->SQRT_PROB_EXPON_REWGT ;
 
+  peak        = genGauss->PEAK ;
   lo          = genGauss->RANGE[0] ;
   hi          = genGauss->RANGE[1] ;
   NGRID       = genGauss->NGRID ;
-  FUNINDEX    = genGauss->FUNINDEX ;
-  RANGE[0]=lo; RANGE[1]=hi;
+  //  FUNINDEX    = genGauss->FUNINDEX ;
 
   // abort on crazy NGRID value
   if ( NGRID < 0 || NGRID > 100 ) {
     print_preAbort_banner(fnam);
+    dump_GENGAUSS_ASYM(genGauss);
+
+    /* xxxxxxxxx mark delete May 4 2026 xxxxxxxx
     printf("\t peak = %f \n", peak);
     printf("\t range(lo,hi) = %f, %f \n", lo, hi );
     printf("\t sigma(lo,hi) = %f, %f \n", siglo, sighi );
     printf("\t prob_expon_rewgt = %f \n", genGauss->PROB_EXPON_REWGT );
+    xxxxxxxx end mark */
+
     sprintf(c1err,"Crazy NGRID=%d", NGRID );
     errmsg(SEV_FATAL, 0, fnam, c1err, "" );
   }
@@ -531,13 +352,16 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     skewlo         = genGauss->SKEW[0] ;
     skewhi         = genGauss->SKEW[1] ;
   }
-  else {
+  else if ( USE_PEAK2 ) {
     peak         = genGauss->PEAK2 ;
     peakrange[0] = peak ;
     peakrange[1] = peak ; 
     siglo        = genGauss->SIGMA2[0] ;
     sighi        = genGauss->SIGMA2[1] ;
     skewlo = skewhi = 0.0 ;
+  }
+  else {
+    // do nothing
   }
 
   // Dec 2023: check option to rewgt prob by adjust sigma
@@ -585,7 +409,7 @@ double getRan_GENGAUSS_ASYM(GENGAUSS_ASYM_DEF *genGauss) {
     if ( NTRY > MXTRY ) {
       print_preAbort_banner(fnam) ;
       dump_GENGAUSS_ASYM(genGauss) ;
-      printf(" DO_SKEW[SIGMA] = %d, %d \n",  DO_SKEWSIGMA);
+      printf(" DO_SKEWSIGMA = %d \n",  DO_SKEWSIGMA);
 
       sprintf(c1err,"Could not find %s RANDOM after %d tries ", 
 	      NAME, NTRY );
@@ -715,7 +539,7 @@ int parse_input_GENGAUSS(char *VARNAME, char **WORDS, int keySource,
   }
 
   //New GENPEAKRANGE stuff here
-  sprintf(KEYNAME, "GENPEAKRANGE_%s",  VARNAME, VARNAME );
+  sprintf(KEYNAME, "GENPEAKRANGE_%s",  VARNAME );
   if ( keyMatchSim(1, KEYNAME, WORDS[0], keySource) )  {
     N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[0] );
     N++; sscanf(WORDS[N], "%le", &genGauss->PEAKRANGE[1] );

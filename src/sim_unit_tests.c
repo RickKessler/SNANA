@@ -286,7 +286,7 @@ void test_kcor_table_kcor(void) {
   int ifiltdef_o, ifiltdef_r, ifilt_o, ifilt_r ;
   double T_list[20], z_list[20], AV_list[20];
   double T, z, AV, kcor;
-  int  i, NTEST, len_o, len_r ;
+  int  i, NTEST=0, len_o, len_r ;
   char *name_o, *name_r, kcor_sym[20] ;
   char fnam[] = "test_kcor_table_kcor" ;
 
@@ -394,6 +394,7 @@ void test_zcmb_dLmag_invert(void) {
   // ----------- RETURN ------------
   for(MU=32.0; MU < 49.0; MU+=1.0 ) {
     zCMB = zcmb_dLmag_invert(MU, &INPUTS.HzFUN_INFO, &INPUTS.ANISOTROPY_INFO );
+    (void)zCMB;
   }
   debugexit(fnam);
   return ;
@@ -455,7 +456,7 @@ void test_igm(void) {
 
   int ilam;
   double lrest, lobs, z, z_a, z_b, tau_a, tau_b;
-  char PATH_IGM_PARAM[MXPATHLEN];
+  char PATH_IGM_PARAM[2*MXPATHLEN];
   //  char fnam[] = "test_igm";
 
   // --------------- BEGIN --------------
@@ -499,9 +500,9 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   // distribution and comparing random distribution to 
   // funVal-computed distribution
 
-  double range[2] ;
+  double range[2] = { 0.0, 0.0} ;
   char   parName[40] ;
-  int    IMAP ;
+  int    IMAP = 0;
   bool IS_LOGPARAM;
   GENGAUSS_ASYM_DEF     GENGAUSS ;
   GEN_EXP_HALFGAUSS_DEF GENEXP   ;
@@ -580,15 +581,15 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
   int    NBIN_HIST = 600; //600;
   double range_tot = range[1] - range[0];
   double BINSIZE_HIST = range_tot / (double)NBIN_HIST ;
-  double r, x, xmin, xmax, funVal, genVal, genVal_err, nsig;
-  double funVal_edge[2], funVal_integral=0.0 ;
+  double r=0.0, x, xmin, xmax, funVal, genVal, genVal_err, nsig;
+  double funVal_edge[2]={0.0, 0.0} , funVal_integral=0.0 ;
 
   int MEMD = NBIN_HIST * sizeof(double);
   int MEMI = NBIN_HIST * sizeof(int);
   double *funVal_PER_BIN = (double *) malloc(MEMD) ;
   double *x_PER_BIN      = (double *) malloc(MEMD) ;
   int    *NGEN_PER_BIN   = (int    *) malloc(MEMI) ;
-  int i, bin, N2SIG=0, N3SIG=0, NBIN_NONZERO=0 ;
+  int i, bin=0.0, N2SIG=0, N3SIG=0, NBIN_NONZERO=0 ;
 
   printf("\t Generate %d random numbers from %s:\n",
 	 NRANGEN, FUNVAL_NAME);
@@ -612,7 +613,7 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     else if ( GENEXP.USE ) 
       { r   = getRan_GEN_EXP_HALFGAUSS(&GENEXP) ; }
     else if ( NMAP_GENPDF > 0 ) 
-      { r = getRan_genPDF(parName, &GENGAUSS); }
+      { r = getRan_genPDF(parName, &GENGAUSS, 99 ); }
 
     if ( r < range[0] || r > range[1] ) { continue; }
 
@@ -700,6 +701,8 @@ void test_getRan_funVal(char *FUNVAL_NAME) {
     int IGAL = SNHOSTGAL.IGAL ;
     long long GALID = get_GALID_HOSTLIB(IGAL);;
     char *tmpName;
+    IMAP = 0; // ???
+
     printf("\n    GENPDF varname: %s  from MAP=%s  (IMAP=%d)\n", 
 	   parName, GENPDF[IMAP].MAPNAME, IMAP);
     printf("\t GALID = %lld   (IGAL = %d)\n", GALID, IGAL);

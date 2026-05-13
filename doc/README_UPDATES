@@ -23814,4 +23814,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     ALL: make all calls to fread, fwrite, fseek return to valid arg;
         e.g.. replace "fread(...) with "fret = fread(...)"
 
+
+    As part of testing new sntools_spline.c[h] against legacy sntools_zPDF_spline,
+    legacy NBIN=20 was changed to NBIN=100 to match the newer code for comparing
+    results. This change in NBIN results in very small changes in Quantile results
+    in regression test:
+       TASK087_SIMFIT_DES5YR_QZPHOT5   :  mis-match (REF != TEST)
+             ==> REF:  ZPHOT-72 = 0.66768 +/- 0.2028E-01(P)
+             ==> TEST: ZPHOT-72 = 0.66766 +/- 0.2017E-01(P)
+       TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
+             ==> REF:  ZPHOT-72 = 0.65831 +/- 0.7417E-02(P)
+             ==> TEST: ZPHOT-72 = 0.65781 +/- 0.2210E-01(P)
+
 END: 

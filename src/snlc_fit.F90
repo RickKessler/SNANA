@@ -4872,10 +4872,10 @@
       if ( DO_QUANTILES ) then
          ! get the probability at this redshift
 
-         if(DEBUG_FLAG == 28) then
-            PROBZ = eval_spline(IND_OFF_SPLINE_QUANTILE_ZPHOT+1, ZSN)
+         if(DEBUG_FLAG == -28) then  
+            PROBZ = eval_zPDF_spline(ZSN)  ! Legacy, May 2026 
          else
-            PROBZ = eval_zPDF_spline(ZSN)  ! use zPDF from quantiles
+            PROBZ = eval_spline(IND_OFF_SPLINE_QUANTILE_ZPHOT+1, ZSN)  ! use zPDF from quantiles
          endif
         if ( PROBZ > 0.0 ) then
            CHI2PRIOR(IPAR_zPHOT) = -2.0*DLOG( PROBZ )

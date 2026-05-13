@@ -17424,7 +17424,14 @@
    IPRINT    = 0   ! set to 1 for dump
     if ( STDOUT_UPDATE ) IPRINT = 1
 
-    if (DEBUG_FLAG == 28 ) THEN
+    if (DEBUG_FLAG == -28 ) THEN
+       ! LEGACY CALL
+       CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
+            SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
+            METHOD_SPLINE(1:LM) // char(0),  &
+            IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
+        
+    else
        ! Use new generalized spline (sntools_spline_gen.c).
        ! Note arg order: x=QZPHOT (redshift), y=QPROB (percentile) for CDF spline.
        CALL init_spline(INDEX_SPLINE, NQ, QZPHOT, QPROB,  &
@@ -17432,25 +17439,9 @@
             METHOD_SPLINE(1:LM) // char(0),  &
             "QUANTILE_ZPHOT" // char(0),  &
             IPRINT, MEAN, STD, IERR, ISNLC_LENCCID+15, LM)
-       ! diagnostic: confirm new code path was taken and print slot info
-       PRINT*, ' '
-       PRINT*, 'XXX DEBUG_FLAG=28: init_spline_gen returned'
-       PRINT*, 'XXX   CID    = ', SNLC_CCID(1:ISNLC_LENCCID)
-       PRINT*, 'XXX   NQ     = ', NQ
-       PRINT*, 'XXX   IERR   = ', IERR
-       PRINT*, 'XXX   MEAN   = ', MEAN
-       PRINT*, 'XXX   STD    = ', STD
-       CALL dump_spline(INDEX_SPLINE)
-       PRINT*, ' '
-    else
-       ! LEGACY CALL
-       CALL init_zPDF_spline(NQ, QPROB, QZPHOT,  &
-            SNLC_CCID(1:ISNLC_LENCCID)    // char(0),  &
-            METHOD_SPLINE(1:LM) // char(0),  &
-            IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
+       ! CALL dump_spline(INDEX_SPLINE)
     endif
 
-       
     if (IERR .EQ. 0 ) then
        SNHOST_QZPHOT_MEAN(IGAL) = SNGL(MEAN) ! store mean & std in 4 byte global
        SNHOST_QZPHOT_STD(IGAL)  = SNGL(STD)

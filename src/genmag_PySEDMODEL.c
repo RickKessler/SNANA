@@ -140,7 +140,7 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
   int  MEMD   = sizeof(double);
   int  MEMC   = sizeof(char);
   char comma[] = ",";
-  char fnam[] = "init_genmag_PySEDMODEL" ;
+  char fnam[] = "init_genmag_PySEDMODEL" ; (void)fnam;
 
   // -------------- BEGIN ------------------
 
@@ -327,46 +327,13 @@ void init_genmag_PySEDMODEL(char *MODEL_NAME, char *PATH_VERSION, int OPTMASK,
 } // end init_genmag_PySEDMODEL
 
 
-
-/* xxxxxxxxxxxxx mark delete July 1 2023 xxxxxxxx
-// =========================================================
-void get_MODEL_NAME_PySEDMODEL(char *PATH,char *MODEL_NAME) {
-
-  // For input PATH, return MODEL_NAME
-
-  int i;
-  char *ptrModel;
-  char fnam[] = "get_MODEL_NAME_PySEDMODEL" ;
-  // ----------- BEGIN -----------
-
-  // load all possible model choices
-  load_PySEDMODEL_CHOICE_LIST();
-
-  MODEL_NAME[0] = 0;
-  for ( i=0; i < NCHOICE_PySEDMODEL; i++  ) {
-    ptrModel = PySEDMODEL_CHOICE_LIST[i] ;
-    if ( strstr(PATH,ptrModel) ) { sprintf(MODEL_NAME, "%s", ptrModel); }
-  }
-
-  if ( strlen(MODEL_NAME) == 0 ) {
-    sprintf(c1err,"Could not determine MODEL_NAME from") ;
-    sprintf(c2err,"PATH='%s' ", PATH );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  return;
-} // end get_MODEL_NAME
-xxxxxxxxx end mark xxxxxxxx */
-
-
-
 // ===================================================
 void set_lamRanges_PySEDMODEL(char *MODEL_NAME) {
 
   // Created July 1 2023
   // set wavelengh range for center of filter, and for SED
   
-  char fnam[] = "set_lamRanges_PySEDMODEL";
+  char fnam[] = "set_lamRanges_PySEDMODEL";  (void)fnam;
 
   // ----------- BEGIN ---------
 
@@ -1254,7 +1221,7 @@ void  read_SALT2_template0(void) {
   double Trange[2] = { -40.0,  100.0   } ;
   double Lrange[2] = { 2000.0, 9200.0  } ;
   char   MODELNAME_SALT2[] = "SALT2.JLA-B14" ;
-  //  char fnam[] = "read_SALT2_template0" ;
+  char fnam[] = "read_SALT2_template0" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -1262,7 +1229,7 @@ void  read_SALT2_template0(void) {
 	  "%s/models/SALT2/%s/salt2_template_0.dat",
 	  PATH_SNDATA_ROOT, MODELNAME_SALT2 );
 
-  malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
+  malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0, fnam);
   sprintf(sedcomment,"template-0(%s)", MODELNAME_SALT2);
 
   rd_sedFlux(SALT2_tempate0_file, sedcomment, Trange, Lrange

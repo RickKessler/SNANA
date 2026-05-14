@@ -291,9 +291,9 @@ double interp_primaryMag_SEDMODEL(double lam) ;  // for SPECTROGRAPH bins
 
 void malloc_METADATA_SEDMODEL(int NSED, int NPAR);
 void malloc_FLUXTABLE_SEDMODEL(int NFILT, int NZBIN, int NLAMPOW, 
-			       int NDAY, int NSED);
+			       int NDAY, int NSED, char *callFun);
 void malloc_SEDFLUX_SEDMODEL (SEDMODEL_FLUX_DEF *SEDMODEL, 
-			     int NBIN_DAY, int NBIN_LAM, int NBIN_SED);
+			      int NBIN_DAY, int NBIN_LAM, int NBIN_SED, char *callFun);
 
 int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) ;
 

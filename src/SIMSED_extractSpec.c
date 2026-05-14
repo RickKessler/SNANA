@@ -1178,7 +1178,7 @@ void read_simsed(void) {
     CORNER.FLUX[icorner]    = (double *)malloc(8*MXBIN_SED_SEDMODEL);
     CORNER.FLUXERR[icorner] = (double *)malloc(8*MXBIN_SED_SEDMODEL);
 
-    malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
+    malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0, fnam);
 
     rd_sedFlux(sedFile_full, sedcomment
 	       ,TREST_RANGE, INPUTS.LAM_RANGE

@@ -203,7 +203,7 @@ typedef struct {
 struct SNDATA {
 
   // global stuff
-  char SNANA_VERSION[20] ; // Feb 2021
+  char SNANA_VERSION[40] ; // Feb 2021
   char DATATYPE[20];       // e.g., DATA, SIM_SNANA ...
 
   // name of SURVEY and SUBSURVEY

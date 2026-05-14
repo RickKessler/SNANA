@@ -28004,10 +28004,9 @@
 
 ! local var
     INTEGER JTIME1, JTIME2, JDIFTIME, NEVAL, LL, NGRID, IERR
-    INTEGER ipar, ipar2, NVAR_PDF, j
+    INTEGER ipar, ipar2, NVAR_PDF
     LOGICAL APPLY_USER_VARLIST, FLOATPAR_SAVE(MXFITPAR)
     character  METHOD*6
-    REAL*8 TMP
 
 ! functions
 

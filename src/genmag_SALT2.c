@@ -190,13 +190,13 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   int  retval = 0   ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
   int  ABORT_on_BADVALUE_ERROR = 1;
-  char BANNER[120], tmpFile[2*MXPATHLEN], sedcomment[40], version[60]  ;
+  char BANNER[160], tmpFile[2*MXPATHLEN], sedcomment[40], version[60]  ;
   char fnam[] = "init_genmag_SALT2" ;
 
   // -------------- BEGIN --------------
 
   // extrac OPTMASK options
-  sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
+  sprintf(BANNER, "%s : Initialize %.120s", fnam, MODEL_VERSION );
   print_banner(BANNER);
  
 

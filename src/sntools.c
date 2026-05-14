@@ -9428,12 +9428,12 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *key_stop, char *
   }
 
 
-  int n_key_found = 0 ;
+  int n_key_found = 0, fs ; (void)fs ;
   while( (fscanf(fp, "%s", c_get)) != EOF) {
     if ( strcmp(c_get,key_stop) == 0 ) { break; }
     for(k=0; k < n_key; k++ ) {
       if ( strcmp(key_list[k],c_get) == 0 ) {
-	fscanf(fp, "%le", &val_list[k] ) ;	
+	fs = fscanf(fp, "%le", &val_list[k] ) ;	
 	//  printf(" xxx load %s (%d) = %f \n",  key_list[k], k, val_list[k]);
 	fflush(stdout);
 	n_key_found++ ;
@@ -10321,12 +10321,13 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
   // Nov 18 2021; use fgets instead of fscanf
   // Nov 23 2021: back to simpler fscanf 
   
+  int fs; (void)fs;
   char key[60] ;
   bool FOUND_DOCANA ;
   //  char fnam[] = "check_openFile_docana";
   // ------------- BEGIN --------
 
-  fscanf(fp,"%s",key); 
+  fs = fscanf(fp,"%s",key); 
   FOUND_DOCANA = (strcmp(key,KEYNAME_DOCANA_REQUIRED) == 0 );
 
   if ( !FOUND_DOCANA ) 
@@ -10446,7 +10447,7 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
   // Apr 29 2026: use malloc_strlist
 
   int NPATH, ipath;
-  char **PATH, sepKey[] = " " ;
+  char **PATH, *BUF, sepKey[] = " " ;
   float fmem;  (void)fmem;
 
   char fnam[200];
@@ -10457,13 +10458,9 @@ void abort_openTextFile(char *keyName, char *PATH_LIST,
 
   fmem = malloc_strlist(+1, MXPATH_CHECK, MXPATHLEN, &PATH );
 
-  /* xxx mark del 4.29 2026 xxxx
-  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )
-    { PATH[ipath] = (char*) malloc( MXPATHLEN * sizeof(char) ); }
-  xxxx end mark */
 
   // first path is current working dir
-  getcwd(PATH[0],MXPATHLEN);
+  BUF = getcwd(PATH[0],MXPATHLEN);  (void)BUF;
 
   // split string to get other paths
   splitString(PATH_LIST, sepKey, fnam, MXPATH_CHECK,

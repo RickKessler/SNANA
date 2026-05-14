@@ -23829,5 +23829,19 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
              ==> REF:  ZPHOT-72 = 0.65831 +/- 0.7417E-02(P)
              ==> TEST: ZPHOT-72 = 0.65781 +/- 0.2210E-01(P)
+	     
+
+# =============================================================
+         v12_01h (May 13 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01h) *****
+
+    Release new (more generic) spline code for zPHOT quantiles and LOGMASS-zGRID.
+    Revert back to legacy spline code with DEBUG_FLAG = -28.
+
+         *****  USEFUL(v12_01h) *****
+
+
+         *****  MISCELLANEOUS(v12_01h) *****
 
 END: 

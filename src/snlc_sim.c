@@ -15868,7 +15868,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char DECSTRINGS[4][12] = { "DECL", "DEC", "DECL_SN", "DEC_SN" } ;
   for(i=0; i<4; i++ )  {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr, "%s", DECSTRINGS[i]);
+    sprintf(cptr, "%.12s", DECSTRINGS[i]);
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DEC ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16352,7 +16352,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_alpha[3][20] = { "SALT2alpha", "S2alpha", "SIM_alpha" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_alpha[i] ) ;
+    sprintf(cptr,"%.20s", strList_alpha[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2alpha ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16360,7 +16360,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_beta[3][20] = { "SALT2beta", "S2beta", "SIM_beta" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_beta[i] ) ;
+    sprintf(cptr,"%.20s", strList_beta[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2beta ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16369,7 +16369,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_x0[3][20] = { "S2x0", "SALT2x0", "SIM_x0" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_x0[i] ) ;
+    sprintf(cptr,"%.20s", strList_x0[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x0 ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16377,7 +16377,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_x1[3][20] = { "S2x1", "SALT2x1", "SIM_x1" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_x1[i] ) ;
+    sprintf(cptr,"%.20s", strList_x1[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x1 ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16385,7 +16385,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_c[3][20] = { "S2c", "SALT2c", "SIM_c" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_c[i] ) ;
+    sprintf(cptr,"%.20s", strList_c[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2c ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16393,7 +16393,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_mb[5][20] = { "S2mb", "SALT2mb", "SALT2mB", "SIM_mb", "SIM_mB" };
   for(i=0; i < 5; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_mb[i] ) ;
+    sprintf(cptr,"%.20s", strList_mb[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2mB ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16479,7 +16479,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_ind[3][20] = { "SIM_TEMPLATE_INDEX", "NON1A_INDEX", "NONIA_INDEX" };
   for ( i=0; i < 3; i++ )  {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr, "%s", strList_ind[i]); 
+    sprintf(cptr, "%.20s", strList_ind[i]); 
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
     NVAR_SIMGEN_DUMP++ ;
   }

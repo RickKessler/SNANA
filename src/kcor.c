@@ -1140,7 +1140,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 	 fnam, NF, INDX_INPUT, INDX );
   */
 
-  sprintf(FILTER[NF].MAGSYSTEM_NAME,"%s", NAME ) ;
+  sprintf(FILTER[NF].MAGSYSTEM_NAME,"%.40s", NAME ) ;
   FILTER[NF].MAGFILTER_REF    = magRef ;
   FILTER[NF].FILTSYSTEM_INDX  = FILTSYSTEM->INDX ;
 
@@ -1155,12 +1155,12 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   
   // 4/25/2009 - load PRIMARYSED struct as well.
   PRIMARYSED[INDX].MAGSYSTEM_OFFSET = OFFSET ;
-  sprintf(PRIMARYSED[INDX].MAGSYSTEM_NAME,"%s", NAME ) ;  
+  sprintf(PRIMARYSED[INDX].MAGSYSTEM_NAME, "%.40s", NAME ) ;  
   sprintf(PRIMARYSED[INDX].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX] ) ;
 
   PRIMARYSED[INDX_INPUT].MAGSYSTEM_OFFSET = OFFSET_INPUT ;
-  sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME,"%s", NAME_INPUT ) ;
+  sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME,"%.40s", NAME_INPUT ) ;
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX_INPUT] ) ;
 
@@ -4670,7 +4670,7 @@ void wr_fits_HEAD(fitsfile *fp) {
   // July 2023: write cwd as well
   istat = 0 ;
   sprintf(KEYNAME,"CWD");
-  getcwd(KEYVAL,MXPATHLEN);
+  char *BUF = getcwd(KEYVAL,MXPATHLEN);  (void)BUF;
   //  sprintf(KEYVAL,"%s", INPUTS.inFile_input);
   fits_update_key(fp, TSTRING, KEYNAME, KEYVAL,
 		  "current work dir", &istat ); 

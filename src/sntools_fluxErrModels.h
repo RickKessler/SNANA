@@ -33,7 +33,7 @@ char FILENAME_FLUXERRMAP[MXPATHLEN];
 int  NMAP_FLUXERRMODEL ;
 struct {
   char NAME[40];  
-  char FIELDLIST_ORIG[40]; // field list of pointer to DEFINE_FIELDGROUP
+  char FIELDLIST_ORIG[80]; // field list of pointer to DEFINE_FIELDGROUP
   char FIELDLIST[80];
   char BANDLIST[MXFILTINDX];
   int  NVAR ; // NDIM + NFUN

@@ -408,7 +408,7 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
   if ( strcmp(key,"FIELD:")==0 ) {           // Nov 30 2022
     imap = INPUTS_SEARCHEFF.NMAP_DETECT-1 ; 
     readchar(fp,ctmp);
-    sprintf(SEARCHEFF_DETECT[imap].FIELDLIST, "%s", ctmp);
+    sprintf(SEARCHEFF_DETECT[imap].FIELDLIST, "%.60s", ctmp);
     return(1);    
   }
 

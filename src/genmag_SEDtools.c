@@ -236,7 +236,6 @@ int init_filter_SEDMODEL(
   // Nov 10 2020: allow modifying already existing filter.
 
   int ilam, ifilt ;
-  char fnam[] = "init_filter_SEDMODEL" ;
 
   double
     lam, lamstep, transSN, transREF, transSN_MAX, transREF_MAX
@@ -247,9 +246,9 @@ int init_filter_SEDMODEL(
   // to debug filter-trans
   int LDMP_FILT = 0 ; 
   FILE *fp_filt;
-  char filtFile[80];
-  char cfilt1[2];
+  char filtFile[80], cfilt1[2];
 
+  char fnam[] = "init_filter_SEDMODEL" ;  (void)fnam;
   // ----- BEGIN -----
 
   /*  
@@ -271,7 +270,6 @@ int init_filter_SEDMODEL(
     sprintf(c1err, "NFILT_SEDMODEL = %d exceeds bound.", NFILT_SEDMODEL);
     errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
   }
-
 
   if ( NLAM >= MXBIN_LAMFILT_SEDMODEL ) {    
     sprintf(c1err,"NLAM(%s) = %d  exceeds array bound of %d", 
@@ -325,13 +323,13 @@ int init_filter_SEDMODEL(
   else
     {   FILTER_SEDMODEL[ifilt].mean  = 0.0 ; }
 
+
   FILTER_SEDMODEL[ifilt].lamstep   =   lamstep ;
   FILTER_SEDMODEL[ifilt].NLAM      =   NLAM ;
   FILTER_SEDMODEL[ifilt].lammin    =   FILTER_SEDMODEL[ifilt].lam[0];
   FILTER_SEDMODEL[ifilt].lammax    =   FILTER_SEDMODEL[ifilt].lam[NLAM-1];
   sprintf(FILTER_SEDMODEL[ifilt].name,   "%s", filter_name);
   sprintf(FILTER_SEDMODEL[ifilt].survey, "%s", survey_name);
-
   FILTER_SEDMODEL[ifilt].transSN_MAX   = transSN_MAX ;
   FILTER_SEDMODEL[ifilt].transREF_MAX  = transREF_MAX ;
 
@@ -349,6 +347,7 @@ int init_filter_SEDMODEL(
   else
     { FILTER_SEDMODEL[ifilt].ZP = 0.0 ; }
 
+
   // dump filter response to text file (DEBUG only)
   if ( LDMP_FILT == 1 ) {
     sprintf(filtFile, "genmag_SEDMODEL_%s-trans.dat", 
@@ -365,6 +364,7 @@ int init_filter_SEDMODEL(
     fclose(fp_filt);
     
   }  // end of LDMP_FILT 
+
 
 
   return 0;

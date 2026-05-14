@@ -86,7 +86,7 @@ struct FILTER_SEDMODEL {
   double  lammin, lammax ;   // min/max wavelength
   double  mean;              // mean wavelength of filter
   double  ZP;                // reference zeropoint
-  char    name[40];          // full name of filter
+  char    name[MXCHAR_FILTNAME];     // full name of filter
   char    survey[40];        // name of survey (Nov 2020)
 } FILTER_SEDMODEL[MXFILT_SEDMODEL] ;
 

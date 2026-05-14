@@ -377,7 +377,7 @@ HELP_CONFIG_BBC = f"""
 
 
   # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  # Option to override SIMFILE_BIASCOR and/or SIMFILE_CCPRIOR for specific
+  # Option to override simfile_biascor and/or simfile_ccprior for specific
   # FITOPT-systematics is keyed by the systematic label (see knn and dnf
   # examples below), not the  generic FITOPTnnn string. The FITOPTnnn string 
   # can change as systematics are added or re-shuffled, but the label should be robust.
@@ -386,11 +386,11 @@ HELP_CONFIG_BBC = f"""
   # Note that this option does NOT add more tasks like MUOPT, but instead
   # alters the biasCor/CCprior for already specified tasks.
 
-  SIMFILE_BIASCOR: 
+  REPLACE_SIMFILE_BIASCOR: 
     knn:  <name of biasCor fitres table>
     dnf:  <name of biasCor fitres table>
     etc ...
-  SIMFILE_CCPRIOR:
+  REPLACE_SIMFILE_CCPRIOR:
     knn:  <name of CCprior fitres table>
     dnf:  <name of CCprior fitres table>
     etc ...

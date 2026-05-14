@@ -493,7 +493,7 @@ void open_SEDBINARY(char *binFile, bool force_create,
     printf("\n Read SED-BINARY file for quicker init: \n");
     printf("  %s\n", binFile );
     IVERSION_SIMSED_BINARY = -9 ;
-    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int *),  1, *fpbin);
+    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int),  1, *fpbin);
     printf("\t (read SED-binary format version=%d)\n", 
 	   IVERSION_SIMSED_BINARY);
     printf("\n");

@@ -408,7 +408,7 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
   if ( strcmp(key,"FIELD:")==0 ) {           // Nov 30 2022
     imap = INPUTS_SEARCHEFF.NMAP_DETECT-1 ; 
     readchar(fp,ctmp);
-    sprintf(SEARCHEFF_DETECT[imap].FIELDLIST, "%.60s", ctmp);
+    sprintf(SEARCHEFF_DETECT[imap].FIELDLIST, "%.*s", MXCHAR_FIELDLIST-2, ctmp);
     return(1);    
   }
 
@@ -1330,7 +1330,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
       SEARCHEFF_INFO->MAP_LIST[NMAP].REQUIRE  = REQUIRE_MAP;      
       SEARCHEFF_INFO->MAP_LIST[NMAP].PEAKMJD_RANGE[0] = PEAKMJD_RANGE[0];
       SEARCHEFF_INFO->MAP_LIST[NMAP].PEAKMJD_RANGE[1] = PEAKMJD_RANGE[1];
-      sprintf(SEARCHEFF_INFO->MAP_LIST[NMAP].FIELDLIST,"%s", FIELDLIST );
+      sprintf(SEARCHEFF_INFO->MAP_LIST[NMAP].FIELDLIST,"%.*s", MXCHAR_FIELDLIST-2, FIELDLIST );
 
       for ( ivar=0; ivar < NVAR; ivar++ ) {
 	VARNAME = SEARCHEFF_INFO->MAP_LIST[NMAP].VARNAMES[ivar] ;

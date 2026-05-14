@@ -5470,7 +5470,7 @@ int parse_input_SPECTRUM(char **WORDS, int keySource) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTSNFRAC );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_PRESCALE",  WORDS[0],keySource) ) {
-    char FIELDLIST[60];
+    char FIELDLIST[MXCHAR_FIELDLIST];
     STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
     N++;  sscanf(WORDS[N], "%s", FIELDLIST);
     parse_string_prescales(FIELDLIST, DICT);
@@ -5608,7 +5608,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   if ( CHECK_FIELD ) {
     sprintf(string0, "%s", WORDS[0]);
 
-    char string_field[80], *sl ;
+    char string_field[MXCHAR_FIELDLIST], *sl ;
     char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
     int indx_slash;
     double ps ;
@@ -5625,8 +5625,10 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 	INPUTS.TAKE_SPECTRUM[NTAKE].WGT = 1.0/ps;	
 	FIELD[indx_slash] = 0 ;
       }
-      //      printf(" xxx %s: string0=%s  FIELD=%s  WGT=%f \n", 
-      //     fnam, string0, FIELD, WGT);
+      /*
+      printf(" xxx %s: string0=%s  FIELD=%s  WGT=%f \n", 
+	     fnam, string0, FIELD, INPUTS.TAKE_SPECTRUM[NTAKE].WGT);
+      */
     }
   } // end CHECK_FIELD
 
@@ -5884,7 +5886,7 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   int   NTAKE       = NPEREVT_TAKE_SPECTRUM;
   int   OPT_TEXPOSE = INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE;
   double WGT        = INPUTS.TAKE_SPECTRUM[NTAKE].WGT ;
-  char  *FIELD      = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD;
+  char  FIELD[MXCHAR_FIELDNAME]; 
   int   iKEY        = NKEY_TAKE_SPECTRUM ;
   float MJD, MJD_STEP, MJD_MIN, MJD_MAX ;
 
@@ -5892,12 +5894,16 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   GENPOLY_DEF GENPOLY_TEXPOSE ;
   GENPOLY_DEF GENPOLY_SNR     ;
 
+  int LDMP = 0 ;
   char fnam[] = "expand_TAKE_SPECTRUM_MJD";
 
   // ------- BEGIN -------
 
+  sprintf(FIELD, "%s", INPUTS.TAKE_SPECTRUM[NTAKE].FIELD );
+
   MJD_MIN  = MJD_RANGE[0];  MJD_MAX=MJD_RANGE[1];
   MJD_STEP = MJD_RANGE[2];
+
 
   if ( OPT_TEXPOSE != 1 ) {
     sprintf(c1err,"Invalid OPT_TEXPOSE = %d", OPT_TEXPOSE);	    
@@ -5911,20 +5917,24 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   copy_GENPOLY(&INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE, &GENPOLY_TEXPOSE);
   copy_GENPOLY(&INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR,     &GENPOLY_SNR);
 
-  //  NTAKE--; // subtract 1 since it will be added again here
+  if ( LDMP ) {
+    printf(" xxx %s: NTAKE=%d  WGT=%.3f  FIELD=%s  MJD[MIN,MAX.STEP] = %.0f, %.0f, %.0f\n",
+	   fnam, NTAKE, WGT, FIELD, MJD_MIN, MJD_MAX, MJD_STEP); fflush(stdout);
+  }
+ 
   for (MJD=MJD_MIN; MJD <= MJD_MAX; MJD += MJD_STEP ) {
 
     if ( NTAKE < MXPEREVT_TAKE_SPECTRUM ) {
-      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE    = OPT_TEXPOSE ;
-      INPUTS.TAKE_SPECTRUM[NTAKE].WGT            = WGT ;
-      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0] = MJD;
-      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1] = MJD;
-      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_MJD ;
-      INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = iKEY;
 
+      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE        = OPT_TEXPOSE ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].WGT                = WGT ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0]     = MJD;
+      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1]     = MJD;
+      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH    = GENFRAME_MJD ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = iKEY;
       sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].FIELD, "%s", FIELD);
       sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"MJD"); 
-
+      
       copy_GENPOLY(&GENPOLY_WARP, 
 		   &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP );
       copy_GENPOLY(&GENPOLY_TEXPOSE, 
@@ -10534,7 +10544,7 @@ bool DO_GENSPEC(int imjd) {
   int  OPT_DICT = 1 ;   // 0=exact match, 1=partial string match
   int  ifield ;
   double preScale, r1 ;
-  int LTRACE = (SIMLIB_HEADER.LIBID == -17) ;
+  int LTRACE = 0 ; // (SIMLIB_HEADER.LIBID >= 0) ;  // .xyz
   char *field_tmp ; 
   char fnam[] = "DO_GENSPEC" ;
 
@@ -10550,7 +10560,9 @@ bool DO_GENSPEC(int imjd) {
 
   // if there are no fields, skip FIELD-logic
 
-  if ( LTRACE) { printf(" xxx %s: NFIELD_OVP=%d \n", fnam, NFIELD_OVP); fflush(stdout); }
+  if ( LTRACE) { printf(" xxx %s: NFIELD_OVP=%d  CHECK_PS=%d  Trest=%.1f\n", 
+			fnam, NFIELD_OVP, CHECK_PS, GENSPEC.TREST_LIST[imjd]); fflush(stdout); }
+
   if ( NFIELD_OVP == 0 )   { return(true); }
 
   // - - - - - - -
@@ -29120,7 +29132,6 @@ void genmodel(
 
       ptr_genmag[iep] = GENLC.FIXMAG ;
       ptr_generr[iep] = 0.0 ;
-      // .xyz
     }
 
     GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero

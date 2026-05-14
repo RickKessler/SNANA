@@ -593,7 +593,7 @@ double  M0_DEFAULT;
 #define NCOSPAR 4  // size of cosPar array (OL,Ok,w0,wa)
 
 #define MXNUM_SAMPLE  25  // max number of SURVEY/FIELD samples (max IDSAMPLE)
-#define MXCHAR_SAMPLE 100 // max string length of sample name
+#define MXCHAR_SAMPLE 300 // max string length of sample name
 #define USERFLAG_SURVEYGROUP_SAMPLE  1  // bookkeeping for biasCor IDSAMPLE
 #define USERFLAG_FIELDGROUP_SAMPLE   2
 #define AUTOFLAG_SURVEYGROUP_SAMPLE  3  // survey automatically added

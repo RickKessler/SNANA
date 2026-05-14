@@ -288,7 +288,7 @@ int rd_input(void) {
     ,kcorname[40]    // local name for filter 
     ,magcheck_name[40]
     ,MAGSYSTEM_TMP[60]
-    ,FILTPATH_LIST[MXFILTDEF+1][MXCHAR_FILENAME]
+    ,FILTPATH_LIST[MXFILTDEF+1][MXPATHLEN]
     ,TXT_MAGREF[60]
     ;   
 
@@ -537,7 +537,7 @@ int rd_input(void) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, "Check kcor-input file" ); 
       }
     }
-
+ 
 
     if ( strcmp(c_get,"MAGSYSTEM:")==0 )  {
       readchar ( fp_input,  MAGSYSTEM_TMP );
@@ -892,7 +892,7 @@ void  check_valid_survey_names(char *SURVEYS) {
 
   // ------------- BEGIN ---------------
 
-  parse_commaSepList("SURVEYS", SURVEYS, 10, MXCHAR_FILENAME,
+  parse_commaSepList("SURVEYS", SURVEYS, 10, MXPATHLEN,
 		     &n_survey, &survey_list );
 
   for(i=0; i < n_survey; i++ ) {
@@ -1021,7 +1021,7 @@ void parse_MAGSYSTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
   //    MAGSYSTEM->DO_TRANSFORM = 1 (true)
 
   int i, len, jdash;
-  char TMP_ARG[60];
+  char TMP_ARG[MXCHAR_MAGSYSTEM_NAME];
   char fnam[] = "parse_MAGSYSTEM" ;  (void)fnam;
 
   // ----------- BEGIN -----------
@@ -1043,7 +1043,6 @@ void parse_MAGSYSTEM(char *MAGSYSTEM_ARG, MAGSYSTEM_DEF *MAGSYSTEM) {
     sprintf(TMP_ARG,"%s", MAGSYSTEM_ARG);
 
     snprintf(MAGSYSTEM->NAME_INPUT, jdash+1, "%s", TMP_ARG);
-    // xxx merde !!  strncpy(MAGSYSTEM->NAME_INPUT,  TMP_ARG, jdash);
     sprintf(MAGSYSTEM->NAME, "%s", &MAGSYSTEM_ARG[jdash+2] );
 
     /*
@@ -1140,7 +1139,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 	 fnam, NF, INDX_INPUT, INDX );
   */
 
-  sprintf(FILTER[NF].MAGSYSTEM_NAME,"%.40s", NAME ) ;
+  sprintf(FILTER[NF].MAGSYSTEM_NAME,"%.*s", MXCHAR_MAGSYSTEM_NAME-2, NAME ) ;
   FILTER[NF].MAGFILTER_REF    = magRef ;
   FILTER[NF].FILTSYSTEM_INDX  = FILTSYSTEM->INDX ;
 
@@ -1155,12 +1154,12 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   
   // 4/25/2009 - load PRIMARYSED struct as well.
   PRIMARYSED[INDX].MAGSYSTEM_OFFSET = OFFSET ;
-  sprintf(PRIMARYSED[INDX].MAGSYSTEM_NAME, "%.40s", NAME ) ;  
+  sprintf(PRIMARYSED[INDX].MAGSYSTEM_NAME, "%.*s", MXCHAR_MAGSYSTEM_NAME-2, NAME ) ;  
   sprintf(PRIMARYSED[INDX].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX] ) ;
 
   PRIMARYSED[INDX_INPUT].MAGSYSTEM_OFFSET = OFFSET_INPUT ;
-  sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME,"%.40s", NAME_INPUT ) ;
+  sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_NAME, "%.*s", MXCHAR_MAGSYSTEM_NAME, NAME_INPUT ) ;
   sprintf(PRIMARYSED[INDX_INPUT].MAGSYSTEM_SEDFILE,"%s", 
 	  INPUTS.inFile_PRIMARY[INDX_INPUT] ) ;
 
@@ -2249,7 +2248,7 @@ int rd_filter ( int ifilt ) {
    int NBIN, IFLAG_SYN, ilam, gzipFlag ;
      
    char  *ptr_name, *ptr_file, txtFilter[60] ;
-   char  FILTFILE_FULLNAME[MXCHAR_FILENAME] ;
+   char  FILTFILE_FULLNAME[MXPATHLEN] ;
    char  fnam[] = "rd_filter"    ; (void)fnam;
 
   /* -------------------- BEGIN ------------------ */
@@ -2929,7 +2928,7 @@ int rd_primary ( int INDX, char *subdir ) {
    FILE  *fp;
    double lambda, flam, fnu, fcount, LAMMIN_READ, LAMMAX_READ  ;
    int  ilam, NBIN, ibin, gzipFlag;
-   char SNPATH[2*MXCHAR_FILENAME], fullName[MXCHAR_FILENAME];
+   char SNPATH[2*MXPATHLEN], fullName[MXPATHLEN];
    char *refName, *sedFile, line[200];
    char fnam[] = "rd_primary" ; (void)fnam;
 
@@ -5891,7 +5890,7 @@ void wrsnmag_text(void) {
 
   int ifilt,  ifiltmin, ifiltmax, iep, ipath, NPATH, IFILTDEF_PATH[20][2] ;
   double snmag,epoch;
-  char  dumpFile[MXCHAR_FILENAME], path[40], last_path[40] ;
+  char  dumpFile[MXPATHLEN], path[40], last_path[40] ;
   FILE *fp;  
   char fnam[] = "wrsnmag_text" ; (void)fnam;
 
@@ -5924,7 +5923,7 @@ void wrsnmag_text(void) {
 
     if ( (fp = fopen(dumpFile, "wt"))==NULL ) { 
       sprintf ( c1err, "Cannot open SNMAG dump-file :" );
-      sprintf ( c2err," '%s' ", dumpFile);
+      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR-10, dumpFile);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 

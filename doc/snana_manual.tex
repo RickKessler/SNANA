@@ -8188,33 +8188,36 @@ light curve fit-parameters:
    {\tt \&SNLCINP} namelist parameter \\ {\tt NFIT\_ITERATION} 
    specifies the number of iterations (2 or 3  recommended).
    You must always use this option, even if you use the 
-   options below. For very high-SNR SNe the first fit-iteration
-   can simetimes fall into a false minimum, leading to pathological
-   fits on successive iterations. This problem can
-   be alleviated with {\tt \&FITINP} namelist variable
-   {\tt FUDGEALL\_ITER1\_MAXFRAC} (set to few percent);
+   options below. For very high-SNR events the first fit-iteration
+   can fall into a false minimum, leading to pathological
+   fits on successive iterations. This problem is
+   alleviated with {\tt \&FITINP} namelist variable
+   \verb|FUDGEALL_ITER1_MAXFRAC| (set to few percent);
    on the first fit-iteration this option adds
    an extra error equal to its value $\times$ the peak flux,
    thus reducing the chance of finding a false minumum.
-   Consider using {\tt FUDGEALL\_ITER1\_MAXFRAC} for final fits,
-   or at least as a crosscheck, 
-   along with {\tt NFIT\_ITERATION=3}.   
 %
  \item {\bf MARGINALIZATION} using multi-dimensional integration
-    in \snana\ function {\tt MARG\_DRIVER}.
-   {\tt \&FITINP} namelist parameter {\tt NGRID\_PDF} controls
-   the number of grid-points per fit-parameter (11 is recommended).
-   You must run the minimizer first ({\tt NFIT\_ITERATION=2})
+   over the P.D.F; see {\tt snana.F90} subroutine \verb|MARG_DRIVER|.
+   {\tt \&FITINP} namelist parameters:
+   \begin{enumerate}[noitemsep]
+     \item \verb|NGRID_PDF|:  (required) number of integration bins per fit-parameter (11 recommended).
+     \item \verb|NSIGMA_PDF|: (required) integration range is $\pm$\verb|NSIGMA_PDF| for each parameter.
+     \item \verb|VARLIST_PDF|: (optional) subset of variables to reduce CPU time 
+            (e.g., {\tt 'c,x0,zPHOT'}).
+     \item \verb|PRIOR_SHAPE_RANGE|: (optional) flat prior on shape/stretch parameter
+               (e.g., x1) with Gaussian roll-off at edges ($\sigma=0.1$)
+               $\to$ sets PDF=0 outside defined range of stretch.
+     \item \verb|PRIOR_COLOR_RANGE|: (optional) flat prior on color par
+               (Gauss roll-off with $\sigma=0.01$).
+   \end{enumerate}
+   The minimizer must run first (\verb|NFIT_ITERATION=2 or 3|)
    to get starting values and integration ranges.
    After marginalizing, the following crosschecks are performed:
    probability at the  boundaries and number of bins with zero 
    probability; if either is too large, the integration ranges
    are adjusted and the marginalization repeats.
 %
- \item {\bf Monte Carlo Markov Chain (MCMC)}: 
-       See \&{\tt MCMCINP} namelist parameters.
-       WARNING: this option has not been used for years, so it
-        may be broken.
 \end{enumerate} 
 
 

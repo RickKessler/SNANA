@@ -8891,52 +8891,55 @@ attempted; this occurs if the snana cuts fail
    \label{subsec:photoz}
 % ------------------------------------
 
+\newcommand{\lcfitz}{{\tt LCFITz}}
+\newcommand{\ZphotHost}{z_{\rm phot,Host}}
+
 Here we describe light curve fits that determine the
-SN~Ia redshift ($z$) from photometry, called ``SN-photoZ'' fits.
-There are two fundamental methods to perform photoZ fits.
-The first method, called a ``cosmology-constrained photoZ fit,'' 
+SN~Ia redshift ($z$) from photometry, called ``\lcfitz'' fits.
+There are two fundamental methods to perform \lcfitz.
+The first method, called a ``cosmology-constrained \lcfitz,'' 
 is designed to identify SNe~Ia that do not have
 a \spec\ redshift: uses include SN rates and targeting
 host-galaxy redshifts for unconfirmed SN~Ia.
-For \mlcs\ photoZ fits, there are four floated
-parameters: $z$, $t_0$, $\Delta$, and $A_V$.
-For \SALTII\ photoZ fits, the four floated parameters are
-$z$, $t_0$, $x_1$, and $c$.
+\lcfitz\ for \mlcs\ has 4 floated parameters: 
+\{$\Zphot,t_0,\Delta,A_V$\}.
+\lcfitz\ for \SALTII\ also has 4 floated parameters:
+\{$\Zphot,t_0,x_1,c$\}.
 %
-The distance modulus is constrained (calculated)
-assuming a particular cosmology: $\mu = \mu(z,\OM,\OL,w_0,w_a)$
-where $z$ is floated in the fit, and $\OM,\OL,w_0,w_a$ are
-fixed by the user.  The cosmology can be specified
+The distance variable ($\mu$ or $x_0$) is constrained (calculated)
+assuming a particular cosmology: $\mu = \mu(\Zphot,\OM,\OL,w_0,w_a)$
+where $\Zphot$ is floated in the fit, and $\OM,\OL,w_0,w_a$ are
+set by the user.  The cosmology can be specified
 with \&SNLCINP namelist parameters
 {\tt OMAT\_REF}, {\tt OLAM\_REF}, {\tt W0\_REF}, {\tt WA\_REF}.
-For \SALTII\ photoZ fits, the distance modulus is converted
+For \SALTII\ \lcfitz, the distance modulus is converted
 into the $x_0$ parameter, and therefore 
 {\tt SALT2alpha} \& {\tt SALT2beta} must be specified
 as \&FITINP namelist parameters.
 
 
-The second method, called a ``unconstrained photoZ'' fit,
-involves floating five parameters:
-$\mu$, $z$, $t_0$, $\Delta$, and $A_V$ for \mlcs, and
-$x_0$, $z$, $t_0$, $x_1$, and $c$ for \SALTII.
+The second method, ``unconstrained \lcfitz,''
+floats 5 parameters:
+\{$\mu,\Zphot,t_0,\Delta,A_V$\} for \mlcs, and
+\{$x_0,\Zphot,t_0,x_1,c$\} for \SALTII.
 This method is designed to use large photometric samples
 to measure distance moduli that can be used to measure
 cosmological parameters. 
 
 
 In addition to the two main methods above, there are
-variations that involve using the host-galaxy photoZ
-(host-photoZ) as a prior to help constrain the redshift.
+variations that involve using the host-galaxy photo-$z$
+($\ZphotHost$) as a prior to help constrain the redshift.
 A distance-modulus prior can be applied to the second
-method (5-parameter fit); this is essentially a
-constrained-photoZ fit, but the photoZ errors will include 
-uncertainties from the cosmological parameters.
-Needless to say, {\it never} run a cosmology fit
-on lightcurve-fit ouput where a distance-modulus prior is used with zero uncertainty.
+method (5-parameter \lcfitz); this is essentially a
+constrained-\lcfitz, but the $\Zphot$ error includes uncertainty 
+from the cosmological parameters.
+Needless to say, {\it never} run a cosmology fit on lightcurve-fit ouputs 
+for which a distance-modulus prior is used with zero uncertainty.
 
 There are five {\tt \&FITINP} namelist parameters that
-control photoZ fits. The default values are set so
-that photoZ fits are turned off,
+control \lcfitz. The default values are set so
+that \lcfitz\ is turned off,
 %
 \begin{Verbatim}[frame=single]
    DOFIT_PHOTOZ     = F
@@ -8946,25 +8949,23 @@ that photoZ fits are turned off,
    PRIOR_MUERRSCALE = 100.0  ! scale error on distance modulus prior
 \end{Verbatim}
 %
-Setting {\tt DOFIT\_PHOTOZ=T} and {\tt INISTP\_DLMAG=0.0}
-results in a 4-parameter cosmology-constrained-photoZ fit.
-Since {\tt PRIOR\_ZERRSCALE=100.0} by default, the host-photoZ
-errors are multiplied by 100 and therefore have no impact on the fits.
-Setting {\tt PRIOR\_ZERRSCALE = 1.0} results in using the 
-host-photoZ prior described by a Gaussian 
-distribution\footnote{Depending on user interest, 
-non-Gaussian tails may be added later.}.
-If the host photo-$z$ is described by a zPDF unpacked from quantiles,
-{\tt PRIOR\_ZERRSCALE<100} is simply a flag to use the host zPDF,
+Setting \verb|DOFIT_PHOTOZ=T| and \verb|INISTP_DLMAG=0.0|
+results in a 4-parameter cosmology-constrained \lcfitz.
+Since \verb|PRIOR_ZERRSCALE=100.0| by default, the $\ZphotHost$
+uncertainty is multiplied by 100 and therefore has no impact on \lcfitz.
+Setting \verb|PRIOR_ZERRSCALE=1.0| results in using the $\ZphotHost$
+prior described by a Gaussian distribution.
+If $\ZphotHost$ is described by a zPDF unpacked from quantiles,
+\verb|PRIOR_ZERRSCALE<100| is simply a flag to use the host zPDF,
 but the value is not applied to the zPDF.
 
-To switch from a cosmology-constrained-photoZ fit to a 5-parameter
-unconstrained-photoZ fit, set {\tt INISTP\_DLMAG} to any
+To switch from a cosmology-constrained \lcfitz\ to a 5-parameter
+unconstrained \lcfitz, set \verb|INISTP_DLMAG| to any
 non-zero value such as 0.1. The use (or non-use) of the
-host-photoZ prior is controlled by the value of 
-{\tt PRIOR\_ZERRSCALE}. {\tt PRIOR\_MUERRSCALE} controls the
+$\ZphotHost$ prior is controlled by the value of 
+\verb|PRIOR_ZERRSCALE|. \verb|PRIOR_MUERRSCALE| controls the
 cosmology prior as described in  \S~\ref{sss:zphot_cosmology_prior}.
-The parameter {\tt OPT\_PHOTOZ} controls the source of
+The parameter \verb|OPT_PHOTOZ| controls the source of
 the redshift prior as follows:
 %
 \begin{verbatim}
@@ -8984,8 +8985,7 @@ even if spec-$z$ are available. For quantiles, the mean and stddev are used as G
 as a Gaussian prior, and is useful for samples with a mix of spec-$z$ and 
 photo-$z$ redshifts.
 %
-{\tt OPT\_PHOTOZ=4} uses zPDF from quantiles, and ignores 
-subset with accurate spec-$z$.
+{\tt OPT\_PHOTOZ=4} uses zPDF from quantiles, and ignores accurate spec-$z$.
 {\tt OPT\_PHOTOZ=6} (2+4) uses accurate spec-$z$ Gaussian prior
 if available; else it uses quantiles.
 
@@ -9007,16 +9007,16 @@ To get going quickly, some useful examples of setting
 the namelist options are given below in Fig.~\ref{fig:photoZ}.
 
 \bigskip
-A few other photoZ-related issues are:
+A few other \lcfitz\  issues are:
 \begin{itemize}
-  \item	To test the photoZ methods in simulated SN~Ia samples,
-	the simulation includes an option to include host-galaxy 
-	photoZs based on an externally-supplied library 
-	(\S~\ref{subsec:hostlib}). To test SN-only photoZ
-	fits (without host), increase {\tt GENSIGMA\_REDSHIFT}
+  \item	To test \lcfitz\ methods in simulated SN~Ia samples,
+	the simulation includes an option to include $\ZphotHost$
+	from on an externally-supplied library 
+	(\S~\ref{subsec:hostlib}). To test SN-only \lcfitz\
+	(without host), increase {\tt GENSIGMA\_REDSHIFT}
 	so that the initial redshift estimate is poor.
 %
-\item	To test the photoZ sensitivity to the initial redshift estimate,
+\item	To test \lcfitz\ sensitivity to the initial redshift estimate,
         see \S~\ref{subsec:zshift}.
 \end{itemize}
 
@@ -9024,13 +9024,13 @@ A few other photoZ-related issues are:
 \begin{figure}[hb] 
 \begin{center}
 \caption{
-  Examples of setting photoZ options within the
+  Examples of setting \lcfitz\ options within the
   {\tt \&FITINP} namelist.
  }
 \label{fig:photoZ}
 %
 \begin{Verbatim}[frame=single]
- ! constrained photoZ fit, ignore host-galaxy photoZ:
+ ! constrained LCFITz, ignore host-galaxy photo-z:
    DOFIT_PHOTOZ    = T
    PRIOR_ZERRSCALE = 100.0  ! inflate error on photoZ prior
    INISTP_DLMAG    = 0.0    ! fix MU = MU(zphot,cosmology)
@@ -9040,29 +9040,29 @@ A few other photoZ-related issues are:
    PRIOR_ZERRSCALE = 100.0  ! inflate error on photoZ prior
    INISTP_DLMAG    = 0.0    ! fix MU = MU(zphot,cosmology)
 
- ! constrained photoZ fit using host-galaxy photoZ:
+ ! constrained LCFITz fit using host-galaxy photo-z:
    DOFIT_PHOTOZ    = T
    PRIOR_ZERRSCALE = 1.0
    INISTP_DLMAG    = 0.0    ! fix MU = MU(zphot,cosmology)
 
- ! constrained photoZ fit, host-galaxy photoZ errors inflated by 1.3
+ ! constrained LCFITz, host-galaxy photo-z errors inflated by 1.3
    DOFIT_PHOTOZ    = T
    PRIOR_ZERRSCALE = 1.3
    INISTP_DLMAG    = 0.0    ! fix MU = MU(zphot,cosmology)
 
- ! cosmology photoZ fit, ignore host-galaxy photoZ:
+ ! cosmology LCFITz, ignore host-galaxy photo-z:
    DOFIT_PHOTOZ    = T
-   PRIOR_ZERRSCALE = 100.0  ! inflate error on photoZ prior
+   PRIOR_ZERRSCALE = 100.0  ! inflate error on photo-z prior
    INISTP_DLMAG    = 0.1    ! float DLMAG
 
- ! cosmology photoZ fit using host-galaxy photoZ:
+ ! cosmology LCFITz using host-galaxy photo-z:
    DOFIT_PHOTOZ    = T
    PRIOR_ZERRSCALE = 1.0   
    INISTP_DLMAG    = 0.1    ! float DLMAG
 
- ! cosmology photoZ fit with priors on both distance & host-galaxy photoZ:
+ ! cosmology LCFITz with priors on both distance & host-galaxy photo-z:
    DOFIT_PHOTOZ     = T
-   PRIOR_ZERRSCALE  = 1.0   ! use host-galaxy photoZ errors   
+   PRIOR_ZERRSCALE  = 1.0   ! use host-galaxy photo-z errors   
    PRIOR_MUERRSCALE = 3.0   ! use x3 mu-error calculated from dw & dOM
    INISTP_DLMAG     = 0.1   ! float DLMAG
 
@@ -9078,7 +9078,7 @@ A few other photoZ-related issues are:
 
 % ---------------------------------------
    \clearpage
-   \subsubsection{Redshift-Dependent Selection in PhotoZ Fits}
+   \subsubsection{Redshift-Dependent Selection in \lcfitz\ }
    \label{sss:dropfilter_photoz}
 % --------------------------------------
 
@@ -9089,7 +9089,7 @@ the valid $\lamrest$-range of the light curve model,
 and for which $\Trest = \Tobs/(1+z)$ are valid.
 In addition, requirements on quantities such as
 the min \& max $\Trest$ are ambiguous before the 
-photoZ fit has finished, yet it is useful
+\lcfitz\ has finished, yet it is useful
 to make such cuts before fitting to prevent fitting
 pathological light curves and to reduce processing time. 
 Here we discuss how to select filters and how to make cuts 
@@ -9099,46 +9099,45 @@ on $\Trest$-dependent quantities.
 For regular cosmology fits using \spec\ redshifts,
 a list of usable filters \& the $\Trest$-range 
 is made before the fit starts. 
-For a photoZ fit, however, it is not clear which filters \& epochs
+For \lcfitz, however, it is not clear which filters \& epochs
 are valid until the fit has finished. 
-For example, consider a $gri$ photoZ fit using \SALTII: 
-when $\Zphot < 0.072$, $i$-band maps to rest-frame wavelengths 
+For example, consider \lcfitz\ using  $gri$ bands and \SALTII model: 
+if $\Zphot < 0.072$, $i$-band maps to rest-frame wavelengths 
 greater than the 7000~\AA\ cutoff in \SALTII. Including $i$-band
-in the fit results in using an unphysical region of the model,
+in \lcfitz\ results in using an unphysical region of the model,
 while dropping $i$-band measurements results in a discontinuous
 drop in the $\chi^2$. In the latter case, the minimizer is trapped
 in this low-$\chi^2$ well, and quite often the minimum occurs
 at the drop-out boundary $\Zphot = 0.072$.
-Another example is in DES \& LSST,
-where $g$-band maps below 3000~\AA\
+Another example is in DES \& LSST, where $g$-band maps below 3000~\AA\
 at redshifts above about 0.5.
 
 
-To make initial $\Trest$-dependent cuts before the photoZ
-fit has started, the cuts are loosened by a factor of
+To make initial $\Trest$-dependent cuts before \lcfitz\
+has started, the cuts are loosened by a factor of
 ``$1+\zmax$'', where $\zmax= {\tt PHOTOZ\_BOUND(2)}$ is
 the maximum allowed redshift (specified in \&{\tt FITINP}).
 The $\Trest$-cuts are therefore loosened to be valid
-for any redshift in the range specified by {\tt PHOTOZ\_BOUND}.
-For example, consider {\tt PHOTOZ\_BOUND = 0,1} and 
+for any redshift in the range specified by \verb|PHOTOZ_BOUND|.
+For example, consider \verb|PHOTOZ_BOUND = 0.1| and 
 and a requirement that the min-$\Trest$ is before $-4$ days;
 the initial cut would be a requirement of an epoch before
-$-2$~days using whatever {\tt REDSHIFT\_FINAL} is in the 
+$-2$~days using whatever \verb|REDSHIFT_FINAL| is in the 
 data file, and the $-4$~day requirement is applied after
 the photoZ fit has finished.
 Similarly, a max-$\Trest$ requirement of 30-60 days is loosened 
-to 15-120 days before the photoZ fit.
+to 15-120 days before \lcfitz\ starts.
 If a filter is dropped after the first fit-iteration (see below), 
 the loose $\Trest$-cuts are re-applied before fitting again.
 
 
 To select observer-frame filters,
 the basic strategy is to perform the first-iteration
-photoZ fit with all filters except for those in 
+\lcfitz\ with all filters except for those in 
 the UV with $\lambda < 4000$~\AA.
 A reasonable analytical extrapolation of the model beyond the 
 defined wavelength range is required. This possibly biased 
-photoZ is then used to determine which filters to exclude
+$\Zphot$ is then used to determine which filters to exclude
 (or add in case of UV filter) in the next iteration. 
 Technically, when one more more filters is excluded, 
 the first-iteration is repeated so that two complete 
@@ -9147,9 +9146,9 @@ The basic assumption in this strategy is that it does
 not matter if there is an unknown bias in choosing 
 the redshift to drop a filter ... as long as the fit,
 with or without the filter in question, is unbiased.
-As an example, consider photoZ fits with $griz$ filters.
+As an example, consider \lcfitz\ with $griz$ filters.
 For $z>0.49$, $g$-band should be excluded. As a safety margin,
-one might exclude $g$-band when the 1st-iteration photoZ value
+one might exclude $g$-band when the 1st-iteration $\Zphot$ value
 is above 0.43, or 0.44, or 0.45 ... the cut does not matter as
 long as we are confident that when $g$-band is used, 
 it is within the valid range of the model.
@@ -9164,14 +9163,14 @@ parameters
    PHOTODZ_REJECT        =  0.05  ! dz cut
    PHOTODZ1Z_REJECT      = -99.   ! dz/(1+z) cut; default is no cut
 \end{Verbatim}
-The default {\tt PHOTOZ\_ITER1\_LAMRANGE} cut is set to exclude
+The default \verb|PHOTOZ_ITER1_LAMRANGE| cut is set to exclude
 any UV filter on the first iteration since this filter is used
 only at the lowest redshifts. Note that the excluded UV filter
-can be added back after the first fit-iteration if the photoZ
-value is low enough.  {\tt PHOTOZ\_BOUND} is a hard {\sc minuit}
+can be added back after the first fit-iteration if the $\Zphot$
+value is low enough.  \verb|PHOTOZ_BOUND| is a hard {\sc minuit}
 bound to prevent crazy excursions during the minimization,
 and is also used to loosen the $\Trest$-related cuts
-before the fit has started.
+before \lcfitz\ has started.
 
 
 The next two cut-parameters define the redshift safety margin,
@@ -9190,17 +9189,17 @@ Since the mean filter wavelength is $\lamg = 4790$~\AA,
 the valid rest-frame redshifts are given by
 $\zmin = \lamg/9500 -1 = -0.50$ and
 $\zmax = \lamg/3200 -1 = +0.50$.
-The $g$-band is excluded if the 1st-iteration  photoZ satisfies
+The $g$-band is excluded if the 1st-iteration satisfies
 $\Zphot > \zmax - {\tt PHOTODZ\_REJECT}$;
 in this example, $\Zphot > 0.45$.
 For $Y$-band ($\lamY = 10095$~\AA), $\zmin = 0.062$
 and this filter is excluded if $\Zphot < \zmin + {\tt PHOTODZ\_REJECT}$,
 or $\Zphot < 0.11$.
-Note that {\tt PHOTODZ\_REJECT} is defined to be positive when adding a 
+Note that \verb|PHOTODZ_REJECT| is defined to be positive when adding a 
 safety margin, regardless of whether a blue or red band is being tested.
-Setting  {\tt PHOTODZ\_REJECT} to a large negative value (i.e, $-99$)
+Setting  \verb|PHOTODZ_REJECT| to a large negative value (i.e, $-99$)
 disables the cut.
-Finally, the {\tt PHOTODZ\_REJECT} cut is applied to all observer-frame
+Finally, the \verb|PHOTODZ_REJECT| cut is applied to all observer-frame
 filters, and often more than one filter (i.e, $ugr$) is rejected.
 
 
@@ -9247,7 +9246,7 @@ and you will see entries in the undefined region,
 but this is OK since the filter was dropped.
 $\Zspec$ values in the defined region indicates that
 this dropped filter could have been safely used,
-but was rejected based on its photoZ value from the
+but was rejected based on its $\Zphot$ value from the
 first fit-iteration. Users will have to decide the
 trade off between including a particular filter more 
 often in the defined region versus using that filter
@@ -9265,18 +9264,18 @@ more often in the undefined region.
 \newcommand{\fluxScale}{S_{F}}
 
 
-For SN-only photo-$z$ fits, \minuit\ is likely to find a
+For SN-only \lcfitz, \minuit\ is likely to find a
 local minimum, rather than the global minimum. It is therefore
 important to provide initial parameter estimates before the
 \minuit\ stage. 
-After using the recommended {\tt OPT\_SETPKMJD=20} (Fmax-clump)
+After using the recommended \verb|OPT_SETPKMJD=20| (Fmax-clump)
 to estimate {\tt PEAKMJD},
 the default opton performs a 3D course grid-search over 
 redshift (0.04 bin-width), color (4 bins) and stretch/shape (3 bins).
-If {\tt NBINt\_COURSE\_PHOTOZ>1} (see below), 
+If \verb|NBINt_COURSE_PHOTOZ>1| (see below), 
 the 3D grid is expanded to a 4D grid search that includes t0={\tt PEAKMJD}.
 The distance parameter is estimated analytically as follows.
-For each grid point (photoZ, color, shape) the model fluxes
+For each grid point ($\Zphot$, color, shape) the model fluxes
 are first evaluated using the distance
 (SALT2-$\bar{x_0}$ or distance modulus $\bar\mu$) 
 calculated from a reference set of cosmological parameters. 
@@ -9323,23 +9322,23 @@ and the default values can be altered with these inputs:
     RANGEz_COURSE_PHOTOZ = x,y ! default = -9,-9 -> computed each event using prior
 \end{verbatim}
 Beware that increasing the number of bins can result in significantly longer fit times, 
-expecially if {\tt NBIN[par]\_COURSE\_PHOTOZ}
+expecially if \verb|NBIN[par]_COURSE_PHOTOZ|
 is increased for multiple parameters;
 it is therefore good practice to run a CPU benchmark before submitting long jobs.
-The ranges for color ({\tt RANGEc\_}) and stretch ({\tt RANGEs\_}) have literal definitions
+The ranges for color (\verb|RANGEc_|) and stretch (\verb|RANGEs_|) have literal definitions
 for SALT2 (c,x1) or BAYESN (AV,theta). 
-{\tt RANGEt\_} is w.r.t. the rough estimate determined by {\tt \&SNLCINP} input 
-{\tt OPT\_SETPKMJD} in \S~\ref{subsec:SETPKMJD}.
-{\tt RANGEz\_} defines a grid over $\Zphot/(1+\Zphot)$ instead of $\Zphot$, in order to 
+\verb|RANGEt_| is w.r.t. the rough estimate determined by {\tt \&SNLCINP} input 
+\verb|OPT_SETPKMJD| in \S~\ref{subsec:SETPKMJD}.
+\verb|RANGEz_| defines a grid over $\Zphot/(1+\Zphot)$ instead of $\Zphot$, in order to 
 search finer $\Zphot$ bins at lower redshifts.
 
 While optimizaing $\Zphot$ performance with different {\tt NBIN} and {\tt RANGE} parameters 
 is encouraged,
 it is best to let the code internally compute {\tt NBINz\_} and {\tt RANGEz\_} for each event
 when a host redshift prior is used.
-If there is no host prior, {\tt NBINz\_COURSE\_PHOTOZ} and {\tt RANGEz\_COURSE\_PHOTOZ}
+If there is no host prior, \verb|NBINz_COURSE_PHOTOZ| and \verb|RANGEz_COURSE_PHOTOZ|
 are the same for each event and a manual override is applicable to all events.
-With a host prior, however, each event has a custom {\tt NBINz\_} and {\tt RANGEz\_}
+With a host prior, however, each event has a custom \verb|NBINz_| and \verb|RANGEz_|
 based on the event-specific host prior value;
 therefore a manual override that is fixed for each event makes no sense and
 should be done only for testing individual events.
@@ -9354,18 +9353,8 @@ visually examine output that looks like
 \end{verbatim}
 
 
-UNDER DEVELOPMENT: The second option (MCMC) processes all 5 parameters simultaneously.
-Initial {\tt STEP} sizes are 1/3 of the range, and every 20 evaluations
-the {\tt STEP} size is multiplied by 0.90. For each evaluation, the
-parameters are shifted by {\tt STEP}$\times(R_{01}-0.5)$,
-where $R_{01}$ is a random number betweeo 0 and 1.
-For each trial $\Zphot$, a random distance shift ({\tt dmu}) is added 
-to the cosmology-constrained distance ($-4$ to $+4$~mag).
-To ensure reproducibility, the same random seed is used to 
-initialize the random sequence for each event.
-
-Cheater option: {\tt OPT\_PHOTOZ = 16} sets initial
-photoZ to spectroscopic redshift and skips the redshift grid-search. 
+Cheater option: \verb|OPT_PHOTOZ=16|sets initial $\Zphot$
+to spectroscopic redshift and skips the redshift grid-search. 
 This option is for debugging only.
 
 
@@ -9570,6 +9559,70 @@ where
       by inflating the computed distance uncertainty $\sigma_{\mu}$.
 \end{itemize}
 
+
+% ------------------------------------
+  \clearpage
+   \subsubsection{Host properties: LOGMASS}
+   \label{sss:zphot_logmass}
+% ------------------------------------
+
+\newcommand{\SEDFIT}{SEDFIT$_{\rm HOST}$}
+\newcommand{\lm}{{\tt LOGMASS}}
+
+The determination of host properties with SED fitting codes, 
+in partular the log of stellar mass (\lm), depends on an accurate redshift. 
+SED fit codes such as {\tt CIGALE} and {\tt FSPS} are generically denoted
+here as \SEDFIT.
+For events with $\ZphotHost$, the \lm\ can be pre-computed 
+in the same way as for events with $\Zspec$. 
+However, the combined SN+HOST \lcfitz\ results in a more accurate $\Zphot$ 
+estimate compared to the host-only $\Zphot$, 
+and obtaining an improved \lm\ estimate requires re-running
+\SEDFIT\ after each \lcfitz.
+
+To more efficiently update \lm\ after each \lcfitz,
+\SEDFIT\ can be used to pre-compute \lm\ on a redshift grid for 
+each event for real data, or for each \hostlib\ entry for simulated data.
+\lcfitz\ performs a post-processing interpolation to obtain \lm, 
+its \SEDFIT\ uncertainty, and the interpolation uncertanty
+from $\sigma_{\Zphot}$.
+
+\bigskip
+The tecnical implementation is to use the \verb|[SIM_]HEADER_OVERRIDE_FILE|
+feature in \S\ref{sss:header_override}. Rather than specifying
+{\tt CID}, the override file should be keyed by {\tt GALID}.
+
+\begin{verbatim}
+VARNAMES: GALID HOSTGALz_LOGMASS_ZGRID HOSTGALz_LOGMASS_VALGRID HOSTGALz_LOGMASS_ERRGRID
+GAL: 101988  0.10   9.17  0.29
+GAL: 101988  0.25   9.94  0.30
+GAL: 101988  0.40  10.28  0.24
+GAL: 101988  0.55  10.53  0.24
+GAL: 101988  0.70  10.67  0.27
+GAL: 101988  0.85  10.82  0.32
+GAL: 101988  1.00  10.94  0.39
+GAL: 101988  1.15  11.06  0.63
+GAL: 101988  1.30  11.22  0.66
+GAL: 101988  1.45  11.56  0.63
+
+GAL: 112537  0.10    9.28  0.28
+GAL: 112537  0.25   10.09  0.25
+GAL: 112537  0.40   10.33  0.20
+GAL: 112537  0.55   10.59  0.21
+GAL: 112537  0.70   10.77  0.25
+GAL: 112537  0.85   10.81  0.38
+GAL: 112537  1.00   10.83  0.45
+GAL: 112537  1.15   10.95  0.56
+GAL: 112537  1.30   11.13  0.60
+GAL: 112537  1.45   11.57  0.71
+
+etc ...
+\end{verbatim}                                                                                         
+%
+The redshift grid can be non-uniform, and the number of redshift bins
+can vary for each galaxy. If a fitted $\Zphot$ is outside the pre-defined
+redshift grid ... ??? If an event has multiple nearby hosts, each
+host is updated provided the associated {\tt GALID} is in the override file.
 
 % ------------------------------------
    \clearpage

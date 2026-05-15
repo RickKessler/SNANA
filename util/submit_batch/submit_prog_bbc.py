@@ -375,15 +375,18 @@ class BBC(Program):
             # check that required files exist
             msgerr = [f"Missing required {DEFAULT_DONE_FILE} file in", 
                       f"{path_orig}" ] 
-            self.check_file_exists(DONE_PATHFILE,msgerr)
+            util.check_file_exists(DONE_PATHFILE,msgerr)
+            # xxx mark delet  self.check_file_exists(DONE_PATHFILE,msgerr)
 
             msgerr = [f"Missing required {MERGE_LOG_FILE} file in", 
                       f"{path_orig}" ] 
-            self.check_file_exists(MERGE_LOG_PATHFILE,msgerr)
+            util.check_file_exists(MERGE_LOG_PATHFILE,msgerr)
+            # xxx mark del self.check_file_exists(MERGE_LOG_PATHFILE,msgerr)
 
             msgerr = [f"Missing required {SUBMIT_INFO_FILE} file in", 
                       f"{path_orig}" ] 
-            self.check_file_exists(INFO_PATHFILE,msgerr)
+            util.check_file_exists(INFO_PATHFILE,msgerr)
+            # xxxx mark del self.check_file_exists(INFO_PATHFILE,msgerr)
 
             #  make sure DONE stamp exists with SUCCESS
             with open(DONE_PATHFILE,'r') as f :
@@ -936,11 +939,9 @@ class BBC(Program):
             label      = row[2]
             replace_dict[fitopt_num] = None
             msgerr = [' ', f'Check {keyname_replace_simfile} for {fitopt_num} / {label} file', ' ' ] 
-            #print(f"\t xxx {fitopt_num} -> {label}")
             if label in simfile_dict:
-                #simfile_dict[label] += '_xxx' # xxx REMOVE
                 replace_dict[fitopt_num] = simfile_dict[label]
-                self.check_file_exists(simfile_dict[label],msgerr)
+                util.check_file_exists(simfile_dict[label],msgerr)
                 n_replace += 1
                 print(f"\t replace {keyname_replace_simfile} for {fitopt_num} / {label}")
             else:

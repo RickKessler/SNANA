@@ -7,6 +7,10 @@ AC_CONFIG_AUX_DIR([build-aux])
 dnl Tell automake that this is not following GNU coding standards (no README, CHANGELOG, etc)
 AM_INIT_AUTOMAKE([foreign])
 
+# Substitute the obj dir
+#AC_SUBST([OBJ], ['$(top_builddir)/obj'])
+#AC_SUBST([BIN], ['$(top_builddir)/bin'])
+
 AC_CONFIG_MACRO_DIR([m4])
 
 UTIL_DIR='$(top_srcdir)/util'
@@ -77,11 +81,11 @@ AC_CHECK_LIB([m],[cos])
 
 
 # Check for GSL
-AC_CHECK_LIB([gslcblas], [cblas_dgemm], [], [
+AC_CHECK_LIB([gslcblas], [cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [
     AC_MSG_ERROR([GSL CBLAS library not found])
 ])
 
-AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [], [
+AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [GSLLIB="-lgsl]", [
     AC_MSG_ERROR([GSL library not found])
 ], [-lgslcblas])
 

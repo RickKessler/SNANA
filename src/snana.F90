@@ -28,7 +28,7 @@
         ,MXFIELD_OVP = 12          &  ! max number of overlapping fields
         ,MXSEASON    = 100         &  ! max number of seasons
         ,MXSNHOST    = 3           &  ! max number of host matches to read/write
-        ,MXZPHOT_Q   = 20          &  ! max number of zphot quantiles (May 2022) LEGACY
+        ,MXQZPHOT   = 20          &  ! max number of zphot quantiles (May 2022) LEGACY
         ,MXVAR_PRIVATE = 40        &  ! max number of private variables
         ,MXCUT_PRIVATE = 10         &  ! max number of cuts on private var
         ,MXVAR_TERSE   = 30        &  ! max number of text-data  columms
@@ -993,18 +993,20 @@
     TYPE(SNHOSTz_DEF) :: SNHOSTz_QUANTILE_ZPHOT(MXSNHOST)
     TYPE(SNHOSTz_DEF) :: SNHOSTz_LOGMASS(MXSNHOST)
 
+    ! xxxxx mark delete  May 18 2026 xxxxxxxxx
     ! --- per-file logmass(z) grid lookup table (loaded from LOGMASS_GRID_FILE) ---
-    INTEGER, PARAMETER :: MXGALID_LOGMASS = 5000
-    INTEGER :: N_GALID_LOGMASS = 0
-    INTEGER(I8) :: GALID_LOGMASS_LIST(MXGALID_LOGMASS)
-    TYPE(SNHOSTz_DEF) :: SNHOSTz_LOGMASS_GRID(MXGALID_LOGMASS)
+    !INTEGER, PARAMETER :: MXGALID_LOGMASS = 5000
+    !INTEGER            :: N_GALID_LOGMASS = 0
+    !INTEGER(I8)        :: GALID_LOGMASS_LIST(MXGALID_LOGMASS)
+    !TYPE(SNHOSTz_DEF)  :: SNHOSTz_LOGMASS_GRID(MXGALID_LOGMASS)
+    ! xxxxxx end mark xxxxxxxxxxx
 
   CONTAINS
       
     SUBROUTINE INIT_SNHOSTz(SNHOSTz, igal, SUFFIX_Z, SUFFIX_VAL, SUFFIX_VAL2)
 
       ! Created Apr 2026
-      ! igal  : host gal sparse index 1... MXSNHOST
+      ! igal      : host gal sparse index 1... MXSNHOST
       ! SUFFIX_Z  : suffix in data stream varname for redshift grid
       ! SUFFIX_VAL: suffix in data stream varname for value grid
 
@@ -1126,7 +1128,7 @@
     ! local args
     INTEGER   NQ, q,  LEN_KEY, LEN_STR, NARG
     CHARACTER cKEY*40, cSTRING*20
-    REAL*8    DVAL(MXZPHOT_Q)
+    REAL*8    DVAL(MXQZPHOT)
 
     ! ---------- BEGIN -----------
 
@@ -1183,15 +1185,13 @@
 
     INTEGER*8  SNHOST_OBJID(MXSNHOST)    ! int id
     REAL*8    DSNHOST_OBJID(MXSNHOST)   ! for tables only
-    CHARACTER VARNAME_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)*40  ! LEGACY/obsolete
+    CHARACTER VARNAME_ZPHOT_Q(MXSNHOST,MXQZPHOT)*40  ! LEGACY/obsolete
 
     REAL  & 
          SNHOST_ANGSEP(MXSNHOST)       &  ! SN-host sep, arcsec
         ,SNHOST_DDLR(MXSNHOST)         &  ! SNSEP/DLR
         ,SNHOST_CONFUSION              &  ! HC analog from Gupta 2016
         ,SNHOST_ZPHOT(MXSNHOST), SNHOST_ZPHOT_ERR(MXSNHOST)  & 
-        !xxx mark ,SNHOST_ZPHOT_Q(MXSNHOST,MXZPHOT_Q)  & 
-        !xxx mark ,SNHOST_ZPHOT_PERCENTILE(MXSNHOST,MXZPHOT_Q)  & 
         ,SNHOST_QZPHOT_MEAN(MXSNHOST), SNHOST_QZPHOT_STD(MXSNHOST)  & 
         ,SNHOST_ZSPEC(MXSNHOST), SNHOST_ZSPEC_ERR(MXSNHOST)  & 
         ,SNHOST_LOGMASS(MXSNHOST)  &
@@ -1690,7 +1690,6 @@
          ,SIM_HEADER_OVERRIDE_FILE    &  ! I: same, but for sims
          ,SIM_HEADER_OVERRIDE_DIR        ! I: same, but for sims
 
-    CHARACTER*(MXCHAR_FILENAME) :: LOGMASS_GRID_FILE = ''  ! per-galaxy logmass(z) grid file
 
     CHARACTER   &  ! versions
          VERSION_PHOTOMETRY(MXVERS)*(MXCHAR_VERSION)    &  ! I: SN versions to read
@@ -1937,8 +1936,7 @@
          ,HOSTGAL_ZPHOT_SHIFT, HOSTGAL_ZSPEC_SHIFT  & 
          ,HOSTGAL_PHOTOZ_SHIFT, HOSTGAL_SPECZ_SHIFT    &  ! obsolete
          ,REDSHIFT_FINAL_SHIFT, FLUXERRCALC_ZPTERR  & 
-         ,CUTWIN_MJD_EXCLUDE, CUTWIN_TOBS_PREDETECT  &
-         ,LOGMASS_GRID_FILE
+         ,CUTWIN_MJD_EXCLUDE, CUTWIN_TOBS_PREDETECT 
 
 
 ! ---------- end of SNLCINP ---------
@@ -3433,9 +3431,7 @@
 
     CALL RDGLOBAL_PRIVATE(OPT)
 
-    CALL RDGLOBAL_ZPHOT_Q(OPT)  ! legacy
-
-    CALL READ_LOGMASS_GRID_FILE()   ! load per-galaxy logmass(z) grid if LOGMASS_GRID_FILE is set
+    ! xxx mark delete May 18 2026 CALL RDGLOBAL_ZPHOT_Q(OPT)  ! legacy
 
     IF ( LSIM_SNANA ) THEN
        CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE", ONE, SIMLIB_FILENAME, DARRAY, OPT)
@@ -7434,10 +7430,6 @@
                    1, iArg, ARGLIST) ) then
          SIM_HEADER_OVERRIDE_FILE = ARGLIST(1)
 
-       else if ( MATCH_NMLKEY('LOGMASS_GRID_FILE',  &
-                   1, iArg, ARGLIST) ) then
-         LOGMASS_GRID_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
-
        else if ( MATCH_NMLKEY('HEADER_OVERRIDE_DIR',  & 
                    1, iArg, ARGLIST) ) then
          HEADER_OVERRIDE_DIR = ARGLIST(1)
@@ -10569,31 +10561,6 @@
     DVAL(1)  = DBLE(SNLC_VPEC_ERR)
     CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
-! xxxxxxx mark delete Apr 20 2026 xxxxxxxx
-! Oct 2025: copy photo-z quantiles back to SNDATA struct
-    if ( REFAC_DATA_FLAG > 0 ) then
-       !do igal = 1, MXSNHOST
-          ! no need to copy override quantiles that are not modified here 
-          ! ?? not needed ?? CALL copy_SNDATA_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), COPYFLAG)
-
-          ! maybe set SNHOST_ZPHOT[_ERR] to MEAN and STD ... and copy back to SNDATA struct,
-          ! Should this be automatic, or require OVERRIDE to change it?
-          ! Automation problem may not allow alternate zPHOT_[ERR] options ?
-       !enddo
-    else
-       ! legacy ... this may have never been needed
-       !NQ = SNHOST_NZPHOT_Q(1)
-       !if ( NQ > 0 ) then
-       !   do q = 1, NQ
-       !      LENV    = INDEX(VARNAME_ZPHOT_Q(IGAL,q),' ') - 1
-       !      cKEY    = VARNAME_ZPHOT_Q(IGAL,q)(1:LENV) // char(0)
-       !      DVAL(1) = SNHOST_ZPHOT_Q(IGAL,q)
-       !      CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
-       !   enddo
-       !endif
-    endif
-    ! xxxxxxxx end mark xxxxxxx
-
 
 ! check option to exclude PRIVATE variables from output.
 ! Do NOT modify NVAR_PRIVATE.
@@ -11387,8 +11354,6 @@
     HEADER_OVERRIDE_DIR  = ''
     SIM_HEADER_OVERRIDE_FILE = ''
     SIM_HEADER_OVERRIDE_DIR  = ''
-    LOGMASS_GRID_FILE    = ''
-
 
     NPAR_SIMSED      = 0
     NPAR_PySEDMODEL  = 0
@@ -17391,7 +17356,7 @@
     INTEGER*8 :: GALID
     CHARACTER*(2*MXCHAR_CCID)  CCID_GALID
     INTEGER   :: NQ, q, LM, IPRINT, INDEX_SPLINE
-    REAL*8    :: QZPHOT(MXZPHOT_Q), QPROB(MXZPHOT_Q), MEAN, STD
+    REAL*8    :: QZPHOT(MXQZPHOT), QPROB(MXQZPHOT), MEAN, STD
     LOGICAL   :: BIGGER_z
 
     CHARACTER FNAM*20
@@ -17487,7 +17452,7 @@
       ! BEGIN
       if(DEBUG_FLAG .NE. 28) return
       IGAL = 1
-      CALL FILL_SNHOST_LOGMASS_GRID(IGAL)   ! populate from file-read grid if GALID matches
+
       NZ = SNHOSTz_LOGMASS(IGAL)%NZ
       ! debug: print CID, original LM, and NZ to verify grid lookup per SN
       PRINT*, ' xxx SET_LOGMASS: CID=', SNLC_CID, ' LM=', SNHOST_LOGMASS(IGAL), ' NZ=', NZ
@@ -17583,127 +17548,6 @@
     return
     END SUBROUTINE SET_SNHOST_LOGMASS_SPLINE
 
-! =============================================
-    SUBROUTINE READ_LOGMASS_GRID_FILE()
-!
-! Created May 2026 A.Mitra
-! Read per-galaxy logmass(z) grid from LOGMASS_GRID_FILE (set in NML).
-! File format (same as Jonah Medoff's CIGALE output):
-!   VARNAMES: GALID  HOSTGALz_LOGMASS_ZGRID  HOSTGALz_LOGMASS_VALGRID  HOSTGALz_LOGMASS_ERRGRID
-!   GAL: <GALID>  <z>  <lm>  <lm_err>
-! Rows for the same GALID must be contiguous.
-! Loaded data go into GALID_LOGMASS_LIST + SNHOSTz_LOGMASS_GRID.
-! If LOGMASS_GRID_FILE == '' (default) this is a no-op.
-!
-    USE SNLCINP_NML
-    USE SNHOSTzCOM
-    IMPLICIT NONE
-
-    CHARACTER FNAM*30, LINE*200, KEY*40
-    INTEGER   LUN, ios, IGAL_GRID, NZ_LOCAL
-    INTEGER*8 GALID_THIS, GALID_PREV
-
-    LUN   = 72
-    FNAM  = 'READ_LOGMASS_GRID_FILE'
-
-    if ( LOGMASS_GRID_FILE == '' ) RETURN
-
-    write(6,'(A,A)') '  READ_LOGMASS_GRID_FILE: reading ', TRIM(LOGMASS_GRID_FILE)
-
-    OPEN(LUN, FILE=TRIM(LOGMASS_GRID_FILE), STATUS='OLD', IOSTAT=ios)
-    if ( ios /= 0 ) then
-       write(6,'(A,A)') '  ERROR: cannot open ', TRIM(LOGMASS_GRID_FILE)
-       CALL MADABORT(FNAM, 'Cannot open LOGMASS_GRID_FILE', LOGMASS_GRID_FILE)
-    endif
-
-    N_GALID_LOGMASS = 0
-    GALID_PREV      = -1_8
-    IGAL_GRID       = 0
-
-    do
-       READ(LUN,'(A)',IOSTAT=ios) LINE
-       if ( ios /= 0 ) EXIT          ! end of file
-
-       LINE = ADJUSTL(LINE)
-       if ( LINE == '' ) CYCLE
-       if ( LINE(1:1) == '#' ) CYCLE
-       if ( LINE(1:13) == 'DOCUMENTATION' ) CYCLE
-       if ( LINE(1:8)  == 'VARNAMES' ) CYCLE
-
-       KEY = LINE(1:4)
-       if ( KEY /= 'GAL:' ) CYCLE
-
-       ! parse: GAL: GALID  z  lm  lm_err
-       BLOCK
-          INTEGER*8 :: GALID_READ
-          REAL      :: Z_READ, LM_READ, LMERR_READ
-          READ(LINE(5:),*) GALID_READ, Z_READ, LM_READ, LMERR_READ
-
-          if ( GALID_READ /= GALID_PREV ) then
-             ! new GALID — allocate a new slot
-             N_GALID_LOGMASS = N_GALID_LOGMASS + 1
-             if ( N_GALID_LOGMASS > MXGALID_LOGMASS ) then
-                write(6,'(A,I6)') '  ABORT: N_GALID_LOGMASS exceeds MXGALID_LOGMASS=', MXGALID_LOGMASS
-                CALL MADABORT(FNAM, 'Too many GALIDs in LOGMASS_GRID_FILE', '')
-             endif
-             IGAL_GRID = N_GALID_LOGMASS
-             GALID_LOGMASS_LIST(IGAL_GRID) = GALID_READ
-             SNHOSTz_LOGMASS_GRID(IGAL_GRID)%NZ = 0
-             GALID_PREV = GALID_READ
-          endif
-
-          NZ_LOCAL = SNHOSTz_LOGMASS_GRID(IGAL_GRID)%NZ + 1
-          if ( NZ_LOCAL > MXBIN_SNHOSTz ) then
-             write(6,'(A,I4)') '  WARNING: LOGMASS NZ exceeds MXBIN_SNHOSTz=', MXBIN_SNHOSTz
-             CYCLE
-          endif
-          SNHOSTz_LOGMASS_GRID(IGAL_GRID)%NZ              = NZ_LOCAL
-          SNHOSTz_LOGMASS_GRID(IGAL_GRID)%Z_LIST(NZ_LOCAL)   = Z_READ
-          SNHOSTz_LOGMASS_GRID(IGAL_GRID)%VAL_LIST(NZ_LOCAL) = LM_READ
-          SNHOSTz_LOGMASS_GRID(IGAL_GRID)%VAL2_LIST(NZ_LOCAL)= LMERR_READ
-       END BLOCK
-
-    enddo
-
-    CLOSE(LUN)
-    write(6,'(A,I4,A)') '  READ_LOGMASS_GRID_FILE: loaded ', N_GALID_LOGMASS, ' GALIDs'
-
-    RETURN
-    END SUBROUTINE READ_LOGMASS_GRID_FILE
-
-! =============================================
-    SUBROUTINE FILL_SNHOST_LOGMASS_GRID(IGAL)
-!
-! Created May 2026 A.Mitra
-! For the current SN event, look up its host GALID in the grid table
-! (loaded by READ_LOGMASS_GRID_FILE) and copy z/logmass arrays into
-! SNHOSTz_LOGMASS(IGAL) so that SET_LOGMASS can use them.
-! If GALID not found, SNHOSTz_LOGMASS(IGAL)%NZ stays 0 (no-op).
-!
-    USE SNHOSTzCOM
-    USE SNHOSTCOM
-    IMPLICIT NONE
-
-    INTEGER, INTENT(IN) :: IGAL
-    INTEGER*8 :: GALID
-    INTEGER   :: ig
-
-    if ( N_GALID_LOGMASS == 0 ) RETURN   ! no grid loaded
-
-    GALID = SNHOST_OBJID(IGAL)
-
-    do ig = 1, N_GALID_LOGMASS
-       if ( GALID_LOGMASS_LIST(ig) == GALID ) then
-          SNHOSTz_LOGMASS(IGAL) = SNHOSTz_LOGMASS_GRID(ig)
-          RETURN
-       endif
-    enddo
-
-    ! GALID not in grid: leave NZ=0
-    SNHOSTz_LOGMASS(IGAL)%NZ = 0
-
-    RETURN
-    END SUBROUTINE FILL_SNHOST_LOGMASS_GRID
 
 ! =============================================
     SUBROUTINE SET_SNHOST_ZPHOT()

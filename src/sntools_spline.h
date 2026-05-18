@@ -63,7 +63,7 @@
 // - - - - - - - - - - - - - - - - - - - - - -
 // Capacity and mode constants
 
-#define MXSPLINE_GEN          10    // max simultaneous spline instances
+#define MXSPLINE_GEN          20    // max simultaneous spline instances
 #define SPLINE_GEN_MODE_DIRECT  0   // eval returns interpolated y(x)
 #define SPLINE_GEN_MODE_DERIV   1   // eval returns d[CDF]/dx / val_max
 

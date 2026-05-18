@@ -2572,7 +2572,7 @@ void fits_read_subimg1
    DSIZE    nskip;
    DSIZE    nread;
    FILE  *  pFILEin;
-   int   fret;
+   int   fret;  (void)fret;
 
    pFILEin = pFILEfits[fileNum];
    size = fits_size_from_bitpix_(&bitpix);
@@ -2640,7 +2640,7 @@ DSIZE fits_read_point_
 
    int      fileNum;
    int      ipos;
-   int      fret ;
+   int      fret ;  (void)fret;
    char     pPrivR[] = "r\0";
    FILE  *  pFILEin;
 
@@ -2945,7 +2945,7 @@ DSIZE fits_write_fits_data_
    int      k;
    int      size;
    int      retval;
-   size_t   fret;  // R.Kessler May 2026
+   size_t   fret;    (void)fret;  
 
    /* Write the number of data points indicated */
    size = fits_size_from_bitpix_(pBitpix);

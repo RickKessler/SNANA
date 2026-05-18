@@ -1760,6 +1760,7 @@ void  read_specTable_HOSTLIB(void) {
   bool IS_FORMAT_SNANA  = false ;
   bool IS_FORMAT_EAZY   = false ; // Oct 2023
   bool STOP_READ        = false;
+  int fs;  (void)fs;
 
   while( !STOP_READ  && (fscanf(fp, "%s", c_get)) != EOF) {
     if ( strcmp(c_get,"VARNAMES:") == 0 ) 
@@ -1767,7 +1768,7 @@ void  read_specTable_HOSTLIB(void) {
 
     if ( strcmp(c_get,"EAZY_TEMPLATES_LIST_FILE:") == 0 )  { 
       eazyFile = (char*) malloc( MXPATHLEN * sizeof(char) );
-      fscanf(fp, "%s", eazyFile) ; 
+      fs = fscanf(fp, "%s", eazyFile) ; 
       ENVreplace(eazyFile, fnam, 1);
       IS_FORMAT_EAZY = STOP_READ = true ; 
     }
@@ -2449,6 +2450,7 @@ void read_head_HOSTLIB(FILE *fp) {
       // rewind doesn't work for gzip file
       // xxxx snana_rewind(fp, INPUTS.HOSTLIB_FILE, HOSTLIB.GZIPFLAG );  
       int fret = fseek(fp,-4,SEEK_CUR); //rewind to before 1st GAL key
+      (void)fret;
       return ;
     }
 

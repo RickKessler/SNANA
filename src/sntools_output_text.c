@@ -1053,7 +1053,7 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
   //
 
   FILE *fp;
-  int  GZIPFLAG, NWD=0, NWD_ABORT=1000;
+  int  GZIPFLAG, NWD=0, NWD_ABORT=1000, fs;  (void)fs;
   int  MXCHAR_LINE_VARNAMES = 400;
   char c_get[200], *fg;
   char KEY_VARNAMES[] = "VARNAMES:" ;
@@ -1075,7 +1075,7 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
     }
 
     if (strcmp(c_get,KEY_VARNAMES) == 0 ) {
-      fscanf(fp, "%s", c_get); // skip key that identifies CID or GALID
+      fs = fscanf(fp, "%s", c_get); // skip key that identifies CID or GALID
       fg = fgets(VARNAMES, MXCHAR_LINE_VARNAMES, fp );  
       (void)fg;
       int len = strlen(VARNAMES); VARNAMES[len-1] = 0; // remove <CR>

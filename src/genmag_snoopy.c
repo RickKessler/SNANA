@@ -142,6 +142,7 @@ int genmag_snoopy(int ifilt, double stretch, int nobs,
 void parse_snoopy_modelinfo(char *modelPath ) {
 
   char infoFile[MXPATHLEN], c_get[80]; 
+  int fs; (void)fs;
   FILE *fp;
   char fnam[] = "parse_snoopy_modelinfo" ;
 
@@ -162,7 +163,7 @@ void parse_snoopy_modelinfo(char *modelPath ) {
 
      if ( strcmp(c_get,"GRIDFILE:") == 0 ) {
        SNOOPY_MODELINFO.OPT_GRIDFILE = 1 ;
-       fscanf(fp, "%s", SNOOPY_MODELINFO.GRIDFILE );
+       fs = fscanf(fp, "%s", SNOOPY_MODELINFO.GRIDFILE );
      }
 
 

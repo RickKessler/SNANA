@@ -60,7 +60,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
   bool HAS_COLON;
   char PATH[2*MXPATHLEN+40], c_get[80];  
   char *fullName = FILENAME_FLUXERRMAP ;
-  char *name, *fieldList, TMP_STRING[80], LINE[100];
+  char *name, *fieldList, TMP_STRING[80], LINE[100], *fg ;  (void)fg;
   char MSGERR_FILE[2*MXPATHLEN];
   char colon[] = ":"  ;
   char fnam[] = "INIT_FLUXERRMODEL" ;
@@ -131,7 +131,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
 
     // on any comment char, scoop up rest of line and ignore it
     if ( commentchar(c_get) ) 
-      { fgets(TMP_STRING, 80, fp) ; continue ; }
+      { fg = fgets(TMP_STRING, 80, fp) ; continue ; }
     
     HAS_COLON = ( strstr(c_get,colon) && c_get[0] != '#' );
 
@@ -217,7 +217,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
     if ( strcmp(c_get,"NVAR:")==0 ) { warn_NVAR_KEY(fullName); }
 
     if ( strcmp(c_get,"VARNAMES:")==0 ) {
-      fgets(LINE,100,fp);
+      fg = fgets(LINE,100,fp);
       NVAR = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,LINE, fnam);
       FLUXERRMAP[NMAP].NVAR = NVAR ;
 

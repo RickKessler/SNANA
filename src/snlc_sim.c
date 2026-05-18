@@ -5470,7 +5470,7 @@ int parse_input_SPECTRUM(char **WORDS, int keySource) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.TAKE_SPECTRUM_HOSTSNFRAC );
   }
   else if ( keyMatchSim(1, "TAKE_SPECTRUM_PRESCALE",  WORDS[0],keySource) ) {
-    char FIELDLIST[60];
+    char FIELDLIST[MXCHAR_FIELDLIST];
     STRING_DICT_DEF *DICT = &INPUTS.DICT_SPECTRUM_FIELDLIST_PRESCALE ;
     N++;  sscanf(WORDS[N], "%s", FIELDLIST);
     parse_string_prescales(FIELDLIST, DICT);
@@ -5608,7 +5608,7 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
   if ( CHECK_FIELD ) {
     sprintf(string0, "%s", WORDS[0]);
 
-    char string_field[80], *sl ;
+    char string_field[MXCHAR_FIELDLIST], *sl ;
     char *FIELD = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD ;
     int indx_slash;
     double ps ;
@@ -5625,8 +5625,10 @@ int parse_input_TAKE_SPECTRUM(char **WORDS, int keySource, FILE *fp) {
 	INPUTS.TAKE_SPECTRUM[NTAKE].WGT = 1.0/ps;	
 	FIELD[indx_slash] = 0 ;
       }
-      //      printf(" xxx %s: string0=%s  FIELD=%s  WGT=%f \n", 
-      //     fnam, string0, FIELD, WGT);
+      /*
+      printf(" xxx %s: string0=%s  FIELD=%s  WGT=%f \n", 
+	     fnam, string0, FIELD, INPUTS.TAKE_SPECTRUM[NTAKE].WGT);
+      */
     }
   } // end CHECK_FIELD
 
@@ -5884,7 +5886,7 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   int   NTAKE       = NPEREVT_TAKE_SPECTRUM;
   int   OPT_TEXPOSE = INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE;
   double WGT        = INPUTS.TAKE_SPECTRUM[NTAKE].WGT ;
-  char  *FIELD      = INPUTS.TAKE_SPECTRUM[NTAKE].FIELD;
+  char  FIELD[MXCHAR_FIELDNAME]; 
   int   iKEY        = NKEY_TAKE_SPECTRUM ;
   float MJD, MJD_STEP, MJD_MIN, MJD_MAX ;
 
@@ -5892,12 +5894,16 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   GENPOLY_DEF GENPOLY_TEXPOSE ;
   GENPOLY_DEF GENPOLY_SNR     ;
 
+  int LDMP = 0 ;
   char fnam[] = "expand_TAKE_SPECTRUM_MJD";
 
   // ------- BEGIN -------
 
+  sprintf(FIELD, "%s", INPUTS.TAKE_SPECTRUM[NTAKE].FIELD );
+
   MJD_MIN  = MJD_RANGE[0];  MJD_MAX=MJD_RANGE[1];
   MJD_STEP = MJD_RANGE[2];
+
 
   if ( OPT_TEXPOSE != 1 ) {
     sprintf(c1err,"Invalid OPT_TEXPOSE = %d", OPT_TEXPOSE);	    
@@ -5911,20 +5917,24 @@ void expand_TAKE_SPECTRUM_MJD(float *MJD_RANGE) {
   copy_GENPOLY(&INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_TEXPOSE, &GENPOLY_TEXPOSE);
   copy_GENPOLY(&INPUTS.TAKE_SPECTRUM[NTAKE].GENZPOLY_SNR,     &GENPOLY_SNR);
 
-  //  NTAKE--; // subtract 1 since it will be added again here
+  if ( LDMP ) {
+    printf(" xxx %s: NTAKE=%d  WGT=%.3f  FIELD=%s  MJD[MIN,MAX.STEP] = %.0f, %.0f, %.0f\n",
+	   fnam, NTAKE, WGT, FIELD, MJD_MIN, MJD_MAX, MJD_STEP); fflush(stdout);
+  }
+ 
   for (MJD=MJD_MIN; MJD <= MJD_MAX; MJD += MJD_STEP ) {
 
     if ( NTAKE < MXPEREVT_TAKE_SPECTRUM ) {
-      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE    = OPT_TEXPOSE ;
-      INPUTS.TAKE_SPECTRUM[NTAKE].WGT            = WGT ;
-      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0] = MJD;
-      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1] = MJD;
-      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH = GENFRAME_MJD ;
-      INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = iKEY;
 
+      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_TEXPOSE        = OPT_TEXPOSE ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].WGT                = WGT ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[0]     = MJD;
+      INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_RANGE[1]     = MJD;
+      INPUTS.TAKE_SPECTRUM[NTAKE].OPT_FRAME_EPOCH    = GENFRAME_MJD ;
+      INPUTS.TAKE_SPECTRUM[NTAKE].iKEY_TAKE_SPECTRUM = iKEY;
       sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].FIELD, "%s", FIELD);
       sprintf(INPUTS.TAKE_SPECTRUM[NTAKE].EPOCH_FRAME,"MJD"); 
-
+      
       copy_GENPOLY(&GENPOLY_WARP, 
 		   &INPUTS.TAKE_SPECTRUM[NTAKE].GENLAMPOLY_WARP );
       copy_GENPOLY(&GENPOLY_TEXPOSE, 
@@ -10534,7 +10544,7 @@ bool DO_GENSPEC(int imjd) {
   int  OPT_DICT = 1 ;   // 0=exact match, 1=partial string match
   int  ifield ;
   double preScale, r1 ;
-  int LTRACE = (SIMLIB_HEADER.LIBID == -17) ;
+  int LTRACE = 0 ; // (SIMLIB_HEADER.LIBID >= 0) ;  // .xyz
   char *field_tmp ; 
   char fnam[] = "DO_GENSPEC" ;
 
@@ -10550,7 +10560,9 @@ bool DO_GENSPEC(int imjd) {
 
   // if there are no fields, skip FIELD-logic
 
-  if ( LTRACE) { printf(" xxx %s: NFIELD_OVP=%d \n", fnam, NFIELD_OVP); fflush(stdout); }
+  if ( LTRACE) { printf(" xxx %s: NFIELD_OVP=%d  CHECK_PS=%d  Trest=%.1f\n", 
+			fnam, NFIELD_OVP, CHECK_PS, GENSPEC.TREST_LIST[imjd]); fflush(stdout); }
+
   if ( NFIELD_OVP == 0 )   { return(true); }
 
   // - - - - - - -
@@ -15868,7 +15880,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char DECSTRINGS[4][12] = { "DECL", "DEC", "DECL_SN", "DEC_SN" } ;
   for(i=0; i<4; i++ )  {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr, "%s", DECSTRINGS[i]);
+    sprintf(cptr, "%.12s", DECSTRINGS[i]);
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.DEC ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16352,7 +16364,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_alpha[3][20] = { "SALT2alpha", "S2alpha", "SIM_alpha" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_alpha[i] ) ;
+    sprintf(cptr,"%.20s", strList_alpha[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2alpha ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16360,7 +16372,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_beta[3][20] = { "SALT2beta", "S2beta", "SIM_beta" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_beta[i] ) ;
+    sprintf(cptr,"%.20s", strList_beta[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2beta ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16369,7 +16381,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_x0[3][20] = { "S2x0", "SALT2x0", "SIM_x0" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_x0[i] ) ;
+    sprintf(cptr,"%.20s", strList_x0[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x0 ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16377,7 +16389,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_x1[3][20] = { "S2x1", "SALT2x1", "SIM_x1" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_x1[i] ) ;
+    sprintf(cptr,"%.20s", strList_x1[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2x1 ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16385,7 +16397,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_c[3][20] = { "S2c", "SALT2c", "SIM_c" };
   for(i=0; i < 3; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_c[i] ) ;
+    sprintf(cptr,"%.20s", strList_c[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2c ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16393,7 +16405,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_mb[5][20] = { "S2mb", "SALT2mb", "SALT2mB", "SIM_mb", "SIM_mB" };
   for(i=0; i < 5; i++ ) {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr,"%s", strList_mb[i] ) ;
+    sprintf(cptr,"%.20s", strList_mb[i] ) ;
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &GENLC.SALT2mB ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -16479,7 +16491,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   char strList_ind[3][20] = { "SIM_TEMPLATE_INDEX", "NON1A_INDEX", "NONIA_INDEX" };
   for ( i=0; i < 3; i++ )  {
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
-    sprintf(cptr, "%s", strList_ind[i]); 
+    sprintf(cptr, "%.20s", strList_ind[i]); 
     SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRINT4 = &GENLC.TEMPLATE_INDEX ;
     NVAR_SIMGEN_DUMP++ ;
   }
@@ -29120,7 +29132,6 @@ void genmodel(
 
       ptr_genmag[iep] = GENLC.FIXMAG ;
       ptr_generr[iep] = 0.0 ;
-      // .xyz
     }
 
     GENLC.TEMPLATE_INDEX = MODEL_FIXMAG ;  //anything but zero

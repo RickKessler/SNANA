@@ -107,8 +107,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
   GENGAUSS_ASYM_DEF  gengauss_SALT2c;  // June 2025
   bool  USE_SALT2 = false;
-
-  char **ptr_ITEMLIST;
+  char **ptr_ITEMLIST, *fg;  (void)fg;
   int KEYSOURCE = 1; // default source is from file
 
   char fnam[]     = "init_genPDF";
@@ -191,7 +190,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     // check for asymmetric gaussian for alpha,beta
-    fgets(LINE,200,fp);
+    fg = fgets(LINE,200,fp);
 
     if ( commentchar(c_get) ) { continue; }
 

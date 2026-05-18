@@ -183,7 +183,7 @@ int    MAPVERSION_SEARCHEFF_DETECT ; // allows legacy or new map style
 struct SEARCHEFF_PIPELINE {
   char   MAPNAME[40] ;
   int    NBIN ;
-  char   FIELDLIST[60] ;  // Nov 2022
+  char   FIELDLIST[MXCHAR_FIELDLIST] ;  // Nov 2022
   char   FILTERLIST[MXFILTINDX] ;
   double *VAL, *EFF ;
   int    NLINE_README;
@@ -195,7 +195,7 @@ int MAPVERSION_SEARCHEFF_PHOTPROB ;
 
 struct {
   char NAME[40] ;
-  char FIELDLIST[60] ;
+  char FIELDLIST[MXCHAR_FIELDLIST] ;
   char FILTERLIST[MXFILTINDX] ;
   char VARNAMES[MXVAR_SEARCHEFF_PHOTPROB][20] ;
   int  IVARABS[MXVAR_SEARCHEFF_PHOTPROB] ;
@@ -250,7 +250,7 @@ typedef struct {
   int IVAR_HOST[MXVAR_SEARCHEFF_HOSTLIB];    // map IVAR for HOST var
   int IVAR_HOSTLIB[MXVAR_SEARCHEFF_MAP]; // HOSTLIB ivar for HOSTLIB subset
 
-  char   FIELDLIST[60] ;
+  char   FIELDLIST[MXCHAR_FIELDLIST] ;
   double PEAKMJD_RANGE[2]; // PEAKMJD range for each map
 
   int IVARTYPE[MXVAR_SEARCHEFF_MAP] ;  // specifies which IVAR_XXX above
@@ -324,7 +324,7 @@ struct {
   double SNRSUM_REST_V ; // for spectrograph 
   int    SIMLIB_ID;
 
-  char FIELDNAME[60]; // e.g., X3 or X1+X3 for overlap
+  char FIELDNAME[MXCHAR_FIELDLIST]; // e.g., X3 or X1+X3 for overlap
   char FIELDLIST_OVP[MXFIELD_OVP][20]; //specify each ovp field 
   int  NFIELD_OVP;   // number of overlap fields
 

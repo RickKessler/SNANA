@@ -593,7 +593,7 @@ double  M0_DEFAULT;
 #define NCOSPAR 4  // size of cosPar array (OL,Ok,w0,wa)
 
 #define MXNUM_SAMPLE  25  // max number of SURVEY/FIELD samples (max IDSAMPLE)
-#define MXCHAR_SAMPLE 100 // max string length of sample name
+#define MXCHAR_SAMPLE 300 // max string length of sample name
 #define USERFLAG_SURVEYGROUP_SAMPLE  1  // bookkeeping for biasCor IDSAMPLE
 #define USERFLAG_FIELDGROUP_SAMPLE   2
 #define AUTOFLAG_SURVEYGROUP_SAMPLE  3  // survey automatically added
@@ -25966,6 +25966,7 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   // For real data, do nothing.
   // For sim, prepare for next iteration.
 
+  int  fret;  (void)fret;
   int  ITER_EXPECT = -9 ;
   char fnam[] = "SUBPROCESS_PREP_NEXTITER";
 
@@ -25984,7 +25985,7 @@ void SUBPROCESS_PREP_NEXTITER(void) {
 
   printf("\n%s Enter expected ITERATION number (-1 to quit) => \n",
 	 KEYNAME_SUBPROCESS_STDOUT );   fflush(stdout);
-  scanf( "%d", &ITER_EXPECT); // read response
+  fret = scanf( "%d", &ITER_EXPECT); // read response
   if ( ITER_EXPECT < 0 ) { SUBPROCESS_EXIT(); }
   SUBPROCESS.ITER = ITER_EXPECT ; 
 
@@ -26037,7 +26038,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 
   bool FOUND_ITER_BEGIN = false;
   char c_get[60];
-  int  ISTAT_READ=-9, ITER_FOUND = -9  ;
+  int  ISTAT_READ=-9, ITER_FOUND = -9, fret  ;  (void)fret;
   char fnam[] = "SUBPROCESS_SIM_REWGT" ;
 
   // -------- BEGIN -----------
@@ -26047,7 +26048,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
     ISTAT_READ = fscanf(FP_INP, "%s", c_get) ;
     if ( strcmp(c_get,KEYNAME_SUBPROCESS_ITERATION_BEGIN) == 0 ) {
       FOUND_ITER_BEGIN = true ;
-      fscanf(FP_INP, "%d", &ITER_FOUND);
+      fret = fscanf(FP_INP, "%d", &ITER_FOUND);
     }
   }
 

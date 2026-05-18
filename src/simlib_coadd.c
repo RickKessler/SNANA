@@ -746,7 +746,7 @@ void SIMLIB_read(int *RDSTAT) {
   char  c_get[80], cfilt[4], STRING_IDEXPT[20] ;
   int   IDEXPT, NEXPOSE;
 
-  int i, o, NOBS_READ, NOBS_ACCEPT, LIBID ;
+  int i, o, NOBS_READ, NOBS_ACCEPT, LIBID, fret ; (void)fret;
   int OPTLINE, NOBS_EXPECT, ENDLIB, OKLIBID  ;
 
   double *MJD_UNSORT = (double*) malloc( MXMJD * sizeof(double) ) ;
@@ -806,7 +806,7 @@ void SIMLIB_read(int *RDSTAT) {
       { readfloat(fp_simlib_input, 1, &SIMLIB_INPUT.INFO_HEAD[IPAR_PKMJD] );}
 
     if ( strcmp(c_get,"FIELD:") == 0 ) 
-      { fscanf(fp_simlib_input,"%s", SIMLIB_INPUT.FIELDNAME ); }
+      { fret = fscanf(fp_simlib_input,"%s", SIMLIB_INPUT.FIELDNAME ); }
 
     // Search for MJD-epoch info
 
@@ -826,7 +826,7 @@ void SIMLIB_read(int *RDSTAT) {
       readchar(fp_simlib_input, STRING_IDEXPT );
       parse_SIMLIB_IDplusNEXPOSE(STRING_IDEXPT, &IDEXPT, &NEXPOSE);
 
-      fscanf(fp_simlib_input, "%s", cfilt );
+      fret = fscanf(fp_simlib_input, "%s", cfilt );
       readdouble(fp_simlib_input, 1, &CCDGAIN  );
       readdouble(fp_simlib_input, 1, &CCDNOISE );
       readdouble(fp_simlib_input, 1, &SKYSIG );

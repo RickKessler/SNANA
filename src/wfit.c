@@ -1670,6 +1670,7 @@ void read_cospar_biascor(char *info_yml_file, Cosparam *cospar) {
   // that were used to create biasCor sim; return cospar.
 
   FILE *fp ;
+  int fs; (void)fs;
   char c_get[MXCHAR_FILENAME];
   char SIMKEY_LIST[NSIMKEY_COSPAR][40] = {
     SIMKEY_MUSHIFT, SIMKEY_OMEGA_MATTER, SIMKEY_OMEGA_LAMBDA,
@@ -1696,27 +1697,27 @@ void read_cospar_biascor(char *info_yml_file, Cosparam *cospar) {
   while( (fscanf(fp, "%s", c_get)) != EOF) {
 
     if ( strcmp(c_get,SIMKEY_MUSHIFT) == 0 ) { 
-      fscanf(fp, "%le", &cospar->mushift ); 
+      fs = fscanf(fp, "%le", &cospar->mushift ); 
       catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_MUSHIFT);
     }  
 
     else if ( strcmp(c_get,SIMKEY_OMEGA_MATTER) == 0 ) {
-      fscanf(fp, "%le", &cospar->omm ); 
+      fs = fscanf(fp, "%le", &cospar->omm ); 
       catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_OMEGA_MATTER);
     }  
 
     else if ( strcmp(c_get,SIMKEY_OMEGA_LAMBDA) == 0 ) {
-      fscanf(fp, "%le", &cospar->ome ); 
+      fs = fscanf(fp, "%le", &cospar->ome ); 
       catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_OMEGA_LAMBDA);
     }  
 
     else if ( strcmp(c_get,SIMKEY_w0_LAMBDA) == 0 ) {
-      fscanf(fp, "%le", &cospar->w0 ); 
+      fs = fscanf(fp, "%le", &cospar->w0 ); 
       catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_w0_LAMBDA);
     }  
 
     else if ( strcmp(c_get,SIMKEY_wa_LAMBDA) == 0 ) {
-      fscanf(fp, "%le", &cospar->wa ); 
+      fs = fscanf(fp, "%le", &cospar->wa ); 
       catVarList_with_comma(SIMKEY_FOUND_STRING,SIMKEY_wa_LAMBDA);
     }  
     
@@ -1759,7 +1760,7 @@ bool read_ISDATA_REAL(char *inFile) {
   // If ISDATA_REAL is not found, abort 
 
   FILE *fp;
-  int gzipFlag, ITMP;  
+  int gzipFlag, ITMP, fs;  (void)fs;
   bool FOUND_KEY_ISDATA = false, ISDATA_REAL=false ;
   char locFile[MXPATHLEN];
   char fnam[] = "read_ISDATA_REAL" ; (void)fnam;
@@ -1783,7 +1784,7 @@ bool read_ISDATA_REAL(char *inFile) {
       { break; }
 
     if ( strcmp(c_get,KEYNAME_ISDATA_REAL) == 0 )  { 
-      fscanf(fp, "%d", &ITMP);  
+      fs = fscanf(fp, "%d", &ITMP);  
       ISDATA_REAL = (ITMP > 0 ) ;
       FOUND_KEY_ISDATA = true;
       break; 

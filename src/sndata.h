@@ -110,7 +110,8 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 
 #define MXCHAR_CCID       32  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_FIELDNAME  20
-#define MXCHAR_FILTNAME   20
+#define MXCHAR_FIELDLIST  60  
+#define MXCHAR_FILTNAME   40
 
 #define MXPATHLEN            300  // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
@@ -203,7 +204,7 @@ typedef struct {
 struct SNDATA {
 
   // global stuff
-  char SNANA_VERSION[20] ; // Feb 2021
+  char SNANA_VERSION[40] ; // Feb 2021
   char DATATYPE[20];       // e.g., DATA, SIM_SNANA ...
 
   // name of SURVEY and SUBSURVEY

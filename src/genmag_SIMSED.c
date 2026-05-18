@@ -146,7 +146,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     ,sedcomment[40], version[60], kcorFile_gz[MXPATHLEN]
     ;
 
-  size_t fret;
+  size_t fret; (void)fret;
   FILE *fpbin1, *fpbin2 ;
 
   struct stat statbuf ; // to check if BINARY dir exists
@@ -466,7 +466,7 @@ void open_SEDBINARY(char *binFile, bool force_create,
   // Dec 14 2021: add force_create arg.
   //
 
-  size_t fret;
+  size_t fret;  (void)fret;
   char fnam[] = "open_SEDBINARY" ; (void)fnam;
   // ----------- BEGIN -----------
 
@@ -493,7 +493,7 @@ void open_SEDBINARY(char *binFile, bool force_create,
     printf("\n Read SED-BINARY file for quicker init: \n");
     printf("  %s\n", binFile );
     IVERSION_SIMSED_BINARY = -9 ;
-    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int *),  1, *fpbin);
+    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int),  1, *fpbin);
     printf("\t (read SED-binary format version=%d)\n", 
 	   IVERSION_SIMSED_BINARY);
     printf("\n");
@@ -597,7 +597,7 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
   int NERR, idim, IZSIZE_RD, IZSIZE_ACTUAL;
   bool LZSAME, LZOK, LZBAD, LZMIN_OK, LZMAX_OK, LNZBIN_OK, MATCH_KCOR_FILE ;
   int NBINTMP[NDIM_SEDMODEL_FLUXTABLE+1]  ;
-  size_t fret;
+  size_t fret;  (void)fret;
 
   struct REDSHIFT_SEDMODEL_TYPE  ZTMP ;
 
@@ -722,7 +722,7 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
   // ------------
   // read entire flux table
   printf("\t Read entire flux table ... "); fflush(stdout);
-  fread(PTR_SEDMODEL_FLUXTABLE, ISIZE_SEDMODEL_FLUXTABLE, 1, fp);
+  fret = fread(PTR_SEDMODEL_FLUXTABLE, ISIZE_SEDMODEL_FLUXTABLE, 1, fp);
   printf("Done reading. \n"); fflush(stdout);
 
   return ;
@@ -1075,7 +1075,7 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   int NSED = SEDMODEL.NSURFACE ;
   int ised, istat, size, MXsize, ised_MXsize, NDAY ;
-  size_t fret ;
+  size_t fret ;  (void)fret;
   char sedFile[2*MXPATHLEN], sedFile_gz[2*MXPATHLEN+10], comment[60] ;
   struct stat statbuf ; 
   char fnam[] = "set_SIMSED_MXDAY";  (void)fnam;

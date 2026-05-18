@@ -77,7 +77,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
   int   ivar, NWD, ISKEY_ROW, EXTRA_WORD_OK, NDIM_TMP;
   int   LDIF1, LDIF2, ivar2, NROW_SKIP=0 ;
-  char  LINE[200], word[80] ;
+  char  LINE[200], word[80], *fg ;  (void)fg;
 
   
   char fnam[60];
@@ -104,7 +104,7 @@ void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
 
   while ( READ_NEXTLINE ) {
     LINE[0] = 0 ;
-    fgets(LINE,200,fp);  NLINE++ ;
+    fg = fgets(LINE,200,fp);  NLINE++ ;
 
     NWD = store_PARSE_WORDS(MSKOPT,LINE, fnam);
 
@@ -254,7 +254,7 @@ void malloc_GRIDMAP(int OPT, GRIDMAP_DEF *gridmap, int NFUN, int NDIM, int MAPSI
   int I8p = sizeof(double*) ;
   float MEMORY = 0.0 ;
   long long int MEMI, MEMD ;
-  char string[40];
+  char string[80];
   char fnam[] = "malloc_GRIDMAP";
 
   // ---------------- BEGIN ----------- 

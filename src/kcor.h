@@ -38,7 +38,8 @@ bool REQUIRE_SURVEY_KCOR = true ; // flip to require SURVEY in kcor-input
 #define MXAV        50    // max size of AV grid
 #define MXMWEBV      4    // max number of MW E(B-V) bins
 #define MXPRIMARY    6    // max number of primary standards
-#define MXCHAR_FILENAME 200
+// xxx mark del May 14 2026   #define MXCHAR_FILENAME 200
+#define MXCHAR_MAGSYSTEM_NAME 40
 
 #define MXSED  MXLAM_SN*MXEP // max flattened array size for lam x epoch
 
@@ -93,9 +94,9 @@ struct INPUTS {
   char FILTPATH_replace1[200];   
   char FILTPATH_replace2[200];   
 
-  char MAGSYSTEM_REPLACE1[40] ;
-  char MAGSYSTEM_REPLACE2[40] ;
-  char MAGSYSTEM_IGNORE[40]   ;
+  char MAGSYSTEM_REPLACE1[MXCHAR_MAGSYSTEM_NAME] ;
+  char MAGSYSTEM_REPLACE2[MXCHAR_MAGSYSTEM_NAME] ;
+  char MAGSYSTEM_IGNORE[MXCHAR_MAGSYSTEM_NAME]   ;
 
   // filter lam shifts ... entered via command-line override only
   int    NFILTER_LAMSHIFT ; // number of non-zero LAMSHIFTs
@@ -147,7 +148,7 @@ struct INPUTS {
 // where NAME_INPUT->NAME (e.g, VEGA->AB) means transform the
 // input MAGSYS with 'NAME_INPUT' to MAGSYS with 'NAME.
 typedef struct {
-  char   NAME_INPUT[60], NAME[60];
+  char   NAME_INPUT[MXCHAR_MAGSYSTEM_NAME], NAME[MXCHAR_MAGSYSTEM_NAME];
   int    INDX_INPUT, INDX ;
   double OFFSET_INPUT, OFFSET ;
   int    DO_TRANSFORM ;  // T -> NAME_INPUT != NAME
@@ -157,7 +158,7 @@ typedef struct {
 
 typedef struct {
   int INDX ;
-  char NAME[60];
+  char NAME[20];
 } FILTSYSTEM_DEF ;
 
 typedef struct {
@@ -268,8 +269,8 @@ struct PRIMARYSED {
 
   // add global info 4/25/2009
   double MAGSYSTEM_OFFSET   ;
-  char   MAGSYSTEM_NAME[40] ;
-  char   MAGSYSTEM_SEDFILE[200];
+  char   MAGSYSTEM_NAME[MXCHAR_MAGSYSTEM_NAME] ;
+  char   MAGSYSTEM_SEDFILE[MXPATHLEN];
 
 
 } PRIMARYSED[MXPRIMARY];
@@ -286,7 +287,7 @@ struct  FILTER
 {
   char name[60] ;  // (I) full name of each filter 
   char band[4];    // (I) single-char representation of each filter/band
-  char file[200] ;  // (I) data text file of each filter response 
+  char file[2*MXPATHLEN] ;  // (I) data text file of each filter response 
       
   int IFLAG_SYN;    // (I) >0 if synthetic filter from spectrograph
 

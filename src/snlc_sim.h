@@ -52,7 +52,6 @@
 #define  MXCUTWIN_PEAKMJD_BYFIELD 10
 #define  MXNON1A_TYPE 1200     // max number of non1a types/indices
 #define  MXNON1A_KEY  10      // max number of non1a keys
-// xxx mark Nov 2024  #define  MXCHAR_FIELDNAME 20
 #define  MXZRAN        10     // max randoms to store for z-smearing
 #define  MXPAR_SIMSED  30     // max number of SIMSED params
 #define  MXGROUPID_SIMLIB 60      // max number of groupIDs per LIBID entry
@@ -383,7 +382,7 @@ int     NPEREVT_TAKE_SPECTRUM ;
 int     NKEY_TAKE_SPECTRUM ;
 typedef struct {
   float   EPOCH_RANGE[4];    // Trest or TOBS range, or MJD range
-  char    FIELD[80];         // restrict spectra to particular field(s)
+  char    FIELD[MXCHAR_FIELDLIST];     // restrict spectra to particular field(s)
 
   GENPOLY_DEF GENLAMPOLY_WARP ;   // calibration warp as poly fun of wavelength
   GENPOLY_DEF GENZPOLY_TEXPOSE ;  // TEXPOSE =poly fun of z
@@ -566,7 +565,6 @@ struct INPUTS {
   int  USE_SIMLIB_DISTANCE ;  // 1 => use distance in LIB (if it's there)
   int  USE_SIMLIB_PEAKMJD ;   // idem for optional PEAKMJD
   int  USE_SIMLIB_MAGOBS ;    // use MAGOBS column instead of SN model
-  // xxx mark  int  USE_SIMLIB_SPECTRA;        // obsolete; same as USE_SIMLIB_TAKE_SPECTRUM below
   int  USE_SIMLIB_TAKE_SPECTRUM;  // use TAKE_SPECTRUM keys in SIMLIB header
   int  USE_SIMLIB_SPECTROGRAPH;  // use SPECTROGRAPH keys in SIMLIB entries (May 30 2025)
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
@@ -891,13 +889,6 @@ struct INPUTS {
   double GENSMEAR_RANFlat_FIX ;    // if >=0 then set Flat randoms to this
 
   char   STRONGLENS_FILE[MXPATHLEN] ;
-
-  /* xxx mark delete Feb 4 2025 xxxxx
-  char   WEAKLENS_PROBMAP_FILE[MXPATHLEN];
-  float  WEAKLENS_DMUSCALE;            // scale width of DMU profile
-  float  WEAKLENS_DMUERR_FRAC;         // frac error on lensdmu (Feb 2025)
-  float  WEAKLENS_DSIGMADZ ;           // symmetric Gaussian model
-  xxxxxxx end mark xxxxxx */
 
   float GENMODEL_ERRSCALE ;    // scale model-errors for intrinsic color-smear
   float GENMODEL_ERRSCALE_CORRELATION; // correlation with GENMAG_SMEAR
@@ -1558,7 +1549,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char SURVEY_NAME[60];
   char SUBSURVEY_LIST[MXPATHLEN];
   char FILTERS[MXFILTINDX];  // global list of all filters
-  char FIELD[2*MXCHAR_FIELDNAME];            // Nov 2021
+  char FIELD[MXCHAR_FIELDLIST];            // Nov 2021
 
   // Oct 2024: allow for exposure times that are needed for
   // count-rate non-linearity
@@ -1635,7 +1626,9 @@ struct SIMLIB_HEADER {
   char GROUPID_HOSTLIB_STRING[400];
 
   // these header keys can be changed anywhere in the simlib entry
-  char FIELD[2*MXCHAR_FIELDNAME], FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
+  // xxx mark del May 14 2026  char FIELD[2*MXCHAR_FIELDNAME];
+  char FIELD[MXCHAR_FIELDLIST];
+  char FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
   int  NFIELD_OVP ;
   
   // optional GENRANGES to re-generate
@@ -1959,7 +1952,6 @@ void   check_parse_args_for_COLON(int ncheck, char **WORDS);
 
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 
-// xxx mark del Aug 11 2025 void parse_SIMLIB_IDplusNEXPOSE(char *inString, int *IDEXPT, int *NEXPOSE);
 void   parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, int *DETNUM) ;
 
 bool   parse_SIMLIB_TEXPOSE(char *inString, char *field);
@@ -2272,9 +2264,6 @@ void append_stats_SIMLIB_DUMP(int NLIBID_TOT, int NOBS_TOT, char *SIMLIB_DUMPFIL
 void MJDGAP(int N, double *MJDLIST,  double MJDGAP_IGNORE,
 	    double *GAPMAX, double *GAPAVG ) ;
 
-// xxx mark void wr_HOSTLIB_info(void);    // write hostgal info
-// xxx mark void wr_SIMGEN_FITLERS(char *path);
-
 void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
 void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX);
@@ -2356,59 +2345,6 @@ extern double kcorfun8_ ( int *ifilt_obs, int *ifilt_rest,
 
 int gen_smearMag  ( int epoch, int VBOSE );
 int npe_above_saturation ( int epoch, double flux_pe);
-
-/* xxxxxxxxxxx mar delete Feb 29 2024 xxxxxxxxxx
-
-int init_genmag_mlcs2k2(char *version, char *covFile, float scale_covar,
-		     char *filtlist );
-
-int genmag_mlcs2k2(int ifilt, double delta, int nobs,
-                double *rest_dates, double *rest_magval, double *rest_magerr);
-
-int gencovar_mlcs2k2(int matsize, int *ifilt, double *rest_epoch,
-                  double *covar );
-
-
-int init_genmag_snoopy( char *modelPath, int optmask, char *filtlist);
-
-int genmag_snoopy(int ifilt, double dm15, int nobs, double *rest_dates,
-		  double *rest_mags, double *rest_magerrs );
-
-int init_genmag_stretch0 ( char *templateFilename, char *filtersystem);
-
-int init_genmag_stretch (
-                         double H0_ini
-                         ,double OMEGAM_ini
-                         ,double OMEGAL_ini
-                         ,double W0_ini
-                         ,double RV_ini
-                         ,char  *templateFilename
-                         ,char  *filtersystem
-                         );
-
-
-int init_genmag_SALT2(char *model_version, char *model_extrap_latetime,
-		      int OPTMASK);
-
-void genmag_SALT2(int OPTMASK, int ifilt,
-		  double *parList_SN, double *parList_HOST, double mwebv,
-		  double z, double z_forErr, int nobs, double *Tobs,
-		  double *magobs_list, double *magerr_list );
-
-double SALT2x0calc(double alpha, double beta, double x1, double c,
-		   double dlmag);
-double SALT2mBcalc(double x0);
-
-int init_genmag_SIMSED(char *version, char *PATH_BINARY,
-		       char *SURVEY, char *kcorFile, char *WGTMAP_FILE, int OPTMASK );
-
-void genmag_SIMSED(int OPTMASK, int ifilt, double x0,
-		   int NLUMIPAR, int *iflagpar, int *iparmap, double *lumipar,
-		   double RV_host, double AV_host,
-		   double mwebv, double z, int nobs, double *Tobs,
-		   double *magobs_list, double *magerr_list, int *index_sed );
-xxxxxxxxx end mark xxxxxxxxx */
-
 
 // ------------------------------------
 // generic functions for SEDMODELs

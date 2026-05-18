@@ -3,7 +3,6 @@
                                                              
  R. Kessler  Apr 2009 : re-written for sim & fitter; includes errors
 
-
  There are three init functions that must be called
  exeternally in the following order:
 
@@ -190,13 +189,13 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   int  retval = 0   ;
   int  ABORT_on_LAMRANGE_ERROR = 0;
   int  ABORT_on_BADVALUE_ERROR = 1;
-  char BANNER[120], tmpFile[2*MXPATHLEN], sedcomment[40], version[60]  ;
+  char BANNER[160], tmpFile[2*MXPATHLEN], sedcomment[40], version[60]  ;
   char fnam[] = "init_genmag_SALT2" ;
 
   // -------------- BEGIN --------------
 
   // extrac OPTMASK options
-  sprintf(BANNER, "%s : Initialize %s", fnam, MODEL_VERSION );
+  sprintf(BANNER, "%s : Initialize %.120s", fnam, MODEL_VERSION );
   print_banner(BANNER);
  
 
@@ -1786,13 +1785,13 @@ void init_calib_shift_SALT2train(void) {
   int  NSHIFT_TOT   = INPUT_SALT2_INFO.NSHIFT_CALIB ;
   int  NSHIFT_APPLY = 0 ;
   int  i, which, n_survey, isurvey, ifilt, ifilt_obs, NLAM ;
-  char **survey_calib_list, *survey_calib_string, *survey_calib ;
-  char *filter_name, *filter_calib;
+  char **survey_calib_list, *survey_calib_string, survey_calib[40] ;
+  char filter_name[MXCHAR_FILTNAME], *filter_calib;
   double shift, magprimary, mag_shift, lam_shift;
   double *lam, *trans, *transREF ;
   bool MATCH ;
-  // xxx mark delete Aug 11 2025  char string_shift[3][12] = { "", "MAGSHIFT", "LAMSHIFT" } ;
   char string_shift[3][12] = { "", "MAGSHIFT", "WAVESHIFT" } ;
+  int NDMP=0, LDMP = 0;
   char fnam[] = "init_calib_shift_SALT2train" ;
 
   // ----------- BEGIN -------------
@@ -1816,18 +1815,35 @@ void init_calib_shift_SALT2train(void) {
     else 
       {  lam_shift = shift;  }	
 
+    
     // extract array of surveys for comma-sep input:
     // e.g., survey_string = 'CFA3,CFA3S,CFA3K' ->
     // survey_list = 'CFA3', 'CFA3S', 'CFA3K'
     parse_commaSepList(fnam,survey_calib_string, 10, 40,  // passed arguments 
-		       &n_survey, &survey_calib_list); // returned arguments
+		       &n_survey, &survey_calib_list);    // returned arguments
+
+    LDMP = 0; // (strstr(filter_calib,"DES-g") != NULL );
+    if ( LDMP ) {
+      NDMP++ ;
+      printf("\n xxx ============================================================\n");
+      printf(" xxx %s: which=%d  flt=%s  shift[mag,lam] = %6.2f, %6.2f \n",
+	     fnam, which, filter_calib, mag_shift, lam_shift); fflush(stdout);
+    }
 
     for(isurvey=0; isurvey < n_survey; isurvey++ ) {
-      survey_calib = survey_calib_list[isurvey] ;
+      sprintf(survey_calib, "%s", survey_calib_list[isurvey]);
+      
       
       for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
       
 	MATCH  = match_SALT2train(survey_calib, filter_calib, ifilt);
+
+	if ( LDMP ) {
+	  printf("   1. xxx %s: FILTER_SEDMODEL[1].name  = '%s' \n", fnam, FILTER_SEDMODEL[1].name );
+	  printf("\t xxx %s: survey=%s  filter=%s  ifilt=%d  MATCH=%d\n", 
+		 fnam, survey_calib, filter_calib, ifilt, MATCH ); fflush(stdout);
+	}
+
 	if ( !MATCH ) { continue; }
 
 	// store current filter trans in separate array so that
@@ -1835,24 +1851,26 @@ void init_calib_shift_SALT2train(void) {
 	NLAM = copy_filter_trans_SALT2(ifilt, &lam, &trans, &transREF);
 
 	magprimary    = FILTER_SEDMODEL[ifilt].magprimary ;
-	filter_name   = FILTER_SEDMODEL[ifilt].name ;
+	sprintf(filter_name, "%s", FILTER_SEDMODEL[ifilt].name) ; 
 	ifilt_obs     = INTFILTER(filter_name);
 	
 	printf("\t Update %s(%2.2d) with %s = %9.4f (survey = %s)\n",
-	       filter_name, ifilt_obs, string_shift[which], shift, 
-	       survey_calib); 
+	       filter_name, ifilt_obs, string_shift[which], shift, survey_calib); 
 	fflush(stdout);
 	
 	NSHIFT_APPLY++ ;
 	init_filter_SEDMODEL(ifilt_obs, filter_name, survey_calib, 
 			     magprimary+mag_shift, 
-			     NLAM, lam, trans, transREF, lam_shift );
-	
+			     NLAM, lam, trans, transREF, lam_shift );       
+
 	free(lam); free(trans); free(transREF);
       } // end ifilt
 
+      free(survey_calib_list[isurvey]);
     } // end isurvey loop
     
+    free(survey_calib_list);
+
   } // end i loop over NSHIFT
 
 
@@ -1860,6 +1878,8 @@ void init_calib_shift_SALT2train(void) {
 	 NSHIFT_APPLY, NSHIFT_TOT );  fflush(stdout);
 
   if ( NSHIFT_APPLY > 0 ) {  filtdump_SEDMODEL(); }
+
+  if ( NDMP > 0 ) { debugexit(fnam); }
 
   return ;
 
@@ -1902,7 +1922,7 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
   // INPUTS:
   //     survey_calib = survey used in the training
   //     filter_calib = filter used in the training  
-  //     ifilt = sparse filter of current filter for LC fit
+  //     ifilt        = sparse filter of current filter for LC fit
   //
   // Oct 10 2022: fix subtle bug and treat survey_genmag as a 
   //              comma-sep list.
@@ -1910,7 +1930,7 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
 
   char *survey_genmag  = FILTER_SEDMODEL[ifilt].survey ;
   char *filter_genmag  = FILTER_SEDMODEL[ifilt].name ; // full filter name
-  char  filter_calib_base[60], filter_genmag_base[60]; 
+  char  filter_calib_base[MXCHAR_FILTNAME], filter_genmag_base[MXCHAR_FILTNAME]; 
   int   j_slash ;
   bool  MATCH_SURVEY, MATCH_FILTER ;
   int   LDMP = 0 ;
@@ -1942,11 +1962,13 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
   // E.g., filter_genmag = CFA3K-B/q -> filter_genmag_base = CFA3K-B (not q)
   sprintf(filter_genmag_base, "%s", filter_genmag) ;
   j_slash      = index_charString("/", filter_genmag) ;
+  if(LDMP) { printf(" xxx %s: filter_genmag=%s j_slash=%d \n", fnam, filter_genmag, j_slash); }
   if ( j_slash > 0 ) { filter_genmag_base[j_slash]=0; }
 
   // repeat for calib filter
   sprintf(filter_calib_base, "%s", filter_calib) ;
   j_slash      = index_charString("/", filter_calib) ;
+  if(LDMP) { printf(" xxx %s: filter_calib=%s j_slash=%d \n", fnam, filter_calib, j_slash); }
   if ( j_slash > 0 ) { filter_calib_base[j_slash]=0; }
 
   // - - - - - - - - - - - 
@@ -1958,8 +1980,8 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
     int lenf_calib  = strlen(filter_calib);
     if ( lenf_calib == 1 ) {
       filter_genmag_base[0] = filter_calib_base[0] = 0;
-      sprintf(filter_genmag_base,"%c", filter_genmag[lenf_genmag-1]);
-      sprintf(filter_calib_base, "%c", filter_calib[lenf_calib-1]);
+      sprintf(filter_genmag_base, "%c", filter_genmag[lenf_genmag-1]);
+      sprintf(filter_calib_base,  "%c", filter_calib[lenf_calib-1]);
     }
   }
 
@@ -1968,11 +1990,11 @@ bool match_SALT2train(char *survey_calib, char *filter_calib, int ifilt) {
   MATCH_FILTER =  ( strcmp(filter_genmag_base,filter_calib_base) == 0 ) ;
 
   if ( LDMP ) {
-    printf(" xxx ----------------------------------------- \n");
-    printf(" xxx %s: survey_calib=%s, filter_calib=%s  base=%s\n",
+    printf(" xxx - - - - - - - - - - - - - - - - - - - - - -\n");
+    printf(" xxx %s: survey_calib='%s'  filter_calib='%s'   base='%s'\n",
 	   fnam, survey_calib, filter_calib , filter_calib_base);
 
-    printf(" xxx %s: survey_genmag=%s  filter_genmag=%s base=%s (ifilt=%d)\n",
+    printf(" xxx %s: survey_genmag='%s'  filter_genmag='%s'  base='%s' (ifilt=%d)\n",
 	   fnam, survey_genmag, filter_genmag, filter_genmag_base, ifilt);
 
     printf(" xxx %s:  MATCH_FILTER=%d \n",

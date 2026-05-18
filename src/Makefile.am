@@ -13,9 +13,10 @@
 # ---------------------------------------------------------------------------
 # Directory layout — mirrors original Makefile's OBJ=../obj, BIN=../bin
 # ---------------------------------------------------------------------------
-OBJ = $(top_builddir)/obj
-BIN = $(top_builddir)/bin
+
 SRC = $(top_srcdir)/src
+OBJ = $(top_srcdir)/obj
+BIN = $(top_srcdir)/bin
 
 # tack on flag to provide git version to C/fortran codes
 AM_CFLAGS = -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
@@ -64,6 +65,10 @@ all-local: $(SNANA_EXECUTABLES)
 clean-local:
 	rm -f $(OBJ)/*.o $(OBJ)/*.mod
 	rm -f $(BIN)/*.exe
+
+# maybe somebody, can figure out how to implement this list after make-all completes
+list-all:
+	ls -l $(BIN)
 
 # ---------------------------------------------------------------------------
 # Tell automake we are managing binaries ourselves.

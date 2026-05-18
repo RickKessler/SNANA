@@ -17437,8 +17437,9 @@
       IMPLICIT  NONE
 
       CHARACTER METHOD_SPLINE*20
-      INTEGER   IGAL, IERR, INDEX_SPLINE, NZ
+      INTEGER   IGAL, IERR, INDEX_SPLINE_LM, INDEX_SPLINE_LMERR, NZ
       REAL*8    LM_INTERP, LM_ORIG, LMERR_INTERP, LMERR_ORIG, LM_MEAN, LM_STD, Z
+      REAL*8    LMERR_Z
       LOGICAL   LDMP
 
       ! Function
@@ -17463,15 +17464,17 @@
       if ( NZ <= 0 ) RETURN   ! no logmass grid for this galaxy
 
       METHOD_SPLINE='CUBIC'
-      INDEX_SPLINE = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
+      INDEX_SPLINE_LM = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
+      INDEX_SPLINE_LMERR = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL + 5
       Z = SNGL(SNLC_REDSHIFT)
 
       CALL SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, LM_MEAN, LM_STD, IERR)
 
       LM_ORIG      = SNHOST_LOGMASS(IGAL)
       LMERR_ORIG   = SNHOST_LOGMASS_ERR(IGAL)
-      LM_INTERP    = eval_spline(INDEX_SPLINE, Z ) ! XYZ
-      LMERR_INTERP = 0.01 ! fix this
+      LM_INTERP    = eval_spline(INDEX_SPLINE_LM, Z ) ! XYZ
+      LMERR_INTERP = eval_spline(INDEX_SPLINE_LMERR, Z ) 
+      
 
       if ( LM_INTERP > 1.0d0 ) then
          SNHOST_LOGMASS(IGAL)     = SNGL(LM_INTERP)
@@ -17514,9 +17517,9 @@
     INTEGER   :: IERR
 
 ! local var
-    INTEGER   :: NZ, iz, LM, IPRINT, INDEX_SPLINE
-    REAL*8    :: Z_LIST(MXBIN_SNHOSTz), LMASS_LIST(MXBIN_SNHOSTz)
-    REAL*8    :: MEAN, STD
+    INTEGER   :: NZ, iz, LM, IPRINT, INDEX_SPLINE_LM, INDEX_SPLINE_LMERR
+    REAL*8    :: Z_LIST(MXBIN_SNHOSTz), LM_LIST(MXBIN_SNHOSTz)
+    REAL*8    :: MEAN, STD, LM_ERR_LIST(MXBIN_SNHOSTz) 
     REAL*8    :: Z_PH, Z_PH_ERR
 
     CHARACTER FNAM*30
@@ -17527,14 +17530,16 @@
     LM_MEAN = -9.0D0
     LM_STD  =  0.0D0
 
-    INDEX_SPLINE = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
+    INDEX_SPLINE_LM    = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
+    INDEX_SPLINE_LMERR = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL + 5
     NZ = SNHOSTz_LOGMASS(IGAL)%NZ
     if ( NZ <= 0 ) RETURN   ! no logmass grid for this galaxy
 
     ! copy from TYPE arrays to plain REAL*8 arrays for C call
     do iz = 1, NZ
-       Z_LIST(iz)    = DBLE( SNHOSTz_LOGMASS(IGAL)%Z_LIST(iz)   )
-       LMASS_LIST(iz)= DBLE( SNHOSTz_LOGMASS(IGAL)%VAL_LIST(iz) )
+       Z_LIST(iz)      = DBLE( SNHOSTz_LOGMASS(IGAL)%Z_LIST(iz)   )
+       LM_LIST(iz)     = DBLE( SNHOSTz_LOGMASS(IGAL)%VAL_LIST(iz) )
+       LM_ERR_LIST(iz) = DBLE( SNHOSTz_LOGMASS(IGAL)%VAL2_LIST(iz) )
     enddo
 
     LM     = INDEX(METHOD_SPLINE,' ') - 1
@@ -17542,20 +17547,21 @@
     if ( STDOUT_UPDATE ) IPRINT = 1
 
     ! fit spline through (z, logmass) grid -- DIRECT mode (no "QUANTILE" in name)
-    CALL init_spline(INDEX_SPLINE, NZ, Z_LIST, LMASS_LIST, &
+    CALL init_spline(INDEX_SPLINE_LM, NZ, Z_LIST, LM_LIST, &
          SNLC_CCID(1:ISNLC_LENCCID)  // char(0),  &
          METHOD_SPLINE(1:LM)         // char(0),  &
-         "LOGMASS_ZGRID"             // char(0),  &
+         "LOGMASS_VALGRID"             // char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
+    
 
+    CALL init_spline(INDEX_SPLINE_LMERR, NZ, Z_LIST, LM_ERR_LIST, &
+         SNLC_CCID(1:ISNLC_LENCCID)  // char(0),  &
+         METHOD_SPLINE(1:LM)         // char(0),  &
+         "LOGMASS_ERRGRID"             // char(0),  &
+         IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
+    
     if ( IERR /= 0 ) RETURN   ! bad z grid; caller handles
-
-    ! Gaussian-marginalized logmass over photo-z uncertainty
-    Z_PH     = DBLE( SNHOST_ZPHOT(IGAL) )
-    Z_PH_ERR = DBLE( SNHOST_ZPHOT_ERR(IGAL) )
-
-    !CALL eval_spline_integral(INDEX_SPLINE_LOGMASS_ZGRID, &
-    !                              Z_PH, Z_PH_ERR, LM_MEAN, LM_STD)
+    
 
     return
     END SUBROUTINE SET_SNHOST_LOGMASS_SPLINE

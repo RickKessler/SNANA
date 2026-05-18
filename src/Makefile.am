@@ -14,9 +14,10 @@
 # Directory layout — mirrors original Makefile's OBJ=../obj, BIN=../bin
 # ---------------------------------------------------------------------------
 
-SRC = $(top_srcdir)/src
-OBJ = $(top_srcdir)/obj
-BIN = $(top_srcdir)/bin
+SRC  = $(top_srcdir)/src
+OBJ  = $(top_srcdir)/obj
+BIN  = $(top_srcdir)/bin
+UTIL = $(top_srcdir)/util
 
 # tack on flag to provide git version to C/fortran codes
 AM_CFLAGS = -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
@@ -59,12 +60,17 @@ CPPLIB = -lstdc++
 # Create obj/ and bin/ before anything is compiled
 # clean-local removes object files and binaries
 # ---------------------------------------------------------------------------
-all-local: $(SNANA_EXECUTABLES)
+all-local: set_Cpreproc_flags $(SNANA_EXECUTABLES)  list-all
 	$(MKDIR_P) $(OBJ) $(BIN)
 
 clean-local:
 	rm -f $(OBJ)/*.o $(OBJ)/*.mod
 	rm -f $(BIN)/*.exe
+
+# alter define flags in a few C-include files based on existance of
+# ROOT and GSL_DIR version
+set_Cpreproc_flags:
+	$(UTIL)/set_Cpreproc_flags.py
 
 # maybe somebody, can figure out how to implement this list after make-all completes
 list-all:

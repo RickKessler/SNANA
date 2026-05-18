@@ -24,6 +24,7 @@
 # May 07 2024: add heatmaps to purge list.
 # Jun 13 2025: add new class for combine_fitres 
 # Jun 26 2025: add new template/empty class for smp/multismp
+# May 18 2026: add new class for hostfit (CIGALE)
 # - - - - - - - - - -
 
 #import os
@@ -40,6 +41,7 @@ from   submit_prog_covmat   import create_covmat
 from   submit_prog_cosmofit import cosmofit
 from   submit_prog_combine  import combine_fitres       # 6.13.2025
 from   submit_prog_smp      import SceneModelPhotometry
+from   submit_prog_hostfit  import HostPropertyFit
 from   submit_train_SALT2   import train_SALT2
 from   submit_train_SALT3   import train_SALT3
 from   submit_train_BAYESN  import train_BAYESN
@@ -196,6 +198,10 @@ def which_program_class(config):
         
     elif "SMP_METHOD" in CONFIG :  # ??? check this later
         program_class = SceneModelPhotometry  
+
+    elif "HOSTFIT" in CONFIG :  # temp until we figure out more sensible key
+        program_class = HostPropertyFit 
+        print(f" xxx hello in HOSTFIT from main")
 
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy

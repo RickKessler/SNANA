@@ -385,7 +385,8 @@
          ,FOUND_SURVEY  & 
          ,FORMAT_TEXT     &  ! ascii/txt for input data
          ,FORMAT_FITS     &  ! snfitsio for input data
-         ,OVERRIDE_QUANTILE_ZPHOT & ! true if HEADER_OVERRIDE_FILE includes ZPHOT quantiles
+         ,OVERRIDE_QUANTILE_ZPHOT   & ! true if HEADER_OVERRIDE_FILE includes ZPHOT quantiles
+         ,OVERRIDE_LOGMASS_GRID     & ! true if HEADER_OVERRIDE_FILE includes LOGMASS GRID
          ,SIM_COMPACT_noFLUXCAL      ! if SIM_WRITE_MASK & 4096 (Feb 2026)
     
     INTEGER N_SNLC_PLOT
@@ -2698,6 +2699,7 @@
 ! Apr 2026: call ISRD_OVERRIDE_VARNAME to check if quantiles are on override list
 
     USE SNDATCOM
+    USE CTRLCOM
     USE SNLCINP_NML
     IMPLICIT NONE
 
@@ -2714,6 +2716,9 @@
     ISDATA        = .NOT. LSIM_SNANA
     OVERRIDE_PATH = ''
     NPATH         = 0
+
+    OVERRIDE_QUANTILE_ZPHOT = .FALSE.
+    OVERRIDE_LOGMASS_GRID   = .FALSE.
 
     ! BEWARE: do NOT call ENVreplace here because it won't resolve multiple
     !   ENVs in comma-sep list. 
@@ -2759,8 +2764,9 @@
        OVERRIDE_QUANTILE_ZPHOT = & 
             ISRD_OVERRIDE_VARNAME(VARNAME, 40) .or.  &
             ISRD_OVERRIDE_VARNAME(VARNAME2, 40)
-    else
-       OVERRIDE_QUANTILE_ZPHOT = .FALSE.
+
+       VARNAME = 'HOSTGALz_LOGMASS_ZGRID' // char(0)
+       OVERRIDE_LOGMASS_GRID = ISRD_OVERRIDE_VARNAME(VARNAME,40) 
     endif
 
 
@@ -4233,14 +4239,13 @@
 
     INTEGER OPT, igal  ! OPT is arg for WRAPPER, igal is host index
 
-    INTEGER   LENPRE, ifilt, q, NQZPHOT
-    CHARACTER PREFIX*20, PREFIXz*20, STRING*40, KEY*60, KEY_PREFIX*60
+    INTEGER   LENPRE, ifilt
+    CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60
     REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
 ! -------------- BEGIN ----------
 
     CALL SET_HOSTGAL_PREFIX(IGAL,PREFIX,LENPRE)
-    PREFIXz = PREFIX(1:LENPRE) // 'z'  ! for HOSTGALz azrrays
 
 ! Start with items that only appear once;
 ! i.e., do not depend on host-match.
@@ -4303,26 +4308,12 @@
     CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
     SNHOST_ZPHOT_ERR(igal) = SNGL(DARRAY(1))
 
-    if ( REFAC_DATA_FLAG > 0 ) then
-       ! read  Z_LIST and PERCENT_LIST and store in SNHOSTz_QUANTILE_ZPHOT TYPE
-       CALL FETCH_SNHOSTz_WRAPPER(SNHOSTz_QUANTILE_ZPHOT(igal), OPT )
-       IF ( SNHOSTz_QUANTILE_ZPHOT(igal)%NZ > 0 ) EXIST_SNHOST_ZPHOT = .TRUE.
-    endif
+    ! read  Z_LIST and PERCENT_LIST and store in SNHOSTz_QUANTILE_ZPHOT TYPE
+    CALL FETCH_SNHOSTz_WRAPPER(SNHOSTz_QUANTILE_ZPHOT(igal), OPT )
+    IF ( SNHOSTz_QUANTILE_ZPHOT(igal)%NZ > 0 ) EXIST_SNHOST_ZPHOT = .TRUE.
 
-    if ( REFAC_DATA_FLAG == 0 ) then
-       ! LEGACY : read ZPHOT_Q (May 2022) 
-       NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(igal)%NZ   ! stored at RDGLOBAL stage
-       if ( NQZPHOT > 0 ) then
-         DO q = 1, NQZPHOT
-            KEY = VARNAME_ZPHOT_Q(igal,q)
-            CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
-            SNHOSTz_QUANTILE_ZPHOT(igal)%Z_LIST(q) = SNGL(DARRAY(1))
-            ! xxx mark SNHOST_ZPHOT_Q(igal,q) = SNGL(DARRAY(1))
-         ENDDO
-      endif
-      IF ( SNHOST_ZPHOT(igal) > 0.0 ) EXIST_SNHOST_ZPHOT = .TRUE.
-    endif
-
+    ! read  LOGMASS grid (May 18 2026)
+    CALL FETCH_SNHOSTz_WRAPPER(SNHOSTz_LOGMASS(igal), OPT )
 
 ! - - - -
 
@@ -17439,44 +17430,65 @@
     
     SUBROUTINE SET_LOGMASS()
       USE SNLCCOM
+      USE CTRLCOM
       USE SNLCINP_NML
       USE SNHOSTzCOM
       USE SNHOSTCOM
       IMPLICIT  NONE
+
       CHARACTER METHOD_SPLINE*20
-      INTEGER IGAL, IERR, INDEX_SPLINE, NZ
-      REAL*8    :: LM, LM_MEAN, LM_STD, Z
+      INTEGER   IGAL, IERR, INDEX_SPLINE, NZ
+      REAL*8    LM_INTERP, LM_ORIG, LMERR_INTERP, LMERR_ORIG, LM_MEAN, LM_STD, Z
+      LOGICAL   LDMP
+
       ! Function
       REAL*8  eval_spline
       EXTERNAL eval_spline
-      ! BEGIN
-      if(DEBUG_FLAG .NE. 28) return
-      IGAL = 1
 
+      ! ---------- BEGIN ---------------
+
+      if ( .NOT. OVERRIDE_LOGMASS_GRID ) RETURN
+      ! xxx mark delete if ( DEBUG_FLAG .NE. 28) return
+      LDMP = (DEBUG_FLAG == 28 ) 
+      
+      IGAL = 1
       NZ = SNHOSTz_LOGMASS(IGAL)%NZ
+
       ! debug: print CID, original LM, and NZ to verify grid lookup per SN
-      PRINT*, ' xxx SET_LOGMASS: CID=', SNLC_CID, ' LM=', SNHOST_LOGMASS(IGAL), ' NZ=', NZ
+
+      if ( LDMP ) then
+         PRINT*, ' xxx ----------------------------------------------------- '
+         PRINT*, ' xxx SET_LOGMASS: CID=', SNLC_CID, ' LM=', SNHOST_LOGMASS(IGAL), ' NZ=', NZ
+      endif
       if ( NZ <= 0 ) RETURN   ! no logmass grid for this galaxy
 
       METHOD_SPLINE='CUBIC'
       INDEX_SPLINE = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
       Z = SNGL(SNLC_REDSHIFT)
 
-      ! debug: bracket the spline init + eval to trace IERR and LM_new
-      !PRINT*, ' xxx before SET_SNHOST_LOGMASS_SPLINE'; call flush(6)
       CALL SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, LM_MEAN, LM_STD, IERR)
-      !PRINT*, ' xxx after  SET_SNHOST_LOGMASS_SPLINE: IERR=', IERR; call flush(6)
-      LM =  eval_spline(INDEX_SPLINE, Z ) ! XYZ AM
-      PRINT*, ' xxx SET_LOGMASS: Orignal logmass = ', SNHOST_LOGMASS
-      if ( LM > 1.0d0 ) SNHOST_LOGMASS(IGAL) = SNGL(LM)
-      ! debug: confirm updated LM_new vs redshift
-      PRINT*, ' xxx SET_LOGMASS after interpolation: IERR=, Z, LM_NEW = ', IERR, Z,  SNHOST_LOGMASS(IGAL)
+
+      LM_ORIG      = SNHOST_LOGMASS(IGAL)
+      LMERR_ORIG   = SNHOST_LOGMASS_ERR(IGAL)
+      LM_INTERP    = eval_spline(INDEX_SPLINE, Z ) ! XYZ
+      LMERR_INTERP = 0.01 ! fix this
+
+      if ( LM_INTERP > 1.0d0 ) then
+         SNHOST_LOGMASS(IGAL)     = SNGL(LM_INTERP)
+         SNHOST_LOGMASS_ERR(IGAL) = SNGL(LMERR_INTERP)
+      endif
+
+      if ( LDMP ) then
+         print*, ' xxx SET_LOGMASS: IGAL, z, IERR = ', IGAL, sngl(z), IERR
+         PRINT*, ' xxx SET_LOGMASS: Original LM: ', SNGL(LM_ORIG), ' +_ ', SNGL(LMERR_ORIG)
+         PRINT*, ' xxx SET_LOGMASS: Interpol LM: ', SNGL(LM_INTERP), ' +_ ', SNGL(LMERR_INTERP)
+      endif
 
       return
     END SUBROUTINE SET_LOGMASS
+
 ! =============================================
-    SUBROUTINE SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, &
-                                          LM_MEAN, LM_STD, IERR)
+    SUBROUTINE SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, LM_MEAN, LM_STD, IERR)
 !
 ! Created May 2026 A.Mitra
 ! Fit a spline through the per-galaxy logmass(z) grid stored in

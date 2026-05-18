@@ -23795,7 +23795,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          to avoid abort.
        + fix bug setting IFLAG_SPECID_EFFZERO
            (left-over bug from recent REFAC_SEARCHEFF)
-
+     
     genmag_extrap.c:
        call print_genmag_extrap_table() from init stage to show
        dimming vs. rest-frame phase and wavelength.
@@ -23806,6 +23806,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_dataformat_fits.h
         MXPAR_SNFITSIO -> 800 (was 600); needs more allowance
         with 3rd host added to output.
+
+    sntools_dataformat_text.c
+       Fix to write and read TEXPOSE column in PHOT table ...
+       if SNDATA.TEXPOSE[1] > 0
 
     snlc_fit.F90:
       + add new &FITINP VARLIST_PDF
@@ -23825,5 +23829,24 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI  :  mis-match (REF != TEST)
              ==> REF:  ZPHOT-72 = 0.65831 +/- 0.7417E-02(P)
              ==> TEST: ZPHOT-72 = 0.65781 +/- 0.2210E-01(P)
+	     
+
+# =============================================================
+         v12_01h (May 13 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_01h) *****
+
+    Release new (more generic) spline code for zPHOT quantiles and LOGMASS-zGRID.
+    Revert back to legacy spline code with DEBUG_FLAG = -28.
+
+         *****  USEFUL(v12_01h) *****
+
+
+         *****  MISCELLANEOUS(v12_01h) *****
+
+   sntools_output_text.c:
+     Allow astrisk (*) in CID/GALID column to indicate repeat value from
+     previous row. Intended to reduce file size (and read time) for large
+     OVERRIDE files using GALID identifier with HOSTGALz columns.
 
 END: 

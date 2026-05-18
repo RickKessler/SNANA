@@ -1930,7 +1930,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   bool APPEND_FLAG, ABORT_FLAG;
   int  IFILETYPE, NF, ICAST, UNIQUE ;
-  int  NVAR_USR, ivar, NROW, i, indx ;
+  int  NVAR_USR, ivar, NROW, indx ;
   char *ptrtok, *tmpVar, varName_withCast[MXCHAR_VARNAME+20];
   char *varList_table, *varList_table_ptrtok;
   char varName[MXCHAR_VARNAME] ;
@@ -2037,7 +2037,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   SNTABLE_AUTOSTORE_malloc(0,NF,-9); 
 
   // init each variable with auto-generated memory
-  // Tack on CID since user will fetch values based on CID.
+  // Tack on CID since user will fetch values based on CID (or GALID)
   sprintf(varName_withCast,"CID:C  CCID:C  ROW:C  SNID:C  GALID:C HOSTGAL_OBJID:C");
   ivar = SNTABLE_READPREP_VARDEF(varName_withCast, 
 				 SNTABLE_AUTOSTORE[NF].CCID, NROW, 1);
@@ -2096,6 +2096,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   NROW = SNTABLE_READ_EXEC();
   SNTABLE_AUTOSTORE[NF].NROW = NROW ;
 
+  /* xxxxxxxx mark delete May 18 2026 xxxxxxxx
   // ------------------------------------------
   // store string length for each CCID for faster lookup
   char *ptrCCID ;
@@ -2103,6 +2104,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
     ptrCCID = SNTABLE_AUTOSTORE[NF].CCID[i] ;
     SNTABLE_AUTOSTORE[NF].LENCCID[i] = strlen(ptrCCID);
   } 
+  xxxxxxxxxx end mark xxxxxxx */
 
   // init LASTREAD quantities
   LASTREAD_AUTOSTORE.IFILE = -9;
@@ -2137,13 +2139,12 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
   // IVAR used only to free memory for undefined variable.
   //
 
-  int MEMC, MEMI, MEMD, NROW, NVAR_USR, i ;
+  int MEMC, MEMD, NROW, NVAR_USR, i ;
   char fnam[] = "SNTABLE_AUTOSTORE_malloc" ;
 
   // -------------- BEGIN -------------
 
   MEMC = sizeof(char);
-  MEMI = sizeof(int);
   MEMD = sizeof(double);
   NROW = SNTABLE_AUTOSTORE[IFILE].NROW ;
   NVAR_USR =  SNTABLE_AUTOSTORE[IFILE].NVAR ;
@@ -2156,7 +2157,10 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
       SNTABLE_AUTOSTORE[IFILE].CCID[i] =  (char*)malloc(MEMC*MXCHAR_CCID);  
     }
 
+    /* xxxxxxxxxxx xx mark del May 18 2026  xxxxxxxxxxx
+    int MEMI = sizeof(int);
     SNTABLE_AUTOSTORE[IFILE].LENCCID = (int*)malloc( NROW*MEMI ) ;
+    xxxxxxxx end mark xxxxxx */
 
     // set up char pointer for each variable (but not over rows)
     SNTABLE_AUTOSTORE[IFILE].CVAL  = (char***)malloc( NVAR_USR*sizeof(char**));

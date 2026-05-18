@@ -1751,7 +1751,8 @@ class LightCurveFit(Program):
             util.print_elapse_time(tref,f"merge {n_job_split} table files")
 
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
-        self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
+        util.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
+        # xxx mark delete self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
 
         # - - - - - -
         # for FITRES table only, do unitarity check to make sure that 
@@ -2070,7 +2071,8 @@ class LightCurveFit(Program):
             os.system(f"{cddir}; {cmd}" )
 
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
-        self.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
+        util.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
+        # xxx mark delete self.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
 
         # for HBOOK, remove garbage from log file
         if itable == ITABLE_HBOOK :

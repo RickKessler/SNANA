@@ -876,12 +876,17 @@ def check_file_count(n_expect, file_wildcard):
 
 def check_file_exists(file_name,msg_user):
     # abort if file does not exist
-    exist = os.path.isfile(file_name)
-    if not exist:
-        msgerr = [ f"Cannot find file:", f"\t {file_name}" ]
-        for msg in msg_user:
-            msgerr.append(msg)
-        log_assert(exist, msgerr)
+    # May 2026: if file_name is comma-sep list, check each entry
+
+    fnam_list = file_name.split(',')
+    for fnam in fnam_list:
+        exist = os.path.isfile(fnam)
+        if not exist:
+            msgerr = [ f"Cannot find file:", f"\t {fnam}" ]
+            for msg in msg_user:
+                msgerr.append(msg)
+            log_assert(exist, msgerr)
+
     # end check_file_exists
 
 def read_merge_file(merge_file) :

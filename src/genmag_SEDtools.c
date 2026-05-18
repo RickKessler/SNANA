@@ -564,7 +564,7 @@ void malloc_METADATA_SEDMODEL(int NSED, int NPAR) {
 
 // ******************************************
 void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW, 
-				int NDAY, int NSED ) {
+				int NDAY, int NSED, char *callFun ) {
 
   // Created 2008
   // Allocate flattened 5D arrays vs {Filter, redshift, LAMPOW, day, sed};
@@ -574,9 +574,11 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   // Jan 30, 2010: switch from fancy 5-dim pointer to 1d pointer
   // Dec 15, 2021: fix isize=sizeof(float) instead of pointer size.
   // Feb 01, 2024: abort if max pointer size (NBTOT_DBL) exceeds 2 billion
-  int isize;
-  char fnam[] = "malloc_FLUXTABLE_SEDMODEL" ;
+  // May 14, 2026: pass callFun to help trace abort
 
+  int isize;
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "malloc_FLUXTABLE_SEDMODEL", fnam); 
   // -------------- BEGIN -----------------
 
   // check args against limits
@@ -601,7 +603,8 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
   if ( NDAY <=0 || NDAY > MXBIN_DAYSED_SEDMODEL ) {
     sprintf(c1err,"NDAY=%d  is invalid (MXBIN_DAY=%d).", 
 	    NDAY, MXBIN_DAYSED_SEDMODEL );
-    sprintf(c2err,"Check epoch bins");
+    sprintf(c2err,"Check epoch bins. NFILT=%d  NZBIN=%d  NSED=%d",
+	    NFILT, NZBIN, NSED ); 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   }
 
@@ -695,7 +698,7 @@ void malloc_FLUXTABLE_SEDMODEL( int NFILT, int NZBIN, int NLAMPOW,
 
 void malloc_SEDFLUX_SEDMODEL(SEDMODEL_FLUX_DEF *SEDMODEL_FLUX,
 			     int NBIN_DAY_USER, int NBIN_LAM_USER, 
-			     int NBIN_SED_USER ) {
+			     int NBIN_SED_USER, char *callFun ) {
 
   // Created Mar 7 2017
   // Allocate arrays for SEDMODEL_FLUX structure that is passed as argument.
@@ -709,6 +712,9 @@ void malloc_SEDFLUX_SEDMODEL(SEDMODEL_FLUX_DEF *SEDMODEL_FLUX,
   int NBIN_DAY  = MXBIN_DAYSED_SEDMODEL;
   int NBIN_LAM  = MXBIN_LAMSED_SEDMODEL;
   int NBIN_SED  = MXBIN_SED_SEDMODEL ;
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "malloc_SEDFLUX_SEDMODEL", fnam); (void)fnam;
 
   // ------------- BEGIN ----------------
   if ( NBIN_DAY_USER  > 0 ) { NBIN_DAY  = NBIN_DAY_USER; }

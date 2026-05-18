@@ -339,7 +339,7 @@ struct SNTABLE_AUTOSTORE {
   int     IFILETYPE ;   // indicates ROOT,,TEXT, etc ...
 
   int     NROW ;
-  int     *LENCCID; // string len for each CCID (for faster lookup)
+  // xxx mark   int     *LENCCID; // string len for each CCID (for faster lookup)
   char    **CCID ;
   double  **DVAL ;
   char    ***CVAL ;

@@ -2219,16 +2219,18 @@ class Program:
 
         # end get_proctime_info
 
-    def check_file_exists(self,file_name,msg_user):
-        # abort if file does not exist and use self.log_assert
-        # that writes error message to MERGE.LOG and FAIL to done stamp
-        exist = os.path.isfile(file_name)
-        if not exist:
-            msgerr = [ f"Cannot find file:", f"\t {file_name}" ]
-            for msg in msg_user:
-                msgerr.append(msg)
-            self.log_assert(exist, msgerr)
+    # xxxxxxxxxxx mark delete; use util.check_file_exists() xxxxxxxx
+    #def check_file_exists(self,file_name,msg_user):
+    #    # abort if file does not exist and use self.log_assert
+    #    # that writes error message to MERGE.LOG and FAIL to done stamp
+    #    exist = os.path.isfile(file_name)
+    #    if not exist:
+    #        msgerr = [ f"Cannot find file:", f"\t {file_name}" ]
+    #        for msg in msg_user:
+    #            msgerr.append(msg)
+    #        self.log_assert(exist, msgerr)
     # end check_file_exists
+    # xxxxxxxxxxxxxxxxxxxxxxx
 
     def check_for_code_failure(self, log_file, nevt, bad_output, isplit):
 

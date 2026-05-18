@@ -524,7 +524,7 @@ int init_genmag_BAYESN(
 
   int istat, nflux_nan;
   SEDMODEL_FLUX_DEF *S0 = &BAYESN_MODEL_INFO.S0;
-  malloc_SEDFLUX_SEDMODEL(S0,0,0,0);
+  malloc_SEDFLUX_SEDMODEL(S0,0,0,0, fnam);
     
   // Define time and phase ranges of BAYESN validity (used to load in Hsiao)
   // ST - I've modified this to load in the full base template

@@ -281,7 +281,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   }
 
   // -------------------------------------- 
-  malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0);
+  malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL,0,0,0, fnam);
   read_SIMSED_INFO(SIMSED_PATHMODEL);
   dump_SIMSED_INFO();
 
@@ -305,8 +305,10 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   NZBIN  = REDSHIFT_SEDMODEL.NZBIN ;
   NLAMPOW_SEDMODEL = 0 ;
 
+  // xxx mark printf(" xxx %s: SEDMODEL.MXDAY = %d \n", fnam, SEDMODEL.MXDAY);
+
   malloc_FLUXTABLE_SEDMODEL ( NFILT_SEDMODEL, NZBIN, NLAMPOW_SEDMODEL, 
-			      SEDMODEL.MXDAY, SEDMODEL.NSURFACE );
+			      SEDMODEL.MXDAY, SEDMODEL.NSURFACE, fnam );
   fflush(stdout);
 
   // ------- Now read the spectral templates -----------
@@ -493,7 +495,7 @@ void open_SEDBINARY(char *binFile, bool force_create,
     printf("\n Read SED-BINARY file for quicker init: \n");
     printf("  %s\n", binFile );
     IVERSION_SIMSED_BINARY = -9 ;
-    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int),  1, *fpbin);
+    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int*),  1, *fpbin);
     printf("\t (read SED-binary format version=%d)\n", 
 	   IVERSION_SIMSED_BINARY);
     printf("\n");
@@ -673,7 +675,7 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
     free(PTR_SEDMODEL_FLUXTABLE) ;
     malloc_FLUXTABLE_SEDMODEL ( NFILT_SEDMODEL, REDSHIFT_SEDMODEL.NZBIN,
 				NLAMPOW_SEDMODEL, SEDMODEL.MXDAY, 
-				SEDMODEL.NSURFACE );
+				SEDMODEL.NSURFACE, fnam );
   }
 
 
@@ -1101,7 +1103,7 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
     NDAY           = TEMP_SEDMODEL.NDAY ;
   }
 
-
+  
   /*
   printf("\t NDAY(largest file)=%d  => allocate %d epochs in SEDMODEL \n", 
   	 NDAY, SEDMODEL.MXDAY );
@@ -1109,7 +1111,7 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   int NDAY_PAD = 5; // allow for largest file to not have max NDAY
   if ( RDFLAG_BINARY ) {
-    fret = fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);
+    fret = fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);  // .xyz 
   }
   else {
     SEDMODEL.MXDAY = NDAY + NDAY_PAD ; // leave a little slop in file sizes

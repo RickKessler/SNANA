@@ -110,11 +110,11 @@ int main(int argc, char **argv) {
 
   // allocate TEMP array to read SED 
   malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL_INP,
-			  MXBIN_DAY_REBIN, MXBIN_LAM_REBIN, MXBIN_SED_REBIN);
+			  MXBIN_DAY_REBIN, MXBIN_LAM_REBIN, MXBIN_SED_REBIN, fnam );
 
   // malloc rebinned array
   malloc_SEDFLUX_SEDMODEL(&TEMP_SEDMODEL_OUT,
-			  MXBIN_DAY_REBIN, MXBIN_LAM_REBIN, MXBIN_SED_REBIN);
+			  MXBIN_DAY_REBIN, MXBIN_LAM_REBIN, MXBIN_SED_REBIN, fnam);
 
 
   SIMSED_DRIVER();

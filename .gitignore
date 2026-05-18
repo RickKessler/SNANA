@@ -12,3 +12,4 @@ src/*.mod
 util/*~
 *~
 __pycache__/*
+src/*.checkpoint

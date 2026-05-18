@@ -23844,4 +23844,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_01h) *****
 
+   sntools_output_text.c:
+     Allow astrisk (*) in CID/GALID column to indicate repeat value from
+     previous row. Intended to reduce file size (and read time) for large
+     OVERRIDE files using GALID identifier with HOSTGALz columns.
+
 END: 

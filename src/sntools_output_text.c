@@ -1286,8 +1286,17 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 	      (long long int)DVAR[ivar] ; 
 	  }	  
 	  else if ( ICAST == ICAST_C )  { 
-	    sprintf(READTABLE_POINTERS.PTRVAL_C[nptr][ivar][isn],"%s",
-		    CVAR[ivar]); 
+	    char *PTRVAL_C = READTABLE_POINTERS.PTRVAL_C[nptr][ivar][isn];
+	    sprintf(PTRVAL_C, "%s",  CVAR[ivar]); 
+
+	    // May 18 2026: allow astrisk in CID/GALID column to indicate repeat value
+	    //              so that text file size can be smaller for faster reading.
+	    if ( ivar == 0 && strcmp(CVAR[ivar],"*") == 0 ) {  // .xyz
+	      char *PTRVAL_C_PREVIOUS = READTABLE_POINTERS.PTRVAL_C[nptr][ivar][isn-1];
+	      sprintf(PTRVAL_C, "%.*s", MXCHAR_CCID, PTRVAL_C_PREVIOUS);
+	      //   printf(" xxx %s: replace * with %s \n", fnam, PTRVAL_C_PREVIOUS);
+	    }
+
 	  }	  
 	  else {
 	    sprintf(MSGERR1,"Unknown ICAST=%d  var[%d]=%s  nptr=%d", 

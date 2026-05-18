@@ -25,14 +25,18 @@ cd src
 make             # builds all
 ```
 
-`make install`     # installs all *.exe in bin directory
-
-`make build-install` # builds and installs all in bin directory in one command
-
 to build one executable:
 ```
 cd src
-make snana.exe
+make snana
+```
+
+debug build
+```
+autoreconf -fi
+./configure --enable-debug
+cd src
+make
 ```
 
 to clean:

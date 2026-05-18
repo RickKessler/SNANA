@@ -20,7 +20,7 @@ SRC = $(top_srcdir)/src
 # tack on flag to provide git version to C/fortran codes
 AM_CFLAGS = -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
 
-EXTRA_FLAGS = -O2 -D_FORTIFY_SOURCE=2
+EXTRA_FLAGS = -D_FORTIFY_SOURCE=2
 
 
 # ---------------------------------------------------------------------------
@@ -28,10 +28,10 @@ EXTRA_FLAGS = -O2 -D_FORTIFY_SOURCE=2
 # These are set by configure.ac and passed in via AM_ variables; we
 # assemble the final flags here to match the original Makefile exactly.
 # ---------------------------------------------------------------------------
-SNFFLAGS  = -c -fno-automatic -m64 -fsecond-underscore $(AM_FCFLAGS) $(FCFLAGS)
-SNCFLAGS  = -c -m64 $(AM_CFLAGS) $(CFLAGS) -fcommon
-SNCXXFLAGS = -c -m64 $(AM_CXXFLAGS) $(CXXFLAGS) -fcommon
-SNLDFLAGS = -m64 $(PROFILEFLAG)
+SNFFLAGS  = -c -fno-automatic -m64 -fsecond-underscore $(AM_FCFLAGS) $(FCFLAGS) $(DEBUG_FCFLAGS)
+SNCFLAGS  = -c -m64 $(AM_CFLAGS) $(CFLAGS) -fcommon $(DEBUG_CFLAGS)
+SNCXXFLAGS = -c -m64 $(AM_CXXFLAGS) $(CXXFLAGS) -fcommon $(DEBUG_CXXFLAGS)
+SNLDFLAGS = -m64 $(PROFILEFLAG) $(DEBUG_LDFLAGS)
 
 # Python includes/libs (set by configure.ac via @PYTHON_INCLUDES@ / @PYTHON_LIBS@)
 IPY = @PYTHON_INCLUDES@

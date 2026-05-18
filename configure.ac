@@ -7,10 +7,6 @@ AC_CONFIG_AUX_DIR([build-aux])
 dnl Tell automake that this is not following GNU coding standards (no README, CHANGELOG, etc)
 AM_INIT_AUTOMAKE([foreign])
 
-# Substitute the obj dir
-#AC_SUBST([OBJ], ['$(top_builddir)/obj'])
-#AC_SUBST([BIN], ['$(top_builddir)/bin'])
-
 AC_CONFIG_MACRO_DIR([m4])
 
 UTIL_DIR='$(top_srcdir)/util'
@@ -25,6 +21,38 @@ AC_FC_LIBRARY_LDFLAGS
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile src/Makefile])
+
+
+
+# ---------------------------------------------------------------
+# Debug build option: --enable-debug
+# Adds debug symbols and assertions while keeping -O2 optimization
+# ---------------------------------------------------------------
+AC_ARG_ENABLE([debug],
+    [AS_HELP_STRING([--enable-debug],
+        [enable debug symbols and assertions (default: no)])],
+    [enable_debug=$enableval],
+    [enable_debug=no])
+
+AC_MSG_CHECKING([whether to build with debug information])
+AS_IF([test "x$enable_debug" = "xyes"],
+    [AC_MSG_RESULT([yes])
+     DEBUG_CFLAGS="-g3 -O2 -fno-omit-frame-pointer"
+     DEBUG_CXXFLAGS="-g3 -O2 -fno-omit-frame-pointer"
+     DEBUG_FCFLAGS="-g3 -O2 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
+     DEBUG_LDFLAGS="-rdynamic"],
+    [AC_MSG_RESULT([no])
+     DEBUG_CFLAGS="-O2 -DNDEBUG"
+     DEBUG_CXXFLAGS="-O2 -DNDEBUG"
+     DEBUG_FCFLAGS="-O2"
+     DEBUG_LDFLAGS=""])
+
+AC_SUBST([DEBUG_CFLAGS])
+AC_SUBST([DEBUG_CXXFLAGS])
+AC_SUBST([DEBUG_FCFLAGS])
+AC_SUBST([DEBUG_LDFLAGS])
+
+AM_CONDITIONAL([DEBUG], [test "x$enable_debug" = "xyes"])
 
 
 # Try to get Git version

@@ -994,14 +994,6 @@
     TYPE(SNHOSTz_DEF) :: SNHOSTz_QUANTILE_ZPHOT(MXSNHOST)
     TYPE(SNHOSTz_DEF) :: SNHOSTz_LOGMASS(MXSNHOST)
 
-    ! xxxxx mark delete  May 18 2026 xxxxxxxxx
-    ! --- per-file logmass(z) grid lookup table (loaded from LOGMASS_GRID_FILE) ---
-    !INTEGER, PARAMETER :: MXGALID_LOGMASS = 5000
-    !INTEGER            :: N_GALID_LOGMASS = 0
-    !INTEGER(I8)        :: GALID_LOGMASS_LIST(MXGALID_LOGMASS)
-    !TYPE(SNHOSTz_DEF)  :: SNHOSTz_LOGMASS_GRID(MXGALID_LOGMASS)
-    ! xxxxxx end mark xxxxxxxxxxx
-
   CONTAINS
       
     SUBROUTINE INIT_SNHOSTz(SNHOSTz, igal, SUFFIX_Z, SUFFIX_VAL, SUFFIX_VAL2)
@@ -1016,7 +1008,7 @@
       CHARACTER SUFFIX_Z*(*), SUFFIX_VAL*(*), SUFFIX_VAL2*(*)
 
       ! local
-      INTEGER iz, LENPRE
+      INTEGER iz, LENPRE, LEN2
       CHARACTER PREFIX*20, PREFIXz*20
 
       ! -------- BEGIN --------
@@ -1026,8 +1018,9 @@
       SNHOSTz%VARNAME_NZ  = PREFIXz(1:LENPRE+1) // '_NBIN_' // SUFFIX_Z
       SNHOSTz%VARNAME_Z   = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_Z
       SNHOSTz%VARNAME_VAL = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_VAL
-
-      if ( INDEX(SUFFIX_VAL2,' ') > 2 ) then
+ 
+      LEN2 = INDEX(SUFFIX_VAL2//' ',' ')
+      if ( LEN2 > 3 ) then
          SNHOSTz%VARNAME_VAL2 = PREFIXz(1:LENPRE+1) // '_' // SUFFIX_VAL2
       else
          SNHOSTz%VARNAME_VAL2 = ''
@@ -1088,43 +1081,63 @@
       ! created Apr 2026
       ! Read and load z-vector variable for SNHOSTz:
       ! NZ = nunber of z bin
-      ! Z_LIST   : grid of redshift values
-      ! VAL_LIST : grid of values for each redshift
-
-      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz
-      INTEGER OPT
+      ! Z_LIST    : grid of redshift values
+      ! VAL_LIST  : grid of values for each redshift
+      ! VAL2_LIST : grid of 2nd values (e.g. error)
+ 
+      ! subroutine args
+      TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz   ! (I)
+      INTEGER OPT                                   ! (I)
 
       ! local var
       INTEGER NZ, iz
       CHARACTER KEY*40, STRING*20
-      REAL*8    DARRAY(MXBIN_SNHOSTz), DARRAY2(MXBIN_SNHOSTz)
+      LOGICAL   GET_VAL2
+      REAL*8    DARRAY(2), DARRAYz(MXBIN_SNHOSTz)
+      REAL*8    DARRAY_VAL(MXBIN_SNHOSTz), DARRAY_VAL2(MXBIN_SNHOSTz)
+
+      ! ------------ BEGIN -----------
+
       KEY    = SNHOSTz%VARNAME_NZ
       CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
       NZ = INT(DARRAY(1))
 
       KEY = SNHOSTz%VARNAME_Z
-      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY,  OPT)
+      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAYz,  OPT)
+
       KEY = SNHOSTz%VARNAME_VAL
-      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY2, OPT)
+      CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY_VAL, OPT)
+
+      GET_VAL2 = ( SNHOSTz%VARNAME_VAL2 .NE. '' )
+      if ( GET_VAL2 ) then
+         KEY = SNHOSTz%VARNAME_VAL2
+         CALL FETCH_SNDATA_WRAPPER(KEY, NZ, STRING, DARRAY_VAL2, OPT)
+      endif
 
       ! load values to TYPE object
       SNHOSTz%NZ = NZ
       DO iz = 1, NZ
-         SNHOSTz%Z_LIST(iz)     = SNGL( DARRAY(iz)  ) 
-         SNHOSTz%VAL_LIST(iz)   = SNGL( DARRAY2(iz) ) 
+         SNHOSTz%Z_LIST(iz)      = SNGL( DARRAYz(iz)  ) 
+         SNHOSTz%VAL_LIST(iz)    = SNGL( DARRAY_VAL(iz) ) 
+         if ( GET_VAL2 )  SNHOSTz%VAL2_LIST(iz) = SNGL( DARRAY_VAL2(iz) ) 
       ENDDO
 
       RETURN
     END SUBROUTINE FETCH_SNHOSTz_WRAPPER
 
-  ! ==============================================
+
+#if defined(OBSOLETE)
+! ==============================================
     SUBROUTINE copy_SNDATA_SNHOSTz(SNHOSTz, COPYFLAG)
+    ! @@@@@@@@ OBSOLETE @@@@@@@@@@@@@@@
 
     ! Created Apr 14 2026
     ! utility to copy SNHOSTz vector information to SNDATA struct.
-
+      
     TYPE(SNHOSTz_DEF), INTENT(INOUT) :: SNHOSTz  ! (I)
     INTEGER COPYFLAG    ! (I) determines direction of copy (to/from SNDATA struct)
+
+    ! @@@@@@@@ OBSOLETE @@@@@@@@@@@@@@@
 
     ! local args
     INTEGER   NQ, q,  LEN_KEY, LEN_STR, NARG
@@ -1137,6 +1150,8 @@
     LEN_STR = 20
     NARG    = 1
     NQ      = SNHOSTz%NZ
+
+    ! @@@@@@@@ OBSOLETE @@@@@@@@@@@@@@@
     
     LEN_KEY = index(SNHOSTz%VARNAME_NZ,' ') - 1
     cKEY    = SNHOSTz%VARNAME_NZ(1:LEN_KEY) // char(0)
@@ -1150,16 +1165,21 @@
     enddo
     CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NQ, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
+    ! @@@@@@@@ OBSOLETE @@@@@@@@@@@@@@@
+
     LEN_KEY = index(SNHOSTz%VARNAME_VAL,' ') - 1
     cKEY    = SNHOSTz%VARNAME_VAL(1:LEN_KEY) // char(0)
     do q = 1, NQ
        DVAL(q) = DBLE( SNHOSTz%VAL_LIST(q) )
     enddo
     CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NQ, cSTRING, DVAL, LEN_KEY, LEN_STR)
-    
+
+    ! @@@@@@@@ OBSOLETE @@@@@@@@@@@@@@@
+
     RETURN
 
   END SUBROUTINE copy_SNDATA_SNHOSTz
+#endif
 
   END MODULE SNHOSTzCOM
 
@@ -10472,7 +10492,6 @@
 !   + photo-z quantiles  # Oct 14 2025
 ! -------------
 
-
     USE SNDATCOM
     USE SNLCINP_NML
     USE PRIVCOM
@@ -17427,8 +17446,15 @@
     return
     END SUBROUTINE SET_SNHOST_QZPHOT
 ! =============================================
-    
     SUBROUTINE SET_LOGMASS()
+
+      ! Created May 2026 by A.Mitra, R.Kessler
+      !
+      ! To do:
+      ! pass arguments OPT, Z, ERR
+      ! OPT=1 -> init spline (before LCFIT)
+      ! OPT=2 -> skip init and interp logmass (after fit)
+
       USE SNLCCOM
       USE CTRLCOM
       USE SNLCINP_NML
@@ -17438,7 +17464,7 @@
 
       CHARACTER METHOD_SPLINE*20
       INTEGER   IGAL, IERR, INDEX_SPLINE_LM, INDEX_SPLINE_LMERR, NZ
-      REAL*8    LM_INTERP, LM_ORIG, LMERR_INTERP, LMERR_ORIG, LM_MEAN, LM_STD, Z
+      REAL*8    LM_INTERP, LM_ORIG, LMERR_INTERP, LMERR_ORIG,  Z
       REAL*8    LMERR_Z
       LOGICAL   LDMP
 
@@ -17449,7 +17475,6 @@
       ! ---------- BEGIN ---------------
 
       if ( .NOT. OVERRIDE_LOGMASS_GRID ) RETURN
-      ! xxx mark delete if ( DEBUG_FLAG .NE. 28) return
       LDMP = (DEBUG_FLAG == 28 ) 
       
       IGAL = 1
@@ -17464,11 +17489,11 @@
       if ( NZ <= 0 ) RETURN   ! no logmass grid for this galaxy
 
       METHOD_SPLINE='CUBIC'
-      INDEX_SPLINE_LM = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
-      INDEX_SPLINE_LMERR = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL + 5
+      INDEX_SPLINE_LM    = IND_OFF_SPLINE_LOGMASS_ZGRID + IGAL
+      INDEX_SPLINE_LMERR = IND_OFF_SPLINE_LOGMASS_ZGRID + IGAL + 5
       Z = SNGL(SNLC_REDSHIFT)
 
-      CALL SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, LM_MEAN, LM_STD, IERR)
+      CALL SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, IERR)
 
       LM_ORIG      = SNHOST_LOGMASS(IGAL)
       LMERR_ORIG   = SNHOST_LOGMASS_ERR(IGAL)
@@ -17491,7 +17516,7 @@
     END SUBROUTINE SET_LOGMASS
 
 ! =============================================
-    SUBROUTINE SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, LM_MEAN, LM_STD, IERR)
+    SUBROUTINE SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, IERR)
 !
 ! Created May 2026 A.Mitra
 ! Fit a spline through the per-galaxy logmass(z) grid stored in
@@ -17502,8 +17527,6 @@
 !   METHOD_SPLINE  : interpolation method ("LINEAR","CUBIC","STEFFEN")
 !   IGAL           : sparse host index (1..MXSNHOST)
 ! Outputs:
-!   LM_MEAN        : Gaussian-weighted mean logmass
-!   LM_STD         : corresponding standard deviation
 !   IERR           : 0=ok, -1=negative z, -2=non-monotonic z, -9=no data
 
     USE SNDATCOM
@@ -17513,22 +17536,18 @@
 
     CHARACTER :: METHOD_SPLINE*(*)
     INTEGER   :: IGAL
-    REAL*8    :: LM_MEAN, LM_STD
     INTEGER   :: IERR
 
 ! local var
     INTEGER   :: NZ, iz, LM, IPRINT, INDEX_SPLINE_LM, INDEX_SPLINE_LMERR
     REAL*8    :: Z_LIST(MXBIN_SNHOSTz), LM_LIST(MXBIN_SNHOSTz)
-    REAL*8    :: MEAN, STD, LM_ERR_LIST(MXBIN_SNHOSTz) 
-    REAL*8    :: Z_PH, Z_PH_ERR
+    REAL*8    :: MEAN, STD, LMERR_LIST(MXBIN_SNHOSTz) 
 
     CHARACTER FNAM*30
 ! ------------- BEGIN ---------------
 
     FNAM = 'SET_SNHOST_LOGMASS_SPLINE'
     IERR    = -9
-    LM_MEAN = -9.0D0
-    LM_STD  =  0.0D0
 
     INDEX_SPLINE_LM    = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL
     INDEX_SPLINE_LMERR = IND_OFF_SPLINE_LOGMASS_ZGRID+IGAL + 5
@@ -17539,7 +17558,7 @@
     do iz = 1, NZ
        Z_LIST(iz)      = DBLE( SNHOSTz_LOGMASS(IGAL)%Z_LIST(iz)   )
        LM_LIST(iz)     = DBLE( SNHOSTz_LOGMASS(IGAL)%VAL_LIST(iz) )
-       LM_ERR_LIST(iz) = DBLE( SNHOSTz_LOGMASS(IGAL)%VAL2_LIST(iz) )
+       LMERR_LIST(iz)  = DBLE( SNHOSTz_LOGMASS(IGAL)%VAL2_LIST(iz) )
     enddo
 
     LM     = INDEX(METHOD_SPLINE,' ') - 1
@@ -17554,15 +17573,14 @@
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
     
 
-    CALL init_spline(INDEX_SPLINE_LMERR, NZ, Z_LIST, LM_ERR_LIST, &
+    CALL init_spline(INDEX_SPLINE_LMERR, NZ, Z_LIST, LMERR_LIST, &
          SNLC_CCID(1:ISNLC_LENCCID)  // char(0),  &
          METHOD_SPLINE(1:LM)         // char(0),  &
-         "LOGMASS_ERRGRID"             // char(0),  &
+         "LOGMASS_ERRGRID"           // char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
     
-    if ( IERR /= 0 ) RETURN   ! bad z grid; caller handles
+    ! xxx mark if ( IERR /= 0 ) RETURN   ! bad z grid; caller handles
     
-
     return
     END SUBROUTINE SET_SNHOST_LOGMASS_SPLINE
 

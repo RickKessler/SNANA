@@ -16851,7 +16851,7 @@
     endif
 #endif
 
-    CALL SET_LOGMASS() ! update HOST_LOGMASS using per-galaxy logmass(z) grid
+    CALL SET_LOGMASS(1, DBLE(SNLC_REDSHIFT), DBLE(SNLC_REDSHIFT_ERR)) ! update HOST_LOGMASS using per-galaxy logmass(z) grid
 
     CALL SELECT_EPOCH_DRIVER(2) ! apply Trest cuts
 
@@ -17446,7 +17446,7 @@
     return
     END SUBROUTINE SET_SNHOST_QZPHOT
 ! =============================================
-    SUBROUTINE SET_LOGMASS()
+    SUBROUTINE SET_LOGMASS(OPT, REDSHIFT, REDSHIFT_ERR)
 
       ! Created May 2026 by A.Mitra, R.Kessler
       !
@@ -17461,11 +17461,15 @@
       USE SNHOSTzCOM
       USE SNHOSTCOM
       IMPLICIT  NONE
+      ! SUBROUTINE ARGS
+      INTEGER OPT 
+      REAL*8 REDSHIFT, REDSHIFT_ERR
 
+      ! LOCAL ARGS
       CHARACTER METHOD_SPLINE*20
       INTEGER   IGAL, IERR, INDEX_SPLINE_LM, INDEX_SPLINE_LMERR, NZ
       REAL*8    LM_INTERP, LM_ORIG, LMERR_INTERP, LMERR_ORIG,  Z
-      REAL*8    LMERR_Z
+      REAL*8    LMERR_Z, LMERR_ZLO, LMERR_ZHI
       LOGICAL   LDMP
 
       ! Function
@@ -17473,6 +17477,9 @@
       EXTERNAL eval_spline
 
       ! ---------- BEGIN ---------------
+      PRINT*
+      PRINT*, ' xxx SET_LOGMASS called: CID=', SNLC_CID, ' OPT=', OPT
+      PRINT*
 
       if ( .NOT. OVERRIDE_LOGMASS_GRID ) RETURN
       LDMP = (DEBUG_FLAG == 28 ) 
@@ -17491,15 +17498,19 @@
       METHOD_SPLINE='CUBIC'
       INDEX_SPLINE_LM    = IND_OFF_SPLINE_LOGMASS_ZGRID + IGAL
       INDEX_SPLINE_LMERR = IND_OFF_SPLINE_LOGMASS_ZGRID + IGAL + 5
-      Z = SNGL(SNLC_REDSHIFT)
-
-      CALL SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, IERR)
+      if (OPT ==1) then 
+         CALL SET_SNHOST_LOGMASS_SPLINE(METHOD_SPLINE, IGAL, IERR)
+      endif
 
       LM_ORIG      = SNHOST_LOGMASS(IGAL)
       LMERR_ORIG   = SNHOST_LOGMASS_ERR(IGAL)
-      LM_INTERP    = eval_spline(INDEX_SPLINE_LM, Z ) ! XYZ
-      LMERR_INTERP = eval_spline(INDEX_SPLINE_LMERR, Z ) 
-      
+      LM_INTERP    = eval_spline(INDEX_SPLINE_LM, REDSHIFT ) ! XYZ
+      LMERR_INTERP = eval_spline(INDEX_SPLINE_LMERR, REDSHIFT ) 
+      ! Now evaluate additional error for z uncertainty
+      LMERR_ZLO = ABS(LM_INTERP - eval_spline(INDEX_SPLINE_LM, REDSHIFT-REDSHIFT_ERR ))
+      LMERR_ZHI = ABS(LM_INTERP - eval_spline(INDEX_SPLINE_LM, REDSHIFT+REDSHIFT_ERR ))
+      LMERR_Z   = (LMERR_ZLO + LMERR_ZHI) * 0.5 
+      LMERR_INTERP = SQRT(LMERR_Z*LMERR_Z + LMERR_INTERP*LMERR_INTERP)
 
       if ( LM_INTERP > 1.0d0 ) then
          SNHOST_LOGMASS(IGAL)     = SNGL(LM_INTERP)
@@ -17507,9 +17518,12 @@
       endif
 
       if ( LDMP ) then
-         print*, ' xxx SET_LOGMASS: IGAL, z, IERR = ', IGAL, sngl(z), IERR
+         print*, ' xxx SET_LOGMASS: IGAL, z, IERR = ', IGAL, sngl(REDSHIFT), IERR
          PRINT*, ' xxx SET_LOGMASS: Original LM: ', SNGL(LM_ORIG), ' +_ ', SNGL(LMERR_ORIG)
          PRINT*, ' xxx SET_LOGMASS: Interpol LM: ', SNGL(LM_INTERP), ' +_ ', SNGL(LMERR_INTERP)
+         PRINT*, ' xxx SET_LOGMASS; LMERR_Z = ', SNGL(LMERR_Z)
+         PRINT*, ' xxx SET_LOGMASS: OPT = ', OPT
+
       endif
 
       return

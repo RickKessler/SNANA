@@ -538,3 +538,7 @@ if __name__ == "__main__":
     else:
         sys.exit(f"mode must be 'SNANA_TO_CIGALE' or 'CIGALE_TO_SNANA', got {mode!r}")
 
+
+    print(f"DONE.")
+
+    # === END: ====

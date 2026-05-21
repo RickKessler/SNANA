@@ -19,6 +19,7 @@
 %\usepackage{epsfig}
 \usepackage{graphicx}
 \usepackage{cprotect}
+\usepackage{fontawesome}
 
 \setlength{\textheight}{9.5in}
 \setlength{\textwidth}{7.0in}
@@ -533,6 +534,35 @@ A few other requests for coding habits:
    \item for major bug-fixes or improvements, inform your
          collaborators.
 \end{itemize}
+
+
+% #####################################################
+\clearpage
+\subsection{Tracking \faGithub ~ GitHub Tags in Analysis Outputs}
+\label{subsec:tracking_git_tags}
+% #####################################################
+
+%\faGithub ~ GitHub
+\newcommand{\git}{GitHub}
+
+For reproducible analysis results,
+it is ideally good practice to record a \git\ tag for a final analysis.
+In practice, however, different components of an \snana-based analysis 
+(e.g., {\tt sim, lcfit, bbc, create\_cov, wfit})
+are run at different times and may have different commits, 
+meaning that there may not be a single tag+commit reflecting an entire analysis.
+While running a full end-to-end analysis with a single \git\ tag+commit
+is recommended prior to publishing results, this single-tag 
+reanalysis is usually forgotten. 
+
+To enable reproducibility with analysis components using different \git\ tags,
+all \snana\ codes write explicit \git\ tag+commit following an \verb|SNANA_VERSION|
+key. This \verb|SNANA_VERSION| key is written into stdout, 
+and to output files and tables. 
+As an example, the Dovekie analysis outputs include
+\begin{verbatim}
+   SNANA_VERSION: v11_06a-62-g4c10cc4 
+\end{verbatim}
 
 
 % ##########################################

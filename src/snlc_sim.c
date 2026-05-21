@@ -712,7 +712,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_ZHEL       = true;
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
-  INPUTS.REFAC_DATA_FLAG        = 1 ;
+  INPUTS.REFAC_DATA_FLAG        = 0 ;
   NLINE_RATE_INFO   = 0;
 
   INPUTS.TIME_START[0] = 0 ;
@@ -25892,24 +25892,15 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_SQRADIUS[m]     = SNHOSTGAL_DDLR_SORT[m].SQRADIUS;
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
 
-      if ( REFAC_DATA_FLAG ) 
-	{ SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ = HOSTLIB.NQZPHOT ; 	}
+      SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ = HOSTLIB.NQZPHOT ; 
 
       // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
       for(j=0; j<SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ; j++){
 	double zq   = SNHOSTGAL_DDLR_SORT[m].QZPHOT[j] ;
 	double pct  = SNHOSTGAL_DDLR_SORT[m].QPERCENTILE[j] ;
-	// xxx mark	double pct  = HOSTLIB.QPERCENTILE[j]; 
 
-	if ( REFAC_DATA_FLAG ) {
-	  SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
-	  SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
-	}
-	/* xxxxxxx mark delete 
-	else {
-	  SNDATA.HOSTGAL_ZPHOT_Q[m][j] = zq ;   // legacy storage
-	}
-	xxxxxxx end mark xxxxxx */
+	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
+	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
 
       }
 

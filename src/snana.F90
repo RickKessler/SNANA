@@ -3457,8 +3457,6 @@
 
     CALL RDGLOBAL_PRIVATE(OPT)
 
-    ! xxx mark delete May 18 2026 CALL RDGLOBAL_ZPHOT_Q(OPT)  ! legacy
-
     IF ( LSIM_SNANA ) THEN
        CALL FETCH_SNDATA_WRAPPER("SIMLIB_FILE", ONE, SIMLIB_FILENAME, DARRAY, OPT)
 
@@ -3699,85 +3697,6 @@
     RETURN
   END SUBROUTINE RDGLOBAL_PRIVATE
 
-
-! =================================
-    SUBROUTINE RDGLOBAL_ZPHOT_Q(OPT)
-
-! Created May 12 2022
-! Read/parse names host galaxy photo-z quantiles that determine
-! column names. E.g., percentile 20 means HOSTGAL_ZPHOT_Q020 exists.
-! 
-    ! @@@@@ LEGACY @@@@@
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-    USE PRIVCOM
-
-    IMPLICIT NONE
-
-    INTEGER   OPT  ! (I)  1 -> dump flag for FETCH_SNDATA_WRAPPER
-
-    INTEGER   ivar, q, PCT, NZ
-    REAL*8    DARRAY(MXBIN_SNHOSTz_QUANTILE)
-    CHARACTER DUMSTRING*10, cnum*2, KEYNAME*20, KEYWORD*80
-    ! @@@@@ LEGACY @@@@@
-
-! -------------- BEGIN ---------------
-
-    if ( REFAC_DATA_FLAG > 0 ) RETURN  
-
-    ! below is legacy quantile storage with fixed percentiles in global header.
-
-    CALL FETCH_SNDATA_WRAPPER("NZPHOT_Q",  & 
-           ONE, DUMSTRING, DARRAY, OPT)
-    NZ = int(DARRAY(1))
-    SNHOSTz_QUANTILE_ZPHOT(1)%NZ = NZ
-    SNHOSTz_QUANTILE_ZPHOT(2)%NZ = 0
-    !xxx mark SNHOST_NZPHOT_Q(1) = int(DARRAY(1))
-    !xxx mark SNHOST_NZPHOT_Q(2) = 0
-
-    ! @@@@@ LEGACY @@@@@
-
-    IF ( NZ .LE. 0 ) RETURN 
-
-    IF( NZ > MXBIN_SNHOSTz_QUANTILE ) THEN
-       write(C1ERR,61) NZ, MXBIN_SNHOSTz_QUANTILE
- 61      format('NZQ=',I4,' exceeds MXBIN_SNHOSTz_QUANTILE=',I4 )
-       C2ERR = 'Check XXX_HEAD.FITS file'
-       CALL MADABORT("RDGLOBAL_ZPHOT_Q", C1ERR, C2ERR)
-    ENDIF
-! ----------------------------------------------
-    ! @@@@@ LEGACY @@@@@
-
-    DO 100 ivar = 1, NZ
-
-      q = ivar - 1 ! C index 0 to N-1
-      write(cnum, '(I2.2)') q
-      KEYNAME = "PERCENTILE_ZPHOT_Q" // CNUM
-      CALL FETCH_SNDATA_WRAPPER(KEYNAME,  & 
-           ONE, KEYWORD, DARRAY, OPTMASK_SNDATA_GLOBAL )
-
-      PCT = INT(DARRAY(1))
-      SNHOSTz_QUANTILE_ZPHOT(1)%VAL_LIST(ivar) = SNGL(DARRAY(1))
-      ! xxx mark SNHOST_ZPHOT_PERCENTILE(1,ivar) = SNGL(PCT)
-
-      ! @@@@@ LEGACY @@@@@
-
-! load varname for each HOSTGAL match; e.g., HOSTGAL_ZPHOT_Q030
-      write(VARNAME_ZPHOT_Q(1,ivar),102) 'HOSTGAL',  PCT  ! 
-      write(VARNAME_ZPHOT_Q(2,ivar),102) 'HOSTGAL2', PCT
-102     format(A,'_ZPHOT_Q', I3.3)
-
-100   CONTINUE
-
-    write(6,40) NZ
-40    format(T5,'Found NZ = ', I3, ' quantiles for HOST-zPHOT')
-    CALL FLUSH(6)
-
-    ! @@@@@ LEGACY @@@@@
-
-    RETURN
-  END SUBROUTINE RDGLOBAL_ZPHOT_Q
 
 ! =======================================
     SUBROUTINE RDGLOBAL_SIMSED(OPT)
@@ -5963,7 +5882,7 @@
     RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
     RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
     RESTORE_DES5YR        = .FALSE. ! May 28 2025
-    REFAC_DATA_FLAG       = 1       ! Apr 03 2026
+    REFAC_DATA_FLAG       = 0
 
     REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
@@ -11116,7 +11035,6 @@
 ! function
     INTEGER FILTINDX, EXEC_CIDMASK, STORE_PARSE_WORDS
     EXTERNAL STORE_PARSE_WORDS, SET_EXIT_ERRCODE
-    EXTERNAL SET_REFAC_DATA_FLAG
 
 ! ---------------- BEGIN ------------
 
@@ -14830,14 +14748,11 @@
        SNHOST_QZPHOT_MEAN(igal) = -9.0
        SNHOST_QZPHOT_STD(igal)  = -9.0
 
-       ! for REFAC, reset quantile info for each event
-       if ( REFAC_DATA_FLAG > 0 ) then
-          CALL INIT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), igal, &
-               "QUANTILE_ZPHOT", "QUANTILE_PERCENT", "" )
-
-          CALL INIT_SNHOSTz(SNHOSTz_LOGMASS(igal), igal, &
-               "LOGMASS_ZGRID", "LOGMASS_VALGRID", "LOGMASS_ERRGRID" )
-       endif
+       CALL INIT_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(igal), igal, &
+            "QUANTILE_ZPHOT", "QUANTILE_PERCENT", "" )
+       
+       CALL INIT_SNHOSTz(SNHOSTz_LOGMASS(igal), igal, &
+            "LOGMASS_ZGRID", "LOGMASS_VALGRID", "LOGMASS_ERRGRID" )
 
     enddo
 ! --------

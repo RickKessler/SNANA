@@ -1851,7 +1851,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
   if ( NEW_ID ) {
 
-    if ( REFAC_DATA_FLAG ) 
+    // .xyz    if ( REFAC_DATA_FLAG ) 
 
       if ( LDMP ) {
 	printf(" xxx %s: NEW_ID for ID_LOCAL(LAST,NOW) = %s , %s (CID=%s)\n", 
@@ -1888,7 +1888,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   RD_OVERRIDE.NVAR_USE++ ; // for monitor only
 
 
-  if ( REFAC_DATA_FLAG && LDMP ) {
+  if ( LDMP ) {
     printf(" xxx %s: CID=%s  GALID=%lld  VARNAME='%s'  IVAR=%d  NVAR_USE=%d\n", 
 	   fnam, SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], VARNAME, IVAR, RD_OVERRIDE.NVAR_USE); 
     fflush(stdout);

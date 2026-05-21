@@ -34,6 +34,8 @@
 # Jun 17 2025: refactor selection of CID list to avoid strange crash
 # Sep 29 2025: remove legacy code for not REFAC_SELECT_CID_LIST
 # Dec 01 2025: in print_info(), sort df by user cid list and user var list
+# May 21 2026: fix -v and -c inputs to work with space-sep or comma-sep list,
+#               so no longer need to type commas
 
 import os, sys, argparse, gzip, math
 import numpy as np
@@ -56,11 +58,11 @@ def get_args():
     msg = "name of fitres file (automatically checks for .gz extension)"
     parser.add_argument("-f", "--fitres_file", help=msg, type=str, default="")
 
-    msg = "comma separated list of CIDs for FITRES file"
-    parser.add_argument("-c", "--cid", help=msg, type=str, default=None)
+    msg = "space-sep or comma sep list of CIDs for FITRES file"
+    parser.add_argument("-c", "--cid", help=msg, type=str, default=None, nargs="+")
 
-    msg = "comma sep list of GALIDs for HOSTLIB"
-    parser.add_argument("-g", "--galid", help=msg, type=str, default=None)
+    msg = "space-sep or comma-sep list of GALIDs for HOSTLIB"
+    parser.add_argument("-g", "--galid", help=msg, type=str, default=None, nargs="+")
 
     msg = "number of rows to fetch CIDs (no need to know CIDs)"
     parser.add_argument("--nrow", help=msg, type=int, default=0)
@@ -69,8 +71,8 @@ def get_args():
           "combined via 'or'. Can use <, >, or =="
     parser.add_argument("--sel", help=msg, type=str, default=None)
 
-    msg = "comma separated list of variable names to  print values"
-    parser.add_argument("-v", "--varname", help=msg, type=str, default=None)
+    msg = "space-sep or comma-sep list of variable names to  print values"
+    parser.add_argument("-v", "--varname", help=msg, type=str, default=None, nargs="+")
 
     msg = "comma seperated list of functions (mean, min, or max)"
     parser.add_argument("--func", help=msg, type=str, default=None)
@@ -134,11 +136,10 @@ def parse_inputs(args):
         msgerr_func = f"--func must be either min, mean, or max, not {args.func}"
         assert correct_func, msgerr_func 
 
-    if args.reformat is None:
-        var_list   = args.varname.split(",")
-    else:
+    if args.reformat: 
         var_list = []
-
+    else:
+        var_list   = get_user_list(args.varname) 
     
     id_list    = []
     func_list  = []
@@ -146,11 +147,14 @@ def parse_inputs(args):
     keyname_id = None
 
     if args.cid is not None :    
-        id_list = args.cid.split(",")
+        # xxx mark delete 5.21.2026  id_list = args.cid.split(",")
+        id_list = get_user_list(args.cid)
         keyname_id = 'CID'
     elif args.galid is not None :    
-        id_list = args.galid.split(",")
+        # xxx mark delete 5.21.2026  id_list = args.galid.split(",")
+        id_list = get_user_list(args.galid)
         keyname_id = 'GALID'
+
     if args.func is not None :
         func_list = args.func.split(",")
     if args.sel is not None :
@@ -183,6 +187,23 @@ def parse_inputs(args):
     return info_fitres
 
     # end parse_inputs
+
+def get_user_list(input_list):
+
+    # Created May 21 2026
+    # return list of names based on user input.
+    # User input can be single comma-sep string, or list of space-sep varnames
+
+    user_list = []
+    for item in input_list:
+        user_list += item.split(',')  # split each element in case there are commas
+
+    # remove empty strings (e.g., 'var1, var2' adds empty string to user_list
+    user_list = [s for s in user_list if s.strip()]
+
+    #sys.exit(f"\n xxx varname = {args.varname}\n xxx var_list = {var_list}")
+    return user_list
+
 
 def read_fitres_file(info_fitres, reformat_option):
 

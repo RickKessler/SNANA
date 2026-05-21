@@ -23849,4 +23849,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      previous row. Intended to reduce file size (and read time) for large
      OVERRIDE files using GALID identifier with HOSTGALz columns.
 
+   get_fitres_values.py: 
+      allow space-sep or comma-sep list of inputs for varnames, cid, galid.
+
 END: 

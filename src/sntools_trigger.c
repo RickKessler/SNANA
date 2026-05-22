@@ -439,8 +439,17 @@ int malloc_NEXTMAP_SEARCHEFF_DETECT(void) {
   // malloc next map, and return imap index.
   int imap, MEMD ;
   char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;  (void)fnam;
+
   // ------------- BEGIN -------------
   INPUTS_SEARCHEFF.NMAP_DETECT++ ; 
+
+  if ( INPUTS_SEARCHEFF.NMAP_DETECT > MXMAP_SEARCHEFF_MAP ) {
+    sprintf(c1err,"Number of SEARCHEFF_PIPELINE_EFF_FILE maps exceeds bound of %d",
+	    MXMAP_SEARCHEFF_MAP);
+    sprintf(c2err,"Try combining maps.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
   imap  = INPUTS_SEARCHEFF.NMAP_DETECT-1;
   MEMD  = MXROW_SEARCHEFF_DETECT * sizeof(double);
   SEARCHEFF_DETECT[imap].VAL = (double*)malloc(MEMD);

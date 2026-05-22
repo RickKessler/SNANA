@@ -178,8 +178,9 @@ struct  {
 } INPUTS_SEARCHEFF ;
 
 
-// Define structure for serach eff vs. SNR for each filter
+// Define structure for search eff vs. SNR for each filter
 int    MAPVERSION_SEARCHEFF_DETECT ; // allows legacy or new map style
+char   FILTERLIST_ALL_SEARCHEFF_DETECT[MXFILTINDX];    // store all bands used for detection
 struct SEARCHEFF_PIPELINE {
   char   MAPNAME[40] ;
   int    NBIN ;
@@ -364,8 +365,8 @@ struct {
 
 // ============== FUNCTION PROTOTYPES ===============
 
-void   init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF );
-int    init_SEARCHEFF_PIPELINE(char *survey);
+void   init_SEARCHEFF(char *SURVEY_NAME, char *SURVEY_FILTERS, int APPLYMASK_SEARCHEFF );
+int    init_SEARCHEFF_PIPELINE(char *SURVEY_NAME, char *SURVEY_FILTERS);
 void   init_SEARCHEFF_LOGIC(char *survey) ;
 void   init_SEARCHEFF_SPECID(char *survey)  ;
 void   init_SEARCHEFF_zHOST(char *survey) ;
@@ -400,6 +401,8 @@ int    gen_SEARCHEFF_DEBUG(char *what, double RAN, double *EFF);
 
 void   check_SEARCHEFF_DETECT(int imap );
 void   check_SEARCHEFF_PHOTPROB(int imap );
+void   check_missing_filters_SEARCHEFF_DETECT(char *SURVEY_FILTERS);
+
 double LOAD_SEARCHEFF_VAR(char *MAPTYPE, SEARCHEFF_MAP_DEF *MAP, int ivar);
 void   LOAD_PHOTPROB_CDF(int NVAR_CDF, double *WGTLIST );
 double LOAD_PHOTPROB_VAR(int OBS, int IMAP, int IVAR) ;

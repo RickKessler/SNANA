@@ -187,9 +187,8 @@ int main(int argc, char **argv) {
 
   // init trigger
   bool IS_GENGRID = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID);
-  //  if ( ! (IS_GENGRID || INPUTS.README_DUMPFLAG) ) { 
   if ( ! IS_GENGRID ) { 
-    init_SEARCHEFF(GENLC.SURVEY_NAME, INPUTS.APPLY_SEARCHEFF_OPT); 
+    init_SEARCHEFF(GENLC.SURVEY_NAME, INPUTS.GENFILTERS, INPUTS.APPLY_SEARCHEFF_OPT); 
   } 
 
   DASHBOARD_DRIVER();
@@ -1282,11 +1281,6 @@ void set_user_defaults(void) {
  
   INPUTS_SEARCHEFF.USER_SPECEFF_SCALE  = 1.0 ; // May 2018
 
-  /* xxx mark delete 4.28.2026 xxxxxxxx
-  INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO  = 0 ;
-  INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 0 ;
-  INPUTS_SEARCHEFF.IVERSION_zHOST      = 0 ;
-  xxxxxx end mark */
 
   INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF  = 0.0 ;
   INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF = 0.0 ;
@@ -7012,12 +7006,6 @@ void prep_user_input(void) {
     INPUTS.MWEBV_SHIFT    = 0.0 ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
 
-    /* xxxx mark delete May 1 2026 xxxxxxx
-    sprintf(INPUTS.HOSTLIB_FILE,           "NONE");
-    INPUTS.HOSTLIB_MSKOPT = 0 ;
-    INPUTS.HOSTLIB_USE    = 0 ; // July 2024
-    xxxxxxxxx end mark xxxxxx */
-
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;
     INPUTS.GENMAG_OFF_NON1A  = 0.0 ;
@@ -9142,11 +9130,6 @@ void init_DNDZ_Rate(void) {
     if ( FRAC_PEC1A > 0.0 ) {
       sprintf(ctmp,"  (%.3f PEC1A)", FRAC_PEC1A );
       strcat(LINE_RATE_INFO[i], ctmp);
-
-      /*xxxxxxxx mark delete 4.29.2026 xxxxxxx
-      sprintf(LINE_RATE_INFO[i],"%s  (%.3f PEC1A)",
-	      LINE_RATE_INFO[i], FRAC_PEC1A ) ;
-      xxxxxxx end mark xxxxxx */
     }
   }
 
@@ -14075,7 +14058,6 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     genflag      = INPUTS.GENFLAG_SIMSED[ipar] ;
     opt_interp   = ( genflag & OPTMASK_GEN_SIMSED_PARAM    ) ;
     opt_gridonly = ( genflag & OPTMASK_GEN_SIMSED_GRIDONLY ) ;
-    // xxx mark opt_wgt      = ( genflag & OPTMASK_GEN_SIMSED_WGT ) ;
     parName      = INPUTS.PARNAME_SIMSED[ipar] ;
     irow_COV     = INPUTS.IROWLIST_SIMSED_COV[ipar] ;
     GENLC.SIMSED_PARVAL[ipar]  = -9.0 ;
@@ -14792,7 +14774,6 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
 
-    // xxx mark FIRST = (NEVT_SIMGEN_DUMP==0 ) ; // used for SPECTROGRAPH info
     NEVT_SIMGEN_DUMP++ ;  XN=(double)NEVT_SIMGEN_DUMP ;
 
     // check pre-scale (Aug 2017)
@@ -15289,14 +15270,6 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // ----------- BEGIN ---------
 
   bool IS_SPECTRA = REQUEST_USER_SPECTRA();
-
-
-  /* xxxx mark delete Mar 10 2026 xxxxxxxx
-  bool IS_SPECTRA = ( NPEREVT_TAKE_SPECTRUM > 0 || 
-		      INPUTS.USE_SIMLIB_TAKE_SPECTRUM || 
-		      INPUTS.USE_SIMLIB_SPECTROGRAPH  ||
-		      INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE > 0. ) ;
-  xxxxxxxx end mark xxx*/
 
 
   if ( !IS_SPECTRA ) { return; }
@@ -20804,8 +20777,6 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
 			     &ZPT, &PSFSIG, &SKYSIG_S, &SKYSIG_T ); // returned
 
 
-  // xxx mark STORE_SIMLIB_RAW:
-
   SIMLIB_OBS_RAW.IFILT_OBS[ISTORE]  = ifilt_obs ;
   sprintf(SIMLIB_OBS_RAW.BAND[ISTORE],"%s", cfilt );
 
@@ -24619,7 +24590,6 @@ void gen_spectype(void) {
   
   // Jun 2018: if user forces EFF_SPEC=0 without a map, then we have PHOTID
   if ( IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
-  // xxx mark  if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
 
   if ( LDMP ) {
     printf(" xxx %s: CID=%d: IS[SPECID,PHOTID]=%d, %d  "
@@ -25535,11 +25505,6 @@ void zsource_to_SNDATA(int FLAG){
     SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_PHOT  ;
   }
 
-  /* xxx mark delete xxxx
-  int N_Q    = SNDATA.HOSTGAL_NZPHOT_Q;
-  double zq0 = SNDATA.HOSTGAL_ZPHOT_Q[0][0]; // First [0] dlr match index and second [0] quantile index
-  xxxx end mark */
-
   int igal=0, iz=0, N_Q = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ;
   double zq0 = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].Z_LIST[iz];
   if (N_Q > 0 && zq0 >= 0. ) 
@@ -25764,15 +25729,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     // set counters and par-names.
 
     SNDATA.SIM_HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
-
-    /* xxxx mark delete
-    SNDATA.HOSTGAL_NZPHOT_Q = N_Q;
-    for(ipar=0; ipar < N_Q; ipar++ ) { 
-      PCT  = HOSTLIB.PERCENTILE_ZPHOT_Q[ipar]; // e.g, 10 -> 10th percentile
-      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] = PCT;        // legacy
-    }
-    xxxx end mark xxxx */
-
 
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;

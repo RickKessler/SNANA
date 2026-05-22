@@ -344,7 +344,7 @@ int init_SEARCHEFF_PIPELINE(char *SURVEY_NAME, char *SURVEY_FILTERS) {
   NMAP = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
   for ( imap=0; imap < NMAP; imap++ )  { check_SEARCHEFF_PHOTPROB(imap); }
   
-  // - - - list filters missing from DETECT pipeline - - - - -
+  // - - - list used and not-used filters from DETECT pipeline - - - - -
   check_missing_filters_SEARCHEFF_DETECT(SURVEY_FILTERS);
 
   // xxx debugexit(fnam); // xxx REMOVE 
@@ -708,7 +708,7 @@ void  check_missing_filters_SEARCHEFF_DETECT(char *SURVEY_FILTERS) {
   int  NFILT_MISSING = 0 ;
   int i;
   char cfilt[2];
-  char fnam[] = "check_missing_filters_SEARCHEFF_DETECT" ;
+  char fnam[] = "check_missing_filters_SEARCHEFF_DETECT" ;  (void)fnam;
 
   // ------------- BEGIN -----------
 
@@ -881,7 +881,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   char 
      cline[MXPATHLEN+40]
-    ,logic[100]
+    ,logic[200]
     ,c_get[100]
     ,surveykey[60]
     ,logicFile_Default[] = "SEARCHEFF_PIPELINE_LOGIC.DAT"

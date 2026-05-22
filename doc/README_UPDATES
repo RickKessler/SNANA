@@ -23856,5 +23856,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    sntools_trigger.c: 
      write list of all filters used (not used) in PIPELINE_EFF_DETECT maps
+   sntools_trigger.h:
+     increase several MX parameters to allow bigger logic string
 
 END: 

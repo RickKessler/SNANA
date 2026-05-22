@@ -46,7 +46,7 @@
 #define  MXMAP_SEARCHEFF_MAP       50  
 #define  MXROW_SEARCHEFF_MAP    30000
 
-#define MXSUBSTR_SEARCHEFF_MAP 4 // e.g., g+r+i+z is max number of + separated substrings
+#define MXSUBSTR_SEARCHEFF_MAP 60 // e.g., g+r+i+z is max number of + separated substrings # May 2026 RP edited
 
 #define  FLAG_EFFMAP_MAG    1   // mag for PEAK(SN), or HOST, or SB ...
 #define  FLAG_EFFMAP_COLOR  2   // color for PEAK(SN), or HOST, or SB ...
@@ -228,12 +228,13 @@ struct {
 } OBS_PHOTPROB;
 
 
-#define MXMASK_SEARCHEFF_LOGIC 10 // max number of logic conditions
+
+#define MXMASK_SEARCHEFF_LOGIC 60 // max number of logic conditions # May 2026 - RP edited to allow additional logic conditions
 struct SEARCHEFF_LOGIC {
   int  NMJD;     // number of MJDs to have a detection
   int  NMASK;    // number of ORs
   int  IFILTDEF_MASK[MXMASK_SEARCHEFF_LOGIC];  // AND-mask vs. NMASK
-  char INPUT_STRING[80];  // user-input logic-string
+  char INPUT_STRING[200];  // user-input logic-string  # MAY 2026 RP edited
 } SEARCHEFF_LOGIC ;
 
 

@@ -17437,8 +17437,8 @@
 
       if ( LDMP ) then
          print*, ' xxx SET_LOGMASS: IGAL, z, IERR = ', IGAL, sngl(REDSHIFT), IERR
-         PRINT*, ' xxx SET_LOGMASS: Original LM: ', SNGL(LM_ORIG), ' +_ ', SNGL(LMERR_ORIG)
-         PRINT*, ' xxx SET_LOGMASS: Interpol LM: ', SNGL(LM_INTERP), ' +_ ', SNGL(LMERR_INTERP)
+         PRINT*, ' xxx SET_LOGMASS: Original LM: ', SNGL(LM_ORIG),   ' +_ ', SNGL(LMERR_ORIG)
+         PRINT*, ' xxx SET_LOGMASS: Interpol LM: ', SNGL(LM_INTERP), ' +_ ', SNGL(LMERR_FINAL)
          PRINT*, ' xxx SET_LOGMASS; LMERR[INTERP,Z,FINAL] = ', &
               SNGL(LMERR_INTERP), SNGL(LMERR_Z), SNGL(LMERR_FINAL)
       endif

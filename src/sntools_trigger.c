@@ -881,7 +881,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   char 
      cline[MXPATHLEN+40]
-    ,logic[100]
+    ,logic[200] # May 2026 RP edited to allow for additional logic conditions
     ,c_get[100]
     ,surveykey[60]
     ,logicFile_Default[] = "SEARCHEFF_PIPELINE_LOGIC.DAT"

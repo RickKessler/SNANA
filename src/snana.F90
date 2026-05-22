@@ -17392,6 +17392,8 @@
       EXTERNAL eval_spline
 
       ! ---------- BEGIN ---------------
+
+      print*,' xxx OPT, OVERRIDE_LOGMASS_GRID = ', OPT, OVERRIDE_LOGMASS_GRID
       if ( .NOT. OVERRIDE_LOGMASS_GRID ) RETURN
       LDMP = (DEBUG_FLAG == 28 ) 
       

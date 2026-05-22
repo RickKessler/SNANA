@@ -13102,11 +13102,7 @@
     Z_PH     = DBLE( SNHOST_ZPHOT(IGAL) )
     Z_PH_ERR = DBLE( SNHOST_ZPHOT_ERR(IGAL) )
 
-    ! Gaussian-weighted mean and sigma of logmass(z) over P(z)
-    CALL eval_spline_integral(INDEX_SPLINE, Z_PH, Z_PH_ERR, LM_MEAN, LM_STD)
-
-    SNHOST_LOGMASS_ZPHOT(IGAL)    = SNGL(LM_MEAN)
-    SNHOST_LOGMASS_ZPHOTERR(IGAL) = SNGL(LM_STD)
+    CALL SET_LOGMASS(2, Z_PH, Z_PH_ERR)
 
     RETURN
   END SUBROUTINE FITANA_LOGMASS

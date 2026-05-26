@@ -914,7 +914,7 @@ void parse_TABLEVAR(char *varName_with_cast, char *varName,
   int  icast, icast_tmp, vecFlag, isize ;
   int  i, ncp, ibr0, ibr1 ;
   char varName2[60], c1[2], cBRACKET[20] ;
-  //  char fnam[] = "parse_TABLEVAR" ;
+  char fnam[] = "parse_TABLEVAR" ;  (void)fnam;
 
   // --------------- BEGIN ------------------
 
@@ -2156,11 +2156,6 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
     for(i=0; i < NROW; i++ ) { 
       SNTABLE_AUTOSTORE[IFILE].CCID[i] =  (char*)malloc(MEMC*MXCHAR_CCID);  
     }
-
-    /* xxxxxxxxxxx xx mark del May 18 2026  xxxxxxxxxxx
-    int MEMI = sizeof(int);
-    SNTABLE_AUTOSTORE[IFILE].LENCCID = (int*)malloc( NROW*MEMI ) ;
-    xxxxxxxx end mark xxxxxx */
 
     // set up char pointer for each variable (but not over rows)
     SNTABLE_AUTOSTORE[IFILE].CVAL  = (char***)malloc( NVAR_USR*sizeof(char**));

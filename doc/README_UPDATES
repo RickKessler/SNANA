@@ -23866,4 +23866,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        ZP_FLUXCAL_REFORMAT = 31.4
      with other _REFORMAT_ options.
 
+   sntools.c
+     fix array bound for uthash; see https://github.com/RickKessler/SNANA/issues/1680
+
 END: 

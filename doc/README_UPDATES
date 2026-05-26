@@ -23860,12 +23860,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      increase several MX parameters to allow bigger logic string
 
    snana.F90
-     new &SNLCINP input ZP_FLUXCAL_REFORMAT changes ZP_FLUXCAL for REFORMATed
-     data set. Since recent new default ZP_FLUXCAL=31.4 (no longer 27.5), 
-     older data sets can be re-made with correct ZP by including
-       ZP_FLUXCAL_REFORMAT = 31.4
-     with other _REFORMAT_ options.
-
+     + new &SNLCINP input ZP_FLUXCAL_REFORMAT changes ZP_FLUXCAL for REFORMATed
+       data set. Since recent new default ZP_FLUXCAL=31.4 (no longer 27.5), 
+       older data sets can be re-made with correct ZP by including
+          ZP_FLUXCAL_REFORMAT = 31.4
+        with other _REFORMAT_ options.
+     + OPT_SIMLIB_OUT += 4 -> abort on any missing meta data;
+        needed for creating SIMLIB from fakes.
+     
    sntools.c
      fix array bound for uthash; see https://github.com/RickKessler/SNANA/issues/1680
 

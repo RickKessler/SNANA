@@ -325,7 +325,7 @@ int main(int argc, char **argv) {
     }
     
     // Oct 1 2023
-    // bail of there are no observations to write out; e.g., pre-explosion 
+    // bail if there are no observations to write out; e.g., pre-explosion 
     // epochs overlap end of season (hence GENLC.NEPOCH>0) but transient 
     // model is not defined.
     if ( GENLC.NOBS_MODELFLUX == 0 ) {
@@ -13359,7 +13359,7 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   int ilc_orig, ilc;
   bool doReject_DUMP = false ;
   bool REJECT= false;
-  int  LDMP = 0 ; // ( ilc > 20 && ilc < 26 );
+  int  LDMP   = 0 ; // ( ilc > 20 && ilc < 26 );
   char fnam[] = "gen_event_reject" ;
 
   // ----------- BEGIN --------------
@@ -13398,7 +13398,8 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
     NGEN_REJECT.NEPOCH++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("NEPOCH");
     REJECT = true;
-    if(LDMP) { printf(" xxx %s CID=%d fails NEPOCH\n", fnam, GENLC.CID); fflush(stdout); }
+    if(LDMP) { printf(" xxx %s CID=%d fails NEPOCH=%d\n", 
+		      fnam, GENLC.CID, GENLC.NEPOCH ); fflush(stdout); }
   }
 
   else if ( strcmp(REJECT_STAGE,"CRAZYFLUX") == 0 ) {  // May 29 2024
@@ -20478,7 +20479,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     IFILT_OBS  = SIMLIB_OBS_RAW.IFILT_OBS[OBSRAW] ;
     NEXPOSE    = SIMLIB_OBS_RAW.NEXPOSE[OBSRAW] ;
     DETNUM     = SIMLIB_OBS_RAW.DETNUM[OBSRAW] ;
-    // xxx BAND       = SIMLIB_OBS_RAW.BAND[OBSRAW];
     FIELD      = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW];
     APP        = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW];   
 
@@ -28737,9 +28737,9 @@ void set_GENFLUX_FLAGS(int epoch) {
     if ( genmag == MAG_ZEROFLUX ) { IS_UNDEFINED = true; }
   }
 
-  
   if ( IS_UNDEFINED ) 
     { GENLC.NOBS_UNDEFINED++ ; } // model is undefined 
+  
   
   if ( IS_ERRPOS ) {
     if ( !IS_UNDEFINED ) { 

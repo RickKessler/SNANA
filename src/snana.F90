@@ -1269,8 +1269,6 @@
 
 
 
-
-
 ! --- hard-wire ground based array of SKYMAG vs. lambda
 ! Apr 6 2020:
 !  Add J,H,K from Table 3 of arxiv:0809.4988, and increase NLIST->10.
@@ -17441,7 +17439,6 @@
 
       ! ---------- BEGIN ---------------
 
-      print*,' xxx OPT, OVERRIDE_LOGMASS_GRID = ', OPT, OVERRIDE_LOGMASS_GRID
       if ( .NOT. OVERRIDE_LOGMASS_GRID ) RETURN
       LDMP = (DEBUG_FLAG == 28 ) 
       
@@ -19046,6 +19043,8 @@
 !  OPT_SIMLIB_OUT & 1 -> write SIM_MAGOBS for all obs,
 !                        even for true flux = 0 and mag=99.
 !  OPT_SIMLIB_OUT & 2 -> write SIM_MAGOBS only for true flux > 0
+!
+!  OPT_SIMLIB_OUT & 4 -> require all meta data (ZP, PSF, SKY, GAIN)
 ! 
 ! 
 ! Oct 15, 2019: fix format for SKYSIG : 6.2f -> 7.2f
@@ -19055,7 +19054,10 @@
 ! Mar 26, 2021:
 !   + suppress GALID since it wrote 12345 (garbage) for DC2
 !   + skip LIBID of PEAKMJD < 1000
-! 
+! May 26 2026: 
+!    + require GAIN>0 to set FOUND_METADATA
+!    + if OPT_SIMLIB_OUT  += 4, then abort on any missing meta data.
+!      See new local var REQUIRE_METADATA
 ! --------------------------
 
 
@@ -19076,7 +19078,7 @@
     INTEGER LIBID, IFILT, IFILT_OBS, LASTEP(MXFILT_OBS)
     INTEGER LEN0, LEN1, LEN2, EPMIN, EPMAX, NEWMJD, NOBS, iep, EP
     INTEGER LENcMAG, LENF, NFILTDEF_TMP
-    LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS
+    LOGICAL IS_REAL_DATA, WRALL_SIM_MAGOBS, WRSET_SIM_MAGOBS, REQUIRE_METADATA
     LOGICAL WR_SIM_MAGOBS, FOUND_METADATA
     CHARACTER BAND*4, FNAM*20, SEDCMD*200
     CHARACTER cMAG*12, cNCUTS*12, STR_OLD*40, STR_NEW*60
@@ -19090,13 +19092,14 @@
 
 ! check option to write ALL SIM_MAGOBS, even for SIM_MAGOBS=99 where
 ! no fake or sim event was generated and there is zero flux.
-    WRALL_SIM_MAGOBS =  & 
-          BTEST(OPT_SIMLIB_OUT,0) .and. (.not.IS_REAL_DATA)
+    WRALL_SIM_MAGOBS = BTEST(OPT_SIMLIB_OUT,0) .and. (.not.IS_REAL_DATA)
 
 ! check option to write SIM_MAGOBS  only for true flux > 0
-    WRSET_SIM_MAGOBS =  & 
-          BTEST(OPT_SIMLIB_OUT,1) .and. (.not.IS_REAL_DATA)
+    WRSET_SIM_MAGOBS = BTEST(OPT_SIMLIB_OUT,1) .and. (.not.IS_REAL_DATA)
     WR_SIM_MAGOBS = WRALL_SIM_MAGOBS .or.  WRSET_SIM_MAGOBS
+
+! May 2026: check option to require all meta data
+    REQUIRE_METADATA = BTEST(OPT_SIMLIB_OUT,2)  ! += 4 bit
 
     NFILTDEF_TMP = NFILTDEF_OBS
 
@@ -19349,9 +19352,25 @@
 ! Mainly for low-z sample which has no meta data.
 
          FOUND_METADATA =  & 
-             ( PSF1 > 1.0E-5 .and. SKYSIG > 1.0E-5 .and. ZP > 1.0)
+             ( PSF1 > 1.0E-5 .and. SKYSIG > 1.0E-5 .and. ZP > 1.0 .and. GAIN>0.0)
 
+         ! .xyz
          IF ( .not. FOUND_METADATA ) THEN
+
+            if ( REQUIRE_METADATA ) then  ! .xzy
+               CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
+               print*,' CID    = ', SNLC_CCID
+               print*,' MJD    = ', MJD
+               print*,' PSF1   = ', SNGL(PSF1)
+               print*,' SKYSIG = ', SNGL(SKYSIG)
+               print*,' ZP     = ', SNGL(ZP)
+               print*,' GAIN   = ', SNGL(GAIN)
+
+               c1err = 'Missing required METADATA (PSF or SKYSIG or ZP or GAIN)'
+               c2err = 'Check PHOT columns in data for CID=' // SNLC_CCID
+               CALL MADABORT(FNAM, C1ERR, C2ERR )               
+            endif
+
             GAIN    = 1.0 ;  RDNOISE = 1.0
             ZPERR   = DBLE( SIMLIB_ZPERR(ifilt_obs) )
             PSF2    = 0.0 ;  PSFRAT  = 0.0

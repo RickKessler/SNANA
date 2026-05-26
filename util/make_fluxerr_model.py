@@ -23,6 +23,8 @@
 #   + analyze REDCOV by field group
 #     [beware this could be buggy if there are no FIELD groups]
 #
+# May 26 2026: force 4-bit on OPT_SIMLIB_OUT to abort if any meta data is missing.
+#
 # ========================
 
 import os, sys, argparse, glob, yaml, math
@@ -82,6 +84,8 @@ NMLKEY_MODEL_FILE        = 'FLUXERRMODEL_FILE'
 NMLKEY_SIM_MODEL_FILE    = 'SIM_FLUXERRMODEL_FILE' # for redcov_test
 NMLKEY_TEXTFILE_PREFIX   = 'TEXTFILE_PREFIX'
 NMLKEY_HFILE_OUT         = 'HFILE_OUT'
+
+OPT_SIMLIB_REQUIRE = 4  # May 2026 - require this bit to require all meta data
 
 NMLKEY_LIST = [NMLKEY_DATA_PATH, NMLKEY_VERSION, NMLKEY_KCOR_FILE, 
                NMLKEY_SNTABLE, NMLKEY_TEXTFILE_PREFIX, NMLKEY_HFILE_OUT,
@@ -445,6 +449,9 @@ def create_fake_simlib(ISTAGE,config):
     PRIVATE_DATA_PATH = config.input_yaml['PRIVATE_DATA_PATH']
     OPT_SIMLIB        = config.input_yaml['OPT_SIMLIB']
     
+    # May 2026: require 4-bit set in OPT_SIMLIB to require all meta data
+    if ( OPT_SIMLIB & OPT_SIMLIB_REQUIRE ) == 0: OPT_SIMLIB += OPT_SIMLIB_REQUIRE
+
     nmlarg_dict = init_nmlargs()
     nmlarg_dict[NMLKEY_DATA_PATH]   =  PRIVATE_DATA_PATH
     nmlarg_dict[NMLKEY_VERSION]     =  VERSION
@@ -482,12 +489,17 @@ def create_nml_file(config, nmlarg_dict, nml_prefix):
         arg  = nmlarg_dict[nmlkey]
         if arg is not None:
             if isinstance(arg,str) :  arg = f"'{arg}'"
-            nml_lines_auto.append(f"   {nmlkey:<20} = {arg} ")
+
+            comment = ''
+            if nmlkey == NMLKEY_OPT_SIMLIB : 
+                comment = '! 1=all obs, 2=obs with Ftrue>0, 4=require all meta data'
+
+            nml_lines_auto.append(f"   {nmlkey:<20} = {arg}  {comment}")
 
     # - - - -
     if 'EXTRA_SNLCINP_ARGS' in config.input_yaml:
         for arg in config.input_yaml['EXTRA_SNLCINP_ARGS']:
-            nml_lines_user.append(f"   {arg}")
+            nml_lines_user.append(f"   {arg} ")
 
     # - - - --  -
     # write nml_lines to nml file.

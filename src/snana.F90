@@ -347,7 +347,7 @@
         ,SURVEY_IDFIELD(MXIDFIELD) ! integer ID for each field
 
     REAL  & 
-         ZP_FLUXCAL  ! defines calibrated flux
+         ZP_FLUXCAL        ! defines calibrated flux
 
     INTEGER*4  & 
          N_VERSION              &  ! number of photometry version to read
@@ -1815,11 +1815,13 @@
         SNCCID_PLOT(MXLISTNML)*(MXCHAR_CCID) ! I: string-list of CCIDs to plot
     REAL  & 
          MJDPERIOD_PLOT   &  ! I: fold LC onto this period (periodic transients)
-        ,MJDSHIFT_PLOT   ! I: shift MJD for LC plot output
+        ,MJDSHIFT_PLOT       ! I: shift MJD for LC plot output
 
     REAL  & 
          DTOBS_MODEL_PLOT   &  ! I: binning (days) for overlaid best-fit model
-        ,zTOL_HELIO2CMB    ! I: give warning if  zCMB and zHEL are off
+        ,zTOL_HELIO2CMB        ! I: give warning if  zCMB and zHEL are off
+
+    REAL ZP_FLUXCAL_REFORMAT   ! I: rewrite data files with this ZP_FLUXCAL
 
 ! Oct 2014: variables to check for multi-season transient activity
 
@@ -1870,7 +1872,7 @@
           , JOBSPLIT, JOBSPLIT_EXTERNAL, SIM_PRESCALE, MXLC_FIT  & 
           , OPT_YAML  & 
           , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT  & 
-          , REFORMAT_KEYS, OPT_REFORMAT_FITS  & 
+          , REFORMAT_KEYS, OPT_REFORMAT_FITS, ZP_FLUXCAL_REFORMAT  & 
           , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE  & 
           , rootfile_out, textfile_prefix  & 
           , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT  & 
@@ -3102,7 +3104,6 @@
 
 ! read SNDATA struct and tranfer global info to fortran variables
     if ( LRDFLAG_GLOBAL .OR. IVERS > 1 ) then
-! xxx mark Oct 2025         CALL INIT_READ_OVERRIDE()      ! May 2023
        CALL RDGLOBAL_DRIVER()
        CALL INIT_SURVEY(NSN_VERS)     ! init a few things
        IF ( LRDFLAG_GLOBAL ) RETURN
@@ -3414,7 +3415,7 @@
 
     CALL FETCH_SNDATA_WRAPPER("ZP_FLUXCAL", ONE,  & 
               STRING, DARRAY, OPT)
-    ZP_FLUXCAL = SNGL(DARRAY(1))
+    ZP_FLUXCAL      = SNGL(DARRAY(1))
 
     IF ( .NOT. FREEZE_SURVEY_FILTERS ) THEN
        CALL FETCH_SNDATA_WRAPPER("FILTERS",  & 
@@ -5646,13 +5647,15 @@
     OPT_REFORMAT_TEXT     = 0
     OPT_REFORMAT_FITS     = 0
     OPT_REFORMAT_SPECTRA  = 0
+    ZP_FLUXCAL_REFORMAT      = -9.0
+
     REFORMAT_SAVE_BADEPOCHS  = .FALSE.
     REFORMAT_BAND_NAME       = .FALSE.
     REFORMAT_SPECTRA_INCLUDE = .FALSE.
     REFORMAT_SPECTRA_ONLY    = .FALSE.
     REFORMAT_PRIVATE         = .TRUE.
     REFORMAT_SIMTRUTH        = .TRUE.
-    REFORMAT_KEYS     = 'NULL'
+    REFORMAT_KEYS            = 'NULL'
 
     REDUCE_STDOUT_BATCH = .FALSE.
     FORCE_STDOUT_BATCH  = .FALSE.
@@ -7286,6 +7289,10 @@
        else if ( MATCH_NMLKEY('OPT_REFORMAT_SPECTRA',  & 
                    1, iArg, ARGLIST) ) then
            READ(ARGLIST(1),*) OPT_REFORMAT_SPECTRA
+
+       else if ( MATCH_NMLKEY('ZP_FLUXCAL_REFORMAT',  & 
+                   1, iArg, ARGLIST) ) then
+           READ(ARGLIST(1),*) ZP_FLUXCAL_REFORMAT
 
        else if ( MATCH_NMLKEY('REFORMAT_KEYS',  & 
                     1, iArg, ARGLIST) ) then
@@ -10046,6 +10053,10 @@
 
 500   CONTINUE
 
+    ! May 26 2026 : check ZP_FLUXCAL update in global header
+    CALL copy_SNDATA_MISC(OPTMASK_SNDATA_GLOBAL)  
+
+
     IF ( OPT_REFORMAT_FITS  >  0 ) THEN
        CALL INIT_REFORMAT_FITS()
     ENDIF
@@ -10343,7 +10354,7 @@
        CALL WRITE_REFORMAT_IGNORE()  ! update ignore file
     ENDIF
 
-    CALL copy_SNDATA_MISC() ! update SNDATA structure
+    CALL copy_SNDATA_MISC(OPTMASK_SNDATA_HEAD+OPTMASK_SNDATA_OBS) ! update SNDATA structure
 
     IF ( OPT_REFORMAT_FITS > 0 )  THEN
        CALL WR_SNFITSIO_UPDATE()
@@ -10356,7 +10367,6 @@
        LEN_VER = INDEX(REFORMAT_VERSION,' ') - 1
        LEN_S   = INDEX(SURVEY_NAME,' ') - 1
        textFile =  & 
-!  xxx     &       REFORMAT_VERSION(1:LEN_VER) // '_' //
              SURVEY_NAME(1:LEN_S) // '_' //  & 
              SNLC_CCID(1:ISNLC_LENCCID) // '.DAT'
        LEN_TXT = INDEX(textfile,' ') - 1
@@ -10383,12 +10393,15 @@
   END SUBROUTINE EXEC_REFORMAT
 
 ! =====================================
-    SUBROUTINE copy_SNDATA_MISC()
+    SUBROUTINE copy_SNDATA_MISC(OPT)
 
 ! Created Mar 14 2021
 ! Update SNDATA struct variables that could be modified here in snana.exe;
 ! for re-writting in FITS or TEXT format with changes from original data file:
 ! 
+! May 26 2026: pass OPT as argument to determin GLOBAL, HEAD, OBS
+!
+!
 !   + PEAKMJD                ( if OPT_SETPKMJD > 0)
 !   + MWEBV[_ERR]            ( if OPT_MWEBV    > 0)
 !   + REDSHIFT_CMB[_ERR]
@@ -10409,6 +10422,7 @@
 !   + BAND name        # Apr 2025
 ! 
 !   + photo-z quantiles  # Oct 14 2025
+!   + update FLUXCAL[ERR] if ZP_FLUXCAL_REFORMAT > 0
 ! -------------
 
     USE SNDATCOM
@@ -10419,10 +10433,15 @@
 
     IMPLICIT NONE
 
+    INTEGER OPT  ! I: see OPTMASK_SNDATA_XXX bits
+
+    ! local args
     INTEGER COPYFLAG, NARG, NOBS, LEN_KEY, LEN_STR, o
     INTEGER IFILT, IFILT_OBS, LEN_SURVEY
-    REAL*8 DVAL(MXEPOCH)
+    REAL*8 DVAL(MXEPOCH), FSCALE
     CHARACTER cKEY*40, cSTRING*20, cfilt*2
+    LOGICAL   DO_GLOBAL, DO_HEAD, DO_OBS
+
     EXTERNAL COPY_SNDATA_HEAD
 
 ! -------------- BEGIN ----------
@@ -10434,13 +10453,17 @@
     LEN_STR  = 20
     cSTRING  = "DUMMY" // char(0)
 
-    IF ( OPT_SETPKMJD > 0 ) THEN
-      cKEY     = "PEAKMJD" // char(0)
-      DVAL(1)     = DBLE(SNLC_SEARCH_PEAKMJD)
+    DO_GLOBAL = (IAND(OPT,OPTMASK_SNDATA_GLOBAL)  > 0 ) 
+    DO_HEAD   = (IAND(OPT,OPTMASK_SNDATA_HEAD)    > 0 )
+    DO_OBS    = (IAND(OPT,OPTMASK_SNDATA_OBS)     > 0 ) 
+
+    IF ( DO_HEAD .and. OPT_SETPKMJD > 0 ) THEN
+      cKEY       = "PEAKMJD" // char(0)
+      DVAL(1)    = DBLE(SNLC_SEARCH_PEAKMJD)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     ENDIF
 
-    IF ( OPT_MWEBV > 0 ) THEN
+    IF ( DO_HEAD .and. OPT_MWEBV > 0 ) THEN
       cKEY     = "MWEBV" // char(0)
       DVAL(1)  = DBLE(SNLC_MWEBV)
       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
@@ -10464,36 +10487,38 @@
 ! or other calculated update.
 
 ! zCMB
-    cKEY     = "REDSHIFT_CMB" // char(0)
-    DVAL(1)  = DBLE(SNLC_zCMB)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+    if ( DO_HEAD ) then
+       cKEY     = "REDSHIFT_CMB" // char(0)
+       DVAL(1)  = DBLE(SNLC_zCMB)
+       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
 
-    cKEY     = "REDSHIFT_CMB_ERR" // char(0)
-    DVAL(1)  = DBLE(SNLC_zCMB_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
-
-! zHELIO
-    cKEY     = "REDSHIFT_HELIO" // char(0)
-    DVAL(1)  = DBLE(SNLC_zHELIO)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
-
-    cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
-    DVAL(1)  = DBLE(SNLC_zHELIO_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
-
-! VPEC
-    cKEY     = "VPEC" // char(0)
-    DVAL(1)  = DBLE(SNLC_VPEC)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
-
-    cKEY     = "VPEC_ERR" // char(0)
-    DVAL(1)  = DBLE(SNLC_VPEC_ERR)
-    CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       cKEY     = "REDSHIFT_CMB_ERR" // char(0)
+       DVAL(1)  = DBLE(SNLC_zCMB_ERR)
+       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       
+       ! zHELIO
+       cKEY     = "REDSHIFT_HELIO" // char(0)
+       DVAL(1)  = DBLE(SNLC_zHELIO)
+       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       
+       cKEY     = "REDSHIFT_HELIO_ERR" // char(0)
+       DVAL(1)  = DBLE(SNLC_zHELIO_ERR)
+       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       
+       ! VPEC
+       cKEY     = "VPEC" // char(0)
+       DVAL(1)  = DBLE(SNLC_VPEC)
+       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       
+       cKEY     = "VPEC_ERR" // char(0)
+       DVAL(1)  = DBLE(SNLC_VPEC_ERR)
+       CALL copy_SNDATA_HEAD(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+    endif
 
 
 ! check option to exclude PRIVATE variables from output.
 ! Do NOT modify NVAR_PRIVATE.
-    IF ( .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
+    IF ( DO_HEAD .and. .NOT. REFORMAT_PRIVATE .and. NVAR_PRIVATE > 0 ) then
       cKEY     = "NVAR_PRIVATE"  // char(0)
       DVAL(1)  = -1.0   ! -1 means disable to avoid abort on NVAR change
       CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
@@ -10502,48 +10527,71 @@
 ! ----
 ! update flux[err] if modified
 ! ------
-    IF ( DOFUDGE_FLUXERRMODEL .or. FUDGE_MAG_ERROR.NE.'') THEN
-       cKEY  = "FLUXCALERR" // char(0)
-       DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL_ERRTOT(o) ; END DO
-       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
-    ENDIF
 
-    IF ( NSTORE_MAGCOR > 0 ) THEN
-       cKEY  = "FLUXCAL" // char(0)
-       DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL(o) ; END DO
-       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
-    ENDIF
+    if ( DO_GLOBAL .and. ZP_FLUXCAL_REFORMAT > 0.0 ) then
+       cKEY     = "ZP_FLUXCAL"  // char(0)
+       DVAL(1)  = DBLE(ZP_FLUXCAL_REFORMAT)
+       CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
+    endif
 
-! Apr 19 2025: check modifying band name
-    IF ( REFORMAT_BAND_NAME ) THEN
-       cKEY = "BAND" // char(0)
-       LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
-       STRFITS = ''
-       LEN_STR = 0
-       DO o=1,NOBS
-          IFILT_OBS  = ISNLC_IFILT_OBS(o)
-          cfilt      = filtdef_string(ifilt_obs:ifilt_obs)
-          cSTRING    = SURVEY_NAME(1:LEN_SURVEY) // '-' // cfilt(1:1)
-          STRFITS    = STRFITS(1:LEN_STR) // ' ' // cSTRING
-          LEN_STR    = LEN_STR + LEN_SURVEY + 3
-       ENDDO
+    IF ( DO_OBS ) THEN
+       IF ( DOFUDGE_FLUXERRMODEL .or. FUDGE_MAG_ERROR.NE.'') THEN
+          cKEY  = "FLUXCALERR" // char(0)
+          DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL_ERRTOT(o) ; END DO
+          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       ENDIF
+          
+       IF ( NSTORE_MAGCOR > 0 ) THEN
+          cKEY  = "FLUXCAL" // char(0)
+          DO o=1,NOBS; DVAL(o)=SNLC_FLUXCAL(o) ; END DO
+          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
+       ENDIF
+             
+       ! May 26 2026: check changing ZP_FLUXCAL
+       if ( ZP_FLUXCAL_REFORMAT > 0.0 ) then
+          FSCALE = 10.0**( 0.4*(ZP_FLUXCAL_REFORMAT-ZP_FLUXCAL) )
 
-       CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS,  & 
-              STRFITS(1:LEN_STR)//char(0), DVAL, LEN_KEY, LEN_STR)
-       LEN_STR = 20
-    ENDIF
+          cKEY  = "FLUXCAL" // char(0)
+          DO o=1,NOBS; DVAL(o) = FSCALE*SNLC_FLUXCAL(o) ; END DO
+          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
+             
+          cKEY  = "FLUXCALERR" // char(0)
+          DO o=1,NOBS; DVAL(o)=FSCALE*SNLC_FLUXCAL_ERRTOT(o) ; END DO
+          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS, cSTRING, DVAL, LEN_KEY, LEN_STR)
+                
+       endif
 
+       ! Apr 19 2025: check modifying band name
+       IF ( REFORMAT_BAND_NAME ) THEN
+          cKEY = "BAND" // char(0)
+          LEN_SURVEY = INDEX(SURVEY_NAME,' ') - 1
+          STRFITS = ''
+          LEN_STR = 0
+          DO o=1,NOBS
+             IFILT_OBS  = ISNLC_IFILT_OBS(o)
+             cfilt      = filtdef_string(ifilt_obs:ifilt_obs)
+             cSTRING    = SURVEY_NAME(1:LEN_SURVEY) // '-' // cfilt(1:1)
+             STRFITS    = STRFITS(1:LEN_STR) // ' ' // cSTRING
+             LEN_STR    = LEN_STR + LEN_SURVEY + 3
+          ENDDO
+
+          CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS,  & 
+               STRFITS(1:LEN_STR)//char(0), DVAL, LEN_KEY, LEN_STR)
+          LEN_STR = 20
+       ENDIF
+
+    ENDIF ! end DO_OBS
 
 ! Sep 2023: update MJD_TRIGGER and MJD_DETECT_XYZ variables
 !           if they have been computed from PHOTFLAG .
 
-    if ( PHOTFLAG_TRIGGER > 0 ) then
+    if ( DO_HEAD .and. PHOTFLAG_TRIGGER > 0 ) then
        cKEY = "MJD_TRIGGER" // char(0)
        DVAL(1) = SNLC8_MJD_TRIGGER
        CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     endif
 
-    if ( PHOTFLAG_DETECT > 0 ) then
+    if ( DO_HEAD .and. PHOTFLAG_DETECT > 0 ) then
        cKEY = "MJD_DETECT_FIRST" // char(0)
        DVAL(1) = SNLC8_MJD_DETECT_FIRST
        CALL copy_SNDATA_HEAD(copyFlag, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)

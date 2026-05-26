@@ -1779,7 +1779,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"DETNUM") == 0  || strcmp(varName,"CCDNUM") == 0 ) 
       { IVAROBS_SNTEXTIO.DETNUM = ivar; }  
 
-    else if ( strcmp(varName,"IMGNUM") == 0 ) 
+    else if ( strcmp(varName,"IMGNUM") == 0 || strcmp(varName,"EXPNUM") == 0) 
       { IVAROBS_SNTEXTIO.IMGNUM = ivar; }  
 
     else if ( strcmp(varName,"FIELD") == 0 ) 

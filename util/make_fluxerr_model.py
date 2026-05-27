@@ -27,7 +27,7 @@
 #
 # ========================
 
-import os, sys, argparse, glob, yaml, math
+import os, sys, argparse, glob, yaml, math, re
 import numpy as np
 from   argparse import Namespace
 import pandas as pd
@@ -35,6 +35,7 @@ import pandas as pd
 #JOBNAME_SNANA = "/home/rkessler/SNANA/bin/snana.exe"
 JOBNAME_SNANA = "snana.exe"
 JOBNAME_SIM   = "snlc_sim.exe"
+SNANA_ABORT_STRING    = "FATAL ERROR ABORT"
 
 TABLE_NAME    = "OUTLIER"
 
@@ -549,6 +550,12 @@ def run_snana_job(config, nml_file, args_command_line):
 
     #sys.exit(f"\n xxx cmd(snana) = \n{cmd}")
     os.system(cmd)
+
+    # May 2026: exit here if snana job aborted
+    with open(log_file, 'r') as f:
+        for line in f:
+            if re.search(SNANA_ABORT_STRING, line): 
+                sys.exit(f"\n ERROR: found SNANA abort in {log_file}")
 
     # end run_snana_job
 

@@ -19365,6 +19365,7 @@
                print*,' SKYSIG = ', SNGL(SKYSIG)
                print*,' ZP     = ', SNGL(ZP)
                print*,' GAIN   = ', SNGL(GAIN)
+               call flush(6)
 
                c1err = 'Missing required METADATA (PSF or SKYSIG or ZP or GAIN)'
                c2err = 'Check PHOT columns in data for CID=' // SNLC_CCID

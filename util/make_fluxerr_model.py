@@ -928,7 +928,7 @@ def make_fluxerr_model_map(ISTAGE,config):
     nrow = 0
     if nfilters > 0 : 
         NFIELD_GROUP    = config.input_yaml['NFIELD_GROUP']
-        nrow_per_filter = int(NBIN1D/IFILTOBS_MAX/NFIELD_GROUP)
+        nrow_per_filter = int(NBIN1D/IFILTOBS_MAX/max(1, NFIELD_GROUP)) #MA update to handle cases with no fields
     
     for BIN1D in range(0,NBIN1D):
 

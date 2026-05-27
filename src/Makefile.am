@@ -20,7 +20,7 @@ BIN  = $(top_srcdir)/bin
 UTIL = $(top_srcdir)/util
 
 # tack on flag to provide git version to C/fortran codes
-AM_CFLAGS = -DGIT_SNANA_VERSION=\"@GIT_VERSION@\"
+AM_CFLAGS = -DGIT_SNANA_VERSION=\"@SNANA_GIT_VERSION@\"
 
 EXTRA_FLAGS = -D_FORTIFY_SOURCE=2
 

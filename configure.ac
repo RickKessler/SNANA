@@ -54,17 +54,22 @@ AC_SUBST([DEBUG_LDFLAGS])
 
 AM_CONDITIONAL([DEBUG], [test "x$enable_debug" = "xyes"])
 
+AC_MSG_NOTICE([srcdir is: $srcdir])
+AC_MSG_NOTICE([Git dir check: `cd "$srcdir" && $GIT rev-parse --show-toplevel 2>/dev/null`])
 
 # Try to get Git version
 AC_CHECK_PROG([GIT], [git], [git], [no])
 if test "$GIT" != "no"; then
-  AC_MSG_CHECKING([Git version])
-  GIT_VERSION=`$GIT describe --always --tags 2>/dev/null || echo "unknown"`
-  AC_MSG_RESULT([$GIT_VERSION])
+  AC_MSG_CHECKING([SNANA git version])
+  SNANA_GIT_VERSION=`cd "$srcdir" && $GIT describe --always --tags 2>/dev/null`
+  if test -z "$SNANA_GIT_VERSION"; then
+    SNANA_GIT_VERSION="unknown"
+  fi
+  AC_MSG_RESULT([$SNANA_GIT_VERSION])
 else
-  GIT_VERSION="unknown"
+  SNANA_GIT_VERSION="unknown"
 fi
-AC_SUBST([GIT_VERSION])
+AC_SUBST([SNANA_GIT_VERSION])
 
 
 dnl allow python >= 3.7

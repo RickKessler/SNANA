@@ -1241,11 +1241,16 @@ Next is a global header with the following keys:
   NLIBID:             <VAL>     # Number of obs-sequences (LIBIDs) in file
   PIXSIZE:            <VAL>     # size of pixel, arcSec
   SOLID_ANGLE:        <VAL>     # sr, used if SOLID_ANGLE=0 in input file
+  TEXPOSE(WIDE):   100 200 ...  # in FIELDs with WIDE substring; per band in FILTERS list
+  TEXPOSE(DEEP):   500 600 ...  # in FIELDs with DEEP substring; per band in FILTERS list
 \end{verbatim} 
 %
 For batch jobs submitted with {\submit} script,
 {\tt NLIBID} is used to assign a different starting {\tt LIBID}
 (see below) for each batch core, ensuring uniform library sampling.
+{\tt TEXPOSE} is used only for the {\tt NONLINEARITY} option (\S??),
+and the values are written to a {\tt TEXPOSE} column in PHOT section
+of data files.
 
 \clearpage
 Following the global header is a list of \obs\ sequences.

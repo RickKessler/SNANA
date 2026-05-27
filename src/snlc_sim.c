@@ -21733,7 +21733,21 @@ double get_TEXPOSE(int epoch) {
   // For input "epoch" index, return the
   // exposure time (seconds) read from SIMLIB header.
   // If TEXPOSE is not provided, return zero.
+  // 
+  // EXAMPLE: SIMLIB global header defines
+  //   FILTERS:        RZYJHF
+  //   ...
+  //   TEXPOSE(WIDE):  100 200 300 400 500 600
+  //
+  // -> TEXPOSE(R,Z,Y,J,H.F) = 100, 200 ... 600 sec
+  // and applies to any field including WIDE string;
+  // e.g., S_WIDE, N_WIDE, S_WIDE+PRISM, etc ...
+  //
+  // TEXPOSE is used only for nonlin option, and is written
+  // to TEXPOSE column in PHOT section of data files.
 
+  // May 27 2026: allow partial field match;
+  // 
   double TEXPOSE = 0.0 ;
   int    NFIELD_TEXPOSE = SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE ;
   int    ifilt, ifilt_obs, ifld, ifld_match = -9 ;
@@ -21751,7 +21765,8 @@ double get_TEXPOSE(int epoch) {
 	
   for(ifld = 0; ifld < NFIELD_TEXPOSE; ifld++ ) {
     FIELD_TMP = SIMLIB_GLOBAL_HEADER.FIELD_TEXPOSE[ifld] ;
-    if ( strcmp(FIELD,FIELD_TMP) == 0 )  { ifld_match = ifld; }
+    // xxx mark  del May 27 2026  if ( strcmp(FIELD,FIELD_TMP) == 0 )  { ifld_match = ifld; }
+    if ( strstr(FIELD,FIELD_TMP) != NULL )  { ifld_match = ifld; }  // partial match sufficient
   }
 
   if ( ifld_match >= 0 )

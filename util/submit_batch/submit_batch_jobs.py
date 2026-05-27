@@ -199,9 +199,8 @@ def which_program_class(config):
     elif "SMP_METHOD" in CONFIG :  # ??? check this later
         program_class = SceneModelPhotometry  
 
-    elif "HOSTFIT" in CONFIG :  # temp until we figure out more sensible key
+    elif "CIGALE_INPUT_FILE" in CONFIG : 
         program_class = HostPropertyFit 
-        print(f" xxx hello in HOSTFIT from main")
 
     elif "PATH_INPUT_TRAIN" in CONFIG :
         program_class = train_SALT2  # original snpca from J.Guy

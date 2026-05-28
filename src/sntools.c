@@ -1,8 +1,6 @@
 // sntools.c
 // General tools for snana codes.
 
-
-
 #include "sntools.h"
 #include "sntools_spectrograph.h" 
 #include "sntools_data.h"
@@ -292,9 +290,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   int  colnum_idsurvey, colnum_field;
   int  NCID, NWD, isn, iwd, MSKOPT = -9 ;
   int  langC = LANGFLAG_PARSE_WORDS_C ;
-  int  ILIST = 0, LDMP=0, OPT_AUTOSTORE ;
+  int  ILIST = 0, OPT_AUTOSTORE ;
   double DVAL;  char *CVAL;
-  char CCID[40], STRINGID[60], ctmp[60], STRING_MATCH[60] ;
+  int  LDMP = 0 ;
+  char CCID[40], STRINGID[100], ctmp[60], STRING_MATCH[60] ;
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
@@ -514,10 +513,19 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
       if ( USE_FIELD ) {
 	CVAL     = SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR_FIELD][isn];
+	// xxx mark if ( strstr(CVAL,"PRISM") != NULL ) { sprintf(CVAL,"DEEP+DEEP-PRISM"); }
 	sprintf(ctmp, "_%s", CVAL);
 	strcat(STRINGID, ctmp);
       }
       
+      // xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      if ( strstr(STRINGID,"100026") != NULL ) {
+	printf(" xxx %s: isn=%d   STRINGID = '%s' \n",
+	       fnam, isn, STRINGID); 
+	//debugexit(fnam);		
+      }
+      // xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
       match_cid_hash(STRINGID, ILIST, ISNOFF+isn);
       
       // check option to store extra columns of info
@@ -641,10 +649,17 @@ int match_cidlist_exec(char *cid) {
   //        instead of returning bool match=(isn0>0);
   
   int  isn0, ILIST = 1;
-  //  char fnam[] = "match_cidlist_exec";
+  int  LDMP   = 0; // ( strstr(cid,"100026") != NULL ) ;
+  char fnam[] = "match_cidlist_exec";  (void)fnam;
+
   // ------------- BEGIN --------------
   isn0  = match_cid_hash(cid, ILIST, -1);
-  // printf(" xxx %s: cid=%s -> isn0 = %d \n", fnam, cid, isn0 );
+
+  if ( LDMP ) {
+    printf(" xxx %s: cid = '%s' -> isn0 = %d \n", fnam, cid, isn0 );
+    debugexit(fnam);
+  }
+
   return isn0 ;
 } // end match_cidlist_exec
 
@@ -734,11 +749,12 @@ void match_cidlist_parval__(int *isn_match, char *varName, int *abort_flag,
 #include "uthash.h"
 // Jun 2021: define stuff for hash table; used to match CID lists.
 struct hash_table_def {
-  int id;               // key 
-  char name[20];        // array size is max length of CID
-  UT_hash_handle hh;    // makes this structure hashable 
+  int id;                    // key 
+  char name[2*MXCHAR_CCID];    // array size is max length of CID
+  UT_hash_handle hh;         // makes this structure hashable 
 } ;
 struct hash_table_def *hash_table_users = NULL; 
+
 
 int match_cid_hash(char *ccid, int ilist, int isn) {
 
@@ -753,7 +769,7 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
 
   int isn0 = -9;
   struct hash_table_def *s, *tmp;
-  //  char fnam[] = "match_cid_hash" ;
+  char fnam[] = "match_cid_hash" ;  (void)fnam ;
 
   // ---------------- BEGIN ---------------
 

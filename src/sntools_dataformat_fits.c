@@ -369,96 +369,6 @@ void wr_snfitsio_init_head(void) {
 
 
 
-  /* xxxxxxxxxxxxxx mark delete Apr 26 2026 xxxxxxxxxxxxxxxxxxxxx
-
-  wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID" ,      itype ); 
-  wr_snfitsio_addCol( "1I", "HOSTGAL_FLAG" ,       itype ); 
-  wr_snfitsio_addCol( "1E", "HOSTGAL_PHOTOZ" ,     itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_PHOTOZ_ERR" , itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_SPECZ" ,      itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_SPECZ_ERR" ,  itype );
-  wr_snfitsio_addCol( "1D", "HOSTGAL_RA" ,         itype );  
-  wr_snfitsio_addCol( "1D", "HOSTGAL_DEC" ,        itype );  
-  wr_snfitsio_addCol( "1E", "HOSTGAL_SNSEP" ,      itype );  
-  wr_snfitsio_addCol( "1E", "HOSTGAL_DDLR" ,       itype );  // Jan 29 2019
-  wr_snfitsio_addCol( "1E", "HOSTGAL_CONFUSION" ,  itype );  // Jan 29 2019
-
-  wr_snfitsio_addCol_HOSTGAL_PROPERTIES("HOSTGAL");
-
-  wr_snfitsio_addCol( "1E", "HOSTGAL_ELLIPTICITY", itype );
-  wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID2",      itype );
-  wr_snfitsio_addCol( "1E", "HOSTGAL_SQRADIUS",    itype );
-
-  // add if-block later if possible; to avoid writing garbage for most sims
-  wr_snfitsio_addCol( "1K", "HOSTGAL_OBJID_UNIQUE",  itype );
-
-  // add HOSTGAL mags 
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-    sprintf(parName,"HOSTGAL_MAG_%c", FILTERSTRING[ifilt_obs] );
-    wr_snfitsio_addCol( "1E", parName, itype );
-  }
-  
-  // add HOSTGAL mag-errors (Feb 2019)
-  for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-    ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-    sprintf(parName,"HOSTGAL_MAGERR_%c", FILTERSTRING[ifilt_obs] );
-    wr_snfitsio_addCol( "1E", parName, itype );
-  }
-
-  // add zPHOT quantiles
-  if ( REFAC_DATA_FLAG > 0 ) {
-    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[0] );
-    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[0] );
-  }
-
-  // - - - - - 
-  if ( SNFITSIO_HOSTGAL2_FLAG ) {
-    wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID" ,      itype ); 
-    wr_snfitsio_addCol( "1I", "HOSTGAL2_FLAG" ,       itype ); 
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ" ,     itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_PHOTOZ_ERR" , itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_SPECZ" ,      itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_SPECZ_ERR" ,  itype );
-    wr_snfitsio_addCol( "1D", "HOSTGAL2_RA" ,         itype );  
-    wr_snfitsio_addCol( "1D", "HOSTGAL2_DEC" ,        itype );  
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_SNSEP" ,      itype );  
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_DDLR" ,       itype ); 
-
-    wr_snfitsio_addCol_HOSTGAL_PROPERTIES("HOSTGAL2");
-
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_ELLIPTICITY", itype );
-    wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID2",      itype );
-    wr_snfitsio_addCol( "1E", "HOSTGAL2_SQRADIUS",    itype );
-
-    wr_snfitsio_addCol( "1K", "HOSTGAL2_OBJID_UNIQUE",  itype ); // if-block??
-
-    // add HOSTGAL mags 
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-      sprintf(parName,"HOSTGAL2_MAG_%c", FILTERSTRING[ifilt_obs] );
-      wr_snfitsio_addCol( "1E", parName, itype );
-    }
-  
-    // add HOSTGAL mag-errors (FEB 2019)
-    for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
-      ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
-      sprintf(parName,"HOSTGAL2_MAGERR_%c", FILTERSTRING[ifilt_obs] );
-      wr_snfitsio_addCol( "1E", parName, itype );
-    }
-
-    // add zPHOT quantiles
-    if ( REFAC_DATA_FLAG > 0 ) {
-      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[1] );
-      wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, &SNDATA.HOSTGALz_LOGMASS[1] );
-    }
-  }  // end of 2nd-HOSTGAL block
-
-  // - - - -
-  xxxxxxxxxxxxx end mark xxxxxxxxxxxxxx */
-
-
-
   // HOSTGAL Surface Brightness (SB) under SN
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
     ifilt_obs  = SNDATA_FILTER.MAP[ifilt];
@@ -766,13 +676,10 @@ void wr_snfitsio_init_host(int igal, int itype) {
   }
 
   // add zPHOT quantiles
-  if ( REFAC_DATA_FLAG > 0 ) {
-    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, 
-				&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal] );
-    wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, 
-				&SNDATA.HOSTGALz_LOGMASS[igal] );
-  }
-
+  wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz_QUANTILE, 
+			      &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal] );
+  wr_snfitsio_addcol_HOSTGALz(MXBIN_HOSTGALz, 
+			      &SNDATA.HOSTGALz_LOGMASS[igal] );
 
   return;
 } // end wr_snfitsio_init_host
@@ -1159,10 +1066,9 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 24; // Aug 31 2023: add WRITE_MASK in global header
   //  SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
   //  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
-
-  SNFITSIO_CODE_IVERSION = 27; // Jul 23 2025  write/read ZP_FLUXCAL
+  // SNFITSIO_CODE_IVERSION = 27; // Jul 23 2025  write/read ZP_FLUXCAL
   
-  if ( REFAC_DATA_FLAG > 0 ) { SNFITSIO_CODE_IVERSION = 28; } // LOGMASS[_ERR](z)
+  SNFITSIO_CODE_IVERSION = 28;  // LOGMASS[_ERR](z)
 
   // - - - - - - - 
 
@@ -1236,11 +1142,6 @@ void wr_snfitsio_create(int itype ) {
 
     // write private variables
     wr_snfitsio_global_private(fp);
-
-
-    //write number of Q quantiles
-    // xxx mark    if ( !REFAC_DATA_FLAG ) { wr_snfitsio_global_zphot_q(fp); } // legacy
-
   }
 
   // ----------------------------------
@@ -1995,29 +1896,14 @@ void wr_snfitsio_update_head(void) {
     }
 
     // HOSTGAL QUANTILES & LOGMASS
-    if ( REFAC_DATA_FLAG > 0 ) {
-      HOSTGALz_DEF *HOSTGALz;
 
-      HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
-      wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
-
-      HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
-      wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
-    }
-
-    /* xxxxxxx mark delete xxxxxxx
-    else {
-      // legacy
-      for ( iq=0; iq < SNDATA.HOSTGAL_NZPHOT_Q; iq++ ) {
-	int PCT  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-	LOAD_VARNAME_ZPHOT_Q_LEGACY(PREFIX, PCT, parName); // return parName 
-	LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-	WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.HOSTGAL_ZPHOT_Q[igal][iq] ;
-	wr_snfitsio_fillTable ( ptrColnum, parName, itype );
-      }
-    }
-    xxxxxxxxx end mark xxxxxxx */
-
+    HOSTGALz_DEF *HOSTGALz;
+    
+    HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
+    wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
+    
+    HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
+    wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
 
     
   } // end igal
@@ -2504,7 +2390,7 @@ void wr_snfitsio_fillTable(int *COLNUM, char *parName, int itype ) {
     fits_write_col(fp, TFLOAT, colnum, firstrow, firstelem, nrow,
 		   &WR_SNFITSIO_TABLEVAL[itype].value_E, &istat);  
   }
-  else if ( REFAC_DATA_FLAG && iform == IFORM_E && n_element > 1 ) {  // new feature, Apr 2026
+  else if (  iform == IFORM_E && n_element > 1 ) {  // new feature, Apr 2026
     fits_write_col(fp, TFLOAT, colnum, firstrow, firstelem, n_element,
 		   WR_SNFITSIO_TABLEVAL[itype].list_E, &istat);  
   }
@@ -3759,28 +3645,13 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
 
       // read optional zphot quantiles
-      if ( REFAC_DATA_FLAG > 0 ) {
-	HOSTGALz_DEF *HOSTGALz;
+      HOSTGALz_DEF *HOSTGALz;
 
-	HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal] ;
-	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
+      HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal] ;
+      NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
 
-	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal] ;
-	NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
-      }
-
-      /* xxxxxxxxxxx end mark xxxxxxxxxxxxxx
-      else {
-	// legacy
-	N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-	for(iq=0; iq < N_Q; iq++ ) {
-	  int PCT   = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[iq];
-	  float *zq = &SNDATA.HOSTGAL_ZPHOT_Q[igal][iq];
-	  LOAD_VARNAME_ZPHOT_Q_LEGACY(PREFIX, PCT, KEY); // return KEY
-	  j++ ; NRD = RD_SNFITSIO_FLT(isn,KEY,zq,&SNFITSIO_READINDX_HEAD[j]);
-	}
-      }
-      xxxxxxxxxxxx end mark xxxxxxxxxx */
+      HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal] ;
+      NRD = RD_SNFITSIO_HOSTGALz(isn, igal, &j, HOSTGALz);
 
     } // end igal 
 
@@ -4609,9 +4480,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
 
   // check optional PRIVATE header keys.
   rd_snfitsio_private();
-
-  // check optional NZPHOT_Q key (Feb 2022)
-  // xxxxxxx mark   if ( !REFAC_DATA_FLAG ) { rd_snfitsio_zphot_q(); }
 
   // - - - - - - - - - - -
 
@@ -6182,7 +6050,7 @@ int RD_SNFITSIO_PARVAL(int     isn        // (I) internal SN index
     JMIN = isn_file ; // index starts at 1
     JMAX = isn_file ;
 
-    if ( REFAC_DATA_FLAG && n_elem > 1 && iform == IFORM_E ) {
+    if ( n_elem > 1 && iform == IFORM_E ) {
       JMAX = isn_file * n_elem ;
       JMIN = JMAX - (n_elem-1);
     }

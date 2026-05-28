@@ -2256,6 +2256,9 @@
        RETURN          ! discard fit
     ENDIF
 
+    ! New call FITANA_LOGMASS May,2026
+    CALL FITANA_LOGMASS()
+
 ! ---------------------------------------
 ! store fit results for plotting
 
@@ -13063,6 +13066,46 @@
 
     RETURN
   END SUBROUTINE FITANA_CUTS
+  
+! ===================================================
+  SUBROUTINE FITANA_LOGMASS()
+! Created May 2026 A.Mitra
+! If photo-z fit and a per-galaxy logmass(z) grid was loaded,
+! compute the Gaussian-marginalized logmass mean and sigma using
+! eval_spline_integral and store in SNHOST_LOGMASS_ZPHOT/ZPHOTERR.
+
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNFITCOM
+    USE FILTCOM
+    USE FITRESTCOM
+    USE TABLEVARCOM
+    USE SNHOSTCOM
+    USE SNHOSTzCOM
+
+    IMPLICIT NONE
+    INTEGER          :: NZ, IGAL, INDEX_SPLINE
+    REAL*8           :: Z_PH, Z_PH_ERR, LM_MEAN, LM_STD
+    EXTERNAL            eval_spline_integral
+
+    ! BEGIN
+    IF ( OPT_PHOTOZ <= 0 ) RETURN   ! no photo-z fit
+
+    IGAL = 1  ! primary (closest) host galaxy
+    NZ   = SNHOSTz_LOGMASS(IGAL)%NZ
+    IF ( NZ < 1 ) RETURN            ! no logmass grid loaded for this galaxy
+
+    ! spline was already initialized by SET_LOGMASS (called from snana.F90)
+    INDEX_SPLINE = IND_OFF_SPLINE_LOGMASS_ZGRID + IGAL
+
+    ! photo-z centre and uncertainty for this host
+    Z_PH     = DBLE( SNHOST_ZPHOT(IGAL) )
+    Z_PH_ERR = DBLE( SNHOST_ZPHOT_ERR(IGAL) )
+
+    CALL SET_LOGMASS(2, Z_PH, Z_PH_ERR)
+
+    RETURN
+  END SUBROUTINE FITANA_LOGMASS
 ! ===================================================
     SUBROUTINE FITANA_STORE()
 ! 

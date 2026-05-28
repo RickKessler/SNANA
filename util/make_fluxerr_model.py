@@ -23,9 +23,11 @@
 #   + analyze REDCOV by field group
 #     [beware this could be buggy if there are no FIELD groups]
 #
+# May 26 2026: force 4-bit on OPT_SIMLIB_OUT to abort if any meta data is missing.
+#
 # ========================
 
-import os, sys, argparse, glob, yaml, math
+import os, sys, argparse, glob, yaml, math, re
 import numpy as np
 from   argparse import Namespace
 import pandas as pd
@@ -33,6 +35,7 @@ import pandas as pd
 #JOBNAME_SNANA = "/home/rkessler/SNANA/bin/snana.exe"
 JOBNAME_SNANA = "snana.exe"
 JOBNAME_SIM   = "snlc_sim.exe"
+SNANA_ABORT_STRING    = "FATAL ERROR ABORT"
 
 TABLE_NAME    = "OUTLIER"
 
@@ -82,6 +85,8 @@ NMLKEY_MODEL_FILE        = 'FLUXERRMODEL_FILE'
 NMLKEY_SIM_MODEL_FILE    = 'SIM_FLUXERRMODEL_FILE' # for redcov_test
 NMLKEY_TEXTFILE_PREFIX   = 'TEXTFILE_PREFIX'
 NMLKEY_HFILE_OUT         = 'HFILE_OUT'
+
+OPT_SIMLIB_REQUIRE = 4  # May 2026 - require this bit to require all meta data
 
 NMLKEY_LIST = [NMLKEY_DATA_PATH, NMLKEY_VERSION, NMLKEY_KCOR_FILE, 
                NMLKEY_SNTABLE, NMLKEY_TEXTFILE_PREFIX, NMLKEY_HFILE_OUT,
@@ -445,6 +450,9 @@ def create_fake_simlib(ISTAGE,config):
     PRIVATE_DATA_PATH = config.input_yaml['PRIVATE_DATA_PATH']
     OPT_SIMLIB        = config.input_yaml['OPT_SIMLIB']
     
+    # May 2026: require 4-bit set in OPT_SIMLIB to require all meta data
+    if ( OPT_SIMLIB & OPT_SIMLIB_REQUIRE ) == 0: OPT_SIMLIB += OPT_SIMLIB_REQUIRE
+
     nmlarg_dict = init_nmlargs()
     nmlarg_dict[NMLKEY_DATA_PATH]   =  PRIVATE_DATA_PATH
     nmlarg_dict[NMLKEY_VERSION]     =  VERSION
@@ -482,12 +490,17 @@ def create_nml_file(config, nmlarg_dict, nml_prefix):
         arg  = nmlarg_dict[nmlkey]
         if arg is not None:
             if isinstance(arg,str) :  arg = f"'{arg}'"
-            nml_lines_auto.append(f"   {nmlkey:<20} = {arg} ")
+
+            comment = ''
+            if nmlkey == NMLKEY_OPT_SIMLIB : 
+                comment = '! 1=all obs, 2=obs with Ftrue>0, 4=require all meta data'
+
+            nml_lines_auto.append(f"   {nmlkey:<20} = {arg}  {comment}")
 
     # - - - -
     if 'EXTRA_SNLCINP_ARGS' in config.input_yaml:
         for arg in config.input_yaml['EXTRA_SNLCINP_ARGS']:
-            nml_lines_user.append(f"   {arg}")
+            nml_lines_user.append(f"   {arg} ")
 
     # - - - --  -
     # write nml_lines to nml file.
@@ -537,6 +550,12 @@ def run_snana_job(config, nml_file, args_command_line):
 
     #sys.exit(f"\n xxx cmd(snana) = \n{cmd}")
     os.system(cmd)
+
+    # May 2026: exit here if snana job aborted
+    with open(log_file, 'r') as f:
+        for line in f:
+            if re.search(SNANA_ABORT_STRING, line): 
+                sys.exit(f"\n ERROR: found SNANA abort in {log_file}")
 
     # end run_snana_job
 
@@ -909,7 +928,7 @@ def make_fluxerr_model_map(ISTAGE,config):
     nrow = 0
     if nfilters > 0 : 
         NFIELD_GROUP    = config.input_yaml['NFIELD_GROUP']
-        nrow_per_filter = int(NBIN1D/IFILTOBS_MAX/NFIELD_GROUP)
+        nrow_per_filter = int(NBIN1D/IFILTOBS_MAX/max(1, NFIELD_GROUP)) #MA update to handle cases with no fields
     
     for BIN1D in range(0,NBIN1D):
 

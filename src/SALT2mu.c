@@ -1,6 +1,6 @@
 /*******************************************
 Created by J. Marriner.
-Installed into snana v8_38, January 2010.   
+Installed into snana v8_38, January 2010.  
  
 Program to take output from the SALT fitter dict files and
 1.  Determine alpha and beta parameters
@@ -354,7 +354,7 @@ For help, run code with no arguments
 char STRING_EVENT_TYPE[MXEVENT_TYPE][12] = 
   { "NULL", "DATA", "BIASCOR", "CCPRIOR" } ;
 bool USE_EVENT_TYPE[MXEVENT_TYPE];
-// xxx mark char VERSION_PHOTOMETRY_EVENT_TYPE[MXEVENT_TYPE][MXCHAR_FILENAME*2];
+
 char VERSION_PHOTOMETRY_EVENT_TYPE[MXEVENT_TYPE][MXCHAR_VERSION_PHOTOMETRY];
 
 char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
@@ -1241,7 +1241,7 @@ struct INPUTS {
 
   int   ncidList_data;  //number of cids provided in listfile(s)
   int   acceptFlag_cidFile_data ; // +1 to accept, -1 to reject
-  bool  match_on_cid_idsurvey_field, match_on_cid_only ; 
+  bool  match_on_cid_idsurvey_field, match_on_cid_idsurvey, match_on_cid_only ; 
   // - - - - - - redshift bins - - - - - - 
   int     nzbin ;    // number of uniform-spaced redshift bins
   int     nlogzbin;  // number of log-spaced redshift bins
@@ -5902,7 +5902,6 @@ void set_defaults(void) {
   INPUTS.NDUMPLOG = 1000 ;
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
   INPUTS.debug_flag        = 0 ;
-  //  INPUTS.debug_flag        = 31 ; // xxx REMOVE
 
   INPUTS.REFAC_CCPRIOR        = 1;
   INPUTS.REFAC_SORT_IDSAMPLE  = 2; // Feb 11 2026
@@ -6775,7 +6774,7 @@ void read_data_override(void) {
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
   int istat, isn, NROW_MATCH;
   bool  override_zhd, override_zhderr;
-  double dval;    char *name, cval[20] ;
+  double dval;    char *name, cval[MXCHAR_CCID] ;
   double zhd_over, zhderr_over, dl, zhel_over, zhd_orig, zhel_orig ;
 
   for(isn=0; isn < NSN_DATA; isn++ ) { 
@@ -7125,8 +7124,9 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
 
     if ( USE_FIELD ) {
       TABLEVAR->field =  (char**)malloc(MEMC);
-      for(i=0; i<LEN_MALLOC; i++ ) 
-	{ TABLEVAR->field[i] = (char*)malloc(MEMC2); MEMTOT+=MEMC2; }  
+      for(i=0; i<LEN_MALLOC; i++ ) {
+	 TABLEVAR->field[i] = (char*)malloc(MEMC2); MEMTOT+=MEMC2; 
+      }  
     }
 
 
@@ -8398,7 +8398,6 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   
   // Apr 7 2026: protect against undefined logmass
   if ( TABLEVAR->host_logmass[ISN] < -990.0 ) { TABLEVAR->host_logmass[ISN] = -9.0; }
-  // .xyz 
 
   TABLEVAR->IDFIELD[ISN] = get_IDFIELD(field); // Nov 2024
   
@@ -17916,7 +17915,7 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   double z, s, c, logmass, x0err, serr, cerr  ;
   double COV_mBx1, COV_mBc, COV_x1c,  mBerr ;
   double smin, smax, cmin, cmax; // generic cuts on stretch and color
-  char   *name, field[60]="VOID" ;
+  char   *name, field[MXCHAR_FIELDNAME] = "VOID" ;
   char fnam[]=  "set_CUTMASK";
 
   // ---------- BEGIN ---------
@@ -17993,6 +17992,9 @@ void set_CUTMASK(int isn, TABLEVAR_DEF *TABLEVAR ) {
   // check fieldlist cut. Beware that FIELD column is read/stored
   // only if field is used as cut or biasCor group.
   sprintf(field, "%s", TABLEVAR->field[isn] );
+
+  // xxx mark del   if ( strstr(field,"PRISM") != NULL ) { sprintf(field,"DEEP+DEEP-PRISM");}
+
   sel = select_FIELD(field);
   if ( !sel ) { setbit_CUTMASK(isn, CUTBIT_FIELD, TABLEVAR); } 
 
@@ -18213,10 +18215,11 @@ int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN) {
   int ncidList   = INPUTS.ncidList_data ;
   int acceptFlag = INPUTS.acceptFlag_cidFile_data ;
   bool match_on_cid_idsurvey_field = INPUTS.match_on_cid_idsurvey_field;
-  bool match_on_cid_only = INPUTS.match_on_cid_only;
+  bool match_on_cid_idsurvey       = INPUTS.match_on_cid_idsurvey;
+  bool match_on_cid_only           = INPUTS.match_on_cid_only;
   int ACCEPT = 1, REJECT = 0,   isn_match ;
   bool MATCH ;
-  char STRINGID[60], CVAL[20];
+  char STRINGID[60], CVAL[MXCHAR_CCID];
   char fnam[] = "selectCID_data";
 
   // ------- BEGIN -------------
@@ -18227,6 +18230,9 @@ int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN) {
 
   if ( match_on_cid_only ) {
       sprintf(STRINGID, "%s", cid);
+  }
+  else if ( match_on_cid_idsurvey ) {
+    sprintf(STRINGID, "%s_%d", cid, IDSURVEY);  // testing only
   }
   else if ( match_on_cid_idsurvey_field ) {
     sprintf(STRINGID, "%s_%d_%s", cid, IDSURVEY, FIELD);
@@ -19392,6 +19398,8 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // NOTE: OPTMASK_MATCH->1 in this function if IDSURVEY column doesnt exist
   ncid = match_cidlist_init(fileName, &OPTMASK_MATCH, VARLIST_STORE); 
 
+  // .xyz 
+
   // set logical if IZBIN was found.
   if ( use_izbin ) {
     IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN, &ICAST);
@@ -19404,13 +19412,15 @@ void parse_cidFile_data(int OPT, char *fileName) {
   if ( OPTMASK_MATCH  == 1 ) {
     // legacy file with only CIDs and nothing else (unformatted file)
     INPUTS.match_on_cid_idsurvey_field = false;
+    INPUTS.match_on_cid_idsurvey       = false;
     INPUTS.match_on_cid_only           = true;
     sprintf(id_name,"CID");
   }
   else {
     // default
     INPUTS.match_on_cid_idsurvey_field = true;
-    INPUTS.match_on_cid_only          = false;
+    INPUTS.match_on_cid_idsurvey       = false;
+    INPUTS.match_on_cid_only           = false;
     sprintf(id_name,"CID_IDSURVEY_FIELD");
   }
 
@@ -20325,7 +20335,6 @@ int reject_CUTWIN(int EVENT_TYPE, int IDSAMPLE, int IDSURVEY,
   double CUTVAL, *CUTWIN ;
   char *NAME, STR_EVENT_TYPE[20];
   char fnam[] = "reject_CUTWIN" ;
-
   
   // ------------- BEGIN -----------
 
@@ -20556,6 +20565,7 @@ void parse_FIELDLIST_SELECT(char *item) {
 
   // Created May 2020
   // break comma-separated list and load NFIELD values to select events
+  // May 26 2026 allocate FIELDLIST with len= MXCHAR_FIELDLIST instead of 20
 
   int  i ;
   int debug_malloc = INPUTS.debug_malloc ;
@@ -20566,7 +20576,7 @@ void parse_FIELDLIST_SELECT(char *item) {
   
   print_debug_malloc(+1*debug_malloc,fnam);
   for(i=0; i < MXFIELD_OVERLAP; i++ ) 
-    { INPUTS.FIELDLIST[i] = (char*) malloc(20*sizeof(char) ); }
+    { INPUTS.FIELDLIST[i] = (char*) malloc(MXCHAR_FIELDLIST*sizeof(char) ); }
 
   splitString(item, COMMA, fnam, MXFIELD_OVERLAP,               // inputs
 	      &INPUTS.NFIELDLIST, INPUTS.FIELDLIST ); // outputs
@@ -26370,7 +26380,7 @@ void SUBPROCESS_INIT_DUMP(void) {
   MALLOC_PTRSNID = ( strlen(string) > 0 ) ;
   if ( MALLOC_PTRSNID ) { 
     for(i=0; i < MXSPLIT; i++ ) 
-      { ptrSNID[i] = (char*) malloc( 20*sizeof(char) ); }
+      { ptrSNID[i] = (char*) malloc( MXCHAR_CCID*sizeof(char) ); }
     
     splitString(string, COMMA, fnam, MXSPLIT,    // inputs
 		&NSPLIT, ptrSNID );        // outputs

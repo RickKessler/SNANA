@@ -19,6 +19,7 @@
 %\usepackage{epsfig}
 \usepackage{graphicx}
 \usepackage{cprotect}
+\usepackage{fontawesome}
 
 \setlength{\textheight}{9.5in}
 \setlength{\textwidth}{7.0in}
@@ -533,6 +534,35 @@ A few other requests for coding habits:
    \item for major bug-fixes or improvements, inform your
          collaborators.
 \end{itemize}
+
+
+% #####################################################
+\clearpage
+\subsection{Tracking \faGithub ~ GitHub Tags in Analysis Outputs}
+\label{subsec:tracking_git_tags}
+% #####################################################
+
+%\faGithub ~ GitHub
+\newcommand{\git}{GitHub}
+
+For reproducible analysis results,
+it is ideally good practice to record a \git\ tag for a final analysis.
+In practice, however, different components of an \snana-based analysis 
+(e.g., {\tt sim, lcfit, bbc, create\_cov, wfit})
+are run at different times and may have different commits, 
+meaning that there may not be a single tag+commit reflecting an entire analysis.
+While running a full end-to-end analysis with a single \git\ tag+commit
+is recommended prior to publishing results, this single-tag 
+reanalysis is usually forgotten. 
+
+To enable reproducibility with analysis components using different \git\ tags,
+all \snana\ codes write explicit \git\ tag+commit following an \verb|SNANA_VERSION|
+key. This \verb|SNANA_VERSION| key is written into stdout, 
+and to output files and tables. 
+As an example, the Dovekie analysis outputs include
+\begin{verbatim}
+   SNANA_VERSION: v11_06a-62-g4c10cc4 
+\end{verbatim}
 
 
 % ##########################################
@@ -1211,11 +1241,16 @@ Next is a global header with the following keys:
   NLIBID:             <VAL>     # Number of obs-sequences (LIBIDs) in file
   PIXSIZE:            <VAL>     # size of pixel, arcSec
   SOLID_ANGLE:        <VAL>     # sr, used if SOLID_ANGLE=0 in input file
+  TEXPOSE(WIDE):   100 200 ...  # in FIELDs with WIDE substring; per band in FILTERS list
+  TEXPOSE(DEEP):   500 600 ...  # in FIELDs with DEEP substring; per band in FILTERS list
 \end{verbatim} 
 %
 For batch jobs submitted with {\submit} script,
 {\tt NLIBID} is used to assign a different starting {\tt LIBID}
 (see below) for each batch core, ensuring uniform library sampling.
+{\tt TEXPOSE} is used only for the {\tt NONLINEARITY} option (\S??),
+and the values are written to a {\tt TEXPOSE} column in PHOT section
+of data files.
 
 \clearpage
 Following the global header is a list of \obs\ sequences.
@@ -14768,6 +14803,7 @@ Additional reformat options can be specified using {\tt SNLCINP} input mask
     OPT_REFORMAT_FITS += 64  ! exclude private variables
     OPT_REFORMAT_FITS += 128 ! include spectra
     OPT_REFORMAT_FITS += 256 ! exclude SIM truth to look like real data
+    ZP_FLUXCAL_REFORMAT = 31.4  ! update FLUXCAL[ERR] to this ZP instead of original 27.5
 \end{verbatim}
 %
 Here is an example command to convert a simulation into a data-like

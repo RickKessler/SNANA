@@ -1002,7 +1002,7 @@ class LightCurveFit(Program):
 
                 n_job_cpu += 1
 
-                job_info_fit   = self.prep_JOB_INFO_fit(index_dict)
+                job_info_fit   = self.prep_JOB_INFO_lcfit(index_dict)
                 util.write_job_info(f, job_info_fit, icpu)
 
                 job_info_merge = \
@@ -1099,7 +1099,7 @@ class LightCurveFit(Program):
         if fitopt_arg == 'DEFAULT'                : return True
         return False
 
-    def prep_JOB_INFO_fit(self,index_dict):
+    def prep_JOB_INFO_lcfit(self,index_dict):
         # Return JOB_INFO dictionary with 
         #   cd job_dir
         #   program arg_list  > log_file
@@ -1237,7 +1237,7 @@ class LightCurveFit(Program):
             
         return JOB_INFO
 
-        # end prep_JOB_INFO_fit
+        # end prep_JOB_INFO_lcfit
 
     def get_fitopt_global(self,version):
         # Created Aug 29 2024

@@ -5,6 +5,7 @@
 # Translate cigale output into usable table for SNANA.
 #
 #
+
 import argparse
 import csv
 import gzip
@@ -19,6 +20,8 @@ from astropy.io import fits
 def get_args():
     parser = argparse.ArgumentParser(description="Wrapper around cigale to make it compatible with SNANA")
     parser.add_argument("config", help="Path to yml config file")
+    parser.add_argument("--input_table_file", help="Input SNANA table file; e.g., HOSTLIB or FITRES")
+    parser.add_argument("--input_cigale_results", help="Cigale results file (results.fits)")
     parser.add_argument("--output_cigale_file", help="Outputted cigale input file")
     parser.add_argument("--output_galid_map", help="Map between cigale ids and SNANA GALIDs")
     parser.add_argument("--output_snana_file", help="Outputted SNANA file with host properties included")
@@ -34,6 +37,18 @@ def parse_config(config_path, mode):
     with open(config_path) as f:
         raw = yaml.safe_load(f)
     return raw[mode]
+
+
+def resolve(arg_value, config, config_key, cli_flag, mode):
+    """Return arg_value if given, else config[config_key]; raise if neither."""
+    if arg_value is not None:
+        return arg_value
+    if config_key in config:
+        return config[config_key]
+    raise ValueError(
+        f"Missing required value for {mode}: pass {cli_flag} on the command line "
+        f"or set {config_key} in config file."
+    )
 
 
 ### SNANA_TO_CIGALE-specific functions ###
@@ -303,16 +318,19 @@ def write_cigale_output(cigale_output_path, header_parts, output_cols):
     print(f"Wrote {nrows} rows to {cigale_output_path}")
 
 
-def snana_to_cigale(args, config):
+def snana_to_cigale(args, config, mode):
     """
     Converts SNANA input file (e.g., HOSTLIB or FITRES) to a cigale input file.
     """
-    cigale_output_path = args.output_cigale_file
-    galid_map_path = args.output_galid_map
-    zgrid = args.zgrid
-    varname_z = args.varname_z
+    # Required params for SNANA_TO_CIGALE
+    snana_input_path = resolve(args.input_table_file, config, 'INPUT_TABLE_FILE', '--input_table_file', mode)
+    cigale_output_path = resolve(args.output_cigale_file, config, 'OUTPUT_CIGALE_FILE', '--output_cigale_file', mode)
 
-    snana_input_path = config["INPUT_TABLE_FILE"]
+    # Other params
+    galid_map_path = args.output_galid_map if args.output_galid_map is not None else config.get("OUTPUT_GALID_MAP")
+    zgrid = args.zgrid if args.zgrid is not None else config.get("REDSHIFT_GRID")
+    varname_z = args.varname_z if args.varname_z is not None else config.get("REDSHIFT_COL") 
+
     col_entries = parse_column_map(config["CIGALE_COLUMN_MAP"], varname_z = varname_z)
     mag_entries = parse_mag_map(config["CIGALE_MAG_MAP"])
 
@@ -336,7 +354,7 @@ def snana_to_cigale(args, config):
         )
 
     else:
-        raise ValueError("Either zgrid or varname_z must be provided")
+        raise ValueError(f"Either zgrid or varname_z must be provided for mode '{mode}'")
 
     write_cigale_output(cigale_output_path, header_parts, output_cols)
 
@@ -469,14 +487,18 @@ def write_snana_output(output_path, snana_cols, galids, redshifts, logmass, logm
     return len(seen_order), total_real_rows
 
 
-def cigale_to_snana(args, config):
+def cigale_to_snana(args, config, mode):
     """
     Converts cigale output file (results.fits) to a SNANA LOGMASS_OVERRIDE file.
     """
-    galid_map_path = args.output_galid_map
-    output_path = args.output_snana_file
+    # Required params for CIGALE_TO_SNANA
+    cigale_results_path = resolve(args.input_cigale_results, config, 'INPUT_CIGALE_RESULTS', '--input_cigale_results', mode)
+    output_path = resolve(args.output_snana_file, config, 'OUTPUT_SNANA_FILE', '--output_snana_file', mode)
 
-    cigale_results_path = config["INPUT_CIGALE_RESULTS"]
+    # Other params
+    galid_map_path = args.output_galid_map if args.output_galid_map is not None else config.get("INPUT_GALID_MAP")
+
+    # Currently, snana_format needs to be given in config
     snana_format = config["SNANA_FORMAT"]
     column_map = validate_column_map(config["COLUMN_MAP"], snana_format)
 
@@ -529,11 +551,11 @@ if __name__ == "__main__":
 
     if mode == 'SNANA_TO_CIGALE':
         #Run SNANA_TO_CIGALE
-        snana_to_cigale(args, config)
+        snana_to_cigale(args, config, mode)
 
     elif mode == 'CIGALE_TO_SNANA':
         # Run CIGALE_TO_SNANA
-        cigale_to_snana(args, config)
+        cigale_to_snana(args, config, mode)
 
     else:
         sys.exit(f"mode must be 'SNANA_TO_CIGALE' or 'CIGALE_TO_SNANA', got {mode!r}")

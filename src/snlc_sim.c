@@ -555,7 +555,7 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( NGEN_REJECT.NEPOCH == NGENLC_TOT && !FORCE) {
     sprintf ( c1err, "Every generated event fails NEPOCH>=%d .",
 	      (int)INPUTS.CUTWIN_NEPOCH[0] );
-    sprintf ( c2err, "GENRANGE_PEAKMJD and SIMLIB probably don't overlap."); 
+    sprintf ( c2err, "GENRANGE_PEAKMJD/SIMLIB_FIELDLIST may not overlap SIMLIB_FILE"); 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -19873,8 +19873,7 @@ int keep_SIMLIB_HEADER(void) {
   int  iskip, icheck, NTEST=0 ;
   double *ptrGen ;
   char fnam[] = "keep_SIMLIB_HEADER" ;
-  int LTRACE  = 0 ; // (SIMLIB_HEADER.LIBID == 4 );
-
+  int LTRACE  = 0 ;
   // ----------- BEGIN ---------------
 
   if(LTRACE) {
@@ -20990,10 +20989,11 @@ bool keep_SIMLIB_OBS(int OBS) {
   if ( MJD < GENLC.MJD_RANGE[0] ) { return(NOKEEP); }
   if ( MJD > GENLC.MJD_RANGE[1] ) { return(NOKEEP); }
 
-  if (LTRACE) {printf(" xxx 1 \n"); fflush(stdout); }
+  if (LTRACE) {printf(" xxx 1 pass explicit MJD cut\n"); fflush(stdout); }
 
   if ( !keep_SIMLIB_MJD(OBS) ) { return(NOKEEP); }
 
+  if (LTRACE) {printf(" xxx 2 pass keep_SIMLIB_MJD \n"); fflush(stdout); }
 
   // check option to skip field 
   if ( SKIP_SIMLIB_FIELD(FIELD) ) { return(NOKEEP); }
@@ -21002,7 +21002,7 @@ bool keep_SIMLIB_OBS(int OBS) {
   // Skip this check for nominal use because OBS before/after
   // PEAKMJD can be used.
   if (LTRACE) {
-    printf(" xxx 2 MJD=%f (CUTWIN_PEAKMJD: %.1f to %.1f)\n",
+    printf(" xxx 3 pass FIELD; MJD=%f (CUTWIN_PEAKMJD: %.1f to %.1f)\n",
 	   MJD, INPUTS.GENRANGE_PEAKMJD[0],INPUTS.GENRANGE_PEAKMJD[1] );
     fflush(stdout);
   }
@@ -21013,7 +21013,7 @@ bool keep_SIMLIB_OBS(int OBS) {
 
   // always apply MJD cut on MJD window (Aug 2017)
   if (LTRACE) {
-    printf(" xxx 3 MJD=%f (CUTWIN_MJD: %.1f to %.1f) \n",
+    printf(" xxx 4 MJD=%f (CUTWIN_MJD: %.1f to %.1f) \n",
 	   MJD, INPUTS.GENRANGE_MJD[0], INPUTS.GENRANGE_MJD[1] );
     fflush(stdout);
   }
@@ -21025,7 +21025,7 @@ bool keep_SIMLIB_OBS(int OBS) {
   ifilt_obs = SIMLIB_OBS_RAW.IFILT_OBS[OBS] ;
   ifilt     = GENLC.IFILTINVMAP_OBS[ifilt_obs]; 
   if (LTRACE) {
-    printf(" xxx 4 ifilt = %d  of  %d (ifilt_obs=%d)\n",
+    printf(" xxx 5 ifilt = %d  of  %d (ifilt_obs=%d)\n",
 	   ifilt, GENLC.NFILTDEF_OBS, ifilt_obs ); 
     fflush(stdout); 
   }
@@ -22363,6 +22363,7 @@ int SKIP_SIMLIB_FIELD(char *field) {
   int   OPT_DICT  = 1 ; // --> do partial match
   char fnam[] = "SKIP_SIMLIB_FIELD" ;  (void)fnam;
   
+  // -------------- BEGIN -----------------------
   if ( strcmp(FIELDLIST,"ALL") == 0 )  { return 0 ; }
 
   // fetch prescale for this field

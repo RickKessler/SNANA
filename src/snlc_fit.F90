@@ -13085,7 +13085,7 @@
 
     IMPLICIT NONE
     INTEGER          :: NZ, IGAL, INDEX_SPLINE
-    REAL*8           :: Z_PH, Z_PH_ERR, LM_MEAN, LM_STD
+    REAL*8           :: Z_PH, Z_PH_ERR
     EXTERNAL            eval_spline_integral
 
     ! BEGIN

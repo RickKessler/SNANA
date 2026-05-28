@@ -94,11 +94,18 @@ void copy_HOSTGALz(int copyFlag, char *key, double *parVal, HOSTGALz_DEF *HOSTGA
   
   else if ( strcmp(key,HOSTGALz->VARNAME_Z) == 0 ) {
     for(iz=0; iz < NZ; iz++ ) 
-      { copy_flt(copyFlag, &parVal[iz], &HOSTGALz->Z_LIST[iz] ); }  // read zPhot grid	  
+      { copy_flt(copyFlag, &parVal[iz], &HOSTGALz->Z_LIST[iz] ); }  // read redshift grid	  
   }
+
   else if ( strcmp(key,HOSTGALz->VARNAME_VAL) == 0 ) {
     for(iz=0; iz < NZ; iz++ ) 
-      { copy_flt(copyFlag, &parVal[iz], &HOSTGALz->VAL_LIST[iz] ); }  // read percentile grid
+      { copy_flt(copyFlag, &parVal[iz], &HOSTGALz->VAL_LIST[iz] ); }  // read VAL grid
+
+  }
+  else if ( strcmp(key,HOSTGALz->VARNAME_VAL2) == 0 ) {
+    for(iz=0; iz < NZ; iz++ ) 
+      { copy_flt(copyFlag, &parVal[iz], &HOSTGALz->VAL2_LIST[iz] ); }  // read VAL2 grid
+
   }
   fflush(stdout);
 
@@ -283,7 +290,6 @@ void copy_SNDATA_GLOBAL(int copyFlag, char *key, int NVAL,
 
 
 // = = = = = = = = = = = = = = = = = = = = = = = =
-
 void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL, 
 		      char *stringVal, double *parVal ) {
 
@@ -518,12 +524,12 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
       }
 
       // - - - 
-      if ( REFAC_DATA_FLAG > 0 && strstr(key,"QUANTILE") != NULL ) {
+      if ( strstr(key,"QUANTILE") != NULL ) {
 	HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];		
 	copy_HOSTGALz(copyFlag, key, parVal, HOSTGALz) ;
       }
 
-      if ( REFAC_DATA_FLAG > 0 && strstr(key,"LOGMASS") != NULL ) {
+      if ( strstr(key,"LOGMASS") != NULL ) {
 	HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];	     
 	copy_HOSTGALz(copyFlag, key, parVal, HOSTGALz) ;
       }
@@ -1845,7 +1851,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
   if ( NEW_ID ) {
 
-    if ( REFAC_DATA_FLAG ) 
+    // .xyz    if ( REFAC_DATA_FLAG ) 
 
       if ( LDMP ) {
 	printf(" xxx %s: NEW_ID for ID_LOCAL(LAST,NOW) = %s , %s (CID=%s)\n", 
@@ -1882,7 +1888,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   RD_OVERRIDE.NVAR_USE++ ; // for monitor only
 
 
-  if ( REFAC_DATA_FLAG && LDMP ) {
+  if ( LDMP ) {
     printf(" xxx %s: CID=%s  GALID=%lld  VARNAME='%s'  IVAR=%d  NVAR_USE=%d\n", 
 	   fnam, SNDATA.CCID, SNDATA.HOSTGAL_OBJID[0], VARNAME, IVAR, RD_OVERRIDE.NVAR_USE); 
     fflush(stdout);

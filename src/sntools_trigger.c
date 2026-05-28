@@ -60,32 +60,33 @@
 
 
 // ************************************
-void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
+void init_SEARCHEFF(char *SURVEY_NAME, char *SURVEY_FILTERS, int APPLYMASK_SEARCHEFF ) {
 
   /***********************************
     Created Jan 7, 2008 by R.Kessler
     Begin Refactor Mar 8 2026 [use same SEARCHEFF_MAP struct for SPECID and zHOST maps]
 
   Inputs:
-    SURVEY:       
-       name of survey
+    SURVEY_NAME:     name of survey
+    SURVEY_FILTERS:  list of all filters, e.g. ugriz (for diagnostic only)
+
     APPLYMASK_SEARCHEFF: 
        argument of sim-input APPLY_SEARCHEFF_OPT (only for error checking)
 
 
         HISTORY
+
+   May 22 2026: pass SURVEY_FILTERS 
    
   *************/
 
-  int  NMAP=0 ;
+  int   NMAP=0 ;
   char  fnam[] = "init_SEARCHEFF"  ;  (void)fnam;
  
-
   // ------------- BEGIN ----------
 
-  sprintf(BANNER, "%s: Initialize SEARCH EFFICIENCY for '%s' \n", fnam, SURVEY );
+  sprintf(BANNER, "%s: Initialize SEARCH EFFICIENCY for '%s' \n", fnam, SURVEY_NAME );
   print_banner( BANNER );
-
 
   INPUTS_SEARCHEFF.NMAP_DETECT   = 0 ;
   INPUTS_SEARCHEFF.NMAP_PHOTPROB = 0 ;
@@ -110,19 +111,18 @@ void init_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF ) {
 
   // read single file to get pipeline efficiency vs. SNR or vs. MAG.
   // Returns number of maps that have an efficiency curve defined.
-  NMAP = init_SEARCHEFF_PIPELINE(SURVEY) ;
-  if ( NMAP > 0 ) { init_SEARCHEFF_LOGIC(SURVEY); }  // read detection logic
+  NMAP = init_SEARCHEFF_PIPELINE(SURVEY_NAME, SURVEY_FILTERS) ;
+  if ( NMAP > 0 ) { init_SEARCHEFF_LOGIC(SURVEY_NAME); }  // read detection logic
 
 
   // init prob of getting specID -confirmation
-  init_SEARCHEFF_SPECID(SURVEY);
-
+  init_SEARCHEFF_SPECID(SURVEY_NAME);
 
   // init prob of getting zHOST for unconfirmed SN
-  init_SEARCHEFF_zHOST(SURVEY);
+  init_SEARCHEFF_zHOST(SURVEY_NAME);
   
   // Mar 2018: check that user SEARCHEFF mask is possible
-  check_APPLYMASK_SEARCHEFF(SURVEY, APPLYMASK_SEARCHEFF);
+  check_APPLYMASK_SEARCHEFF(SURVEY_NAME, APPLYMASK_SEARCHEFF);
 
 
 
@@ -241,7 +241,7 @@ void  check_APPLYMASK_SEARCHEFF(char *SURVEY, int APPLYMASK_SEARCHEFF_USER) {
 
 
 // *******************************************
-int init_SEARCHEFF_PIPELINE(char *survey) {
+int init_SEARCHEFF_PIPELINE(char *SURVEY_NAME, char *SURVEY_FILTERS) {
  
   // Read and init two kinds of maps:
   //   1. DETECTION efficiency map vs. SNR or MAG
@@ -250,12 +250,6 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   // Abort if user-requested file does not exist.
   // If default survey-dependent file does not exist
   // then just return 0.
-  //
-  // Nov 23, 2014: read optional PHOTGLAG_DETECT key and set
-  //                SEARCHEFF_PHOTFLAG_DETECT
-  //
-  // Mar 7 2018: refactor to include MAPNAME & FIELD keys,
-  //             and new SEARCHEFF_DETECT structure.
   //
   // Aug 26 2020: pass OPTMASK to snana_open to check for DOCANA
   //
@@ -267,12 +261,12 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   char  file_local[MXPATHLEN], c_get[100], *ptrFile_user, *ptrFile_final ;   
   char  fnam[] = "init_SEARCHEFF_PIPELINE"  ;  (void)fnam;
     
-
   // ---------------- BEGIN ----------------
 
   SEARCHEFF_FLAG  = 0 ;
   MAPVERSION_SEARCHEFF_DETECT   = 0 ;
   MAPVERSION_SEARCHEFF_PHOTPROB = 0 ;
+  FILTERLIST_ALL_SEARCHEFF_DETECT[0] = 0 ; 
 
   for ( imap=0; imap < MXMAP_SEARCHEFF_DETECT; imap++ ) { 
     SEARCHEFF_DETECT[imap].NBIN  = 0 ; 
@@ -283,7 +277,7 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   ptrFile_final = INPUTS_SEARCHEFF.PIPELINE_EFF_FILE ;
 
   if ( strcmp(ptrFile_user,"DEFAULT") == 0 )   { 
-    sprintf(file_local, "SEARCHEFF_PIPELINE_%s.DAT",  survey); 
+    sprintf(file_local, "SEARCHEFF_PIPELINE_%s.DAT",  SURVEY_NAME); 
     REQUIRE_EFF_FILE = 0 ;
   }
   else if ( IGNOREFILE(ptrFile_user) ) {
@@ -319,33 +313,30 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
 
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[0], "\t %s\n", 
 	  ptrFile_final ); 
-
+  
   SEARCHEFF_FLAG = 0 ;
 
   while( (fscanf(fp, "%s", c_get )) != EOF) {
 
-    if ( strcmp(c_get,"PHOTFLAG_DETECT:") == 0 && 
-	 INPUTS_SEARCHEFF.PHOTFLAG_DETECT == 0 ) 
+    if ( strcmp(c_get,"PHOTFLAG_DETECT:") == 0 && INPUTS_SEARCHEFF.PHOTFLAG_DETECT == 0 ) 
       { readint(fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_DETECT );  }
 
-    if ( strcmp(c_get,"PHOTFLAG_TRIGGER:") == 0 && 
-	 INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER == 0 ) 
+    if ( strcmp(c_get,"PHOTFLAG_TRIGGER:") == 0 && INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER == 0 ) 
       { readint(fp, 1, &INPUTS_SEARCHEFF.PHOTFLAG_TRIGGER );  }
 
     // check reading detection efficiency map
     if ( !FOUNDMAP_PHOTPROB ) 
-      { FOUNDMAP_DETECT = readMap_SEARCHEFF_DETECT(fp,c_get); }    
+      { FOUNDMAP_DETECT = readMap_SEARCHEFF_DETECT(fp, c_get); }    
 
-    
     // check PHOTPROB map
     if ( !FOUNDMAP_DETECT )
       { FOUNDMAP_PHOTPROB = readMap_SEARCHEFF_PHOTPROB(fp, c_get); }    
-    
 
   } // end of fscan
 
   fclose(fp); // done reading
 
+  // - - - - - - -
   // check info for each map and set README comments
   NMAP = INPUTS_SEARCHEFF.NMAP_DETECT;
   for ( imap=0; imap < NMAP; imap++ )  { check_SEARCHEFF_DETECT(imap); }
@@ -353,7 +344,10 @@ int init_SEARCHEFF_PIPELINE(char *survey) {
   NMAP = INPUTS_SEARCHEFF.NMAP_PHOTPROB;
   for ( imap=0; imap < NMAP; imap++ )  { check_SEARCHEFF_PHOTPROB(imap); }
   
-  //  debugexit(fnam); // xxx REMOVE
+  // - - - list used and not-used filters from DETECT pipeline - - - - -
+  check_missing_filters_SEARCHEFF_DETECT(SURVEY_FILTERS);
+
+  // xxx debugexit(fnam); // xxx REMOVE 
 
   return(INPUTS_SEARCHEFF.NMAP_DETECT);
 
@@ -400,8 +394,10 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
       imap = malloc_NEXTMAP_SEARCHEFF_DETECT(); 
       MAPVERSION_SEARCHEFF_DETECT = 1 ;
     }
+
     readchar(fp,ctmp);
-    sprintf(SEARCHEFF_DETECT[imap].FILTERLIST, "%s", ctmp);
+    sprintf(SEARCHEFF_DETECT[imap].FILTERLIST, "%s", ctmp);  //.xyz
+    strcat(FILTERLIST_ALL_SEARCHEFF_DETECT,ctmp); // May 22 2026
     return(1);
   }
   
@@ -443,8 +439,17 @@ int malloc_NEXTMAP_SEARCHEFF_DETECT(void) {
   // malloc next map, and return imap index.
   int imap, MEMD ;
   char fnam[] = "malloc_NEXTMAP_SEARCHEFF_DETECT" ;  (void)fnam;
+
   // ------------- BEGIN -------------
   INPUTS_SEARCHEFF.NMAP_DETECT++ ; 
+
+  if ( INPUTS_SEARCHEFF.NMAP_DETECT > MXMAP_SEARCHEFF_MAP ) {
+    sprintf(c1err,"Number of SEARCHEFF_PIPELINE_EFF_FILE maps exceeds bound of %d",
+	    MXMAP_SEARCHEFF_MAP);
+    sprintf(c2err,"Try combining maps.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
   imap  = INPUTS_SEARCHEFF.NMAP_DETECT-1;
   MEMD  = MXROW_SEARCHEFF_DETECT * sizeof(double);
   SEARCHEFF_DETECT[imap].VAL = (double*)malloc(MEMD);
@@ -700,6 +705,45 @@ int IVARABS_SEARCHEFF_PHOTPROB(char *VARNAME) {
 } // end  IVARABS_SEARCHEFF_PHOTPROB
 
 
+// ===================================================
+void  check_missing_filters_SEARCHEFF_DETECT(char *SURVEY_FILTERS) {
+
+  // Created May 22 2026
+  // List filters missing from PIPELINE/DETECT map
+
+  int  NFILT_SURVEY = strlen(SURVEY_FILTERS);
+  char FILTERLIST_USED[MXFILTINDX];     FILTERLIST_USED[0]=0;
+  char FILTERLIST_MISSING[MXFILTINDX];  FILTERLIST_MISSING[0]=0;
+  int  NFILT_MISSING = 0 ;
+  int i;
+  char cfilt[2];
+  char fnam[] = "check_missing_filters_SEARCHEFF_DETECT" ;  (void)fnam;
+
+  // ------------- BEGIN -----------
+
+  for(i=0; i < NFILT_SURVEY; i++ ) {
+    sprintf(cfilt,"%c", SURVEY_FILTERS[i]);
+    if ( strstr(FILTERLIST_ALL_SEARCHEFF_DETECT,cfilt) == NULL ) {
+      strcat(FILTERLIST_MISSING,cfilt);
+      NFILT_MISSING++ ;
+    }
+    else {
+      strcat(FILTERLIST_USED,cfilt);
+    }
+  }
+
+  printf("\t Filters USED in PIPELINE_EFF_DETECT maps: %s \n", FILTERLIST_USED);
+  fflush(stdout);
+  if ( NFILT_MISSING > 0 ) {
+    printf("\t Filters NOT  in PIPELINE_EFF_DETECT maps: %s \n", FILTERLIST_MISSING);
+  }
+
+  fflush(stdout);
+
+  return ;
+
+} // end  check_missing_filters_SEARCHEFF_DETECT
+
 // *********************************************
 void check_SEARCHEFF_DETECT(int imap) {
 
@@ -715,9 +759,12 @@ void check_SEARCHEFF_DETECT(int imap) {
   //
   // Mar 13 2018:
   //  + fix bug looping ibin=1 to NBIN; now loops 0 to NBIN-1
+  //
+  // May 22 2026: print name of PIPELINE_EFF_FILE
 
   int NBIN    = SEARCHEFF_DETECT[imap].NBIN ;
   char *cfilt = SEARCHEFF_DETECT[imap].FILTERLIST ;
+  char *PIPELINE_EFF_FILE = INPUTS_SEARCHEFF.PIPELINE_EFF_FILE;
 
   int     ibin, i, IBIN_HALF, IBIN_ONE ;
   double  VAL, EFF, EFFDIF, EFFDIF_ONE, EFFDIF_HALF ;
@@ -728,7 +775,7 @@ void check_SEARCHEFF_DETECT(int imap) {
   // ------------ BEGIN -------------
 
   if ( imap==0 ) 
-    { printf("   Read Detection-efficiency curves: \n"); }
+    { printf("   Read Detection-efficiency curves from \n\t %s \n", PIPELINE_EFF_FILE); }
 
   if ( NBIN >= MXROW_SEARCHEFF_DETECT ) {
     sprintf(c1err,"%d DETECT-SNR bins exceeds MXBIN_DETECT=%d", 
@@ -775,6 +822,7 @@ void check_SEARCHEFF_DETECT(int imap) {
 	  cfilt, EFF, ptr_effname, VAL, MAPNAME );
 
   printf("%s\n", cline); fflush(stdout);
+
   i = SEARCHEFF_DETECT[imap].NLINE_README ;
   sprintf(SEARCHEFF_DETECT[imap].README[i], "%s", cline);
   SEARCHEFF_DETECT[imap].NLINE_README++ ;
@@ -800,7 +848,7 @@ void check_SEARCHEFF_PHOTPROB(int imap) {
 	   "------------------------------ \n");
   }
 
-  sprintf(NAME,      "%s", SEARCHEFF_PHOTPROB[imap].NAME);
+  sprintf(NAME,      "%s",  SEARCHEFF_PHOTPROB[imap].NAME);
   sprintf(FIELDLIST, "%s",  SEARCHEFF_PHOTPROB[imap].FIELDLIST);
   sprintf(BANDLIST,  "%s",  SEARCHEFF_PHOTPROB[imap].FILTERLIST);
   int  NFUN       = SEARCHEFF_PHOTPROB[imap].NFUN_CDF ;
@@ -842,7 +890,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   char 
      cline[MXPATHLEN+40]
-    ,logic[100]
+    ,logic[200]
     ,c_get[100]
     ,surveykey[60]
     ,logicFile_Default[] = "SEARCHEFF_PIPELINE_LOGIC.DAT"
@@ -1527,7 +1575,6 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
 
   // - - - - - - - - - - - - - - -
   // check for filter-dependent mag or color.
-
   IVARTYPE_MASK = assign_MAP_VARNAME_FILTERS(MAPTYPE, ivar, VARNAME, MAP);
   if ( IVARTYPE_MASK > 0 ) { return IVARTYPE_MASK; }
 
@@ -1548,7 +1595,6 @@ int assign_MAP_VARNAME(char *MAPTYPE, int ivar, char *VARNAME,
       return IVARTYPE_MASK ;
     }
   }
-
 
 
   // ------------------------------------------------------

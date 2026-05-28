@@ -187,9 +187,8 @@ int main(int argc, char **argv) {
 
   // init trigger
   bool IS_GENGRID = (GENLC.IFLAG_GENSOURCE == IFLAG_GENGRID);
-  //  if ( ! (IS_GENGRID || INPUTS.README_DUMPFLAG) ) { 
   if ( ! IS_GENGRID ) { 
-    init_SEARCHEFF(GENLC.SURVEY_NAME, INPUTS.APPLY_SEARCHEFF_OPT); 
+    init_SEARCHEFF(GENLC.SURVEY_NAME, INPUTS.GENFILTERS, INPUTS.APPLY_SEARCHEFF_OPT); 
   } 
 
   DASHBOARD_DRIVER();
@@ -326,7 +325,7 @@ int main(int argc, char **argv) {
     }
     
     // Oct 1 2023
-    // bail of there are no observations to write out; e.g., pre-explosion 
+    // bail if there are no observations to write out; e.g., pre-explosion 
     // epochs overlap end of season (hence GENLC.NEPOCH>0) but transient 
     // model is not defined.
     if ( GENLC.NOBS_MODELFLUX == 0 ) {
@@ -556,7 +555,7 @@ void simEnd(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   if ( NGEN_REJECT.NEPOCH == NGENLC_TOT && !FORCE) {
     sprintf ( c1err, "Every generated event fails NEPOCH>=%d .",
 	      (int)INPUTS.CUTWIN_NEPOCH[0] );
-    sprintf ( c2err, "GENRANGE_PEAKMJD and SIMLIB probably don't overlap."); 
+    sprintf ( c2err, "GENRANGE_PEAKMJD/SIMLIB_FIELDLIST may not overlap SIMLIB_FILE"); 
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
@@ -712,7 +711,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_ZHEL       = true;
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
-  INPUTS.REFAC_DATA_FLAG        = 1 ;
+  INPUTS.REFAC_DATA_FLAG        = 0 ;
   NLINE_RATE_INFO   = 0;
 
   INPUTS.TIME_START[0] = 0 ;
@@ -1282,11 +1281,6 @@ void set_user_defaults(void) {
  
   INPUTS_SEARCHEFF.USER_SPECEFF_SCALE  = 1.0 ; // May 2018
 
-  /* xxx mark delete 4.28.2026 xxxxxxxx
-  INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO  = 0 ;
-  INPUTS_SEARCHEFF.IFLAG_zHOST_EFFZERO = 0 ;
-  INPUTS_SEARCHEFF.IVERSION_zHOST      = 0 ;
-  xxxxxx end mark */
 
   INPUTS_SEARCHEFF.MAGSHIFT_SPECEFF  = 0.0 ;
   INPUTS_SEARCHEFF.MAGSHIFT_zHOSTEFF = 0.0 ;
@@ -7012,12 +7006,6 @@ void prep_user_input(void) {
     INPUTS.MWEBV_SHIFT    = 0.0 ;
     sprintf(INPUTS.GENMAG_SMEAR_MODELNAME, "NONE") ;
 
-    /* xxxx mark delete May 1 2026 xxxxxxx
-    sprintf(INPUTS.HOSTLIB_FILE,           "NONE");
-    INPUTS.HOSTLIB_MSKOPT = 0 ;
-    INPUTS.HOSTLIB_USE    = 0 ; // July 2024
-    xxxxxxxxx end mark xxxxxx */
-
     // turn off all mag offsets
     INPUTS.GENMAG_OFF_GLOBAL = 0.0 ;
     INPUTS.GENMAG_OFF_NON1A  = 0.0 ;
@@ -9142,11 +9130,6 @@ void init_DNDZ_Rate(void) {
     if ( FRAC_PEC1A > 0.0 ) {
       sprintf(ctmp,"  (%.3f PEC1A)", FRAC_PEC1A );
       strcat(LINE_RATE_INFO[i], ctmp);
-
-      /*xxxxxxxx mark delete 4.29.2026 xxxxxxx
-      sprintf(LINE_RATE_INFO[i],"%s  (%.3f PEC1A)",
-	      LINE_RATE_INFO[i], FRAC_PEC1A ) ;
-      xxxxxxx end mark xxxxxx */
     }
   }
 
@@ -13376,7 +13359,7 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
   int ilc_orig, ilc;
   bool doReject_DUMP = false ;
   bool REJECT= false;
-  int  LDMP = 0 ; // ( ilc > 20 && ilc < 26 );
+  int  LDMP   = 0 ; // ( ilc > 20 && ilc < 26 );
   char fnam[] = "gen_event_reject" ;
 
   // ----------- BEGIN --------------
@@ -13415,7 +13398,8 @@ void gen_event_reject(int *ILC, SIMFILE_AUX_DEF *SIMFILE_AUX,
     NGEN_REJECT.NEPOCH++ ;
     doReject_DUMP = doReject_SIMGEN_DUMP("NEPOCH");
     REJECT = true;
-    if(LDMP) { printf(" xxx %s CID=%d fails NEPOCH\n", fnam, GENLC.CID); fflush(stdout); }
+    if(LDMP) { printf(" xxx %s CID=%d fails NEPOCH=%d\n", 
+		      fnam, GENLC.CID, GENLC.NEPOCH ); fflush(stdout); }
   }
 
   else if ( strcmp(REJECT_STAGE,"CRAZYFLUX") == 0 ) {  // May 29 2024
@@ -14075,7 +14059,6 @@ void  gen_modelPar_SIMSED(int OPT_FRAME) {
     genflag      = INPUTS.GENFLAG_SIMSED[ipar] ;
     opt_interp   = ( genflag & OPTMASK_GEN_SIMSED_PARAM    ) ;
     opt_gridonly = ( genflag & OPTMASK_GEN_SIMSED_GRIDONLY ) ;
-    // xxx mark opt_wgt      = ( genflag & OPTMASK_GEN_SIMSED_WGT ) ;
     parName      = INPUTS.PARNAME_SIMSED[ipar] ;
     irow_COV     = INPUTS.IROWLIST_SIMSED_COV[ipar] ;
     GENLC.SIMSED_PARVAL[ipar]  = -9.0 ;
@@ -14792,7 +14775,6 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   if ( OPT_DUMP == FLAG_PROCESS_UPDATE ) {
 
-    // xxx mark FIRST = (NEVT_SIMGEN_DUMP==0 ) ; // used for SPECTROGRAPH info
     NEVT_SIMGEN_DUMP++ ;  XN=(double)NEVT_SIMGEN_DUMP ;
 
     // check pre-scale (Aug 2017)
@@ -15289,14 +15271,6 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
   // ----------- BEGIN ---------
 
   bool IS_SPECTRA = REQUEST_USER_SPECTRA();
-
-
-  /* xxxx mark delete Mar 10 2026 xxxxxxxx
-  bool IS_SPECTRA = ( NPEREVT_TAKE_SPECTRUM > 0 || 
-		      INPUTS.USE_SIMLIB_TAKE_SPECTRUM || 
-		      INPUTS.USE_SIMLIB_SPECTROGRAPH  ||
-		      INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE > 0. ) ;
-  xxxxxxxx end mark xxx*/
 
 
   if ( !IS_SPECTRA ) { return; }
@@ -19899,8 +19873,7 @@ int keep_SIMLIB_HEADER(void) {
   int  iskip, icheck, NTEST=0 ;
   double *ptrGen ;
   char fnam[] = "keep_SIMLIB_HEADER" ;
-  int LTRACE  = 0 ; // (SIMLIB_HEADER.LIBID == 4 );
-
+  int LTRACE  = 0 ;
   // ----------- BEGIN ---------------
 
   if(LTRACE) {
@@ -20505,7 +20478,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     IFILT_OBS  = SIMLIB_OBS_RAW.IFILT_OBS[OBSRAW] ;
     NEXPOSE    = SIMLIB_OBS_RAW.NEXPOSE[OBSRAW] ;
     DETNUM     = SIMLIB_OBS_RAW.DETNUM[OBSRAW] ;
-    // xxx BAND       = SIMLIB_OBS_RAW.BAND[OBSRAW];
     FIELD      = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW];
     APP        = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW];   
 
@@ -20804,8 +20776,6 @@ void store_SIMLIB_SPECTROGRAPH(int ifilt, double *VAL_STORE, int ISTORE) {
 			     &ZPT, &PSFSIG, &SKYSIG_S, &SKYSIG_T ); // returned
 
 
-  // xxx mark STORE_SIMLIB_RAW:
-
   SIMLIB_OBS_RAW.IFILT_OBS[ISTORE]  = ifilt_obs ;
   sprintf(SIMLIB_OBS_RAW.BAND[ISTORE],"%s", cfilt );
 
@@ -21019,10 +20989,11 @@ bool keep_SIMLIB_OBS(int OBS) {
   if ( MJD < GENLC.MJD_RANGE[0] ) { return(NOKEEP); }
   if ( MJD > GENLC.MJD_RANGE[1] ) { return(NOKEEP); }
 
-  if (LTRACE) {printf(" xxx 1 \n"); fflush(stdout); }
+  if (LTRACE) {printf(" xxx 1 pass explicit MJD cut\n"); fflush(stdout); }
 
   if ( !keep_SIMLIB_MJD(OBS) ) { return(NOKEEP); }
 
+  if (LTRACE) {printf(" xxx 2 pass keep_SIMLIB_MJD \n"); fflush(stdout); }
 
   // check option to skip field 
   if ( SKIP_SIMLIB_FIELD(FIELD) ) { return(NOKEEP); }
@@ -21031,7 +21002,7 @@ bool keep_SIMLIB_OBS(int OBS) {
   // Skip this check for nominal use because OBS before/after
   // PEAKMJD can be used.
   if (LTRACE) {
-    printf(" xxx 2 MJD=%f (CUTWIN_PEAKMJD: %.1f to %.1f)\n",
+    printf(" xxx 3 pass FIELD; MJD=%f (CUTWIN_PEAKMJD: %.1f to %.1f)\n",
 	   MJD, INPUTS.GENRANGE_PEAKMJD[0],INPUTS.GENRANGE_PEAKMJD[1] );
     fflush(stdout);
   }
@@ -21042,7 +21013,7 @@ bool keep_SIMLIB_OBS(int OBS) {
 
   // always apply MJD cut on MJD window (Aug 2017)
   if (LTRACE) {
-    printf(" xxx 3 MJD=%f (CUTWIN_MJD: %.1f to %.1f) \n",
+    printf(" xxx 4 MJD=%f (CUTWIN_MJD: %.1f to %.1f) \n",
 	   MJD, INPUTS.GENRANGE_MJD[0], INPUTS.GENRANGE_MJD[1] );
     fflush(stdout);
   }
@@ -21054,7 +21025,7 @@ bool keep_SIMLIB_OBS(int OBS) {
   ifilt_obs = SIMLIB_OBS_RAW.IFILT_OBS[OBS] ;
   ifilt     = GENLC.IFILTINVMAP_OBS[ifilt_obs]; 
   if (LTRACE) {
-    printf(" xxx 4 ifilt = %d  of  %d (ifilt_obs=%d)\n",
+    printf(" xxx 5 ifilt = %d  of  %d (ifilt_obs=%d)\n",
 	   ifilt, GENLC.NFILTDEF_OBS, ifilt_obs ); 
     fflush(stdout); 
   }
@@ -21762,7 +21733,21 @@ double get_TEXPOSE(int epoch) {
   // For input "epoch" index, return the
   // exposure time (seconds) read from SIMLIB header.
   // If TEXPOSE is not provided, return zero.
+  // 
+  // EXAMPLE: SIMLIB global header defines
+  //   FILTERS:        RZYJHF
+  //   ...
+  //   TEXPOSE(WIDE):  100 200 300 400 500 600
+  //
+  // -> TEXPOSE(R,Z,Y,J,H.F) = 100, 200 ... 600 sec
+  // and applies to any field including WIDE string;
+  // e.g., S_WIDE, N_WIDE, S_WIDE+PRISM, etc ...
+  //
+  // TEXPOSE is used only for nonlin option, and is written
+  // to TEXPOSE column in PHOT section of data files.
 
+  // May 27 2026: allow partial field match;
+  // 
   double TEXPOSE = 0.0 ;
   int    NFIELD_TEXPOSE = SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE ;
   int    ifilt, ifilt_obs, ifld, ifld_match = -9 ;
@@ -21780,7 +21765,8 @@ double get_TEXPOSE(int epoch) {
 	
   for(ifld = 0; ifld < NFIELD_TEXPOSE; ifld++ ) {
     FIELD_TMP = SIMLIB_GLOBAL_HEADER.FIELD_TEXPOSE[ifld] ;
-    if ( strcmp(FIELD,FIELD_TMP) == 0 )  { ifld_match = ifld; }
+    // xxx mark  del May 27 2026  if ( strcmp(FIELD,FIELD_TMP) == 0 )  { ifld_match = ifld; }
+    if ( strstr(FIELD,FIELD_TMP) != NULL )  { ifld_match = ifld; }  // partial match sufficient
   }
 
   if ( ifld_match >= 0 )
@@ -22377,6 +22363,7 @@ int SKIP_SIMLIB_FIELD(char *field) {
   int   OPT_DICT  = 1 ; // --> do partial match
   char fnam[] = "SKIP_SIMLIB_FIELD" ;  (void)fnam;
   
+  // -------------- BEGIN -----------------------
   if ( strcmp(FIELDLIST,"ALL") == 0 )  { return 0 ; }
 
   // fetch prescale for this field
@@ -24619,7 +24606,6 @@ void gen_spectype(void) {
   
   // Jun 2018: if user forces EFF_SPEC=0 without a map, then we have PHOTID
   if ( IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
-  // xxx mark  if ( INPUTS_SEARCHEFF.IFLAG_SPECID_EFFZERO ) { L_PHOTID = 1; }
 
   if ( LDMP ) {
     printf(" xxx %s: CID=%d: IS[SPECID,PHOTID]=%d, %d  "
@@ -25535,11 +25521,6 @@ void zsource_to_SNDATA(int FLAG){
     SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_PHOT  ;
   }
 
-  /* xxx mark delete xxxx
-  int N_Q    = SNDATA.HOSTGAL_NZPHOT_Q;
-  double zq0 = SNDATA.HOSTGAL_ZPHOT_Q[0][0]; // First [0] dlr match index and second [0] quantile index
-  xxxx end mark */
-
   int igal=0, iz=0, N_Q = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ;
   double zq0 = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].Z_LIST[iz];
   if (N_Q > 0 && zq0 >= 0. ) 
@@ -25765,15 +25746,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     SNDATA.SIM_HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
-    /* xxxx mark delete
-    SNDATA.HOSTGAL_NZPHOT_Q = N_Q;
-    for(ipar=0; ipar < N_Q; ipar++ ) { 
-      PCT  = HOSTLIB.PERCENTILE_ZPHOT_Q[ipar]; // e.g, 10 -> 10th percentile
-      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar] = PCT;        // legacy
-    }
-    xxxx end mark xxxx */
-
-
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;
@@ -25892,24 +25864,15 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       SNDATA.HOSTGAL_SQRADIUS[m]     = SNHOSTGAL_DDLR_SORT[m].SQRADIUS;
       SNDATA.HOSTGAL_OBJID_UNIQUE[m] = SNHOSTGAL_DDLR_SORT[m].GALID_UNIQUE;
 
-      if ( REFAC_DATA_FLAG ) 
-	{ SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ = HOSTLIB.NQZPHOT ; 	}
+      SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ = HOSTLIB.NQZPHOT ; 
 
       // A. Gagliano: load HOSTGAL*ZPHOT* variables here ....
       for(j=0; j<SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ; j++){
 	double zq   = SNHOSTGAL_DDLR_SORT[m].QZPHOT[j] ;
 	double pct  = SNHOSTGAL_DDLR_SORT[m].QPERCENTILE[j] ;
-	// xxx mark	double pct  = HOSTLIB.QPERCENTILE[j]; 
 
-	if ( REFAC_DATA_FLAG ) {
-	  SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
-	  SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
-	}
-	/* xxxxxxx mark delete 
-	else {
-	  SNDATA.HOSTGAL_ZPHOT_Q[m][j] = zq ;   // legacy storage
-	}
-	xxxxxxx end mark xxxxxx */
+	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
+	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
 
       }
 
@@ -28790,9 +28753,9 @@ void set_GENFLUX_FLAGS(int epoch) {
     if ( genmag == MAG_ZEROFLUX ) { IS_UNDEFINED = true; }
   }
 
-  
   if ( IS_UNDEFINED ) 
     { GENLC.NOBS_UNDEFINED++ ; } // model is undefined 
+  
   
   if ( IS_ERRPOS ) {
     if ( !IS_UNDEFINED ) { 

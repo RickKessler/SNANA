@@ -644,17 +644,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	  PREFIX, SNDATA.HOSTGAL_NMATCH[1] );
 
   
-
-  /* xxxxxxx mark delete xxxxxxxxx
-  if ( !REFAC_DATA_FLAG ) {
-    N_Q      = SNDATA.HOSTGAL_NZPHOT_Q; // legacy key
-    if ( N_Q > 0 ) {
-      fprintf(fp, "%s_%s:  %d  # number of photo-z quantiles\n",  
-	      PREFIX, STRING_NZPHOT_Q, N_Q );
-    }
-  }
-  xxxxxxxxx end mark xxxxx*/
-
   // - - - - - -
   NGAL = SNDATA.HOSTGAL_NMATCH[1];
   if ( NGAL > MXHOSTGAL ) { NGAL = MXHOSTGAL ; }  // for storage
@@ -680,24 +669,6 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
 	      SNDATA.HOSTGAL_PHOTOZ[igal], 
 	      SNDATA.HOSTGAL_PHOTOZ_ERR[igal]);
     }
-
-    /* xxxxxxx mark delete xxxxxxxxxx
-    if ( N_Q > 0 && !REFAC_DATA_FLAG ) {
-      // legacy
-      float *zq = SNDATA.HOSTGAL_ZPHOT_Q[igal];
-      int   *p  = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q ;
-
-      if ( igal == 0 ) {
-	fprintf(fp, "%s_PERCENTILE_%s: ", PREFIX, PREFIX_ZPHOT_Q);
-	for (j = 0; j < N_Q; j++)  { fprintf(fp, "%d ", p[j]); }
-	fprintf(fp, "\n");
-      }
-      fprintf(fp, "%s_%s: ", PREFIX, PREFIX_ZPHOT_Q);
-      for (j = 0; j < N_Q; j++)  { fprintf(fp, "%.4f ", zq[j]); }
-      fprintf(fp, "\n");
-      fflush(fp);
-    }
-    xxxxxxxx end mark xxxxxx*/
 
     if ( !RDTEXT || SNDATA.HOSTGAL_SPECZ[igal] > 0.0 ) {
       fprintf(fp, "%s_SPECZ:       %.5f  +- %.5f \n", PREFIX,
@@ -799,11 +770,10 @@ void wr_dataformat_text_HOSTGAL(FILE *fp) {
     
     fprintf(fp,"\n");
 
-    if ( REFAC_DATA_FLAG > 0 ) {
-      // Apr 13 2026: write HOSTGALz fields
-      wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
-      wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_LOGMASS[igal]);
-    }
+
+    wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal]);
+    wr_dataformat_text_HOSTGALz(fp, &SNDATA.HOSTGALz_LOGMASS[igal]);
+
 
   } // end igal loop
 
@@ -1655,19 +1625,6 @@ void  rd_sntextio_global(void) {
       copy_keyword_nocolon(word0,SNDATA.PRIVATE_KEYWORD[NVAR]);
     }
 
-    /* xxxxxxxx end mark xxxxxxxxxx
-    else if (IS_ZPHOT_Q && !REFAC_DATA_FLAG ) {
-      // legacy write
-      if ( strcmp(word0,"HOSTGAL_NZPHOT_Q:") == 0 )
-	{ iwd++; get_PARSE_WORD_INT(langC, iwd, &SNDATA.HOSTGAL_NZPHOT_Q, fnam ) ; }
-
-      if ( strcmp(word0,"HOSTGAL_PERCENTILE_ZPHOT_Q:") == 0 )  {
-	int q, N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-	for (q = 0; q <N_Q; q ++)
-	  { iwd++; get_PARSE_WORD_INT(langC,iwd,&SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[q],fnam); }
-      }
-    }
-    xxxxxxxxx end mark xxxxxxxxxx */
 
     else if ( IS_HOSTLIB ) { 
       NPAR = SNDATA.NPAR_SIM_HOSTLIB;
@@ -1822,7 +1779,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
     else if ( strcmp(varName,"DETNUM") == 0  || strcmp(varName,"CCDNUM") == 0 ) 
       { IVAROBS_SNTEXTIO.DETNUM = ivar; }  
 
-    else if ( strcmp(varName,"IMGNUM") == 0 ) 
+    else if ( strcmp(varName,"IMGNUM") == 0 || strcmp(varName,"EXPNUM") == 0) 
       { IVAROBS_SNTEXTIO.IMGNUM = ivar; }  
 
     else if ( strcmp(varName,"FIELD") == 0 ) 

@@ -14138,7 +14138,7 @@ void calc_zM0_data(void) {
     CUTMASK  = TABLEVAR->CUTMASK[i] ;
     name     = TABLEVAR->name[i] ;    
     z        = TABLEVAR->zhd[i] ;    
-    zerr     = TABLEVAR->zhderr[i] ;
+    zerr     = TABLEVAR->zhderr[i] ;  (void)zerr;
     mu       = INFO_DATA.mu[i] - FITRESULT.SNMAG0; 
     mumodel  = INFO_DATA.mumodel[i] ;
     muerr    = INFO_DATA.muerr[i] ;

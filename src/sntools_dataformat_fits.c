@@ -5066,16 +5066,19 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   // Input LEN is the number of rows to allocate.
   //
   // Jun 17 2018: if LEN==0, set to 10 and avoid abort.
+  // May 29 2026: 
+  //   + if LDMP, print each MEMTOT increment. 
+  //   + MEM and MEMTOT are declared long long (no longer int)
 
   int LEN_LOCAL  = LEN ;
   int MALLOC_LEN = MALLOC_LEN_SNFITSIO[itype];
   char *ptrFile  = rd_snfitsFile[ifile][itype];
 
   int  iform, npar, ipar, i ;
-  int  mem, MEM, MSTR, MEMTOT, sizeof_mem, sizeof_MEM    ;
-
+  int  mem, MSTR, sizeof_mem, sizeof_MEM    ;
+  long long MEMTOT, MEM;
   float FMEM ;
-  int LDMP = 0;
+  int   LDMP = 0 ;
   char  fnam[] = "rd_snfitsio_malloc"  ;
 
   // ------------ BEGIN --------------
@@ -5120,6 +5123,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	}
       }
 
+      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (A)\n", fnam, MEMTOT, iform); }
     }
 
     else if ( iform == IFORM_J ) {
@@ -5133,6 +5137,8 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	RD_SNFITSIO_TABLEVAL_J[itype][ipar] = (int*)malloc(MEM);
 	MEMTOT += MEM ;
       }
+
+      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (J)\n", fnam, MEMTOT, iform); }
     }
     
     else if ( iform == IFORM_I ) {
@@ -5145,6 +5151,8 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	RD_SNFITSIO_TABLEVAL_I[itype][ipar] = (short*)malloc(MEM); 
 	MEMTOT += MEM ;
       }
+
+      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (I)\n", fnam, MEMTOT, iform); }
     }
     
     else if ( iform == IFORM_E ) {
@@ -5158,6 +5166,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	RD_SNFITSIO_TABLEVAL_E[itype][ipar] = (float*)malloc(MEM); 
 	MEMTOT += MEM ;
       }
+      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (E)\n", fnam, MEMTOT, iform); }
     }
 
     else if ( iform == IFORM_D ) {
@@ -5170,6 +5179,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	RD_SNFITSIO_TABLEVAL_D[itype][ipar] = (double*)malloc(MEM);
 	MEMTOT += MEM ;
       }
+      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (D)\n", fnam, MEMTOT, iform); }
     }
 
     else if ( iform == IFORM_K ) {
@@ -5183,6 +5193,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	RD_SNFITSIO_TABLEVAL_K[itype][ipar] = (long long*)malloc(MEM);
 	MEMTOT += MEM ;
       }
+      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (K)\n", fnam, MEMTOT, iform); }
     }
 
     else {
@@ -5206,6 +5217,14 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   printf("   Allocate %6.3f MB memory for %s (IFILE=%d, NROW=%d). \n", 
 	 FMEM, ptrFile, ifile, LEN_LOCAL );
   fflush(stdout); 
+
+  if ( MEMTOT < 0 ) {
+    sprintf(c1err,"Invalid MEMTOT = %lld for ifile=%d itype=%d NROW=%d", 
+	    MEMTOT, ifile, itype, LEN );
+    sprintf(c2err,"Try setting LDMP=1 for debugging");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
 
   return ;
 

@@ -848,7 +848,7 @@ struct {
   double *mumodel, *M0, *mu, *muerr, *muerr_renorm, *muerr_raw, *muerr_vpec;
   double *mures, *mupull;
   double *muerr_last, *muerrsq_last, *sigCC_last, *sqsigCC_last ;
-  double *muCOVscale, *muCOVadd, *muBias, *muBiasErr, *muBias_zinterp; 
+  double *muCOVscale_calc, *muCOVscale, *muCOVadd, *muBias, *muBiasErr, *muBias_zinterp; 
   double *chi2, *probcc_beams;
   double **fitParBias;
   int *nevt_biascor; 
@@ -1774,7 +1774,7 @@ int   get_fitParBias(char *CID, BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		     char *call, FITPARBIAS_DEF *FITPARBIAS);
 int get_muCOVcorr(char *cid,  BIASCORLIST_DEF *BIASCORLIST, int DUMPFLAG,
 		  double *muCOVscale, double *muCOVadd, int *i1d_cen ) ;
-void dump_muCOVcorr(int n);
+void dump_event_muCOVcorr(int n);
 
 void   get_muBias(char *NAME, 
 		  BIASCORLIST_DEF *BIASCORLIST,  
@@ -1848,6 +1848,8 @@ int keep_cutmask(int errcode) ;
 int     prepNextFit(void);
 bool    crazy_M0_errors(void);
 void    compute_AVG_muCOVscale(double *AVG_muCOVscale);
+void    dump_muCOVcorr(int iz, int nevt_dump, char *callFun ) ;
+
 void    conflict_check(void);
 double  next_covFitPar(double redchi2, double orig_parval, double parstep);
 void    recalc_dataCov(void); 
@@ -4062,7 +4064,7 @@ bool crazy_M0_errors(void) {
   double sigint_ref = 0.100; // M0 error should be at least sigint/sqrt(N)
   if ( INFO_BIASCOR.DUST_FLAG ) { sigint_ref /= 2.0; }  // Jun 17 2025  avoid false alarms for dust model
 
-  double ERR, ERRMIN_COMPUTE, XN, z, AVG_muCOVscale[MXz];
+  double ERR, ERRMIN_COMPUTE, XN, z, AVG_muCOVscale[MXz], AVG_muERRscale ;
   int    n, iz, NEVT, n_crazy_M0_error = 0;
 
   double ERRMIN_CRAZY;
@@ -4106,7 +4108,8 @@ bool crazy_M0_errors(void) {
     if ( NEVT < 3 ) { continue; }  
 
     XN             = (double)NEVT;
-    ERRMIN_COMPUTE = sqrt(AVG_muCOVscale[iz]) * sigint_ref / sqrt(XN); 
+    AVG_muERRscale = sqrt(AVG_muCOVscale[iz]);
+    ERRMIN_COMPUTE = AVG_muERRscale * sigint_ref / sqrt(XN); 
     ERRMIN_CRAZY   = ERRMIN_COMPUTE * ERRMIN_FRAC_CRAZY ;
     
     if( LDMP ) {
@@ -4116,9 +4119,16 @@ bool crazy_M0_errors(void) {
     }
 
     if ( ERR < ERRMIN_CRAZY ) { 
+
+      /* xxx mark del May 29 2026 xxxxxxxxx
       printf(" CrazyERR WARNING: iz=%d  z=%.3f "
 	     "M0ERR=%.5f ERRMIN_COMPUTE=%.2f/sqrt(%d) = %.5f   <muCOVscale>=%.3f\n", 
 	     iz, z, ERR, sigint_ref, NEVT, ERRMIN_COMPUTE, AVG_muCOVscale[iz] ); 
+      xxx */
+
+      printf(" CrazyERR WARN: iz=%d z=%.3f "
+	     "M0ERR=%.5f ERRMIN_COMPUTE = %.3f * %.2f/sqrt(%d) = %.5f \n", 
+	     iz, z, ERR, AVG_muERRscale, sigint_ref, NEVT, ERRMIN_COMPUTE ); 
       fflush(stdout);
       n_crazy_M0_error++ ; 
 
@@ -4154,13 +4164,55 @@ bool crazy_M0_errors(void) {
  
 } // end crazy_M0_errors
 
+
+// ==========================================================
+void dump_muCOVcorr(int iz_dump, int mxevt_dump, char *callFun ) {
+
+  // Created May 29 2026
+  // dump muCOVscale & add for first 'mxevt_dump' data events in iz_dump bin
+
+  int  NSN_DATA  = INFO_DATA.TABLEVAR.NSN_ALL ;
+  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
+
+  int  iz, isn, nevt_dump = 0;
+  double COVscale_calc=1.0,  COVscale=1.0 , COVadd=0.0 ;
+  char *name;
+  char fnam[100];
+  concat_callfun_plus_fnam(callFun, "dump_muCOVcorr", fnam);  (void)fnam;
+
+  // ----------- BEGIN ------------- 
+
+  for ( isn=0; isn < NSN_DATA; isn++ ) {
+    if ( INFO_DATA.TABLEVAR.CUTMASK[isn] > 0 ) { continue; }
+    iz            = INFO_DATA.TABLEVAR.IZBIN[isn];
+    name          = INFO_DATA.TABLEVAR.name[isn];
+    COVscale_calc = INFO_DATA.muCOVscale_calc[isn];
+    COVscale      = INFO_DATA.muCOVscale[isn];
+    if ( DO_COVADD ) { COVadd = INFO_DATA.muCOVadd[isn]; }
+
+    if ( COVscale <= 0.01 ) { continue ; }
+    if ( iz != iz_dump    ) { continue ; }
+
+    nevt_dump++ ;
+    if ( nevt_dump > mxevt_dump ) { return; }
+    
+    printf(" xxx %s(iz=%d): %3d  SNID=%12s  COV_scale[calc,apply] = %.3f, %.3f  COVadd=%.3f\n",
+	   fnam, iz, nevt_dump, name, COVscale_calc, COVscale, COVadd ); 
+    fflush(stdout);
+  }
+
+  return;
+} // end dump_muCOVcorr
+
 // =========================================================
 void  compute_AVG_muCOVscale(double *AVG_muCOVscale) {
 
   int  NSN_DATA  = INFO_DATA.TABLEVAR.NSN_ALL ;
   int  NBINz     = INPUTS.BININFO_z.nbin ;
+  //  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
   int  iz, isn;
-  double SUM_z[MXz], SUM_muCOVscale[MXz], COVscale;
+  double SUM_z[MXz], SUM_muCOVscale[MXz], COVscale ;
+  int LDMP = 0 ;
   char fnam[] = "compute_AVG_muCOVscale" ;  (void)fnam;
 
   // ----------- BEGIN ------------
@@ -4173,13 +4225,21 @@ void  compute_AVG_muCOVscale(double *AVG_muCOVscale) {
   for ( isn=0; isn < NSN_DATA; isn++ ) {
     if ( INFO_DATA.TABLEVAR.CUTMASK[isn] > 0 ) { continue; }
     iz       = INFO_DATA.TABLEVAR.IZBIN[isn];
-    COVscale = INFO_DATA.muCOVscale[isn];
+    COVscale = INFO_DATA.muCOVscale[isn]; // applied COVscale
+
     if ( COVscale <= 0.01 ) { continue ; }
     SUM_z[iz]          +=  1.0 ;
     SUM_muCOVscale[iz] +=  COVscale;
   }
   for(iz=0; iz < NBINz; iz++ ) { 
-    if ( SUM_z[iz] > 0.0 ) {  AVG_muCOVscale[iz] = SUM_muCOVscale[iz]/SUM_z[iz] ; }
+    if ( SUM_z[iz] > 0.0 ) { 
+      AVG_muCOVscale[iz] = SUM_muCOVscale[iz]/SUM_z[iz] ;
+      if ( LDMP ) {
+	printf(" xxx %s: iz=%d AVG = %f/%f = %f \n",
+	       fnam, iz, SUM_muCOVscale[iz], SUM_z[iz], AVG_muCOVscale[iz]);
+	fflush(stdout);
+      }
+    }
   }
 
 
@@ -4639,7 +4699,8 @@ void *MNCHI2FUN(void *thread) {
     if ( NDIM_BIASCOR > 0 ) {
       INFO_DATA.muBias[n]     = muBias ;
       INFO_DATA.muBiasErr[n]  = muBiasErr ;
-      INFO_DATA.muCOVscale[n] = muCOVscale ;
+      INFO_DATA.muCOVscale_calc[n] = muCOVscale ; // original calculated value
+      INFO_DATA.muCOVscale[n]      = muCOVscale ; // can change depending on muCOVadd
       INFO_DATA.nevt_biascor[n] = nevt_biascor;
 
       if ( DO_COVADD ) {
@@ -4666,7 +4727,8 @@ void *MNCHI2FUN(void *thread) {
     if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
       muerrsq += muCOVadd; 
-      
+      INFO_DATA.muCOVscale[n] = 1.0; // Effective muCOVscale = 1 since only muCOVadd is applied
+
       if ( muerrsq < 0.0 ) {
 	double muerrsq_orig = muerrsq - muCOVadd;
 	print_preAbort_banner(fnam);
@@ -4675,7 +4737,7 @@ void *MNCHI2FUN(void *thread) {
 	       z, BIASCOR_NAME_LCFIT[INDEX_d], d, s, c, logmass);
 	printf("   alpha=%.4f  beta=%.4f  gDM=%.4f\n", 
 	       alpha, beta, gammaDM);
-	dump_muCOVcorr(n);
+	dump_event_muCOVcorr(n);
 	
 	sprintf(c1err,"Insane muerrsq = %.5f for snid=%s (muerrsq_orig=%.5f)", 
 		muerrsq, name, muerrsq_orig );
@@ -6348,6 +6410,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
     INFO_DATA.probcc_beams   = (double*) malloc(MEMD); MEMTOT+=MEMD;
 
     if ( nfile_biasCor > 0 ) {
+      INFO_DATA.muCOVscale_calc = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muCOVscale     = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muCOVadd       = (double*) malloc(MEMD); MEMTOT+=MEMD;
       INFO_DATA.muBias         = (double*) malloc(MEMD); MEMTOT+=MEMD;
@@ -6421,6 +6484,7 @@ void malloc_INFO_DATA(int opt, int LEN_MALLOC ) {
 
 
     if ( nfile_biasCor > 0 ) {
+      free(INFO_DATA.muCOVscale_calc);
       free(INFO_DATA.muCOVscale);
       free(INFO_DATA.muCOVadd);
       free(INFO_DATA.muBias);
@@ -14319,7 +14383,7 @@ int  storeBias_data(int n, int DUMPFLAG) {
 
 
 
-  if ( DUMPFLAG ) { dump_muCOVcorr(n); }
+  if ( DUMPFLAG ) { dump_event_muCOVcorr(n); }
 
 
   return(ISTAT);
@@ -15204,7 +15268,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
 
 
 // ======================================================
-void dump_muCOVcorr(int n) {
+void dump_event_muCOVcorr(int n) {
 
   int NBINa = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin;
   int NBINb = INFO_BIASCOR.BININFO_SIM_BETA.nbin;
@@ -15213,7 +15277,7 @@ void dump_muCOVcorr(int n) {
 
   int ia, ib, ig, i1d;
   double MUCOVSCALE, MUCOVADD;
-  char fnam[] = "dump_muCOVcorr" ;
+  char fnam[] = "dump_event_muCOVcorr" ;
 
   // -----------BEGIN ------------
 
@@ -15235,7 +15299,7 @@ void dump_muCOVcorr(int n) {
 
   return;
 
-} // end dump_muCOVcorr
+} // end dump_event_muCOVcorr
 
 // ======================================================
 void setup_CELLINFO_biasCor(int IDSAMPLE) {
@@ -24178,15 +24242,20 @@ void write_fitres_line_append(FILE *fp, int indx ) {
       fitParBias[INDEX_s]  = INFO_DATA.fitParBias[n][INDEX_s] ;
       fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
     } 
-    muCOVscale  = INFO_DATA.muCOVscale[n]  ;
+    muCOVscale  = INFO_DATA.muCOVscale[n] ; // applied value
+    if ( DO_COVADD ) {  muCOVadd  = INFO_DATA.muCOVadd[n] ; }
+
+    /* xxxx mark delete May 29 2026 xxxxxx
     if ( DO_COVADD ) {
       muCOVadd    = INFO_DATA.muCOVadd[n] ;
       if ( muCOVscale > 1.0 && muCOVadd > 0.0 ) { 
-	muCOVscale = 1.0; 
+	muCOVscale = 1.0;  // effective muCOVscale = 1 of muCOVadd was applied
       } else {
 	muCOVadd = 0.0;
       }
     }
+    xxxxxxxxxx end mark xxxxxxx */
+
   }
   
   if (pull > 99.999) { pull=99.999; }

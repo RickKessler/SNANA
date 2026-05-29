@@ -9,7 +9,7 @@
 #
 # ===============================================
 
-import os, sys, argparse, glob
+import os, sys, argparse, glob, shlex
 
 PLOT_SCRIPT = "plot_table.py"
 
@@ -58,7 +58,7 @@ def get_survey_filters(args):
 
 def make_plots(args):
 
-    tfile = args.input_file
+    tfile = shlex.quote(args.input_file)
     title = f"{args.survey} SIMLIB Properties"
     
     pdf_file, log_file = next_filenames(args)
@@ -67,9 +67,9 @@ def make_plots(args):
     sys.stdout.flush() 
     cmd = \
         f"{PLOT_SCRIPT} @@TFILE {tfile} @V RA:DEC @@ALPHA 0.2 " + \
-        f"@@TITLE '{title}' " + \
-        f"@@SAVE {pdf_file} " \
-        f" >& {log_file}"
+        f"@@TITLE {shlex.quote(title)} " + \
+        f"@@SAVE {shlex.quote(pdf_file)} " \
+        f" >& {shlex.quote(log_file)}"
 
     os.system(cmd)
 
@@ -99,10 +99,10 @@ def make_plots(args):
         cmd = \
             f"{PLOT_SCRIPT} @@TFILE {tfile} " + \
             f"@V {varname}  @@BOUNDS {bounds} " + \
-            f"@@TITLE '{title}'  @@LEGEND .   @@ALPHA 0.8  " + \
+            f"@@TITLE {shlex.quote(title)}  @@LEGEND .   @@ALPHA 0.8  " + \
             f"@@OPT GRID NEVT MEAN STDDEV  " + \
-            f"@@SAVE {pdf_file} " + \
-            f" >& {log_file}"
+            f"@@SAVE {shlex.quote(pdf_file)} " + \
+            f" >& {shlex.quote(log_file)}"
         
         #print(f"\n xxx cmd = \n{cmd}\n")
         sys.stdout.flush() 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     # combine plots into one file
     pdf_file = f"plot_{args.prefix}.pdf"
-    cmd = f"convert temp_plot* {pdf_file}"
+    cmd = f"convert temp_plot* {shlex.quote(pdf_file)}"
     print(f"\n Combine plots into {pdf_file}\n\t {cmd}")
     sys.stdout.flush()
     os.system(cmd)

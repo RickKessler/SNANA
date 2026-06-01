@@ -3,6 +3,7 @@
                                                              
  R. Kessler  Apr 2009 : re-written for sim & fitter; includes errors
 
+
  There are three init functions that must be called
  exeternally in the following order:
 

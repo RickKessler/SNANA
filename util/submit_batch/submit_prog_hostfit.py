@@ -2,12 +2,13 @@ import os, sys, shutil, yaml, glob, logging
 import datetime, time, subprocess
 import submit_util as util
 import pandas as pd
+import re
 
 from   submit_params import *
 from   submit_prog_base import Program
 
 SUBCLASS_HOSTFIT_CIGALE = 'cigale'
-PROGRAM_CIGALE_TRANSLATOR = 'cigale_translator.py'
+PROGRAM_CIGALE_TRANSLATOR = '/home/jmedoff/SNANA/util/cigale_translator.py'
 CIGALE_INPUT_SUBDIR = 'CIGALE_INPUT'
 CIGALE_CSV_FILE = 'cigale_input.csv'
 GALID_MAP_FILE = 'galid_map.csv'
@@ -72,7 +73,7 @@ class HostPropertyFit(Program):
         command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
 
         command_exe = f'cd {cigale_input_dir}; {PROGRAM_CIGALE_TRANSLATOR} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE}'
-        command_exe += ' --zgrid 0.1 1.5 15' # temp hack
+        #command_exe += ' --zgrid 0.1 1.5 15' # temp hack
 
         os.mkdir(cigale_input_dir)
         os.system(command_copy)
@@ -109,6 +110,16 @@ class HostPropertyFit(Program):
 
         return
 
+    def fitopt_str_to_dict(self, s):
+        pattern = re.compile(r'(\w+)\s*=\s*')
+        matches = list(pattern.finditer(s))
+        result = {}
+        for i, m in enumerate(matches):
+            key = m.group(1)
+            start = m.end()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(s)
+            result[key] = s[start:end].strip()
+        return result
 
     def prep_pcigale_ini_file(self, fitopt_dir, fitopt_arg):
         CONFIG     = self.config_yaml['CONFIG']
@@ -116,11 +127,34 @@ class HostPropertyFit(Program):
         pcigale_ini_file_orig = CONFIG['CIGALE_INPUT_FILE']
         pcigale_ini_file_target = f'{fitopt_dir}/{pcigale_ini_file_orig}'
         fitopt_arg_full = f'cores = {nthread} {fitopt_arg}'
-        #print('xxx fitopt_arg = ', fitopt_arg_full)
+        fitopt_arg_dict = self.fitopt_str_to_dict(fitopt_arg_full)
+        print('xxx fitopt_arg = ', fitopt_arg_dict)
+
         # TO-DO
-        # copy contents or original pcigale.ini into target
-        # Subtitute keys on fitopt_arg_full
-        # Fix 'bands' so that it matches cigale translator file
+        # copy contents or original pcigale.ini into target (Done)
+        # Subtitute keys on fitopt_arg_full (Done)
+        # Fix 'bands' so that it matches cigale translator file (cigale only allows certain bands,
+        # so we'll need to think about how to do this)
+
+        command_copy = f'cp {pcigale_ini_file_orig} {pcigale_ini_file_target}'
+        os.system(command_copy)
+
+        # SUBSTITUTE KEYS IN COPIED CIGALE INPUT FILE
+        with open(pcigale_ini_file_target, 'r') as f:
+            lines = f.readlines()
+
+        new_lines = []
+        for line in lines:
+            stripped = line.lstrip()
+            if '=' in stripped and not stripped.startswith('#'):
+                key = stripped.split('=', 1)[0].strip()
+                if key in fitopt_arg_dict:
+                    indent = line[:len(line) - len(stripped)]
+                    line = f'{indent}{key} = {fitopt_arg_dict[key]}\n'
+            new_lines.append(line)
+
+        with open(pcigale_ini_file_target, 'w') as f:
+            f.writelines(new_lines)
 
         return
 

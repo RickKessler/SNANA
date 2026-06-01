@@ -23871,4 +23871,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sntools.c
      fix array bound for uthash; see https://github.com/RickKessler/SNANA/issues/1680
 
+   SALT2mu.c:
+     if opt_biascor & 1024 is set (keep events with invalid BCOR), fix subtle bug
+     and force muCOVscale=1 (not 0) for events without valid BCOR.
+
+     
 END: 

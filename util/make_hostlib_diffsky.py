@@ -139,6 +139,7 @@ MAG_5SIG:
 - lsst_z  26
 - lsst_y  25
 
+OVERRIDE_FILE: <filename> # Optional read synthetic mags from external file instead of from OpenCosmo
 
 # define selection cuts using diffsky-catalog column names
 CUTWIN:
@@ -290,6 +291,7 @@ def _get_mag_bands(config):
 
 
 def inject_mag_columns(df_cat, config):
+    ### Jun, 2026. AI + AMITRA
     """Inject pre-computed magnitude columns into df_cat from the OVERRIDE_FILE parquet.
 
     Join key: core_tag (HDF5, int64 read via h5py) ↔ serial_tag (parquet, int64).
@@ -298,12 +300,13 @@ def inject_mag_columns(df_cat, config):
     convert_galaxy_cat_to_pandas when OVERRIDE_FILE is set); it is dropped after join.
     Mag errors are recomputed from MAG_5SIG after the merge.
     """
+    # XXX explicitly pass full file name AM. And here check if it is parquet, but dont construct another file name
+    # Add this over ride into the help menu
     override_file = config[KEY_OVERRIDE_FILE]
-    parquet_file  = os.path.splitext(override_file)[0] + '.parquet'
 
-    if os.path.exists(parquet_file):
-        logging.info(f"inject_mag_columns: reading parquet {parquet_file}")
-        df_mag = pd.read_parquet(parquet_file)
+    if override_file.endswith('.parquet'):
+        logging.info(f"inject_mag_columns: reading parquet {override_file}")
+        df_mag = pd.read_parquet(override_file)
     else:
         logging.info(f"inject_mag_columns: reading HOSTLIB text {override_file}")
         with open(override_file) as f:

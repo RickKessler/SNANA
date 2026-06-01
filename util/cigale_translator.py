@@ -328,7 +328,7 @@ def snana_to_cigale(args, config, mode):
 
     # Other params
     galid_map_path = args.output_galid_map if args.output_galid_map is not None else config.get("OUTPUT_GALID_MAP")
-    zgrid = args.zgrid if args.zgrid is not None else config.get("REDSHIFT_GRID")
+    zgrid = args.zgrid if args.zgrid is not None else config.get("REDSHIFT_GRID").split()
     varname_z = args.varname_z if args.varname_z is not None else config.get("REDSHIFT_COL") 
 
     col_entries = parse_column_map(config["CIGALE_COLUMN_MAP"], varname_z = varname_z)

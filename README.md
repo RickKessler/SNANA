@@ -17,3 +17,32 @@ If 'git pull' results in  "detected dubious ownership" error on a compute cluste
    git pull  
 
 
+Using Autotools to build:
+```
+autoreconf -fi   # -f=force -i = install
+./configure
+cd src
+make             # builds all
+```
+
+to build one executable:
+```
+cd src
+make snana
+```
+
+debug build
+```
+autoreconf -fi
+./configure --enable-debug
+cd src
+make
+```
+
+to clean:
+
+`make clean`     # removes *.o and *.exe files
+
+`make distclean` # does make clean plus removes files created with ./configure
+
+

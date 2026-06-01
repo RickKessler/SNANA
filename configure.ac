@@ -1,0 +1,194 @@
+
+AC_INIT([snana], [1.0], [rkessler@uchicago.edu])
+AC_PREREQ([2.68]) 
+AC_CONFIG_SRCDIR([src/sntools.c])
+AC_CONFIG_AUX_DIR([build-aux])
+#AM_INIT_AUTOMAKE([foreign -Wall -Werror])
+dnl Tell automake that this is not following GNU coding standards (no README, CHANGELOG, etc)
+AM_INIT_AUTOMAKE([foreign])
+
+AC_CONFIG_MACRO_DIR([m4])
+
+UTIL_DIR='$(top_srcdir)/util'
+AC_SUBST([UTIL_DIR])
+
+dnl setting up gfortran and gcc
+AC_PROG_CC([gcc])
+AC_PROG_F77([gfortran])
+AC_PROG_FC([gfortran])
+
+AC_FC_LIBRARY_LDFLAGS
+
+AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_FILES([Makefile src/Makefile])
+
+
+
+# ---------------------------------------------------------------
+# Debug build option: --enable-debug
+# Adds debug symbols and assertions while keeping -O2 optimization
+# ---------------------------------------------------------------
+AC_ARG_ENABLE([debug],
+    [AS_HELP_STRING([--enable-debug],
+        [enable debug symbols and assertions (default: no)])],
+    [enable_debug=$enableval],
+    [enable_debug=no])
+
+AC_MSG_CHECKING([whether to build with debug information])
+AS_IF([test "x$enable_debug" = "xyes"],
+    [AC_MSG_RESULT([yes])
+     DEBUG_CFLAGS="-g3 -O2 -fno-omit-frame-pointer"
+     DEBUG_CXXFLAGS="-g3 -O2 -fno-omit-frame-pointer"
+     DEBUG_FCFLAGS="-g3 -O2 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
+     DEBUG_LDFLAGS="-rdynamic"],
+    [AC_MSG_RESULT([no])
+     DEBUG_CFLAGS="-O2 -DNDEBUG"
+     DEBUG_CXXFLAGS="-O2 -DNDEBUG"
+     DEBUG_FCFLAGS="-O2"
+     DEBUG_LDFLAGS=""])
+
+AC_SUBST([DEBUG_CFLAGS])
+AC_SUBST([DEBUG_CXXFLAGS])
+AC_SUBST([DEBUG_FCFLAGS])
+AC_SUBST([DEBUG_LDFLAGS])
+
+AM_CONDITIONAL([DEBUG], [test "x$enable_debug" = "xyes"])
+
+AC_MSG_NOTICE([srcdir is: $srcdir])
+AC_MSG_NOTICE([Git dir check: `cd "$srcdir" && $GIT rev-parse --show-toplevel 2>/dev/null`])
+
+# Try to get Git version
+AC_CHECK_PROG([GIT], [git], [git], [no])
+if test "$GIT" != "no"; then
+  AC_MSG_CHECKING([SNANA git version])
+  SNANA_GIT_VERSION=`cd "$srcdir" && $GIT describe --always --tags 2>/dev/null`
+  if test -z "$SNANA_GIT_VERSION"; then
+    SNANA_GIT_VERSION="unknown"
+  fi
+  AC_MSG_RESULT([$SNANA_GIT_VERSION])
+else
+  SNANA_GIT_VERSION="unknown"
+fi
+AC_SUBST([SNANA_GIT_VERSION])
+
+
+dnl allow python >= 3.7
+AM_PATH_PYTHON([3.7])
+
+AC_PATH_PROGS([PYTHON_CONFIG], [python3-config python-config], [no])
+AS_IF([test "x$PYTHON_CONFIG" = xno], [AC_MSG_ERROR([cannot find python-config])])
+
+PYTHON_INCLUDES=`$PYTHON_CONFIG --includes`
+AC_SUBST([PYTHON_INCLUDES])
+
+# Try --embed first (Python >= 3.8), fall back to plain --ldflags
+AC_MSG_CHECKING([whether python3-config supports --embed])
+python_embed_test=$(${PYTHON_CONFIG} --ldflags --embed 2>/dev/null)
+AS_IF([test $? -eq 0 && test -n "$python_embed_test"],
+  [AC_MSG_RESULT([yes])
+   PYTHON_LIBS_RAW=$(${PYTHON_CONFIG} --ldflags --embed)],
+  [AC_MSG_RESULT([no])
+   PYTHON_LIBS_RAW=$(${PYTHON_CONFIG} --ldflags)]
+)
+
+# Filter out config-* directories to avoid static libpython*.a 
+# This prevents LTO bytecode version mismatches on older Python builds (< 3.8)
+# and doesn't hurt newer versions which use shared libraries by default
+PYTHON_LIBS=$(echo "$PYTHON_LIBS_RAW" | sed 's|-L[[^ ]]*config[[^ ]]*||g')
+
+# Always add rpath for runtime shared library location
+PYTHON_LIB_DIR=$(${PYTHON_CONFIG} --prefix)/lib
+PYTHON_LIBS="$PYTHON_LIBS -Wl,-rpath,$PYTHON_LIB_DIR"
+
+AC_SUBST([PYTHON_LIBS])
+
+#AM_CONDITIONAL([USE_PYTHON], [test "x$PYTHON_CONFIG" = "xyes"])
+#AC_SUBST(USE_PYTHON)
+
+AC_CHECK_LIB([m],[cos])
+
+#AC_CHECK_LIB([gslcblas],[cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [], [$LIBS])
+#AC_SUBST([GSLCBLASLIB])
+#AC_CHECK_LIB([gsl],[gsl_blas_dgemm], [GSLLIB="-lgsl"], [], [$LIBS])
+#AC_SUBST([GSLLIB])
+
+
+# Check for GSL
+AC_CHECK_LIB([gslcblas], [cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [
+    AC_MSG_ERROR([GSL CBLAS library not found])
+])
+
+AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [GSLLIB="-lgsl]", [
+    AC_MSG_ERROR([GSL library not found])
+], [-lgslcblas])
+
+
+AC_SUBST([GSLCBLASLIB])
+AC_SUBST([GSLLIB])
+  
+
+
+
+AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [AC_MSG_ERROR([cfitsio library not found. Please install CFITSIO.])], [$LIBS])
+AC_SUBST([CFITSIOLIB])
+
+AC_ARG_VAR(ROOTSYS)
+if test -n "$ROOTSYS"; then
+  root_avail=yes
+else
+  root_avail=no
+fi
+
+AM_CONDITIONAL([USE_ROOT], [test "x$root_avail" = "xyes"])
+echo "ROOTSYS is ${ROOTSYS:-not set}"
+
+dnl set up C++ 17 flags
+m4_include([m4/m4_ax_cxx_compile_stdcxx.m4])
+AX_CXX_COMPILE_STDCXX(17)
+
+
+dnl need to include config.sug and config.guess with the distribution
+AC_CANONICAL_HOST
+
+
+dnl define git version so that C code can write full git version+tag to outputs
+AC_PATH_PROG([GIT], [git])
+
+if test -n "$GIT"; then
+  GIT_VERSION=`$GIT --version | sed 's/git version //'`
+  AC_MSG_NOTICE([Found Git version $GIT_VERSION])
+else
+  AC_MSG_ERROR([Git not found. Please install Git.])
+fi
+
+
+
+
+dnl check for MAC OS
+macos=no
+
+dnl case "${host_os}" in
+dnl darwin*)
+dnl macos=yes
+dnl ;;
+dnl esac
+
+case "$host_os" in
+  darwin*) macos=yes ;;
+  *)       macos=no ;;
+esac
+
+
+dnl set OSX to yes for macos
+AM_CONDITIONAL([OSX], [test "x$macos" = "xyes"])
+AC_MSG_NOTICE([macos $macos])
+
+dnl hard wired to 64 bit machine ... if somebody needs 32 bit, they can change hard-wire manually
+have64=yes
+havei686=no
+
+
+AM_CONDITIONAL([BIT64], [test "x$have64" = "xyes"])
+AM_CONDITIONAL([I686], [test "x$havei686" = "xyes"])
+
+AC_OUTPUT

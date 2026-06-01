@@ -767,11 +767,14 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     # exclude columns computed at pandas level — not present in HDF5 catalog
     cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
 
+    # Always exclude mag error columns — not in HDF5, computed in add_col_pd
+    mag_bands    = _get_mag_bands(config)
+    mag_err_cols = [b + '_err' for b in mag_bands]
+    cat_var_list = [v for v in cat_var_list if v not in mag_err_cols]
+
     if KEY_OVERRIDE_FILE in config:
-        # Exclude mag band columns and their errors — not in HDF5, will be injected from parquet
-        mag_bands    = _get_mag_bands(config)
-        mag_err_cols = [b + '_err' for b in mag_bands]
-        cat_var_list = [v for v in cat_var_list if v not in mag_bands and v not in mag_err_cols]
+        # Also exclude raw mag band columns — not in HDF5, will be injected from parquet
+        cat_var_list = [v for v in cat_var_list if v not in mag_bands]
         # Add core_tag temporarily — needed as join key in inject_mag_columns
         if 'core_tag' not in cat_var_list:
             cat_var_list.append('core_tag')

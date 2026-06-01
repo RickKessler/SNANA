@@ -199,7 +199,7 @@ def which_program_class(config):
     elif "SMP_METHOD" in CONFIG :  # ??? check this later
         program_class = SceneModelPhotometry  
 
-    elif "CIGALE_INPUT_FILE" in CONFIG : 
+    elif any("CIGALE" in key for key in CONFIG):
         program_class = HostPropertyFit 
 
     elif "PATH_INPUT_TRAIN" in CONFIG :

@@ -13,8 +13,12 @@ UTIL_DIR='$(top_srcdir)/util'
 AC_SUBST([UTIL_DIR])
 
 dnl setting up gfortran and gcc
+: ${CFLAGS=""}  # disable default debug flag (thank you AI)
+: ${FFLAGS=""}
+: ${FCFLAGS=""}
+: ${CXXFLAGS=""}
 AC_PROG_CC([gcc])
-AC_PROG_F77([gfortran])
+#AC_PROG_F77([gfortran])
 AC_PROG_FC([gfortran])
 
 AC_FC_LIBRARY_LDFLAGS

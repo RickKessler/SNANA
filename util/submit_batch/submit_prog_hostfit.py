@@ -139,21 +139,8 @@ class HostPropertyFit(Program):
 
         return cigale_bands_str
 
-    def prep_pcigale_ini_file(self, fitopt_dir, fitopt_arg):
-        CONFIG     = self.config_yaml['CONFIG']
-        nthread    = self.config_prep['nthreads']
-        pcigale_ini_file_orig = CONFIG['CIGALE_INPUT_FILE']
-        pcigale_ini_file_target = f'{fitopt_dir}/{pcigale_ini_file_orig}'
-        
-        cigale_bands_str = self.get_cigale_bands_str()
-        fitopt_arg_full = f'cores = {nthread} bands = {cigale_bands_str} {fitopt_arg}'
-        fitopt_arg_dict = self.fitopt_str_to_dict(fitopt_arg_full)
-        print('xxx fitopt_arg = ', fitopt_arg_dict)
-
-        command_copy = f'cp {pcigale_ini_file_orig} {pcigale_ini_file_target}'
-        os.system(command_copy)
-
-        # SUBSTITUTE KEYS IN COPIED CIGALE INPUT FILE
+    def replace_keys_pcigale(self, pcigale_ini_file_target, fitopt_arg_dict):
+        # SUBSTITUTE KEYS IN COPIED CIGALE INPUT FILE                         
         with open(pcigale_ini_file_target, 'r') as f:
             lines = f.readlines()
 
@@ -177,6 +164,36 @@ class HostPropertyFit(Program):
 
         return
 
+    def prep_pcigale_ini_file(self, fitopt_dir, fitopt_arg):
+        CONFIG     = self.config_yaml['CONFIG']
+        nthread    = self.config_prep['nthreads']
+        output_dir = self.config_prep['output_dir']
+        cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
+
+        pcigale_ini_file_orig = CONFIG['CIGALE_INPUT_FILE_LIST'].split()[0]
+        pcigale_ini_spec_file_orig = CONFIG['CIGALE_INPUT_FILE_LIST'].split()[1]
+        pcigale_ini_file_target = f'{fitopt_dir}/{pcigale_ini_file_orig}'
+        pcigale_ini_spec_file_target = f'{fitopt_dir}/{pcigale_ini_spec_file_orig}'
+        
+        # MODIFY .ini FILE
+        cigale_bands_str = self.get_cigale_bands_str()
+        cigale_datafile_str = cigale_input_dir + '/' + CIGALE_CSV_FILE
+        fitopt_arg_full = f'data_file = {cigale_datafile_str} cores = {nthread} bands = {cigale_bands_str} {fitopt_arg}'
+        fitopt_arg_dict = self.fitopt_str_to_dict(fitopt_arg_full)
+        print('xxx fitopt_arg = ', fitopt_arg_dict)
+
+        # FUTURE MODIFICATION OF .ini.spec FILE?
+
+        command_copy = f'cp {pcigale_ini_file_orig} {pcigale_ini_file_target}'
+        os.system(command_copy)
+        command_copy = f'cp {pcigale_ini_spec_file_orig} {pcigale_ini_spec_file_target}'
+        os.system(command_copy)
+
+        self.replace_keys_pcigale(pcigale_ini_file_target, fitopt_arg_dict)
+        self.replace_keys_pcigale(pcigale_ini_spec_file_target, {})
+
+        return
+
 
     def write_command_file(self, icpu, f):
         n_core = self.config_prep['n_core']
@@ -184,13 +201,13 @@ class HostPropertyFit(Program):
         print('xxx n_core, n_fitopt = ', n_core, n_fitopt)
 
         for ijob in range(n_fitopt):
-            job_info_hostfit   = self.prep_JOB_INFO_hostfit(ijob)
-            util.write_job_info(f, job_info_hostfit, icpu)
-            #pass
+            if ijob == icpu:
+                job_info_hostfit   = self.prep_JOB_INFO_hostfit(ijob)
+                util.write_job_info(f, job_info_hostfit, icpu)
+                # NEED TO FIX WHEN ncore != njob
 
         #sys.exit('xxx bye')
         return        
-
 
     def prep_JOB_INFO_hostfit(self, ijob):
         #SNANA_TO_CIGALE = self.config_prep['SNANA_TO_CIGALE']
@@ -201,20 +218,23 @@ class HostPropertyFit(Program):
         input_file    = args.input_file
         SUBCLASS = self.config_prep['SUBCLASS']
         fitopt_dict = self.config_prep['fitopt_dict']
+        fitopt_dir = self.config_prep['fitopt_dir_list'][ijob]
 
         fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"
         prefix        = f"{SUBCLASS}_{fitopt_num}"
         done_file     = f"{prefix}.DONE"
-        log_file      = f"{prefix}.LOG"
+        log_file      = f"CIGALE.LOG"
         yaml_file     = f"{prefix}.YAML"
-        arg_list      = []
+        arg_list      = ['run']
         JOB_INFO      = {}
         
-        JOB_INFO['job_dir']     = script_dir  # where to run job
+        JOB_INFO['job_dir']     = fitopt_dir  # where to run job
         JOB_INFO['program']     = program
-        JOB_INFO['input_file']  = input_file
+        JOB_INFO['input_file']  = ''
         JOB_INFO['log_file']    = log_file
         JOB_INFO['done_file']   = done_file
         JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
+        JOB_INFO['arg_list'] = arg_list
 
-        return
+        return JOB_INFO
+

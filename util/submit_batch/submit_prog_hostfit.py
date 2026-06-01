@@ -9,6 +9,7 @@ from   submit_prog_base import Program
 
 SUBCLASS_HOSTFIT_CIGALE = 'cigale'
 PROGRAM_CIGALE_TRANSLATOR = '/home/jmedoff/SNANA/util/cigale_translator.py'
+#PROGRAM_CIGALE_TRANSLATOR = 'cigale_translator.py'
 CIGALE_INPUT_SUBDIR = 'CIGALE_INPUT'
 CIGALE_CSV_FILE = 'cigale_input.csv'
 GALID_MAP_FILE = 'galid_map.csv'
@@ -121,20 +122,33 @@ class HostPropertyFit(Program):
             result[key] = s[start:end].strip()
         return result
 
+    def get_cigale_bands_str(self):
+        CONFIG     = self.config_yaml['CONFIG']
+        cigale_translator_file = CONFIG['CIGALE_TRANSLATOR_FILE']
+
+        with open(cigale_translator_file, "r") as f:
+            cigale_translator_config = yaml.safe_load(f)
+    
+        mag_map_keys = cigale_translator_config["SNANA_TO_CIGALE"]["CIGALE_MAG_MAP"].keys()
+        cigale_bands_str = ''
+
+        for mag_key in list(mag_map_keys):
+            #cigale_bands_str += f'{mag_key}, {mag_key}_err, '
+            cigale_bands_str += f'{mag_key}, '
+        cigale_bands_str = cigale_bands_str[:-2]
+
+        return cigale_bands_str
+
     def prep_pcigale_ini_file(self, fitopt_dir, fitopt_arg):
         CONFIG     = self.config_yaml['CONFIG']
         nthread    = self.config_prep['nthreads']
         pcigale_ini_file_orig = CONFIG['CIGALE_INPUT_FILE']
         pcigale_ini_file_target = f'{fitopt_dir}/{pcigale_ini_file_orig}'
-        fitopt_arg_full = f'cores = {nthread} {fitopt_arg}'
+        
+        cigale_bands_str = self.get_cigale_bands_str()
+        fitopt_arg_full = f'cores = {nthread} bands = {cigale_bands_str} {fitopt_arg}'
         fitopt_arg_dict = self.fitopt_str_to_dict(fitopt_arg_full)
         print('xxx fitopt_arg = ', fitopt_arg_dict)
-
-        # TO-DO
-        # copy contents or original pcigale.ini into target (Done)
-        # Subtitute keys on fitopt_arg_full (Done)
-        # Fix 'bands' so that it matches cigale translator file (cigale only allows certain bands,
-        # so we'll need to think about how to do this)
 
         command_copy = f'cp {pcigale_ini_file_orig} {pcigale_ini_file_target}'
         os.system(command_copy)
@@ -150,7 +164,12 @@ class HostPropertyFit(Program):
                 key = stripped.split('=', 1)[0].strip()
                 if key in fitopt_arg_dict:
                     indent = line[:len(line) - len(stripped)]
-                    line = f'{indent}{key} = {fitopt_arg_dict[key]}\n'
+                    if key == 'bands' and indent == '': # Special case for first 'bands' parameter
+                        bands_str = [x.strip() for x in fitopt_arg_dict[key].split(',')]
+                        bands_str_err = ', '.join(item for band in bands_str for item in (band, f'{band}_err'))
+                        line = f'{indent}{key} = {bands_str_err}\n'
+                    else:
+                        line = f'{indent}{key} = {fitopt_arg_dict[key]}\n'
             new_lines.append(line)
 
         with open(pcigale_ini_file_target, 'w') as f:

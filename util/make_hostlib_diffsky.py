@@ -8,6 +8,8 @@
 # Ref code for Roman-DESC hostlib:
 #   $ELASTICC_ROOT/roman+desc/inputs_hostlib/make_hostlib_from_GCRCat.py
 #
+# Jun 01 2026 RK - add SNANA and OpenCosmo code versions in provence section of DOC.
+#
 # ==============================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
@@ -740,13 +742,15 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
         for row in CUTWIN:
             fp.write(f"  - {row} \n")
 
-    
+
+    SNANA_VERSION = get_snana_version()
     fp.write(f"\n")
     fp.write(f" PROVENANCE: \n")
     fp.write(f"  - creation code  {CODE} \n")
     fp.write(f"  - creation date  {TSTAMP} \n")
     fp.write(f"  - created by user={USERNAME} on node={HOSTNAME}  \n")
-
+    fp.write(f"  - SNANA_VERSION       {SNANA_VERSION} \n")
+    fp.write(f"  - OPENCOSMO_VERSION   {oc.__version__} \n");
     fp.write(f"DOCUMENTATION_END: \n")
     fp.write(f"\n")
 
@@ -757,6 +761,17 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     
     return  # end write_hostlib_header
 
+def get_snana_version():
+    # fetch snana version that includes tag + commit;                                  
+    # e.g., v11_05-4-gd033611.                                                         
+    # Use same git command as in Makefile for C code                                   
+    SNANA_DIR        = os.environ['SNANA_DIR']
+    cmd = f"cd {SNANA_DIR};  git describe --always --tags"
+    ret = subprocess.run( [ cmd ], cwd=os.getcwd(),
+                      shell=True, capture_output=True, text=True )
+    snana_version = ret.stdout.replace('\n','')
+    return snana_version
+            
 def convert_galaxy_cat_to_pandas(galaxy_cat, config):
 
     logging.info(f"Convert galaxy catalog to pandas: ")

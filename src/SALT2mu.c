@@ -991,6 +991,7 @@ struct {
 
 int  ONE_SAMPLE_BIASCOR ;  // flag to lump all samples into one biasCor
 int  NSAMPLE_BIASCOR;
+int  NSAMPLE_BIASCOR_NOZBIN ;
 SAMPLE_INFO_DEF SAMPLE_BIASCOR[MXNUM_SAMPLE];
 SAMPLE_INFO_DEF SAMPLE_BIASCOR_TEMP[MXNUM_SAMPLE]; // for sorting (Feb 11 2026)
 
@@ -1813,7 +1814,8 @@ void  write_fitres_misc(FILE *fout);
 void  write_version_info(FILE *fp) ;
 void  write_yaml_info(char *fileName);
 void  write_yaml_line_by_idsample(FILE *fp, char *KEY, int *NEVT_BY_SAMPLE);
-void  write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list);
+void  write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muBias_list, 
+			    double *muErr_list, double *muErr_raw_list );
 
 void  define_varnames_append(void) ;
 int   write_fitres_line(int indx, int ifile, char *rowkey, 
@@ -6185,7 +6187,6 @@ float malloc_MUCOV(int opt, int IDSAMPLE, CELLINFO_DEF *CELLINFO, char *WHAT ) {
   NBINb    = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
   NBINg    = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;  
 
-
   // redshift bins are same as for biasCor
   copy_BININFO(&CELLINFO_BIASCOR[IDSAMPLE].BININFO_z, 
 	       &CELLINFO->BININFO_z);
@@ -9031,8 +9032,9 @@ void prepare_IDSAMPLE_biasCor(void) {
 
   NSN_DATA      = INFO_DATA.TABLEVAR.NSN_ALL; 
 
-  NSAMPLE_BIASCOR      = 0 ;
-  ONE_SAMPLE_BIASCOR   = 0 ;
+  NSAMPLE_BIASCOR        = 0 ;
+  NSAMPLE_BIASCOR_NOZBIN = 0 ;
+  ONE_SAMPLE_BIASCOR     = 0 ;
   INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR  = 0 ;
   INPUTS_SAMPLE_BIASCOR.NSURVEYGROUP_USR = 0 ;
   INPUTS_SAMPLE_BIASCOR.NSURVEYGROUP_TOT = 0 ;
@@ -9243,7 +9245,6 @@ void prepare_IDSAMPLE_biasCor(void) {
   // resort IDSAMPLE list to always have the same order
   // regardless of the data order.
   
-
   if ( INPUTS.REFAC_SORT_IDSAMPLE > 0 ) {
     sort_IDSAMPLE_biasCor_driver();
   }
@@ -9263,6 +9264,12 @@ void prepare_IDSAMPLE_biasCor(void) {
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE; IDSAMPLE++ ) 
     { set_BINSIZE_SAMPLE_biasCor(IDSAMPLE);  }
  
+  if ( NSAMPLE_BIASCOR_NOZBIN > 0 && INPUTS.debug_flag==601 ) {
+    sprintf(c1err,"Missing biasCor z-binning for %d IDSAMPLEs", NSAMPLE_BIASCOR_NOZBIN );
+    sprintf(c2err,"Check input keys fieldGroup_biascor & surveygroup_biascor");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
   // ---------------
   dump_SAMPLE_INFO(EVENT_TYPE_DATA);
 
@@ -9280,14 +9287,16 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
 
   // Created Aug 2016
   // Decode STRINGOPT and set biasCor binSize for z,x1,c
+  //
+  //
 
   int ipar, nb;
   int debug_malloc = INPUTS.debug_malloc ;
   double dif;
   char fnam[] = "set_BINSIZE_SAMPLE_biasCor" ;
 
-  // ------------- BEGIN -----------
-  
+  // ------------- BEGIN -----------  
+
   // first set defaults
   dif = INPUTS.zmax - INPUTS.zmin; nb=INPUTS.nzbin;
   SAMPLE_BIASCOR[IDSAMPLE].RANGE_REDSHIFT[0] = INPUTS.zmin ;
@@ -9308,8 +9317,7 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
   }
 
   for(ipar=0; ipar<NLCPAR; ipar++ ) {
-    SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar]  
-      = BIASCOR_BINSIZE_LCFIT[ipar] ;
+    SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_FITPAR[ipar] = BIASCOR_BINSIZE_LCFIT[ipar] ;
   }
 
 
@@ -9339,7 +9347,13 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
 	   fnam, STRINGOPT, SAMPLE_BIASCOR[IDSAMPLE].NAME );
   }
 
-  if ( strlen(STRINGOPT) == 0 ) { return ; }
+  if ( strlen(STRINGOPT) == 0 ) { 
+    //.xyz
+    NSAMPLE_BIASCOR_NOZBIN++ ;
+    printf(" WARNING: biasCor zbins NOT specified for IDSAMPLE=%d (%s) \n",
+	   IDSAMPLE, SAMPLE_BIASCOR[IDSAMPLE].NAME );   
+    return ; 
+  }
     
   print_debug_malloc(+1*debug_malloc,fnam);
   for(isplit=0; isplit < MXBINSTRING; isplit++ ) {
@@ -9387,6 +9401,7 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
 
   // if zbin is specified, update the biasCor ZRANGE so that 
   // if zbin is small (for low-z), we do not have too many z-bins.
+
   if ( LZBIN ) {
     double zBIN = SAMPLE_BIASCOR[IDSAMPLE].BINSIZE_REDSHIFT ;
     double zMIN, zMAX, RANGE[2];
@@ -9408,6 +9423,13 @@ void  set_BINSIZE_SAMPLE_biasCor(int IDSAMPLE) {
 	   zMIN, zMAX, RANGE[0], RANGE[1], zBIN, NBz );  */
 
   } // end LZBIN 
+  else {
+    NSAMPLE_BIASCOR_NOZBIN++ ;
+    printf(" WARNING: biasCor zbins NOT specified for IDSAMPLE=%d (%s) \n",
+	   IDSAMPLE, SAMPLE_BIASCOR[IDSAMPLE].NAME );   
+  }
+
+  // - - - - - -
 
   // free local malloc
   print_debug_malloc(-1*debug_malloc,fnam);
@@ -12297,6 +12319,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   // Declare lists for debug_mucovscale
   double *muErr_list=NULL, *muErr_raw_list=NULL, *muDif_list=NULL;
+  double *muBias_list=NULL;
   int NPERCELL_REALLOC=2000;
   int N_REALLOC=0;
 
@@ -12336,6 +12359,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     muErr_list                = (double*) malloc(memd);
     muErr_raw_list            = (double*) malloc(memd);
     muDif_list                = (double*) malloc(memd);
+    muBias_list               = (double*) malloc(memd);
   }
 
   fprintf(FP_STDOUT, " %s: make map of muCOVscale(a,b,g,z,c) for IDSAMPLE=%d\n", 
@@ -12486,7 +12510,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     muDif   =  muresid_biasCor(ievt);  // mu - muTrue
     muDif  -=  muBias ;  
     muDifsq =  muDif*muDif ;
-
+    
     // compute error with intrinsic scatter
     // 2.10.2023: include vpec uncertainties in muerr computation
     if ( DO_COVADD )
@@ -12535,8 +12559,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     if ( debug_mucovscale > 0 ) {
       INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] = i1d;
-      muDif_list[ievt] = muDif;
-      muErr_list[ievt] = muErr;
+      muDif_list[ievt]  = muDif;
+      muErr_list[ievt]  = muErr;
+      muBias_list[ievt] = muBias;
 
       // store raw muErr (RK, 9.14.2021)
       USEMASK     = USEMASK_BIASCOR_COVFIT;
@@ -12664,11 +12689,23 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	       fnam, i1d, SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d] );
         sprintf(callfun,"%s", fnam); // May 31 2026	
       }
-      sigInt =
-	sigint_muresid_list(N, 
-			    CELL_MUCOVADD->MURES[i1d],
-			    CELL_MUCOVADD->MUCOV[i1d], &WGT_MUCOV_IGNORE,
-			    OPTMASK, callfun );
+
+      if ( INPUTS.debug_flag == 602 ) {
+	OPTMASK += 4 ; // enable new MAD feature in REFAC code
+	sigInt =  
+	  sigint_muresid_list(N, 
+			      CELL_MUCOVADD->MURES[i1d],
+			      CELL_MUCOVADD->MUCOV[i1d], &WGT_MUCOV_IGNORE,
+			      OPTMASK, callfun );	
+      }
+      else {
+	sigInt =  // legacy call using STD
+	  sigint_muresid_list_legacy(N, 
+				     CELL_MUCOVADD->MURES[i1d],
+				     CELL_MUCOVADD->MUCOV[i1d], &WGT_MUCOV_IGNORE,
+				     OPTMASK, callfun );
+      }
+
       if (sigInt == 0.) { sigInt = 1.0e-12;}
       ptr_MUCOVADD[i1d] = sigInt*fabs(sigInt); // preserve the sign 
 
@@ -12745,8 +12782,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   // - - - - - - - - - - - - - - - - - - - 
 
   if ( debug_mucovscale > 0 ) {   
-    write_debug_mucovcorr(IDSAMPLE, muDif_list, muErr_list);
+    write_debug_mucovcorr(IDSAMPLE, muDif_list, muBias_list, muErr_list, muErr_raw_list);
 
+    /* xxxxxxx mark delete Jun 2 2026 xxxxxxxxxx
     // xxxxxxxx legacy file Mar 3 2022 RK xxxxxxx
     char outfile[200], line[200], *name; 
     sprintf(outfile,"%s_IDSAMPLE%d_LEGACY.dat", INPUTS.PREFIX, IDSAMPLE); 
@@ -12790,6 +12828,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     fclose(fp);
     // xxxxxxxxxxxxxx 
+    xxxxxxxxxx end mark xxxxxxxx */
+
 
     free(muErr_list); free(muErr_raw_list); free(muDif_list);
   }  // end debug_mucovscale
@@ -15138,12 +15178,15 @@ int get_muCOVcorr(char *cid,
 
 
 // ======================================================
-void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list) {
+void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muBias_list,
+			   double *muErr_list, double *muErr_raw_list ) {
 
   // if debug_mucovscale is set, write two files:
   // Info per I1D mucov bin
   // Info per biasCor event.
+  //
   // May 26 2023: include SNRMAX column
+  // Jun 02 2026: add muBias and muErr_raw to 2nd BIASCOR.DAT file
 
   CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
   //CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
@@ -15202,7 +15245,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
   fprintf(fp, "# each CID is biasCor event for IDSAMPLE=%d\n", IDSAMPLE);
 
   fprintf(fp,"VARNAMES: CID  BIN_MUCOV  zHD c SNRMAX "
-	    "MUDIF  MUERR  MUCOVSCALE MUCOVADD\n");
+	    "MUDIF MUBIAS  MUERR MUERR_RAW MUCOVSCALE MUCOVADD\n");
 
   CELLINFO_DEF *CELL_BIASCOR  = &CELLINFO_BIASCOR[IDSAMPLE];
   int NBIASCOR_CUTS    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
@@ -15224,8 +15267,9 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
       name = INFO_BIASCOR.TABLEVAR.name[ievt];  (void)name;
       sprintf(line,"SN: "
 	      "%8s %4d  "         // name bin 
-	      "%5.3f %6.3f %4.1f "   // zHD, c, SNRMAX
-	      "%6.3f %.3f "         // MUDIF MUERR
+	      "%5.3f %6.3f %5.1f "   // zHD, c, SNRMAX
+	      "%6.3f %6.3f "         // MUDIF  MUBIAS
+	      "%.3f %.3f "          // MUERR  MUERR_RAW  (added Jun 2026)
 	      "%7.3f %7.4f"         // MUCOVSCALE MUCOVADD	      
       	      ,INFO_BIASCOR.TABLEVAR.name[ievt]
 	      ,INFO_BIASCOR.TABLEVAR.IMUCOV[ievt]
@@ -15233,7 +15277,9 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muErr_list)
 	      ,INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt]
 	      ,INFO_BIASCOR.TABLEVAR.snrmax[ievt]
 	      ,muDif_list[ievt]
+	      ,muBias_list[ievt]
 	      ,muErr_list[ievt]
+	      ,muErr_raw_list[ievt]
 	      ,INFO_BIASCOR.MUCOVSCALE[IDSAMPLE][i1d]
 	      ,INFO_BIASCOR.MUCOVADD[IDSAMPLE][i1d]
       	      );

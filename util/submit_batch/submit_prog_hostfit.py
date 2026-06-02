@@ -7,13 +7,18 @@ import re
 from   submit_params import *
 from   submit_prog_base import Program
 
-SUBCLASS_HOSTFIT_CIGALE = 'cigale'
+SUBCLASS_HOSTFIT_CIGALE = 'CIGALE'
 PROGRAM_CIGALE_TRANSLATOR = '/home/jmedoff/SNANA/util/cigale_translator.py'
 #PROGRAM_CIGALE_TRANSLATOR = 'cigale_translator.py'
 CIGALE_INPUT_SUBDIR = 'CIGALE_INPUT'
-CIGALE_CSV_FILE = 'cigale_input.csv'
+CIGALE_CSV_FILE = 'cigale_input.in'
 GALID_MAP_FILE = 'galid_map.csv'
 FITOPT_STRING = 'FITOPT'
+
+# define columns for MERGE.LOG;  column 0 is always for STATE                  
+COLNUM_HOSTFIT_MERGE_FITOPT      = 1
+COLNUM_HOSTFIT_MERGE_NGAL        = 2
+COLNUM_HOSTFIT_MERGE_CPU         = 3
 
 # Created May 2026
 # run SED fit code on galaxies to get host properties.
@@ -36,7 +41,7 @@ class HostPropertyFit(Program):
             msgerr.append(f"OUTDIR key missing in yaml-CONFIG")
             msgerr.append(f"Check {input_file}")
 
-        logging.info(f" xxx hello from new task HostPropertyFit: outdir = {output_dir_name} ")
+        
         return output_dir_name, SUBDIR_SCRIPTS_HOSTFIT
 
         
@@ -56,7 +61,8 @@ class HostPropertyFit(Program):
 
         self.config_prep['cigale_input_dir'] = cigale_input_dir
         self.config_prep['n_job_tot'] = self.config_prep['n_core']
-        self.config_prep['n_job_split'] = self.config_prep['n_core']
+        self.config_prep['n_done_tot'] = self.config_prep['n_core']
+        self.config_prep['n_job_split'] = 1
         self.config_prep['SUBCLASS'] = SUBCLASS
         #self.config_prep['SNANA_TO_CIGALE'] = SNANA_TO_CIGALE
         #self.config_prep['CIGALE_TO_SNANA'] = CIGALE_TO_SNANA
@@ -90,7 +96,7 @@ class HostPropertyFit(Program):
         KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
         fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
         fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
-        print(f'xxx fitopt_dict = {fitopt_dict}')
+        
         self.config_prep['fitopt_dict'] = fitopt_dict
         self.config_prep['n_fitopt'] = fitopt_dict['n_jobopt']
         
@@ -180,7 +186,7 @@ class HostPropertyFit(Program):
         cigale_datafile_str = cigale_input_dir + '/' + CIGALE_CSV_FILE
         fitopt_arg_full = f'data_file = {cigale_datafile_str} cores = {nthread} bands = {cigale_bands_str} {fitopt_arg}'
         fitopt_arg_dict = self.fitopt_str_to_dict(fitopt_arg_full)
-        print('xxx fitopt_arg = ', fitopt_arg_dict)
+        
 
         # FUTURE MODIFICATION OF .ini.spec FILE?
 
@@ -198,7 +204,6 @@ class HostPropertyFit(Program):
     def write_command_file(self, icpu, f):
         n_core = self.config_prep['n_core']
         n_fitopt = self.config_prep['n_fitopt']
-        print('xxx n_core, n_fitopt = ', n_core, n_fitopt)
 
         for ijob in range(n_fitopt):
             if ijob == icpu:
@@ -221,20 +226,61 @@ class HostPropertyFit(Program):
         fitopt_dir = self.config_prep['fitopt_dir_list'][ijob]
 
         fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"
-        prefix        = f"{SUBCLASS}_{fitopt_num}"
+        prefix        = f"{SUBCLASS}"
         done_file     = f"{prefix}.DONE"
-        log_file      = f"CIGALE.LOG"
+        log_file      = f"{prefix}.LOG"
         yaml_file     = f"{prefix}.YAML"
-        arg_list      = ['run']
-        JOB_INFO      = {}
+        arg_list      = []
+        start_file    = f'{prefix}.START'
         
+        JOB_INFO      = {}
         JOB_INFO['job_dir']     = fitopt_dir  # where to run job
         JOB_INFO['program']     = program
-        JOB_INFO['input_file']  = ''
+        JOB_INFO['input_file']  = 'run'
         JOB_INFO['log_file']    = log_file
         JOB_INFO['done_file']   = done_file
         JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
+        JOB_INFO['start_file'] = start_file
         JOB_INFO['arg_list'] = arg_list
 
         return JOB_INFO
 
+    def create_merge_table(self,f):
+        n_fitopt = self.config_prep['n_fitopt']
+        fitopt_dict = self.config_prep['fitopt_dict']
+
+        header_line_merge = \
+                        f" STATE  FITOPT  NGAL  CPU  "
+
+        INFO_MERGE = {
+            'primary_key' : TABLE_MERGE,
+            'header_line' : header_line_merge,
+            'row_list'    : []
+        }
+
+        STATE = SUBMIT_STATE_WAIT # all start in WAIT state
+        NGAL = 0 # fix this (have translator return ngal)
+
+        for ijob in range(n_fitopt):
+            fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"   
+            ROW_MERGE = []
+            ROW_MERGE.append(STATE)
+            ROW_MERGE.append(fitopt_num)
+            ROW_MERGE.append(NGAL)
+            ROW_MERGE.append(0.0) # CPU
+            INFO_MERGE['row_list'].append(ROW_MERGE)
+        # - - - - -                                                           
+        util.write_merge_file(f, INFO_MERGE, [] )
+
+        return
+
+    def append_info_file(self,f):
+        CONFIG             = self.config_yaml['CONFIG']
+        f.write("# BEGIN HOSTFIT INFO \n")
+
+        KEY = FITOPT_STRING
+        f.write(f"{KEY}: \n")
+        for row in CONFIG[KEY] :
+            f.write(f"- {row} \n")
+
+        return

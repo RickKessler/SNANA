@@ -5946,6 +5946,8 @@ void arrayStat_STD(int N, double *array_val, double *array_wgt, char *callFun,
   //
   // For input *array_val return *AVG and *STD.
   // Apply optional array_wgt if array_wgt[0] >= 0.
+  // To ignore weights, define  "double WGT_IGNORE = -9.0" and pass &WGT_IGNORE
+  // in the array_wgt slot.
 
   int i;
   double sum_wgt, wgt, val, avg, sum, sqsum, std ;
@@ -5986,6 +5988,8 @@ void arrayStat_MEDIAN(int N, double *array_val, double *array_wgt, char *callFun
 
   // Created Jun 2026
   // Return *median of array_val, optionally  weighted by array_wgt if array_wgt[0] > 0.
+  // To ignore weights, define  "double WGT_IGNORE = -9.0" and pass &WGT_IGNORE
+  // in the array_wgt slot.
 
   double median_local = 0.0 ;
   bool USE_WGT  = array_wgt[0] >= 0.0 ;

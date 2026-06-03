@@ -1321,9 +1321,6 @@ struct INPUTS {
 
 
   int restore_sigz ; // 1-> restore original sigma_z(measure) x dmu/dz
-  int restore_bug_mucovscale ; // Sep 14 2021 allow restoring bug
-  int restore_bug_mucovadd ; // +=1 to restore wrong beta for BS21 , +=2 for bug in covadd logic, March 14 2022
-  int restore_bug2_mucovadd; // https://github.com/RickKessler/SNANA/issues/1154
   int restore_bug_sigint0; // bug calling recalc_datacov when sigint=0
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
@@ -4672,12 +4669,6 @@ void *MNCHI2FUN(void *thread) {
     if ( INPUTS.debug_flag == 526 ) // May 26 debug hack
       { APPLY_COVADD = ( DO_COVADD && (muCOVadd+muerrsq)>0.001  ); }
 
-    // - - - - - re-apply bug - - - - 
-    bool restore_bug_mucovadd = (INPUTS.restore_bug_mucovadd &2)>0;
-    if (restore_bug_mucovadd ) {
-      APPLY_COVADD = ( DO_COVADD && muCOVscale > 1.0  );
-    }
-    // - - - - - -  -
 
     if ( APPLY_COVADD ) {
       // Aug 2 2021: Dillon's sigint in bins. note that global sigint = 0
@@ -5907,9 +5898,6 @@ void set_defaults(void) {
   
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_des5yr         = 0 ; // Sep 12 2025: disable restore flag -> implement CC prior bug fix
-  INPUTS.restore_bug_mucovscale = 0 ;
-  INPUTS.restore_bug_mucovadd   = 0 ;
-  INPUTS.restore_bug2_mucovadd  = 0 ;
   INPUTS.restore_bug_sigint0    = 0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
@@ -10952,15 +10940,6 @@ void set_DUST_FLAG_biasCor(void) {
   char fnam[] = "set_DUST_FLAG_biasCor" ;
 
   // ------------ BEGIN -----------
-
-  // Aug 14 2024: restore "restore_bug" option to use SIM_BETA ~ 2
-  //              instead of approx fitted beta
-  if (  (INPUTS.restore_bug_mucovadd &1)>0 ) {
-    fprintf(FP_STDOUT,"\n %s WARNING: restore bug to use "
-	    "SIM_BETA for biasCor instead of p2\n\n", fnam );
-    return;
-  }
-
   
   if ( !INPUTS.ISMODEL_LCFIT_SALT2 ) { return; }
 
@@ -12104,7 +12083,7 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
-  if ( DO_COVADD && !INPUTS.restore_bug2_mucovadd ) {
+  if ( DO_COVADD ) {
     // zero out sigInt for COV-additive method. M.Vincenzi 5/30/2023
     LOAD_SIGINT_ABGRID(0.0, IDSAMPLE);
     if ( IDSAMPLE == 0) {
@@ -12298,8 +12277,6 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     if ( INPUTS.restore_bug_muzerr )
       { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
 
-    if ( DO_COVADD && INPUTS.restore_bug2_mucovadd ) // May 30 2023
-      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
 
     // - - - - - 
 
@@ -12411,15 +12388,9 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 
     if ( N < NperCell_min ) {       
       CELL_MUCOVSCALE->USE[i1d]   = false;
-
-      if ( INPUTS.restore_bug_mucovscale ) { 
-	CELL_MUCOVSCALE->USE[i1d]=true;
-      }
-      else {
-	CELL_MUCOVSCALE->AVG_z[i1d]           = UNDEFINED ;
-	CELL_MUCOVSCALE->AVG_m[i1d]           = UNDEFINED ;
-	CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] = UNDEFINED ;
-      }
+      CELL_MUCOVSCALE->AVG_z[i1d]           = UNDEFINED ;
+      CELL_MUCOVSCALE->AVG_m[i1d]           = UNDEFINED ;
+      CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] = UNDEFINED ;
       continue ; 
     }
 
@@ -12721,7 +12692,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
 
-  if ( DO_COVADD && !INPUTS.restore_bug2_mucovadd ) {
+  if ( DO_COVADD ) {
     // zero out sigInt for COV-additive method. M.Vincenzi 5/30/2023
     LOAD_SIGINT_ABGRID(0.0, IDSAMPLE);
     if ( IDSAMPLE == 0) {
@@ -12893,9 +12864,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
     if ( INPUTS.restore_bug_muzerr )
       { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
 
-    if ( DO_COVADD && INPUTS.restore_bug2_mucovadd ) // May 30 2023
-      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
-
     // - - - - - 
 
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
@@ -13001,15 +12969,9 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     if ( N < NperCell_min ) {       
       CELL_MUCOVSCALE->USE[i1d]   = false;
-
-      if ( INPUTS.restore_bug_mucovscale ) { 
-	CELL_MUCOVSCALE->USE[i1d]=true;
-      }
-      else {
-	CELL_MUCOVSCALE->AVG_z[i1d]           = UNDEFINED ;
-	CELL_MUCOVSCALE->AVG_m[i1d]           = UNDEFINED ;
-	CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] = UNDEFINED ;
-      }
+      CELL_MUCOVSCALE->AVG_z[i1d]           = UNDEFINED ;
+      CELL_MUCOVSCALE->AVG_m[i1d]           = UNDEFINED ;
+      CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] = UNDEFINED ;
       continue ; 
     }
     
@@ -15394,7 +15356,6 @@ int get_muCOVcorr(char *cid,
     { IMMIN = IMMAX = IM; }  // do NOT interp logmass dimension
 
   USEBIN_CENTER = false;
-  if ( INPUTS.restore_bug_mucovscale ) { USEBIN_CENTER = true; }
 
   // - - - - - - 
 
@@ -15473,9 +15434,15 @@ int get_muCOVcorr(char *cid,
       muCOVadd_local = SUM_muCOVadd / SUM_WGT ;
     }
   }
+  else {
+    return(0);
+  }
+
+  /* xxxxxxx mark delete Jun 3 2026 xxxxxx
   else if ( !INPUTS.restore_bug_mucovscale ) {
     return(0); // 9.2021
   }
+  xxxxxxx end mark */
 
   // - - - - - - - -
   if ( DUMPFLAG) {
@@ -19674,6 +19641,7 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_des5yr=")) 
     { sscanf(&item[15],"%d", &INPUTS.restore_des5yr); return(1); }
 
+  /* xxxxx mark delete 
   if ( uniqueOverlap(item,"restore_bug_mucovscale=")) 
     { sscanf(&item[23],"%d", &INPUTS.restore_bug_mucovscale); return(1); }
 
@@ -19681,6 +19649,7 @@ int ppar(char* item) {
     { sscanf(&item[21],"%d", &INPUTS.restore_bug_mucovadd); return(1); }
   if ( uniqueOverlap(item,"restore_bug2_mucovadd="))
     { sscanf(&item[22],"%d", &INPUTS.restore_bug2_mucovadd); return(1); }
+  xxxxxx end mark */
 
   if ( uniqueOverlap(item,"restore_bug_sigint0="))
     { sscanf(&item[20],"%d", &INPUTS.restore_bug_sigint0); return(1); }  
@@ -22076,22 +22045,11 @@ void prep_debug_flag(void) {
 
   // --------- BEGIN -----------
 
-  if ( INPUTS.restore_bug_mucovscale ) {
-    printf("\n RESTORE BUG for mucovscale\n");
-  }
 
   if ( INPUTS.restore_des5yr ) {
     printf("\n RESTORE DES-SN5YR BUG setting mubias=0 for CCprior events.\n");
   }
 
-  if ( INPUTS.restore_bug_mucovadd ) {
-    printf("\n RESTORE BUG for mucovadd (set to %d)\n", 
-	   INPUTS.restore_bug_mucovadd);
-  }
-
-  if ( INPUTS.restore_bug2_mucovadd ) {
-    printf("\n RESTORE 2nd BUG for mucovadd (missing sigint in 1/MUERR^2)\n" );
-  }
 
   if ( INPUTS.restore_bug_sigint0 ) {
     printf("\n RESTORE BUG calling recalc_datacov() when sigint=0 (in prepNextFit)\n");
@@ -25726,11 +25684,8 @@ void print_SALT2mu_HELP(void) {
     "check_duplicates_biascor=1  # check SIM_z + SIM_c biasCor duplicates, allowing different SNID",
     "",
     "# restore_bug options:",
-    "restore_bug_mucovscale=1    # use undefined muCOVscale cells",
     "restore_bug_muzerr=1        # ignore vpec err in biasCor",
     "restore_bug_zmax_biascor=1  # no extra redshift range for biasCor-interp",
-    "restore_bug_mucovadd=1      # use wrong beta for sim biasCor (Feb 2022)",
-    "restore_bug_mucovadd=2      # restore bug in muCOVadd logic (Mar 2022)",
     "restore_bug_sigint0         # restore bug calling recalc_datacov when sigint=0 (Feb 2022)",       
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",

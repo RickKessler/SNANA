@@ -80,13 +80,13 @@ class HostPropertyFit(Program):
         command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
 
         command_exe = f'cd {cigale_input_dir}; {PROGRAM_CIGALE_TRANSLATOR} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE}'
-        #command_exe += ' --zgrid 0.1 1.5 15' # temp hack
 
         os.mkdir(cigale_input_dir)
         os.system(command_copy)
-        os.system(command_exe)
-
-        #sys.exit(f'command_exe = {command_copy}')
+        # Execute via subprocess to get nrows output
+        result = subprocess.run(command_exe, shell=True, stdout=subprocess.PIPE, text=True, check=True)
+        nrows = int(result.stdout.strip())
+        self.config_prep['cigale_input_nrows'] = nrows
 
         return
 
@@ -259,7 +259,7 @@ class HostPropertyFit(Program):
         }
 
         STATE = SUBMIT_STATE_WAIT # all start in WAIT state
-        NGAL = 0 # fix this (have translator return ngal)
+        NGAL = self.config_prep['cigale_input_nrows']
 
         for ijob in range(n_fitopt):
             fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"   

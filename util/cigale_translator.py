@@ -296,7 +296,7 @@ def write_galid_map(galid_map_path, output_cols, snana_galids_tiled):
         w.writerow(["cigale_id", "snana_galid"])
         for cid, sgid in zip(cigale_id_col, snana_galids_tiled):
             w.writerow([int(cid), int(sgid)])
-    print(f"Wrote galid map ({len(cigale_id_col)} rows) to {galid_map_path}")
+    print(f"Wrote galid map ({len(cigale_id_col)} rows) to {galid_map_path}", file=sys.stderr)
 
 
 def write_cigale_output(cigale_output_path, header_parts, output_cols):
@@ -315,7 +315,8 @@ def write_cigale_output(cigale_output_path, header_parts, output_cols):
                 else:
                     vals.append(f"{col[i]:.6f}")
             f.write(" ".join(vals) + "\n")
-    print(f"Wrote {nrows} rows to {cigale_output_path}")
+    print(f"Wrote {nrows} rows to {cigale_output_path}", file=sys.stderr)
+    print(nrows)
 
 
 def snana_to_cigale(args, config, mode):
@@ -536,7 +537,7 @@ def cigale_to_snana(args, config, mode):
     n_gal, n_rows = write_snana_output(
         output_path, snana_cols, galids, redshifts, logmass, logmass_err
     )
-    print(f"Wrote {n_gal} galaxies ({n_rows} grid rows) to {output_path}")
+    print(f"Wrote {n_gal} galaxies ({n_rows} grid rows) to {output_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
@@ -561,6 +562,6 @@ if __name__ == "__main__":
         sys.exit(f"mode must be 'SNANA_TO_CIGALE' or 'CIGALE_TO_SNANA', got {mode!r}")
 
 
-    print(f"DONE.")
+    print(f"DONE.", file=sys.stderr)
 
     # === END: ====

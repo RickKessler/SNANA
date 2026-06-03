@@ -1,18 +1,15 @@
-*.pyc
 obj/*
 lib/*
 bin/*
-kumacs/*
-src/ypatchy.log
 src/*.f*
 src/*~
-src/temp*
 src/*.o
 src/*.mod
+src/*.checkpoint
 util/*~
 *~
+*.pyc
 __pycache__/*
-src/*.checkpoint
 aclocal.m4
 autom4te.cache
 build-aux
@@ -26,4 +23,3 @@ Makefile.in
 stamp-h1
 src/Makefile
 src/Makefile.in
-

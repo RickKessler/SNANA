@@ -2108,6 +2108,8 @@ int main(int argc,char* argv[ ]) {
   // Give help if no arguments  
   if (argc < 2) { print_SALT2mu_HELP();  exit(0); }
 
+  //  test_arrayStat(); // xxx remove
+
   SALT2mu_DRIVER_INIT(argc,argv);
   
   NCALL_SALT2mu_DRIVER_EXEC = 0;
@@ -12323,7 +12325,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   int NPERCELL_REALLOC=2000;
   int N_REALLOC=0;
 
-  double    UNDEFINED = 9999.0, WGT_MUCOV_IGNORE ;
+  double    UNDEFINED = 9999.0, WGT_IGNORE=-9.0 ;
   float    *ptr_MUCOVSCALE;
   float    *ptr_MUCOVADD;
   BIASCORLIST_DEF     BIASCORLIST ;
@@ -12661,7 +12663,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
     if ( DO_MAD ) {
       // beware that MAD is meaningfull only for |PULL|; ignore AVG and STD 
-      arrayStat( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &STD, &MAD);
+      //  arrayStat_legacy( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &STD, &MAD);
+      arrayStat_MEDIAN( N, CELL_MUCOVSCALE->ABSPULL[i1d], &WGT_IGNORE, fnam, &MAD);
       SIG_PULL_MAD[i1d]   = 1.48 * MAD;
       ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_MAD[i1d]*SIG_PULL_MAD[i1d]) ;
     } 
@@ -12695,14 +12698,14 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	sigInt =  
 	  sigint_muresid_list(N, 
 			      CELL_MUCOVADD->MURES[i1d],
-			      CELL_MUCOVADD->MUCOV[i1d], &WGT_MUCOV_IGNORE,
+			      CELL_MUCOVADD->MUCOV[i1d], &WGT_IGNORE,
 			      OPTMASK, callfun );	
       }
       else {
 	sigInt =  // legacy call using STD
 	  sigint_muresid_list_legacy(N, 
 				     CELL_MUCOVADD->MURES[i1d],
-				     CELL_MUCOVADD->MUCOV[i1d], &WGT_MUCOV_IGNORE,
+				     CELL_MUCOVADD->MUCOV[i1d], &WGT_IGNORE,
 				     OPTMASK, callfun );
       }
 
@@ -26914,7 +26917,7 @@ void SUBPROCESS_COMPUTE_STD(int ITABLE) {
 
   int    NBINTOT, ibin, NEVT, i;
   double SUM, SQSUM, STD, STD_ROBUST, *MURES_LIST;
-  double MURES_AVG, *ABSMURES_LIST, DUM_AVG, DUM_STD, MEDIAN ;
+  double MURES_AVG, *ABSMURES_LIST, DUM_WGT=-9.0, MEDIAN ;
   char fnam[] = "SUBPROCESS_COMPUTE_STD" ;  (void)fnam;
 
   // -------------- BEGIN ------------
@@ -26936,7 +26939,8 @@ void SUBPROCESS_COMPUTE_STD(int ITABLE) {
     for(i=0; i < NEVT; i++ )
       { ABSMURES_LIST[i] = fabs(MURES_LIST[i]-MURES_AVG); }
 	
-    arrayStat(NEVT, ABSMURES_LIST, &DUM_AVG, &DUM_STD, &MEDIAN);
+    // xxx mark arrayStat_legacy(NEVT, ABSMURES_LIST, &DUM_AVG, &DUM_STD, &MEDIAN);
+    arrayStat_MEDIAN(NEVT, ABSMURES_LIST, &DUM_WGT, fnam, &MEDIAN); // return MEDIAN
 
     STD        = STD_from_SUMS(NEVT, SUM, SQSUM) ;
     STD_ROBUST = 1.48 * MEDIAN ;

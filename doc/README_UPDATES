@@ -23869,7 +23869,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         needed for creating SIMLIB from fakes.
      
    sntools.c
-     fix array bound for uthash; see https://github.com/RickKessler/SNANA/issues/1680
+     + fix array bound for uthash; see https://github.com/RickKessler/SNANA/issues/1680
+     + refactor arrayStat into arrayStat_STD and arrayStat_MEDIAN, both of which
+       incluce optional array_wgt array.
 
    SALT2mu.c:
      + if opt_biascor & 1024 is set (keep events with invalid BCOR), fix subtle bug

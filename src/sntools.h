@@ -781,10 +781,17 @@ double quadInterp ( double VAL, double VAL_LIST[3], double FUN_LIST[3],
 
 double polyEval(int N, double *coef, double x);
 
-void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN);
-void arraystat_(int *N, double *array, double *AVG, double *STD, double *MEDIAN);
+//void arrayStat_legacy(int N, double *array, double *AVG, double *STD, double *MEDIAN);
+//void arraystat_legacy__(int *N, double *array, double *AVG, double *STD, double *MEDIAN);
+
+void  arrayStat_STD(int N, double *array_val, double *array_wgt, char *callFun, 
+		    double *AVG, double *STD);
+void  arrayStat_MEDIAN(int N, double *array_val, double *array_wgt, char *callFun, double *MEDIAN);
+void  arraystat_median__(int *N, double *array_val, double *array_wgt, char *callFun, double *MEDIAN);
+
 void test_arrayStat(void);
 double STD_from_SUMS(int N, double SUM, double SQSUM);
+
 
 double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 			   double *WGT_LIST, int OPTMASK, char *callFun );

@@ -5805,9 +5805,9 @@ int  getList_PATH_SNDATA_SIM(char **pathList) {
 
 } // end getList_PATH_SNDATA_SIM
 
-
+/* xxxxxxx mark delete Jun 2 2026 xxxxxxxxxxxx
 // =============================================================
-void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
+void arrayStat_legacy(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
 
   // For input *array return *AVG and *STD
   // Jun 2 2020: include MEDIAN in output
@@ -5856,27 +5856,48 @@ void arrayStat(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
   *MEDIAN = median;
 
   return ;
-} // end of arrayStat
+} // end of arrayStat_legacy
 
-void arraystat_(int *N, double *array, double *AVG, double *STD, 
-		double *MEDIAN) 
-{ arrayStat(*N, array, AVG, STD, MEDIAN); }
+void arraystat_legacy__(int *N, double *array, double *AVG, double *STD, 
+			double *MEDIAN) 
+{ arrayStat_legacy(*N, array, AVG, STD, MEDIAN); }
+
+xxxxxxxxxxxx end mark xxxxxxxxx */
 
 void test_arrayStat(void) {
+
 #define NTEST_arrayStat 9
-  double AVG, STD, MEDIAN, array[NTEST_arrayStat];
+
+  double array[NTEST_arrayStat], wgt=-9.0 ;
+  double AVG_LEGACY=-9.0, STD_LEGACY=-9.0, MEDIAN_LEGACY=-9.0;
+  double AVG, STD, MEDIAN;
   int N, i;
   char fnam[] = "test_arrayStat" ;
 
   // ----------- begin -----------
   // load array values 1 ... N
-  for(i=0; i < NTEST_arrayStat; i++ ) { array[i] = (double)(i+1); }
-
-  for(N=NTEST_arrayStat; N > NTEST_arrayStat-2; N-- ) {
-    arrayStat(N, array, &AVG, &STD, &MEDIAN);
-    printf(" xxx %s: N=%d -> AVG=%.3f, STD=%.3f, MEDIAN=%.3f \n",
-	   fnam, N, AVG, STD, MEDIAN ); fflush(stdout);
+  for(i=0; i < NTEST_arrayStat; i++ ) { 
+    array[i] = (double)(i+1); 
+    printf(" xxx %s: array[%2d] = %f \n", fnam, i, array[i]); fflush(stdout);
   }
+  
+  for(N=NTEST_arrayStat; N > NTEST_arrayStat-3; N-- ) {
+
+    //    arrayStat_legacy(N, array, &AVG_LEGACY, &STD_LEGACY, &MEDIAN_LEGACY);
+    arrayStat_STD(N, array, &wgt, fnam, &AVG, &STD );  // REFAC Jun 2026  
+    arrayStat_MEDIAN(N, array, &wgt, fnam, &MEDIAN );  // REFAC Jun 2026
+    
+    printf(" xxx ------------------------------------------------------- \n");
+    printf(" xxx %s: N=%d -> LEGACY AVG=%.3f, STD=%.3f, MEDIAN=%.3f \n",
+	   fnam, N, AVG_LEGACY, STD_LEGACY, MEDIAN_LEGACY ); 
+    printf(" xxx %s: N=%d -> REFAC  AVG=%.3f, STD=%.3f, MEDIAN=%.3f \n",
+	   fnam, N, AVG, STD, MEDIAN ); 
+
+    fflush(stdout);
+  }
+
+  debugexit(fnam);
+
   return;
 
 } // end test_arrayStat
@@ -5898,6 +5919,105 @@ double STD_from_SUMS(int N, double SUM, double SQSUM) {
   return(STD);
 
 } // end STD_from_SUMS
+
+
+// =============================================================
+void arrayStat_STD(int N, double *array_val, double *array_wgt, char *callFun, 
+		   double *AVG, double *STD) {
+
+  // Created Jun 2026 [modified from original arrayStat, but remove *median output]
+  //
+  // For input *array_val return *AVG and *STD.
+  // Apply optional array_wgt if array_wgt[0] >= 0.
+
+  int i;
+  double sum_wgt, wgt, val, avg, sum, sqsum, std ;
+
+  bool USE_WGT = array_wgt[0] >= 0.0 ;
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "arrayStat_STD", fnam);
+
+  // ----------- BEGIN ------------
+
+  *AVG = *STD = 0.0 ;
+  if ( N <= 0 ) { return ; }
+
+  avg  = std = sqsum = sum = sum_wgt = 0.0 ;
+
+  for ( i=0; i < N; i++ ) { 
+    val  = array_val[i] ; 
+    if ( USE_WGT ) { wgt = array_wgt[i]; }  else { wgt = 1.0; }
+    sum_wgt +=  (wgt );
+    sum     +=  (wgt * val); 
+    sqsum   +=  (wgt * val*val); 
+  }
+
+  avg = sum/sum_wgt ; 
+  std = STD_from_SUMS(N, sum, sqsum);
+
+  // load results to output variables.
+  *AVG    = avg ;
+  *STD    = std ;
+
+  return ;
+
+} // end of arrayStat_STD
+
+
+void arrayStat_MEDIAN(int N, double *array_val, double *array_wgt, char *callFun, 
+		      double *median) {
+
+  // Created Jun 2026
+  // Return *median of array_val, optionally  weighted by array_wgt if array_wgt[0] > 0.
+
+  double median_local = 0.0 ;
+  bool USE_WGT  = array_wgt[0] >= 0.0 ;
+  bool IS_ODD   = ( N%2 == 1 );
+  int ORDER_SORT  = +1;
+  int *INDEX_SORT = (int*) malloc( N * sizeof(int) ) ;
+  int i, isort, imed0, imed1, iHalf  = N/2;
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "arrayStat_MEDIAN", fnam);
+
+  // ---------------- BEGIN --------------
+
+  sortDouble(N, array_val, ORDER_SORT, INDEX_SORT );
+
+  if ( USE_WGT ) {
+    double SUM_WGT=0.0, sum_wgt=0.0, SUM_WGT_HALF ;
+    for(i=0; i < N; i++ ) { SUM_WGT += array_wgt[i]; }  
+    SUM_WGT_HALF = SUM_WGT/2.0;  i=0;
+    while ( sum_wgt < SUM_WGT_HALF ) {      
+      isort = INDEX_SORT[i];
+      sum_wgt += array_wgt[isort];  i++ ;  
+    }
+    median_local = array_val[isort];
+  }
+  else {
+    // easy way with no weights
+    if ( IS_ODD ) { 
+      // odd number of elements -> use middle value
+      imed0   = INDEX_SORT[iHalf]; imed1 = imed0 ;
+    }
+    else {
+      // even number of elements; average middle two values
+      imed0 = INDEX_SORT[iHalf-1];    imed1 = INDEX_SORT[iHalf];
+    }
+    median_local  = 0.5 * ( array_val[imed0] + array_val[imed1] );
+  }
+
+  // - - - - - - 
+  free(INDEX_SORT);
+  *median = median_local ;
+
+  return ;
+
+} // end arrayStat_MEDIAN
+
+void arraystat_median__(int *N, double *array_val, double *array_wgt, char *callFun, double *MEDIAN) {
+  arrayStat_MEDIAN(*N, array_val, array_wgt, callFun, MEDIAN);
+}
 
 // ======================================================
 double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
@@ -5966,10 +6086,12 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
-
+  double *ABS_MURES_LIST ;
   char fnam[200];
   concat_callfun_plus_fnam(callFun, "sigint_muresid_list", fnam);
   // ---------------- BEGIN -------------
+
+  if ( USE_MAD ) { ABS_MURES_LIST = (double*) malloc( sizeof(double) * N_LIST); }
 
   // determine max wgt
   if ( USE_WGT ) {
@@ -5983,6 +6105,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   }
 
   // - - - - - -
+
   SUM_WGT = 0.0 ;
   for ( i=0; i < N_LIST ; i ++ ) {
     MURES    = MURES_LIST[i];
@@ -6000,18 +6123,45 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     SUM_MUCOV   += (WGT * MUCOV);
     SUM_MURES   += (WGT * MURES);
     SUM_SQMURES += (WGT * SQMURES);
-    SUM_WGT     += (WGT  ) ;
+    SUM_WGT     += (WGT );
+    if ( USE_MAD ) { ABS_MURES_LIST[i] = fabs(MURES); } // account for WGT < 1 ??? .xyz
   }
+
 
   AVG_MURES = SUM_MURES / SUM_WGT ;
   AVG_MUCOV = SUM_MUCOV / SUM_WGT ;
   AVG_MUERR = sqrt(AVG_MUCOV);
-  NEVT_EFFECTIVE   = (int)(SUM_WGT+0.5) ;
-  // STD_MURES_ORIG = STD_from_SUMS(N_LIST, SUM_MURES, SUM_SQMURES);
-  STD_MURES_ORIG = STD_from_SUMS( NEVT_EFFECTIVE, SUM_MURES, SUM_SQMURES);
 
-  tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
-  
+  // - - - - - 
+  if ( USE_MAD ) {
+    // create MAD util for here and for arrayStat ?
+    double median;
+    int ORDER_SORT = +1 ;
+    int *INDEX_SORT = (int*) malloc( N_LIST * sizeof(int) ) ;
+    int imed0, imed1, iHalf  = N_LIST/2;
+    sortDouble(N_LIST, ABS_MURES_LIST, ORDER_SORT, INDEX_SORT );
+
+    if ( N_LIST%2 == 1 ) { 
+      // odd number of elements -> use middle value
+      imed0   = INDEX_SORT[iHalf]; imed1 = imed0;
+    }
+    else {
+      // even number of elements; average middle two values
+      imed0 = INDEX_SORT[iHalf-1];  imed1 = INDEX_SORT[iHalf];
+    }
+    median  = 0.5 * ( ABS_MURES_LIST[imed0] + ABS_MURES_LIST[imed1] );
+
+    STD_MURES_ORIG = 1.48 * median;
+    free(INDEX_SORT);
+    free(ABS_MURES_LIST);
+  }
+  else {
+    NEVT_EFFECTIVE   = (int)(SUM_WGT+0.5) ;
+    STD_MURES_ORIG = STD_from_SUMS( NEVT_EFFECTIVE, SUM_MURES, SUM_SQMURES);
+  }
+
+  // - - - - 
+
   bool INVALID_SIGINT_APPROX = (STD_MURES_ORIG < AVG_MUERR);
   if  ( INVALID_SIGINT_APPROX && LABORT ) {
       sprintf(c1err,"Cannot compute sigint because STD < AVG_MUERR ??");
@@ -6021,11 +6171,11 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   } // end INVALID_SIGINT && ABORT
   
 
-  if (tmp<0) {
-    sigint_approx = 0.;
-  } else {
-    sigint_approx = sqrt(tmp);
-  }
+  tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
+  if (tmp < 0 ) 
+    { sigint_approx = 0.;  } 
+  else 
+    { sigint_approx = sqrt(tmp);  }
 
   // - - - - - - - 
   // prepare interp-grid of sigint vs. RMS around sigint_approx.
@@ -6090,8 +6240,6 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
       sum_sqpull += ( WGT * pull * pull);
       SUM_WGT    += WGT ;
     }
-    
-    // xxx     rmsPull = STD_from_SUMS(N_LIST, sum_pull, sum_sqpull);
 
     NEVT_EFFECTIVE = (int)(SUM_WGT+0.5) ;
     rmsPull = STD_from_SUMS( NEVT_EFFECTIVE, sum_pull, sum_sqpull);
@@ -6120,8 +6268,9 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
 
   // - - - - -
-  if ( NBIN_SIGINT == 1 && fabs(rmsPull_store[0]-1.0) < 0.001 )
-    { return sigTmp_store[0] ; }      // May 2 2024 
+  if ( NBIN_SIGINT == 1 && fabs(rmsPull_store[0]-1.0) < 0.001 )  { 
+    return sigTmp_store[0] ;       // May 2 2024 
+  }
 
  
   bool ONE_TEST = ONE >= rmsPull_store[0] && ONE <= rmsPull_store[NBIN_SIGINT-1];
@@ -6149,7 +6298,6 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     printf(" xxx \n");
     fflush(stdout) ;
   }
-
 
   return sigint;
 

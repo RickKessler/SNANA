@@ -474,7 +474,7 @@ double SNcadenceFoM( int OPTMASK, int Nobs, double *MJDLIST, double *M5SIGLIST,
     ,mjd_rand_array[MAXRAN_MJDARRAY]
     ,m5sig_array[MAXRAN_MJDARRAY]
     ,m5sig_rand_array[MAXRAN_MJDARRAY]
-    ,MEDIAN
+    ,WGT_IGNORE=-9.0
     ;
 
   double result;    // save fraction of FoM bins above the current FoM
@@ -564,8 +564,13 @@ double SNcadenceFoM( int OPTMASK, int Nobs, double *MJDLIST, double *M5SIGLIST,
     CUTOFF_DIFMJD   = DEFAULT_cadence_CUTOFF_DIFMJD ; // not used
   }
 
-  arrayStat(Nobs, m5sig_array,               // <== input
-	    &M5SIG_AVG_t, &M5SIG_RMS_t, &MEDIAN );  // <== returned
+  // xxxxxxxxxx mark delete Jun 2 2026 xxxxxxxxxxx
+  //  arrayStat_legacy(Nobs, m5sig_array,               // <== input
+  //		   &M5SIG_AVG_t, &M5SIG_RMS_t, &MEDIAN );  // <== returned
+  // xxxxxxxxxxxxxx end mark xxxxxxxxxxx
+
+  arrayStat_STD(Nobs, m5sig_array, &WGT_IGNORE, fnam,         // <== input
+		&M5SIG_AVG_t, &M5SIG_RMS_t );  // <== returned
 
   LDMP_LOCAL = 0 ; // set to whatever needed for debugging
 

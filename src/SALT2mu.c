@@ -10523,7 +10523,10 @@ void prepare_biasCor(void) {
 
     // make map of sigma_mu bias
     if ( DOCOR_MUCOVSCALE ) { 
-      makeMap_sigmu_biasCor_legacy(IDSAMPLE); 
+      if ( INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR > 0 ) 
+	{ makeMap_sigmu_biasCor(IDSAMPLE); }  // REFAC, Jun 2026
+      else
+	{ makeMap_sigmu_biasCor_legacy(IDSAMPLE); }
     }
 
     fprintf(FP_STDOUT, "\n\t END BIASCOR PREP for %s\n", NAME_SAMPLE);
@@ -12009,6 +12012,8 @@ void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) {
 // ======================================================
 void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
+
   // Created May 12, 2016
   // Make map of MUCOVSCALE, where MUCOVSCALE = RMS(MURES)/AVG(MUERR)
   // as a function of (z,x1,c,a,b).
@@ -12026,6 +12031,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
   // Sep 14 2021: little cleanup/refac 
   // Sep 16 2021: add dump utils; see i1d_dump_mucovscale and OPTMASK
   // Jun 05 2022: write SALT2 fit params in abort msg for crazy muErr
+
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
   int NBIASCOR_CUTS    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
   int NBIASCOR_ALL     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
@@ -12051,6 +12058,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
   double *SIG_PULL_STD;
   char   *name ;
 
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
+
   int NperCell_min = MINPERCELL_MUCOVSCALE;
 
   // Declare lists for debug_mucovscale
@@ -12075,6 +12084,7 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
   int  DUMPFLAG = 0 ; // (IDSAMPLE ==0 ) ;
   char fnam[]  = "makeMap_sigmu_biasCor_legacy" ;
   
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
   // ----------------- BEGIN -------------------
 
   if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
@@ -12086,6 +12096,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
       fprintf(FP_STDOUT, " %s: set sigInt=0 for COVADD method\n", fnam);
     }
   }
+
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
   if ( debug_mucovscale > 0 ) {
     int memd   = sizeof(double) * NBIASCOR_ALL;
@@ -12107,6 +12119,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
   NCELL = CELL_MUCOVSCALE->NCELL;
 
   int MEMD     = NCELL   * sizeof(double);
+
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
   ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];         
   ptr_MUCOVADD   = INFO_BIASCOR.MUCOVADD[IDSAMPLE];         
@@ -12132,6 +12146,7 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
   SIG_PULL_STD   = (double*) malloc(MEMD);
   ig = 0 ;
 
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
   int N1D=0;
   for(ia=0; ia< NBINa; ia++ ) {
@@ -12147,6 +12162,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 	      SUM_PULL[N1D]  = SUM_SQPULL[N1D]  = 0.0 ;
               SIG_PULL_MAD[N1D] = UNDEFINED ;
 	      SIG_PULL_STD[N1D] = UNDEFINED ;
+
+	      // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
 	      ptr_MUCOVSCALE[N1D] = 1.0 ;
 	      CELL_MUCOVSCALE->NperCell[N1D]  = 0 ;
@@ -12172,6 +12189,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     }
   }
 
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
+
   // - - - - -
   for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
 
@@ -12193,6 +12212,7 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
       }
     }
 
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
     get_abg_biasCor(ievt, &a, &b, &gDM, fnam);    
     z    = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
@@ -12202,6 +12222,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     ia   = (int)INFO_BIASCOR.IA[ievt];
     ib   = (int)INFO_BIASCOR.IB[ievt];
     ig   = (int)INFO_BIASCOR.IG[ievt];
+
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
     name = INFO_BIASCOR.TABLEVAR.name[ievt];
     for(ipar=0; ipar < NLCPAR; ipar++ ) 
@@ -12222,6 +12244,7 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 
     // ---------------------------------------------------
     // need bias corrected distance to compute pull
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
     BIASCORLIST.z            = z ;
     BIASCORLIST.host_logmass = m ;
@@ -12246,6 +12269,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     muDif   =  muresid_biasCor(ievt);  // mu - muTrue
     muDif  -=  muBias ;  
     muDifsq =  muDif*muDif ;
+
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
     
     // compute error with intrinsic scatter
     // 2.10.2023: include vpec uncertainties in muerr computation
@@ -12262,6 +12287,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
       { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
 
     // - - - - - 
+
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
     muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
 
@@ -12293,6 +12320,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     // get 1d index
     i1d = CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic] ;
 
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
+
     if ( debug_mucovscale > 0 ) {
       INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] = i1d;
       muDif_list[ievt]  = muDif;
@@ -12312,6 +12341,7 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     SUM_SQMUERR[i1d] += WGT_POP *  muErrsq ;
     SUM_MUERR[i1d]   += WGT_POP *  muErr ;
 
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
     if (DO_MAD) {
       NperCell = CELL_MUCOVSCALE->NperCell[i1d];
@@ -12353,6 +12383,7 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
   // -------------------------------------------------
   double WN, SQSTD, STD=-9.0, MAD=-9.0 ;
   int N;
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
   for(i1d=0; i1d < NCELL; i1d++ ) {
 
@@ -12375,6 +12406,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
       }
       continue ; 
     }
+
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
     
     CELL_MUCOVSCALE->USE[i1d]                 = true;
     CELL_MUCOVSCALE->AVG_z[i1d]              /= WN ;
@@ -12406,6 +12439,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
       ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_STD[i1d]*SIG_PULL_STD[i1d]) ; 
     }
 
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
+
     if ( DO_COVADD ) {
       double sigInt;
       char   callfun[100];
@@ -12426,6 +12461,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 	       fnam, i1d, SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d] );
         sprintf(callfun,"%s", fnam); // May 31 2026	
       }
+
+      // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
       sigInt =  // legacy call using STD
 	sigint_muresid_list_legacy(N, 
@@ -12450,6 +12487,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
   int LPRINT ;
   LPRINT = !INPUTS.cutwin_only ;
   LPRINT = 0; // Sep 16 2025: remove this bulky output
+
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
   if ( LPRINT ) {
 
@@ -12478,7 +12517,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 	  for(iz=0; iz < NBINz; iz++ ) {	
 	    zlo = CELL_MUCOVSCALE->BININFO_z.lo[iz];
 	    zhi = CELL_MUCOVSCALE->BININFO_z.hi[iz];
-	    
+
+	    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@	    
 	    for(im=0; im < NBINm; im++ ) {	
 	      printf("  %d,%d,%d,%d  %.2f-%.2f : ",  ia,ib,ig,im, zlo, zhi );
 	      for(ic=0; ic<3; ic++ ) {  
@@ -12511,6 +12551,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
 
   if ( debug_mucovscale > 0 ) {   
     write_debug_mucovcorr(IDSAMPLE, muDif_list, muBias_list, muErr_list, muErr_raw_list);
+
+    // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
     /* xxxxxxx mark delete Jun 2 2026 xxxxxxxxxx
     // xxxxxxxx legacy file Mar 3 2022 RK xxxxxxx
@@ -12562,6 +12604,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     free(muErr_list); free(muErr_raw_list); free(muDif_list);
   }  // end debug_mucovscale
 
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
+
   // - - - - - 
   print_debug_malloc(-1*debug_malloc,fnam);
   free(SUM_MUERR);   free(SUM_SQMUERR);
@@ -12578,6 +12622,8 @@ void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
     free(CELL_MUCOVSCALE->PULL);
   }
   return;
+
+  // @@@@@@@@@@ LEGACY makeMap_sigmu_biasCor_legacy @@@@@@@@@@@@@@
 
 } // end makeMap_sigmu_biasCor_legacy
 
@@ -13003,21 +13049,15 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
         sprintf(callfun,"%s", fnam); // May 31 2026	
       }
 
-      if ( INPUTS.debug_flag == 602 ) {
-	OPTMASK += 4 ; // enable new MAD feature in REFAC code
-	sigInt =  
-	  sigint_muresid_list(N, 
-			      CELL_MUCOVADD->MURES[i1d],
-			      CELL_MUCOVADD->MUCOV[i1d], &WGT_IGNORE,
-			      OPTMASK, callfun );	
-      }
-      else {
-	sigInt =  // legacy call using STD
-	  sigint_muresid_list_legacy(N, 
-				     CELL_MUCOVADD->MURES[i1d],
-				     CELL_MUCOVADD->MUCOV[i1d], &WGT_IGNORE,
-				     OPTMASK, callfun );
-      }
+
+      if ( INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR == 4 ) 
+	{ OPTMASK += 4 ; }  // enable new MAD feature in REFAC code
+      sigInt =  
+	sigint_muresid_list(N, 
+			    CELL_MUCOVADD->MURES[i1d],
+			    CELL_MUCOVADD->MUCOV[i1d], &WGT_IGNORE,
+			    OPTMASK, callfun );	
+    
 
       if (sigInt == 0.) { sigInt = 1.0e-12;}
       ptr_MUCOVADD[i1d] = sigInt*fabs(sigInt); // preserve the sign 
@@ -22114,6 +22154,20 @@ void prep_debug_flag(void) {
 
   if ( INPUTS.debug_flag!=0) {
     printf("\n debug flag set to %d\n", INPUTS.debug_flag );
+    fflush(FP_STDOUT);
+  }
+
+  if ( INPUTS.debug_flag == 600 ) {
+    INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR = 1;
+    printf("\n debug flag = %d -> use REFAC makeMap_sigmu_biascor with legacy STD\n",
+	   INPUTS.debug_flag);
+    fflush(FP_STDOUT);
+  }
+
+  if ( INPUTS.debug_flag == 604 ) {
+    INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR = 4;
+    printf("\n debug flag = %d -> use REFAC makeMap_sigmu_biascor with  MAD \n≈",
+	   INPUTS.debug_flag);
     fflush(FP_STDOUT);
   }
 

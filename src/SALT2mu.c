@@ -1334,9 +1334,8 @@ struct INPUTS {
   int debug_mucovscale; //write mucovscale info for every biascor event
 
 
-  // xxx 
-  int  REFAC_CCPRIOR;  // temp refactor flags July 2025 xxxxxxxx
-  int  REFAC_SORT_IDSAMPLE;
+  // xxxxxxxxxxxxxxxxxxx
+  int  REFAC_MAKEMAP_SIGMU_BIASCOR;
   // xxxxxxxxxxxxxxxxxxxx
 
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
@@ -1663,8 +1662,6 @@ void  sort_IDSAMPLE_biasCor_init(void);
 int   sort_IDSAMPLE_biasCor_exec(int NSORT_START, char *SAMPLE_SUBSTR) ;
 void  sort_IDSAMPLE_biasCor_check(void);
 
-void  sort_IDSAMPLE_biasCor_legacy(void); // to be removed when refac sort_IDSAMPLE is working
-
 void   copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) ;
 void   dump_SAMPLE_INFO(int EVENT_TYPE) ;
 void   match_fieldGroup(char *SNID, char *FIELD, 
@@ -1701,19 +1698,6 @@ void    setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP);
 void    setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR_CUTS, MUZMAP_DEF *MUZMAP,PROB_CCPRIOR_DEF *PROB, bool PRINT_TABLE );
 void setup_BININFO_CCPRIOR(char *VARNAME, BININFO_DEF *BININFO);
 
-// - - - - legacy CCprior functions, Jul 29 2025 xxxxxxxx
-
-void  dump_DMUPDF_CCprior_legacy(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) ;
-double prob_CCprior_sim_legacy(int OPT, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
-			       double z, double dmu, int DUMPFLAG, char *callFun);
-
-void   setup_zbins_CCprior_legacy (TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) ;
-
-void   setup_MUZMAP_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
-			    MUZMAP_DEF *MUZMAP) ;
-
-void   setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
-				   MUZMAP_DEF *MUZMAP, bool PRINT_TABLE );
 
 // ---------------------------
 void print_contam_CCprior(FILE *fp);
@@ -1746,6 +1730,7 @@ void check_abg_minmax_biasCor(char *varName, double *valmin_list,
 			      double *valmax_list) ;				    
 void  makeMap_fitPar_biasCor(int ISAMPLE, int ipar_LCFIT);
 void  makeMap_sigmu_biasCor(int ISAMPLE);   
+void  makeMap_sigmu_biasCor_legacy(int ISAMPLE);   
 void  vpec_biasCor(void);
 
 
@@ -2108,7 +2093,7 @@ int main(int argc,char* argv[ ]) {
   // Give help if no arguments  
   if (argc < 2) { print_SALT2mu_HELP();  exit(0); }
 
-  //  test_arrayStat(); // xxx remove
+  // xxx  test_arrayStat(); // xxx remove
 
   SALT2mu_DRIVER_INIT(argc,argv);
   
@@ -4378,8 +4363,8 @@ void *MNCHI2FUN(void *thread) {
   char fnam[]    = "MNCHI2FUN" ;
   char *name ;
 
-  int  OPT_CCPRIOR = INPUTS.opt_ccprior ;
-  //bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  // int  OPT_CCPRIOR = INPUTS.opt_ccprior ;
+  // bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
   bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
   bool APPLY_COVADD ;
 
@@ -4419,7 +4404,6 @@ void *MNCHI2FUN(void *thread) {
   double   MUCOVADD_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVadd at each a,b
   double   *fitParBias;
 
-  bool REFAC_CCPRIOR = (INPUTS.REFAC_CCPRIOR > 0) ; 
   bool LDMP          = ISMODEL_LCFIT_SALT2 ;
   
   // -------------- BEGIN ------------
@@ -4805,24 +4789,17 @@ void *MNCHI2FUN(void *thread) {
 
 	//	DUMPFLAG = ( strcmp(name,"1257419") == 0 ) ; // CCPRIOR IZBIN=3  
 
-	if ( REFAC_CCPRIOR ) {
-	  // pre-computed during init with user-input alpha,beta
-	  if ( INPUTS.DO_CCPRIOR_UPDATE ) {
-	    // re-compute prior with updated alpha, beta
-	    i3d = INFO_DATA.PROB_CCPRIOR.I3D[n];
-	    dPdmu_CC = prob_CCprior_sim(idsample, CCPRIOR_MUZMAP, 
-					i3d, z, mures, DUMPFLAG, fnam );
-	  }
-	  else {
-	    // use pre-computed PROB(DMU) based on user-defined alpha, beta
-	    dPdmu_CC = INFO_DATA.PROB_CCPRIOR.PROB[n];  
-	  }
+
+	// pre-computed during init with user-input alpha,beta
+	if ( INPUTS.DO_CCPRIOR_UPDATE ) {
+	  // re-compute prior with updated alpha, beta
+	  i3d = INFO_DATA.PROB_CCPRIOR.I3D[n];
+	  dPdmu_CC = prob_CCprior_sim(idsample, CCPRIOR_MUZMAP, 
+				      i3d, z, mures, DUMPFLAG, fnam );
 	}
 	else {
-	  // original/legacy recomputes prob_CC for each fit step
-	  // (remove this when REFAC is stable)
-	  dPdmu_CC = prob_CCprior_sim_legacy(OPT_CCPRIOR, idsample, CCPRIOR_MUZMAP, 
-					     z, mures, DUMPFLAG, fnam );
+	  // use pre-computed PROB(DMU) based on user-defined alpha, beta
+	  dPdmu_CC = INFO_DATA.PROB_CCPRIOR.PROB[n];  
 	}
 
 	/* xxxxxxxxxxxxxxx 
@@ -5549,8 +5526,6 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
   int i, idsample ;
   char fnam[] = "fcn_ccprior_muzmap";  (void)fnam ;
 
-  bool REFAC = ( INPUTS.REFAC_CCPRIOR > 0 ) ;
-
   // ----------- BEGIN ------------
 
   MUZMAP->alpha = xval[IPAR_ALPHA0];
@@ -5560,22 +5535,12 @@ void fcn_ccprior_muzmap(double *xval, int USE_CCPRIOR_H11, MUZMAP_DEF *MUZMAP ) 
   // 9.11.2025 : load user cospar before blinding with random offset
   for(i=0; i < NCOSPAR ; i++ ) { MUZMAP->cosPar[i] = INPUTS.COSPAR_UNBLIND[i] ; } 
 
-  if ( REFAC ) {
+  load_DMU_CCprior(TABLEVAR_CUTS, ABGM, PROB_CCPRIOR); // load PROB_CCPRIOR->DMU[icc]
 
-    load_DMU_CCprior(TABLEVAR_CUTS, ABGM, PROB_CCPRIOR); // load PROB_CCPRIOR->DMU[icc]
-
-    // load MUZMAP and reset PROB_CCPRIOR
-    for(idsample=0; idsample < NSAMPLE; idsample++ ) 
-      { setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CUTS, MUZMAP, PROB_CCPRIOR, false ); }
+  // load MUZMAP and reset PROB_CCPRIOR
+  for(idsample=0; idsample < NSAMPLE; idsample++ ) 
+    { setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CUTS, MUZMAP, PROB_CCPRIOR, false ); }
    
-  }
-  else {
-    // legacy code
-    for(idsample=0; idsample < NSAMPLE; idsample++ ) {
-      setup_DMUPDF_CCprior_legacy(idsample, TABLEVAR_CUTS, MUZMAP, false );
-    }
-  }
-  
   // - - - - -
 
   if ( USE_CCPRIOR_H11 ) {
@@ -5934,9 +5899,6 @@ void set_defaults(void) {
   INPUTS.NDUMPLOG = 1000 ;
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
   INPUTS.debug_flag        = 0 ;
-
-  INPUTS.REFAC_CCPRIOR        = 1;
-  INPUTS.REFAC_SORT_IDSAMPLE  = 2; // Feb 11 2026
 
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
@@ -9246,15 +9208,8 @@ void prepare_IDSAMPLE_biasCor(void) {
 
   // resort IDSAMPLE list to always have the same order
   // regardless of the data order.
-  
-  if ( INPUTS.REFAC_SORT_IDSAMPLE > 0 ) {
-    sort_IDSAMPLE_biasCor_driver();
-  }
-  else {
-    // legacy default Feb 11 2026
-    sort_IDSAMPLE_biasCor_legacy();
-  }
-
+  sort_IDSAMPLE_biasCor_driver();
+ 
 
   // check for user-specified IDSAMPLEs to select ...AFTER sorting.
   prep_IDSAMPLE_SELECT(&INPUTS.IDSAMPLE_SELECT);
@@ -9266,7 +9221,7 @@ void prepare_IDSAMPLE_biasCor(void) {
   for(IDSAMPLE=0; IDSAMPLE < NSAMPLE; IDSAMPLE++ ) 
     { set_BINSIZE_SAMPLE_biasCor(IDSAMPLE);  }
  
-  if ( NSAMPLE_BIASCOR_NOZBIN > 0 && INPUTS.debug_flag==601 ) {
+  if ( NSAMPLE_BIASCOR_NOZBIN > 0 && INPUTS.debug_flag==601  ) {
     sprintf(c1err,"Missing biasCor z-binning for %d IDSAMPLEs", NSAMPLE_BIASCOR_NOZBIN );
     sprintf(c2err,"Check input keys fieldGroup_biascor & surveygroup_biascor");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
@@ -9955,230 +9910,6 @@ int sort_IDSAMPLE_biasCor_exec(int NSORT_START, char *SAMPLE_SUBSTR ) {
 
 
 // ======================================================
-void sort_IDSAMPLE_biasCor_legacy(void) {
-  
-  // Aug 26 2016
-  // Sort IDSAMPLE list in the following order:
-  // * user-defined surveygroup_biascor
-  // * user-defined fieldgroup_biascor
-  // * auto-defined surveys groups, in same order as in SURVEY.DEF
-  //
-  //  This sorting ensures that IDSAMPLE has the same meaning
-  //  for any random simulation and any random subset of data.
-  //  Reason is that order of data determines order of IDSAMPLE,
-  //  and it is thus random.
-  //
-  // Feb 9 2022: fix bug to allow [SURVEY] fieldgroups and also allow
-  //             [SURVEY] in surveygroup_biascor. See new DO_COPY bool.
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  int NSAMPLE = NSAMPLE_BIASCOR ;
-  int debug_malloc = INPUTS.debug_malloc ;
-  int ID, ID2, IDSURVEY, NSORT=0  ;
-  int NCOPY[MXNUM_SAMPLE], IDMAP_SORT[MXNUM_SAMPLE];
-  int igrp, NGRP_USR,  FLAG ; 
-  char *s0, *s1, *s2, *f0, *f2, *NAME ;
-  SAMPLE_INFO_DEF *SAMPLE_BIASCOR_LOCAL ;
-  bool ISGRP0, ISGRP2, SMATCH, NOGRP, DO_COPY ;
-  bool LOGIC_FIX_FEB09 = true;
-  int LDMP = 0 ;
-  char fnam[] = "sort_IDSAMPLE_biasCor_legacy" ;
-  // ---------------- BEGIN ---------------
-
-  printf("  %s: \n", fnam);
-
-  print_debug_malloc(+1*debug_malloc,fnam);
-  SAMPLE_BIASCOR_LOCAL  = 
-    (SAMPLE_INFO_DEF*) malloc ( NSAMPLE * sizeof(SAMPLE_INFO_DEF));
-  
-  // Jan 2020: abort if some SURVEY events are part of a FIELDGROUP,
-  //           and some events are not.
-  //   e..g, if DES and DES(C3+X3) are defined, ABORT.
-
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  for(ID=0; ID < NSAMPLE; ID++ ) {
-    for(ID2=0; ID2<NSAMPLE; ID2++ ) {
-      if ( ID == ID2 ) { continue ; } 
-      f0     = SAMPLE_BIASCOR[ID].NAME_FIELDGROUP ;
-      f2     = SAMPLE_BIASCOR[ID2].NAME_FIELDGROUP ;
-      s0     = SAMPLE_BIASCOR[ID].NAME_SURVEYGROUP ;  
-      s2     = SAMPLE_BIASCOR[ID2].NAME_SURVEYGROUP ;  
-      SMATCH = strcmp(s0,s2) == 0 ;
-      ISGRP0 = !IGNOREFILE(f0);      ISGRP2 = !IGNOREFILE(f2);
-
-      if ( !ISGRP0 && ISGRP2 && SMATCH ) {
-	print_preAbort_banner(fnam);
-	printf("  ID[0,2] = %d %d \n", ID, ID2);
-	printf("  NAME_FIELDGROUP[0,2]  = %s  %s \n", f0, f2);
-	printf("  NAME_SURVEYGROUP[0,2] = %s  %s \n", s0, s2);
-	printf("  ISGRP0=%d  ISGRP2=%d SMATCH=%d \n",
-	       ISGRP0, ISGRP2, SMATCH);
-
-	sprintf(c1err,"Found %s events NOT in FIELDGROUP", s0);
-        sprintf(c2err,"Define all fields in fieldgroup_biascor key.");
-        errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
-
-      }
-
-      /*
-      printf(" xxx ------------------------------ \n");
-      printf(" xxx %s: %d,%d\n", fnam, ID, ID2 );
-      printf(" xxx    SURVEYGROUP = '%s' and %s' \n",  s0, s2);
-      printf(" xxx    FIELDGROUP  = %s(%d) and %s(%d) \n", 
-           f0,ISGRP0, f2,ISGRP2 );
-      printf(" xxx    IFLAG_ORIGIN -> %d \n", 
-      SAMPLE_BIASCOR[ID].IFLAG_ORIGIN ); */
-
-    }
-  }
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  // copy pre-sorted struct into temp struct
-  ID2 = 0;
-  for(ID=0; ID < NSAMPLE; ID++ ) {
-    if ( SAMPLE_BIASCOR[ID].IFLAG_ORIGIN == USERFLAG_IGNORE_SAMPLE ) 
-      { continue; }       
-    copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR[ID], &SAMPLE_BIASCOR_LOCAL[ID2]);
-    NCOPY[ID2] = 0; 
-    ID2++ ;
-  }
-  NSAMPLE_BIASCOR = NSAMPLE = ID2;
-
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  if ( LDMP ) {
-    printf("\n xxx ---------- Start DUMP for %s ---------------- \n", fnam);
-    dump_SAMPLE_INFO(EVENT_TYPE_DATA);
-  }
-
-  // start with user-defined survey groups, in the order
-  // given by the user
-  NGRP_USR = INPUTS_SAMPLE_BIASCOR.NSURVEYGROUP_USR ;
-  for(igrp=0; igrp < NGRP_USR; igrp++ ) {
-    s1 = INPUTS_SAMPLE_BIASCOR.SURVEYGROUP_LIST[igrp];
-    for(ID=0; ID < NSAMPLE; ID++ ) {
-      s2      = SAMPLE_BIASCOR_LOCAL[ID].NAME_SURVEYGROUP ;
-      NAME    = SAMPLE_BIASCOR_LOCAL[ID].NAME ;
-      f0      = SAMPLE_BIASCOR_LOCAL[ID].NAME_FIELDGROUP;  
-      SMATCH  = strcmp(s1,s2)==0;
-      NOGRP   = IGNOREFILE(f0);
-      DO_COPY = SMATCH && NOGRP;
-      if ( !LOGIC_FIX_FEB09 ) { DO_COPY = SMATCH; } // only for emergency
-
-      if ( DO_COPY ) {
-	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_LOCAL[ID], 
-			      &SAMPLE_BIASCOR[NSORT]);
-	
-	if ( LDMP ) {
-	  printf(" 0. xxx copy USER-SURVEYGROUP ID=%d --> %d (%s)\n", 
-		 ID, NSORT, NAME );
-	}
-
-	IDMAP_SORT[ID]=NSORT;  NSORT++ ;  NCOPY[ID]++ ;  
-      }
-    }
-  }  // end i loop over user-define survey groups
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  // check user-defined field groups
-  NGRP_USR = INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR ;
-  for(igrp=0; igrp < NGRP_USR; igrp++ ) {
-    s1 = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igrp];
-    for(ID=0; ID < NSAMPLE; ID++ ) {
-      s2   = SAMPLE_BIASCOR_LOCAL[ID].NAME_FIELDGROUP ;
-      NAME = SAMPLE_BIASCOR_LOCAL[ID].NAME ;
-      if ( strcmp(s1,s2)==0 ) {
-	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_LOCAL[ID], 
-			      &SAMPLE_BIASCOR[NSORT]);
-
-	if ( LDMP ) {
-	  printf(" 1. xxx copy USER-FIELDGROUP  ID=%d --> %d (%s) \n", 
-		 ID, NSORT, NAME);
-	}
-	IDMAP_SORT[ID]=NSORT;  NSORT++ ;  NCOPY[ID]++ ;
-      }
-    }
-  }  // end i loop over user-define field groups
-
-
-  // add auto-generated survey groups, 
-  //  in order given in SURVEY.DEF file
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  for(IDSURVEY=0; IDSURVEY < MXIDSURVEY; IDSURVEY++ ) {
-
-    // check only those surveys which are auto-generated
-    FLAG = SURVEY_INFO.SURVEYFLAG[IDSURVEY] ;
-    if ( FLAG != AUTOFLAG_SURVEYGROUP_SAMPLE ) { continue ; }
-
-    s1 = SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY];
-    for(ID=0; ID < NSAMPLE; ID++ ) {
-
-      // skip surveys that are part of FIELDGROUP
-      FLAG = SAMPLE_BIASCOR_LOCAL[ID].IFLAG_ORIGIN ;
-      if ( FLAG == USERFLAG_FIELDGROUP_SAMPLE){ continue ; }
-
-      s2   = SAMPLE_BIASCOR_LOCAL[ID].NAME_SURVEYGROUP ;
-      NAME = SAMPLE_BIASCOR_LOCAL[ID].NAME ;
-
-      if ( strcmp(s1,s2) == 0 ) {
-	copy_IDSAMPLE_biasCor(&SAMPLE_BIASCOR_LOCAL[ID], 
-			      &SAMPLE_BIASCOR[NSORT]);
-	if ( LDMP ) {
-	  printf(" 2. xxx copy AUTO-SURVEYGROUP ID=%d --> %d (%s) \n", 
-		 ID, NSORT, NAME ); fflush(stdout);
-	}
-	IDMAP_SORT[ID]=NSORT;  NSORT++ ;  NCOPY[ID]++ ;
-      }
-    } // end IDSAMPLE loop
-
-  }   // end IDSURVEY
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  // ------- check that each sample was copied once and only once.
-  for(ID=0; ID < NSAMPLE; ID++ ) {
-    if( NCOPY[ID] != 1 ) {
-      sprintf(c1err,"IDSAMPLE=%d(%s) copied %d times.",
-	      ID, SAMPLE_BIASCOR_LOCAL[ID].NAME, NCOPY[ID] );
-      sprintf(c2err,"but should be copied once (NSAMPLE=%d, NSORT=%d)",
-	      NSAMPLE, NSORT );
-      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-    }
-  }
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  // ---------------------------------------------
-  // remap all of the IDSAMPLE tags for the data
-  int isn  ;
-
-  for(isn=0; isn < INFO_DATA.TABLEVAR.NSN_ALL ; isn++ ) {
-    ID = INFO_DATA.TABLEVAR.IDSAMPLE[isn] ;
-    if ( ID < 0 ) { continue ; }
-    INFO_DATA.TABLEVAR.IDSAMPLE[isn] = IDMAP_SORT[ID]; //sorted sample
-  }
-
-  if ( LDMP  ) 
-    { printf(" xxx ----- END DUMP for %s --------- \n\n", fnam); }
-
-  // @@@@@@@@@@@@@@ LEGACY @@@@@@@@@@@
-
-  print_debug_malloc(-1*debug_malloc,fnam);
-  free(SAMPLE_BIASCOR_LOCAL);
-  return ;
-
-} // end sort_IDSAMPLE_biasCor_legacy
-
-
-// ======================================================
 void copy_IDSAMPLE_biasCor(SAMPLE_INFO_DEF *S1, SAMPLE_INFO_DEF *S2) {
 
   // Copy contents of struct S1 into struct S2.
@@ -10791,7 +10522,9 @@ void prepare_biasCor(void) {
     fprintf(FP_STDOUT,"\n");  fflush(FP_STDOUT);   
 
     // make map of sigma_mu bias
-    if ( DOCOR_MUCOVSCALE ) { makeMap_sigmu_biasCor(IDSAMPLE); }
+    if ( DOCOR_MUCOVSCALE ) { 
+      makeMap_sigmu_biasCor_legacy(IDSAMPLE); 
+    }
 
     fprintf(FP_STDOUT, "\n\t END BIASCOR PREP for %s\n", NAME_SAMPLE);
     fprintf(FP_STDOUT, " %s\n", borderLine);       
@@ -12272,6 +12005,583 @@ void  zero_FITPARBIAS(FITPARBIAS_DEF *FITPARBIAS) {
   }
 } // end zero_FITPARBIAS
 
+
+// ======================================================
+void makeMap_sigmu_biasCor_legacy(int IDSAMPLE) {
+
+  // Created May 12, 2016
+  // Make map of MUCOVSCALE, where MUCOVSCALE = RMS(MURES)/AVG(MUERR)
+  // as a function of (z,x1,c,a,b).
+  //
+  // To get better stats, the bias is just a function of {z,c,m},
+  // but the 5D binning is still used so that the on-the-fly lookup is 
+  // done the same way as other bias corrections.
+  //
+  // Beware that the binning for alpha,beta,z is the same
+  // for biasCor and sigmu-scale ... but the color bins 
+  // are different; courser bins for sigmu-scale.
+  //
+  // Jan 17 2020: fix gamma-dimension that tripped valgrind errors.
+  // Jun 29 2021: fix bug setting im index for logmass.
+  // Sep 14 2021: little cleanup/refac 
+  // Sep 16 2021: add dump utils; see i1d_dump_mucovscale and OPTMASK
+  // Jun 05 2022: write SALT2 fit params in abort msg for crazy muErr
+
+  int NBIASCOR_CUTS    = SAMPLE_BIASCOR[IDSAMPLE].NBIASCOR_CUTS ;
+  int NBIASCOR_ALL     = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
+  bool DO_MAD          = (INPUTS.opt_biasCor & MASK_BIASCOR_MAD) > 0;
+  int debug_malloc     = INPUTS.debug_malloc ;
+  int debug_mucovscale = INPUTS.debug_mucovscale ;
+
+  //  bool DO_COVSCALE = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
+  int    NBINa, NBINb, NBINg, NBINz, NBINm, NBINc, NperCell ;
+  int    OPTMASK;
+  int    ia, ib, ig, iz, im, ic, i1d, NCELL, isp ; 
+  int    ievt, istat_cov, istat_bias, J1D, ipar, USEMASK, nevt_biascor ;
+  double muErr, muErrsq, muErrsq_raw, muDif, muDifsq, pull, tmp1, tmp2  ;
+  double muBias, muBiasErr, muCOVscale, muCOVadd, fitParBias[NLCPAR+1] ;
+  double a, b, gDM, z, m, c, WGT_POP ;
+  double *SUM_MUERR, *SUM_SQMUERR;
+  double *SUM_MUDIF, *SUM_SQMUDIF ;
+  double *SQMUERR,   *SQMUSTD ;
+  double *SUM_PULL,  *SUM_SQPULL ;
+  double *SIG_PULL_MAD; //1.48*MedianAbsDev
+  double *SIG_PULL_STD;
+  char   *name ;
+
+  int NperCell_min = MINPERCELL_MUCOVSCALE;
+
+  // Declare lists for debug_mucovscale
+  double *muErr_list=NULL, *muErr_raw_list=NULL, *muDif_list=NULL;
+  double *muBias_list=NULL;
+  int NPERCELL_REALLOC=2000;
+  int N_REALLOC=0;
+
+  double    UNDEFINED = 9999.0, WGT_IGNORE=-9.0 ;
+  float    *ptr_MUCOVSCALE;
+  float    *ptr_MUCOVADD;
+  BIASCORLIST_DEF     BIASCORLIST ;
+  FITPARBIAS_DEF      FITPARBIAS[MXa][MXb][MXg] ;
+  double              MUCOVSCALE[MXa][MXb][MXg] ;
+  double              MUCOVADD[MXa][MXb][MXg] ;
+  INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
+ 
+  CELLINFO_DEF *CELL_BIASCOR    = &CELLINFO_BIASCOR[IDSAMPLE];
+  CELLINFO_DEF *CELL_MUCOVSCALE = &CELLINFO_MUCOVSCALE[IDSAMPLE];
+  CELLINFO_DEF *CELL_MUCOVADD   = &CELLINFO_MUCOVADD[IDSAMPLE];
+
+  int  DUMPFLAG = 0 ; // (IDSAMPLE ==0 ) ;
+  char fnam[]  = "makeMap_sigmu_biasCor_legacy" ;
+  
+  // ----------------- BEGIN -------------------
+
+  if  ( SAMPLE_BIASCOR[IDSAMPLE].DOFLAG_BIASCOR == 0 ) { return; }
+
+  if ( DO_COVADD && !INPUTS.restore_bug2_mucovadd ) {
+    // zero out sigInt for COV-additive method. M.Vincenzi 5/30/2023
+    LOAD_SIGINT_ABGRID(0.0, IDSAMPLE);
+    if ( IDSAMPLE == 0) {
+      fprintf(FP_STDOUT, " %s: set sigInt=0 for COVADD method\n", fnam);
+    }
+  }
+
+  if ( debug_mucovscale > 0 ) {
+    int memd   = sizeof(double) * NBIASCOR_ALL;
+    int memi   = sizeof(int   ) * NBIASCOR_ALL;
+    if ( IDSAMPLE == 0 ) 
+      { INFO_BIASCOR.TABLEVAR.IMUCOV = (int   *) malloc(memi); }
+    muErr_list                = (double*) malloc(memd);
+    muErr_raw_list            = (double*) malloc(memd);
+    muDif_list                = (double*) malloc(memd);
+    muBias_list               = (double*) malloc(memd);
+  }
+
+  fprintf(FP_STDOUT, " %s: make map of muCOVscale(a,b,g,z,c) for IDSAMPLE=%d\n", 
+	  fnam, IDSAMPLE);
+  fflush(FP_STDOUT);
+
+  malloc_MUCOV(+1,IDSAMPLE, CELL_MUCOVSCALE, "MUCOVSCALE" );
+  malloc_MUCOV(+1,IDSAMPLE, CELL_MUCOVADD,   "MUCOVADD"   );
+  NCELL = CELL_MUCOVSCALE->NCELL;
+
+  int MEMD     = NCELL   * sizeof(double);
+
+  ptr_MUCOVSCALE = INFO_BIASCOR.MUCOVSCALE[IDSAMPLE];         
+  ptr_MUCOVADD   = INFO_BIASCOR.MUCOVADD[IDSAMPLE];         
+
+  NBINa    = INFO_BIASCOR.BININFO_SIM_ALPHA.nbin ;
+  NBINb    = INFO_BIASCOR.BININFO_SIM_BETA.nbin ;  
+  NBINg    = INFO_BIASCOR.BININFO_SIM_GAMMADM.nbin ;  
+  NBINz    = CELL_MUCOVSCALE->BININFO_z.nbin ;
+  NBINm    = CELL_MUCOVSCALE->BININFO_m.nbin ;  
+  NBINc    = CELL_MUCOVSCALE->BININFO_LCFIT[INDEX_c].nbin;
+ 
+  // malloc local 1D arrays to track local sums.
+  print_debug_malloc(+1*debug_malloc,fnam);
+  SUM_MUERR      = (double*) malloc(MEMD);
+  SUM_SQMUERR    = (double*) malloc(MEMD);
+  SUM_MUDIF      = (double*) malloc(MEMD);
+  SUM_SQMUDIF    = (double*) malloc(MEMD);
+  SQMUERR        = (double*) malloc(MEMD);
+  SQMUSTD        = (double*) malloc(MEMD);
+  SUM_PULL       = (double*) malloc(MEMD);
+  SUM_SQPULL     = (double*) malloc(MEMD);
+  SIG_PULL_MAD   = (double*) malloc(MEMD);
+  SIG_PULL_STD   = (double*) malloc(MEMD);
+  ig = 0 ;
+
+
+  int N1D=0;
+  for(ia=0; ia< NBINa; ia++ ) {
+    for(ib=0; ib< NBINb; ib++ ) {  
+      for(ig=0; ig< NBINg; ig++ ) {  
+	MUCOVSCALE[ia][ib][ig] = 1.0 ; // dummy arg for get_muBias below
+	MUCOVADD[ia][ib][ig] = 1.0 ;   // dummy arg for get_muBias below
+	for(iz=0; iz < NBINz; iz++ ) {
+	  for(im=0; im < NBINm; im++ ) {
+	    for(ic=0; ic < NBINc; ic++ ) {
+	      SUM_MUERR[N1D] = SUM_SQMUERR[N1D] = 0.0 ;
+	      SUM_MUDIF[N1D] = SUM_SQMUDIF[N1D] = 0.0 ;	
+	      SUM_PULL[N1D]  = SUM_SQPULL[N1D]  = 0.0 ;
+              SIG_PULL_MAD[N1D] = UNDEFINED ;
+	      SIG_PULL_STD[N1D] = UNDEFINED ;
+
+	      ptr_MUCOVSCALE[N1D] = 1.0 ;
+	      CELL_MUCOVSCALE->NperCell[N1D]  = 0 ;
+	      CELL_MUCOVSCALE->WperCell[N1D]  = 0.0 ;
+	      CELL_MUCOVSCALE->AVG_z[N1D]     = 0.0 ;
+	      CELL_MUCOVSCALE->AVG_m[N1D]     = 0.0 ;
+	      CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][N1D] = 0.0 ;
+	      CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic]=N1D;
+
+	      ptr_MUCOVADD[N1D] = 1.0e-12 ;
+	      CELL_MUCOVADD->NperCell[N1D]  = 0 ;
+	      CELL_MUCOVADD->WperCell[N1D]  = 0.0 ;
+	      CELL_MUCOVADD->AVG_z[N1D]     = 0.0 ;
+	      CELL_MUCOVADD->AVG_m[N1D]     = 0.0 ;
+	      CELL_MUCOVADD->AVG_LCFIT[INDEX_c][N1D] = 0.0 ;
+	      CELL_MUCOVADD->MAPCELL[ia][ib][ig][iz][im][0][ic]=N1D;
+
+	      N1D++ ;
+	    }	  
+	  }
+	}
+      }
+    }
+  }
+
+  // - - - - -
+  for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
+
+    ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
+    WGT_POP = WGT_biasCor_population(ievt,fnam);
+
+    if ( debug_mucovscale > 0 ) { INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] = -9;  }
+
+    // check if there is valid biasCor for this event
+    J1D = J1D_biasCor(ievt,fnam);
+    if ( CELL_BIASCOR->NperCell[J1D] < INPUTS.min_per_cell_biasCor ) 
+      { continue ; } 
+
+    for(ia=0; ia<MXa; ia++ ) {
+      for(ib=0; ib<MXb; ib++ ) {
+	for(ig=0; ig<MXg; ig++ ) {
+	  zero_FITPARBIAS(&FITPARBIAS[ia][ib][ig] ); 
+	}
+      }
+    }
+
+
+    get_abg_biasCor(ievt, &a, &b, &gDM, fnam);    
+    z    = (double)INFO_BIASCOR.TABLEVAR.zhd[ievt];
+    m    = (double)INFO_BIASCOR.TABLEVAR.host_logmass[ievt];
+    c    = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_c][ievt];
+
+    ia   = (int)INFO_BIASCOR.IA[ievt];
+    ib   = (int)INFO_BIASCOR.IB[ievt];
+    ig   = (int)INFO_BIASCOR.IG[ievt];
+
+    name = INFO_BIASCOR.TABLEVAR.name[ievt];
+    for(ipar=0; ipar < NLCPAR; ipar++ ) 
+      { BIASCORLIST.FITPAR[ipar] = 
+	  (double)INFO_BIASCOR.TABLEVAR.fitpar[ipar][ievt]; 
+      }
+    BIASCORLIST.FITPAR[INDEX_mu] = 0.0; // mu slot not used
+
+    // allow color (c) and logmass to be outside map
+    iz = IBINFUN(z, &CELL_MUCOVSCALE->BININFO_z, 
+		 1, fnam );
+
+    im = IBINFUN(m, &CELL_MUCOVSCALE->BININFO_m, 
+		 2, fnam );
+
+    ic = IBINFUN(c, &CELL_MUCOVSCALE->BININFO_LCFIT[INDEX_c], 
+		 2, fnam );
+
+    // ---------------------------------------------------
+    // need bias corrected distance to compute pull
+
+    BIASCORLIST.z            = z ;
+    BIASCORLIST.host_logmass = m ;
+    BIASCORLIST.alpha        = a ;
+    BIASCORLIST.beta         = b ;
+    BIASCORLIST.gammadm      = gDM ;
+    BIASCORLIST.idsample     = IDSAMPLE ;
+
+    istat_bias = 
+      get_fitParBias(name, &BIASCORLIST, DUMPFLAG, fnam, 
+		     &FITPARBIAS[ia][ib][ig] ); // <== returned
+
+    // skip if bias cannot be computed, just like for data
+    if ( istat_bias <= 0 ) { continue ; }
+
+    get_INTERPWGT_abg(a,b,gDM, DUMPFLAG, &INTERPWGT, fnam );
+    get_muBias(name, &BIASCORLIST, FITPARBIAS,MUCOVSCALE,MUCOVADD, &INTERPWGT, fnam,
+	       fitParBias, &muBias, &muBiasErr, &muCOVscale, &muCOVadd,
+	       &nevt_biascor);  
+
+    // ----------------------------
+    muDif   =  muresid_biasCor(ievt);  // mu - muTrue
+    muDif  -=  muBias ;  
+    muDifsq =  muDif*muDif ;
+    
+    // compute error with intrinsic scatter
+    // 2.10.2023: include vpec uncertainties in muerr computation
+    if ( DO_COVADD )
+      { USEMASK = USEMASK_BIASCOR_COVFIT + USEMASK_BIASCOR_ZMUERR; }
+    else
+      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
+
+    // - - - -  restore bugs - - - - - -
+    if ( INPUTS.restore_bug_muzerr )
+      { USEMASK = USEMASK_BIASCOR_COVTOT; } // not including VPEC uncertainties
+
+    if ( DO_COVADD && INPUTS.restore_bug2_mucovadd ) // May 30 2023
+      { USEMASK = USEMASK_BIASCOR_COVTOT + USEMASK_BIASCOR_ZMUERR; }
+
+    // - - - - - 
+
+    muErrsq = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
+
+    if ( muErrsq <= 1.0E-14 || muErrsq > 100.0 || isnan(muErrsq) ) {
+      print_preAbort_banner(fnam);
+      printf("\t z=%f  a=%f  b=%f  gDM=%f\n",
+	     z, a, b, gDM);
+      printf("\t ia,ib,ig = %d, %d, %d \n", ia, ib, ig);
+      printf("\t istat_cov = %d \n", istat_cov);
+      printf("\t IDSAMPLE=%d (%s) \n",
+	     IDSAMPLE, SAMPLE_BIASCOR[IDSAMPLE].NAME );
+      for(ipar=0; ipar < NLCPAR; ipar++ ) { 
+	char *name = BIASCOR_NAME_LCFIT[ipar];
+	float val  = INFO_BIASCOR.TABLEVAR.fitpar[ipar][ievt]; 
+	float err  = INFO_BIASCOR.TABLEVAR.fitpar_err[ipar][ievt]; 
+	printf("\t %3s = %f +_ %f \n", name, val, err); 
+	fflush(stdout);
+      }
+
+      sprintf(c1err,"Invalid muErrsq=%f for ievt=%d (SNID=%s)", 
+	      muErrsq, ievt, name );
+      sprintf(c2err,"Something is messed up.");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
+    }
+
+    muErr   = sqrt(muErrsq) ;    
+    pull    = (muDif/muErr) ;
+
+    // get 1d index
+    i1d = CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic] ;
+
+    if ( debug_mucovscale > 0 ) {
+      INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] = i1d;
+      muDif_list[ievt]  = muDif;
+      muErr_list[ievt]  = muErr;
+      muBias_list[ievt] = muBias;
+
+      // store raw muErr (RK, 9.14.2021)
+      USEMASK     = USEMASK_BIASCOR_COVFIT;
+      muErrsq_raw = muerrsq_biasCor(ievt, USEMASK, &istat_cov, fnam) ; 
+      muErr_raw_list[ievt] = sqrt(muErrsq_raw);
+    }
+
+    SUM_PULL[i1d]    += WGT_POP * pull ;
+    SUM_SQPULL[i1d]  += WGT_POP * (pull*pull) ;
+    SUM_SQMUDIF[i1d] += WGT_POP *  muDifsq ;
+    SUM_MUDIF[i1d]   += WGT_POP *  muDif ;
+    SUM_SQMUERR[i1d] += WGT_POP *  muErrsq ;
+    SUM_MUERR[i1d]   += WGT_POP *  muErr ;
+
+
+    if (DO_MAD) {
+      NperCell = CELL_MUCOVSCALE->NperCell[i1d];
+      int  newmem = (NperCell+1+NPERCELL_REALLOC) * sizeof(double);
+      bool DO_REALLOC = (NperCell+1)%NPERCELL_REALLOC == 0 && NperCell > 0;
+      CELL_MUCOVSCALE->ABSPULL[i1d][NperCell] = fabs(pull);
+      CELL_MUCOVSCALE->PULL[i1d][NperCell]    = pull ;
+      if ( DO_COVADD ) {
+	CELL_MUCOVADD->MURES[i1d][NperCell] = muDif;
+	CELL_MUCOVADD->MUCOV[i1d][NperCell] = muErrsq;
+      }
+      if ( DO_REALLOC ){
+	CELL_MUCOVSCALE->ABSPULL[i1d] = 
+	  (double *)realloc(CELL_MUCOVSCALE->ABSPULL[i1d], newmem);
+	CELL_MUCOVSCALE->PULL[i1d] = 
+	  (double *)realloc(CELL_MUCOVSCALE->PULL[i1d], newmem);
+
+	if (DO_COVADD) {
+	  CELL_MUCOVADD->MURES[i1d] = 
+	    (double *)realloc(CELL_MUCOVADD->MURES[i1d], newmem);
+	  CELL_MUCOVADD->MUCOV[i1d] = 
+	    (double *)realloc(CELL_MUCOVADD->MUCOV[i1d], newmem);
+        }
+	N_REALLOC++;
+      } // end DO_REALLOC
+    } // end USE_MAD_MUCOVSCALE
+
+
+    // increment sums to get average in each cell   
+    CELL_MUCOVSCALE->NperCell[i1d]           += 1 ;
+    CELL_MUCOVSCALE->WperCell[i1d]           += WGT_POP;
+    CELL_MUCOVSCALE->AVG_z[i1d]              += (z * WGT_POP) ;
+    CELL_MUCOVSCALE->AVG_m[i1d]              += (m * WGT_POP) ;
+    CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] += (c * WGT_POP) ;
+
+  } // end ievt
+
+
+  // -------------------------------------------------
+  double WN, SQSTD, STD=-9.0, MAD=-9.0 ;
+  int N;
+
+  for(i1d=0; i1d < NCELL; i1d++ ) {
+
+    SQMUSTD[i1d] = 0.0 ;
+    SQMUERR[i1d] = 0.0 ;
+    
+    N  = CELL_MUCOVSCALE->NperCell[i1d] ;
+    WN = CELL_MUCOVSCALE->WperCell[i1d] ;
+
+    if ( N < NperCell_min ) {       
+      CELL_MUCOVSCALE->USE[i1d]   = false;
+
+      if ( INPUTS.restore_bug_mucovscale ) { 
+	CELL_MUCOVSCALE->USE[i1d]=true;
+      }
+      else {
+	CELL_MUCOVSCALE->AVG_z[i1d]           = UNDEFINED ;
+	CELL_MUCOVSCALE->AVG_m[i1d]           = UNDEFINED ;
+	CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] = UNDEFINED ;
+      }
+      continue ; 
+    }
+    
+    CELL_MUCOVSCALE->USE[i1d]                 = true;
+    CELL_MUCOVSCALE->AVG_z[i1d]              /= WN ;
+    CELL_MUCOVSCALE->AVG_m[i1d]              /= WN ;
+    CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d] /= WN ;
+
+    tmp1= SUM_MUDIF[i1d]/WN ;    tmp2= SUM_SQMUDIF[i1d]/WN ;
+    SQSTD = tmp2 - tmp1*tmp1 ;
+    SQMUSTD[i1d] = SQSTD ;
+
+    // average calculated muErrsq
+    muErr        = SUM_MUERR[i1d]/WN ;
+    muErrsq      = muErr*muErr  ;
+    SQMUERR[i1d] = muErrsq ;
+   
+    // RMS of pull
+    tmp1= SUM_PULL[i1d]/WN;  tmp2=SUM_SQPULL[i1d]/WN ;
+    SQSTD = tmp2 - tmp1*tmp1 ;
+    SIG_PULL_STD[i1d] = sqrt(SQSTD);
+
+    if ( DO_MAD ) {
+      // beware that MAD is meaningfull only for |PULL|; ignore AVG and STD 
+      //  arrayStat_legacy( N, CELL_MUCOVSCALE->ABSPULL[i1d], &AVG, &STD, &MAD);
+      arrayStat_MEDIAN( N, CELL_MUCOVSCALE->ABSPULL[i1d], &WGT_IGNORE, fnam, &MAD);
+      SIG_PULL_MAD[i1d]   = 1.48 * MAD;
+      ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_MAD[i1d]*SIG_PULL_MAD[i1d]) ;
+    } 
+    else {
+      ptr_MUCOVSCALE[i1d] = (float)(SIG_PULL_STD[i1d]*SIG_PULL_STD[i1d]) ; 
+    }
+
+    if ( DO_COVADD ) {
+      double sigInt;
+      char   callfun[100];
+      sprintf(callfun,"%s(j1d=%d,z=%.2f,c=%.2f,m=%.2f,IDSAMPLE=%d)",
+	      fnam, i1d,
+	      CELL_MUCOVSCALE->AVG_z[i1d],
+	      CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d],
+	      CELL_MUCOVSCALE->AVG_m[i1d],
+	      IDSAMPLE);
+      OPTMASK = 1;  // 1 --> do NOT abort if sigInt < 0
+
+      if ( i1d == INPUTS.debug_mucovscale ) {
+	OPTMASK += 64;
+	printf(" xxx %s: ========================================= \n", fnam);
+	printf(" xxx %s: ptr_MUCOVSCALE[%d] = %f   NperCell=%d\n", 
+	       fnam, i1d, ptr_MUCOVSCALE[i1d], N );
+	printf(" xxx %s: SIG_PULL_[STD,MAD][%d] = %f, %f \n",
+	       fnam, i1d, SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d] );
+        sprintf(callfun,"%s", fnam); // May 31 2026	
+      }
+
+      sigInt =  // legacy call using STD
+	sigint_muresid_list_legacy(N, 
+				   CELL_MUCOVADD->MURES[i1d],
+				   CELL_MUCOVADD->MUCOV[i1d], &WGT_IGNORE,
+				   OPTMASK, callfun );
+      
+
+      if (sigInt == 0.) { sigInt = 1.0e-12;}
+      ptr_MUCOVADD[i1d] = sigInt*fabs(sigInt); // preserve the sign 
+
+      if ( i1d == INPUTS.debug_mucovscale ) {
+	printf(" xxx %s: store MUCOVADD[%d] = %.4f \n",
+	       fnam, i1d, ptr_MUCOVADD[i1d]);  fflush(stdout);
+      }
+    }
+  }  // end i1d loop
+ 
+ 
+  // -------------------------
+  // print errBias info in z bins
+  int LPRINT ;
+  LPRINT = !INPUTS.cutwin_only ;
+  LPRINT = 0; // Sep 16 2025: remove this bulky output
+
+  if ( LPRINT ) {
+
+    double zlo, zhi ;  
+    //    printf("NUMBER OF MASS BINS %d\n",NBINm);
+    printf("\n");
+    if ( DO_COVADD ){
+      printf("                            "
+	     "RMS(muDif)/RMS(Pull)/SIGINT/NSIM for \n");
+    }
+    else {
+      printf("                            "
+	     "RMS(muDif)/RMS(Pull)/NSIM for \n");
+    }
+
+    printf("  ia,ib,ig,im  z-range :   "
+	   "    ic=0               ic=1                ic=2 \n");
+    
+    printf("  -------------------------------------------------"
+	   "------------------------\n");
+    fflush(stdout);
+    
+    for(ia=0; ia< NBINa; ia++ ) {
+      for(ib=0; ib < NBINb; ib++ ) {      
+	for(ig=0; ig < NBINg; ig++ ) {      
+	  for(iz=0; iz < NBINz; iz++ ) {	
+	    zlo = CELL_MUCOVSCALE->BININFO_z.lo[iz];
+	    zhi = CELL_MUCOVSCALE->BININFO_z.hi[iz];
+	    
+	    for(im=0; im < NBINm; im++ ) {	
+	      printf("  %d,%d,%d,%d  %.2f-%.2f : ",  ia,ib,ig,im, zlo, zhi );
+	      for(ic=0; ic<3; ic++ ) {  
+		i1d=CELL_MUCOVSCALE->MAPCELL[ia][ib][ig][iz][im][0][ic];
+		N     = CELL_MUCOVSCALE->NperCell[i1d] ;
+		muCOVscale = (double)ptr_MUCOVSCALE[i1d] ;
+		STD        = sqrt ( SQMUSTD[i1d] );       
+		if ( DO_COVADD ) {
+		  double covint = (double)ptr_MUCOVADD[i1d];
+		  double sigint = (covint/fabs(covint))*sqrt(fabs(covint));
+		  printf("%6.3f/%5.3f/%5.3f/%5d ", 
+			 STD, sqrt(muCOVscale), sigint, N );	  
+		}
+		else {
+		  printf("%6.3f/%5.3f/%5d ",
+			 STD, sqrt(muCOVscale), N );	  
+		}
+	      } // ic
+	      printf("\n");     fflush(stdout);
+	    } // im
+	    printf("\n");     fflush(stdout);
+	  } // iz
+	} // ig
+      } // ib
+    } // ia
+    
+  } // end LPRINT
+
+  // - - - - - - - - - - - - - - - - - - - 
+
+  if ( debug_mucovscale > 0 ) {   
+    write_debug_mucovcorr(IDSAMPLE, muDif_list, muBias_list, muErr_list, muErr_raw_list);
+
+    /* xxxxxxx mark delete Jun 2 2026 xxxxxxxxxx
+    // xxxxxxxx legacy file Mar 3 2022 RK xxxxxxx
+    char outfile[200], line[200], *name; 
+    sprintf(outfile,"%s_IDSAMPLE%d_LEGACY.dat", INPUTS.PREFIX, IDSAMPLE); 
+    printf("DEBUG: Create diagnostic file %s\n", outfile);
+    FILE *fp = fopen(outfile,"wt");
+    fprintf(fp,"VARNAMES: CID BIN Ncell "
+	    "zMEAN cMEAN mMEAN "
+	    "MUCOVSCALE_STD MUCOVSCALE_MAD "
+	    "RMS_MUDIF MUDIF "
+	    "MUERR MUERR_RAW\n");
+
+    for(isp=0; isp < NBIASCOR_CUTS; isp++ ) {
+      ievt = SAMPLE_BIASCOR[IDSAMPLE].IROW_CUTS[isp] ;
+      name = INFO_BIASCOR.TABLEVAR.name[ievt];
+
+      // check if there is valid biasCor for this event
+      J1D = J1D_biasCor(ievt,fnam);
+      NperCell = CELL_BIASCOR->NperCell[J1D];
+      i1d      = INFO_BIASCOR.TABLEVAR.IMUCOV[ievt] ;
+      if ( NperCell < INPUTS.min_per_cell_biasCor )  { continue ; }
+      if ( i1d < 0 )                          { continue ; }
+      if ( !CELL_MUCOVSCALE->USE[i1d] )       { continue; }
+
+      STD = sqrt ( SQMUSTD[i1d] );
+      sprintf(line,"SN: "
+	      "%8s %d %d "         // name bin Ncell
+	      "%.3f %.3f %.3f "    // zMEAN cMEAN mMEAN
+	      "%.3f %.3f "         // MUCOVSCALE_RMS MUCOVSCALE_MAD
+	      "%.3f %.3f "         // RMS_MUDIF  MUDIF
+	      "%.3f %.3f "         // MUERR MUERR_RAW
+      	      ,name, i1d, CELL_MUCOVSCALE->NperCell[i1d]
+	      ,CELL_MUCOVSCALE->AVG_z[i1d]
+	      ,CELL_MUCOVSCALE->AVG_LCFIT[INDEX_c][i1d]
+              ,CELL_MUCOVSCALE->AVG_m[i1d]
+	      ,SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d]
+	      ,STD, muDif_list[ievt]
+	      ,muErr_list[ievt], muErr_raw_list[ievt]
+      	      );
+      fprintf(fp, "%s\n", line);
+    }  // end isp loop over sparse events
+
+    fclose(fp);
+    // xxxxxxxxxxxxxx 
+    xxxxxxxxxx end mark xxxxxxxx */
+
+
+    free(muErr_list); free(muErr_raw_list); free(muDif_list);
+  }  // end debug_mucovscale
+
+  // - - - - - 
+  print_debug_malloc(-1*debug_malloc,fnam);
+  free(SUM_MUERR);   free(SUM_SQMUERR);
+  free(SUM_MUDIF);   free(SUM_SQMUDIF) ;
+  free(SQMUERR);     free(SQMUSTD);
+  free(SUM_PULL);    free(SUM_SQPULL);
+ 
+  if ( DO_MAD ) {
+    for (i1d=0; i1d<NCELL; i1d++) { 
+      free(CELL_MUCOVSCALE->ABSPULL[i1d]); 
+      free(CELL_MUCOVSCALE->PULL[i1d]); 
+    }
+    free(CELL_MUCOVSCALE->ABSPULL);
+    free(CELL_MUCOVSCALE->PULL);
+  }
+  return;
+
+} // end makeMap_sigmu_biasCor_legacy
+
+
 // ======================================================
 void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
@@ -12617,7 +12927,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 
 
   // -------------------------------------------------
-  double WN, SQSTD, AVG=-9.0, STD=-9.0, MAD=-9.0 ;
+  double WN, SQSTD, STD=-9.0, MAD=-9.0 ;
   int N;
 
   for(i1d=0; i1d < NCELL; i1d++ ) {
@@ -12855,6 +13165,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
   return;
 
 } // end makeMap_sigmu_biasCor
+
+
 
 
 // ======================================================
@@ -15303,11 +15615,7 @@ void dump_muCOVcorr_izbin(int iz_dump, int mxevt_dump, char *callFun ) {
   // dump muCOVscale & add for first 'mxevt_dump' data events in iz_dump bin
 
   int  NSN_DATA  = INFO_DATA.TABLEVAR.NSN_ALL ;
-  bool DO_COVADD = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD  ) > 0;
-
   int  iz, isn, nevt_dump = 0;
-  double COVscale_calc=1.0,  COVscale=1.0 , COVadd=0.0 ;
-  char *name;
   char fnam[100];
   concat_callfun_plus_fnam(callFun, "dump_muCOVcorr_izbin", fnam);  (void)fnam;
 
@@ -16106,7 +16414,6 @@ void prepare_CCprior(void) {
 
   int idsample, USE_CCPRIOR_H11 ;
   
-  bool REFAC  = ( INPUTS.REFAC_CCPRIOR > 0 ) ;
   char fnam[] = "prepare_CCprior" ;
 
   // ------------- BEGIN -------------
@@ -16165,42 +16472,26 @@ void prepare_CCprior(void) {
   
   // - - - - 
 
-  if ( REFAC ) { // Jul 29 2025
+  printf("\t %s: call refactored setup_MUMZAP*CCPRIOR functions\n", fnam); fflush(stdout);
+  setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_CCPRIOR, MUZMAP);
+  
 
-    printf("\t %s: call refactored setup_MUMZAP*CCPRIOR functions\n", fnam); fflush(stdout);
-    setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_CCPRIOR, MUZMAP);
-
-
-    double ABGM[4] = { MUZMAP->alpha, MUZMAP->beta, MUZMAP->gammadm, MUZMAP->M0 } ;
-    malloc_PROB_CCprior(TABLEVAR_CCPRIOR, MUZMAP, PROB_CCPRIOR);
-    load_DMU_CCprior(TABLEVAR_CCPRIOR, ABGM, PROB_CCPRIOR);
-
-    bool PRINT_TABLE = true ;
-    for(idsample=0; idsample < NSAMPLE; idsample++ ) {
-      setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CCPRIOR, MUZMAP, 
-				  PROB_CCPRIOR, PRINT_TABLE );
-    }
-
-    malloc_PROB_CCprior(TABLEVAR_DATA, MUZMAP, PROB_DATA);
-    if ( !INPUTS.DO_CCPRIOR_UPDATE ) {
-      // data prior is fixed during init
-      load_DMU_CCprior(TABLEVAR_DATA, ABGM, PROB_DATA);
-      load_PROBDMU_CCprior(TABLEVAR_DATA, MUZMAP, PROB_DATA); 
-    } 
+  double ABGM[4] = { MUZMAP->alpha, MUZMAP->beta, MUZMAP->gammadm, MUZMAP->M0 } ;
+  malloc_PROB_CCprior(TABLEVAR_CCPRIOR, MUZMAP, PROB_CCPRIOR);
+  load_DMU_CCprior(TABLEVAR_CCPRIOR, ABGM, PROB_CCPRIOR);
+  
+  bool PRINT_TABLE = true ;
+  for(idsample=0; idsample < NSAMPLE; idsample++ ) {
+    setup_MUZMAP_DMUPDF_CCPRIOR(idsample, TABLEVAR_CCPRIOR, MUZMAP, 
+				PROB_CCPRIOR, PRINT_TABLE );
   }
- 
-  else {
-    // legacy functions
-    printf("\t %s: call setup*CCprior_legacy functions\n", fnam ); fflush(stdout);
-
-    setup_zbins_CCprior_legacy(TABLEVAR_CCPRIOR, &MUZMAP->ZBIN );
-
-    for(idsample=0; idsample < NSAMPLE; idsample++ ) {
-      setup_MUZMAP_CCprior_legacy(idsample, TABLEVAR_CCPRIOR, MUZMAP );
-      setup_DMUPDF_CCprior_legacy(idsample, TABLEVAR_CCPRIOR, MUZMAP, true );  
-    }
-  } // end legacy calls
-
+  
+  malloc_PROB_CCprior(TABLEVAR_DATA, MUZMAP, PROB_DATA);
+  if ( !INPUTS.DO_CCPRIOR_UPDATE ) {
+    // data prior is fixed during init
+    load_DMU_CCprior(TABLEVAR_DATA, ABGM, PROB_DATA);
+    load_PROBDMU_CCprior(TABLEVAR_DATA, MUZMAP, PROB_DATA); 
+  } 
 
   // - - - - - - - -
   // Call dump util to call prob_CCprior_sim and print tables
@@ -16210,16 +16501,8 @@ void prepare_CCprior(void) {
   fprintf(FP_STDOUT,"\t\t Print PDF(DMU) in {z,c,s}-bin with max NEVT:\n");
   fprintf(FP_STDOUT,"\t\t PDF_BBC uses %s method. \n", comment[icomment] );
 
-
-  if ( REFAC ) {
-    for(idsample=0; idsample < NSAMPLE; idsample++ )
-      { dump_DMUPDF_CCprior(idsample, INFO_CCPRIOR.I3D_NEVTMAX, &INFO_CCPRIOR.MUZMAP) ; }
-  }
-  else {
-    // legacy
-    for(idsample=0; idsample < NSAMPLE; idsample++ )
-      { dump_DMUPDF_CCprior_legacy(idsample, INFO_CCPRIOR.IZ_NEVTMAX, &INFO_CCPRIOR.MUZMAP) ; }
-  }
+  for(idsample=0; idsample < NSAMPLE; idsample++ )
+    { dump_DMUPDF_CCprior(idsample, INFO_CCPRIOR.I3D_NEVTMAX, &INFO_CCPRIOR.MUZMAP) ; }
 
   // ----------------------------------------------
   fprintf(FP_STDOUT, "\n Finished preparing CC prior. \n");
@@ -16446,8 +16729,6 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
   bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
 
-  bool REFAC  = ( INPUTS.REFAC_CCPRIOR > 0 ) ; 
-
   BININFO_DEF *ZBIN   = &MUZMAP->ZBIN ;
   BININFO_DEF *CBIN   = &MUZMAP->CBIN ;
   BININFO_DEF *SBIN   = &MUZMAP->SBIN ;
@@ -16466,17 +16747,15 @@ void setup_MUZMAP_INFO_CCPRIOR(TABLEVAR_DEF *TABLEVAR, MUZMAP_DEF *MUZMAP ) {
   setup_BININFO_CCPRIOR(VARNAME_zHD, ZBIN);
   setup_BININFO_CCPRIOR(VARNAME_dmu, DMUBIN);
 
-  if ( REFAC ) {
-    if ( ISMODEL_SALT2 ) {
-      setup_BININFO_CCPRIOR(VARNAME_SALT2_c,  CBIN);
-      setup_BININFO_CCPRIOR(VARNAME_SALT2_x1, SBIN);
-    }
-    else if ( ISMODEL_BAYESN ) {
-      setup_BININFO_CCPRIOR(VARNAME_BAYESN_AV,    CBIN);
-      setup_BININFO_CCPRIOR(VARNAME_BAYESN_theta, SBIN);
-    }
-  }
 
+  if ( ISMODEL_SALT2 ) {
+    setup_BININFO_CCPRIOR(VARNAME_SALT2_c,  CBIN);
+    setup_BININFO_CCPRIOR(VARNAME_SALT2_x1, SBIN);
+  }
+  else if ( ISMODEL_BAYESN ) {
+    setup_BININFO_CCPRIOR(VARNAME_BAYESN_AV,    CBIN);
+    setup_BININFO_CCPRIOR(VARNAME_BAYESN_theta, SBIN);
+  }
 
   int NZBIN = ZBIN->nbin;
   int NCBIN = CBIN->nbin;
@@ -17718,8 +17997,6 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   // Feb 08 2025: use opt_ccprior to decide prior eval method;
   //              speed up DMU interp using known binsize 
 
-  bool REFAC  = ( INPUTS.REFAC_CCPRIOR  > 0 ) ;  // remove z arg when making REFAC default.
-  bool LEGACY = !REFAC ;
 
   int  OPT_CCPRIOR      = INPUTS.opt_ccprior ;
   bool DO_FUNDMU_GAUSS  = INPUTS.DO_CCPRIOR_GAUSS ;
@@ -17732,12 +18009,6 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   concat_callfun_plus_fnam(callFun, "prob_CCprior_sim", fnam); // return fnam 
 
   // ----------------- BEGIN ------------
-
-
-  if ( LEGACY ) {
-    prob = prob_CCprior_sim_legacy(OPT_CCPRIOR, IDSAMPLE, MUZMAP, z, dmu, DUMPFLAG, callFun) ;
-    return (prob);
-  }
 
   prob = 0.0 ;
 
@@ -21846,18 +22117,7 @@ void prep_debug_flag(void) {
     fflush(FP_STDOUT);
   }
 
-  // - - - - - -
-  if (INPUTS.debug_flag == -33)  {
-    INPUTS.REFAC_CCPRIOR = 0 ;
-    printf("\n debug flag set to %d : used legacy CCPRIOR with only z-dependence\n", 
-	   INPUTS.debug_flag);
-  }
-  
-  if ( INPUTS.debug_flag == -211 ) {
-    INPUTS.REFAC_SORT_IDSAMPLE = 0;
-    printf("\n debug flag set to %d : revert back to legacy sort_IDSAMPLE \n",
-	   INPUTS.debug_flag);
-  }
+  // - - - - - -  
 
   fflush(FP_STDOUT);
   
@@ -27301,660 +27561,4 @@ void SUBPROCESS_EXIT(void) {
 
 
 
-
-
-
-// ========================================================================
-//
-//   @@@@@@@@ LEGACY CCPRIOR FUNCTIONS Aug 1 2025 @@@@@@@@@@@@@@@@
-//
-// ========================================================================
-
-
-// ===================================================
-double prob_CCprior_sim_legacy(int OPT_CCPRIOR, int IDSAMPLE, MUZMAP_DEF *MUZMAP, 
-			       double z, double dmu, int DUMPFLAG, char *callFun) {
-
-  // Called by fcn function in minuit to return CC prob 
-  // for input MUZMAP (includes cosPar) and Hubble resid dmu.
-  // Jun 18 2018: pass DUMPFLAG argument for debugging
-  // Oct 26 2023: check RMS>0 before computing resid and prob
-  // Feb 08 2025: use opt_ccprior to decide prior eval method;
-  //              speed up DMU interp using known binsize 
-
-  
-  bool DO_FUNDMU_GAUSS  = ( (OPT_CCPRIOR & MASK_CCPRIOR_FUNDMU_GAUSS) > 0 ) ; // default
-  bool DO_FUNDMU_INTERP = !DO_FUNDMU_GAUSS;
-
-  int IZ, NBMU, imu ;
-  double dmumin, dmumax, dmubin, dmu_local=dmu , prob, frac, *DMUPDF, *DMUAVG;
-
-  char fnam[100] ;
-  concat_callfun_plus_fnam(callFun, "prob_CCprior_sim_legacy", fnam); // return fnam 
-
-  // ----------------- BEGIN ------------
-  prob = 0.0 ;
-
-  IZ   = IBINFUN(z, &MUZMAP->ZBIN, 0, fnam);
-
-  // @@@@@@ LEGACY @@@@@
-
-  if ( IZ < 0 ) {
-    sprintf(c1err,"Invalid IZ = %d for z=%.4f  dmu=%.4f", IZ, z, dmu );
-    sprintf(c2err,"IDSAMPLE=%d", IDSAMPLE);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
-  }
-
-
-  if ( DUMPFLAG ) {
-    printf(" xxx --------------------------------------------- \n");
-    printf(" xxx %s: NCALL=%d   DO_FUNDMU_GAUSS=%d\n", fnam, FITRESULT.NCALL_FCN, DO_FUNDMU_GAUSS);
-    printf(" xxx %s: IDSAM=%d  IZ=%d  DMU=%.4f  PRIOR[AVG,RMS] = %.4f %.4f \n",
-	   fnam, IDSAMPLE, IZ, dmu,
-	   MUZMAP->DMUAVG[IDSAMPLE][IZ],
-	   MUZMAP->DMURMS[IDSAMPLE][IZ] ); fflush(stdout);
-  }
-
-  if ( DO_FUNDMU_GAUSS ) {
-    // make Guassian approximation with <DMU> and RMS(DMU).
-    double AVG, RMS, resid, arg ;
-    AVG    = MUZMAP->DMUAVG[IDSAMPLE][IZ];
-    RMS    = MUZMAP->DMURMS[IDSAMPLE][IZ];
-    if ( RMS > 0.0000001 ) {
-      resid  = (dmu-AVG)/RMS ; arg=0.5*resid*resid ;
-      prob   = (PIFAC/RMS) * exp(-arg);
-    }
-  }
-
-  if ( DUMPFLAG ) { printf(" xxx %s: prob = %.4f \n", fnam, prob); fflush(stdout); }
-
-  // @@@@@@ LEGACY @@@@@
-  
-  // ------------------------------------------
-  // if we get here, interpolate in dmu bins
-
-  if ( DO_FUNDMU_INTERP ) {
-    NBMU   = MUZMAP->DMUBIN.nbin ;  
-    dmumin = MUZMAP->DMUBIN.avg[0];
-    dmumax = MUZMAP->DMUBIN.avg[NBMU-1];
-    dmubin = MUZMAP->DMUBIN.binSize ;
-    DMUPDF = MUZMAP->DMUPDF[IDSAMPLE][IZ] ;
-    DMUAVG = MUZMAP->DMUBIN.avg ;
-
-    // make sure dmu is contained withing grid
-    if ( dmu < dmumin ) 
-      { dmu_local = dmumin + 0.0001 ; }
-    else if ( dmu > dmumax ) 
-      { dmu_local = dmumax - 0.0001 ; }
-    else
-      { dmu_local = dmu ; }
-    
-
-    imu = (int)((dmu_local - dmumin)/dmubin) ;
-    if (imu == NBMU - 1) { imu-- ; }
-    frac  = (dmu_local - DMUAVG[imu]) / dmubin ;
-    prob  = DMUPDF[imu] + frac * ( DMUPDF[imu+1] - DMUPDF[imu] );  // fast
-
-  }
-
-  // @@@@@@ LEGACY @@@@@
-
-  // -------------------------------
-  return(prob);
-
-} // end prob_CCprior_sim_legacy
-
-
-// ============================================
-void  dump_DMUPDF_CCprior_legacy(int IDSAMPLE, int IZ, MUZMAP_DEF *MUZMAP) {
-
-  // Jul 28 2025: refactor to write more/better info
-
-  int imu, NCC ;
-  double PDF_TRUE, PDF_BBC, DMU_LO, DMU_HI, DMU ;
-  double z  = MUZMAP->ZBIN.avg[IZ] ;
-  double a  = MUZMAP->alpha; 
-  double b  = MUZMAP->beta ;
-  int    N  = MUZMAP->NCC3D[IDSAMPLE][IZ];
-  char fnam[] = "dump_DMUPDF_CCprior_legacy" ;
-
-  // -------------- BEGIN ---------------
-
-  if ( SAMPLE_BIASCOR[IDSAMPLE].NSN[EVENT_TYPE_CCPRIOR] == 0 ) { return; } // Feb 2025
-
-  fprintf(FP_STDOUT, "\n %s for %s [IDSAMPLE=%d]  and IZ=%d: \n", 
-	  fnam, SAMPLE_BIASCOR[IDSAMPLE].NAME, IDSAMPLE, IZ  );
-  fprintf(FP_STDOUT, "    z=%.3f   a=%.3f b=%.3f   NCC=%d\n", 
-	  z,  a, b, N );
-  fprintf(FP_STDOUT, "    DMU[AVG,RMS] = %.3f, %.3f \n",
-	  MUZMAP->DMUAVG[IDSAMPLE][IZ],    MUZMAP->DMURMS[IDSAMPLE][IZ]  );
-  
-
-  fprintf(FP_STDOUT, "\t  imu  dMU(min) dMU(max)   NCC   PDF_TRUE  PDF_BBC\n");
-
-  for(imu=0; imu < MUZMAP->DMUBIN.nbin; imu++ ) {
-    NCC      = MUZMAP->NDMUPDF[IDSAMPLE][IZ][imu] ; 
-    PDF_TRUE = MUZMAP->DMUPDF[IDSAMPLE][IZ][imu] ;
-
-    // get PDF as determined in BBC fit
-    DMU_LO = MUZMAP->DMUBIN.lo[imu];
-    DMU_HI = MUZMAP->DMUBIN.hi[imu];
-    DMU    = 0.5 * ( DMU_LO + DMU_HI );
-    PDF_BBC  = prob_CCprior_sim_legacy(INPUTS.opt_ccprior, IDSAMPLE, MUZMAP, z, DMU, 0, fnam );
-
-    fprintf(FP_STDOUT, "\t  %3d  %6.3f  %6.3f   %5d      %.3f    %.3f\n",
-	    imu, DMU_LO, DMU_HI, NCC, PDF_TRUE, PDF_BBC );
-  }  
-  fflush(FP_STDOUT);
-
-  return ;
-  
-} // end dump_DMUPDF_CCprior_legacy
-
-
-// =================================================
-void setup_zbins_CCprior_legacy(TABLEVAR_DEF *TABLEVAR, BININFO_DEF *ZBIN) {
-
-  // Setup z-grid for CCprior, and label each data point with
-  // iz index to save time in fitting. Note that this z binning
-  // can be different from the user z-binning.
-  //
-  // Jan 24 2020: check optional user input from nzbin_ccprior
-
-  int    nzbin_ccprior = INPUTS.nzbin_ccprior ;
-  double zrange = INPUTS.zmax - INPUTS.zmin ;
-  double DZBIN_CCPRIOR = 0.10 ;
-
-  double z, zlo, zhi, z0, z1 ;
-  int  nbz, icc, iz ;
-  char MSGERR[100];
-  char fnam[] = "setup_zbins_CCprior_legacy" ;
-
-  // ------------- BEGIN -------------
-
-  if ( nzbin_ccprior > 0 ) {
-    // user input nzbin
-    nbz = nzbin_ccprior;  
-  }
-  else {
-    // default use hard wired bin size of DZBIN_CCPRIOR
-    double d_nbz   = zrange/DZBIN_CCPRIOR ;
-    nbz     = (int)d_nbz;
-    if ( d_nbz > (double)nbz ) { nbz++ ; }
-  }
-  DZBIN_CCPRIOR = zrange/(double)nbz ;
-
-
-  // make uniform z-grid, although a non-uniform grid is allowed.
-  nbz = 0;
-  z0 = INPUTS.zmin;  
-  z1 = INPUTS.zmax - DZBIN_CCPRIOR + 1.0E-5;
-  sprintf( ZBIN->varName,"z(CCprior)" );
-
-  for ( z=z0; z < z1; z += DZBIN_CCPRIOR ) {
-    zlo = z;
-    zhi = z + DZBIN_CCPRIOR ;
-    ZBIN->lo[nbz]  = zlo ;
-    ZBIN->hi[nbz]  = zhi ;
-    ZBIN->avg[nbz] = 0.5*(zlo+zhi);
-    ZBIN->n_perbin[nbz] = 0 ;
-    nbz++ ;  ZBIN->nbin = nbz;
-  }
-    
-  for(icc=0; icc < TABLEVAR->NSN_ALL; icc++ ) {
-    z = TABLEVAR->zhd[icc];
-    sprintf(MSGERR,"%s: z=%f", fnam, z);
-    iz = IBINFUN(z, ZBIN, 1, MSGERR );
-    TABLEVAR->IZBIN[icc] = iz ;
-    ZBIN->n_perbin[iz]++ ;
-  }
-
-
-  // print summary info for each z-bin
-  fprintf(FP_STDOUT, "\n");
-  fprintf(FP_STDOUT, "  %s: %d z-bins from %.3f to %.3f\n",
-	 fnam, ZBIN->nbin, INPUTS.zmin, INPUTS.zmax);
-
-  fprintf(FP_STDOUT, "\t   iz  zmin   zmax     N(NONIA) \n" );
-  for(iz=0; iz < ZBIN->nbin; iz++ ) {
-    fprintf(FP_STDOUT, "\t  %3d  %.3f  %.3f  %5d  \n",
-	   iz, ZBIN->lo[iz], ZBIN->hi[iz], ZBIN->n_perbin[iz] );
-  }
-
-  fflush(FP_STDOUT);
-
-  return ;
-
-} // end setup_zbins_CCprior_legacy
-
-
-// ================================================
-void setup_MUZMAP_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
-				 MUZMAP_DEF *MUZMAP) {
-
-  // setup dmu vs. z map binning in each z bins.
-  // Do test with input alpha,beta,M0.
-  // Only MUZMAP is used; INFO_CC is just used to test the PDF function.
-  //
-  // Feb 8 2025: extend DMUMIN_CCPRIOR more negative (to -3.0) for Roman
-
-#define DMUMIN_CCPRIOR  -3.0  // add buffer bin to allow for interp
-#define DMUMAX_CCPRIOR  +4.0  // add buffer bin to allow for interp
-  double DMUBIN_CCPRIOR  = INPUTS.dmubin_ccprior ;
-
-  int NBINa, NBINb, ia, ib, nbin_dmu ;
-  double SUMa=0.0, SUMb=0.0, dmu, dmulo, dmuhi ;
-
-  int NSN_BIASCOR = INFO_BIASCOR.TABLEVAR.NSN_ALL ;
-  BININFO_DEF *BININFO_SIM_ALPHA = &INFO_BIASCOR.BININFO_SIM_ALPHA;
-  BININFO_DEF *BININFO_SIM_BETA  = &INFO_BIASCOR.BININFO_SIM_BETA ;
-
-  char fnam[] = "setup_MUZMAP_CCprior_legacy" ;
-
-  // ------------ BEGIN -------------
-    
-
-  nbin_dmu = 0;
-  for ( dmu  = DMUMIN_CCPRIOR; dmu < DMUMAX_CCPRIOR-DMUBIN_CCPRIOR+.0001; 
-	dmu += DMUBIN_CCPRIOR ) {
-    dmulo = dmu;
-    dmuhi = dmu + DMUBIN_CCPRIOR ;
-    MUZMAP->DMUBIN.lo[nbin_dmu] = dmulo ;
-    MUZMAP->DMUBIN.hi[nbin_dmu]  = dmuhi ;
-    MUZMAP->DMUBIN.avg[nbin_dmu] = 0.5 * ( dmulo + dmuhi );
-    MUZMAP->DMUBIN.binSize       = DMUBIN_CCPRIOR;
-    nbin_dmu++ ;  MUZMAP->DMUBIN.nbin = nbin_dmu ;
-  }
-  
-  if ( IDSAMPLE == 0 ) {
-    fprintf(FP_STDOUT, "\n");
-    fprintf(FP_STDOUT, "  %s: %d dMU-bins from %.3f to %.3f\n",
-	   fnam, MUZMAP->DMUBIN.nbin, DMUMIN_CCPRIOR, DMUMAX_CCPRIOR);
-    fflush(FP_STDOUT);
-  }
-
-  // print DMU distribution for first redshift bin
-  MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
-  MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
-  MUZMAP->M0    = M0_DEFAULT ;
-
-  MUZMAP->cosPar[0] = INPUTS.parval[IPAR_OL] ;   // OL
-  MUZMAP->cosPar[1] = INPUTS.parval[IPAR_Ok] ;   // Ok
-  MUZMAP->cosPar[2] = INPUTS.parval[IPAR_w0] ;   // w0
-  MUZMAP->cosPar[3] = INPUTS.parval[IPAR_wa] ;   // wa
-
-  if ( IDSAMPLE == 0 ) {
-    fprintf(FP_STDOUT, "\n");
-    fprintf(FP_STDOUT, "  %s: %d dMU-bins from %.3f to %.3f\n",
-	   fnam, MUZMAP->DMUBIN.nbin, DMUMIN_CCPRIOR, DMUMAX_CCPRIOR);
-    fprintf(FP_STDOUT, "  %s: a=%.3f b=%.3f M0=%.3f \n", 
-	    fnam, MUZMAP->alpha, MUZMAP->beta, MUZMAP->M0 );
-    fprintf(FP_STDOUT, "  %s: OL, ok, w0, wa = %.3f, %.3f, %.3f ,%.3f \n", 
-	    fnam, MUZMAP->cosPar[0], MUZMAP->cosPar[1], MUZMAP->cosPar[2], MUZMAP->cosPar[3] );
-    fflush(FP_STDOUT);
-  }
-    
-  // if there is a biasCor map, set alpha,beta to the average
-  // since that should be a better estimate in case user input
-  // starts alpha,beta way off.
-  if ( NSN_BIASCOR > 0 ) {
-    NBINa   = (*BININFO_SIM_ALPHA).nbin ;
-    NBINb   = (*BININFO_SIM_BETA).nbin ;
-
-    for(ia=0; ia<NBINa; ia++ )
-      { SUMa += (*BININFO_SIM_ALPHA).avg[ia]; }
-    for(ib=0; ib<NBINb; ib++ )
-      { SUMb += (*BININFO_SIM_BETA).avg[ib]; } 
-
-    if ( NBINa>0  && NBINb>0 ) {
-      MUZMAP->alpha = SUMa / (double)NBINa ;
-      MUZMAP->beta  = SUMb / (double)NBINb ;
-    }
-    else {
-      // user input is only choice (Jun 19 2018)
-      MUZMAP->alpha = INPUTS.parval[IPAR_ALPHA0] ;
-      MUZMAP->beta  = INPUTS.parval[IPAR_BETA0] ;
-    }
-
-  }
-
-
-  
-  return ;
-
-}  // end setup_MUZMAP_CCprior_legacy
-
-
-// =============================================
-void setup_DMUPDF_CCprior_legacy(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR,
-				 MUZMAP_DEF *MUZMAP, bool PRINT_TABLE ) {
-
-  // Created Feb 2016
-  // for input redshift (z) and DMU map (*MUZMAP),
-  // return the normalized PDF of the DMU distribution (*DMUPDF)
-  // Compute PDF at center of two neighboring z bins 
-  // and interpolate.
-  //
-  // This function is called for each fcn call, so no print statements !
-  //
-  // Jul 28 2025:
-  //   + add PRINT_TABLE arg to print table only during init
-  //   + check user input INPUTS.write_ccprior
-
-  bool ISMODEL_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
-  bool ISMODEL_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
-
-  int EVENT_TYPE = TABLEVAR->EVENT_TYPE ;  (void)EVENT_TYPE;
-  int NSN_ALL = TABLEVAR->NSN_ALL;
-
-  int imu, NMUBIN, NZBIN, ia, ib, ig, iz, icc, idsample, nevt_biascor ;
-  int NCC[MXz][MAXMUBIN], NCC_SUM[MXz]; 
-  double SUM_DMU[MXz], SUMSQ_DMU[MXz];
-  double z, c, x1, d, dl, mu, mumodel, mumodel_bcor, dmu, a, b, gDM, M0 ;
-  double XMU, XCC, XCC_SUM, DMUBIN ;
-  char *name ;
-
-  // define diagnostic CCprior output if user requests it and PRINT_TABLE=true
-  bool WRITE_CCPRIOR = ( INPUTS.write_ccprior > 0 && PRINT_TABLE ); 
-  FILE *fcc;
-  char outfile_cc[MXPATHLEN];
-  int *IZ_CCPRIOR=NULL, *IMU_CCPRIOR=NULL;  
-  double *DMU_CCPRIOR=NULL, *MUBIAS_CCPRIOR=NULL; // store local info
-  int MEMI = NSN_ALL * sizeof(int) ;
-  int MEMD = NSN_ALL * sizeof(double) ;
-
-  // muBias declarations
-  bool USE_BIASCOR  = ( INFO_BIASCOR.TABLEVAR.NSN_ALL > 0 ) ;
-  int  NDIM_BIASCOR = INFO_BIASCOR.NDIM ;
-  BIASCORLIST_DEF     BIASCORLIST ;
-  INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
-  FITPARBIAS_DEF   FITPARBIAS_TMP[MXa][MXb][MXg] ; 
-  double           MUCOVSCALE_TMP[MXa][MXb][MXg] ; 
-  double           MUCOVADD_TMP[MXa][MXb][MXg] ; 
-  double fitParBias[NLCPAR], muBias, muBiasErr, muCOVscale, muCOVadd ;
-  char fnam[] = "setup_DMUPDF_CCprior_legacy" ;
-    
-  // ----------------- BEGIN ---------------
-
-  if ( INFO_CCPRIOR.USEH11 ) { return ; }
-
-  if ( WRITE_CCPRIOR ) {
-    IZ_CCPRIOR      = (int*)    malloc(MEMI);
-    IMU_CCPRIOR     = (int*)    malloc(MEMI);
-    DMU_CCPRIOR     = (double*) malloc(MEMD);
-    MUBIAS_CCPRIOR  = (double*) malloc(MEMD);
-  }
-
-    
-  // number of DMU bins to make PDF
-  NMUBIN = MUZMAP->DMUBIN.nbin ;
-  NZBIN  = MUZMAP->ZBIN.nbin ;
-  XMU    = (double)NMUBIN ;
-  DMUBIN = MUZMAP->DMUBIN.hi[0] - MUZMAP->DMUBIN.lo[0]; 
-  
-  // init default PDF to flat in case there are not enough CC sim stats
-
-  for(iz=0; iz < NZBIN; iz++ ) {
-    NCC_SUM[iz]   = 0 ;
-    SUM_DMU[iz]   = 0.0 ;
-    SUMSQ_DMU[iz] = 0.0 ;
-    MUZMAP->DMUAVG[IDSAMPLE][iz] = 0.0 ;
-    MUZMAP->DMURMS[IDSAMPLE][iz] = 9999.0 ; // --> flat distribution
-    
-    for(imu=0; imu < NMUBIN; imu++ ) { 
-      NCC[iz][imu] = 0 ;
-      MUZMAP->NDMUPDF[IDSAMPLE][iz][imu] = 0 ;
-      MUZMAP->DMUPDF[IDSAMPLE][iz][imu]  = 1.0/XMU ;
-      MUZMAP->DMUPDF[IDSAMPLE][iz][imu] /= DMUBIN ; // Jul 2016
-    }
-  }
-  
-    
-  for(ia=0; ia < MXa; ia++ ) {
-    for(ib=0; ib < MXb; ib++ ) { 
-      for(ig=0; ig < MXg; ig++ ) {
-	MUCOVSCALE_TMP[ia][ib][ig] = 1.0 ; 
-      }
-    }
-  }
-
-  // Oct 26 2023: bail if there is nothing here to process
-  //  (e.g.., spec-confirmed subset)
-  if ( SAMPLE_BIASCOR[IDSAMPLE].NSN[EVENT_TYPE_CCPRIOR] == 0 ) { return; }
-
-  //  printf(" xxx %s: NROW = %d \n", fnam, INFO_CC->NROW);
-
-  a    = MUZMAP->alpha ;
-  b    = MUZMAP->beta ;
-  gDM  = MUZMAP->gammadm;
-  M0   = MUZMAP->M0 ;
-
-  /* xxx
-  if ( EVENT_TYPE == EVENT_TYPE_CCPRIOR ) 
-    { printf(" xxx %s: a,b,g = %.3f  %.3f  %.3f\n", fnam, a, b, gDM); fflush(stdout); }
-  xxx */
-
-  if ( NDIM_BIASCOR >= 5 ) 
-    { get_INTERPWGT_abg(a,b,gDM, 0, &INTERPWGT, fnam ); } // returns INTERPWGT
-   
-  for(icc=0; icc < NSN_ALL ; icc++ ) {  
-
-    // require correct IDSAMPLE to continue
-    idsample = TABLEVAR->IDSAMPLE[icc] ;
-    if( idsample != IDSAMPLE ) { continue ; }
-
-    // keep only CC events in current IZ bin
-    iz   = TABLEVAR->IZBIN[icc] ;   // redshift bin 
-    z    = TABLEVAR->zhd[icc] ;     
-    c    = TABLEVAR->fitpar[INDEX_c][icc] ;
-    x1   = TABLEVAR->fitpar[INDEX_s][icc] ;
-    d    = TABLEVAR->fitpar[INDEX_d][icc] ;
-    name = TABLEVAR->name[icc] ;
-    
-    if ( ISMODEL_SALT2 ) 
-      { mu = d + a*x1 - b*c - M0 ; }
-    else if ( ISMODEL_BAYESN ) 
-      { mu = d; } // fixed for BAYESN Jul 29 2025
-    else 
-      { mu = -9.0; }
-
-    // apply SNIa mu-bias Correction if simfile_bias is given;
-    muBias = muBiasErr = 0.0 ;  muCOVscale = 1.0 ;
-    if ( USE_BIASCOR ) {    
-      BIASCORLIST.z                = z;
-      BIASCORLIST.FITPAR[INDEX_d]  = d ;
-      BIASCORLIST.FITPAR[INDEX_s]  = x1 ;
-      BIASCORLIST.FITPAR[INDEX_c ] = c  ;
-      BIASCORLIST.alpha            = a ;
-      BIASCORLIST.beta             = b ;
-      BIASCORLIST.gammadm          = gDM ;
-      BIASCORLIST.idsample         = idsample ;
-
-      // transfer FITPARBIAS_ALPHABETA to FITPARBIAS_TMP that has
-      // the right 2D structure definition for get_muBias
-      load_FITPARBIAS(EVENT_TYPE_CCPRIOR, icc,FITPARBIAS_TMP);
-
-      if ( NDIM_BIASCOR >= 5 ) {
-	get_muBias(name, &BIASCORLIST,     // (I) misc inputs
-		   FITPARBIAS_TMP,         // (I) bias vs. ia,ib
-		   MUCOVSCALE_TMP,         // (I) muCOVscale vs. ia,ib
-		   MUCOVADD_TMP,           // (I) muCOVscale vs. ia,ib
-		   &INTERPWGT,             // (I) wgt at each a,b grid point
-		   fnam,                   // (I) current func name
-		   fitParBias,       // (O) interp bias on mB,x1,c
-		   &muBias,          // (O) interp bias on mu
-		   &muBiasErr,       // (O) stat-error on above
-		   &muCOVscale,      // (O) scale bias on muCOV (not used below) 
-		   &muCOVadd,        // (O) add bias on muCOV (not used below)
-		   &nevt_biascor );
-      }
-      else if ( NDIM_BIASCOR == 1 ) {
-	debugexit("CCPRIOR does NOT WORK WITH BBC-1D");  // Jun 19 2018
-	// muBias   =  ??  
-      }
-	
-    } // end biasCor if-block
-    
-
-    // compute mucos for each SIM CC event
-    dl           = cosmodl_forFit(z, z, MUZMAP->cosPar) ; // zhel approx ok here for CC
-    mumodel      = 5.0*log10(dl) + 25.0 ;
-    mumodel_bcor = mumodel + muBias;
-    dmu          = mu - mumodel_bcor ;
-    imu          = IBINFUN(dmu, &MUZMAP->DMUBIN, 0, "" );  
-
-    if ( WRITE_CCPRIOR )  { 
-      IZ_CCPRIOR[icc]     = iz; 
-      IMU_CCPRIOR[icc]    = imu; 
-      DMU_CCPRIOR[icc]    = dmu; 
-      MUBIAS_CCPRIOR[icc] = muBias; 
-    }
-
-
-    int  LDMP_DMU = 0; // strcmp(name,"105524485")==0  ;  // legacy
-    //    if ( LDMP_MUBIAS && PRINT_TABLE ) {  
-    if ( LDMP_DMU ) {  
-      printf(" xxx ------------------------------------------- \n");
-      printf(" xxx %s: dump for CID = %s  NCALL_FCN=%d\n", fnam, name, FITRESULT.NCALL_FCN);
-      printf(" xxx %s: iz=%d  imu=%d \n", fnam, iz, imu );
-      printf(" xxx %s: z=%.3f, a,b,g = %.3f %.3f %.3f \n", fnam, z, a, b, gDM);
-      printf(" xxx %s: d=%.3e s=%.3f c=%.4f  M0=%.4f \n", fnam, d, x1, c, M0);
-      printf(" xxx %s: mu_raw = %.3f  mumodel=%.3f  mubias=%.3f  dmu=%.3f \n", 
-	     fnam, mu, mumodel, muBias, dmu);
-      printf(" xxx %s: cospar[OL,Ok,w0,wa] = %.3f %.3f %.3f %.3f \n",
-	     fnam, MUZMAP->cosPar[0], MUZMAP->cosPar[1], MUZMAP->cosPar[2], MUZMAP->cosPar[3] );
-      fflush(stdout);
-      //debugexit(fnam) ;
-    }
-
-
-    if ( imu >= 0 ) {
-      NCC_SUM[iz]++ ;
-      NCC[iz][imu]++ ;
-      // increment sums for AVG & RMS ( July 2016)
-      SUM_DMU[iz]   += dmu ;
-      SUMSQ_DMU[iz] += (dmu*dmu) ; 
-    }
-  
-  } // end icc loop
-
-
-  // Normalize each DMU distribution to get PDF in each class,iz bin.
-  // If the stats are too low then leave flat/default PDF.
-  double S1TMP, S2TMP, AVG, STD; 
-  int NTMP, NTMP_MAX = 0 ;  
-
-  if ( PRINT_TABLE ) {
-    fprintf(FP_STDOUT, "\n   %s: \n", SAMPLE_BIASCOR[IDSAMPLE].NAME  );
-    fprintf(FP_STDOUT, "\t IDSAMPLE iz    zmin zmax  N(NONIA)  AVG(DMU)  STD(DMU)\n" );
-  }  // end PRINT_TABLE
-
-  for(iz=0; iz < NZBIN; iz++ ) {
-
-    if ( NCC_SUM[iz] > 5 ) {
-      NTMP    = NCC_SUM[iz] ;
-      XCC_SUM = (double)NTMP;
-
-      if ( NTMP > NTMP_MAX ) { NTMP_MAX = NTMP; INFO_CCPRIOR.IZ_NEVTMAX = iz; }
-
-      // mean and rms
-      S1TMP = SUM_DMU[iz];
-      S2TMP = SUMSQ_DMU[iz];
-
-      AVG   = S1TMP/XCC_SUM ;
-      STD   = STD_from_SUMS(NTMP, S1TMP, S2TMP);
-
-      MUZMAP->DMUAVG[IDSAMPLE][iz] = AVG ;
-      MUZMAP->DMURMS[IDSAMPLE][iz] = STD ;
-
-      // printf(" xxx %s: IDSAMPLE=%d  iz=%2d  N=%4d  SUM_DMU=%.2f  AVG=%.3f  STD=%.3f\n",
-      //      fnam, IDSAMPLE, iz, NCC_SUM[iz],  SUM_DMU[iz], AVG, STD ); fflush(stdout);
-
-	
-      // prob in each bin
-      for(imu=0; imu < NMUBIN; imu++ ) { 
-	XCC = (double)NCC[iz][imu];
-	MUZMAP->DMUPDF[IDSAMPLE][iz][imu] = XCC / XCC_SUM ;
-	MUZMAP->NDMUPDF[IDSAMPLE][iz][imu]= NCC[iz][imu];
-	
-	// divide by DMU bin size to get normalized integral
-	// assuming that each DMU bin is linearly interpolated.
-	MUZMAP->DMUPDF[IDSAMPLE][iz][imu] /= DMUBIN ; 
-      }
-    }
-
-  }   // and iz loop
- 
-
-  // - - - -
-  if ( PRINT_TABLE ) {
-    double zmin, zmax ;     
-    NZBIN  = MUZMAP->ZBIN.nbin ;
-    for(iz=0; iz < NZBIN; iz++ ) {
-      zmin = MUZMAP->ZBIN.lo[iz];
-      zmax = MUZMAP->ZBIN.hi[iz];
-      NTMP = NCC_SUM[iz] ;
-      AVG  = MUZMAP->DMUAVG[IDSAMPLE][iz];
-      STD  = MUZMAP->DMURMS[IDSAMPLE][iz];
-      fprintf(FP_STDOUT,"\t  %3d  %5d   %5.3f %5.3f  %6d    %6.3f  %8.3f\n",
-	      IDSAMPLE, iz, zmin, zmax, NTMP, AVG, STD ); fflush(FP_STDOUT);
-    }
-    fflush(FP_STDOUT);
-  } // end print_table
-
-
-  // - - - - - - - - 
-  // diagnostic: write all CCprior events to FITRES file and 
-  // include PDF_TRUE and PDF_BBC
-  if ( WRITE_CCPRIOR ) {
-    sprintf(outfile_cc,"%s_CCPRIOR.FITRES", INPUTS.PREFIX);
-    if ( INPUTS.write_ccprior_status == 0 ) { 	
-      fcc = fopen(outfile_cc, "wt"); 
-      fprintf(fcc, "#  CCprior events passing BBC cuts.\n");
-      fprintf(fcc, "#  DMU = mu - mumodel - mubias(Ia)\n");
-      fprintf(fcc, "#  PDF_TRUE = Exact binned PDF(DMU) evaluated numerically.\n");
-      fprintf(fcc, "#  PDF_[GAUSS,INTERP] is for opt_ccprior = [1,2]\n");
-      fprintf(fcc, "#  \n");
-      fprintf(fcc, "\nVARNAMES: CID  IDSAMPLE  IDSURVEY  FIELD  IZ  IMU  "
-	      "zHD c x1  DMU MUBIAS  PDF_TRUE PDF_GAUSS  PDF_INTERP\n");
-      fflush(fcc);
-      INPUTS.write_ccprior_status++ ; // opened
-    }
-    else {
-      fcc = fopen(outfile_cc,"at"); 
-    }
-
-    double PDF_TRUE, PDF_GAUSS, PDF_INTERP;
-    for(icc=0; icc < NSN_ALL ; icc++ ) {  
-      idsample = TABLEVAR->IDSAMPLE[icc] ;
-      if( idsample != IDSAMPLE ) { continue ; }
-      z   = TABLEVAR->zhd[icc] ;     
-      iz  = IZ_CCPRIOR[icc];
-      imu = IMU_CCPRIOR[icc];
-      dmu = DMU_CCPRIOR[icc];
-      muBias = MUBIAS_CCPRIOR[icc];
-      PDF_TRUE   = MUZMAP->DMUPDF[IDSAMPLE][iz][imu] ;
-      PDF_GAUSS  = prob_CCprior_sim_legacy(MASK_CCPRIOR_FUNDMU_GAUSS, 
-					   IDSAMPLE, MUZMAP, z, dmu, 0, fnam );
-      PDF_INTERP = prob_CCprior_sim_legacy(MASK_CCPRIOR_FUNDMU_INTERP, 
-					   IDSAMPLE, MUZMAP, z, dmu, 0, fnam );
-
-      fprintf(fcc,"SN: %12s %2d %3d  "          // CID IDSAMPLE IDSURVEY 
-	      "%8s  %2d %2d  "                  // FIELD, iz, imu
-	      "%5.3f %6.3f %5.2f  "             // zHD c x1
-	      "%6.3f %6.3f  %5.3f  %5.3f  %5.3f\n",   // DMU PDF_[TRUE,GAUSS,INTERP]
-	      TABLEVAR->name[icc], TABLEVAR->IDSAMPLE[icc], TABLEVAR->IDSURVEY[icc],
-	      TABLEVAR->field[icc], iz, imu,
-	      TABLEVAR->zhd[icc], TABLEVAR->fitpar[INDEX_c][icc], TABLEVAR->fitpar[INDEX_s][icc],
-	      dmu, muBias, PDF_TRUE, PDF_GAUSS, PDF_INTERP );
-      fflush(fcc);
-    }
-    
-    free(IZ_CCPRIOR);  free(IMU_CCPRIOR);  free(DMU_CCPRIOR);
-    fclose(fcc);
-  } // end WRITE_CCPRIOR
-
-  return ;
-  
-} // end setup_DMUPDF_CCprior_legacy
 

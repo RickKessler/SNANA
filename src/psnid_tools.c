@@ -415,7 +415,7 @@ void PSNID_INIT_VAR(void) {
   // define public area for PSNID templates 
   sprintf(PATH_SNDATA_ROOT, "%s", getenv("SNDATA_ROOT") ) ;
   sprintf(PATH_TEMPLATES_PSNID, "%s/models/psnid", PATH_SNDATA_ROOT);
-  sprintf(PSNID_INPUTS.SNANA_VERSION, "%s", SNANA_VERSION_CURRENT);
+  sprintf(PSNID_INPUTS.SNANA_VERSION, "%.40s", SNANA_VERSION_CURRENT);
 
   // init data-storage array
   DATA_PSNID_DOFIT.NOBS = 0 ;

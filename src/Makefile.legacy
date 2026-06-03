@@ -67,7 +67,7 @@ CC   = gcc
 #  EXTRA_FLAGS = -O1    # -ftree-vectorize -ftree-vectorizer-verbose=2
   PROFILEFLAG = 
 
-EXTRA_FLAGS = -O2  #-D_FORTIFY_SOURCE=2  -Wall   # xxx RESTORE -Werror=unused-result
+EXTRA_FLAGS = -O2  -D_FORTIFY_SOURCE=2  -Wall   # xxx RESTORE -Werror=unused-result
 #EXTRA_FLAGS = -g -fbounds-check  # -ffpe-trap=invalid,zero,overflow # valgrind --leak-check=full
 
 

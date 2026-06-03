@@ -152,7 +152,7 @@ struct  PSNID_INPUTS  {
   int  WRSTAT_TABLE;            // flag to make fitres table
   int  LSIM ;                   // =1 for simulation, 0 for data
 
-  char SNANA_VERSION[20] ; // snana version
+  char SNANA_VERSION[40] ; // snana version
 
   double XTMW_at_AV1[MXFILTINDX] ;  // Galactic extinctoin at AV=1
 

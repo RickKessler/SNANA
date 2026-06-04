@@ -58,6 +58,7 @@ class HostPropertyFit(Program):
         cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
         self.prep_cigale_translator(cigale_input_dir)
         self.prep_cigale_fitopt()
+        self.prep_cigale_symlinks()
 
         self.config_prep['cigale_input_dir'] = cigale_input_dir
         self.config_prep['n_job_tot'] = self.config_prep['n_core']
@@ -114,6 +115,21 @@ class HostPropertyFit(Program):
             self.prep_pcigale_ini_file(fitopt_dir, fitopt_arg)
 
         self.config_prep['fitopt_dir_list'] = fitopt_dir_list
+
+        return
+
+    def prep_cigale_symlinks(self):
+        fitopt_dict = self.config_prep['fitopt_dict']
+        fitopt_dir_list = self.config_prep['fitopt_dir_list']
+        jobopt_num_list = fitopt_dict['jobopt_num_list']
+        prefix        =self.get_prefix_name()
+        sym_link_list = []
+        for fitopt_num, fitopt_dir in zip(jobopt_num_list, fitopt_dir_list):
+            symlink_name = fitopt_num + '_' + f'{prefix}.LOG'
+            log_file_orig = fitopt_dir + '/' +f'{prefix}.LOG' 
+            symlink_command = f'ln -s {log_file_orig} {symlink_name}'
+            sym_link_list.append(symlink_command)
+        self.config_prep['sym_link_list'] = sym_link_list
 
         return
 
@@ -214,6 +230,10 @@ class HostPropertyFit(Program):
         #sys.exit('xxx bye')
         return        
 
+    def get_prefix_name(self):
+        prefix        = f"{SUBCLASS_HOSTFIT_CIGALE}"
+        return prefix
+
     def prep_JOB_INFO_hostfit(self, ijob):
         #SNANA_TO_CIGALE = self.config_prep['SNANA_TO_CIGALE']
         program       = self.config_prep['program']
@@ -224,9 +244,10 @@ class HostPropertyFit(Program):
         SUBCLASS = self.config_prep['SUBCLASS']
         fitopt_dict = self.config_prep['fitopt_dict']
         fitopt_dir = self.config_prep['fitopt_dir_list'][ijob]
+        sym_link = self.config_prep['sym_link_list'][ijob]
 
         fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"
-        prefix        = f"{SUBCLASS}"
+        prefix        = self.get_prefix_name()
         done_file     = f"{prefix}.DONE"
         log_file      = f"{prefix}.LOG"
         yaml_file     = f"{prefix}.YAML"
@@ -242,6 +263,7 @@ class HostPropertyFit(Program):
         JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
         JOB_INFO['start_file'] = start_file
         JOB_INFO['arg_list'] = arg_list
+        JOB_INFO['sym_link_list'] = [sym_link]
 
         return JOB_INFO
 
@@ -284,3 +306,84 @@ class HostPropertyFit(Program):
             f.write(f"- {row} \n")
 
         return
+
+    def merge_config_prep(self,output_dir):
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        self.config_prep['output_dir']     = output_dir
+        self.config_prep['script_dir']     = script_dir
+        
+        return
+
+    def merge_update_state(self, MERGE_INFO_CONTENTS):
+
+        # read MERGE.LOG, check LOG & DONE files.
+        # Return update row list MERGE tables.
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        output_dir       = self.config_prep['output_dir']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
+
+        # init outputs of function
+        n_state_change     = 0
+        row_list_merge_new = []
+        row_list_merge     = MERGE_INFO_CONTENTS[TABLE_MERGE]
+
+        nrow_check = 0
+        for row in row_list_merge :
+            row_list_merge_new.append(row) # default output is same as input
+            nrow_check += 1
+            irow        = nrow_check - 1 # row index   
+            fitopt    = row[COLNUM_HOSTFIT_MERGE_FITOPT] # e.g., FITOPT001
+            search_wildcard = (f"{fitopt}*")
+
+            # strip off row info 
+            STATE       = row[COLNUM_HOSTFIT_MERGE_STATE]
+
+            # check if DONE or FAIL ; i.e., if Finished 
+            Finished = (STATE == SUBMIT_STATE_DONE) or \
+                       (STATE == SUBMIT_STATE_FAIL)
+
+            if not Finished :
+                NEW_STATE = STATE
+
+                # get list of LOG, DONE, and YAML files 
+                log_list, done_list, yaml_list = \
+                    util.get_file_lists_wildcard(script_dir,search_wildcard)
+
+                # careful to sum only the files that are NOT None
+                NLOG   = sum(x is not None for x in log_list)
+                NDONE  = sum(x is not None for x in done_list)
+                NYAML  = sum(x is not None for x in yaml_list)
+
+                if NLOG > 0:
+                    NEW_STATE = SUBMIT_STATE_RUN
+                if NDONE == n_job_split :
+                    NEW_STATE = SUBMIT_STATE_DONE
+
+                    # since there is no YAML file to examine, we have a 
+                    # kluge check on success
+                    success,tproc = self.get_train_status(trainopt)
+                    if not success :
+                        self.check_for_failure(log_list[0], -1, +1)
+                        NEW_STATE = SUBMIT_STATE_FAIL
+
+                    row[COLNUM_STATE]     = NEW_STATE
+                    row[COLNUM_NEVT]      = 0  # ??? fill this later
+                    row[COLNUM_CPU]       = tproc
+
+                    row_list_merge_new[irow] = row  # update new row
+                    n_state_change += 1
+
+        # - - - - - -  -     
+        # The first return arg (row_split) is null since there is
+        # no need for a SPLIT table
+        row_list_dict = {
+            'row_split_list' : [],
+            'row_merge_list' : row_list_merge_new,
+            'row_extra_list' : []
+        }
+
+        return row_list_dict, n_state_change
+        # end merge_update_state 

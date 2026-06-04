@@ -13016,7 +13016,7 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	       fnam, i1d, ptr_MUCOVSCALE[i1d], N );
 	printf(" xxx %s: SIG_PULL_[STD,MAD][%d] = %f, %f \n",
 	       fnam, i1d, SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d] );
-        sprintf(callfun,"%s", fnam); // May 31 2026	
+        sprintf(callfun,"%s(i1d=%d)", fnam, i1d); 
       }
 
 

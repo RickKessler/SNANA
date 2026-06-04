@@ -6191,7 +6191,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   
   if ( LDMP ) {
     printf(" xxx - - - - - - - - - - - - \n");
-    printf(" xxx %s: debug dump for %s\n", fnam, callFun);
+    printf(" xxx %s: debug dump for %s with N_LIST=%d \n", fnam, callFun, N_LIST );
     printf(" xxx %s: AVG[MURES,MUCOV,MUERR] = %.3f, %.5f, %.3f \n",
 	   fnam, AVG_MURES, AVG_MUCOV, AVG_MUERR);
     printf(" xxx %s: STD(MURES_ORIG) = %.3f \n", 
@@ -6207,7 +6207,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
 
   sigTmp = sigTmp_hi;
-  while (!BOUND_ONE){
+  while ( !BOUND_ONE ) {
     
     if ( sigTmp < sigint_min ) {
       if ( LABORT ) {
@@ -6224,16 +6224,18 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     
 
     covTmp = sigTmp * fabs(sigTmp) ;
-    double *MUPULL_LIST = (double*) malloc(MEMD);
+    double *MUPULL_LIST     = (double*) malloc(MEMD);
+    double *ABS_MUPULL_LIST = (double*) malloc(MEMD);
     for(i=0; i < N_LIST; i++ ) {
       covtot = MUCOV_LIST[i] + covTmp; 
       if ( covTmp < 0  &&  covtot < covtotfloor ) { covtot = covtotfloor; }      
       pull        = (MURES_LIST[i] - AVG_MURES) / sqrt(covtot); 
-      MUPULL_LIST[i] = pull ;
+      MUPULL_LIST[i]     = pull ;
+      ABS_MUPULL_LIST[i] = fabs(pull) ;
     }
 
     if ( USE_MAD ) {
-      arrayStat_MEDIAN(N_LIST, MUPULL_LIST, ptr_WGT_LIST, fnam, &median);
+      arrayStat_MEDIAN(N_LIST, ABS_MUPULL_LIST, ptr_WGT_LIST, fnam, &median);
       stdPull = 1.48*median;
     }
     else {
@@ -6241,10 +6243,19 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 		    &avgPull, &stdPull); // <== returned
     }
    
-    free(MUPULL_LIST);
+    if ( LDMP ) {
+      printf(" xxx %s:   sqrt(covTMP) = %.3f  stdPull=%.3f \n",
+	     fnam, sqrt(covTmp), stdPull) ; fflush(stdout);
+    }
+
+    free(MUPULL_LIST); free(ABS_MUPULL_LIST);
 
     // - - - - 
-    if ( stdPull == 0.0 ) { debugexit("xxx stdPull = 0");  }
+    if ( stdPull == 0.0 ) {
+      sprintf(c1err,"Invalid stdPull = %f", stdPull);
+      sprintf(c2err,"NBIN_SIGINT=%d", NBIN_SIGINT);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
+    }
 
     if (NBIN_SIGINT < MXSTORE_PULL) {
        stdPull_store[NBIN_SIGINT] = stdPull;
@@ -6263,7 +6274,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     
     sigTmp -= sigint_bin;
 
-    if (stdPull>1.0){ BOUND_ONE = true; }
+    if ( stdPull > 1.0 ) { BOUND_ONE = true; }
 
   } // end sigTmnp loop
 

@@ -119,7 +119,7 @@ import logging
 import datetime, time, subprocess
 import submit_util as util
 import numpy  as np
-import pandas as pd
+#import pandas as pd
 
 from submit_params    import *
 from submit_prog_base import Program
@@ -2508,6 +2508,7 @@ class BBC(Program):
         #   simulated multiple times, each with different field.
         # Jun 25 2025: if SYNC_EVT=F, bail out.
 
+        import pandas as pd
 
         args             = self.config_yaml['args']  
         output_dir       = self.config_prep['output_dir']
@@ -2603,68 +2604,14 @@ class BBC(Program):
         # end make_accept_summary
 
 
-    def get_cid_list_OBSOLETE(self,fitres_list,VOUT):
-        # get cid_list of all CIDs in all files. If same events appear in 
-        # each file, each CID appears n_ff times. If a CID appears less 
-        # than n_ff times, it goes into reject list.
-        n_ff       = len(fitres_list)
-        cid_list   = []
-        izbin_list = []
-        found_first_file = False
-
-        # @@@@@@@@ OBSOLETE @@@@@@@@@@
-
-        for ff in fitres_list:
-            FF       = f"{VOUT}/{ff}"
-            df       = pd.read_csv(FF, comment="#", sep=r'\s+')
-            cid_list = np.concatenate((cid_list, df.CID.astype(str)))
-
-            if not found_first_file: 
-                df0 = df.copy()
-                df0[TABLE_VARNAME_CID] = df0[TABLE_VARNAME_CID].astype(str)
-                found_first_file = True
-
-        # @@@@@@@@ OBSOLETE @@@@@@@@@@
-
-        # - - - - - - - - - - - - -
-        # get list of unique CIDs, and how many times each CID appears
-        cid_unique, n_count = np.unique(cid_list, return_counts=True)
-
-        # number of times each CID does not appear in a fitres file
-        n_reject        = n_ff - n_count
-
-        cid_dict = {}
-        cid_dict['cid_list']   = cid_list
-        cid_dict['cid_unique'] = cid_unique
-        cid_dict['n_count']    = n_count
-        cid_dict['n_reject']   = n_reject
-
-        # @@@@@@@@ OBSOLETE @@@@@@@@@@
-
-        # Mar 28 2022: fetch list of izbin 
-        if TABLE_VARNAME_IZBIN in df0:
-            izbin_unique = []
-            for cid in cid_unique:
-                izbin_tmplist = df0.loc[df0[TABLE_VARNAME_CID]==cid][TABLE_VARNAME_IZBIN].values
-                izbin = -9
-                if len(izbin_tmplist) > 0 : izbin = izbin_tmplist[0]
-                izbin_unique.append(izbin)
-        else:
-            ncid         = len(cid_unique)
-            izbin_unique = [ -9 ] * ncid
-
-        # @@@@@@@@ OBSOLETE @@@@@@@@@@
-        cid_dict['izbin_unique']  = izbin_unique
-
-        return cid_dict
-        # end of get_cid_list_OBSOLETE
-
     def get_cid_list_duplicates(self,fitres_list,VOUT):
         # get cid_list of all CIDs in all files. If same events appear in 
         # each file, each CID appears n_ff times. If a CID appears less 
         # than n_ff times, it goes into reject list.
         #
         # Jun 26 2025: speed up slow extraction of izbin 
+
+        import pandas as pd
 
         args             = self.config_yaml['args']  
         devel_flag       = args.devel_flag

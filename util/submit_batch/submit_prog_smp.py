@@ -4,7 +4,6 @@
 
 import os, sys, logging, datetime, time, subprocess, yaml
 import submit_util as util
-import pandas as pd
 import numpy  as np
 
 from   submit_params    import *

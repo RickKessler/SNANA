@@ -14,7 +14,7 @@ import  submit_util as util
 from    submit_params    import *
 from    submit_prog_base import Program
 import numpy as np
-import pandas as pd
+
 
 MKDATADIR=os.path.expandvars("$SNANA_DIR/util/makeDataFiles")
 sys.path.insert(1, MKDATADIR)
@@ -202,6 +202,8 @@ class MakeDataFiles(Program):
         # Created May 25 2022
         # catenate the SIMGEN-DUMP files into a single csv file with
         # truth info per object.
+
+        import pandas as pd
 
         output_dir   = self.config_prep['output_dir']
         inputs_list  = self.config_prep['inputs_list']

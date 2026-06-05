@@ -74,7 +74,6 @@ import logging
 #import coloredlogs
 import datetime, time, subprocess
 import submit_util as util
-import pandas as pd
 
 try:
     import f90nml
@@ -2431,6 +2430,8 @@ class LightCurveFit(Program):
         
         fitres_dir = f"{output_dir}/{version}"
         combined   = None
+
+        import pandas as pd  # import locally to avoid crash on other envs without pandas
 
         for row in FITOPT_LIST:
             num   = row[0]  # e.g., FITOPT001

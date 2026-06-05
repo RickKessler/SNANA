@@ -11,13 +11,14 @@
 # Mar 18 2023: add gzip_list_by_chunks
 # Nov    2024: add diagnostices  in read_merge_file if merge_log cannot be opened.
 # Sep 05 2025: add grep util
+# Jun 05 2026: move import pandas into combine_csv_files, the only function that needs it.
+#               Needed to run in envs that do not have pandas installed.
 #
 # ==============================================
 
 import os, sys, yaml, shutil, glob, math, ntpath, re
 import logging, subprocess, tarfile, pathlib
 #import coloredlogs
-import pandas as pd
 from   submit_params import *
 
 # =================================================
@@ -131,6 +132,8 @@ def combine_csv_files(wildcard, combined_file, remove_flag=False):
 
     # read table contents as strings to avoid modifying float format 
     # in the combined csv.            
+
+    import pandas as pd  # import locally to avod crash on envs without pandas
     combined_csv = pd.concat([pd.read_csv(f,dtype=str) \
                               for f in csv_file_list ] )
 

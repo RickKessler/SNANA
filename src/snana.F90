@@ -149,7 +149,7 @@
         ,MXCHAR_PATH       = 160   &  ! max len of path
         ,MXCHAR_FILENAME   = 300   &  ! max len of filename with full path
         ,MXCHAR_MODELNAME  = 72    &  ! max len of model name
-        ,MXCHAR_FIELDNAME  = 20    &  ! max len of field name
+        ,MXCHAR_FIELDNAME  = 32    &  ! max len of field name
         ,MXCHAR_PARNAME    = 20    &  ! max len of parameter name
         ,MXCHAR_CUTNAME    = 300   &  ! to define cut names
         ,MXCHAR_FILEWORD   =  60   &  ! size of FILEWORD_LIST
@@ -480,7 +480,7 @@
          ,OUTLIER_IFILTOBS, OUTLIER_DETNUM, OUTLIER_PHOTFLAG  & 
          ,OUTLIER_IXPIX, OUTLIER_IYPIX
 
-    CHARACTER OUTLIER_BAND*4, OUTLIER_FIELD*20
+    CHARACTER OUTLIER_BAND*4, OUTLIER_FIELD*(MXCHAR_FIELDNAME)
 
 
 
@@ -747,8 +747,6 @@
         ,SNLC_FIELD(MXEPOCH)*(MXCHAR_FIELDNAME)     &  ! char field name
         ,SNLC_FIELD_OVPLIST(MXFIELD_OVP)*(MXCHAR_FIELDNAME)   &  ! sparse list of overlap fields
         ,SNLC_FIELDLIST*(MXCHAR_FIELDNAME) ! e.g., '82S', '82N+82S'
-
-
 
 
 ! - - - - -  ADDCOL stuff - - - - - - -

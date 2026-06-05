@@ -23882,5 +23882,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
      + prepare to abort if biasCor z-bins are not specified for any IDSAMPLE;
        currently requires debug_flag=601 to implement, but will become default later.
-     
-END: 
+
+  sndata.h:
+    #define MXCHAR_FIELDNAME  20 -> 32
+    #define MXCHAR_FIELDLIST  60 -> 80
+      [and same change for MXCHAR_FIELDNAME in snana.F90]
+END:
+ 

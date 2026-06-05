@@ -42,7 +42,6 @@
 #define MXHOSTGAL      3 // max number of matched hosts to write out
 #define MXHOSTGAL_PROPERTY 10 // max number of host properites;e.g. logmass
 #define MXVAR_HOSTGAL 100 // max number of host params to write out Alex Gagliano 09/2021
-// xxx mark #define MXBIN_ZPHOT_Q 101 // max number of quantile percent bins (0,1,2 ...100) // xxx legacy
 #define MXIMG_STRONGLENS 8  // max number of strong lens images per lens
 #define ZEROPOINT_FLUXCAL_SNANA_ORIG  27.5
 #define ZEROPOINT_FLUXCAL_nJy         31.4
@@ -109,18 +108,14 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 //  disk pointers defined in init_SNDATA
 
 #define MXCHAR_CCID       32  // should be same as MXCHAR_CCID in snana.car
-#define MXCHAR_FIELDNAME  20
-#define MXCHAR_FIELDLIST  60  
+#define MXCHAR_FIELDNAME  32
+#define MXCHAR_FIELDLIST  80  
 #define MXCHAR_FILTNAME   40
 
 #define MXPATHLEN            300  // max length of path of full file-name
 #define MXLEN_VERSION         72  // max length of VERSION name
 #define MXLEN_VERSION_PREFIX  52  // max len of prefix in data or sim version
 
-// xxxxx legacy names
-// xxx mark #define PREFIX_ZPHOT_Q  "ZPHOT_Q" // for zphot quantiles
-// xxx mark #define STRING_NZPHOT_Q "NZPHOT_Q"
-// xxxxxxx
 
 // define suffixes for refactoed data stream with z-dependent quantities
 #define SUFFIX_QUANTILE_ZPHOT       "QUANTILE_ZPHOT"    // append to HOSTGALz or HOSTGALz2
@@ -429,7 +424,6 @@ struct SNDATA {
   float SIM_SEARCHEFF_zHOST;   // EFF(zHOST) when not spec-confirmed
   float SIM_REDSHIFT_HELIO ;   // for SN
   float SIM_REDSHIFT_CMB   ;   // for SN
-  // xxx mark Jun 5 2025  float SIM_REDSHIFT       ; // legacy variable, same as z_CMB
   float SIM_REDSHIFT_HOST        ; // zhelio of true host (Jan 2016)
   float SIM_REDSHIFT_HOST_MATCH  ; // zhelio of DDLR-matched host (June 2025)
   int   SIM_REDSHIFT_FLAG  ; // indicates source of redshift (4.19.2019)

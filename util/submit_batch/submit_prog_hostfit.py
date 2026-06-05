@@ -240,6 +240,9 @@ class HostPropertyFit(Program):
                 util.write_job_info(f, job_info_hostfit, icpu)
                 # NEED TO FIX WHEN ncore != njob
 
+                job_info_merge = self.prep_JOB_INFO_merge(icpu, n_core, False)
+                util.write_jobmerge_info(f, job_info_merge, icpu)
+
         #sys.exit('xxx bye')
         return        
 

@@ -924,7 +924,7 @@ class Program:
             # last merge is after last job, regardless of cpunum (default)
             last_merge =  ijob == n_job_tot
 
-        print(f" xxx icpu={icpu}  ijob={ijob}/{n_job_tot}  last_merge={last_merge}")
+        #print(f" xxx icpu={icpu}  ijob={ijob}/{n_job_tot}  last_merge={last_merge}")
 
         if nomerge and not last_merge :
             JOB_INFO['merge_input_file'] = ""

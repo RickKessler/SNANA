@@ -22859,6 +22859,7 @@ void write_yaml_info(char *fileName) {
   // Dec 01 2024: fix CONTAM_[DATA,TRUE] to exclude spec-Ia from denominator
   // Feb 06 2025: write BAD_OUTPUT flag if NWARN_CRAZYERR > 0
   // May 02 2025: write NREJECT_[CUTWIN,BIASCOR]_BY_SAMPLE
+  // Jun 05 2026: write FITRESULT.CHI2RED_IA
 
   int  NDATA_REJECT_BIASCOR = NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_BIASCOR] ;
   int  NDATA_PASS  = *NPASS_CUTMASK_POINTER[EVENT_TYPE_DATA]; 
@@ -22994,8 +22995,11 @@ void write_yaml_info(char *fileName) {
   fprintf(fp,"  - NSNFIT:            %5d     %d\n",   
 	  FITRESULT.NSNFIT, SIG_NSNFIT ) ;
 
-  fprintf(fp,"  - SIGINT:            %.5f    0.0\n", 
+  fprintf(fp,"  - SIGINT:            %.5f    0\n", 
 	  FITINP.COVINT_PARAM_FIX ) ;
+
+  fprintf(fp,"  - CHI2RED_IA:        %.3f    0\n",   // added Jun 5 2026
+	  FITRESULT.CHI2RED_IA);
 
   //fprintf(fp,"\n") ;
   

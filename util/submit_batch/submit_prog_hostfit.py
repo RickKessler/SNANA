@@ -77,7 +77,9 @@ class HostPropertyFit(Program):
     def prep_cigale_translator(self, cigale_input_dir):
         CONFIG     = self.config_yaml['CONFIG']
         cigale_translator_file = CONFIG['CIGALE_TRANSLATOR_FILE']
-        
+        #galid_map_file = self.get_filepath(GALID_MAP_FILE, CIGALE_INPUT_SUBDIR)
+        #cigale_csv_file = self.get_filepath(CIGALE_CSV_FILE, CIGALE_INPUT_SUBDIR)
+
         command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
 
         command_exe = f'cd {cigale_input_dir}; {PROGRAM_CIGALE_TRANSLATOR} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE}'
@@ -121,16 +123,27 @@ class HostPropertyFit(Program):
     def prep_cigale_symlinks(self):
         fitopt_dict = self.config_prep['fitopt_dict']
         fitopt_dir_list = self.config_prep['fitopt_dir_list']
+        script_dir    = self.config_prep['script_dir']
+
         jobopt_num_list = fitopt_dict['jobopt_num_list']
         prefix        =self.get_prefix_name()
-        sym_link_list = []
-        for fitopt_num, fitopt_dir in zip(jobopt_num_list, fitopt_dir_list):
-            symlink_name = fitopt_num + '_' + f'{prefix}.LOG'
-            log_file_orig = fitopt_dir + '/' +f'{prefix}.LOG' 
-            symlink_command = f'ln -s {log_file_orig} {symlink_name}'
-            sym_link_list.append(symlink_command)
-        self.config_prep['sym_link_list'] = sym_link_list
+        sym_link_log_list = []
+        sym_link_done_list = []
 
+        for fitopt_num, fitopt_dir in zip(jobopt_num_list, fitopt_dir_list):
+            symlink_log_name = fitopt_num + '_' + f'{prefix}.LOG'
+            log_file_orig = fitopt_dir + '/' +f'{prefix}.LOG' 
+            symlink_log_command = f'cd {script_dir}; ln -s {log_file_orig} {symlink_log_name}'
+
+            symlink_done_name = fitopt_num + '_' + f'{prefix}.DONE'
+            done_file_orig = fitopt_dir + '/' +f'{prefix}.DONE'
+            symlink_done_command = f'cd {script_dir}; ln -s {done_file_orig} {symlink_done_name}'
+            
+            sym_link_log_list.append(symlink_log_command)
+            sym_link_done_list.append(symlink_done_command)
+
+        self.config_prep['sym_link_log_list'] = sym_link_log_list
+        self.config_prep['sym_link_done_list'] = sym_link_done_list
         return
 
     def fitopt_str_to_dict(self, s):
@@ -244,7 +257,8 @@ class HostPropertyFit(Program):
         SUBCLASS = self.config_prep['SUBCLASS']
         fitopt_dict = self.config_prep['fitopt_dict']
         fitopt_dir = self.config_prep['fitopt_dir_list'][ijob]
-        sym_link = self.config_prep['sym_link_list'][ijob]
+        sym_log_link = self.config_prep['sym_link_log_list'][ijob]
+        sym_done_link = self.config_prep['sym_link_done_list'][ijob]
 
         fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"
         prefix        = self.get_prefix_name()
@@ -263,7 +277,7 @@ class HostPropertyFit(Program):
         JOB_INFO['all_done_file'] = f"{output_dir}/{DEFAULT_DONE_FILE}"
         JOB_INFO['start_file'] = start_file
         JOB_INFO['arg_list'] = arg_list
-        JOB_INFO['sym_link_list'] = [sym_link]
+        JOB_INFO['sym_link_list'] = [sym_log_link, sym_done_link]
 
         return JOB_INFO
 
@@ -299,6 +313,7 @@ class HostPropertyFit(Program):
     def append_info_file(self,f):
         CONFIG             = self.config_yaml['CONFIG']
         f.write("# BEGIN HOSTFIT INFO \n")
+        f.write(f"JOBFILE_WILDCARD:    '{FITOPT_STRING}*' \n")
 
         KEY = FITOPT_STRING
         f.write(f"{KEY}: \n")
@@ -339,7 +354,7 @@ class HostPropertyFit(Program):
             search_wildcard = (f"{fitopt}*")
 
             # strip off row info 
-            STATE       = row[COLNUM_HOSTFIT_MERGE_STATE]
+            STATE       = row[COLNUM_MERGE_STATE]
 
             # check if DONE or FAIL ; i.e., if Finished 
             Finished = (STATE == SUBMIT_STATE_DONE) or \
@@ -364,14 +379,17 @@ class HostPropertyFit(Program):
 
                     # since there is no YAML file to examine, we have a 
                     # kluge check on success
-                    success,tproc = self.get_train_status(trainopt)
+                    success,tproc = self.get_cigale_status(fitopt)
                     if not success :
                         self.check_for_failure(log_list[0], -1, +1)
                         NEW_STATE = SUBMIT_STATE_FAIL
 
-                    row[COLNUM_STATE]     = NEW_STATE
-                    row[COLNUM_NEVT]      = 0  # ??? fill this later
-                    row[COLNUM_CPU]       = tproc
+                    row[COLNUM_MERGE_STATE]     = NEW_STATE
+                    row[COLNUM_HOSTFIT_MERGE_CPU]       = tproc
+
+                    #COLNUM_HOSTFIT_MERGE_FITOPT      = 1
+                    #COLNUM_HOSTFIT_MERGE_NGAL        = 2
+                    #COLNUM_HOSTFIT_MERGE_CPU         = 3
 
                     row_list_merge_new[irow] = row  # update new row
                     n_state_change += 1
@@ -387,3 +405,42 @@ class HostPropertyFit(Program):
 
         return row_list_dict, n_state_change
         # end merge_update_state 
+
+    def get_cigale_status(self, fitopt):
+        success = True
+        tproc = 1.5 # minutes
+        return success, tproc
+
+    def get_merge_COLNUM_CPU(self):
+        return COLNUM_HOSTFIT_MERGE_CPU
+
+    def get_filepath(self, filename, subdir = ''):
+        output_dir = self.config_prep['output_dir']
+        filepath = output_dir + '/' + subdir + '/' + filename
+        return filepath
+
+    def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
+        CONFIG     = self.config_yaml['CONFIG']
+        KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
+        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
+        fitopt_num = fitopt_dict['jobopt_num_list'][irow]
+        cigale_results_subdir =fitopt_num + '/out'
+
+        #output_dir = self.config_prep['output_dir']
+        #cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
+        #cigale_translator_file = cigale_input_dir + '/' + CONFIG['CIGALE_TRANSLATOR_FILE']
+        
+        cigale_translator_file = self.get_filepath(CONFIG['CIGALE_TRANSLATOR_FILE'], CIGALE_INPUT_SUBDIR)
+        galid_map_file = self.get_filepath(GALID_MAP_FILE, CIGALE_INPUT_SUBDIR)
+        cigale_result_file = self.get_filepath('results.fits', cigale_results_subdir)
+        output_snana_file = self.get_filepath('LOGMASS_GRID.DAT', fitopt_num)
+
+        row  = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
+        fitopt_num = row[COLNUM_HOSTFIT_MERGE_FITOPT]
+        
+        command_exe = f'{PROGRAM_CIGALE_TRANSLATOR} {cigale_translator_file} --mode CIGALE_TO_SNANA --input_cigale_results {cigale_result_file} --output_galid_map {galid_map_file} --output_snana_file {output_snana_file}'
+
+        os.system(command_exe)
+
+        return

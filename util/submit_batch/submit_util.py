@@ -1225,7 +1225,7 @@ def write_jobmerge_info(f,JOB_INFO,icpu):
     check_abort      = JOB_INFO.get(arg_check_abort,False)
     match_cpu    = icpu <= NCPU_MERGE_DISTRIBUTE
     do_merge     = len(merge_input_file) > 1  # undefined file -> no merge
-    
+
     if match_cpu and do_merge :
         merge_task = f"{sys.argv[0]} {merge_input_file} {merge_arg_list}"
         f.write(f"cd {CWD} \n")

@@ -231,16 +231,17 @@ class HostPropertyFit(Program):
 
 
     def write_command_file(self, icpu, f):
-        n_core = self.config_prep['n_core']
+        n_core   = self.config_prep['n_core']
         n_fitopt = self.config_prep['n_fitopt']
-
+        n_job    = 0
         for ijob in range(n_fitopt):
+            n_job += 1  # track total number pof jobs; counter starts at 1, not 0
             if ijob == icpu:
                 job_info_hostfit   = self.prep_JOB_INFO_hostfit(ijob)
                 util.write_job_info(f, job_info_hostfit, icpu)
                 # NEED TO FIX WHEN ncore != njob
 
-                job_info_merge = self.prep_JOB_INFO_merge(icpu, n_core, False)
+                job_info_merge = self.prep_JOB_INFO_merge(icpu, n_job, False)
                 util.write_jobmerge_info(f, job_info_merge, icpu)
 
         #sys.exit('xxx bye')

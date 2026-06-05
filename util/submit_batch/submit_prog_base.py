@@ -914,14 +914,6 @@ class Program:
         # determine if this is last job for this cpu
         last_job_cpu  = (n_job_tot - ijob) < n_core
 
-        # xxxx mark
-        #print(f" xxx prep_JOB_INFO_merge: icpu={icpu}  ijob={ijob} \n " \
-        #      f"xxx n_job_tot={n_job_tot}  n_core={n_core}")
-        # xxxx
-
-        # if check_abort, skip merge except for last job
-        # xxx skip_merge = check_abort and not last_job_cpu
-
         # - - - - 
  
         # check where to flag last merge process with -M
@@ -931,6 +923,8 @@ class Program:
         else :
             # last merge is after last job, regardless of cpunum (default)
             last_merge =  ijob == n_job_tot
+
+        print(f" xxx icpu={icpu}  ijob={ijob}/{n_job_tot}  last_merge={last_merge}")
 
         if nomerge and not last_merge :
             JOB_INFO['merge_input_file'] = ""

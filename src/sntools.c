@@ -6058,11 +6058,13 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
 
   // Created July 24 2021 by R.Kessler [extracted from SALT2mu code]
-  // Unility to compute sigint (STD or 1.48*MAD) from N_LIST  mu-residuals
+  // Utility to compute sig_scat term in Eq 4 in https://arxiv.org/abs/2202.04077
+  // from N_LIST  mu-residuals
   //   MURES_LIST   : mu - mu(true,fit)
   //   MUCOV_LIST   : covariance per mu
   //   WGT_LIST     : weight per element (e.g., from REWGT option in biasCor)
   //
+  // 
   // Strategy is to make first pass over LIST and compute sigint_approx. 
   // Then make another pass over LIST and compute STD_PULL on a grid of 
   // sigint in small steps around sigint_approx. Finally, interpolate 

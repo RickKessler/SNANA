@@ -19216,7 +19216,8 @@ int ppar(char* item) {
     sscanf(&item[30],"%d", &INPUTS.surveyGroup_biasCor_abortFlag); 
     return(1);
   }
-  if ( uniqueOverlap(item,"surveygroup_biascor=")  ) {
+  if ( uniqueOverlap(item,"surveygroup_biascor=")  ||
+       uniqueOverlap(item,"surveyGroup_biascor=")  ) {
     s=INPUTS.surveyGroup_biasCor ; 
     sscanf(&item[20],"%s",s); remove_quote(s);
     return(1);
@@ -25410,14 +25411,16 @@ void print_SALT2mu_HELP(void) {
     "prescale_biascor=<subset>,<prescale> ! select <subset> from <prescale>",
     "                                     ! <subset> can be 0,1,2 .. <prescale>-1",
     "",
-    "fieldGroup_biascor='SHALLOW,MEDIUM,DEEP'     #  generic field names",
-    "fieldGroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2'   # DES ",
-    "fieldGroup_biascor='WFD(zbin=.05),DDF(zbin=0.10)'    # LSST ",
+    "fieldgroup_biascor='SHALLOW,MEDIUM,DEEP'     #  generic field names",
+    "fieldgroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2'   # DES ",
+    "fieldgroup_biascor='WFD(zbin=.05),DDF(zbin=0.10)'    # LSST ",
+    "fieldgroup_biascor and fieldGroup_biascor both work",
     "",
     "surveygroup_biascor='CFA3+CSP,PS1MD'   # combine CFA3+CSP into one biasCor",
     "surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' ",
     "surveygroup_biascor='CFA3+CSP(zbin=.02:cbin=.04:x1bin=.4),PS1MD' ",
     "surveygroup_biascor='CFA3+CSP(zbin=.02),SDSS(zbin=.04),PS1MD' ",
+    "surveygroup_biascor and surveyGroup_biascor both work",
     "surveygroup_biascor_abortflag=1  # 0->allow survey(s) that are not in data",
     "min_per_cell_biascor=3   # min number of biasCor events per cell",
     "",

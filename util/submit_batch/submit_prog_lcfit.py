@@ -66,7 +66,7 @@
 #   + for --merge_reste, untar remaining PIP*.tar.gz files
 #   
 # Feb 18 2026: add 'PDF' to list of table extensions (for marginalized PDF)
-#
+# Jun 05 2026: rename COLNUM_FIT_MERGE_XXX to COLNUM_LCFIT_MERGE_XXX
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -74,6 +74,7 @@ import logging
 #import coloredlogs
 import datetime, time, subprocess
 import submit_util as util
+import pandas as pd
 
 try:
     import f90nml
@@ -162,13 +163,13 @@ ABORT_ON_SNLCINP_INPUTS =  \
 
 # - - - - - - -
 # define columns in merge file
-COLNUM_FIT_MERGE_STATE           = 0  # STATE required in col=0
-COLNUM_FIT_MERGE_VERSION         = 1
-COLNUM_FIT_MERGE_FITOPT          = 2
-COLNUM_FIT_MERGE_NEVT_ALL        = 3  # NEVT0
-COLNUM_FIT_MERGE_NEVT_LC_CUTS    = 4  # NEVT1
-COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS = 5  # NEVT2
-COLNUM_FIT_MERGE_CPU             = 6
+COLNUM_LCFIT_MERGE_STATE           = 0  # STATE required in col=0
+COLNUM_LCFIT_MERGE_VERSION         = 1
+COLNUM_LCFIT_MERGE_FITOPT          = 2
+COLNUM_LCFIT_MERGE_NEVT_ALL        = 3  # NEVT0
+COLNUM_LCFIT_MERGE_NEVT_LC_CUTS    = 4  # NEVT1
+COLNUM_LCFIT_MERGE_NEVT_LCFIT_CUTS = 5  # NEVT2
+COLNUM_LCFIT_MERGE_CPU             = 6
 
 NMAX_STATE_CHANGE = 10  # max number of state changes per merge task (Nov 15 2022)
 
@@ -1421,13 +1422,13 @@ class LightCurveFit(Program):
         script_dir          = submit_info_yaml['SCRIPT_DIR']
         n_job_split         = submit_info_yaml['N_JOB_SPLIT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
-        COLNUM_STATE   = COLNUM_FIT_MERGE_STATE 
-        COLNUM_VERS    = COLNUM_FIT_MERGE_VERSION 
-        COLNUM_FITOPT  = COLNUM_FIT_MERGE_FITOPT
-        COLNUM_NEVT0   = COLNUM_FIT_MERGE_NEVT_ALL 
-        COLNUM_NEVT1   = COLNUM_FIT_MERGE_NEVT_LC_CUTS
-        COLNUM_NEVT2   = COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS
-        COLNUM_CPU     = COLNUM_FIT_MERGE_CPU
+        COLNUM_STATE   = COLNUM_LCFIT_MERGE_STATE 
+        COLNUM_VERS    = COLNUM_LCFIT_MERGE_VERSION 
+        COLNUM_FITOPT  = COLNUM_LCFIT_MERGE_FITOPT
+        COLNUM_NEVT0   = COLNUM_LCFIT_MERGE_NEVT_ALL 
+        COLNUM_NEVT1   = COLNUM_LCFIT_MERGE_NEVT_LC_CUTS
+        COLNUM_NEVT2   = COLNUM_LCFIT_MERGE_NEVT_LCFIT_CUTS
+        COLNUM_CPU     = COLNUM_LCFIT_MERGE_CPU
         
         key_tot, key_tot_sum, key_list = \
                 self.keynames_for_job_stats('NEVT_TOT')
@@ -1543,10 +1544,10 @@ class LightCurveFit(Program):
         self.config_prep['merge_table_file_list'] = [''] * NTABLE_FORMAT
 
         row         = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
-        state       = row[COLNUM_FIT_MERGE_STATE]
-        version     = row[COLNUM_FIT_MERGE_VERSION]
-        fitopt_num  = row[COLNUM_FIT_MERGE_FITOPT]  # e.g., FITOPT001
-        nevt_expect = row[COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS]
+        state       = row[COLNUM_LCFIT_MERGE_STATE]
+        version     = row[COLNUM_LCFIT_MERGE_VERSION]
+        fitopt_num  = row[COLNUM_LCFIT_MERGE_FITOPT]  # e.g., FITOPT001
+        nevt_expect = row[COLNUM_LCFIT_MERGE_NEVT_LCFIT_CUTS]
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
@@ -2232,8 +2233,8 @@ class LightCurveFit(Program):
         msgerr = ['ERROR merging table files: ' ]
         nerr   = 0
         for row in row_list :
-            version = row[COLNUM_FIT_MERGE_VERSION]
-            fitopt  = row[COLNUM_FIT_MERGE_FITOPT]  # e.g., FITOPT002
+            version = row[COLNUM_LCFIT_MERGE_VERSION]
+            fitopt  = row[COLNUM_LCFIT_MERGE_FITOPT]  # e.g., FITOPT002
             if fitopt in link_FITOPT000_list : continue # skip sym links
 
             for itable in range(0,NTABLE_FORMAT):
@@ -2295,10 +2296,10 @@ class LightCurveFit(Program):
 
         # read status from MERGE file          
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"
-        colnum_zero_list    = [ COLNUM_FIT_MERGE_NEVT_ALL, 
-                                COLNUM_FIT_MERGE_NEVT_LC_CUTS,
-                                COLNUM_FIT_MERGE_NEVT_LCFIT_CUTS,
-                                COLNUM_FIT_MERGE_CPU]
+        colnum_zero_list    = [ COLNUM_LCFIT_MERGE_NEVT_ALL, 
+                                COLNUM_LCFIT_MERGE_NEVT_LC_CUTS,
+                                COLNUM_LCFIT_MERGE_NEVT_LCFIT_CUTS,
+                                COLNUM_LCFIT_MERGE_CPU]
         logging.info(f"  {fnam}: STATE->WAIT and NEVT->0 in {MERGE_LOG_FILE}")
         util.merge_table_reset(MERGE_LOG_PATHFILE, TABLE_MERGE,  \
                                COLNUM_MERGE_STATE, colnum_zero_list)
@@ -2421,7 +2422,7 @@ class LightCurveFit(Program):
         # end get_misc_merge_info    
 
     def get_merge_COLNUM_CPU(self):
-        return COLNUM_FIT_MERGE_CPU
+        return COLNUM_LCFIT_MERGE_CPU
 
     def get_nevt_common(self,version):
         output_dir       = self.config_prep['output_dir']
@@ -2430,8 +2431,6 @@ class LightCurveFit(Program):
         
         fitres_dir = f"{output_dir}/{version}"
         combined   = None
-
-        import pandas as pd  # import locally to avoid crash on other envs without pandas
 
         for row in FITOPT_LIST:
             num   = row[0]  # e.g., FITOPT001

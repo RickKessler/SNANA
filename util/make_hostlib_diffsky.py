@@ -341,6 +341,16 @@ def inject_mag_columns(df_cat, config):
         cols_to_merge = [rename_map.get(c, c) for c in cols_to_merge]
 
     # Left-merge on core_tag (df_cat) ↔ serial_tag (parquet) — both int64, exact match
+    # Deduplicate parquet on serial_tag first: LastJourney light-cones can contain
+    # periodic-box replicas of the same halo (same core_tag, different sky position).
+    # Without dedup the merge explodes those HDF5 rows into 2 rows with the same
+    # sequential GALID but different magnitudes → duplicate GALID in SNANA HOSTLIB.
+    n_dup = df_mag['serial_tag'].duplicated().sum()
+    if n_dup > 0:
+        logging.warning(f"  inject_mag_columns: dropping {n_dup} duplicate serial_tag rows "
+                        f"from override table (light-cone periodic replicas); "
+                        f"affected galaxies get first-occurrence magnitudes")
+        df_mag = df_mag.drop_duplicates(subset=['serial_tag'], keep='first')
     n_before = len(df_cat)
     df_cat = df_cat.merge(
         df_mag[cols_to_merge].rename(columns={'serial_tag': 'core_tag'}),
@@ -515,7 +525,7 @@ def read_galaxy_cat(args, config):
     
     logging.info(f"Read {n_file} galaxy catalog files from {cat_dir}")
 
-    ds = oc.open(*catalog_files, synth_cores=True)
+    ds = oc.open(*catalog_files, synth_cores=False)
     
     n_row = len(ds)
     logging.info(f"Done reading dataset with {n_row:,} rows")

@@ -1326,16 +1326,11 @@ struct INPUTS {
   int restore_bug_zmax_biascor; // Apr 2023
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
   int restore_des5yr;   // restore bug setting mubias=0 for CCprior
+  int restore_sn_unite; // restore sigint_scat(STD) instead of MAD
 
   int debug_flag;    // for internal testing/refactoring
   int debug_malloc;  // >0 -> print every malloc/free (to catch memory leaks)
   int debug_mucovscale; //write mucovscale info for every biascor event
-
-
-  // xxxxxxxxxxxxxxxxxxx
-  int  REFAC_MAKEMAP_SIGMU_BIASCOR;
-  // xxxxxxxxxxxxxxxxxxxx
-
   int nbinc_mucovscale; //number of colour bins to determine muCOVSCALE and muCOVADD
   
   int  check_duplicates_biasCor; // if enabled, check z & c duplicates then quit.
@@ -5890,7 +5885,7 @@ void set_defaults(void) {
   // ======== misc ======
   INPUTS.NDUMPLOG = 1000 ;
   INPUTS.SNID_MUCOVDUMP[0] = 0 ;
-  INPUTS.debug_flag        = 0 ; //.xyz
+  INPUTS.debug_flag        = 0 ; 
 
   INPUTS.debug_malloc      = 0 ;
   INPUTS.debug_mucovscale  = -9 ; // negative to avoid i1d dump
@@ -5898,6 +5893,7 @@ void set_defaults(void) {
   
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_des5yr         = 0 ; // Sep 12 2025: disable restore flag -> implement CC prior bug fix
+  INPUTS.restore_sn_unite       = 1 ; // enable Jun 8 2026; disable after SN_UNITE publication
   INPUTS.restore_bug_sigint0    = 0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
@@ -10525,12 +10521,11 @@ void prepare_biasCor(void) {
     fprintf(FP_STDOUT,"\n");  fflush(FP_STDOUT);   
 
     // make map of sigma_mu bias
-    if ( DOCOR_MUCOVSCALE ) { 
-      if ( INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR > 0 ) 
-	{ makeMap_sigmu_biasCor(IDSAMPLE); }  // REFAC, Jun 2026
-      else
-	{ makeMap_sigmu_biasCor_legacy(IDSAMPLE); }
-    }
+    if ( DOCOR_MUCOVSCALE )  
+      { makeMap_sigmu_biasCor(IDSAMPLE); }  // REFAC, Jun 2026
+
+      // xxx mark  makeMap_sigmu_biasCor_legacy(IDSAMPLE); }
+    
 
     fprintf(FP_STDOUT, "\n\t END BIASCOR PREP for %s\n", NAME_SAMPLE);
     fprintf(FP_STDOUT, " %s\n", borderLine);       
@@ -13018,10 +13013,13 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
 	       fnam, i1d, SIG_PULL_STD[i1d], SIG_PULL_MAD[i1d] );
         sprintf(callfun,"%s(i1d=%d)", fnam, i1d); 
       }
+      
 
+      if ( INPUTS.restore_sn_unite ) 
+	{ (void)OPTMASK  ; }  //  do nothing
+      else 
+	{ OPTMASK += 4; }   // enable new MAD feature in REFAC code
 
-      if ( INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR == 4 ) 
-	{ OPTMASK += 4 ; }  // enable new MAD feature in REFAC code
       sigInt =  
 	sigint_muresid_list(N, 
 			    CELL_MUCOVADD->MURES[i1d],
@@ -19642,15 +19640,8 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_des5yr=")) 
     { sscanf(&item[15],"%d", &INPUTS.restore_des5yr); return(1); }
 
-  /* xxxxx mark delete 
-  if ( uniqueOverlap(item,"restore_bug_mucovscale=")) 
-    { sscanf(&item[23],"%d", &INPUTS.restore_bug_mucovscale); return(1); }
-
-  if ( uniqueOverlap(item,"restore_bug_mucovadd="))
-    { sscanf(&item[21],"%d", &INPUTS.restore_bug_mucovadd); return(1); }
-  if ( uniqueOverlap(item,"restore_bug2_mucovadd="))
-    { sscanf(&item[22],"%d", &INPUTS.restore_bug2_mucovadd); return(1); }
-  xxxxxx end mark */
+  if ( uniqueOverlap(item,"restore_sn_unite=")) 
+    { sscanf(&item[17],"%d", &INPUTS.restore_sn_unite); return(1); }
 
   if ( uniqueOverlap(item,"restore_bug_sigint0="))
     { sscanf(&item[20],"%d", &INPUTS.restore_bug_sigint0); return(1); }  
@@ -22051,6 +22042,10 @@ void prep_debug_flag(void) {
     printf("\n RESTORE DES-SN5YR BUG setting mubias=0 for CCprior events.\n");
   }
 
+  if ( INPUTS.restore_sn_unite ) {
+    printf("\n RESTORE SN_UNITE sigma_scat using STD instead of MAD.\n");
+  }
+
 
   if ( INPUTS.restore_bug_sigint0 ) {
     printf("\n RESTORE BUG calling recalc_datacov() when sigint=0 (in prepNextFit)\n");
@@ -22082,6 +22077,7 @@ void prep_debug_flag(void) {
     fflush(FP_STDOUT);
   }
 
+  /* xxxxxx mark delete Jun 8 2026; see restore_sn_unite flag
   if ( INPUTS.debug_flag == 600 ) {
     INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR = 1;
     printf("\n debug flag = %d -> use REFAC makeMap_sigmu_biascor with legacy STD\n",
@@ -22095,6 +22091,7 @@ void prep_debug_flag(void) {
 	   INPUTS.debug_flag);
     fflush(FP_STDOUT);
   }
+  xxxxxxxxx end mark xxxxx*/
 
   // - - - - - -  
 
@@ -25697,6 +25694,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",
     "restore_des5yr=1            # restore DES-SN5YR bug in which CC prior events are not bias-corrected.",
+    "restore_sn_unite=1          # restore SN_UNITE with sigma_scat(STD) instead of using MAD.",
     0
   } ;
 

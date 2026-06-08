@@ -1,4 +1,4 @@
-import os, sys, shutil, yaml, glob, logging
+import os, sys, shutil, yaml, glob, logging, gzip
 import datetime, time, subprocess
 import submit_util as util
 #import pandas as pd
@@ -8,7 +8,7 @@ from   submit_params import *
 from   submit_prog_base import Program
 
 SUBCLASS_HOSTFIT_CIGALE = 'CIGALE'
-PROGRAM_CIGALE_TRANSLATOR = '/home/jmedoff/SNANA/util/cigale_translator.py'
+#PROGRAM_CIGALE_TRANSLATOR = '/home/jmedoff/SNANA/util/cigale_translator.py'
 #PROGRAM_CIGALE_TRANSLATOR = 'cigale_translator.py'
 CIGALE_INPUT_SUBDIR = 'CIGALE_INPUT'
 CIGALE_CSV_FILE = 'cigale_input.in'
@@ -77,12 +77,13 @@ class HostPropertyFit(Program):
     def prep_cigale_translator(self, cigale_input_dir):
         CONFIG     = self.config_yaml['CONFIG']
         cigale_translator_file = CONFIG['CIGALE_TRANSLATOR_FILE']
+        program_cigale_translator = CONFIG['CIGALE_TRANSLATOR_SCRIPT']
         #galid_map_file = self.get_filepath(GALID_MAP_FILE, CIGALE_INPUT_SUBDIR)
         #cigale_csv_file = self.get_filepath(CIGALE_CSV_FILE, CIGALE_INPUT_SUBDIR)
 
         command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
 
-        command_exe = f'cd {cigale_input_dir}; {PROGRAM_CIGALE_TRANSLATOR} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE}'
+        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE}'
 
         os.mkdir(cigale_input_dir)
         os.system(command_copy)
@@ -430,6 +431,7 @@ class HostPropertyFit(Program):
         fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
         fitopt_num = fitopt_dict['jobopt_num_list'][irow]
         cigale_results_subdir =fitopt_num + '/out'
+        program_cigale_translator = CONFIG['CIGALE_TRANSLATOR_SCRIPT']
 
         #output_dir = self.config_prep['output_dir']
         #cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
@@ -438,13 +440,46 @@ class HostPropertyFit(Program):
         cigale_translator_file = self.get_filepath(CONFIG['CIGALE_TRANSLATOR_FILE'], CIGALE_INPUT_SUBDIR)
         galid_map_file = self.get_filepath(GALID_MAP_FILE, CIGALE_INPUT_SUBDIR)
         cigale_result_file = self.get_filepath('results.fits', cigale_results_subdir)
-        output_snana_file = self.get_filepath('LOGMASS_GRID.DAT', fitopt_num)
+        output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num)
 
         row  = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         fitopt_num = row[COLNUM_HOSTFIT_MERGE_FITOPT]
         
-        command_exe = f'{PROGRAM_CIGALE_TRANSLATOR} {cigale_translator_file} --mode CIGALE_TO_SNANA --input_cigale_results {cigale_result_file} --output_galid_map {galid_map_file} --output_snana_file {output_snana_file}'
+        command_exe = f'{program_cigale_translator} {cigale_translator_file} --mode CIGALE_TO_SNANA --input_cigale_results {cigale_result_file} --output_galid_map {galid_map_file} --output_snana_file {output_snana_file}'
 
         os.system(command_exe)
 
+        with open(cigale_translator_file, "r") as f:
+            cigale_translator_config = yaml.safe_load(f)
+        input_table_file = cigale_translator_config["SNANA_TO_CIGALE"]["INPUT_TABLE_FILE"]
+        self.update_output_documentation(output_snana_file, input_table_file)
+
         return
+
+    def update_output_documentation(self, output_snana_file, input_file):
+        # Add input host information to output file documentation
+        # (reads input_file directly from pcigale_translator.input)
+        opener = gzip.open if output_snana_file.endswith(".gz") else open
+        with opener(output_snana_file, 'rt') as f:
+            lines = f.readlines()
+
+        new_lines = []
+        for line in lines:
+            stripped = line.lstrip()
+            if stripped.startswith("INPUT_HOST_INFORMATION"):    
+                indent = line[:len(line) - len(stripped)]
+                line = f'{indent}INPUT_HOST_INFORMATION: {input_file}\n'
+            new_lines.append(line)
+
+        with opener(output_snana_file, 'wt') as f:
+            f.writelines(new_lines)
+
+        return
+
+    def get_misc_merge_info(self):
+        return []
+
+    def merge_cleanup_final(self):
+        return
+
+

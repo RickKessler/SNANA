@@ -131,8 +131,6 @@ void INIT_HOSTLIB(void) {
   FILE *fp_hostlib ;
   char fnam[] = "INIT_HOSTLIB" ;  (void)fnam;
 
-  int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ; // Mar 2026
-
   // ---------------- BEGIN -------------
 
   USE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USE) ;
@@ -161,13 +159,10 @@ void INIT_HOSTLIB(void) {
   // set inital values for HOSTLIB structure
   initvar_HOSTLIB();
 
-  if ( REFAC_SEARCHEFF ) {
-    // open HOSTLIB and read VARNAMES here so that below we know which
-    // variables in the SEARCHEFF & GENPDF maps are in the HOSTLIB
-    open_HOSTLIB(&fp_hostlib);         // open and return file pointer   
-    read_head_HOSTLIB(fp_hostlib);     // read VARNAMES and any other header info
-  }
-
+  // open HOSTLIB and read VARNAMES here so that below we know which
+  // variables in the SEARCHEFF & GENPDF maps are in the HOSTLIB
+  open_HOSTLIB(&fp_hostlib);         // open and return file pointer   
+  read_head_HOSTLIB(fp_hostlib);     // read VARNAMES and any other header info
 
   // Mar 28 2026: pull init_[REQUIRED,OPTIONAL] out of initvar_HOSTLIB
   //  and paste it here after read_head_HOSTLIB
@@ -178,14 +173,8 @@ void INIT_HOSTLIB(void) {
   read_HOSTLIB_WGTMAP();
 
   // open hostlib and start reading
-  if ( REFAC_SEARCHEFF ) {
-    prep_head_HOSTLIB();  // prepare HOSTLIB variables after reading WGTMAP
-  }
-  else {
-    // legacy mode
-    open_HOSTLIB(&fp_hostlib);            // open and return file pointer
-    close_HOSTLIB(fp_hostlib);            // close HOSTLIB to rewind
-  }
+  prep_head_HOSTLIB();  // prepare HOSTLIB variables after reading WGTMAP
+
 
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();

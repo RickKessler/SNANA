@@ -2090,7 +2090,8 @@
     INTEGER*8  & 
         IFILT_OBS_EVAL_MASK(2,MXFILT_ALL) ! set for each filter
 
-    character FILTLIST_FIT_USE*64  ! filter-list USED each fit
+    character FILTLIST_FIT_USE*(MXFILT_ALL)  ! filter-list USED each fit
+! xxxxxx mark delete Jun 8 2026    character FILTLIST_FIT_USE*64
 
 ! define filter properties using MXFILT_ALL
 ! Nov 12, 2010: split FILT_XXX into FILTOBS_XXX and FILTREST_XXX
@@ -12039,15 +12040,6 @@
 ! Process a few things from the global survey variables
 ! read from RDSURVEY_TEXT[FITS]
 ! 
-! May 26, 2012: remove BX check; moved to LANDOLT_PREP.
-! 
-! Jun 15, 2013: check FILTER_REPLACE option
-! 
-! Aug 08, 2013: read and fill SURVEY_FIELD(i) for each survey field;
-!               needed to sort overlapping fields so that
-!               E2+E1 gets written as E1+E2
-! 
-! Dec 16 2014: fix string logic checking SURVEY; see L1.
 ! 
 ! Dec 09 2020: fix index bug setting SURVEY_TMP
 ! -------------
@@ -12218,6 +12210,13 @@
 
         call UPCASE(cwd_next, upper)
         cfield = upper  ! FIELD in SURVEY.DEF file
+
+        ! Jun 2026: abort on invalid '+' symbol in field name; '+' is reserved for overlaps.
+        if ( INDEX(cfield,'+') > 0 ) then
+           c1err = 'Invalid + in FIELD name ' // cfield
+           c2err = 'Remove + from this FIELD name in SURVEY.DEF file'
+           CALL MADABORT(FNAM, c1err, c2err )
+        endif
 
         read(cwd_next2,*) IDFIELD
 
@@ -18621,11 +18620,13 @@
         ,IDF, IDF_OVPLIST(MXFIELD_OVP)  & 
         ,NFIELD, LENTMP, LENTOT, L2
 
+    LOGICAL LDMP
     CHARACTER FIELDTMP*(MXCHAR_FIELDNAME), FNAM*12
     LOGICAL USE, FIRST
 
 ! ------------- BEGIN ----------
 
+    LDMP   = .FALSE.
     NEP    = ISNLC_NEPOCH_STORE
     NFIELD = 0
     FNAM   = 'COUNTFIELDS'
@@ -18635,7 +18636,7 @@
 
         USE = .FALSE.
         DO 102 i = 1, MIN(NFIELD,MXFIELD_OVP)
-          if ( SNLC_FIELD(ep).EQ.SNLC_FIELD_OVPLIST(i) ) USE=.TRUE.
+          if ( SNLC_FIELD(ep) .EQ. SNLC_FIELD_OVPLIST(i) ) USE=.TRUE.
  102      CONTINUE
 
         if ( .NOT. USE ) THEN

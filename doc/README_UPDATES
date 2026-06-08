@@ -23887,5 +23887,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     #define MXCHAR_FIELDNAME  20 -> 32
     #define MXCHAR_FIELDLIST  60 -> 80
       [and same change for MXCHAR_FIELDNAME in snana.F90]
+
+  sntools_dataformat_text:
+    writing DETNUM, IMGNUM, TEXPOSE were all fragile require 1st element
+    to be filled ... but when 2nd or 3rd element is first valid element,
+    it skips these columns so that some data files have (don't have) these
+    columns. The fix is to define bool SNDATA.HAS_[DETNUM,IMGNUM,TEXPOSE] 
+    and set them true if any element is valid. This bug was triggered
+    running analysis on Roman sim using Paulin SIMLIB.
+
+
 END:
  

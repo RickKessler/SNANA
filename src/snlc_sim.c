@@ -25376,7 +25376,9 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
 
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
+
     SNDATA.DETNUM[epoch]       = GENLC.DETNUM[epoch];
+    if ( SNDATA.DETNUM[epoch] >= 0 ) { SNDATA.HAS_DETNUM = true; }
 
     SNDATA.GAIN[epoch]      =  SIMLIB_OBS_GEN.CCDGAIN[epoch] ;
     SNDATA.READNOISE[epoch] =  SIMLIB_OBS_GEN.READNOISE[epoch] ;
@@ -25439,7 +25441,8 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.ZEROPT_ERR[epoch]  = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
     SNDATA.ZEROPT_SIG[epoch]  = SIMLIB_OBS_GEN.ZPTERR[epoch] ;
     SNDATA.TEXPOSE[epoch]     = get_TEXPOSE(epoch);
-    
+    if ( SNDATA.TEXPOSE[epoch] > 0.1 ) { SNDATA.HAS_TEXPOSE = true; }
+
     // mar 18 2018: store SNR at fixed mag to monitor data quality 
     SNDATA.SIMEPOCH_SNRMON[epoch] = GENLC.SNR_MON[epoch];
 

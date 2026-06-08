@@ -271,6 +271,7 @@ struct SNDATA {
 
   int   DETNUM[MXEPOCH] ; // detector/CCD number or sensor id
   int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g. EXPNUM, VISIT_ID)
+  bool  HAS_DETNUM, HAS_IMGNUM, HAS_TEXPOSE;
 
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch

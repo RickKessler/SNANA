@@ -5210,7 +5210,7 @@ void print_mask_comment(FILE *FP, int OPTIONS_MASK, int MASK, char *COMMENT) {
   //
 
 
-  //  char fnam[] = "print_mask_comment";
+  char fnam[] = "print_mask_comment";  (void)fnam;
 
   // ---------- BEGIN ---------
 
@@ -9117,6 +9117,10 @@ int init_SNDATA_EVENT(void) {
 
   //  -------------------------------------------
   // epoch info
+
+  SNDATA.HAS_TEXPOSE = false;
+  SNDATA.HAS_DETNUM  = false;
+  SNDATA.HAS_IMGNUM  = false;
 
   for ( i_epoch = 0; i_epoch < MXEPOCH; i_epoch++ ) {
 

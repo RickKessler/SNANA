@@ -900,9 +900,9 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
-  bool WRFLAG_DETNUM     = (SNDATA.DETNUM[1]  >= 0   );
-  bool WRFLAG_IMGNUM     = (SNDATA.IMGNUM[1]  >= 0   );
-  bool WRFLAG_TEXPOSE    = (SNDATA.TEXPOSE[1] >= 0.1 );
+  bool WRFLAG_DETNUM     = SNDATA.HAS_DETNUM ;
+  bool WRFLAG_IMGNUM     = SNDATA.HAS_IMGNUM ;
+  bool WRFLAG_TEXPOSE    = SNDATA.HAS_TEXPOSE ;
   bool WRFLAG_METADATA   = true;
   bool WRFLAG_MAG        = false; 
 
@@ -916,6 +916,9 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   char fnam[] = "wr_dataformat_text_SNPHOT" ;
 
   // ------------ BEGIN -----------
+
+  // xxx mark   printf(" xxx %s: CID=%s  DETNUM=%d  WRFLAG_DETNUM=%d \n", 
+  //	 fnam, SNDATA.CCID, SNDATA.DETNUM[1], WRFLAG_DETNUM);
 
   // check things to suppress/enable for reading real data in text format
   if ( IS_DATA && RDTEXT ) {

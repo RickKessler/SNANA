@@ -595,8 +595,9 @@ double  M0_DEFAULT;
 #define MXNUM_SAMPLE  25  // max number of SURVEY/FIELD samples (max IDSAMPLE)
 #define MXCHAR_SAMPLE 300 // max string length of sample name
 #define USERFLAG_SURVEYGROUP_SAMPLE  1  // bookkeeping for biasCor IDSAMPLE
-#define USERFLAG_FIELDGROUP_SAMPLE   2
-#define AUTOFLAG_SURVEYGROUP_SAMPLE  3  // survey automatically added
+#define USERFLAG_FIELDGROUP_SAMPLE   2  // substring FIELD spec for groups
+#define USERFLAG_FIELDLIST_SAMPLE    3  // exact FIELD name for all fields and overlaps (Jun 2026)
+#define AUTOFLAG_SURVEYGROUP_SAMPLE  4  // survey automatically added
 #define USERFLAG_IGNORE_SAMPLE       6  // ignore this sample
 
 
@@ -1005,6 +1006,7 @@ struct {
   int  NFIELDGROUP_USR ;
   char FIELDGROUP_LIST[MXNUM_SAMPLE][MXCHAR_SAMPLE];
   char FIELDGROUP_OPTLIST[MXNUM_SAMPLE][MXCHAR_SAMPLE]; // e.., 'zbin=.04'
+  bool FIELDGROUP_MATCH_EXACT[MXNUM_SAMPLE]; 
 
   // user-defined survey groups
   int  NSURVEYGROUP_USR ; // number of user-specified survey groups
@@ -1149,8 +1151,11 @@ struct INPUTS {
   double snrmin_sigint_biasCor; // SNRMIN used to determine sigint
   double sigma_cell_biasCor; // to weight events in cell for biasCor value
 
-  char fieldGroup_biasCor[200]; // sub-divide biasCor groups based on field
+  char fieldGroup_biasCor[200]; // sub-divide biasCor groups based on substring field names
   int  use_fieldGroup_biasCor;  // logical flag for above
+
+  char fieldList_biasCor[200]; // sub-divide biasCor groups based on EXACT field names
+  int  use_fieldList_biasCor;  // logical flag for above
 
   char surveyGroup_biasCor[400]; // combine surveys into group
   int  use_surveyGroup_biasCor;   // internall set flag
@@ -1809,7 +1814,7 @@ double  BLIND_OFFSET(int ipar);
 int   ISBLIND_FIXPAR(int ipar);
 void  printmsg_fitStart(FILE *fp); 
 void  printmsg_repeatFit(char *msg) ;
-void  print_eventStats(int event_type);
+void  print_eventStats(int event_type, char *callFun);
 
 void  outFile_driver(void);
 void  write_M0_fitres(char *fileName);
@@ -2281,7 +2286,7 @@ void SALT2mu_DRIVER_EXEC(void) {
 #endif
 
   // print stats for data after ALL cuts are applied
-  print_eventStats(EVENT_TYPE_DATA);
+  print_eventStats(EVENT_TYPE_DATA, fnam);
  
   // Beginning of DOFIT loop
   while ( DOFIT_FLAG != FITFLAG_DONE  ) {
@@ -5676,8 +5681,12 @@ void set_defaults(void) {
 
   INPUTS.sigma_cell_biasCor    = 50.0; // flat WGT distribution in each cell
   INPUTS.nfile_biasCor         = 0 ;
+
   sprintf(INPUTS.fieldGroup_biasCor, "NONE" );
   INPUTS.use_fieldGroup_biasCor = 0 ;
+
+  sprintf(INPUTS.fieldList_biasCor, "NONE" );
+  INPUTS.use_fieldList_biasCor = 0 ;
 
   INPUTS.ndump_nobiasCor  = 0 ;
   INPUTS.frac_warn_nobiasCor = 0.02 ;
@@ -6092,7 +6101,7 @@ void read_data(void) {
 
   if ( NPASS == 0 ) {
     print_preAbort_banner(fnam);
-    print_eventStats(EVENT_TYPE_DATA);
+    print_eventStats(EVENT_TYPE_DATA, fnam);
     sprintf(c1err,"All DATA events fail cuts");
     sprintf(c2err,"Check cut-windows in SALT2mu input file.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
@@ -8103,6 +8112,7 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   bool  DO_BIASCOR_SAMPLE = (INPUTS.opt_biasCor & MASK_BIASCOR_SAMPLE);
   bool  DO_BIASCOR_MU     = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
   bool  USE_FIELDGROUP    = (INPUTS.use_fieldGroup_biasCor > 0) ;
+  bool  USE_FIELDLIST     = (INPUTS.use_fieldList_biasCor  > 0) ;
   bool  ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2;
   bool  ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN;
 
@@ -8417,11 +8427,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
   // IDSAMPLE is not ready for data yet,
   // but get it for BIASCOR and/or CCPRIOR
 
-  
   if ( !IS_DATA ) {
 
     char *field_tmp;
-    if ( USE_FIELDGROUP ) 
+    if ( USE_FIELDGROUP || USE_FIELDLIST ) 
       { field_tmp = field; }
     else
       { field_tmp = NONE ; }
@@ -8977,7 +8986,10 @@ void prepare_IDSAMPLE_biasCor(void) {
   // Nov 13 2024: load SURVEYGROUP = SURVEYDEF for FIELDGROUP;
   //   only impacts stdout for IDSAMPLE summary.
   //
+  // Jun 9 2026: check INPUTS.use_fieldList_biasCor for exact FIELD matches
+
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
+  int USE_FIELDLIST   = INPUTS.use_fieldList_biasCor ;  // Jun 2026
   int IVAR_OPT_PHOTOZ = INFO_DATA.TABLEVAR.IVAR_OPT_PHOTOZ ;
 
   int   opt_biasCor   = INPUTS.opt_biasCor ;
@@ -9027,6 +9039,7 @@ void prepare_IDSAMPLE_biasCor(void) {
     SAMPLE_BIASCOR[i].IS_PHOTOZ           = false ; // zSPEC is default
     SAMPLE_BIASCOR[i].NAME[0]             = 0 ;
     SAMPLE_BIASCOR[i].IDSURVEY            = -9 ;
+
   } // end i loop 
 
 
@@ -9074,6 +9087,8 @@ void prepare_IDSAMPLE_biasCor(void) {
   sprintf(FIELD_TMP, "NONE"); 
   sprintf(FIELDGROUP,"NONE");  
 
+  // loop over data events and figure out IDSAMPLE for each event
+
   for(isn=0; isn < NSN_DATA; isn++ ) {
 
     CUTMASK    = INFO_DATA.TABLEVAR.CUTMASK[isn];
@@ -9083,10 +9098,18 @@ void prepare_IDSAMPLE_biasCor(void) {
 
     SELECT_FIELD = SELECT_SURVEY = true ;
 
-    if( USE_FIELDGROUP) { 
+    if( USE_FIELDGROUP || USE_FIELDLIST ) { 
       FIELDDEF     = INFO_DATA.TABLEVAR.field[isn]; 
-      SELECT_FIELD = select_FIELD(FIELDDEF);
+      SELECT_FIELD = select_FIELD(FIELDDEF);    
+
+      // xxxxxxxxxx
+      if ( strcmp(NAME_SN,"234490") == 0 ) {
+	printf(" xxx %s: SNID=%s  FIELDDEF = '%s' SELECT=%d \n", 
+	       fnam, NAME_SN, FIELDDEF, SELECT_FIELD);
+      }
+      // xxxxxxxxxx
     }
+
 
     SELECT_SURVEY = select_IDLIST(IDSURVEY, &INPUTS.IDSURVEY_SELECT) ;
 
@@ -9106,8 +9129,7 @@ void prepare_IDSAMPLE_biasCor(void) {
     NIDSURVEY[IDSURVEY]++ ;
 
     // check which FIELDGROUP group this event is in 
-    if ( USE_FIELDGROUP )  { sprintf(FIELD_TMP,"%s",  FIELDDEF ); }
-
+    if ( USE_FIELDGROUP || USE_FIELDLIST )  { sprintf(FIELD_TMP,"%s",  FIELDDEF ); }
 
     // check if this IDSURVEY and FIELDGROUP have been defined.
     // Note that only one of the match_xxx functions can return STRINGOPT
@@ -9133,8 +9155,6 @@ void prepare_IDSAMPLE_biasCor(void) {
       if ( IS_SPECZ ) 	{ sprintf(zGROUP,"-zSPEC"); }
       else              { sprintf(zGROUP,"-zPHOT"); }
     }
-
-    // xxx mark del Feb 11 2026  if ( IVAR_OPT_PHOTOZ < 0 ) { zGROUP[0] = 0 ; }
 
     DUMPFLAG = 0 ;
     IDSAMPLE = get_IDSAMPLE(IDSURVEY, IS_PHOTOZ, 
@@ -9404,43 +9424,87 @@ void set_FIELDGROUP_biasCor(void) {
 
   // extract FIELDGROUP sub strings from user-input keyed by
   // fieldgroup_biascor='xxx+yyy,zzz'
-  
+  //
+  // Jun 2026: update to work with
+  //      + fieldlist_biascor (exact matches)
+  //      + exact fieldgroup match defined by vertical bars; e.g., |DEEP+WIDE|
+  // 
   int i, NGRP;
   int USE_FIELDGROUP  = INPUTS.use_fieldGroup_biasCor ;
-  char *ptrFIELD[MXNUM_SAMPLE] ;
+  int USE_FIELDLIST   = INPUTS.use_fieldList_biasCor ;  // Jun 2026
+
+  bool MATCH_EXACT;
+  char *ptr_FIELD[MXNUM_SAMPLE], *ptr_OPTLIST[MXNUM_SAMPLE], *input_fields ;
   char fnam[] = "set_FIELDGROUP_biasCor"; 
-  int LDMP = 0 ;
+  int LDMP = (INPUTS.debug_flag==609) ;
 
   // ---------- BEGIN ----------
 
-  if ( LDMP ) 
-    { printf(" xxx %s: USE_FIELDGROUP = %d \n", fnam, USE_FIELDGROUP); fflush(stdout); }
+  if ( LDMP ) { 
+    printf(" xxx %s ---------------------------------------------- \n");
+    printf(" xxx %s: USE_FIELDGROUP = %d   USE_FIELDLIST = %d \n", fnam, USE_FIELDGROUP, USE_FIELDLIST); 
+    fflush(stdout); 
+  }
+
+  if ( USE_FIELDGROUP & USE_FIELDLIST ) {
+    sprintf(c1err,"BBC input error: cannot specify both fieldgroup_biascor & fieldlist_biascor");
+    sprintf(c2err,"Remove one of these keys from BBC input file");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  if ( USE_FIELDGROUP ) 
+    { input_fields = INPUTS.fieldGroup_biasCor; }
+  else if ( USE_FIELDLIST ) 
+    { input_fields = INPUTS.fieldList_biasCor; }
+  else
+    { return; }
 
   INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR = 0 ;
 
-  if ( USE_FIELDGROUP == 0 ) { return ; }
+  for(i=0; i < MXNUM_SAMPLE; i++ ) {
+    INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i][0]       = 0;
+    INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[i][0]    = 0;
+    INPUTS_SAMPLE_BIASCOR.FIELDGROUP_MATCH_EXACT[i]   = false ;
+    ptr_FIELD[i]   = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i] ;
+    ptr_OPTLIST[i] = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[i] ;
+  }
 
-  for(i=0; i < MXNUM_SAMPLE; i++ ) 
-    { ptrFIELD[i] = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i] ; }
-  
+  // June 2026: below we keep FIELDGROUP variable names for either fieldgroup or fieldlist.
+
+  /* xxx mark delete Jun 9 2026 xxxxxxx
   splitString(INPUTS.fieldGroup_biasCor, COMMA, fnam, MXNUM_SAMPLE, // inputs
 	      &NGRP, ptrFIELD );   // outputs
+  xxxxxxxxx end mark xxxxxxx */
+
+  splitString(input_fields, COMMA, fnam, MXNUM_SAMPLE, // inputs
+	      &NGRP, ptr_FIELD );   // outputs
 
   if ( LDMP ) 
     { printf(" xxx %s: NGRP = %d \n", fnam, NGRP); fflush(stdout); }
 
   INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR = NGRP;
   for(i=0; i < NGRP; i++ ) {
-    extractStringOpt(INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i],
-		     INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[i] );
+
+    // e.g., LSST(zbin=.05) -> return OPTLIST = 'zbin=.05'
+    extractStringOpt(ptr_FIELD[i], ptr_OPTLIST[i] );  
+ 
+
+    // check for exact-match requirement with vertical bars; e.g. |DEEP+WIDE|
+    MATCH_EXACT = false ;
+    if ( strstr(ptr_FIELD[i],VERT_BAR) != NULL ) 
+      { MATCH_EXACT = true;  remove_char(ptr_FIELD[i],VERT_BAR);  }
+    
+
+    INPUTS_SAMPLE_BIASCOR.FIELDGROUP_MATCH_EXACT[i] = MATCH_EXACT ;
 
     if ( LDMP ) {
-      printf(" xxx %s: FIELDGROUP=%s -> OPTLIST = %s \n", fnam,
-	     INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[i],
-	     INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[i] );
+      printf(" xxx %s: FIELDGROUP=%-20.20s -> OPTLIST = %s   MATCH_EXACT=%d\n", 
+	     fnam, ptr_FIELD[i], ptr_OPTLIST[i], MATCH_EXACT );
       fflush(stdout);
     }
   } // end i loop over NGRP
+
+  // if ( LDMP )  {  debugexit(fnam); } 
 
   // To do:
   // Determine which survey(s) correspond to the fieldgroups, 
@@ -9991,8 +10055,8 @@ void dump_SAMPLE_INFO(int EVENT_TYPE) {
 
     if( SAMPLE_BIASCOR[i].zMAX_DATA < SAMPLE_BIASCOR[i].zMIN_DATA ) { NZERR++; }
     // print one-line summary per SAMPLE
-    fprintf(FP_STDOUT,"  IDSAMPLE=%2d --> %-20.20s  (%s, %s)\n",
-	   i, NAME, Nstring, zString );
+    fprintf(FP_STDOUT,"  IDSAMPLE=%2d --> %-40.40s  (%s, %s)\n",
+	   i, NAME, Nstring, zString );  
 
     // printf(" xxx %s: IDSURVEY = %d \n", fnam, SAMPLE_BIASCOR[i].IDSURVEY);
   }
@@ -10016,15 +10080,22 @@ void dump_SAMPLE_INFO(int EVENT_TYPE) {
 } // end dump_SAMPLE_INFO
 
 
+// ====================================================================
 void match_fieldGroup(char *SNID, char *FIELD, 
-		       char *FIELDGROUP, char *STRINGOPT ) {
+		      char *FIELDGROUP, char *STRINGOPT ) {
 
   // for input *FIELD, return *FIELDGROUP for which *FIELD matches.
   // *SNID is the SN name, and is used only for error messages.
 
+  int  NFIELDGROUP         = INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR ;
+  int  USE_FIELDLIST       = INPUTS.use_fieldList_biasCor ;  // Jun 2026
+  bool HAS_PLUS            = (strstr(FIELD,"+") != NULL) ;
+
+  bool MATCH_FIELDNAME, MATCH_EXACT_GRP, REQUIRE_MATCH_EXACT=false;
   int  NMATCH_TOT, NMATCH_FIELD, igroup, NFIELD_OVP, ifield ;
-  int  NFIELDGROUP = INPUTS_SAMPLE_BIASCOR.NFIELDGROUP_USR ;
-  char *FTMP1, *FTMP2, fieldList[MXFIELD_OVERLAP][MXCHAR_CCID] ;
+  char *FTMP_GRP, *FTMP_EVT, fieldList[MXFIELD_OVERLAP][MXCHAR_CCID] ;
+
+  int LDMP = ( strcmp(SNID,"234490") == 0 );
   char fnam[] = "match_fieldGroup" ;
 
   // ----------- BEGIN ------------
@@ -10037,12 +10108,29 @@ void match_fieldGroup(char *SNID, char *FIELD,
 
   if ( ONE_SAMPLE_BIASCOR ) { return ; }
 
+
+  // - - - - - - - - - -
+  // Jun 2026: check for exact match requirement
+  if ( USE_FIELDLIST )  { REQUIRE_MATCH_EXACT = true ; }
+
+  for(igroup=0; igroup < NFIELDGROUP; igroup++ ) {
+    MATCH_EXACT_GRP = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_MATCH_EXACT[igroup];
+    FTMP_GRP        = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igroup] ;
+    if ( MATCH_EXACT_GRP ) {
+      if ( strcmp(FIELD,FTMP_GRP) == 0 ) { REQUIRE_MATCH_EXACT = true; }
+    }
+  }
+
+  // - - - - - - -
+
   // get list of all overlapping fields (separated by '+')
-  if ( strstr(FIELD,"+") != NULL ) {
+  if ( HAS_PLUS && !REQUIRE_MATCH_EXACT ) {
     char *ptrFlist[MXFIELD_OVERLAP];
+
     for(ifield=0; ifield<MXFIELD_OVERLAP; ifield++ ) 
       { ptrFlist[ifield] = fieldList[ifield] ;  } 
-    splitString(FIELD, "+", fnam, MXFIELD_OVERLAP, &NFIELD_OVP, ptrFlist ); 
+
+    splitString(FIELD, PLUS, fnam, MXFIELD_OVERLAP, &NFIELD_OVP, ptrFlist ); 
   }
   else {
     // just one field; no overlaps
@@ -10053,20 +10141,35 @@ void match_fieldGroup(char *SNID, char *FIELD,
   // if(NFIELD_OVP>1) {printf(" xxx ---------------- \n"); fflush(stdout);}
 
   for(igroup=0; igroup < NFIELDGROUP; igroup++ ) {
-    FTMP1 = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igroup] ;
+    FTMP_GRP        = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igroup] ;
+    MATCH_EXACT_GRP = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_MATCH_EXACT[igroup];
+
+    // if this group requires exact match, don't allow other fields to match substrings
+    if ( MATCH_EXACT_GRP && !REQUIRE_MATCH_EXACT ) { continue; }
 
     NMATCH_FIELD=0;
+
     // check if any overlap field matches FIELDGROUP
     for(ifield = 0; ifield < NFIELD_OVP; ifield++ ) {
             
-      FTMP2 = fieldList[ifield];
-      if ( strstr(FTMP2,FTMP1)!=NULL || strstr(FTMP1,FTMP2)!=NULL ) { 
+      FTMP_EVT = fieldList[ifield];
+      
+      if ( REQUIRE_MATCH_EXACT ) 
+	{ MATCH_FIELDNAME = ( strcmp(FTMP_GRP,FTMP_EVT) == 0 ) ; }      
+      else 
+	{ MATCH_FIELDNAME = ( strstr(FTMP_GRP,FTMP_EVT)!=NULL  || strstr(FTMP_EVT,FTMP_GRP)!=NULL ); }
 
-	// for field-overlap, first match has priority.
+      if ( LDMP ) {
+	printf(" xxx %s: igroup=%d(%-20.20s) ifield=%d(%-20.20s)  MATCH_FIELDNAME=%d \n",
+	       fnam,  igroup, FTMP_GRP,   ifield, FTMP_EVT, MATCH_FIELDNAME);
+      }
+
+      if ( MATCH_FIELDNAME ) {
+
+	// for field-overlap, first fieldGroup match has priority.
 	if( NMATCH_TOT==0 ) { 
-	  sprintf(FIELDGROUP,"%s", FTMP1);  
-	  sprintf(STRINGOPT,"%s",
-		  INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[igroup]);
+	  sprintf(FIELDGROUP, "%s", FTMP_GRP);  
+	  sprintf(STRINGOPT,  "%s", INPUTS_SAMPLE_BIASCOR.FIELDGROUP_OPTLIST[igroup]);
 	}
 
 	NMATCH_TOT++ ;
@@ -10083,8 +10186,8 @@ void match_fieldGroup(char *SNID, char *FIELD,
     fprintf(FP_STDOUT, "  fieldgroup_biasCor = '%s' \n", 
 	    INPUTS.fieldGroup_biasCor);
     for(igroup=0; igroup < NFIELDGROUP ; igroup++ ) {
-      FTMP1 = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igroup] ;
-      fprintf(FP_STDOUT,"  FIELDGROUP(%d) = '%s' \n", igroup, FTMP1);
+      FTMP_GRP = INPUTS_SAMPLE_BIASCOR.FIELDGROUP_LIST[igroup] ;
+      fprintf(FP_STDOUT,"  FIELDGROUP(%d) = '%s' \n", igroup, FTMP_GRP);
     }
     sprintf(c1err,"Invalid NMATCH_TOT=%d for CID=%s",   NMATCH_TOT, SNID );
     sprintf(c2err,"FIELD='%s' and FIELDGROUP list", FIELD);
@@ -10459,7 +10562,7 @@ void prepare_biasCor(void) {
   }
   if ( NDIM_BIASCOR >=5 ) { store_index_abg_biasCor(); }
 
-  print_eventStats(EVENT_TYPE);
+  print_eventStats(EVENT_TYPE, fnam ); 
 
   //  if ( NDIM_BIASCOR == 1 ) { goto CHECK_1DCOR ; }
   if ( NDIM_BIASCOR == 1 && !DOCOR_1D5DCUT ) { goto CHECK_1DCOR ; }
@@ -11155,7 +11258,7 @@ void  prepare_biasCor_zinterp(void) {
   INFO_BIASCOR.TABLEVAR.NSN_PASSCUTS = NCUTS; 
 
   if ( NCUTS < 10 ) {
-    print_eventStats(EVENT_TYPE_BIASCOR);
+    print_eventStats(EVENT_TYPE_BIASCOR, fnam);
     sprintf(c1err,"NCUTS=%d is too few.", NCUTS );
     sprintf(c2err,"Something is wrong.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
@@ -11591,7 +11694,7 @@ void makeMap_fitPar_biasCor(int IDSAMPLE, int ipar_LCFIT) {
 
     if ( NEVT_USE == 0 ) {
       print_preAbort_banner(fnam);
-      print_eventStats(EVENT_TYPE_BIASCOR);
+      print_eventStats(EVENT_TYPE_BIASCOR, fnam );
       sprintf(c1err,"No BiasCor events passed for %s", 
 	      SAMPLE_BIASCOR[IDSAMPLE].NAME );
       sprintf(c2err,"Check BiasCor file" );
@@ -16432,8 +16535,8 @@ void prepare_CCprior(void) {
 
   // allocate memory and read simFile
   read_simFile_CCprior(); 
-  print_eventStats(EVENT_TYPE); // call this before store_INFO_CCPRIOR
-  store_INFO_CCPRIOR_CUTS();    // transfer TABLEVAR to sparse TABLEVAR_CUTS 
+  print_eventStats(EVENT_TYPE,fnam); // call this before store_INFO_CCPRIOR
+  store_INFO_CCPRIOR_CUTS();         // transfer TABLEVAR to sparse TABLEVAR_CUTS 
 
   MUZMAP_DEF   *MUZMAP             = &INFO_CCPRIOR.MUZMAP;
   TABLEVAR_DEF *TABLEVAR_CCPRIOR   = &INFO_CCPRIOR.TABLEVAR_CUTS ;
@@ -18146,7 +18249,7 @@ void copy_BININFO(BININFO_DEF *BIN1, BININFO_DEF *BIN2) {
 
 
 // =========================================
-void print_eventStats(int event_type) {
+void print_eventStats(int event_type, char *callFun) {
 
   // Created Jun 1 2019
   // for input "event_type" (DATA,BIASCOR, or CCPRIOR),
@@ -18174,7 +18277,9 @@ void print_eventStats(int event_type) {
   int  *CUTMASK_PTR, SIM_TEMPLATE_INDEX=0, NCUT_SOLO[MXCUTBIT];
   bool IS_SPEC;
   short int *IDSAMPLE_PTR ;
-  char fnam[] = "print_eventStats" ;
+
+  char fnam[200];   (void)fnam;
+  concat_callfun_plus_fnam(callFun, "print_eventStats", fnam); 
 
   // ---------- BEGIN ------------
 
@@ -19207,6 +19312,13 @@ int ppar(char* item) {
        uniqueOverlap(item,"fieldGroup_biascor=")     ) {
     s=INPUTS.fieldGroup_biasCor ;  
     sscanf(&item[19],"%s",s); remove_quote(s);
+    return(1);
+  }
+
+  if ( uniqueOverlap(item,"fieldlist_biascor=") ||
+       uniqueOverlap(item,"fieldList_biascor=")   ) {
+    s=INPUTS.fieldList_biasCor ;  
+    sscanf(&item[18],"%s",s); remove_quote(s);
     return(1);
   }
 
@@ -20973,7 +21085,7 @@ int icut_CUTWIN(char *varName) {
 void parse_FIELDLIST_SELECT(char *item) {
 
   // Created May 2020
-  // break comma-separated list and load NFIELD values to select events
+  // break input *item into comma-separated list and load NFIELD values to select events
   // May 26 2026 allocate FIELDLIST with len= MXCHAR_FIELDLIST instead of 20
 
   int  i ;
@@ -21359,6 +21471,9 @@ void prep_input_driver(void) {
     if ( IGNOREFILE(INPUTS.fieldGroup_biasCor)==0 )
       {  INPUTS.use_fieldGroup_biasCor = 1; }
 
+    if ( IGNOREFILE(INPUTS.fieldList_biasCor)==0 )
+      {  INPUTS.use_fieldList_biasCor = 1; }  // Jun 2026
+
     if ( IGNOREFILE(INPUTS.surveyGroup_biasCor)==0 )
       {  INPUTS.use_surveyGroup_biasCor = 1; }
   }
@@ -21600,7 +21715,9 @@ void prep_input_driver(void) {
     if ( INPUTS.opt_biasCor == 0 ) 
       { INPUTS.opt_biasCor = MASK_BIASCOR_DEFAULT; }
 
-    if ( INPUTS.use_fieldGroup_biasCor || INPUTS.use_surveyGroup_biasCor ) 
+    if ( INPUTS.use_fieldGroup_biasCor || 
+	 INPUTS.use_fieldList_biasCor  || 
+	 INPUTS.use_surveyGroup_biasCor ) 
       { INPUTS.opt_biasCor |= MASK_BIASCOR_SAMPLE ;  }
   }
 
@@ -25409,9 +25526,14 @@ void print_SALT2mu_HELP(void) {
     "                                     ! <subset> can be 0,1,2 .. <prescale>-1",
     "",
     "fieldgroup_biascor='SHALLOW,MEDIUM,DEEP'     #  generic field names",
-    "fieldgroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2'   # DES ",
-    "fieldgroup_biascor='WFD(zbin=.05),DDF(zbin=0.10)'    # LSST ",
-    "fieldgroup_biascor and fieldGroup_biascor both work",
+    "fieldgroup_biascor='C3+X3,X1+E1+S1,C2,X2+E2+S2+C2'  # DES; C3+X3 priority for field overlaps",
+    "fieldgroup_biascor='WFD(zbin=.05),DDF(zbin=.10)'    # LSST; WFD priority for WFD+DDF overlap ",
+    "fieldgroup_biascor='DDF(zbin=.10),WFD(zbin=.05)'    # LSST; DDF priority for WFD+DDF overlap ",
+    "fieldgroup_biascor='DDF(zbin=.10),WFD(zbin=.05),|DDF+WFD|(zbin=.1)' # overlap has separate biasCor",
+    "fieldgroup_biascor notes: ",
+    "  - fieldgroup_biascor & fieldGroup_biascor keys both work",
+    "  - each fieldgroup_biascor corresponds to IDSAMPLE value in output FITRES file",
+    "  - to see fieldgroups in stdout; grep IDSAMPLE <stdout>",
     "",
     "surveygroup_biascor='CFA3+CSP,PS1MD'   # combine CFA3+CSP into one biasCor",
     "surveygroup_biascor='CFA3+CSP(zbin=.02),PS1MD' ",
@@ -26720,13 +26842,13 @@ void SUBPROCESS_SIM_PRESCALE(void) {
   int  isn;
   //  int  LDMP = 0;
   double RANFLAT ;
-  char fnam[] = "SUBPROCESS_SIM_PRESCALE" ;
+  char fnam[] = "SUBPROCESS_SIM_PRESCALE" ;  (void)fnam;
 
   // ---------- BEGIN -----------
 
   if ( !IS_SIM || NEVT_SIM < 10 ) { return; }
 
-  print_eventStats(EVENT_TYPE_DATA);
+  print_eventStats(EVENT_TYPE_DATA, fnam );
 
   // beware that "DATA" here is really a sub-sampled selection of a giant sim for D2D;
   // Thus NEVT_SIM_PRESCALE  operates on the sim-data used by D2D.

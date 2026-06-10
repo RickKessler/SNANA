@@ -83,6 +83,7 @@
 #define MINUS      "-"
 #define STAR       "*"
 #define DOT        "."
+#define VERT_BAR   "|"
 #define ALL        "ALL"
 #define ALLFIELDS  "ALLFIELDS"
 
@@ -808,6 +809,9 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
 void splitString2(char *string, char *sep, int MXsplit,
 		  int *Nsplit, char **ptrSplit) ;
 
+void splitString_protect(char *string, char *sep, char *protect, char *callFun, int MXsplit,
+                         int *Nsplit, char **ptrSplit ) ;
+
 void nsplitString(char *string, char *sepList, char *callFun, int MXsplit,
 		  int *Nsplit, char **ptrSplit, char *sep );
 
@@ -816,6 +820,8 @@ void split2floats(char *string, char *sep, float *fval) ;
 
 void remove_comment(char *string) ;
 void remove_quote(char *string);
+void remove_char(char *string, char *c);
+
 void extractStringOpt ( char *string, char *stringOpt) ;
 void extractstringopt_( char *string, char *stringOpt) ;
 void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME);

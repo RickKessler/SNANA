@@ -6595,6 +6595,7 @@ double sigint_muresid_list_legacy(int N_LIST, double *MURES_LIST, double *MUCOV_
 
 } // end sigint_muresid_list_legacy
 
+
 // =============================================
 void remove_quote(char *string) {
 
@@ -6603,9 +6604,11 @@ void remove_quote(char *string) {
 
   char q[]=  "'" ;
   char qq[] = "\"" ;
+  char fnam[] = "remove_quote"; (void)fnam;
+  // ----------- BEGIN ----------------
+
   if ( strstr(string,q) == NULL && strstr(string,qq) == NULL ) 
     { return ; }
-
 
   int i, i2, lens = strlen(string);
   char *string_orig = (char*) malloc( (lens+1) * sizeof(char) );  
@@ -6625,6 +6628,39 @@ void remove_quote(char *string) {
 
 } // end remove_quote
 
+
+// =============================================
+void remove_char(char *string, char *c) {
+
+  // Created Jun 2026
+  // remove char *c from string.
+  // Input *string is returned without *c.
+
+  char fnam[] = "remove_char" ;  (void)fnam;
+
+  // ----------- BEGIN ---------------
+
+  if ( strstr(string,c) == NULL )   { return ; }
+
+  int i, i2, lens = strlen(string);
+  char *string_orig = (char*) malloc( (lens+1) * sizeof(char) );  
+  char ctmp[2] ;
+  i2=0;  sprintf(string_orig,"%s", string);  string[0]=0; 
+  for(i=0; i<lens; i++ ) {
+    sprintf(ctmp, "%c", string_orig[i] ) ;
+    if ( strcmp(ctmp,c)  == 0 ) { continue ; }
+    sprintf(&string[i2], "%c", string_orig[i] );
+    i2++ ;
+  }
+
+  free(string_orig);
+
+  return ;
+
+} // end remove_char
+
+
+// =========================================
 void extractStringOpt(char *string, char *stringOpt) {
 
   // Created Aug 23 2016                          
@@ -6641,7 +6677,7 @@ void extractStringOpt(char *string, char *stringOpt) {
   int  i,lens = strlen(string);
   int  L=0, R=0 ;                // Left & Right parentheses logicals 
   char *stringLocal, ctmp[2] ;
-  //  char fnam[] = "extractStringOpt";
+  char fnam[] = "extractStringOpt"; (void)fnam ;
 
   // --------------- BEGIN --------------    
 
@@ -6907,6 +6943,113 @@ void splitString2(char *string, char *sep, int MXsplit,
   return ;
 
 }  // end of splitString2
+
+
+// ======================================================================                                                            
+void splitString_protect(char *string, char *sep, char *protect, char *callFun, int MXsplit,
+                         int *Nsplit, char **ptrSplit ) {
+
+  // Created Juj 2026
+  // Similar to splitString, but protect splitting content inside *protect symbols.
+  // 
+  // Examples with sep = + and protect = || 
+  //   string = '|N_DEEP+N_WIDE|'  
+  //      -> returns Nsplit=1 and ptrSplit[0] = N_DEEP+N_WIDE because the || symbols 
+  //         protect everything inside from being split.
+  //
+  //  string = |N_DEEP+N_WIDE|+DEEP
+  //    -> returns  Nsplit=2 and
+  //          ptrSplit[0] = N_DEEP+N_WIDE
+  //          ptrSplit[1] = DEEP
+  //
+  //  string = |N_DEEP+N_WIDE|+DEEP+WIDE+|S_DEEP+S_WIDE|
+  //    -> returns Nsplit=4 and
+  //          ptrSplit[0] = N_DEEP+N_WIDE
+  //          ptrSplit[1] = DEEP
+  //          ptrSplit[2] = WIDE
+  //          ptrSplit[3] = S_DEEP+S_WIDE
+  //
+  // *protect must have len=2; e.g, ||  or  []   or ()
+  //
+  int LEN_STRING  = strlen(string);
+  int LEN_PROTECT = strlen(protect);
+
+  int i, Nsplit_local=0 ;
+
+  int LDMP = 0 ;
+  char protect0[2], protect1[2];
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "splitString_protect", fnam);
+
+  // ------------- BEGIN --------------                         
+
+  if ( LEN_PROTECT != 2 ) {
+    sprintf(c1err,"Invalid input protect = '%s' has %d chars \n", protect, LEN_PROTECT);
+    sprintf(c2err,"protect string must have 2 characters; e.g. || or []");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
+  sprintf(protect0, "%c", protect[0] );
+  sprintf(protect1, "%c", protect[1] );
+
+  bool FOUND_PROTECT_START = false, FOUND_PROTECT_END = false;
+  bool FOUND_SEP=false, FOUND_SEP_LAST=false, ISCHAR_PROTECT ;
+  char c[2]="", c_last[2]="";
+  int  NCHAR_PROTECT = -9 ;
+
+  for(i=0; i < MXsplit; i++ ) { ptrSplit[i][0] = 0 ; }
+
+  for(i=0; i < LEN_STRING; i++ ) {
+    sprintf(c, "%c", string[i] );
+
+    FOUND_SEP           = ( strcmp(c,sep)      == 0 );
+    FOUND_SEP_LAST      = ( strcmp(c_last,sep) == 0 );
+
+    ISCHAR_PROTECT = false;
+
+    if ( NCHAR_PROTECT < 0 ) {
+      FOUND_PROTECT_START = ( strcmp(c,protect0) == 0 );
+      if ( FOUND_PROTECT_START )
+        { FOUND_PROTECT_END=false; NCHAR_PROTECT=0 ; ISCHAR_PROTECT=true; }
+    }
+
+
+    if ( NCHAR_PROTECT > 1 )  {
+      FOUND_PROTECT_END   = ( strcmp(c,protect1) == 0 );
+      if ( FOUND_PROTECT_END   )
+        { FOUND_PROTECT_START = false; NCHAR_PROTECT=-9; ISCHAR_PROTECT=true ; }
+    }
+
+    if ( LDMP ) {
+      printf(" xxx  c[last,now]='%s,%s' -> FOUND_SEP[last,now]=%d,%d  "
+	     "PROTECT[START,END | ISCHAR,NCHAR] = %d %d | %d %d\n",
+             c_last, c, FOUND_SEP_LAST, FOUND_SEP,
+             FOUND_PROTECT_START, FOUND_PROTECT_END,
+             ISCHAR_PROTECT, NCHAR_PROTECT );
+    }
+
+    if ( ISCHAR_PROTECT ) { continue; }
+
+    if ( FOUND_SEP_LAST && NCHAR_PROTECT <= 0 ) {
+      Nsplit_local++ ;  // increment next field index
+    }
+
+    bool STORE_CHAR = true;
+    if ( FOUND_SEP && NCHAR_PROTECT < 0 ) { STORE_CHAR = false; }
+
+    if ( STORE_CHAR ) 
+      { strcat(ptrSplit[Nsplit_local], c); }  // increment next char in field name
+
+    if ( FOUND_PROTECT_START ) { NCHAR_PROTECT++; }
+    sprintf(c_last, "%s", c);
+  }
+
+
+  *Nsplit = Nsplit_local + 1 ;
+  return ;
+
+} // end splitString_protect                                                                                                         
 
 void split2doubles(char *string, char *sep, double *dval) {
 

@@ -237,7 +237,8 @@ class HostPropertyFit(Program):
         n_job    = 0
         for ijob in range(n_fitopt):
             n_job += 1  # track total number pof jobs; counter starts at 1, not 0
-            if ijob == icpu:
+            if ijob % n_core == icpu:
+            #if ijob == icpu:
                 job_info_hostfit   = self.prep_JOB_INFO_hostfit(ijob)
                 util.write_job_info(f, job_info_hostfit, icpu)
                 # NEED TO FIX WHEN ncore != njob
@@ -411,10 +412,23 @@ class HostPropertyFit(Program):
         return row_list_dict, n_state_change
         # end merge_update_state 
 
-    def get_cigale_status(self, fitopt):
-        success = True
-        tproc = 1.5 # minutes
-        return success, tproc
+    def get_cigale_status(self, fitopt_num):
+        script_dir    = self.config_prep['script_dir']
+        prefix = self.get_prefix_name()
+        symlink_log_name = script_dir + '/' + fitopt_num + '_' + f'{prefix}.LOG'
+        #sys.exit(f'xxx Log name = {symlink_log_name}')
+        success = False
+        tproc = None
+
+        with open(symlink_log_name) as f:
+            log = f.read()
+        if "Run completed!" in log:
+            success = True
+        duration = re.search(r"Total duration:\s*(\d+):(\d+):(\d+)", log)
+        if duration:
+            h, mins, s = (int(x) for x in duration.groups())
+            tproc = datetime.timedelta(hours=h, minutes=mins, seconds=s).total_seconds() / 60  # minutes
+        return success, round(tproc, 3)
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_HOSTFIT_MERGE_CPU
@@ -477,6 +491,26 @@ class HostPropertyFit(Program):
         return
 
     def get_misc_merge_info(self):
+        CONFIG     = self.config_yaml['CONFIG']
+        n_core   = CONFIG['BATCH_NTHREADS']
+        
+        script_dir    = self.config_prep['script_dir']
+        prefix = self.get_prefix_name()
+        symlink_log_name = script_dir + '/' + f'FITOPT000_{prefix}.LOG'
+
+        with open(symlink_log_name) as f:
+            log = f.read()
+
+        duration = re.search(r"Total duration:\s*(\d+):(\d+):(\d+)", log)
+        num_objects = re.search(r"Number of objects\s*[│|]\s*(\d+)", log)
+        
+        if duration and num_objects:
+            h, mins, s = (int(x) for x in duration.groups())
+            tproc = datetime.timedelta(hours=h, minutes=mins, seconds=s).total_seconds() / 60  # minutes
+            ngal = int(num_objects.group(1))
+            CPU_PER_GAL = round(tproc * n_core / ngal, 3) # minutes
+            LINE = f'CPU_PER_GALAXY: {CPU_PER_GAL}  # minutes'
+            return [LINE]
         return []
 
     def merge_cleanup_final(self):

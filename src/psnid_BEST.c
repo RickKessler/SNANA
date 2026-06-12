@@ -5752,13 +5752,14 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
 
   int  ID_TABLE     = PSNID_TABLE_ID;
   int  IFLAG        = 1 ;   // use regular SNANA variables
-  char NAME_TABLE[] = PSNID_TABLE_NAME ; // "FITRES" ;
+  char NAME_TABLE[]      = PSNID_TABLE_NAME ; // "FITRES" ;
+  char NAME_PROGRAM[]    = "psnid.exe" ;
   char NAME_SNANABLOCK[] = "SNANAVAR" ;
   char NAME_SIMBLOCK[]   = "SIMVAR" ;
 
   PSNID_BEST_TABLEFILE_COMMENTS() ; // store comments for table
 
-  SNTABLE_CREATE(ID_TABLE, NAME_TABLE, TEXTFORMAT ) ;
+  SNTABLE_CREATE(ID_TABLE, NAME_TABLE, NAME_PROGRAM, TEXTFORMAT ) ;
 
   // include standard SNANA-analysis variables
   init_table_snanavar__(&ID_TABLE, NAME_SNANABLOCK, &IFLAG, 

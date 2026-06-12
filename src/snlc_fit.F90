@@ -11398,8 +11398,8 @@
 
     IMPLICIT NONE
     
-    CHARACTER VARLIST*80, CBLOCK*20, TEXTFMT*20, TEXTFMT_forC*20
-    INTEGER   ID, LENBL, LENVAR, LENFMT, LENTOT, IPAR, ibin, NVAR_PRIOR
+    CHARACTER VARLIST*80, CBLOCK*20, CPGNAME*20, TEXTFMT*20, TEXTFMT_forC*20
+    INTEGER   ID, LENBL, LENPG, LENVAR, LENFMT, LENTOT, IPAR, ibin, NVAR_PRIOR
 
     ! define variables for plot table
     CHARACTER VARNAME*20, COMMENT_forC*100, plot_example*100
@@ -11422,13 +11422,16 @@
     if ( JOBSPLIT(1) > 1 ) RETURN   ! only ISPLIT=1 for batch mode
 
     ID       = IDTABLE_PRIOR
-    CBLOCK   = 'PRIOR' // char(0)
+    CBLOCK   = 'PRIOR' // char(0)  ! table name
     LENBL    = 5
+
+    CPGNAME  = 'snlc_fit.exe' // char(0)
+    LENPG    = 12
 
     TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_PRIOR)
     LENFMT   = INDEX(TEXTFMT,' ') - 1
     TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
-    CALL SNTABLE_CREATE(ID, CBLOCK, TEXTFMT_forC,  LENBL, LENFMT)  ! C fun
+    CALL SNTABLE_CREATE(ID, CBLOCK, CPGNAME, TEXTFMT_forC,  LENBL, LENPG, LENFMT)  ! C fun
 
     ! make list of fit variables with prior, for comments below
     VARLIST = ' '
@@ -18699,24 +18702,27 @@
 
 ! local var
 
-    INTEGER LENNAME, LENFMT
-    CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+    INTEGER LENTB, LENPG, LENFMT
+    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20
 
 ! ----------------- BEGIN ------------------------
 
     IF ( IFLAG == IFLAG_INI ) THEN
 
-       NAME    = 'FITRES' // char(0)
-       LENNAME  = INDEX(NAME,   ' ') - 1
+       TBNAME   = 'FITRES' // char(0)
+       LENTB    = INDEX(TBNAME,   ' ') - 1
+
+       LENPG    = 12
+       PGNAME   = PROGRAM_NAME_SNFIT(1:LENPG) // char(0)
 
        TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_FITRES)
        LENFMT   = INDEX(TEXTFMT,' ') - 1
        TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
-       CALL SNTABLE_CREATE(ID,NAME,TEXTFMT_forC, LENNAME,LENFMT)  ! C fun
+       CALL SNTABLE_CREATE(ID, TBNAME, PGNAME, TEXTFMT_forC, LENPG, LENPG, LENFMT)  ! C fun
 
-         CALL INIT_TABLE_SNANAVAR(ID, 'SNANA', 2)
-         CALL INIT_TABLE_SNFITVAR(ID, 'SNFIT'   )
+       CALL INIT_TABLE_SNANAVAR(ID, 'SNANA', 2)
+       CALL INIT_TABLE_SNFITVAR(ID, 'SNFIT'   )
 
 !         optional epoch-dependent par
         IF ( OPT_TABLE(ITABLE_FITRES) .EQ. 2 ) THEN
@@ -19508,8 +19514,8 @@
     INTEGER   ISN   ! 0->init, otherwise fill
 
 ! local
-    INTEGER ID, LENNAME, LENFMT
-    CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+    INTEGER ID, LENTB, LENPG, LENFMT
+    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20
 
 ! ----------------- BEGIN ------------------------
 
@@ -19519,14 +19525,17 @@
 
     IF ( ISN .EQ. 0 ) THEN
 
-       NAME    = 'DMPFCN' // char(0)
-       LENNAME  = INDEX(NAME,   ' ') - 1
+       TBNAME  = 'DMPFCN' // char(0)
+       LENTB   = INDEX(TBNAME,   ' ') - 1
+
+       LENPG    = 12
+       PGNAME   = PROGRAM_NAME_SNFIT(1:LENPG) // char(0)
 
        TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_FITRES)
        LENFMT   = INDEX(TEXTFMT,' ') - 1
        TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
-       CALL SNTABLE_CREATE(ID,NAME,TEXTFMT_forC, LENNAME,LENFMT)  ! C fun
+       CALL SNTABLE_CREATE(ID, TBNAME, PGNAME, TEXTFMT_forC, LENTB, LENPG, LENFMT)  ! C fun
 
        CALL INIT_TABLE_DMPFCN(ID, 'DMPFCN' )
 
@@ -19674,11 +19683,11 @@
 
 ! local var
 
-    INTEGER ID, i, ep, LENNAME, LENFMT
+    INTEGER ID, i, ep, LENTB, LENPG, LENFMT
     INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
     REAL    Tobs, z, x0, x1, c, MWEBV
     REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
-    CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20
+    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20
 
 ! function
     INTEGER  getSpec_band_SALT2
@@ -19691,14 +19700,17 @@
 
     IF ( ISN .EQ. 0 ) THEN
 
-       NAME    = 'SPECTRA' // char(0)
-       LENNAME  = INDEX(NAME,   ' ') - 1
+       TBNAME   = 'SPECTRA' // char(0)
+       LENTB    = INDEX(TBNAME,   ' ') - 1
+
+       LENPG    = 12
+       PGNAME   = PROGRAM_NAME_SNFIT(1:LENPG) // char(0)
 
        TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_FITRES)
        LENFMT   = INDEX(TEXTFMT,' ') - 1
        TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
-       CALL SNTABLE_CREATE(ID,NAME,TEXTFMT_forC, LENNAME,LENFMT)  ! C fun
+       CALL SNTABLE_CREATE(ID, TBNAME, PGNAME, TEXTFMT_forC, LENTB, LENPG, LENFMT)  ! C fun
 
        CALL INIT_TABLE_SNSPECVAR(ID, 'SNSPEC' )
 

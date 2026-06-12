@@ -1300,7 +1300,7 @@ void WRITE_SNTABLE(void) {
   printf("\n   Create combined SNTable with %d variables \n", 
 	 NVAR_WRITE_COMBINED );
 
-  SNTABLE_CREATE(TABLEID_COMBINE, TABLENAME_COMBINE, "KEY" ) ;
+  SNTABLE_CREATE(TABLEID_COMBINE, TABLENAME_COMBINE, "combine_fitres", "KEY" ) ;
 
   ADD_SNTABLE_COMMENTS() ;
 

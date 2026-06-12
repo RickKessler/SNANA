@@ -68,7 +68,8 @@ char VARDEF_SNLC[MXEPVAR_TEXT][80] ; // short definition
 struct TABLEINFO_TEXT {
   int    NTABLE ;
   int    IDTABLE[MXTABLE_TEXT] ;
-  char   TBNAME[MXTABLE_TEXT][40] ;
+  char   TBNAME[MXTABLE_TEXT][40] ;  // table name
+  char   PGNAME[MXTABLE_TEXT][300] ; // Jun 10 2026 program name
 
   FILE  *FP[MXTABLE_TEXT] ;
   char   FILENAME[MXTABLE_TEXT][MXCHAR_FILENAME] ;
@@ -100,8 +101,8 @@ extern"C" {
 
   void INIT_TEXTFILES(char *PREFIX) ;  // analog of OPEN_ROOTFILE[HFILE]
 
-  void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT);
-  void sntable_create_text__(int *IDTABLE, char *TBNAME, char *TEXT_FORMAT);
+  void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT );
+  void sntable_create_text__(int *IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT);
 
   void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR, 
 			   SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF) ;
@@ -210,12 +211,14 @@ void INIT_TEXTFILES(char *PREFIX) {
 
 
 // ============================================
-void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
+void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) {
 
   // open file and store pointer to file.
   // File name is [PREFIX].[NAME].TEXT.
   // Store TEXT_FORMAT to be used when writing.
-
+  //
+  // Jun 10 2026: add PGNAME arg for program name
+  //
   int  NTAB, ivar, OPT_FORMAT, GZIPFLAG ;
   char FILENAME[MXCHAR_FILENAME], comment[100];
   char fnam[] = "SNTABLE_CREATE_TEXT" ;
@@ -250,6 +253,7 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
   TABLEINFO_TEXT.IDTABLE[NTAB] = IDTABLE ;
   TABLEINFO_TEXT.NFILL[NTAB]   = 0 ;
   sprintf(TABLEINFO_TEXT.TBNAME[NTAB],   "%s", TBNAME);
+  sprintf(TABLEINFO_TEXT.PGNAME[NTAB],   "%s", PGNAME);
   sprintf(TABLEINFO_TEXT.FILENAME[NTAB], "%s", FILENAME);
   sprintf(TABLEINFO_TEXT.FORMAT[NTAB],   "%s", TEXT_FORMAT);  
 
@@ -304,8 +308,8 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
 
 } // end of SNTABLE_CREATE_TEXT
 
-void sntable_create_text__(int *IDTABLE, char *TBNAME, char *TEXT_FORMAT) {
-  SNTABLE_CREATE_TEXT(*IDTABLE, TBNAME, TEXT_FORMAT);
+void sntable_create_text__(int *IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) {
+  SNTABLE_CREATE_TEXT(*IDTABLE, TBNAME, PGNAME, TEXT_FORMAT);
 }
 
 
@@ -651,9 +655,10 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   // See FORMAT string below.
   // Mar 2023: write VERSION_PHOTOMETRY if it is defined
   // Sep 2025: avoid writing VERSION_PHOTOMETRY key twice to top of file.
+  // Jun 2026: print program name (PGNAME)
 
   int   NVAR, IVAR, OPT_FORMAT, IDTABLE ;
-  char *FORMAT, *VARLIST, *TBNAME, *LINE ;
+  char *FORMAT, *VARLIST, *TBNAME, *PGNAME, *LINE ;
   char fnam[] = "SNTABLE_WRITE_HEADER_TEXT" ;
   FILE *FP ;
   // ------------- BEGIN --------------
@@ -663,9 +668,9 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   NVAR       = TABLEINFO_TEXT.NVAR[ITAB] ;
   VARLIST    = TABLEINFO_TEXT.VARLIST[ITAB] ;
   TBNAME     = TABLEINFO_TEXT.TBNAME[ITAB] ;
+  PGNAME     = TABLEINFO_TEXT.PGNAME[ITAB] ;
   IDTABLE    = TABLEINFO_TEXT.IDTABLE[ITAB] ;
   FP         = TABLEINFO_TEXT.FP[ITAB] ; 
-
 
   if ( NVAR >= MXVAR_TEXT ) {
     sprintf(MSGERR1, "NVAR=%d exceeds bound of MXVAR_TEXT=%d",
@@ -695,6 +700,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
       }
 
     fprintf(FP, "# SNANA_VERSION: %s \n", SNANA_VERSION) ;
+    fprintf(FP, "# PROGRAM:       %s \n", PGNAME);
     fprintf(FP, "# TABLE_NAME:    %s \n", TBNAME);
     fprintf(FP, "# \n" );
 

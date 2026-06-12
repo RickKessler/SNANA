@@ -199,6 +199,8 @@
 
  Nov 7 2025: new input -outfile_prob1d to give 1D marginalized PDF and CDF
 
+ Jun 11 2026: add snrms**2 to COV if reading MUCOV_SYS; abort if snrms > 0 and reading MUCOV_INV
+
 *****************************************************************************/
 
 #include <stdlib.h>
@@ -1260,7 +1262,7 @@ void parse_args(int argc, char **argv) {
 	 str_marg_min, var_w, varname_omm);
 
   if ( INPUTS.snrms > 0.0  ) {
-    printf("Add %4.2f mag-error (snrms) in quadrature to MU-error \n", 
+    printf("Add %6.4f mag-error (snrms) in quadrature to MU-error \n", 
 	   INPUTS.snrms);
   }
   printf("---------------------------------------\n\n");
@@ -1912,14 +1914,28 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
 
   if ( INPUTS.use_mucov == FLAG_MUCOVSYS ) {
+    
+    printf("\t add snrms^2 = (%.4f)^2 to COV_DIAG\n", INPUTS.snrms);
+    fflush(stdout);
+
     // Add diagonal errors (from Hubble diagram) to covsys
     double COV_STAT ;
     for ( i=0; i<NDIM_STORE; i++ )  {
       kk = i*NDIM_STORE + i;
       COV_STAT = HD_LIST[imat].mu_sqsig[i] ;
+      COV_STAT += INPUTS.sqsnrms;  // added Jun 11 2026
       MUCOV->ARRAY1D[kk] += COV_STAT ;
     }
   } 
+  else {
+    // 6.11.2026 - abort if trying to add snrms to already inverted COVTOT
+    if (INPUTS.snrms != 0.0 ) {
+      sprintf(c1err,"Cannot ad snrms = %f to MUCOV_TOT_INV", INPUTS.snrms);
+      sprintf(c2err,"Try reading COVSYS so that snrms^2 can be added to MUCOV_TOT");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);          
+    }
+
+  }
 
   
   return ; 
@@ -3731,8 +3747,6 @@ void wfit_uncertainty_fitpar(char *varname) {
   printf("\t diagnostic: %d bins with prob/probmax > %.3f \n",
 	 nbin_threshold, prob_threshold_monitor);
 
-  // .xyz
-
   fflush(stdout);
 
   return;
@@ -4040,12 +4054,9 @@ void invert_mucovar(COVMAT_DEF *MUCOV, double sqmurms_add) {
   }
 
   // - - - - - -
-  printf("\t Invert %d x %d mucov matrix with COV_DIAG += %f \n", 
-	 NSN, NSN, sqmurms_add);
+  printf("\t Invert %d x %d mucov matrix\n", NSN, NSN);
   fflush(stdout);
     
-  if ( sqmurms_add != 0.0 ) 
-    { printf("\t\t xxx WARNING: fix bug and add sqmurms ... \n"); }
 
   if ( LDMP_MUCOV ) { dump_MUCOV(MUCOV,"MUCOV"); }
     
@@ -4279,10 +4290,11 @@ void get_chi2_fit (
 
     n_count++ ;
     if ( use_mucov ) {
+      // sqmurms_add applied to MUCOV before inverting  (6.11.2026)
       sqmusiginv = WORKSPACE.MUCOV_FINAL.ARRAY1D[k*(NSN+1)]; 
     }
     else {
-      sqmusig     = HD0->mu_sqsig[k] + sqmurms_add ; // xxx INTERP?? xx
+      sqmusig     = HD0->mu_sqsig[k] + sqmurms_add ; 
       sqmusiginv  = 1.0 / sqmusig ;
     }
 

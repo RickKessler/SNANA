@@ -217,6 +217,10 @@
          IND_OFF_SPLINE_QUANTILE_ZPHOT = 0 &
          ,IND_OFF_SPLINE_LOGMASS_ZGRID = 10 
         
+    CHARACTER, PARAMETER ::  &
+         PROGRAM_NAME_SNANA*20 = 'snana.exe'    &
+        ,PROGRAM_NAME_SNFIT*20 = 'snlc_fit.exe' &
+        ,PROGRAM_NAME_PSNID*20 = 'psnid.exe'
 
     INTEGER, PARAMETER :: I8 = selected_int_kind(18)
 
@@ -330,6 +334,7 @@
     CHARACTER  & 
           SNANA_VERSION*60         &  ! e.g., v11_04h-[commit-id]
          ,SNANA_VERSION_DATA*60    &  ! SNANA version used create FITS data
+         ,PROGRAM_NAME*20          &  ! name of snana program 
          ,REFORMAT_VERSION*(MXCHAR_VERSION)  & 
          ,DATATYPE*12  ! e..g, 'DATA', 'FAKE', 'SNANA_SIM'
 
@@ -9785,8 +9790,8 @@
         ,itab, ITABLE, IDTABLE, LENNAM, LENFMT
     CHARACTER  & 
           TBNAME_LIST(NTABLE_CHECK)*40  & 
-         ,TBNAME*40, TXTFMT*20  & 
-         ,cTBNAME*40, cTXTFMT*20
+         ,TBNAME*40,  TXTFMT*20         & 
+         ,cTBNAME*40, cTXTFMT*20, cPGNAME*20
 
     EXTERNAL SNTABLE_CREATE_TEXT
 
@@ -9807,6 +9812,9 @@
     TBNAME_LIST(1)  = 'SNANA'
     TBNAME_LIST(2)  = 'FITRES'
 
+    LENNAM  = INDEX(PROGRAM_NAME//' ',' ') - 1
+    cPGNAME = PROGRAM_NAME(1:LENNAM) // char(0)  
+
 ! - - - - - -
     DO 100 itab =1, NTABLE_CHECK
       ITABLE  = ITABLE_LIST(itab)
@@ -9819,7 +9827,7 @@
         LENFMT  = INDEX(TXTFMT,' ') -1
         cTBNAME = TBNAME(1:LENNAM) // char(0)
         cTXTFMT = TXTFMT(1:LENFMT) // char(0)
-        CALL SNTABLE_CREATE_TEXT(IDTABLE, cTBNAME, cTXTFMT, 40,20)
+        CALL SNTABLE_CREATE_TEXT(IDTABLE, cTBNAME, cPGNAME, cTXTFMT, 40,20, 20)
       ENDIF
 100   CONTINUE
 
@@ -11087,10 +11095,13 @@
 
 #if defined(SNANA)
     EXIT_ERRCODE = EXIT_ERRCODE_SNANA
+    PROGRAM_NAME = PROGRAM_NAME_SNANA
 #elif defined(SNFIT)
     EXIT_ERRCODE = EXIT_ERRCODE_SNFIT
+    PROGRAM_NAME = PROGRAM_NAME_SNFIT
 #elif defined(PSNID)
     EXIT_ERRCODE = EXIT_ERRCODE_PSNID
+    PROGRAM_NAME = PROGRAM_NAME_PSNID
 #endif
     CALL SET_EXIT_ERRCODE(EXIT_ERRCODE) ! for C function aborts
 
@@ -19353,10 +19364,9 @@
          FOUND_METADATA =  & 
              ( PSF1 > 1.0E-5 .and. SKYSIG > 1.0E-5 .and. ZP > 1.0 .and. GAIN>0.0)
 
-         ! .xyz
          IF ( .not. FOUND_METADATA ) THEN
 
-            if ( REQUIRE_METADATA ) then  ! .xzy
+            if ( REQUIRE_METADATA ) then  
                CALL PRINT_PREABORT_BANNER(FNAM(1:18)//char(0),40)
                print*,' CID    = ', SNLC_CCID
                print*,' MJD    = ', MJD
@@ -22296,11 +22306,11 @@
 
 ! local var
 
-    INTEGER   LENNAME, LENFMT, NEWMJD, EPMIN, EPMAX, EP
+    INTEGER   LENTB, LENPG, LENFMT, NEWMJD, EPMIN, EPMAX, EP
     INTEGER   IFILTOBS, IFILT
     LOGICAL   DOFILL_TABLE, LCUT_NSIG, LCUT_FTRUE, LCUT_SBMAG
     REAL      NSIG, FTRUE, SBMAG 
-    CHARACTER NAME_forC*40, TEXTFMT*20, TEXTFMT_forC*20, FNAM*14
+    CHARACTER TBNAME_forC*40, PGNAME_forC*20, TEXTFMT*20, TEXTFMT_forC*20, FNAM*14
 
 #if defined(SNFIT)
     REAL  NSIG_OUTLIER_FIT  ! function
@@ -22324,15 +22334,18 @@
     IF ( IFLAG .EQ. IFLAG_INI ) THEN
 
        OUTLIER_TABLE_NAME  = 'OUTLIER'
-       LENNAME   = INDEX(OUTLIER_TABLE_NAME, ' ') - 1
-       NAME_forC = OUTLIER_TABLE_NAME(1:LENNAME) // char(0)
+       LENTB       = INDEX(OUTLIER_TABLE_NAME, ' ') - 1
+       TBNAME_forC = OUTLIER_TABLE_NAME(1:LENTB) // char(0)
+
+       LENPG       = INDEX(PROGRAM_NAME,' ') - 1
+       PGNAME_forC = PROGRAM_NAME(1:LENPG) // char(0) 
 
        TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_OUTLIER)
        LENFMT   = INDEX(TEXTFMT, ' ') - 1
        TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
-       CALL SNTABLE_CREATE(IDTABLE, NAME_forC, TEXTFMT_forC,  & 
-                LENNAME,LENFMT)  ! C fun
+       CALL SNTABLE_CREATE(IDTABLE, TBNAME_forC, PGNAME_forC, TEXTFMT_forC,  & 
+                LENTB, LENPG, LENFMT)  ! C fun
 
        CALL INIT_TABLE_OUTLIERVAR(IDTABLE, 'OUTLIER')
 
@@ -22915,8 +22928,8 @@
 
     LOGICAL   DO_FILL, LPS
     REAL*8    PS
-    INTEGER   LENNAME, LENFMT
-    CHARACTER NAME*40, TEXTFMT*20, TEXTFMT_forC*20, FNAM*12
+    INTEGER   LENTB, LENPG, LENFMT
+    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20, FNAM*12
     EXTERNAL SNTABLE_CREATE, SNTABLE_FILL
 
     LOGICAL REJECT_PRESCALE  ! function
@@ -22926,15 +22939,18 @@
 
     IF ( IFLAG .EQ. IFLAG_INI ) THEN
 
-       NAME     = 'SNANA' // char(0)
-       LENNAME  = INDEX(NAME,    ' ') - 1
+       TBNAME   = 'SNANA' // char(0)
+       LENTB    = INDEX(TBNAME,    ' ') - 1
+
+       LENPG    = INDEX(PROGRAM_NAME,' ') - 1
+       PGNAME   = PROGRAM_NAME(1:LENPG) // char(0)
 
        TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_SNANA)
        LENFMT   = INDEX(TEXTFMT, ' ') - 1
        TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
 
-       CALL SNTABLE_CREATE(IDTABLE,NAME,TEXTFMT_forC,  & 
-                LENNAME,LENFMT)  ! C fun
+       CALL SNTABLE_CREATE(IDTABLE, TBNAME, PGNAME, TEXTFMT_forC,  & 
+                LENTB, LENPG, LENFMT)  ! C fun
 
 ! make table of scalars
        CALL INIT_TABLE_SNANAVAR(IDTABLE, 'SNANA', 1)
@@ -24577,8 +24593,8 @@
 ! local var
 
     LOGICAL   DO_FILL
-    INTEGER   LENNAME, LENFMT, ISPEC, LENCCID, LENz, LENGALID
-    CHARACTER FNAM*12, NAME*40,  TEXTFMT_forC*20
+    INTEGER   LENTB, LENPG, LENFMT, ISPEC, LENCCID, LENz, LENGALID
+    CHARACTER FNAM*12, TBNAME*40,  PGNAME*20, TEXTFMT_forC*20
     CHARACTER CCID_forC*40, cGALID*24, cz*20
     REAL      z
     INTEGER*8 GALID
@@ -24594,12 +24610,16 @@
 #endif
 
     IF ( IFLAG .EQ. IFLAG_INI ) THEN
-       NAME     = 'MARZ' // char(0)
-       LENNAME  = INDEX(NAME,    ' ') - 1
+       TBNAME   = 'MARZ' // char(0)
+       LENTB    = INDEX(TBNAME,    ' ') - 1
+
+       LENPG  = INDEX(PROGRAM_NAME,' ') - 1
+       PGNAME = PROGRAM_NAME(1:LENPG) // char(0)
+
        TEXTFMT_forC = 'FITS' // char(0)
        LENFMT       =  4
-       CALL SNTABLE_CREATE(IDTABLE, NAME, TEXTFMT_forC,  & 
-                LENNAME,LENFMT)  ! C fun
+       CALL SNTABLE_CREATE(IDTABLE, TBNAME, PGNAME, TEXTFMT_forC,  & 
+                LENTB, LENPG, LENFMT)  ! C fun
 
        RETURN
     ENDIF
@@ -28268,7 +28288,7 @@
 
 ! plot variables
     INTEGER ID
-    CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, COMMENT_forC*80
+    CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, PGNAME*20, COMMENT_forC*80
     REAL*8    PDF_MARG, PDF_NOMARG
 
 ! function
@@ -28629,8 +28649,11 @@
        ID = IDTABLE_PDF
        if ( NCALL_INTEGPDF == 1 ) then ! create table
 
+          
           CBLOCK = 'PDF' // char(0)
-          CALL SNTABLE_CREATE(ID, CBLOCK, 'key'//char(0),  3, 3)  ! create table
+          PGNAME = PROGRAM_NAME_SNFIT(1:12) // char(0)
+
+          CALL SNTABLE_CREATE(ID, CBLOCK, PGNAME, 'key'//char(0),  3, 12, 3)  ! create table
 
           VARLIST = 'CID:C*20' // char(0)
           CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST, 1,  3,20)

@@ -439,8 +439,8 @@ extern"C" {
 
   // ---------------------
   // TABLE-write wrappers
-  void SNTABLE_CREATE  (int  TableID, char *TableName, char *TextFormat) ;
-  void sntable_create__(int *TableID, char *TableName, char *TextFormat) ;
+  void SNTABLE_CREATE  (int  TableID, char *TableName, char *ProgramName, char *TextFormat) ;
+  void sntable_create__(int *TableID, char *TableName, char *ProgramName, char *TextFormat) ;
 
   void SNTABLE_FILL  (int  TableID) ;
   void sntable_fill__(int *TableID ) ;

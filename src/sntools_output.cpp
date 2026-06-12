@@ -558,12 +558,14 @@ void store_tablefile_comment__(char *comment)
 { STORE_TABLEFILE_COMMENT(comment); }
 
 // =============================================================
-void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
+void SNTABLE_CREATE(int IDTABLE, char *NAME, char *PGNAME, char *TEXT_FORMAT) {
 
   // Create/Initialize new table.
   // *IDTABLE and *NAME are integer and character udentifiers.
   // TEXT_FORMAT used only for TEXT: 'key', 'csv', 'col'
-  
+  //
+  // Jun 10 2026: pass PGNAME = program name
+
   int  USE ; 
   char fnam[] = "SNTABLE_CREATE" ;
 
@@ -591,7 +593,7 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
 
 #ifdef USE_TEXT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_TEXT] ;
-  if ( USE ) { SNTABLE_CREATE_TEXT(IDTABLE,NAME,TEXT_FORMAT);  } 
+  if ( USE ) { SNTABLE_CREATE_TEXT(IDTABLE, NAME, PGNAME, TEXT_FORMAT);  } 
 #endif
 
  
@@ -599,8 +601,8 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *TEXT_FORMAT) {
 
 } // end of SNTABLE_CREATE
 
-void sntable_create__(int *ID, char *NAME, char *TEXT_FORMAT) {
-  SNTABLE_CREATE(*ID,NAME,TEXT_FORMAT)  ;
+void sntable_create__(int *ID, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) {
+  SNTABLE_CREATE(*ID, TBNAME, PGNAME, TEXT_FORMAT)  ;
 }
 
 

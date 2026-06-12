@@ -356,6 +356,7 @@ char STRING_EVENT_TYPE[MXEVENT_TYPE][12] =
 bool USE_EVENT_TYPE[MXEVENT_TYPE];
 
 char VERSION_PHOTOMETRY_EVENT_TYPE[MXEVENT_TYPE][MXCHAR_VERSION_PHOTOMETRY];
+char BBC_CODE[MXPATHLEN];
 
 char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 
@@ -2148,6 +2149,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
+  sprintf(BBC_CODE, "%s", argv[0]) ; // for comment in output fitres file
   fprintf(FP_STDOUT, "\n\t Start program %s \n\n", argv[0]) ;
   fflush(FP_STDOUT);
 
@@ -9441,7 +9443,7 @@ void set_FIELDGROUP_biasCor(void) {
   // ---------- BEGIN ----------
 
   if ( LDMP ) { 
-    printf(" xxx %s ---------------------------------------------- \n");
+    printf(" xxx %s ---------------------------------------------- \n", fnam );
     printf(" xxx %s: USE_FIELDGROUP = %d   USE_FIELDLIST = %d \n", fnam, USE_FIELDGROUP, USE_FIELDLIST); 
     fflush(stdout); 
   }
@@ -22952,6 +22954,7 @@ void write_version_info(FILE *fp) {
 
   fprintf(fp,"# ISDATA_REAL:   %d \n", ISDATA_REAL);
   fprintf(fp,"# SNANA_VERSION: %s \n", SNANA_VERSION_CURRENT);
+  fprintf(fp,"# PROGRAM:       %s \n", BBC_CODE);
   fprintf(fp,"# BBC_VERSION:   %d \n", BBC_VERSION);
   fprintf(fp,"\n");
   fflush(fp);

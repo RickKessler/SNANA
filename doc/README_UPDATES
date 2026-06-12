@@ -23896,6 +23896,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     columns. The fix is to define bool SNDATA.HAS_[DETNUM,IMGNUM,TEXPOSE] 
     and set them true if any element is valid. This bug was triggered
     running analysis on Roman sim using Paulin SIMLIB.
+ 
+   wfit.c
+     + fix to use -snrms for mucov_sys, and abort on reading mucov_tot_inv.
 
 
 END:

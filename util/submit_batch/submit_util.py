@@ -289,7 +289,8 @@ def protect_parentheses(arg):
     # This protection is needed to read GENOPT, FITOPT, MUOPT  args .
     # M. Vincenzi Febr 2022: only protects strings to avoid error on int/float
     if isinstance(arg,str):
-        arg_protect = arg.replace('(','\(').replace(')','\)')
+        # xxx mark arg_protect = arg.replace('(','\(').replace(')','\)')  # warnings with py 3.12
+        arg_protect = arg.replace('(', r'\(').replace(')', r'\)')  # AI recommended fix
     else: 
         arg_protect = arg
     return arg_protect
@@ -1098,7 +1099,7 @@ def write_job_info(f, JOB_INFO, icpu):
                         f"do sleep 5; done"
         f.write(f"echo 'Wait for {program} if SNANA make is in progress'\n")
         f.write(f"{wait_for_code}\n")
-        f.write(f"echo {program} exists -\> continue at {ECHO_TIME} \n\n")
+        f.write(f"echo {program} exists:  continue at {ECHO_TIME} \n\n")
 
     if CHECK_WAIT_FILE:
         # wait_file = abc.dat -> wait for abc.dat to exist

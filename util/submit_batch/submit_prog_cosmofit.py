@@ -64,6 +64,9 @@
 # Apr 21 2025: add ndof collumn to summary file
 # Apr 24 2025: add <omm_sig> column to WFIT_SUMMARY_AVG
 #
+# Jun 12 2026: fix bug reading covsys when covtot_inv = 'None' and must be
+#               internally changed to falsey None
+#
 # ====================================================================
 
 import os, sys, shutil, yaml, glob
@@ -567,6 +570,8 @@ class cosmofit(Program):
 
             if len(covinfo_split) > 2 and USE_COVSYS_INV:
                 covtot_inv_file = covinfo_split[2] 
+                if covtot_inv_file == 'None' : 
+                    covtot_inv_file = None # 6.12.2026 bug fix
                 covtot_inv_file_list.append(covtot_inv_file)  # 4.2024
             else:
                 covtot_inv_file_list.append(None)

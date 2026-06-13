@@ -25,10 +25,17 @@ cd src
 make             # builds all
 ```
 
+or run all four of the above commands with
+```
+./run_autotools+make.sh
+```
+
 to build one executable:
 ```
 cd src
-make snana
+make snana      # builds ../bin/snana.exe
+make snlc_sim   # builds ../bin/snlc_sim.exe
+etc ...
 ```
 
 debug build

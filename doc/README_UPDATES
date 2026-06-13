@@ -23901,5 +23901,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + fix to use -snrms for mucov_sys, and abort on reading mucov_tot_inv.
 
 
+   submit_prog_cosmofit.py
+     + if covsys_file is written at 7_CREATE_COV stage of pippin, and covtot_inv_file
+       is written as None, fixed cosmofit bug reading string 'None' and incorreclty
+       interpeting as falsey None.
+
 END:
  

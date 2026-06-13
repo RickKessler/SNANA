@@ -12,7 +12,7 @@
 # Nov    2024: add diagnostices  in read_merge_file if merge_log cannot be opened.
 # Sep 05 2025: add grep util
 # Jun 05 2026: move import pandas into combine_csv_files, the only function that needs it.
-#               Needed to run in envs that do not have pandas installed.
+#               Needed to run in envs (e.g., cigale) that do not have pandas installed.
 #
 # ==============================================
 

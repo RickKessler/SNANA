@@ -111,6 +111,9 @@
 # May 14 2026: rename CONFIG keys SIMFILE_BIASCOR -> REPALCE_SIMFILE_BIASCOR
 #              and SIMFILE_CCPRIOR -> REPLACE_SIMFILE_CCPRIOR to avoid confusion
 #              with related SIMFILE_BIASCOR/SIMFILE_CCPRIOR keys in pippin input.
+#
+# Jun 05 2026: move import pandas into combine_csv_files, the only function that needs it. 
+#               Needed to run in envs (e.g., cigale) that do not have pandas installed. 
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -2834,6 +2837,8 @@ class BBC(Program):
         # Created May 22 2025
         # Read BBC_REJECT_MONITOR_FILE and extract information about losses
         # for each IDSAMPLE; print info in YAML format to file f
+
+        import pandas 
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']

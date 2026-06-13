@@ -2838,7 +2838,7 @@ class BBC(Program):
         # Read BBC_REJECT_MONITOR_FILE and extract information about losses
         # for each IDSAMPLE; print info in YAML format to file f
 
-        import pandas 
+        import pandas as pd
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']

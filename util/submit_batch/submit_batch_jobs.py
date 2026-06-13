@@ -25,28 +25,33 @@
 # Jun 13 2025: add new class for combine_fitres 
 # Jun 26 2025: add new template/empty class for smp/multismp
 # May 18 2026: add new class for hostfit (CIGALE)
+#
+# Jun 13 2026: import class only if used to avoid env conflicts 
+#                (e.g., cigale in hostfit does not have numpy)
 # - - - - - - - - - -
 
 #import os
 import sys, yaml, argparse, subprocess, logging
 import submit_util      as util
 
-
+from   argparse import Namespace
 from   submit_params        import *
 from   submit_HELP          import *
-from   submit_prog_sim      import Simulation
-from   submit_prog_lcfit    import LightCurveFit
-from   submit_prog_bbc      import BBC
-from   submit_prog_covmat   import create_covmat
-from   submit_prog_cosmofit import cosmofit
-from   submit_prog_combine  import combine_fitres       # 6.13.2025
-from   submit_prog_smp      import SceneModelPhotometry
-from   submit_prog_hostfit  import HostPropertyFit
-from   submit_train_SALT2   import train_SALT2
-from   submit_train_SALT3   import train_SALT3
-from   submit_train_BAYESN  import train_BAYESN
-from   submit_makeDataFiles import MakeDataFiles
-from   argparse import Namespace
+
+
+#from   submit_prog_sim      import Simulation
+#from   submit_prog_lcfit    import LightCurveFit
+#from   submit_prog_bbc      import BBC
+#from   submit_prog_covmat   import create_covmat
+#from   submit_prog_cosmofit import cosmofit
+#from   submit_prog_combine  import combine_fitres       # 6.13.2025
+#from   submit_prog_smp      import SceneModelPhotometry
+#from   submit_prog_hostfit  import HostPropertyFit
+#from   submit_train_SALT2   import train_SALT2
+#from   submit_train_SALT3   import train_SALT3
+#from   submit_train_BAYESN  import train_BAYESN
+#from   submit_makeDataFiles import MakeDataFiles
+
 
 # =====================================
 def get_args():
@@ -182,45 +187,58 @@ def which_program_class(config):
     CONFIG        = config['CONFIG']
 
     if "GENVERSION_LIST" in config :
+        from   submit_prog_sim      import Simulation
         program_class = Simulation
 
     elif "VERSION" in CONFIG :
+        from   submit_prog_lcfit    import LightCurveFit
         program_class = LightCurveFit # SNANA/SALT2/SALT3 or BayeSN LC fits
 
     elif "INPDIR+" in CONFIG :
+        from   submit_prog_bbc      import BBC
         program_class = BBC          # Beams with Bias Corr (KS17)
 
     elif "WFITOPT" in CONFIG :
+        from   submit_prog_cosmofit import cosmofit
         program_class = cosmofit    # wfit ...
 
     elif "FIRECROWN_INPUT_FILE" in CONFIG :
         program_class = cosmofit    # firecrown/Cosmosis ...   
         
     elif "SMP_METHOD" in CONFIG :  # ??? check this later
+        from   submit_prog_smp      import SceneModelPhotometry
         program_class = SceneModelPhotometry  
 
     elif any("CIGALE" in key for key in CONFIG):
+        from   submit_prog_hostfit  import HostPropertyFit
         program_class = HostPropertyFit 
 
-    elif "PATH_INPUT_TRAIN" in CONFIG :
+    elif "PATH_INPUT_TRAIN" in CONFIG:
+        from   submit_train_SALT2   import train_SALT2
         program_class = train_SALT2  # original snpca from J.Guy
 
     elif "JACOBIAN_MATRIX" in CONFIG :
+        from   submit_train_SALT2   import train_SALT2
         program_class = train_SALT2 # Patrick Armstrong - 17 Mar 22
 
     elif "SALT3_CONFIG_FILE" in CONFIG :
+        from   submit_train_SALT3   import train_SALT3
         program_class = train_SALT3  # saltshaker from D'Arcy & David
 
     elif "BAYESN_CONFIG_FILE" in CONFIG :
+        from   submit_train_BAYESN  import train_BAYESN
         program_class = train_BAYESN  # from Grayling, Thorp, Narayan, Mandel
 
     elif "MAKEDATAFILE_SOURCE" in CONFIG:
+        from   submit_makeDataFiles import MakeDataFiles
         program_class = MakeDataFiles
 
     elif "INPUT_COVMAT_FILE" in CONFIG:  # create_covariance, Sep 30 2022
+        from   submit_prog_covmat   import create_covmat
         program_class = create_covmat
         
     elif "COMBINE_FITRES" in config:  # June 2025
+        from   submit_prog_combine  import combine_fitres   
         program_class = combine_fitres
 
     else :

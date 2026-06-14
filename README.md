@@ -28,6 +28,7 @@ make             # builds all
 or run all four of the above commands with
 ```
 ./run_autotools+make.sh
+./run_autotools+make.sh  debug    # add --enable-debug flag
 ```
 
 to build one executable:

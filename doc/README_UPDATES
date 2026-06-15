@@ -23919,5 +23919,10 @@ xx
 
          *****  MISCELLANEOUS(v12_02) *****
 
+    snana.F90, snlc_fit.F90: 
+      always write COV(zPH,fitpar) for photo-z fits
+
+    sntable_cat.py
+      add COV* to defaultappend-missing list
 END:
  

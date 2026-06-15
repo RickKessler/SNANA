@@ -21,6 +21,9 @@
 import os, sys, argparse
 #from optparse import OptionParser
 
+
+DEFAULT_APPEND_VARNAME_MISSING = 'PROB*,zPRIOR*,COV*'
+
 # =============================
 def parse_args():
 
@@ -34,9 +37,10 @@ def parse_args():
     parser.add_argument('-o',help=msg, type=str,
                         dest='outfile_cat',default=None)
 
-    msg = 'list of column names to append if missing (wildcard allowed, e.g., PROB*)'
+    msg = f'list of column names to append if missing (wildcard allowed, ' \
+          f'default = {DEFAULT_APPEND_VARNAME_MISSING}'
     parser.add_argument('-a',help=msg, type=str,
-                        dest='append_varname_missing', default='PROB*,zPRIOR*')
+                        dest='append_varname_missing', default=DEFAULT_APPEND_VARNAME_MISSING)
 
     msg = 'optional integer prescale'
     parser.add_argument('-p',help=msg, type=int,

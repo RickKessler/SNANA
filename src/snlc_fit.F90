@@ -18849,13 +18849,12 @@
               VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, 40 )
 
 
-! Mar 18 2018: write OPT_PHOTOZ if ZPHOT output is suppressed
-    IF ( .not. WRTABLEFILE_ZPHOT ) then
-       VARLIST = 'OPT_PHOTOZ:I' // char(0)
-       LENLIST = INDEX(VARLIST, ' ') - 1
-       CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OPT_PHOTOZ,  & 
-                 VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST )
-    ENDIF
+! xxx mark delete    IF ( .not. WRTABLEFILE_ZPHOT ) then
+    VARLIST = 'OPT_PHOTOZ:I' // char(0)
+    LENLIST = INDEX(VARLIST, ' ') - 1
+    CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OPT_PHOTOZ,  & 
+         VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST )
+! xxx mark delet    ENDIF
 
 
 ! - - - - start with SNANA-analogs that could not be computed in snana
@@ -19086,7 +19085,8 @@
     IF ( VARNAME(1:2) .EQ. 'x2' .and. NSHAPEPAR==1) SKIP = .TRUE.
 
     IF ( VARNAME(1:5) .EQ. 'zPHOT' ) THEN
-      IF ( DOFIT_PHOTOZ .and. (.not.WRTABLEFILE_ZPHOT) )then
+! xxx mark delete 6.15.2026      IF ( DOFIT_PHOTOZ .and. (.not.WRTABLEFILE_ZPHOT) )then
+      IF ( DOFIT_PHOTOZ )then
          SKIP = .TRUE.
       ENDIF
     ENDIF
@@ -19441,7 +19441,9 @@
     LENPKMJD = 0
 
     NCOV_TBL = 0  ;  NCOV_TBL_PKMJD = 0
-    SKIP_ZPHOT = (.not. WRTABLEFILE_ZPHOT)
+
+    ! xxx mark delte 6.15.2026  SKIP_ZPHOT = (.not. WRTABLEFILE_ZPHOT)
+    SKIP_ZPHOT = .FALSE.
 
     DO 21 ipar1 = IPAR_PEAKMJD, IPAR_MAX-1  ! start with PEAKMJD
        if ( .not. FLOATPAR(ipar1) ) GOTO 21

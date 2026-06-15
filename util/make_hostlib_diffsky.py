@@ -527,7 +527,7 @@ def read_galaxy_cat(args, config):
     
     logging.info(f"Read {n_file} galaxy catalog files from {cat_dir}")
 
-    ds = oc.open(*catalog_files, synth_cores=False)
+    ds = oc.open(*catalog_files, synth_cores=True)
     
     n_row = len(ds)
     logging.info(f"Done reading dataset with {n_row:,} rows")

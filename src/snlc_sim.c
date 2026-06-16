@@ -963,8 +963,11 @@ void set_user_defaults(void) {
   
   INPUTS.OPT_MWEBV           = OPT_MWEBV_FILE   ;      // default
   INPUTS.APPLYFLAG_MWEBV     = 0 ;    // default: do NOT correct fluxes
-  INPUTS.MWEBV_FLAG          = 1 ;    // default is to do MW extinction
+  INPUTS.MWEBV_FLAG          = 1 ;    // default is to do MW extinctio
+
   INPUTS.MWEBV_SIGRATIO      =  0.16;  // default ERR(MWEBV)/MWEBV
+  // restore around Juneteenth INPUTS.MWEBV_SIGRATIO      = -9.0 ;  // disable default, 6.16.2026
+
   INPUTS.MWEBV_SIG           =  0.0 ;  // add  error in quad on MWEBV (mag)
   INPUTS.MWEBV_SHIFT         =  0.0 ;
   INPUTS.MWEBV_SCALE         =  1.0 ;
@@ -13520,6 +13523,13 @@ double gen_MWEBV(double RA, double DEC) {
   // re-compute smearing-error only for FILE option
   // Note defaults are ERR1=0 and ERR2 = MWEBV/6.
   if ( INPUTS.OPT_MWEBV == OPT_MWEBV_FILE ) {
+
+    if ( INPUTS.MWEBV_SIGRATIO < 0.0 ) {
+      sprintf(c1err,"Undefined GENSIGMA_MWEBV_RATIO (remove ancient default of 0.16)");
+      sprintf(c2err,"Check sim-inputs.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
+    }
+
     double SQERR1, SQERR2, ERR1, ERR2 ;
     ERR1 = (double)INPUTS.MWEBV_SIG ;  // fixed error (default is 0)
     ERR2 = (double)(INPUTS.MWEBV_SIGRATIO * GENLC.MWEBV); 
@@ -13931,12 +13941,12 @@ void  gen_modelPar_SALT2(int OPT_FRAME) {
       GENLC.SALT2beta += eval_GENPOLY(c, &INPUTS.SALT2BETA_cPOLY, fnam);
     }
 
-    if ( GENLC.SALT2alpha < 0.0 || GENLC.SALT2beta < 0.0 ) {
+    if ( GENLC.SALT2alpha < 0.0 || GENLC.SALT2beta < 0.0 ) { 
       sprintf(c1err,"Invalid alpha, beta = %f, %f", 
 	      GENLC.SALT2alpha, GENLC.SALT2beta  );
       sprintf(c2err,"Check sim-inputs for alpha and beta");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-    }
+   }
 
   } // end ISFRAME_REST
 
@@ -32905,6 +32915,7 @@ void print_sim_help(void) {
     "",
     "# - - - - - -Galactic extinction - - - - - - ",
     "OPT_MWEBV: <opt>              # flag for SFD98 or Schlaffly; see manual",
+    "OPT_MWCOLORLAW: <opt>         # flat for Galactic color law",
     "GENSIGMA_MWEBV_RATIO: <ratio> # sigma(MWEBV)/MWEBV",
     "GENSIGMA_MWEBV:  <sig>        # sigma(MWEBV)",
     "GENSHIFT_MWEBV:  <shift>      # systmatic shift to MWEBV",

@@ -12597,14 +12597,6 @@
     PRIOR_MUPULL = 0.0
     if ( .NOT. DOPRIOR_DLMAG ) RETURN
 
-    ! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    ! Mar 24 2026 : stop here until it is fixed
-    !print*,' '
-    !print*,' ERROR: DMU prior based on cospar uncertainties is BROKEN'
-    !print*,'        Need to compute dmu w.r.t. DLMAG_REF_GRID'
-    !STOP                 
-    ! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
     muref = DLMAG_REF(ZSN)
 
 ! Now get DLMAG with w shifted by its uncertainty
@@ -16751,7 +16743,6 @@
 ! Dec 31, 2014:   fill I4EP_ALL(ep,IEP_IFILT_REST1)
 ! 
 ! ---------------------
-
 
     USE SNDATCOM
     USE SNANAFIT

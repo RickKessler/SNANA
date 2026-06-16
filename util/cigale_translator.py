@@ -30,6 +30,7 @@ def get_args():
     parser.add_argument("--mode", required=True, help="snana_to_cigale or cigale_to_snana")
     parser.add_argument("--zgrid", nargs=3, help="Redshift grid")
     parser.add_argument("--varname_z", help="Redshift column in input file")
+    parser.add_argument("--prescale", help="Fraction of galaxy sample to use (e.g., prescale 26 selects 1/26)")
     args = parser.parse_args()
     return args
 
@@ -321,6 +322,17 @@ def write_cigale_output(cigale_output_path, header_parts, output_cols):
     print(nrows)
 
 
+def prescale_input_data(data, prescale):
+    """
+    Keep first 1/prescale portion of data
+    """
+    data_cut = {}
+    for key, arr in data.items():
+        n_keep = int(len(arr) // prescale)
+        data_cut[key] = arr[:n_keep]
+    return data_cut
+
+
 def snana_to_cigale(args, config, mode):
     """
     Converts SNANA input file (e.g., HOSTLIB or FITRES) to a cigale input file.
@@ -332,12 +344,21 @@ def snana_to_cigale(args, config, mode):
     # Other params
     galid_map_path = args.output_galid_map if args.output_galid_map is not None else config.get("OUTPUT_GALID_MAP")
     zgrid = args.zgrid if args.zgrid is not None else config.get("REDSHIFT_GRID").split()
-    varname_z = args.varname_z if args.varname_z is not None else config.get("REDSHIFT_COL") 
+    varname_z = args.varname_z if args.varname_z is not None else config.get("REDSHIFT_COL")
+    prescale = args.prescale if args.prescale is not None else config.get("PRESCALE")
 
     col_entries = parse_column_map(config["CIGALE_COLUMN_MAP"], varname_z = varname_z)
     mag_entries = parse_mag_map(config["CIGALE_MAG_MAP"])
 
     data = read_snana_input(snana_input_path)
+
+    if prescale:
+        try:
+            prescale = float(prescale)
+        except ValueError:
+            raise ValueError(f"prescale must be numeric value.")
+        if prescale > 1:
+            data = prescale_input_data(data, prescale)
 
     if zgrid:
         redshift_grid = parse_redshift_grid(zgrid)

@@ -428,7 +428,7 @@ class HostPropertyFit(Program):
         if duration:
             h, mins, s = (int(x) for x in duration.groups())
             tproc = datetime.timedelta(hours=h, minutes=mins, seconds=s).total_seconds() / 60  # minutes
-        return success, round(tproc, 3)
+        return success, round(tproc, 4)
 
     def get_merge_COLNUM_CPU(self):
         return COLNUM_HOSTFIT_MERGE_CPU
@@ -463,12 +463,22 @@ class HostPropertyFit(Program):
 
         os.system(command_exe)
 
+        num_invalid, tot_len = self.count_invalid_logmasses(cigale_result_file)
+        print(f'{num_invalid} out of {tot_len} rows ({num_invalid/tot_len*100:.4}%) in cigale results are NaN.')
+
         with open(cigale_translator_file, "r") as f:
             cigale_translator_config = yaml.safe_load(f)
         input_table_file = cigale_translator_config["SNANA_TO_CIGALE"]["INPUT_TABLE_FILE"]
         self.update_output_documentation(output_snana_file, input_table_file)
 
         return
+
+    def count_invalid_logmasses(self, cigale_result_file):
+        with fits.open(cigale_result_file) as hdul:
+            dat = hdul[1].data
+        num_invalid = np.sum(np.isnan(dat['bayes.stellar.mass_total']))
+        tot_len = len(dat)
+        return num_invalid, tot_len
 
     def update_output_documentation(self, output_snana_file, input_file):
         # Add input host information to output file documentation
@@ -491,6 +501,8 @@ class HostPropertyFit(Program):
         return
 
     def get_misc_merge_info(self):
+        lines = []
+
         CONFIG     = self.config_yaml['CONFIG']
         n_core   = CONFIG['BATCH_NTHREADS']
         
@@ -508,10 +520,23 @@ class HostPropertyFit(Program):
             h, mins, s = (int(x) for x in duration.groups())
             tproc = datetime.timedelta(hours=h, minutes=mins, seconds=s).total_seconds() / 60  # minutes
             ngal = int(num_objects.group(1))
-            CPU_PER_GAL = round(tproc * n_core / ngal, 3) # minutes
+            CPU_PER_GAL = round(tproc * n_core / ngal, 4) # minutes
             LINE = f'CPU_PER_GALAXY: {CPU_PER_GAL}  # minutes'
-            return [LINE]
-        return []
+            lines.append(LINE)
+
+        KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
+        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
+        fitopt_num = fitopt_dict['jobopt_num_list'][irow]
+        cigale_results_subdir =fitopt_num + '/out'
+        cigale_result_file = self.get_filepath('results.fits', cigale_results_subdir)
+        num_invalid, tot_len = self.count_invalid_logmasses(cigale_result_file)
+        LINE_nan_num = f'NaN_LOGMASSES: {num_invalid}'
+        LINE_nan_percent = f'%_NaN_LOGMASSES: {num_invalid/tot_len*100:.4}%'
+        lines.append(LINE_nan_num)
+        lines.append(LINE_nan_percent)
+
+        return lines
 
     def merge_cleanup_final(self):
         return

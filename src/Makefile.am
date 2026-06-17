@@ -49,9 +49,11 @@ LROOT  = -L$(ROOT_DIR)/lib -lCore -lRIO -lNet -lHist -lGraf -lGraf3d \
           -lGpad -lTree -lRint -lPostscript -lMatrix -lPhysics \
           -lMathCore -lThread -ldl
 IROOT  = -I$(ROOT_DIR)/include
+MERGE_ROOT_PROGRAM = $(BIN)/merge_root.exe
 else
 LROOT  =
 IROOT  =
+MERGE_ROOT_PROGRAM = 
 endif
 
 CPPLIB = -lstdc++
@@ -195,7 +197,7 @@ SNANA_EXECUTABLES = \
 	$(BIN)/SIMSED_extractSpec.exe \
 	$(BIN)/SIMSED_check.exe \
 	$(BIN)/SIMSED_rebin.exe \
-	$(BIN)/simlib_coadd.exe
+	$(BIN)/simlib_coadd.exe  $(MERGE_ROOT_PROGRAM)
 
 # ---------------------------------------------------------------------------
 # Short-name phony aliases for single-executable builds.
@@ -219,6 +221,10 @@ SIMSED_extractSpec: $(BIN)/SIMSED_extractSpec.exe
 SIMSED_check:    $(BIN)/SIMSED_check.exe
 SIMSED_rebin:    $(BIN)/SIMSED_rebin.exe
 simlib_coadd:    $(BIN)/simlib_coadd.exe
+
+if USE_ROOT
+merge_root:      $(BIN)/merge_root.exe
+endif
 
 # ===========================================================================
 # OBJECT FILE RULES
@@ -557,6 +563,10 @@ $(OBJ)/simlib_coadd.o: $(SRC)/simlib_coadd.c $(SRC)/simlib_tools.c
 	$(MKDIR_P) $(OBJ)
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(SRC)/simlib_coadd.c)
 
+$(OBJ)/merge_root.o : $(SRC)/merge_root.c 
+	$(MKDIR_P) $(OBJ); 
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO)  $(SRC)/merge_root.c )
+
 # ===========================================================================
 # BINARY LINK RULES
 # Each rule mirrors the original Makefile exactly.
@@ -731,6 +741,15 @@ $(BIN)/simlib_coadd.exe: $(OBJ)/simlib_coadd.o $(OBJ)/MWgaldust.o \
 		$(OBJ)/MWgaldust.o \
 		$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
 	cd $(OBJ); rm -f simlib_coadd.o
+
+$(BIN)/merge_root.exe :  $(OBJ)/merge_root.o $(OBJ)/sntools.o  $(OBJ)/sntools_output.o
+	$(MKDIR_P) $(BIN)
+	$(CC) -o $@ $(SNLDFLAGS) \
+		$(OBJ)/merge_root.o     \
+		$(OBJ)/sntools.o        \
+		$(OBJ_OUTPUT)           \
+		$(LGSL) $(LROOT) $(LCFITSIO) -lm $(CPPLIB)
+	(cd $(OBJ); rm -f merge_root.o )
 
 # ===========================================================================
 BUILT_SOURCES =

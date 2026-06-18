@@ -23928,5 +23928,9 @@ xx
     SALT2mu.c 
      + increase a few char limits: https://github.com/RickKessler/SNANA/issues/1716
 
+    snlc_fit.F90
+     + fix dumb bug storing only 80 chars of FITMODEL_NAME from command line override,
+       instead of reading MXCHAR_FILENAME chars.
+
 END:
  

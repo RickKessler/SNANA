@@ -3885,6 +3885,7 @@ void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME) {
   //
 
 
+  int LDMP = 0 ;
   int i,i2, lastSlash, LENSTR, ENVstat ;
   char fnam[] = "extract_MODELNAME" ;
 
@@ -3913,6 +3914,16 @@ void extract_MODELNAME(char *STRING, char *MODELPATH, char *MODELNAME) {
     } // end i loop over string chars
 
   } // end lastSlah if
+
+  if ( LDMP ) {
+    printf("\n xxx ------------------------------------------------- \n");
+    printf(" xxx %s DUMP for STRING='%s=' \n", fnam, STRING);
+    printf(" xxx lastSlash = %d \n", lastSlash);
+    printf(" xxx MODELPATH = '%s' \n", MODELPATH);
+    printf(" xxx MODELNAME = '%s' \n", MODELNAME);
+    printf("\n");
+    fflush(stdout);
+  }
 
   return ;
 

@@ -3003,7 +3003,7 @@
       IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
       IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16 ! Mar 2021
       IF ( DEBUG_FLAG == 1024 ) OPTMASK = OPTMASK + 1024 ! SALT2 debug flag
-
+      
       ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK,  & 
                   LEN_NAME, 40 )
 
@@ -7307,7 +7307,7 @@
       LL = INDEX ( ARG, ' ' ) - 1
 
       if ( MATCH_NMLKEY('FITMODEL_NAME', 1,i,ARGLIST) ) then
-          FITMODEL_NAME = ARGLIST(1)(1:80)
+          FITMODEL_NAME = ARGLIST(1)(1:MXCHAR_FILENAME)
 
       else if ( MATCH_NMLKEY('SALT2alpha', 1,i,ARGLIST) ) then
           READ(ARGLIST(1),*) SALT2alpha

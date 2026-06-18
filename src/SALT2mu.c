@@ -323,6 +323,10 @@ For help, run code with no arguments
   Feb 25 2026: make DO_H0marge a global so that FCN-iflag is set to 3 (instead of 1)
                during applyCut_chi2max(), so that probcc_beams is filled.
 
+  Jun 18 2026: for SN_UNITE analysis:
+    + increase MXFILE_XXX = 20 -> 30
+    + MXCHAR_DATAFILE_STRING  8*MXPATHLEN -> 10*MXPATHLEN  [2400 -> 3000]
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -362,16 +366,18 @@ char STRING_MINUIT_ERROR[2][8] = { "MIGRAD", "MINOS" };
 
 #define MAXPAR_MINUIT 110  // limit for MINUIT params (Sep 10 2017)
 
-#define MXFILE_DATA     20  // max number of data files to read
-#define MXFILE_BIASCOR  20  // max number of biasCor files to read
-#define MXFILE_CCPRIOR  20  // max number of CCprior files to read
+// Jun 18 2026: increase all MXFILE_XXX from 20 -> 30
+#define MXFILE_DATA     30  // max number of data files to read
+#define MXFILE_BIASCOR  30  // max number of biasCor files to read
+#define MXFILE_CCPRIOR  30  // max number of CCprior files to read
 
 #define FLAG_EXEC_STOP   1
 #define FLAG_EXEC_REPEAT 2
 int     NCALL_SALT2mu_DRIVER_EXEC;
 #define MXVAR_OVERRIDE 20
 
-#define MXCHAR_DATAFILE_STRING  8*MXPATHLEN // max len of input dataFile_string
+// xxx mark #define MXCHAR_DATAFILE_STRING   8*MXPATHLEN // max len of input dataFile_string
+#define MXCHAR_DATAFILE_STRING  10*MXPATHLEN // max len of input dataFile_string
 
 // Maximum number of bins
 // Note that 5D biasCor array would take 30*20*20*5*5 = 300,000
@@ -8442,7 +8448,10 @@ void compute_more_TABLEVAR(int ISN, TABLEVAR_DEF *TABLEVAR ) {
 			FIELDGROUP, STRINGOPT);  // (O)
       match_surveyGroup(name, IDSURVEY, 
 			SURVEYGROUP, STRINGOPT); // (O)
-      IDSAMPLE = get_IDSAMPLE(IDSURVEY,IS_PHOTOZ,FIELDGROUP,SURVEYGROUP,0) ;
+
+      int DUMPFLAG = 0 ; // (ISN < 10);
+      IDSAMPLE = get_IDSAMPLE(IDSURVEY,IS_PHOTOZ,FIELDGROUP,SURVEYGROUP, DUMPFLAG) ;
+
     }
     else {
       IDSAMPLE = 0 ;   FIELDGROUP[0] = 0 ;
@@ -10270,11 +10279,11 @@ int get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ,
   // Used to label IDSAMPLE for data, biasCor and CCprior.
 
   int N = NSAMPLE_BIASCOR ;
-  int  MATCH_FIELDGROUP, MATCH_SURVEYGROUP, MATCH_PHOTOZ, MATCH_OR, i ;
+  int  MATCH_FIELDGROUP, MATCH_SURVEYGROUP, MATCH_PHOTOZ, MATCH_OR, MATCH_FINAL,  i ;
   int  CHECK_FIELDGROUP  = ( IGNOREFILE(FIELDGROUP)  == 0 ) ;
   int  CHECK_SURVEYGROUP = ( IGNOREFILE(SURVEYGROUP) == 0 ) ;
   bool  IS_PHOTOZ_TMP ;
-  char *FIELDGROUP_TMP, *SURVEYGROUP_TMP ;
+  char *FIELDGROUP_TMP, *SURVEYGROUP_TMP, *NAME ;
   char *SURVEYDEF = SURVEY_INFO.SURVEYDEF_LIST[IDSURVEY] ;
   char fnam[] = "get_IDSAMPLE" ;
 
@@ -10306,6 +10315,7 @@ int get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ,
   // check for survey/fieldGroup
   for(i=0; i < N; i++ ) {
 
+    NAME              = SAMPLE_BIASCOR[i].NAME ;
     FIELDGROUP_TMP    = SAMPLE_BIASCOR[i].NAME_FIELDGROUP ;
     SURVEYGROUP_TMP   = SAMPLE_BIASCOR[i].NAME_SURVEYGROUP ;
     IS_PHOTOZ_TMP     = SAMPLE_BIASCOR[i].IS_PHOTOZ ;
@@ -10335,15 +10345,22 @@ int get_IDSAMPLE(int IDSURVEY, bool IS_PHOTOZ,
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
     }
 
+    MATCH_OR    = ( MATCH_FIELDGROUP || MATCH_SURVEYGROUP ) ;
+    MATCH_FINAL = ( MATCH_OR && MATCH_PHOTOZ ) ;
+
     if ( DUMPFLAG ) { 
-      printf(" xxx INFO(%d): GROUP_TMP[F,S]=%s,%s  MATCH[F,S]=%d,%d\n", 
-	     i, FIELDGROUP_TMP, SURVEYGROUP_TMP, 
-	     MATCH_FIELDGROUP, MATCH_SURVEYGROUP ) ;
+      printf(" xxx %s DUMP for IDSAMPLE=%d  %s  \n", fnam, i, NAME);
+      printf(" xxx    GRP_TMP[FLD,SRV]=%s,%s  " 
+	     "MATCH[FLD,SRV | OR&PHOTOZ=FINAL] = [ %d,%d | %d&%d -> %d ] \n",
+	     FIELDGROUP_TMP, SURVEYGROUP_TMP, 
+	     MATCH_FIELDGROUP, MATCH_SURVEYGROUP, MATCH_OR, MATCH_PHOTOZ, MATCH_FINAL ) ;
+      printf(" xxx    IS_PHOTOZ(EVENT, BCOR -> MATCH) = %d , %d -> %d \n",
+	     IS_PHOTOZ, IS_PHOTOZ_TMP, MATCH_PHOTOZ);
+
       fflush(stdout);
     }
 
-    MATCH_OR = ( MATCH_FIELDGROUP || MATCH_SURVEYGROUP ) ;
-    if ( MATCH_OR && MATCH_PHOTOZ ) { return i; }
+    if ( MATCH_FINAL ) { return i; }
   }
 
   return(-9);
@@ -10878,7 +10895,6 @@ void  read_simFile_biasCor(void) {
     sprintf(TABLEVAR->INPUT_FILE[ifile],"%s", simFile);
     store_input_varnames(ifile, TABLEVAR) ;
   }
-
 
   sprintf(VERSION_PHOTOMETRY_EVENT_TYPE[EVENT_TYPE_BIASCOR],"%s",
 	  SNTABLE_VERSION_PHOTOMETRY);
@@ -18381,6 +18397,9 @@ void print_eventStats(int event_type, char *callFun) {
       NSN        = SAMPLE_BIASCOR[idsample].NSN[event_type] ;
       IS_PHOTOZ  = SAMPLE_BIASCOR[idsample].IS_PHOTOZ ;
       NAME       = SAMPLE_BIASCOR[idsample].NAME ;
+
+      printf(" xxx %s: BCOR IDSAMPLE=%d(%s)  NSN=%d \n", fnam, idsample, NAME, NSN);
+
       if ( NSN == 0 ) {
 	NMISSING++ ;
 	printf(" WARNING: No BIASCOR events for %s [IDSAMPLE=%d]\n", 

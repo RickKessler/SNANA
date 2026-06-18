@@ -23924,5 +23924,9 @@ xx
 
     sntable_cat.py
       add COV* to defaultappend-missing list
+
+    SALT2mu.c 
+     + increase a few char limits: https://github.com/RickKessler/SNANA/issues/1716
+
 END:
  

@@ -722,7 +722,6 @@ void   runCheck_HOSTLIB_WGTMAP(void);
 void   malloc_HOSTLIB_WGTMAP(void); 
 void   malloc_HOSTGAL_PROPERTY(void);
 int    getindex_HOSTGAL_PROPERTY(char *PROPERTY);
-// xxx mark double get_VALUE_HOSTGAL_PROPERTY(char *PROPERTY, char *WHICH); 
 
 void   prep_SNVAR_HOSTLIB_WGTMAP(void);
 void   getVal_SNVAR_HOSTLIB_WGTMAP(int ibin, double *VAL_WGTMAP); // init
@@ -731,7 +730,6 @@ int    getBin_SNVAR_HOSTLIB_WGTMAP(void); // for each event
 void   parse_Sersic_n_fixed(FILE *fp, char *string); 
 void   read_head_HOSTLIB(FILE *fp);
 
-// xxx mark void   read_head_HOSTLIB_LEGACY(FILE *fp); // read and prep
 void   read_head_HOSTLIB(FILE *fp);  
 void   prep_head_HOSTLIB(void);
 

@@ -741,6 +741,7 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
   double FLUXERR_TMP, errModelVal, parList[MXPAR_FLUXERRMAP] ;
   char *VARNAMES, tmpString[40], cparList[200] ;
   char fnam[] = "get_FLUXERRMODEL";
+  char callFun[200];  sprintf(callFun,"%s(%s-%s)", fnam, FIELD, BAND); 
 
   // ----------- BEGIN -------------
 
@@ -800,7 +801,7 @@ void get_FLUXERRMODEL(int OPT, double FLUXERR_IN, char *BAND, char *FIELD,
 
   }
 
-  istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, fnam,  &errModelVal);
+  istat = interp_GRIDMAP( &FLUXERRMAP[imap].MAP, parList, callFun,  &errModelVal);
   
   if ( LDMP || istat<0 ) {
     printf(" xxx     %s  :  errModelVal=%.3f\n",  cparList, errModelVal);

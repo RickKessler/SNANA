@@ -5258,6 +5258,7 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
     if ( FIXANG > -998.0 ) 
       { HOSTLIB.VALUE_ZSORTED[IVAR_ANGLE][IGAL] = FIXANG; }
 
+
     // - - - - - - 
     if ( IVAR_n >= 0 ) 
       { n = HOSTLIB.VALUE_ZSORTED[IVAR_n][IGAL] ; }
@@ -5288,14 +5289,6 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   } // end NPROF
 
 
-  // - - - - - - - - - - - - - - -
-  // abort if all profile sizes are zero
-  if ( NPROF_ab0 == NPROF ) {
-    sprintf(c1err,"Profile size is zero for GALID=%lld", SNHOSTGAL.GALID);
-    sprintf(c2err,"Check Sersic params.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
   // -----------------------------------
   // Now the weights:
   // check how many weights are defined, and track the sum.
@@ -5316,6 +5309,24 @@ void get_Sersic_info(int IGAL, SERSIC_DEF *SERSIC) {
   if ( NWGT == NPROF-1 ) {
     SERSIC->w[j_nowgt]  = 1.0 - WGTSUM ;
   }
+
+
+  // - - - - - - - - - - - - - - -
+  // abort if all profile sizes are zero
+  // xxx mark delete   if ( NPROF_ab0 == NPROF ) {
+  if ( NPROF_ab0 > 0 ) {
+    print_preAbort_banner(fnam);  
+    for ( j=0; j < NPROF; j++ ) {
+      printf("  Sersic profile %d : a=%f b= %f n=%f  w=%f\n",
+	     j, SERSIC->a[j], SERSIC->b[j], SERSIC->n[j], SERSIC->w[j] );
+    }
+
+    sprintf(c1err,"At least one Sersic profile size is zero for GALID=%lld", SNHOSTGAL.GALID);
+    sprintf(c2err,"Check Sersic params.");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // - -- -  -
 
   // check debug option for fixed weight with 2 profiles
   if ( NPROF == 2 && DEBUG_WGTFLUX2 > 0.00001 ) {
@@ -9175,6 +9186,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     // load global arrays
     SNHOSTGAL.GALFRAC[i]  = GALFRAC ;
 
+
     if ( i == 0 ) 
       {  dm = 0.0 ; }
     else if ( GALFRAC == 0.0 ) {
@@ -9183,6 +9195,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
     else { 
       dm = -2.5*log10( GALFRAC );  // aperture mag  - total galmag
     }
+
 
     /*
     printf(" GGG xxx GALID=%d GALFRAC[%d]=%f   R=%6.3f asec  dm=%.3f\n", 
@@ -9213,6 +9226,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   } // end i lopop over PSF bins
 
 
+
   // ----------------------
   // Mar 3 2015:
   // compute local surface brightness mag with effective PSF.
@@ -9226,8 +9240,8 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
     SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig ) ;
+    double SB_MAG_TMP = SB_MAG; // xxx REMOVE
     SB_MAG    += 2.5*log10(AREA); // normalize to 1 sq-arcsec
-    
     arg     = -0.4*(SB_MAG - INPUTS.ZP_FLUXCAL) ;
     SB_FLUXCAL = pow(10.0,arg) ;
     

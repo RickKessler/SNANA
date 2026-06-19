@@ -88,6 +88,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //   Nov  4 2021 RK - check OPTMASK_GENPDF_KEYSOURCE_ARG
   //   Nov 10 2022 RK - skip parsing comment lines
   //   May 20 2024 RK - read MAG_OFFSET
+  //   Jun 18 2026 RK - read GENMAG_SMEAR
   // -----------
 
   FILE *fp;
@@ -118,7 +119,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 
   NMAP_GENPDF = NCALL_GENPDF = 0;
   MAG_OFFSET_GENPDF = 0.0 ;
-  
+  MAG_SMEAR_GENPDF  = 0.0 ;  // 6.18.2026
+
   if ( IGNOREFILE(fileName) ) { return; }
 
   sprintf(BANNER,"%s with OPTMASK=%d", fnam, OPTMASK);
@@ -205,6 +207,13 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     if ( strcmp(c_get,"MAG_OFFSET:") == 0 ) {
       sscanf(ptr_ITEMLIST[1], "%le", &MAG_OFFSET_GENPDF);
       printf("    Load MAG_OFFSET = %.3f \n", MAG_OFFSET_GENPDF);
+      fflush(stdout);
+    }
+
+
+    if ( strcmp(c_get,"GENMAG_SMEAR:") == 0 ) {
+      sscanf(ptr_ITEMLIST[1], "%le", &MAG_SMEAR_GENPDF);
+      printf("    Load GENMAG_SMEAR = %.3f \n", MAG_SMEAR_GENPDF);
       fflush(stdout);
     }
     // try sim-input keys

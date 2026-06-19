@@ -9843,7 +9843,8 @@ void init_modelSmear(void) {
   // Feb 11 2020: call init_genSmear_phaseCor(magSmear,expTau);
   //
   // May 20 2024: begin integrating DUST models.
-  
+  // Jun 18 2026: check MAG_SMEAR_GENPDF
+
   double GENMODEL_ERRSCALE   = (double)INPUTS.GENMODEL_ERRSCALE ;
   char  *SMEAR_SCALE_STRING  = INPUTS.GENMAG_SMEAR_SCALE;
   int    SMEAR_MSKOPT        = INPUTS.GENMAG_SMEAR_MSKOPT ;
@@ -9876,8 +9877,18 @@ void init_modelSmear(void) {
   }
 
   // ------------
-  if (  INPUTS.GENMAG_SMEAR[0]  > 0.  ||  GENMODEL_ERRSCALE  > 0.  )
-    { INPUTS.DO_MODELSMEAR = 1 ; }
+  bool DO_GENMAG_SMEAR = (  INPUTS.GENMAG_SMEAR[0]  > 0.  ||  GENMODEL_ERRSCALE  > 0.  );
+  if ( MAG_SMEAR_GENPDF > 0.0 ) {
+    if ( DO_GENMAG_SMEAR ) {
+      sprintf(c1err, "Cannot define GENMAG_SMEAR in two input files;");
+      sprintf(c2err, "Check sin-input, INCLUDE files, and GENPDF_FILE");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    INPUTS.GENMAG_SMEAR[0] = INPUTS.GENMAG_SMEAR[1] = MAG_SMEAR_GENPDF;
+    DO_GENMAG_SMEAR = true;
+  }
+
+  if ( DO_GENMAG_SMEAR ) { INPUTS.DO_MODELSMEAR = 1 ; }
 
   if ( INPUTS.GENMAG_SMEAR_ADDPHASECOR[0] != 0.0 )
     { INPUTS.DO_MODELSMEAR = INPUTS.DO_MODELSMEAR_LOAD_RANDOMS = 1; }

@@ -23932,5 +23932,9 @@ xx
      + fix dumb bug storing only 80 chars of FITMODEL_NAME from command line override,
        instead of reading MXCHAR_FILENAME chars.
 
+    snlc_sim.c/sntools_genpdf.c[h]:
+      + allow defining "GENMAG_SMEAR: <smear>" in genpdf_file or sim-input.
+        See https://github.com/RickKessler/SNANA/issues/1717
+
 END:
  

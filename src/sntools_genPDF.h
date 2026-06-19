@@ -24,6 +24,7 @@ int      OPTMASK_GENPDF ;
 int      KEYSOURCE_GENPDF; // 1=file, 2=arg; used for prioritization
 
 double MAG_OFFSET_GENPDF;  // read from MAG_OFFSET key in GENPDF_FILE
+double MAG_SMEAR_GENPDF;   // Jun 18 2026: alternate input for sim-input GENMAG_SMEAR
 
 char GENPDF_FILE[MXPATHLEN];
 

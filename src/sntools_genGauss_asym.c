@@ -668,14 +668,14 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   double BINSIZE = (RANGE[1] - RANGE[0]) / (float)(NBIN-1);
   char  *NAME    = GENGAUSS->NAME ;
   double XVAL_MIN = RANGE[0];
-  double XVAL_MAX = RANGE[1] + BINSIZE/1.0E5; // avoid numerical problem
+  double XVAL_MAX = RANGE[1] + BINSIZE/1.0E5 ; // avoid numerical problem
 
   int   MEMD   =  NBIN * sizeof(double);
   int   MEMVAR =  2    * sizeof(double*);
   int   NDIM = 1, NFUN = 1, ibin=0, ivar;
   double XVAL, funVal;
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
-
+  float fmem;
   
   char fnam[60];
   concat_callfun_plus_fnam(callFun, "compute_genGauss_GRIDMAP", fnam);
@@ -683,29 +683,42 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   // -------------- BEGIN --------------
 
   // allocate temporary/local map to store val,funVal
+  fmem = malloc_double2D(+1, 2, NBIN, &TMPMAP2D );
+
+  /* xxx mark delete Jun 18 2026
   TMPMAP2D = (double**) malloc(MEMVAR);
   for(ivar=0; ivar<2; ivar++) {TMPMAP2D[ivar]=(double*)malloc(MEMD);}
+  xxxxxxxx end mark xxxxxx */
 
   for (XVAL = XVAL_MIN; XVAL <= XVAL_MAX; XVAL+=BINSIZE) {
     funVal = funVal_GENGAUSS_ASYM(XVAL, GENGAUSS) ;
     TMPMAP2D[0][ibin] = XVAL; 
     TMPMAP2D[1][ibin] = funVal ;
-    // xxx    printf(" xxx %s: ibin=%2d   X=%le   funVal=%f\n", 
-    // fnam, ibin, XVAL, funVal);
+
+    if ( IDMAP == -63 ) {
+      printf(" xxx %s: ibin=%2d  XVAL=%le funVal=%le \n",
+	     fnam, ibin, XVAL, funVal); fflush(stdout);
+    }
+
     ibin++;
   } //end XVAL loop
 
-  printf("    Load genGauss GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d \n",
-         IDMAP, MAPNAME, NAME, NBIN); fflush(stdout);
-  
+  printf("    Load genGauss GRIDMAP-%3.3d ‘%s(%s)’  NROW=%d  (BINSIZE=%.3le)\n",
+         IDMAP, MAPNAME, NAME, NBIN, BINSIZE ); fflush(stdout);
 
   init_interp_GRIDMAP(IDMAP, MAPNAME, NBIN, NDIM, NFUN, OPT_EXTRAP,
                       TMPMAP2D, &TMPMAP2D[NDIM],
                       GRIDMAP_LOAD  );    // <== returned
   
   //free memory
+
+  fmem = malloc_double2D(-1, 2, NBIN, &TMPMAP2D );
+
+  /* xxxxxxxxx mark delete xxxxxxx
   for(ivar=0; ivar<2; ivar++) { free(TMPMAP2D[ivar]); } 
   free(TMPMAP2D);
+  xxxxxxxxx end mark xxxxxxx */
+
 
   return ;
 } // end compute_genGauss_GRIDMAP

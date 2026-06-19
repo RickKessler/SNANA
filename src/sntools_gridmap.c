@@ -338,6 +338,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   int idim, ifun, i, NBIN, igrid_tmp, igrid_1d[100] ;
   double VAL, VALMIN, VALMAX, VALBIN, LASTVAL, RANGE, DIF, DIF_TMP ;
   double FUNVAL, RANGE_CHECK, RATIO ;
+  int ID_DUMP = -63;
   char fnam[] = "init_interp_GRIDMAP" ;
 
   // --------- BEGIN ------------
@@ -354,6 +355,11 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
 
     for ( i=0; i < MAPSIZE; i++ ) {
       VAL = GRIDMAP_INPUT[idim][i] ;
+
+      if ( ID == ID_DUMP ) {
+	printf(" xxx %s: VAL[idim=%d][i=%2d] = %le \n", fnam, idim, i, VAL);
+	fflush(stdout);
+      }
 
       if ( VAL > VALMAX  ) { VALMAX = VAL ; }
       if ( VAL < VALMIN  ) { VALMIN = VAL ; }
@@ -422,43 +428,54 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
       if(FUNVAL > gridmap->FUNMAX[ifun]) { gridmap->FUNMAX[ifun] = FUNVAL; }
     }
 
-      for ( idim=0; idim < NDIM; idim++ ) {      
+    double eps = 1.0E-9;
+    for ( idim=0; idim < NDIM; idim++ ) {      
+      VAL    = GRIDMAP_INPUT[idim][i] ;
+      VALMIN = gridmap->VALMIN[idim] ;
+      VALBIN = gridmap->VALBIN[idim] ;
+      RANGE  = gridmap->RANGE[idim] ; // Aug 2025
+      DIF     = VAL - VALMIN ;
+      DIF_TMP = DIF * ( 1.0 + eps); 
+      if ( VALBIN < eps*RANGE )   
+	{ igrid_1d[idim] = 0 ; }
+      else
+	{ igrid_1d[idim] = (int)(DIF_TMP/VALBIN); }  //  + 1 ; }
+      
+    }
+    
+    igrid_tmp = get_1DINDEX(ID, NDIM, &igrid_1d[0] ) ; 
+
+    // xxxxxxxxxxxxx
+    if ( ID == ID_DUMP ) {
+      printf(" xxx %s: i=%2d -> igrid_1d=%d  NDIM=%d   igrid_tmp=%d \n",
+	     fnam, i, igrid_1d[0], NDIM, igrid_tmp);
+      printf(" xxx \t RANGE=%le  VAL[MIN,MAX,BIN] = %le  %le  %le\n", 
+	     RANGE, VALMIN, VALMAX, VALBIN);
+      fflush(stdout);
+    }
+    // xxxxxxxxxxxxx
+
+    if ( igrid_tmp < 0 || igrid_tmp >= MAPSIZE ) {
+      print_preAbort_banner(fnam);
+      printf("   MAPNAME=%s: \n", MAPNAME );
+      for ( idim=0; idim < NDIM; idim++ ) {  
 	VAL    = GRIDMAP_INPUT[idim][i] ;
 	VALMIN = gridmap->VALMIN[idim] ;
 	VALBIN = gridmap->VALBIN[idim] ;
-	RANGE  = gridmap->RANGE[idim] ; // Aug 2025
-	DIF     = VAL - VALMIN ;
-	DIF_TMP = DIF * ( 1.0 + 1.0E-9);  // Aug 2025
-	if ( VALBIN < 1.0E-9*RANGE )   
-	  { igrid_1d[idim] = 0 ; }
-	else
-	  { igrid_1d[idim] = (int)(DIF_TMP/VALBIN); }  //  + 1 ; }
-
+	printf("   idim=%d : VAL=%10.3f  BIN=%10.3f  MIN=%10.3f  "
+	       "igrid_1d=%d \n",
+	       idim, VAL, VALBIN, VALMIN, igrid_1d[idim] );
       }
+      printf("\t Probably have non-uniform binning.\n");
+      
+      sprintf(c1err,"Invalid igrid_tmp=%d (ID=%d, MAPSIZE=%d)", 
+	      igrid_tmp, ID, MAPSIZE );
+      sprintf(c2err,"original NDIM=%d  igrid=%d ", NDIM, i ) ;
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
 
-      igrid_tmp = get_1DINDEX(ID, NDIM, &igrid_1d[0] ) ; 
-
-      if ( igrid_tmp < 0 || igrid_tmp >= MAPSIZE ) {
-	print_preAbort_banner(fnam);
-	printf("   MAPNAME=%s: \n", MAPNAME );
-	for ( idim=0; idim < NDIM; idim++ ) {  
-	  VAL    = GRIDMAP_INPUT[idim][i] ;
-	  VALMIN = gridmap->VALMIN[idim] ;
-	  VALBIN = gridmap->VALBIN[idim] ;
-	  printf("   idim=%d : VAL=%10.3f  BIN=%10.3f  MIN=%10.3f  "
-		 "igrid_1d=%d \n",
-		 idim, VAL, VALBIN, VALMIN, igrid_1d[idim] );
-	}
-	printf("\t Probably have non-uniform binning.\n");
-	       
-	sprintf(c1err,"Invalid igrid_tmp=%d (ID=%d, MAPSIZE=%d)", 
-		igrid_tmp, ID, MAPSIZE );
-	sprintf(c2err,"original NDIM=%d  igrid=%d ", NDIM, i ) ;
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-      }
-
-      gridmap->INVMAP[igrid_tmp] = i ;
-
+    gridmap->INVMAP[igrid_tmp] = i ;
+    
   } // end loop over MAPSIZE
   
   return ;
@@ -661,10 +678,12 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
     if ( igrid_1D < 0 ||  igrid_1D > gridmap->NROW ) {
       print_preAbort_banner(fnam);
       for ( ivar=0; ivar < NVAR; ivar++ ) 
-	{ printf("\t ivar=%d  igrid = %d \n", ivar, igrid_var[ivar]);  }      
+	{ printf("\t ivar=%d  igrid = %d \n", ivar, igrid_var[ivar]);  } 
+
       sprintf(c1err,"Invalid igrid_1D=%d (should be 0 to %d)",
 	      igrid_1D, gridmap->NROW-1); 
-      sprintf(c2err,"ID=%d  NVAR=%d ", ID, NVAR ); 
+      sprintf(c2err,"ID=%d  NVAR=%d  igrid_tmp=%d", 
+	      ID, NVAR, igrid_tmp ); 
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
     }
 
@@ -752,10 +771,12 @@ int  get_1DINDEX(int ID, int NDIM, int *indx ) {
     index_1d =  indx[i] ;       // index in this dimension
     INDEX_1D += (index_1d ) * offset ; // global 1D index
 
-    /*
-    printf(" xxx %s: i=%d index_1d=%3d  INDEX_1D=%6d\n",
-	   fnam, i, index_1d, INDEX_1D); fflush(stdout);
-    */
+    /* xxxxxxx
+    if ( ID == -63 ) {
+      printf(" xxx %s: i=%d index_1d=%3d  INDEX_1D=%6d\n",
+	     fnam, i, index_1d, INDEX_1D); fflush(stdout);
+    }
+    xxxxxx */
 
     // make sure that index does not exceed NPT
     NPT = NPT_PERDIM_1DINDEX[ID][i] ;

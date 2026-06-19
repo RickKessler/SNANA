@@ -360,13 +360,13 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // Mar 5 2024: reduce RANGE if more than 10 sigma away from peak;
   //   needed to avoid downstream abort from not finding prob > 0.001
   //   in course-grid search.
-
+  //
   // May 2024: avoid sigma = 0
+  // Jun 18 2026: sig_tiny = PEAK/1E8 -> PEAK/1E6 to avoid numerical problems
 
   double PEAK    = GENGAUSS->PEAK ;
-    
-  // xxx mark  double sig_tiny = PEAK/1.0E6;
-  double sig_tiny = PEAK/1.0E8; 
+  // xxxx mark Jun 18 2025   double sig_tiny = PEAK/1.0E8; 
+  double sig_tiny = PEAK/1.0E6; 
   if ( GENGAUSS->SIGMA[0] == 0.0 )  
     { GENGAUSS->SIGMA[0] = sig_tiny;  GENGAUSS->RANGE[0] = PEAK - 2.0*sig_tiny; }
   if ( GENGAUSS->SIGMA[1] == 0.0 )
@@ -408,8 +408,6 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   }
 
   // - - - -
-
-
   XNBIN = (float)NBIN_PER_SIGMA * (RANGE[1] - RANGE[0]) / sigavg ;
   NBIN  = (int)(XNBIN+0.5);
 

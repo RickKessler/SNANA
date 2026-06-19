@@ -1114,7 +1114,7 @@ double get_magerr_BAYESN(double Trest, double wavelength, double *parlist_SN, do
   }
   else if ( OPT_BAYESN_MAGERR == OPT_BAYESN_MAGERR_MAP ) {
     double data[2] = { Trest, wavelength } ;
-    istat = interp_GRIDMAP(&GRIDMAP_MAGERR_BAYESN, data, &magerr );
+    istat = interp_GRIDMAP(&GRIDMAP_MAGERR_BAYESN, data, fnam, &magerr );
     (void)istat;
   }
 

@@ -23936,5 +23936,8 @@ xx
       + allow defining "GENMAG_SMEAR: <smear>" in genpdf_file or sim-input.
         See https://github.com/RickKessler/SNANA/issues/1717
 
+    sntools_gridmap.c[h], and all codes calling interp_gridmap:
+      + pass callFun to interp_GRIDMAP to use in abort message.
+
 END:
  

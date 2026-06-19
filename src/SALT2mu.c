@@ -26726,7 +26726,7 @@ void SUBPROCESS_SIM_REWGT(int ITER_EXPECT) {
 	XVAL_for_GENPDF[ivar] = XVAL ;
       } // end ivar loop
 
-      istat = interp_GRIDMAP(&GENPDF[imap].GRIDMAP, XVAL_for_GENPDF, &PROB);
+      istat = interp_GRIDMAP(&GENPDF[imap].GRIDMAP, XVAL_for_GENPDF, fnam, &PROB);
       (void)istat;
 
       // check for bounding function here

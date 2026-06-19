@@ -67,7 +67,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE, int NDIM, int NFUN,
                          double **GRIDMAP_INPUT, double **GRIDFUN_INPUT, 
                          GRIDMAP_DEF *gridmap ); 
                                                                            
-int  interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun );
+int  interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, char *callFun, double *interpFun );
                                                                 
 void read_GRIDMAP(FILE *fp, char *MAPNAME, char *KEY_ROW, char *KEY_STOP,
                   int IDMAP, int NDIM, int NFUN, int OPT_EXTRAP, int MXROW,

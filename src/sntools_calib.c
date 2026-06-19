@@ -3312,7 +3312,7 @@ double eval_kcor_table_LCMAG(int ifiltdef_rest, double Trest, double z, double A
   GRIDVAL_LIST[2] = AVwarp ;
   GRIDVAL_LIST[3] = (double)ifilt_r ;
   
-  istat = interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, &LCMAG);  (void)istat;
+  istat = interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, fnam, &LCMAG);  (void)istat;
 
   return LCMAG;
 
@@ -3353,7 +3353,7 @@ double eval_kcor_table_MWXT(int ifiltdef_obs, double Trest, double z, double AVw
   GRIDVAL_LIST[2] = AVwarp;
   GRIDVAL_LIST[3] = (double)ifilt_o ;
   
-  interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, &MWXT); 
+  interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, fnam, &MWXT); 
 
   MWXT *= MWEBV;
 
@@ -3409,7 +3409,7 @@ double eval_kcor_table_AVWARP(int ifiltdef_a, int ifiltdef_b,
   GRIDVAL_LIST[2] = (double)ifilt_b ;
   GRIDVAL_LIST[3] = (double)ifilt_a ;
   
-  interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, &AVwarp);
+  interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, fnam, &AVwarp);
 
   KCOR_BININFO_DEF *BININFO_AV = &CALIB_INFO.BININFO_AV;
 
@@ -3451,7 +3451,7 @@ double eval_kcor_table_KCOR(int ifiltdef_rest, int ifiltdef_obs, double Trest,
   GRIDVAL_LIST[3] = (double)ifilt_r ;
   GRIDVAL_LIST[4] = (double)ifilt_o ;
   
-  interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, &KCOR); 
+  interp_GRIDMAP(KCOR_GRIDMAP, GRIDVAL_LIST, fnam, &KCOR); 
 
   return KCOR;
 

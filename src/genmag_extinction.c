@@ -309,7 +309,7 @@ double genmag_extinction(int ifiltdef, double Trest, double RV, double AV ) {
   GRIDVAL_LIST[1] = Trest ;
   GRIDVAL_LIST[2] = (double)ifilt;
 
-  interp_GRIDMAP( &XTMAG_INFO.GRIDMAP3D, GRIDVAL_LIST, &XTMAG_AV1); 
+  interp_GRIDMAP( &XTMAG_INFO.GRIDMAP3D, GRIDVAL_LIST, fnam, &XTMAG_AV1); 
   XTMAG = AV * XTMAG_AV1 ;
 
   return XTMAG;

@@ -2760,7 +2760,7 @@ double get_PIPELINE_PHOTPROB(int istore) {
     { VARDATA[ivar] = LOAD_PHOTPROB_VAR(obs,IMAP,ivar);   }
   
   PHOTPROB_CDF[0] = 0.0 ;
-  istat = interp_GRIDMAP(&SEARCHEFF_PHOTPROB[IMAP].GRIDMAP, VARDATA, 
+  istat = interp_GRIDMAP(&SEARCHEFF_PHOTPROB[IMAP].GRIDMAP, VARDATA, fnam,
 			 &PHOTPROB_CDF[1] );  // <== returned  
 
   // ---------------------------------
@@ -2936,7 +2936,7 @@ int gen_searcheff_map(int ID, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO, double *EFF) {
       }
     }
 
-    istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, &EFF_LOCAL );  (void)istat;
+    istat = interp_GRIDMAP(&MAP->GRIDMAP, VARDATA, fnam, &EFF_LOCAL );  (void)istat;
 
     if ( LDMP ) {
       printf(" xxx %s \t EFF(interp)=%.3f \n", fnam, EFF_LOCAL );

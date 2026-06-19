@@ -483,7 +483,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
 } // end of init_interp_GRIDMAP
 
 
-int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
+int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, char *callFun, double *interpFun ) {
 
   // Created Jul 3, 2011
   // Do multi-dimensional interpolation.
@@ -498,17 +498,14 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
   // Note that init_interp_GRIDMAP must be called first
   // to initialize the gridmap structure.
   //
-  // Jul 25, 2011; remove   WGT_SUM <= 0 test since it can be
-  //               zero if the function is zero nearby.
-  //
-  // Aug 28, 2011: 
-  //     fix bug for when TMPVAL is within "EPSILON" of TMPMAX
   //
   // Mar 14 2019: 
   //  + check OPT_EXTRAP option
   //  + return SUCCESS or ERROR instead of hard-coded values.
   //
   // Mar 15 2020: allow numerical glitches in TMPMIN and TMPMAX
+  //
+  // Jun 19 2026: pass *callFun
 
   int 
     ivar, ifun, NFUN, NVAR, ID, igrid, MSK, NBIN, OPT_EXTRAP
@@ -527,7 +524,9 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
   int  LDMP=0 ;
   bool outside_bound, too_lo, too_hi ;
   char cval[20];
-  char fnam[] = "interp_GRIDMAP" ;
+
+  char fnam[80];
+  concat_callfun_plus_fnam(callFun, "interp_GRIDMAP", fnam);
 
   // ---------- BEGIN ------------
 
@@ -652,14 +651,17 @@ int interp_GRIDMAP(GRIDMAP_DEF *gridmap, double *data, double *interpFun ) {
 	TMPVAL  = data[ivar] ;
 	TMPMIN  = gridmap->VALMIN[ivar] ;
 	TMPMAX  = gridmap->VALMAX[ivar] ;
+	char *VARNAME = gridmap->VARNAMES[ivar];
 
 	print_preAbort_banner(fnam);
 	printf("\t ID=%d  NBIN=%d  cell=%d icorner=%d\n",
 	       ID, NBIN, igrid_cell[ivar], icorner);
 	printf("\t grep IDGRIDMAP $SNANA_DIR/src/sntools_gridmap.h");
+	//.xyz
+
 	sprintf(c1err, "Invalid igrid_var[ivar=%d]=%d", ivar, g);
-	sprintf(c2err, "VAL=%f  VALMIN/MAX = %f / %f", 
-		TMPVAL, TMPMIN, TMPMAX);
+	sprintf(c2err, "%s VAL=%f  VALMIN/MAX = %f / %f", 
+		VARNAME, TMPVAL, TMPMIN, TMPMAX);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       

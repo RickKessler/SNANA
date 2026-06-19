@@ -101,7 +101,7 @@ double get_SIMEFFMAP(int OPTMASK, int NVAR, double *GRIDVALS) {
 
   // do the interpolation
   
-  istat = interp_GRIDMAP(&SIMEFF_GRIDMAP, TMPVAL_LIST, &EFF ); // return EFF
+  istat = interp_GRIDMAP(&SIMEFF_GRIDMAP, TMPVAL_LIST, fnam, &EFF ); // return EFF
 
   if ( istat != SUCCESS ) {
     print_preAbort_banner(fnam);    

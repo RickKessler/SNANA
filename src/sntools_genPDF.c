@@ -435,7 +435,7 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
     double binsize = (RANGE[1] - RANGE[0]) / (float)nbin_test ;
     double x, funVal;
     for (x = RANGE[0]; x <= RANGE[1]; x+= binsize) {
-      interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, &x, &funVal) ;
+      interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, &x, fnam, &funVal) ;
       printf("xxx %s: %s=%f ----> funVal = %f \n", fnam, NAME, x, funVal);
     }
     debugexit(fnam);
@@ -551,7 +551,7 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
       xval[ivar]     = get_VALUE_HOSTLIB(IVAR_HOSTLIB, SNHOSTGAL.IGAL);
     }
 
-    istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, xval, &prob);  (void)istat;
+    istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, xval, fnam, &prob);  (void)istat;
     
     if ( EXPON_REWGT != 1.0 )  { prob = pow(prob,EXPON_REWGT); }
   }
@@ -637,7 +637,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID) {
 	r             = getRan_Flat(ILIST_RAN, VAL_RANGE);
 	val_inputs[0] = r ;  
 
-	istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, val_inputs, &prob);
+	istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, val_inputs, fnam, &prob);
 	if ( EXPON_REWGT != 1.0 )  { prob = pow(prob,EXPON_REWGT); }
 
 	if ( istat != SUCCESS ) {
@@ -778,7 +778,7 @@ void get_VAL_RANGE_genPDF(int IMAP, double *val_inputs,
   for(itmp=0; itmp <= NBIN_CHECKPROB0; itmp++ ) {
     VAL_TMP       = VAL_RANGE[0] + VAL_BINSIZE*(double)itmp ;
     val_inputs[0] = VAL_TMP;
-    istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, val_inputs, &prob); (void)istat;
+    istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, val_inputs, fnam, &prob); (void)istat;
 
     if ( dumpFlag ) {
       printf("\t %s: prob(%.3f) = %le \n", fnam, VAL_TMP, prob);

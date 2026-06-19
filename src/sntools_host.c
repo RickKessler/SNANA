@@ -4289,7 +4289,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       
 
       // interpolate to get TMPVAL = WGT and SNMAGSIFT
-      istat = interp_GRIDMAP(&HOSTLIB_WGTMAP.GRIDMAP, VAL_WGTMAP, TMPVAL ) ;
+      istat = interp_GRIDMAP(&HOSTLIB_WGTMAP.GRIDMAP, VAL_WGTMAP, fnam, TMPVAL ) ;
       
       if ( istat != SUCCESS ) {
 	print_preAbort_banner(fnam);

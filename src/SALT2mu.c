@@ -20651,6 +20651,9 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
   // Created Oct 2024
   // Generalize original parse_CUTWIN to parse an input line
   // containing *KEY_SELECT.
+  //
+  // Jun 18 2026: increase NWD_LINE to MXOPT=10 for argument to parse_commaSepList
+  //
 
   int  ICUT, NWD_LINE, i, opt, NOPT, NID, ID, nread ;
   char item_list[4][60], line_local[200], string[60], KEY[60], KEY_TMP[60] ;
@@ -20693,7 +20696,8 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
   // - - - - - 
   bool IS_IDSAMPLE=false,  IS_SURVEY=false;
   double tmp_val;
-  
+  int MXOPT = 10;
+
   for ( i=0; i < NWD_LINE ; i++ ) {
 
     item = item_list[i];
@@ -20708,7 +20712,7 @@ void parseLine_SELECT_VAR(char *line, char *KEYNAME_SELECT, int NARG,
       // E.g., if string = 'DATAONLY,FITWGT0' then
       // stringOpt_list = 'DATAONLY', 'FITWGT0'
       parse_commaSepList(fnam, string,
-			 NWD_LINE, 40,   // Max number of options and strlen 
+			 MXOPT, 40,   // Max number of options and strlen 
 			 &NOPT, &selectOpt_list); // <== returned
       
       //      printf(" xxx %s: string='%s' -> NOPT=%d \n",

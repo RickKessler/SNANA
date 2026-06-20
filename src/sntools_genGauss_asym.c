@@ -669,13 +669,10 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   char  *NAME    = GENGAUSS->NAME ;
   double XVAL_MIN = RANGE[0];
   double XVAL_MAX = RANGE[1] + BINSIZE/1.0E5 ; // avoid numerical problem
-
-  int   MEMD   =  NBIN * sizeof(double);
-  int   MEMVAR =  2    * sizeof(double*);
-  int   NDIM = 1, NFUN = 1, ibin=0, ivar;
+  int   NDIM = 1, NFUN = 1, ibin=0 ;
   double XVAL, funVal;
   double **TMPMAP2D ;  // [0:NVARTOT-1][MXROW-1]
-  float fmem;
+  float fmem;  (void)fmem;
   
   char fnam[60];
   concat_callfun_plus_fnam(callFun, "compute_genGauss_GRIDMAP", fnam);
@@ -685,10 +682,6 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   // allocate temporary/local map to store val,funVal
   fmem = malloc_double2D(+1, 2, NBIN, &TMPMAP2D );
 
-  /* xxx mark delete Jun 18 2026
-  TMPMAP2D = (double**) malloc(MEMVAR);
-  for(ivar=0; ivar<2; ivar++) {TMPMAP2D[ivar]=(double*)malloc(MEMD);}
-  xxxxxxxx end mark xxxxxx */
 
   for (XVAL = XVAL_MIN; XVAL <= XVAL_MAX; XVAL+=BINSIZE) {
     funVal = funVal_GENGAUSS_ASYM(XVAL, GENGAUSS) ;
@@ -713,12 +706,6 @@ void compute_genGauss_GRIDMAP(GENGAUSS_ASYM_DEF *GENGAUSS,
   //free memory
 
   fmem = malloc_double2D(-1, 2, NBIN, &TMPMAP2D );
-
-  /* xxxxxxxxx mark delete xxxxxxx
-  for(ivar=0; ivar<2; ivar++) { free(TMPMAP2D[ivar]); } 
-  free(TMPMAP2D);
-  xxxxxxxxx end mark xxxxxxx */
-
 
   return ;
 } // end compute_genGauss_GRIDMAP

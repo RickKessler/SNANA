@@ -23947,5 +23947,9 @@ xx
     sntools_host.c
      + abort if either Sersic size is zero (previously it required both)
 
+    configure.ac:
+      + add these compilation flags: -D_FORTIFY_SOURCE=2  -Wall 
+        Note that public yaml.c gives lots of warnings; not so clear how to fix it.
+
 END:
  

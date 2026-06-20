@@ -46,9 +46,9 @@ AS_IF([test "x$enable_debug" = "xyes"],
      DEBUG_FCFLAGS="-g3 -O2 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
      DEBUG_LDFLAGS="-rdynamic"],
     [AC_MSG_RESULT([no])
-     DEBUG_CFLAGS="-O2 -DNDEBUG"
-     DEBUG_CXXFLAGS="-O2 -DNDEBUG"
-     DEBUG_FCFLAGS="-O2"
+     DEBUG_CFLAGS="-O2 -DNDEBUG -D_FORTIFY_SOURCE=2  -Wall"
+     DEBUG_CXXFLAGS="-O2 -DNDEBUG -D_FORTIFY_SOURCE=2  -Wall"
+     DEBUG_FCFLAGS="-O2 -D_FORTIFY_SOURCE=2  -Wall"
      DEBUG_LDFLAGS=""])
 
 AC_SUBST([DEBUG_CFLAGS])

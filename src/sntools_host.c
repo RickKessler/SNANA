@@ -9240,7 +9240,6 @@ void GEN_SNHOST_GALMAG(int IGAL) {
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
     SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig ) ;
-    double SB_MAG_TMP = SB_MAG; // xxx REMOVE
     SB_MAG    += 2.5*log10(AREA); // normalize to 1 sq-arcsec
     arg     = -0.4*(SB_MAG - INPUTS.ZP_FLUXCAL) ;
     SB_FLUXCAL = pow(10.0,arg) ;

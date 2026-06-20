@@ -1336,14 +1336,14 @@ void WRITE_SNTABLE(void) {
       }
       else {       
 	ivarstr = IVARSTR_STORE[ivar];
-	sprintf(tableVar,"%s:C*%d", VARNAME_COMBINE[ivar], MXLEN );  
+	sprintf(tableVar,"%.*s:C*%d", MXCHAR_VARNAME-5, VARNAME_COMBINE[ivar], MXLEN );  
 	SNTABLE_ADDCOL(TABLEID_COMBINE, BLOCKVAR, 
 	TABLEROW_VALUES.STR[ivarstr], tableVar, 1 ) ;
       }
 
     }
     else {
-      sprintf(tableVar,"%s:F", VARNAME_COMBINE[ivar] );  
+      sprintf(tableVar,"%.*s:F", MXCHAR_VARNAME-5, VARNAME_COMBINE[ivar] );  
       SNTABLE_ADDCOL(TABLEID_COMBINE, BLOCKVAR, 
 		     &TABLEROW_VALUES.FLT[ivar], tableVar, 1) ;
     }

@@ -311,8 +311,8 @@ int init_SEARCHEFF_PIPELINE(char *SURVEY_NAME, char *SURVEY_FILTERS) {
   }
 
 
-  sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[0], "\t %s\n", 
-	  ptrFile_final ); 
+  sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[0], "\t %.*s\n", 
+	  MXPATHLEN, ptrFile_final ); 
   
   SEARCHEFF_FLAG = 0 ;
 
@@ -1454,7 +1454,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   cptr = SEARCHEFF_INFO->README[N] ;  N++ ;  
   sprintf(cptr, "\t %s", "GRID-MAP read from ");
   cptr = SEARCHEFF_INFO->README[N] ;  N++ ;  
-  sprintf(cptr, "\t %s", ptrFile_final );
+  sprintf(cptr, "\t %.*s", MXPATHLEN-5, ptrFile_final );
 
   /* xxx mark delete Mar 9 2026 xxxxxxxx
   if ( fabs(SPECEFF_SCALE-1.0) > 0.0001 ) {

@@ -7312,7 +7312,7 @@ void GEN_DDLR_STRONGLENS(int IMGNUM) {
   double cosDEC     = GENSL.cosDEC;
 
   int    i_nbr      = 0 ;
-  double RA_LENS, DEC_LENS, RA_GAL_ORIG, DEC_GAL_ORIG ;
+  double RA_LENS, DEC_LENS, RA_GAL_ORIG=999.0 , DEC_GAL_ORIG=999.0 ;
 
   char fnam[] = "GEN_DDLR_STRONGLENS" ;  (void)fnam;
   

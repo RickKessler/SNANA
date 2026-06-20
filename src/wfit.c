@@ -3592,7 +3592,7 @@ void wfit_uncertainty_fitpar(char *varname) {
 
   char *outfile_prob1d = INPUTS.outFile_prob1d;
   int  write_prob_table = (strlen(outfile_prob1d) > 0);
-  FILE *fp_table;
+  FILE *fp_table = NULL ;
 
   char fnam[] = "wfit_uncertainty_fitpar";  (void)fnam;
 

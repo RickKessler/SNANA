@@ -336,7 +336,7 @@ void init_interp_GRIDMAP(int ID, char *MAPNAME, int MAPSIZE,
   //
 
   int idim, ifun, i, NBIN, igrid_tmp, igrid_1d[100] ;
-  double VAL, VALMIN, VALMAX, VALBIN, LASTVAL, RANGE, DIF, DIF_TMP ;
+  double VAL, VALMIN=1.0E12, VALMAX=-1.0E12, VALBIN, LASTVAL, RANGE=0.0, DIF, DIF_TMP ;
   double FUNVAL, RANGE_CHECK, RATIO ;
   int ID_DUMP = -63;
   char fnam[] = "init_interp_GRIDMAP" ;

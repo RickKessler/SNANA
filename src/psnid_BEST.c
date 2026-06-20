@@ -3555,7 +3555,7 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
   if( itype == PSNID_ITYPE_SNIA )  { 
     SHAPE = 
       PSNID_BEST_RESULTS.FINAL_PARVAL[izprior][itype][PSNID_PARAM_SHAPEPAR] ;
-    sprintf(parName,"%s", 
+    sprintf(parName,"%.40s", 
 	    SNGRID_PSNID[this_type].NAME[IPAR_GRIDGEN_SHAPEPAR] ) ;
     sprintf(text_shape, "%s = %6.3f", parName, SHAPE ); 
   }
@@ -3986,7 +3986,7 @@ void PSNID_BEST_GET_FITFUN(char *CCID, int ind,
   double color1, color2, redshift, TMAX;
   int nepoch1=0, nepoch2=0, optDump=0;
   int itype, izprior;
-  //  char fnam[] = "PSNID_BEST_GET_FITFUN";
+  char fnam[] = "PSNID_BEST_GET_FITFUN";  (void)fnam;
 
   // ------------------- BEGIN -------------------
 

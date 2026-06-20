@@ -637,7 +637,7 @@ void SIMLIB_open_read(void) {
       sprintf(HEADER[NLINE_HEADER], "    SIMLIB_COADD:\n" );
       NLINE_HEADER++; 
       for (add = 0; add < NLINE_HEADER_ADD; add++ ) {
-	sprintf(HEADER[NLINE_HEADER], "    - %s\n", HEADER_ADD[add] );
+	sprintf(HEADER[NLINE_HEADER], "    - %.*s\n", MXCHAR_LINE-10, HEADER_ADD[add] );
 	NLINE_HEADER++; 
       }
       sprintf(HEADER[NLINE_HEADER], "%s", KEYNAME2_DOCANA_REQUIRED) ;

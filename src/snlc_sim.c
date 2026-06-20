@@ -485,7 +485,7 @@ void init_commandLine_simargs(int argc, char **argv) {
   // 7.17.2020: prepare KEY_DUMP option to read a dummy file
   if ( strcmp(inFile,"KEY_DUMP") == 0 ) {
     INPUTS.KEYNAME_DUMPFLAG = true;  
-    sprintf(inFile,"%s/SURVEY.DEF", PATH_SNDATA_ROOT); // dummy file to read
+    sprintf(inFile,"%.*s/SURVEY.DEF", MXPATHLEN-15, PATH_SNDATA_ROOT); // dummy file to read
   }
   else {
     INPUTS.KEYNAME_DUMPFLAG   = false; 
@@ -9079,12 +9079,12 @@ void init_DNDZ_Rate(void) {
   }
   else if ( IFLAG_REWGT_ZPOLY ) {
     i++; 
-    sprintf(LINE_RATE_INFO[i]," Reweight dN/dz by ZPOLY(%s)",
+    sprintf(LINE_RATE_INFO[i]," Reweight dN/dz by ZPOLY(%.80s)",
 	    INPUTS.RATEPAR.DNDZ_ZPOLY_REWGT.STRING);
   }
   else if ( IFLAG_REWGT_Z1POLY ) {
     i++;
-    sprintf(LINE_RATE_INFO[i]," Reweight dN/dz by Z1POLY(%s)",
+    sprintf(LINE_RATE_INFO[i]," Reweight dN/dz by Z1POLY(%.80s)",
             INPUTS.RATEPAR.DNDZ_Z1POLY_REWGT.STRING);
   }
 
@@ -18483,7 +18483,7 @@ void SIMLIB_prepGlobalHeader(void) {
   FIELD = SIMLIB_GLOBAL_HEADER.FIELD ;
   sprintf(GENLC.FIELDNAME[0], "%s", FIELD );
   if ( !IGNOREFILE(FIELD) )
-    { printf("\t SIMLIB Field : %s \n", FIELD ); }
+    { printf("\t SIMLIB Field : %.*s \n", MXCHAR_FIELDLIST, FIELD ); }
 
 
   double PIXSIZE = SIMLIB_GLOBAL_HEADER.PIXSIZE ;
@@ -20347,7 +20347,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   GENLC.SIMLIB_ID  = SIMLIB_HEADER.LIBID ;
 
-  sprintf(GENLC.FIELDNAME[0], "%s", SIMLIB_HEADER.FIELD);
+  sprintf(GENLC.FIELDNAME[0], "%.*s", MXCHAR_FIELDNAME, SIMLIB_HEADER.FIELD);
 
   // load  optionalsubsurvey info (Jan 2022)
   SUBSURVEY = SIMLIB_HEADER.SUBSURVEY_NAME;

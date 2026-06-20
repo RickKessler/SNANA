@@ -21,8 +21,8 @@
   Nov 20 2024: defie MXCHAR_FIELDNAME and MXCHAR_FILTNAME
   Apr    2026: add HOSTGALz_DEF, and MXCHAR_CCID = 20 > 32 
 
-  Apr 26 2206: MXHOSTGAL = 2 -> 3 and switch FLUXCAL unit to nJy
-
+  Apr 26 2026: MXHOSTGAL = 2 -> 3 and switch FLUXCAL unit to nJy
+  Jun 20 2026: MXCHAR_CCID = 32 -> 40 to handle 128-bit root IDs in fastdb
 *****************************************************/
 
 #define MXEPOCH  60000   // max Nepoch for data & simlib
@@ -107,7 +107,7 @@ char    PySEDMODEL_CHOICE_LIST[NCHOICE_PySEDMODEL][20] ;
 
 //  disk pointers defined in init_SNDATA
 
-#define MXCHAR_CCID       32  // should be same as MXCHAR_CCID in snana.car
+#define MXCHAR_CCID       40  // should be same as MXCHAR_CCID in snana.car
 #define MXCHAR_FIELDNAME  32
 #define MXCHAR_FIELDLIST  80  
 #define MXCHAR_FILTNAME   40

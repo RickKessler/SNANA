@@ -23915,6 +23915,11 @@ xx
 
     Begin using autotools for building C & fortran codes; see README.md
 
+    MXCHAR_CCID = 32 -> 40 to handle 128-bit ROOTIDs in fastdb
+
+    snlc_sim(Jun 20 2026): 
+      default GENSIGMA_MWEBV_RATIO = 0.16 -> -9; abort if not specified by user.
+
          *****  USEFUL(v12_02) *****
 
          *****  MISCELLANEOUS(v12_02) *****
@@ -23938,6 +23943,9 @@ xx
 
     sntools_gridmap.c[h], and all codes calling interp_gridmap:
       + pass callFun to interp_GRIDMAP to use in abort message.
+   
+    sntools_host.c
+     + abort if either Sersic size is zero (previously it required both)
 
 END:
  

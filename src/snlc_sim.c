@@ -965,8 +965,8 @@ void set_user_defaults(void) {
   INPUTS.APPLYFLAG_MWEBV     = 0 ;    // default: do NOT correct fluxes
   INPUTS.MWEBV_FLAG          = 1 ;    // default is to do MW extinctio
 
-  INPUTS.MWEBV_SIGRATIO      =  0.16;  // default ERR(MWEBV)/MWEBV
-  // restore around Juneteenth INPUTS.MWEBV_SIGRATIO      = -9.0 ;  // disable default, 6.16.2026
+  // xxx mark delete Jun 20 2026 INPUTS.MWEBV_SIGRATIO      =  0.16;  // default ERR(MWEBV)/MWEBV
+  INPUTS.MWEBV_SIGRATIO      = -9.0 ;  // disable default, 6.20.2026
 
   INPUTS.MWEBV_SIG           =  0.0 ;  // add  error in quad on MWEBV (mag)
   INPUTS.MWEBV_SHIFT         =  0.0 ;

@@ -143,7 +143,7 @@
         ,MODEL_LCLIB      = 12  & 
         ,MODEL_FIXMAG     = 20  & 
         ,MXMODEL_INDEX    = 20  & 
-        ,MXCHAR_CCID       = 32    &  ! max len of CCID string (i.e, SN name)
+        ,MXCHAR_CCID       = 40    &  ! max len of CCID string (i.e, SN name)
         ,MXCHAR_VERSION    = 72    &  ! max len of VERSION_PHOTOMETRY
         ,MXCHAR_SURVEY     = 40    &  ! max len of SURVEY_NAME
         ,MXCHAR_PATH       = 160   &  ! max len of path

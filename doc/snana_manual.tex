@@ -348,7 +348,9 @@ so do not catenate FITS files without updating these pointers.
 HEAD file:   
   variable name              description
 # ---------------------------------------------------------------------
-* SNID                      integer or character ID
+* SNID                      required: integer or character ID
+* NAME_TRANSIENT            optional: internal survey name
+* NAME_IAUC                 optional: circular name
 * FAKE                      0=real data, 1=fake overlaid on image, 2=SNANA sim, 
 * RA,DEC                    sky coordinates (degrees)
 * SNTYPE                    integer type assigned by survey (e.g., SPEC type)

@@ -312,7 +312,7 @@ int init_SEARCHEFF_PIPELINE(char *SURVEY_NAME, char *SURVEY_FILTERS) {
 
 
   sprintf(SEARCHEFF_DETECT[MXMAP_SEARCHEFF_DETECT].README[0], "\t %.*s\n", 
-	  MXPATHLEN, ptrFile_final ); 
+	  MXPATHLEN-5, ptrFile_final ); 
   
   SEARCHEFF_FLAG = 0 ;
 

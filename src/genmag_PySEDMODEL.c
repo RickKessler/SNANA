@@ -837,8 +837,11 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   PyTuple_SetItem(pargs,4,pargs2);
   
   pLAM   = PyEval_CallObject(plammeth, NULL);
+  // doesn't work ?  pLAM   = PyEval_Call(plammeth, NULL);
   handle_python_exception(fnam, "calling _fetchSED_LAM method");
+
   pFLUX  = PyEval_CallObject(pmeth, pargs);
+  // doesn't work ? pFLUX  = PyEval_Call(pmeth, pargs);
   handle_python_exception(fnam, "calling _fetchSED method");
 
   Py_DECREF(pmeth);

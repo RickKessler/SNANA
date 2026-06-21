@@ -1626,7 +1626,6 @@ struct SIMLIB_HEADER {
   char GROUPID_HOSTLIB_STRING[400];
 
   // these header keys can be changed anywhere in the simlib entry
-  // xxx mark del May 14 2026  char FIELD[2*MXCHAR_FIELDNAME];
   char FIELD[MXCHAR_FIELDLIST];
   char FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
   int  NFIELD_OVP ;

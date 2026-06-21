@@ -18481,7 +18481,7 @@ void SIMLIB_prepGlobalHeader(void) {
  
 
   FIELD = SIMLIB_GLOBAL_HEADER.FIELD ;
-  sprintf(GENLC.FIELDNAME[0], "%s", FIELD );
+  sprintf(GENLC.FIELDNAME[0], "%.*s", MXCHAR_FIELDNAME, FIELD );
   if ( !IGNOREFILE(FIELD) )
     { printf("\t SIMLIB Field : %.*s \n", MXCHAR_FIELDLIST, FIELD ); }
 

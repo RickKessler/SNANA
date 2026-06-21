@@ -173,7 +173,8 @@ def write_header_snana(f, data_head):
     for prefix in gpar.HOSTKEY_PREFIX_LIST:
         string_vals = hostgal_string_vals[prefix]
         if len(string_vals) > 0:
-            f.write(f"{prefix}: {string_vals}\n")
+            key_plus_colon = prefix + ':'
+            f.write(f"{key_plus_colon:<24} {string_vals}\n")
 
     f.flush()
     return
@@ -206,13 +207,6 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
             val = phot_raw[varname][obs]
             if val == None:  val = val_undef
 
-            # xxxxxxxx mark delete Jan 16 2024 xxxxxxx
-            #if val == 12345.333 :  # gpar.VAL_ABORT :  # problem for DES??
-            #    msgerr.append(f"Missing required PHOT column {varname}")
-            #    msgerr.append(f"Check SNID = {SNID}")
-            #    util.log_assert(False,msgerr)
-            # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-            
             if varname == 'BAND' :
                 band = val[-1]
                 if band not in FILTERS:

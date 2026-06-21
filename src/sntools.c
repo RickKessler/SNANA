@@ -2545,7 +2545,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
   // If found, reset cov=0 and return istat_cov=-9
   for (l=0; l<MATSIZE ; ++l)  {         
     for (k=0; k<MATSIZE; ++k)  { 
-      if ( fabs(covMat[l][k]+9.0)<1.0E-6 ) {
+      if ( fabs(covMat[l][k]+9.0) < 1.0E-6 ) {
 	*istat_cov = -9 ;
 	covMat[l][k] = 0.0 ;
       }
@@ -2563,7 +2563,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
   // Find eigenvalues and eigenvectors, convention below
   // err[j][i]*eigvec[0][j] = eigval[0]*eigvec[0][i]
 
-  if(LDMP){ printf("\t 1. xxx %s \n", fnam); fflush(stdout); }
+  if(LDMP) { printf("\t 1. xxx %s \n", fnam); fflush(stdout); }
 
   matz = true;
   ierr = rs(nm, &covMat[0][0], eigval, matz, &eigvec[0][0] );
@@ -2575,7 +2575,7 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   NBAD_EIGVAL = 0 ;
   for(ipar=0; ipar < MATSIZE; ipar++ )  { 
-    if (eigval[ipar] <= EIGEN_MIN ){NBAD_EIGVAL += 1;}  
+    if (eigval[ipar] <= EIGEN_MIN ) { NBAD_EIGVAL += 1; }  
   }
 
   // Check for illegal error matrix
@@ -2597,18 +2597,16 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
   // ------------ FIX BAD COV -------------
 
   *istat_cov = -1 ;
-
-  // xxx mark  for (l=0;l<MATSIZE;++l)  { diag[l] = sqrt( covMat[l][l]) ; }
         
   for (k=0;k<MATSIZE;++k)  { 
     eigvalOrig[k] = eigval[k] ;
-    if (eigval[k]<EIGMIN) {eigval[k]=EIGMIN;}  
+    if ( eigval[k] < EIGMIN ) { eigval[k] = EIGMIN; }  
   }
     
   for (l=0;l<MATSIZE;++l)  {
     for (m=0;m<MATSIZE;++m)  {
       covOrig[l][m] = covMat[l][m] ;
-      covMat[l][m]=0.0;
+      covMat[l][m] = 0.0;
       for (k=0;k<MATSIZE;++k) {
 	covMat[l][m] += eigvec[k][l]*eigval[k]*eigvec[k][m];
       }

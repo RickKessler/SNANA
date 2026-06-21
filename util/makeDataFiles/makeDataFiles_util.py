@@ -388,7 +388,7 @@ def iyear_LSST(event_dict):
     field             = event_dict['field']  # DDF or WFD
     iyear = -1
 
-    mjd_start = 60750 ## ?? pass this from input or read a map
+    mjd_start = 61014  # Jan 1 2026
 
     # Jan 2025: for now just hack a simple method ... later need
     # an RA-dependence
@@ -545,6 +545,10 @@ def reset_data_event_dict():
     for key in gpar.DATAKEY_LIST_RAW :
         raw_dict[key] = -9
 
+    raw_dict[gpar.DATAKEY_SNID]      = gpar.VAL_UNKNOWN
+    raw_dict[gpar.DATAKEY_NAME_TRNS] = gpar.VAL_UNKNOWN
+    raw_dict[gpar.DATAKEY_NAME_IAUC] = gpar.VAL_UNKNOWN
+    
     for key in gpar.DATAKEY_LIST_CALC :
         calc_dict[key] = -9
 

@@ -48,7 +48,7 @@ MXSEASON = 12    # max number of seasons
 
 SURVEY_INFO = {
     'FILTERS' : {           # mandatory
-        'LSST'  : "ugrizY",
+        'LSST'  : "ugrizy",
         'SIRAH' : "GRcogrizyABCLYJNH",  # ztf/ATLAS/PS1/WFC3
         'DES'   : "griz" ,
         'PS1'   : "griz"
@@ -67,7 +67,8 @@ SNANA_FLAG_DATA = 0
 SNANA_FLAG_FAKE = 1
 SNANA_FLAG_SIM  = 2
 
-SNANA_ZP = 27.5   # FLUXCAL = FLUX * 10^[ -0.4*(ZP-SNANA_ZP) ]
+# xxx mark delete SNANA_ZP = 27.5   # FLUXCAL = FLUX * 10^[ -0.4*(ZP-SNANA_ZP) ]
+SNANA_ZP = 31.4   # FLUXCAL = FLUX * 10^[ -0.4*(ZP-SNANA_ZP) ]
 VPEC_DEFAULT = [0.0, 300.0]  # VPEC and error, km/sec
 
 # -----------------------------------------------------------------------------
@@ -102,6 +103,8 @@ VAL_UNDEFINED_LIST = [
     VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL, VAL_NULL,
     VAL_ABORT, VAL_ABORT, VAL_NULL, VAL_NULL, VAL_NULL
 ]
+
+VAL_UNKNOWN = "UNKNOWN"
 
 # -----------------------------------------------------------------------------
 VARNAME_TRUEMAG = "SIM_MAGOBS"   # for fakes or sim, add this to VARNAMES_OBS
@@ -178,7 +181,9 @@ DATAKEY_NXPIX       = "NXPIX"
 DATAKEY_NYPIX       = "NYPIX"
 DATAKEY_PIXSIZE     = "PIXSIZE"
 
-DATAKEY_SNID        = "SNID"
+DATAKEY_SNID        = "SNID"            # official name
+DATAKEY_NAME_TRNS   = "NAME_TRANSIENT"  # internal transient name for survey
+DATAKEY_NAME_IAUC   = "NAME_IAUC"       # IAUC name
 DATAKEY_SNTYPE      = "SNTYPE"
 DATAKEY_FAKE        = "FAKE"
 DATAKEY_RA          = "RA"
@@ -196,7 +201,8 @@ DATAKEY_PEAKMJD     = "PEAKMJD"
 DATAKEY_MJD_DETECT_FIRST  = "MJD_DETECT_FIRST"
 DATAKEY_MJD_DETECT_SECOND = "MJD_DETECT_SECOND"
 DATAKEY_MJD_DETECT_LAST   = "MJD_DETECT_LAST"
-DATAKEY_NDETECT           = "NDETECT"
+DATAKEY_N_NITE_DETECT     = "N_NITE_DETECT"  # number of nights with 1 or more detection
+DATAKEY_N_DETECT          = "N_DETECT"   # total number of detections
 DATAKEY_FIELD       = "FIELD"
 DATAKEY_NOBS        = "NOBS"
 
@@ -238,7 +244,7 @@ HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
 
 # -----------------------------------------------------------------------------
 DATAKEY_LIST_RAW = [
-    DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_SNTYPE, DATAKEY_FAKE,
+    DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_NAME_TRNS, DATAKEY_NAME_IAUC, DATAKEY_SNTYPE, DATAKEY_FAKE,
     DATAKEY_FILTERS,
     DATAKEY_NXPIX, DATAKEY_NYPIX, DATAKEY_PIXSIZE,
     DATAKEY_RA, DATAKEY_DEC,
@@ -254,7 +260,7 @@ DATAKEY_LIST_RAW = [
 DATAKEY_LIST_CALC = [
     DATAKEY_zCMB, DATAKEY_zCMB_ERR, DATAKEY_MWEBV, DATAKEY_MWEBV_ERR,
     DATAKEY_PEAKMJD, DATAKEY_MJD_DETECT_FIRST, DATAKEY_MJD_DETECT_SECOND, DATAKEY_MJD_DETECT_LAST,
-    DATAKEY_NDETECT,
+    DATAKEY_N_DETECT, DATAKEY_N_NITE_DETECT,
     HOSTKEY_PHOTOZ, HOSTKEY_PHOTOZ_ERR, 
     HOSTKEY_LOGMASS, HOSTKEY_LOGMASS_ERR
 ]

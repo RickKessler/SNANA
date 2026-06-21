@@ -96,6 +96,9 @@ def get_args():
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )
 
+    msg = "do coadd by nite"
+    parser.add_argument("--coadd_by_nite", help=msg, action="store_true")
+    
     msg = "photflag mask for detections (default=4096)"
     parser.add_argument("--photflag_detect", help=msg, type=int, default=4096)
     msg = "define detction with this SNR (if no PHOTFLAG bit)"

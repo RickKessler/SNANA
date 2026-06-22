@@ -75,11 +75,12 @@ VPEC_DEFAULT = [0.0, 300.0]  # VPEC and error, km/sec
 # define list of variable names for each observation;
 DATAKEY_MJD         = "MJD"
 DATAKEY_BAND        = "BAND"
+DATAKEY_FIELD       = "FIELD"
 DATAKEY_PHOTFLAG    = "PHOTFLAG"
 DATAKEY_FLUXCAL     = "FLUXCAL"
 DATAKEY_FLUXCALERR  = "FLUXCALERR"
 
-VARNAMES_OBS = f"{DATAKEY_MJD} {DATAKEY_BAND} FIELD {DATAKEY_PHOTFLAG}  " \
+VARNAMES_OBS = f"{DATAKEY_MJD} {DATAKEY_BAND} {DATAKEY_FIELD} {DATAKEY_PHOTFLAG}  " \
                f"XPIX YPIX CCDNUM IMGNUM GAIN " \
                f"{DATAKEY_FLUXCAL} {DATAKEY_FLUXCALERR} " \
                f" PSF_SIG1 ZEROPT SKY_SIG"
@@ -144,7 +145,7 @@ NEVT_SCREEN_UPDATE = 500
 
 # -----------------------------------------------------------------------------
 # define yaml keys to store statistics for README
-
+KEY_README_NEVT_WRITE_GARBAGE    = "NEVT_WRITE_GARBAGE"
 KEY_README_NEVT_PROCESS_ALL      = "NEVT_PROCESS_ALL"
 KEY_README_NEVT_WRITE_ALL        = "NEVT_WRITE_ALL"
 KEY_README_NEVT_WRITE_HOST_ZSPEC = "NEVT_WRITE_HOST_ZSPEC"
@@ -154,6 +155,7 @@ KEY_README_NEVT_REJECT           = "NEVT_REJECT"
 KEY_README_NEVT_UNDEF            = "NEVT_UNDEFINED"
 
 KEYLIST_README_STATS = [
+    KEY_README_NEVT_WRITE_GARBAGE,
     KEY_README_NEVT_PROCESS_ALL,
     KEY_README_NEVT_WRITE_ALL,
     KEY_README_NEVT_WRITE_HOST_ZSPEC,
@@ -181,6 +183,7 @@ DATAKEY_NXPIX       = "NXPIX"
 DATAKEY_NYPIX       = "NYPIX"
 DATAKEY_PIXSIZE     = "PIXSIZE"
 
+DATAKEY_EVTNUM_READ = 'EVTNUM_READ'     # used internally for isplit; not written to data
 DATAKEY_SNID        = "SNID"            # official name
 DATAKEY_NAME_TRNS   = "NAME_TRANSIENT"  # internal transient name for survey
 DATAKEY_NAME_IAUC   = "NAME_IAUC"       # IAUC name
@@ -203,8 +206,9 @@ DATAKEY_MJD_DETECT_SECOND = "MJD_DETECT_SECOND"
 DATAKEY_MJD_DETECT_LAST   = "MJD_DETECT_LAST"
 DATAKEY_N_NITE_DETECT     = "N_NITE_DETECT"  # number of nights with 1 or more detection
 DATAKEY_N_DETECT          = "N_DETECT"   # total number of detections
-DATAKEY_FIELD       = "FIELD"
-DATAKEY_NOBS        = "NOBS"
+#DATAKEY_FIELD       = "FIELD"
+DATAKEY_NOBS          = "NOBS"
+DATAKEY_NOBS_GARBAGE  = "NOBS_GARBAGE"
 
 HOSTKEY_BASE          = "HOSTGAL"
 HOSTKEY_NMATCH        = "HOSTGAL_NMATCH"
@@ -233,6 +237,12 @@ HOSTKEY_PREFIX_SB      = "HOSTGAL_SB_FLUXCAL"  # idem
 # define prefix for photo-z quantiles
 HOSTKEY_PREFIX_ZPHOT_Q       = "HOSTGAL_ZPHOT_Q"
 
+
+GARBAGEKEY_RADEC  = 'GARBAGE_RADEC'
+GARBAGEKEY_FLUX   = 'GARBAGE_FLUX'
+GARBAGEKEY_MJD    = 'GARBAGE_MJD'
+GARBAGEKEY_BAND   = 'GARBAGE_BAND'
+
 # =============================================================================
 # LISTS
 # =============================================================================
@@ -244,8 +254,9 @@ HOSTKEY_PREFIX_LIST = [ HOSTKEY_PREFIX_MAG, HOSTKEY_PREFIX_MAGERR,
 
 # -----------------------------------------------------------------------------
 DATAKEY_LIST_RAW = [
-    DATAKEY_SURVEY, DATAKEY_SNID, DATAKEY_NAME_TRNS, DATAKEY_NAME_IAUC, DATAKEY_SNTYPE, DATAKEY_FAKE,
-    DATAKEY_FILTERS,
+    DATAKEY_SURVEY, DATAKEY_EVTNUM_READ,
+    DATAKEY_SNID, DATAKEY_NAME_TRNS, DATAKEY_NAME_IAUC,
+    DATAKEY_SNTYPE, DATAKEY_FAKE, DATAKEY_FILTERS,
     DATAKEY_NXPIX, DATAKEY_NYPIX, DATAKEY_PIXSIZE,
     DATAKEY_RA, DATAKEY_DEC,
     DATAKEY_zHEL, DATAKEY_zHEL_ERR, DATAKEY_FIELD,
@@ -255,6 +266,8 @@ DATAKEY_LIST_RAW = [
     HOSTKEY_RA,     HOSTKEY_DEC,
     HOSTKEY_ELLIP,  HOSTKEY_SQRADIUS
 ]
+
+GARBAGEKEY_LIST = [ GARBAGEKEY_RADEC, GARBAGEKEY_FLUX, GARBAGEKEY_MJD, GARBAGEKEY_BAND ]
 
 # -----------------------------------------------------------------------------
 DATAKEY_LIST_CALC = [
@@ -266,6 +279,10 @@ DATAKEY_LIST_CALC = [
 ]
 
 
+# ---------------------------------------------
+
+
+# ---------------------------------------------
 # define null lists for optional variables whose names are specified
 # in global header and thus cannot be specified here.
 DATAKEY_LIST_PRIVATE = [] # filled if private variables exist

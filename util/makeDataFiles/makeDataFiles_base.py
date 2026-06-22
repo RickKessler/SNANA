@@ -75,6 +75,7 @@ class Program:
         self.NEVT_WRITE            = 0
         self.NEVT_REJECT_CUTS      = 0
         self.NEVT_REJECT_DATA_UNIT = 0
+        self.garbage_list = [ False ]
         
         # end Program __init__
 
@@ -192,6 +193,7 @@ class Program:
         return name
         # end assign_data_unit_name
 
+        
     def which_data_unit(self, data_dict):
 
         # use data header info to figure out which data unit.
@@ -253,19 +255,23 @@ class Program:
         if not match_year:
             return None
 
-        # - - - - - - - - - - - - -
+        #  xxxxxxxxxx mark del 6.21.2026 xxxxxxxx
         # check match for split job
-        match_split = True
-        ISPLIT = -9
-        if nsplit > 1:
-            iSNID  = int(SNID)
-            isplit = iSNID % nsplit       # counter starts at 0
-            ISPLIT = isplit + 1           # counter starts at 1
-            if isplit_select > 0:
-                match_split = (ISPLIT == isplit_select)
-        if not match_split:
-            return None
+        #match_split = True
+        #ISPLIT = -9
+        #if nsplit > 1:            
+        #    isplit = EVTNUM % nsplit       # counter starts at 0            
+        #    ISPLIT = isplit + 1           # counter starts at 1
+        #
+        #    if isplit_select > 0:
+        #        match_split = (ISPLIT == isplit_select)
+        #if not match_split:
+        #    return None
+        # xxxxxxxxxxxxxxx
 
+        # random split already passed before reading event
+        ISPLIT = isplit_select  
+        
         # - - - - - - - -
         data_unit_name  = \
             self.assign_data_unit_name(survey, field_select, YY, ISPLIT)
@@ -460,17 +466,9 @@ class Program:
         args          = self.config_inputs['args']
         d_raw         = data_event_dict['head_raw']
         d_calc        = data_event_dict['head_calc']
-
-        SNID_raw = d_raw[gpar.DATAKEY_SNID]
-        # if SNID_raw.isdigit():
-        #     SNID = int(SNID_raw)
-        # else:
-        #     SNID = SNID_raw
-
-        SNID = int(SNID_raw) if SNID_raw.isdigit() else SNID_raw
-
+        
         var_dict = {
-            gpar.DATAKEY_SNID             : SNID,
+            gpar.DATAKEY_SNID             : d_raw[gpar.DATAKEY_SNID],
             gpar.DATAKEY_RA               : d_raw[gpar.DATAKEY_RA],
             gpar.DATAKEY_DEC              : d_raw[gpar.DATAKEY_DEC],
             gpar.DATAKEY_PEAKMJD          : d_calc[gpar.DATAKEY_PEAKMJD],
@@ -491,7 +489,8 @@ class Program:
         # and can take appropriate action (abort, set to -9, etc ...)
 
         phot_dict   = {}
-        phot_dict['NOBS'] = NOBS
+        phot_dict[gpar.DATAKEY_NOBS]         = NOBS
+        phot_dict[gpar.DATAKEY_NOBS_GARBAGE] = 0
 
         varlist_obs = self.config_data['varlist_obs']
         for varname in varlist_obs:
@@ -596,10 +595,11 @@ class Program:
             for evt in range(0, nevent_subgroup):
 
                 NEVT_READ += 1
-
+                
                 # call source-dependent function to read event
                 data_event_dict = self.read_event(evt)
-
+                data_event_dict[gpar.DATAKEY_EVTNUM_READ] = evt
+                
                 # check optional subsample selection defined by reader;
                 # if selection is not evaluated by reader, evaluate here.
                 if 'select' in data_event_dict:
@@ -607,7 +607,7 @@ class Program:
                 else:
                     # read_event did not select subsample, so do it here.
                     sel = self.select_subsample(data_event_dict)
-
+                    
                 # figure out which data unit
                 data_unit_name = self.which_data_unit(data_event_dict)
                 if data_unit_name is None:
@@ -629,6 +629,12 @@ class Program:
                 self.compute_data_event(data_event_dict)
 
 
+                # xxxxxxxx mark .xyz
+                #head = data_event_dict['head_raw']
+                #print(f" xxx data_driver: {gpar.GARBAGEKEY_RADEC} = " \
+                #      f"{head[gpar.GARBAGEKEY_RADEC]}"  )
+                # xxxxxxxxxx
+                
                 if args.outdir_snana :
                     write_data_snana.write_event_text_snana(args, self.config_data,
                                                             data_event_dict)
@@ -687,7 +693,7 @@ class Program:
         # but stats are summed over readme files.
         args         = self.config_inputs['args']
         readme_stats = self.config_data['readme_stats_sum']
-        t_proc       = self.config_data['t_proc'] # seconds
+        t_proc       = self.config_data['t_proc']       # seconds
 
         readme_dict = {
             'readme_file'  : args.output_yaml_file,
@@ -722,9 +728,13 @@ class Program:
         # - - - - - -
         head_raw   = data_event_dict['head_raw']
         head_calc  = data_event_dict['head_calc']
-        n_spectra  = data_event_dict.setdefault('n_spectra',0)
-        index_unit = data_event_dict['index_unit']
+        phot_raw   = data_event_dict['phot_raw']
 
+        
+        n_spectra    = data_event_dict.setdefault('n_spectra',0)
+        index_unit   = data_event_dict['index_unit']
+        nobs_garbage = phot_raw[gpar.DATAKEY_NOBS_GARBAGE]
+        
         readme_stats = self.config_data['readme_stats_list'][index_unit]
         readme_sum   = self.config_data['readme_stats_sum']
         
@@ -735,6 +745,16 @@ class Program:
         if status == gpar.STRING_REJECT :
             readme_stats[gpar.KEY_README_NEVT_REJECT] += 1
             return
+
+        # - - - - - -  - - - - - - - - - - - 
+        # everything below is ACCEPTED
+        # - - - - - -  - - - - - - - - - - -         
+
+        # update stats by field
+        field        = head_raw[gpar.DATAKEY_FIELD]
+        dockey_field = f"NEVT_WRITE_BY_FIELD({field})"
+        if dockey_field not in readme_stats: readme_stats[dockey_field] = 0
+        readme_stats[dockey_field] += 1
         
         # update stats that will eventually written to README file
         specz  = -9.0
@@ -747,10 +767,12 @@ class Program:
 
 
         keylist_subset = [ gpar.KEY_README_NEVT_WRITE_ALL,
+                           gpar.KEY_README_NEVT_WRITE_GARBAGE,
                            gpar.KEY_README_NEVT_WRITE_HOST_ZSPEC,
                            gpar.KEY_README_NEVT_WRITE_HOST_ZPHOT,
                            gpar.KEY_README_NEVT_WRITE_SPECTRA ]
         is_subset_list   = [ True,
+                             nobs_garbage > 0,
                              specz > 0.0,
                              photoz > 0.0,
                              n_spectra > 0 ]

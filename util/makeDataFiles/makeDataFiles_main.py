@@ -50,7 +50,6 @@ import write_data_snana     as write_snana
 from write_data_csv import csvWriter
 
 
-from read_data_lsst_tom      import data_lsst_tom_db
 from read_data_lsst_fastdb   import data_lsst_fastdb
 from read_data_des_folder    import data_des_folder
 from read_data_sirah_folder  import data_sirah_folder
@@ -62,8 +61,6 @@ from read_data_ztf           import data_ztf_folder
 def get_args():
     parser = argparse.ArgumentParser()
 
-    msg = "Data source: LSST TOM; format: 'username:password@url"
-    parser.add_argument("--lsst_tom_db", help=msg, type=str, default=None )
 
     msg = "Data source: LSST FASTDB"
     parser.add_argument("--lsst_fastdb", help=msg, action="store_true")
@@ -167,8 +164,6 @@ def restore_args_from_readme(args, readme_yaml):
     # restore user args from readme_yaml that was 
     # read from README file.
     
-
-    args.lsst_tom_db  = None
     args.lsst_fastdb  = None    
     args.sirah_folder = None
     args.des_folder   = None
@@ -177,18 +172,8 @@ def restore_args_from_readme(args, readme_yaml):
     
     key = 'SOURCE_LSST_FASTDB'
     if key in readme_yaml:
-        args.lsst_fastdb = readme_yaml[key]  # Jan 2025
-
-    key = 'SOURCE_LSST_TOM'
-    if key in readme_yaml:
-        args.lsst_tom_db = readme_yaml[key]
+        args.lsst_fastdb = readme_yaml[key] 
         
-    key = 'SOURCE_LSST_FASTDB'
-    if key in readme_yaml:
-        args.lsst_fastdb = readme_yaml[key]
-
-    # - - - -
-    
     key = 'SOURCE_SIRAH_FOLDER'
     if key in readme_yaml:
         args.sirah_folder = readme_yaml[key]
@@ -205,7 +190,7 @@ def restore_args_from_readme(args, readme_yaml):
     if key in readme_yaml:
         args.snana_folder = readme_yaml[key]
 
-    args.field = readme_yaml['FIELD']
+    #args.field = readme_yaml['FIELD']
 
     # end restore_args_from_readme
 
@@ -229,36 +214,33 @@ def which_read_class(args):
             outdir   = args.outdir_csv
             readme_file = f"{outdir}/DATA.README"
 
-        if readme_file is not None:
+        if readme_file :
             readme_yaml = util.read_yaml(readme_file)
             restore_args_from_readme(args, readme_yaml[gpar.DOCANA_KEY])
-    
-    if args.lsst_tom_db is not None:
-        read_class = data_lsst_tom_db
-        args.survey = "LSST"
-        args.read_class  = "LSST_TOM"  # comment string
+
+    # - - - 
         
-    elif args.lsst_fastdb is not None:
+    if args.lsst_fastdb :
         read_class       = data_lsst_fastdb
         args.survey      = "LSST"
         args.read_class  = "LSST_FASTDB"  # just a comment string
         
-    elif args.sirah_folder is not None:
+    elif args.sirah_folder :
         read_class       = data_sirah_folder
         args.survey      = "SIRAH"
         args.read_class  = "SIRAH_DATA_FOLDER"
         
-    elif args.des_folder is not None:
+    elif args.des_folder :
         read_class       = data_des_folder
         args.survey      = "DES"        
         args.read_class  = "DES_DATA_FOLDER"  # comment string
         
-    elif args.ztf_folder is not None:
+    elif args.ztf_folder :
         read_class       = data_ztf_folder
         args.survey      = "ZTF"
         args.read_class  = "ZTF_DATA_FOLDER"
         
-    elif args.snana_folder is not None:
+    elif args.snana_folder :
         read_class        = data_snana_folder
         snana_folder_base = os.path.basename(args.snana_folder)
         args.survey       = util.get_survey_snana(snana_folder_base)
@@ -308,7 +290,7 @@ if __name__ == "__main__":
     program.read_data_driver()
 
     # translate TEXT -> FITS; allow multiple output formats
-    if args.outdir_snana is not None:
+    if args.outdir_snana :
         write_snana.convert2fits_snana(args, program.config_data)
 
     # final summary

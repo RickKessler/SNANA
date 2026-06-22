@@ -68,9 +68,13 @@ def write_event_text_snana(args, config_data, data_event_dict):
     data_file     = f"{data_dir}/{prefix}_{str_SNID}.DAT"
     data_file_gz  = f"{data_file}.gz"
 
-    #with gzip.open(data_file_gz, "wt", compresslevel=6 ) as f :
-    with open(data_file, "wt" ) as f :        
+                
+    with gzip.open(data_file_gz, "wt", compresslevel=6 ) as f :
+    #with open(data_file, "wt" ) as f :        
 
+        # start with garbage keys to make the visible at top
+        write_garbage_snana(f,head_raw)
+        
         # write header info
         write_header_snana(f,head_raw)
 
@@ -94,6 +98,18 @@ def write_event_text_snana(args, config_data, data_event_dict):
 
     # end write_event_text_snana
 
+def write_garbage_snana(f, data_head):
+
+    found_garbage = False
+    for key in gpar.GARBAGEKEY_LIST :
+        val = data_head.setdefault(key,False) 
+        if val :
+            found_garbage = True
+            f.write(f"{key}: {val} \n")
+    if found_garbage : f.write('\n')
+    
+    return
+
 def write_header_snana(f, data_head):
 
     # write list of header key,val pairs in data_head.
@@ -110,12 +126,18 @@ def write_header_snana(f, data_head):
     hostgal_string_vals = {}
     for prefix  in gpar.HOSTKEY_PREFIX_LIST:
         hostgal_string_vals[prefix] = ""
-
+    
+    # - - - - - - -
     n_hostkey = 0
-
+    key_skip_list = [ '_ERR', 'EVTNUM', 'GARBAGE' ]
+    
     for key in data_head:
-        #print(f" xxx header key = {key}")
-        if '_ERR' in key: continue
+
+        SKIP_KEY = False
+        for key_skip in key_skip_list:
+            if key_skip in key: SKIP_KEY = True
+        if SKIP_KEY: continue
+        
         key_plus_err   = f"{key}_ERR"
         key_plus_colon = f"{key}:"
         val            = data_head[key]
@@ -190,16 +212,22 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
     varlist_fmt   = config_data['varlist_fmt']
     vallist_undef = config_data['vallist_undef']
     varstring_obs = ' '.join(varlist_obs)
-    msgerr   = []
-    SNID     = head_raw[gpar.DATAKEY_SNID]
-    FILTERS  = head_raw[gpar.DATAKEY_FILTERS]
-    NOBS     = phot_raw[gpar.DATAKEY_NOBS]
+    msgerr        = []
+    SNID          = head_raw[gpar.DATAKEY_SNID]
+    FILTERS       = head_raw[gpar.DATAKEY_FILTERS]
+    NOBS          = phot_raw[gpar.DATAKEY_NOBS]
+    NOBS_GARBAGE  = phot_raw[gpar.DATAKEY_NOBS_GARBAGE]    
 
-    f.write(f"\n# -------------------------------------- \n" \
-            f"# obs info\n")
-    f.write(f"NOBS: {NOBS}\nNVAR: {nvar_obs} \n"
-            f"VARLIST: {varstring_obs}\n")
+    f.write(f"\n# -------------------------------------- \n# obs info\n")
+    
+    if NOBS_GARBAGE > 0:
+        f.write(f"NOBS_GARBAGE: {NOBS_GARBAGE}  \n")
+        # f"# see obs with PHOTFLAG & {gpar.PHOTFLAG_GARBAGE}\n")
 
+    f.write(f"NOBS: {NOBS} \n");
+    f.write(f"NVAR: {nvar_obs} \n");
+    f.write(f"VARLIST: {varstring_obs}\n")
+            
     for obs in range(0,NOBS):
         LINE = "OBS:"
         for varname,fmt,val_undef in \
@@ -300,7 +328,8 @@ def write_aux_files_snana(name, args, config_data):
     name_list     = config_data['data_unit_name_list']
     prefix        = config_data['data_folder_prefix']
     readme_stats_list = config_data['readme_stats_list']
-
+    t_proc        = config_data['t_proc']
+    
     folder_out  = output_data_folder_name(config_data, name, True)
     index_unit  = name_list.index(name)
 
@@ -320,6 +349,13 @@ def write_aux_files_snana(name, args, config_data):
             if '.gz' in data_file:   data_file = data_file.split('.gz')[0]
             f.write(f"{data_file}\n")
 
+    # append KEYLIST_README_STATS with FIELD-dependent stats;
+    # have to wait until end to know list of fields
+    for key in readme_stats_list[index_unit]:
+        if 'NEVT_WRITE_BY_FIELD'  in key:
+            global KEYLIST_README_STATS
+            gpar.KEYLIST_README_STATS.append(key)
+    
     # prepare standard readme dictionary for global utility write_readme
     readme_dict = {
         'readme_file'  : readme_file,
@@ -327,7 +363,9 @@ def write_aux_files_snana(name, args, config_data):
         'data_format'  : gpar.FORMAT_TEXT,
         'docana_flag'  : True
     }
-    util.write_readme(args, readme_dict)
+
+
+    util.write_readme(args, readme_dict, t_proc)
 
     # don't gzip here; instead gzip entire directory using & to return control
     GZIP_DATA_FILES = False

@@ -24,6 +24,17 @@ except ImportError as e:
 from astropy.time import Time
 
 
+# ==================================================
+def get_garbage_list(flt_list):
+    
+    # return index list for items in list that are NOT float
+    #non_float_indices = [idx for idx, val in enumerate(flt_list) \
+    #                     if not (isinstance(val, float) or isinstance(val,int)) ]
+
+    garbage_list = [ not(isinstance(x,float) or isinstance(x,int)) for x in flt_list]
+    n_garbage = garbage_list.count(True)
+    return n_garbage, garbage_list
+
 # ========================================
 def print_elapsed_time(t0, comment):
     tend = time.time() - t0
@@ -148,6 +159,27 @@ def extract_sim_readme_info(path_sim,key_list):
     return value_dict
     # end extract_sim_readme_info
 
+def select_split(IVAL, args):
+
+    # return True if IVAL integer matches isplit_select
+    # IVAL can be event number, SNID, i_subroup ... etc..
+    
+    nsplit        = args.nsplitran
+    isplit_select = args.isplitran     # 1 to nsplit, or -1 for all
+        
+    ISPLIT = -9
+        
+    if nsplit > 1:            
+        isplit = IVAL % nsplit       # counter starts at 0            
+        ISPLIT = isplit + 1          # counter starts at 1
+        if isplit_select > 0:
+            match_split = (ISPLIT == isplit_select)
+        else:
+            match_split = True    # no split -> accept all
+            
+    return match_split
+    
+# end select_split
 
 # =======================================
 def select_subsample(args, var_dict):
@@ -165,12 +197,15 @@ def select_subsample(args, var_dict):
     nsplitran         = args.nsplitran  # from command line input
     isplitran_select  = args.isplitran
 
+    # xxxxxxx mark delete 6.21.2026 xxxxxxx
     # random split cut. Be careful that isplitran = 1 to N
     # (not 0 to N-1)
-    if nsplitran > 1 and isplitran_select>=0 :
-        isplitran = (SNID % nsplitran) + 1
-        if isplitran != isplitran_select:  return False
-
+    #if nsplitran > 1 and isplitran_select>=0 :
+    #    # xxx mark delete Jun 21 2026   isplitran = (SNID % nsplitran) + 1
+    #    isplitran = (EVTNUM % nsplitran) + 1
+    #    if isplitran != isplitran_select:  return False
+    # xxxxxxxxxxxxxx
+    
     # PEAKMJD
     if args.peakmjd_range :
         if PEAKMJD <  args.peakmjd_range[0]: return False
@@ -259,7 +294,7 @@ def init_readme_stats():
         readme_stats[key] = 0
     return readme_stats
 
-def write_readme(args, readme_dict, walltime=-1.0):
+def write_readme(args, readme_dict, walltime_sec =-1.0):
 
     # input args are the user-command line args.
     # input readme_dict is prepared by write_data_xxx module.
@@ -271,6 +306,7 @@ def write_readme(args, readme_dict, walltime=-1.0):
     docana_flag  = readme_dict['docana_flag']
 
     script_command = ' '.join(sys.argv)
+    script_command = script_command.replace('\\',' ')
     indent_str = ''
 
     # store line of yanl lines without indentation
@@ -291,7 +327,7 @@ def write_readme(args, readme_dict, walltime=-1.0):
         line_list.append(f"SOURCE_DES_FOLDER:  {args.des_folder}")
 
     line_list.append(f"SURVEY:           {args.survey}")
-    line_list.append(f"FIELD:            {args.field} ")
+    #line_list.append(f"FIELD:            {args.field} ")
     line_list.append(f"FORMAT:           {data_format} ")
     line_list.append(f"SCRIPT_COMMAND:   {script_command} ")
     line_list.append(f"USERNAME:         {gpar.USERNAME} ")
@@ -304,9 +340,10 @@ def write_readme(args, readme_dict, walltime=-1.0):
         n_list.append(n)
         line_list.append(f"{key_plus_colon:<22}   {n}")
 
-    if walltime > 0.0 :
+    if walltime_sec > 0.0 :
+        walltime_min = walltime_sec / 60.0
         key_plus_colon = "WALLTIME:"
-        line_list.append(f"{key_plus_colon:<22}   {walltime:.2f}   # seconds")
+        line_list.append(f"{key_plus_colon:<22}   {walltime_min:.2f}   # minutes")
 
     nevt_all = n_list[0]
     if nevt_all == 0 : nevt_all=1  # never allow abort on 0 events.
@@ -542,19 +579,27 @@ def reset_data_event_dict():
     calc_dict = {}
     sim_dict  = {}
 
+    for key in gpar.GARBAGEKEY_LIST:
+        raw_dict[key] = False
+            
     for key in gpar.DATAKEY_LIST_RAW :
         raw_dict[key] = -9
 
-    raw_dict[gpar.DATAKEY_SNID]      = gpar.VAL_UNKNOWN
-    raw_dict[gpar.DATAKEY_NAME_TRNS] = gpar.VAL_UNKNOWN
-    raw_dict[gpar.DATAKEY_NAME_IAUC] = gpar.VAL_UNKNOWN
+    for key in [ gpar.DATAKEY_SNID, gpar.DATAKEY_NAME_TRNS, gpar.DATAKEY_NAME_IAUC ] :
+        raw_dict[key]  = gpar.VAL_UNKNOWN
+
+    raw_dict[gpar.DATAKEY_FIELD] = gpar.FIELD_VOID
     
+    # - - - - 
     for key in gpar.DATAKEY_LIST_CALC :
         calc_dict[key] = -9
 
+    # - - - - 
     for key in gpar.DATAKEY_LIST_SIM :
         sim_dict[key] = -9
 
+    #print(f" xxx reset_data_event_dict: raw_dict keys : {list(raw_dict.keys())}")
+        
     return raw_dict, calc_dict, sim_dict
     # end reset_data_event_dict
 

@@ -16,10 +16,10 @@ from   makeDataFiles_params  import *
 # use try/except for imports to avoid crashing on other data sets on other clusters
 try:
     import pyarrow
-    from fastdb_client import FASTDBClient
-    from   astropy.table import Table
-    from   astropy.table import vstack
-    
+    from  fastdb_client import FASTDBClient
+    from  astropy.table import Table
+    from  astropy.table import vstack
+
 except:
     pass
 
@@ -28,7 +28,7 @@ except:
 # hard-wired stuff for fastdb access
 
 
-MXOBJ_PER_FETCH = 50 ; # max number of objects per sourec query
+MXOBJ_PER_FETCH = 1000 ; # max number of objects per source query
 
 SURVEY_LSST     = 'LSST'
 FILTERLIST_LSST = SURVEY_INFO['FILTERS'][SURVEY_LSST]
@@ -55,8 +55,12 @@ KEYMAP = { # SNANA -> fastdb
 }
 
 
-PHOTFLAG_DETECT   = 4    # set this PHOTFLAG bit for isdet detection
+PHOTFLAG_DETECT       = 1    # set this PHOTFLAG bit for isdet detection
+PHOTFLAG_GARBAGE      = 64   # found garbage value
+
 TOL_MJD_NIGHT     = 0.4  # coadd obs withing this tolerance, days
+
+CUT_NOBS_COADD_RATIO = 0.4  # separates WFD and DDF
 
 DATAKEY_HEAD_LIST = [ DATAKEY_RA, DATAKEY_DEC ]
 DATAKEY_PHOT_LIST = [ DATAKEY_MJD, gpar.DATAKEY_PHOTFLAG,
@@ -82,7 +86,7 @@ class data_lsst_fastdb(Program):
         super().__init__(config_inputs, config_data)
 
     def init_read_data(self):
-
+                
         args = self.config_inputs['args']  # command line args        
 
         logging.info('')
@@ -105,35 +109,53 @@ class data_lsst_fastdb(Program):
         self.nlc_tot    = nlc_tot
         self.n_subgroup = n_subgroup
 
+        self.nobs_coadd_ratio = []  # for diagnostic histogram to check WFD vs. DDF
+        
         logging.info("Done with init_read_data")
         logging.info('')
         
         return
-        # end init_read_data
+    # end init_read_data
 
         
     def prep_read_data_subgroup(self, i_subgroup):
 
+        #dum_data = [1.5, 2.3, "apple", 4.0, 7, 5.5 ]
+        #n, ind_list = util.get_garbage_list(dum_data)
+        #sys.exit(f" xxx dum_data={dum_data} | n={n}  ind_list={ind_list}")
         
         # read fast data base for this subgroup;
         # will parse it later for writing.
         # Objects and sources are stored separately.
         
-        args       = self.config_inputs['args']
-        fdb        = self.fdb
-        nlc_tot    = self.nlc_tot
-        n_subgroup = self.n_subgroup
-        
-        n_fetch    = MXOBJ_PER_FETCH
+        args          = self.config_inputs['args']
+        fdb           = self.fdb
+        nlc_tot       = self.nlc_tot
+        n_subgroup    = self.n_subgroup
+
+        nsplit        = args.nsplitran
+        isplit_select = args.isplitran  # 1 to nsplit, or -1 for all                                               
+        n_fetch    = min(MXOBJ_PER_FETCH,args.nevt)
         n_offset   = i_subgroup * MXOBJ_PER_FETCH
         
-        if n_offset > nlc_tot:   return -1  # done reading
+        if n_offset >= nlc_tot:
+            return -1  # done reading
 
-        
-        logging.info(f"# ----------------------------------------------- ")
-        logging.info(f" Begin reading {n_fetch} lightcurves for subgroup {i_subgroup:3d} of {n_subgroup} " \
+        # check split option to read this group (typically to split jobs among cores)
+        if nsplit > 1:
+            match_split = util.select_split(i_subgroup, args)            
+        else:
+            match_split = True
+
+        # - - - -
+        verb = "Begin" if match_split else "Skip "
+        logging.info(f"# ---------------------------------------------------------------- ")
+        logging.info(f" {verb} reading {n_fetch} lightcurves for " \
+                     f"subgroup {i_subgroup:3d} of {n_subgroup} " \
                      f"(offset={n_offset})")
 
+        if not match_split: return 0
+        
         t0 = time.perf_counter()
         manyltcvs = fdb.post( "ltcv/getmanyltcvs/realtime",                          
                               json={
@@ -155,13 +177,14 @@ class data_lsst_fastdb(Program):
         t1 = time.perf_counter()
         logging.info(f" Fetched {nevt} lightcurves in {t1-t0:.2f} sec.\n" )
         logging.info('')
+
         
         self.dict_objinfo = dict_objinfo
         self.dict_ltcsv   = dict_ltcsv
         
         return nevt
 
-        # end prep_read_data_subgroup
+    # end prep_read_data_subgroup
 
 
     def read_event(self, evt ):
@@ -180,8 +203,9 @@ class data_lsst_fastdb(Program):
         rootid     = dict_objinfo[FASTDB_KEYNAME_ROOTID][evt]
         diaobjid   = dict_objinfo[FASTDB_KEYNAME_OBJID][evt]
         SNID       = rootid
-        nobs = len(lc_dict['mjd'])
-
+        nobs       = len(lc_dict['mjd'])
+        self.nobs  = nobs
+        
         lc_dict['photflag'] = [0] * nobs  # hack this in until we get more info from Rubin
         
         if DEBUG_DUMP:
@@ -194,52 +218,94 @@ class data_lsst_fastdb(Program):
         snana_head_raw[gpar.DATAKEY_FILTERS]  = FILTERLIST_LSST
         snana_head_raw[gpar.DATAKEY_FAKE]     = 0
         snana_head_raw[gpar.DATAKEY_SNTYPE]   = 0
-
+        
         for key_snana in DATAKEY_HEAD_LIST:
             key_fastdb = KEYMAP[key_snana]
             if key_fastdb in dict_objinfo:                
                 snana_head_raw[key_snana]  = dict_objinfo[key_fastdb][evt]
 
+    
         nobs_before_coadd = nobs
 
-        
+        # check for garbage/missing coordinates
+        RA  = snana_head_raw[gpar.DATAKEY_RA]
+        DEC = snana_head_raw[gpar.DATAKEY_DEC]
+        if not (isinstance(RA, float) and isinstance(DEC,float) ):
+            snana_head_raw[gpar.GARBAGEKEY_RADEC] = True
+
+            
         # - - - - - - --  -
         # load light curve info 
         snana_phot_raw          = self.init_phot_dict(nobs)
         snana_phot_raw['NOBS']  = nobs        
 
-        #isdet = lc_dict['isdet']
-        
+        self.check_garbage_flt(rootid, None, [])  # init garbage counter
+
         for key_snana in DATAKEY_PHOT_LIST:
             key_fastdb = KEYMAP.setdefault(key_snana,None)
             if key_fastdb in lc_dict :
                 val_list   = lc_dict[key_fastdb]
                 if 'FLUXCAL' in key_snana:
-                    val_list = [ x*FLUXSCALE_SNANA for x in val_list ]
+
+                    #if evt % 3 == 0 and 'ERR' in key_snana: val_list[0] = None # xxx remove
+                    
+                    n_garbage = self.check_garbage_flt(rootid, key_snana, val_list)
+                    if n_garbage == 0:
+                        val_list = [ x*FLUXSCALE_SNANA for x in val_list ]
+                    pass
                 if key_snana == gpar.DATAKEY_PHOTFLAG:
                     val_list = [ PHOTFLAG_DETECT * int(x) for x in lc_dict['isdet'] ]
                 
                 snana_phot_raw[key_snana] = val_list
 
+        # tack on GARBAGE bit
+        nobs_garbage = self.garbage_list.count(True)
+        snana_phot_raw[gpar.DATAKEY_NOBS_GARBAGE] = nobs_garbage
+
+        if nobs_garbage > 0:
+            photflag_before  = snana_phot_raw[gpar.DATAKEY_PHOTFLAG] 
+            photflag_garbage = [ PHOTFLAG_GARBAGE * int(x) for x in self.garbage_list ]
+            
+            snana_phot_raw[gpar.DATAKEY_PHOTFLAG] = \
+                [a+b for a,b in zip(photflag_before,photflag_garbage)]
+            snana_head_raw[gpar.GARBAGEKEY_FLUX] = True  # global flag at top of data file
+
+            
         # store first/second/last MJD_DETECT before coadd        
         self.store_mjd_detections(snana_head_calc, snana_phot_raw)
         
-        # do nightly coadd on snana dictionary
-        if args.coadd_by_nite:
-            nobs_after_coadd, snana_phot_coadd, nite_detect_dict = self.coadd_by_nite(snana_phot_raw)
-        else:
-            nobs_after_coadd = nobs_before_coadd
-            snana_phot_coadd = snana_phot_raw
-            nite_detect_dict = {}
+        # do nightly coadd on snana dictionary if (1) coadd is requested
+        # as command line arg, and (2) there is no garbage
+        # [coadding would hide the garbage]
+        do_coadd = args.coadd_by_nite and nobs_garbage == 0
+
+        nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \
+            self.coadd_by_nite(snana_phot_raw, do_coadd)
             
         # --- private LSST variables that are not standard SNANA vars
+        ratio = nobs_after_coadd / nobs_before_coadd 
         lsst_head_private = {}
         lsst_head_private['PRIVATE(NOBS_BEFORE_COADD)']  =  nobs_before_coadd
         lsst_head_private['PRIVATE(NOBS_AFTER_COADD)']   =  nobs_after_coadd
+        lsst_head_private['PRIVATE(RATIO_NOBS_COADD)']   =  ratio
         for b, n_nite in nite_detect_dict.items():
             key_private = f'PRIVATE(N_NITE_DETECT_{b})'
             lsst_head_private[key_private] = n_nite
+
+
+        self.nobs_coadd_ratio.append(ratio)
+
+        # figure out DDF or WFD based on coadd/total NOBS ratio.
+        # TO DO later: figure out DDF+WFD overlaps
+        
+        if ratio < CUT_NOBS_COADD_RATIO:
+            field = FIELD_DDF
+        else:
+            field = FIELD_WFD
             
+        snana_phot_coadd[gpar.DATAKEY_FIELD] = [field] * snana_phot_coadd[gpar.DATAKEY_NOBS]
+        snana_head_raw[gpar.DATAKEY_FIELD]   = field
+        
         # - - - - - -
         
         if DEBUG_DUMP:
@@ -248,6 +314,11 @@ class data_lsst_fastdb(Program):
             logging.debug(f"\t store {nobs} sources for SNID = {SNID}   {str_warn}")
 
         # construct SNANA dictionary
+
+        # xxxxxx mark xxxx
+        #print(f" xxx {gpar.GARBAGEKEY_RADEC} = " \
+        #     f"{snana_head_raw[gpar.GARBAGEKEY_RADEC]}"  )
+                    
         snana_data_dict = {
             'head_raw'     : snana_head_raw,
             'head_calc'    : snana_head_calc,
@@ -259,7 +330,6 @@ class data_lsst_fastdb(Program):
         
         fix_now = False;
         if fix_now:
-        
             # Apply event selection requirements
             select = self.select_event(snana_data_dict)
             if select:
@@ -271,13 +341,37 @@ class data_lsst_fastdb(Program):
     
     # end read_event
 
-    def coadd_by_nite(self, phot_raw):
+    def check_garbage_flt(self, rootid, key, val_list):
+        # check for garbage in this val_list 
+
+        if len(val_list) == 0:
+            self.garbage_list = [False] * self.nobs
+
+        old_list        = self.garbage_list
+        n_new, new_list = util.get_garbage_list(val_list)
+
+        if n_new > 0:
+            logging.info(f" WARNING: {n_new} garbage {key} values for ROOTID={rootid}")
+            self.garbage_list = [a or b for a, b in zip(old_list,new_list)]
+
+        return n_new
+    
+    def coadd_by_nite(self, phot_raw, do_coadd):
 
         # for inpyut phot_raw dictionary of lists (table columns),
         # coadd each band grouped by nights and return coadd dictionary
+        #
+        # do_coadd = True -> return coadded photometry;
+        #          = False -> return original photometr = other stuff
+        #              computed from coadd; this is used for garbage data
+        #            
         
         colnames = list(phot_raw)
-        colnames.remove("NOBS")
+
+        # drop columns with NOBS in the name
+        nobs_keys = [key for key in phot_raw if 'NOBS' in key]
+        for key in nobs_keys:
+            colnames.remove(key)
 
         # convert to astropy table for easier manipulations
         phot_local_dict = {k: phot_raw[k] for k in colnames if k in phot_raw}
@@ -290,7 +384,7 @@ class data_lsst_fastdb(Program):
             n_obs_band = len(t_band)
             nite_detect_dict[b] = 0
             if n_obs_band > 0:
-                t_coadd_band = self.coadd_single_band(t_band)
+                t_coadd_band = self.coadd_single_band(t_band, do_coadd)
                 t_coadd_list.append(t_coadd_band)                
 
                 photflag_list         = t_coadd_band[gpar.DATAKEY_PHOTFLAG].tolist()
@@ -301,21 +395,25 @@ class data_lsst_fastdb(Program):
         t_coadd = vstack(t_coadd_list)
         t_coadd.sort(gpar.DATAKEY_MJD)  # re-sort by MJD
 
-        # covert astropy table back to dictionary of lists  .xyz
-
+        # covert coadd astropy table back to dictionary of lists 
         nobs_coadd = len(t_coadd)
-        phot_coadd_dict = { 'NOBS' : nobs_coadd }
-        for col in colnames:
-            phot_coadd_dict[col] = t_coadd[col].tolist()
 
+        if do_coadd:
+            phot_coadd_dict = { gpar.DATAKEY_NOBS :        nobs_coadd,
+                                gpar.DATAKEY_NOBS_GARBAGE: 0 }
+            for col in colnames:
+                phot_coadd_dict[col] = t_coadd[col].tolist()
+        else:
+            phot_coadd_dict = phot_raw
+            
         del phot_local_dict
         del t_coadd
         del t_phot
         
         return nobs_coadd, phot_coadd_dict, nite_detect_dict
-        # end coadd_by_nite
+    # end coadd_by_nite
         
-    def coadd_single_band(self,t_band):
+    def coadd_single_band(self,t_band, do_coadd):
 
         # coadd table for this band, and also compute number of nites with detection
         
@@ -347,7 +445,11 @@ class data_lsst_fastdb(Program):
             n_group = len(group)
             for col in colnames:
                 val_list    = group[col].data  # list of column valoues over all rows
-            
+
+                if not do_coadd:
+                    t_coadd[col] = None
+                    continue ;
+                
                 if col == gpar.DATAKEY_MJD:
                     t_coadd[col]        = [ np.mean(val_list) ]
                 
@@ -372,7 +474,7 @@ class data_lsst_fastdb(Program):
         t_coadd = vstack(t_coadd_list)
 
         return t_coadd
-        # end coadd_single_band
+    # end coadd_single_band
     
     def force_snr_detections(self, snana_data_dict):
 
@@ -528,10 +630,55 @@ class data_lsst_fastdb(Program):
     # ----------------------------------------------
     def end_read_data_subgroup(self):
         pass
+    
     def end_read_data(self):
-        # global end for reading data                           
-        pass
 
+        self.print_hist_coadd_ratio()
+        # global end for reading data                           
+        return
+
+    def print_hist_coadd_ratio(self):
+        # print ascii historgram of nobs_after_coadd / nobs_before_coadd
+        # to check WFD/DDF separation
+
+        logging.info("")
+        logging.info(" Print distribution of coadd_ratio = nobs_after_coadd/nobs_before_coadd")
+        ratio_list = self.nobs_coadd_ratio
+
+        ratio_min = 0.0
+        ratio_max = 1.0
+        ratio_bin = 0.1
+        bins = np.arange(ratio_min, ratio_max + ratio_bin, ratio_bin)
+        binned_sums, _ = np.histogram(ratio_list, bins = bins )
+
+        mx_bsum = max(binned_sums)
+        nbin = len(binned_sums)
+
+        sym = '*'   # symbol for histogram
+        mxsym = 70  # scale content axis so this max number of symbols displayed
+        
+        logging.info("")
+        logging.info("   coadd_ratio   Nevt")
+        for i in range(0,nbin):
+            r0 = bins[i]
+            r1 = bins[i+1]
+            bsum       = binned_sums[i]
+            nsym       = int(mxsym * (bsum/mx_bsum)+.5)
+            string_sym = sym * nsym
+            hline       = f"  {r0:3.1f} - {r1:3.1f} :  {string_sym} {bsum}"
+            logging.info(f"{hline}")
+                      
+        logging.info("")
+        
+        #from  ascii_graph   import Pyasciigraph
+        #graph = Pyasciigraph()
+        #for line in graph.graph('Data Distribution', binnned_sum):
+        #    print(line)
+        
+        return
+    
+    # end print_hist_coadd_ratio
+    
     def exclude_varlist_obs(self):
         # return list of PHOT columns to excude from output text files
         # see VARNAMES_OBS in makeDataFiles_params.py

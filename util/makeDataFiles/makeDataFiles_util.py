@@ -27,13 +27,26 @@ from astropy.time import Time
 # ==================================================
 def get_garbage_list(flt_list):
     
-    # return index list for items in list that are NOT float
-    #non_float_indices = [idx for idx, val in enumerate(flt_list) \
-    #                     if not (isinstance(val, float) or isinstance(val,int)) ]
+    # return index list for items in list that are NOT float, or equal exactly zero.
 
-    garbage_list = [ not(isinstance(x,float) or isinstance(x,int)) for x in flt_list]
-    n_garbage = garbage_list.count(True)
-    return n_garbage, garbage_list
+    garbage_list_notfloat = [ not(isinstance(x,float) or isinstance(x,int)) for x in flt_list]
+    garbage_list_zero     = [ x == 0.0  for x in flt_list ]
+
+    # define final garbage list with same len as input flt_list:
+    # True for garbage; False otherwise
+    garbage_list  = [ a or b for a,b in zip(garbage_list_notfloat, garbage_list_zero) ]
+    
+    n_garbage_tot      = garbage_list.count(True)
+    n_garbage_notfloat = garbage_list_notfloat.count(True)
+    n_garbage_zero     = garbage_list_zero.count(True)
+    
+    n_garbage_dict =  {
+        gpar.GARBAGEKEY_FLUX_ALL      : n_garbage_tot,
+        gpar.GARBAGEKEY_FLUX_NOTFLOAT : n_garbage_notfloat,
+        gpar.GARBAGEKEY_FLUX_ZERO     : n_garbage_zero
+    }
+    
+    return n_garbage_dict, garbage_list
 
 # ========================================
 def print_elapsed_time(t0, comment):
@@ -335,21 +348,55 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
     line_list.append(f"SCRIPT_COMMAND:    {script_command} ")
     line_list.append(f"USERNAME:          {gpar.USERNAME} ")
     line_list.append(f"HOSTNAME:          {gpar.HOSTNAME}")
-    line_list.append(f"PHOTFLAG_DETECT:   {args.photflag_detect}")
-    line_list.append(f"PHOTFLAG_GARBAGE:  {args.photflag_garbage}")
+
+    line_photflag_detect  = f"PHOTFLAG_DETECT:   {args.photflag_detect}"
+    line_photflag_garbage = f"PHOTFLAG_GARBAGE:  {args.photflag_garbage}"
+    line_list.append(line_photflag_detect)
     
     n_list = []
+    nchar_key = 25
+
+    # - - - - - - -
+    TEST_NO_GARBAGE = 0  # only to test printing with no garbage
+    if TEST_NO_GARBAGE > 0:
+        for key in gpar.KEYLIST_README_STATS:
+            if 'GARBAGE' in key:
+                readme_stats[key] = 0
+    # - - - - - - 
     
+    n_garbabe_key    = 0
+    NEVT_GARBAGE_ALL = readme_stats[ 'NEVT_' + gpar.GARBAGEKEY_ALL ]
+    if NEVT_GARBAGE_ALL > 0:
+        color_char   = gpar.COLOR_RED
+        line_garbage = '# [___]  @![#$)%^&*("?]/@![#$)%^&*("?]/@![#$)%^&*("?]/@![#$)%^&*("?]'
+    else:
+        color_char   = gpar.COLOR_GREEN
+        line_garbage = '# \u2665'  # special symbol for Rob when there is no garbage
+    # - - - - - -
     for key in gpar.KEYLIST_README_STATS:
         key_plus_colon = f"{key}:"
         n = readme_stats[key]
         n_list.append(n)
-        line_list.append(f"{key_plus_colon:<22}   {n}")
 
+        # isolate garbage keys with pad spaces (for human readability)
+        is_garbage = 'GARBAGE' in key
+        if is_garbage : n_garbabe_key += 1
+        if n_garbabe_key  == 1:
+            line_list.append(color_char)
+            line_list.append(line_garbage)
+            line_list.append(line_photflag_garbage)
+        if n_garbabe_key > 1 and not is_garbage:
+            line_list.append(line_garbage )
+            line_list.append(gpar.COLOR_ESCAPE)
+            n_garbabe_key = 0
+            
+        line_list.append(f"{key_plus_colon:<{nchar_key}}  {n}")
+
+    # - - - - - 
     if walltime_sec > 0.0 :
         walltime_min = walltime_sec / 60.0
         key_plus_colon = "WALLTIME:"
-        line_list.append(f"{key_plus_colon:<22}   {walltime_min:.2f}   # minutes")
+        line_list.append(f"{key_plus_colon:<{nchar_key}}   {walltime_min:.2f}   # minutes")
 
     nevt_all = n_list[0]
     if nevt_all == 0 : nevt_all=1  # never allow abort on 0 events.

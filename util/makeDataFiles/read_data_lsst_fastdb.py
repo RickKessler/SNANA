@@ -236,50 +236,33 @@ class data_lsst_fastdb(Program):
 
     
         nobs_before_coadd = nobs
-
-        # check for garbage/missing coordinates
-        RA  = snana_head_raw[gpar.DATAKEY_RA]
-        DEC = snana_head_raw[gpar.DATAKEY_DEC]
-        if not (isinstance(RA, float) and isinstance(DEC,float) ):
-            snana_head_raw[gpar.GARBAGEKEY_RADEC] = True
-
             
         # - - - - - - --  -
         # load light curve info 
         snana_phot_raw          = self.init_phot_dict(nobs)
         snana_phot_raw['NOBS']  = nobs        
 
-        self.check_garbage_flt(rootid, None, [])  # init garbage counter
-
+        self.set_garbage_list(evt, rootid, None, [])  # init garbage counter
+        
         for key_snana in DATAKEY_PHOT_LIST:
             key_fastdb = KEYMAP.setdefault(key_snana,None)
             if key_fastdb in lc_dict :
                 val_list   = lc_dict[key_fastdb]
-                if 'FLUXCAL' in key_snana:
-
-                    #if evt % 23 == 0 and 'ERR' in key_snana: val_list[0] = None # xxx remove
                     
-                    n_garbage = self.check_garbage_flt(rootid, key_snana, val_list)
-                    if n_garbage == 0:
+                if 'FLUXCAL' in key_snana:                    
+                    self.set_garbage_list(evt, rootid, key_snana, val_list)
+                    
+                    if self.n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL] == 0:
                         val_list = [ x*FLUXSCALE_SNANA for x in val_list ]
-                    pass
+                
                 if key_snana == gpar.DATAKEY_PHOTFLAG:
                     val_list = [ args.photflag_detect * int(x) for x in lc_dict['isdet'] ]
                 
                 snana_phot_raw[key_snana] = val_list
 
+        
         # tack on GARBAGE bit
-        nobs_garbage = self.garbage_list.count(True)
-        snana_phot_raw[gpar.DATAKEY_NOBS_GARBAGE] = nobs_garbage
-
-        if nobs_garbage > 0:
-            photflag_before  = snana_phot_raw[gpar.DATAKEY_PHOTFLAG] 
-            photflag_garbage = [ args.photflag_garbage * int(x) for x in self.garbage_list ]
-            
-            snana_phot_raw[gpar.DATAKEY_PHOTFLAG] = \
-                [a+b for a,b in zip(photflag_before,photflag_garbage)]
-            snana_head_raw[gpar.GARBAGEKEY_FLUX] = True  # global flag at top of data file
-
+        self.check_garbage(snana_head_raw, snana_phot_raw)
             
         # store first/second/last MJD_DETECT before coadd        
         self.store_mjd_detections(snana_head_calc, snana_phot_raw)
@@ -287,6 +270,7 @@ class data_lsst_fastdb(Program):
         # do nightly coadd on snana dictionary if (1) coadd is requested
         # as command line arg, and (2) there is no garbage
         # [coadding would hide the garbage]
+        nobs_garbage = self.n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL]
         do_coadd = args.coadd_by_nite and nobs_garbage == 0
 
         nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \
@@ -325,9 +309,6 @@ class data_lsst_fastdb(Program):
 
         # construct SNANA dictionary
 
-        # xxxxxx mark xxxx
-        #print(f" xxx {gpar.GARBAGEKEY_RADEC} = " \
-        #     f"{snana_head_raw[gpar.GARBAGEKEY_RADEC]}"  )
                     
         snana_data_dict = {
             'head_raw'     : snana_head_raw,
@@ -351,20 +332,89 @@ class data_lsst_fastdb(Program):
     
     # end read_event
 
-    def check_garbage_flt(self, rootid, key, val_list):
-        # check for garbage in this val_list 
+    def fudge_garbabe_obs(self, evt, key_snana, val_list):
+
+        # fudge garbage in observation to test garbage tracking infrastructure
+        val_list_garbage = val_list
+        match_key = (gpar.DATAKEY_FLUXCALERR == key_snana)
+        match_evt = (evt % 23 == 0)
+        if match_key and match_evt :
+            val_list[0] = None 
+
+        return val_list_garbage
+        
+    def check_garbage(self, snana_head_raw, snana_phot_raw):
+
+        # if there is garbage, set garbage keys in snana_head_raw & snana_phot_raw
+
+        args   = self.config_inputs['args']
+        
+        # check for garbage/missing coordinates
+        RA  = snana_head_raw[gpar.DATAKEY_RA]
+        DEC = snana_head_raw[gpar.DATAKEY_DEC]
+        if not (isinstance(RA, float) and isinstance(DEC,float) ):
+            snana_head_raw[gpar.GARBAGEKEY_RADEC] = True
+        
+        nobs_garbage = self.n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL] 
+        snana_phot_raw[gpar.DATAKEY_NOBS_GARBAGE] = nobs_garbage
+
+        if nobs_garbage > 0:
+            photflag_before  = snana_phot_raw[gpar.DATAKEY_PHOTFLAG] 
+            photflag_garbage = [ args.photflag_garbage * int(x) for x in self.garbage_list ]
+
+            # set PHOTFLAG garbage bit for each obs that has garbage flux or fluxerr
+            snana_phot_raw[gpar.DATAKEY_PHOTFLAG] = \
+                [a+b for a,b in zip(photflag_before,photflag_garbage)]
+
+            # for each garbage type, set header tag to print at top of each data file
+            for key in list(self.n_garbage_dict.keys()):
+                n = self.n_garbage_dict[key]  # number of obs with garbage flux
+                if n > 0:
+                    snana_head_raw[key]  = True
+
+        # - - - - - - - -
+        # if any garbage key is set, set the ALL flag
+        for k in GARBAGEKEY_LIST:
+            if snana_head_raw[k]:
+                snana_head_raw[gpar.GARBAGEKEY_ALL] = True
+                
+        return
+    
+    def set_garbage_list(self, evt, rootid, key, val_list):
+        
+        # check for garbage in this val_list defined by
+        #   + not a float
+        #   + exact value is zero
 
         if len(val_list) == 0:
+            # init garbage list and dictionary of counters
             self.garbage_list = [False] * self.nobs
+            self.n_garbage_dict = {
+                gpar.GARBAGEKEY_FLUX_ALL :     0,
+                gpar.GARBAGEKEY_FLUX_ZERO:     0,
+                gpar.GARBAGEKEY_FLUX_NOTFLOAT: 0
+            }
+            return
 
-        old_list        = self.garbage_list
-        n_new, new_list = util.get_garbage_list(val_list)
+        # - - - - - - -
+        FUDGE_GARBAGE_DEBUG = 0  # manual enable/disable
+        if FUDGE_GARBAGE_DEBUG > 0 :
+            val_list = self.fudge_garbabe_obs(evt, key, val_list)
 
+        # - - - - - -
+        old_garbage_list        = self.garbage_list
+        new_n_garbage_dict, new_garbage_list = util.get_garbage_list(val_list)
+        
+        n_new = new_n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL]
         if n_new > 0:
             logging.info(f" WARNING: {n_new} garbage {key} values for ROOTID={rootid}")
-            self.garbage_list = [a or b for a, b in zip(old_list,new_list)]
+            self.garbage_list = [a or b for a, b in zip(old_garbage_list,new_garbage_list)]
 
-        return n_new
+            # increment garbage counter for each type of flt garbage
+            for key in list(new_n_garbage_dict.keys()) :
+                self.n_garbage_dict[key] += new_n_garbage_dict[key]
+                
+        return 0
     
     def coadd_by_nite(self, phot_raw, do_coadd):
 

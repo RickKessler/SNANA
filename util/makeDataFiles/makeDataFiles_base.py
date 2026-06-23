@@ -731,15 +731,8 @@ class Program:
         head_raw   = data_event_dict['head_raw']
         head_calc  = data_event_dict['head_calc']
         phot_raw   = data_event_dict['phot_raw']
-
         
-        n_spectra     = data_event_dict.setdefault('n_spectra',0)
         index_unit    = data_event_dict['index_unit']
-        
-        #nobs_garbage  = phot_raw[gpar.DATAKEY_NOBS_GARBAGE]
-        has_garbage_radec = head_raw[gpar.GARBAGEKEY_RADEC]
-        has_garbage_flux  = head_raw[gpar.GARBAGEKEY_FLUX]  
-        has_garbage       = has_garbage_radec or has_garbage_flux
         
         readme_stats  = self.config_data['readme_stats_list'][index_unit]
         readme_sum    = self.config_data['readme_stats_sum']
@@ -756,6 +749,16 @@ class Program:
         # everything below is ACCEPTED
         # - - - - - -  - - - - - - - - - - -         
 
+        HAS_WRITTEN  = True
+        
+        # update garbage stats
+        has_garbage_list = []
+        for key in gpar.GARBAGEKEY_LIST :
+            has_garbage_list.append(head_raw[key])
+
+        #sys.exit(f"\n xxx gpar.GARBAGEKEY_LIST = \n{gpar.GARBAGEKEY_LIST} \n" \
+        #         f" xxx has_garbage_list = {has_garbage_list}")
+        
         # update stats by field
         field        = head_raw[gpar.DATAKEY_FIELD]
         dockey_field = f"{gpar.KEYPREFIX_NEVT_WRITE_BY_FIELD}({field})"
@@ -766,26 +769,32 @@ class Program:
         readme_sum[dockey_field]    += 1        
         
         # update stats that will eventually written to README file
-        specz  = -9.0
-        photoz = -9.0
-        
+        has_specz = False ; has_photoz = False
         if gpar.HOSTKEY_SPECZ  in head_raw:
-            specz  = head_raw[gpar.HOSTKEY_SPECZ]
+            has_specz  = head_raw[gpar.HOSTKEY_SPECZ] > 0.0
         if gpar.HOSTKEY_PHOTOZ in head_calc:
-            photoz = head_calc[gpar.HOSTKEY_PHOTOZ]
+            has_photoz = head_calc[gpar.HOSTKEY_PHOTOZ] > 0.0
 
+        n_spectra     = data_event_dict.setdefault('n_spectra',0)        
+        has_spectra   = n_spectra > 0
 
         #  - - - - -
-        keylist_subset = [ gpar.KEY_README_NEVT_WRITE_ALL,
-                           gpar.KEY_README_NEVT_WRITE_GARBAGE,
-                           gpar.KEY_README_NEVT_WRITE_HOST_ZSPEC,
-                           gpar.KEY_README_NEVT_WRITE_HOST_ZPHOT,
-                           gpar.KEY_README_NEVT_WRITE_SPECTRA ]
-        is_subset_list   = [ True,
-                             has_garbage,
-                             specz > 0.0,
-                             photoz > 0.0,
-                             n_spectra > 0 ]
+        keylist_subset = \
+            gpar.KEYLIST_GARBAGE_STATS + \
+            [ gpar.KEY_README_NEVT_WRITE_ALL,
+              gpar.KEY_README_NEVT_WRITE_HOST_ZSPEC,
+              gpar.KEY_README_NEVT_WRITE_HOST_ZPHOT,
+              gpar.KEY_README_NEVT_WRITE_SPECTRA
+             ]
+        
+        is_subset_list  = \
+            has_garbage_list + \
+            [
+                HAS_WRITTEN,
+                has_specz,
+                has_photoz,
+                has_spectra
+            ]
 
         for key, is_subset in zip(keylist_subset, is_subset_list):
             if is_subset:

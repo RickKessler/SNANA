@@ -59,6 +59,9 @@ SURVEY_INFO = {
     }
 }
 
+COLOR_RED     = '\033[31m'
+COLOR_GREEN   = '\033[32m'
+COLOR_ESCAPE  = '\033[0m'
 
 # =============================================================================
 # SNANA specifics
@@ -145,7 +148,7 @@ NEVT_SCREEN_UPDATE = 500
 
 # -----------------------------------------------------------------------------
 # define yaml keys to store statistics for README
-KEY_README_NEVT_WRITE_GARBAGE    = "NEVT_WRITE_GARBAGE"
+
 KEY_README_NEVT_PROCESS_ALL      = "NEVT_PROCESS_ALL"
 KEY_README_NEVT_WRITE_ALL        = "NEVT_WRITE_ALL"
 KEY_README_NEVT_WRITE_HOST_ZSPEC = "NEVT_WRITE_HOST_ZSPEC"
@@ -156,15 +159,24 @@ KEY_README_NEVT_UNDEF            = "NEVT_UNDEFINED"
 
 KEYPREFIX_NEVT_WRITE_BY_FIELD    = "NEVT_WRITE_BY_FIELD"  # full key adds ({field})
 
-KEYLIST_README_STATS = [
-    KEY_README_NEVT_WRITE_GARBAGE,
+GARBAGEKEY_ALL           = 'GARBAGE_ALL'   # any of GARBAGE types below
+GARBAGEKEY_RADEC         = 'GARBAGE_RADEC'
+GARBAGEKEY_FLUX_NOTFLOAT = 'GARBAGE_FLUX_NOTFLOAT'
+GARBAGEKEY_FLUX_ZERO     = 'GARBAGE_FLUX_ZERO'
+GARBAGEKEY_FLUX_ALL      = 'GARBAGE_FLUX_ALL'    # OR of 2 above
+GARBAGEKEY_LIST = [ GARBAGEKEY_ALL, GARBAGEKEY_RADEC,
+                    GARBAGEKEY_FLUX_NOTFLOAT, GARBAGEKEY_FLUX_ZERO ]
+KEYLIST_GARBAGE_STATS = [  'NEVT_' + k for k in  GARBAGEKEY_LIST ]
+
+KEYLIST_README_STATS = KEYLIST_GARBAGE_STATS + \
+[
     KEY_README_NEVT_PROCESS_ALL,
     KEY_README_NEVT_WRITE_ALL,
     KEY_README_NEVT_WRITE_HOST_ZSPEC,
     KEY_README_NEVT_WRITE_HOST_ZPHOT,
     KEY_README_NEVT_WRITE_SPECTRA,
     KEY_README_NEVT_REJECT
-]
+] 
 
 STRING_SELECT = "SELECT"
 STRING_REJECT = "REJECT"
@@ -212,6 +224,7 @@ DATAKEY_N_DETECT          = "N_DETECT"   # total number of detections
 DATAKEY_NOBS          = "NOBS"
 DATAKEY_NOBS_GARBAGE  = "NOBS_GARBAGE"
 
+
 HOSTKEY_BASE          = "HOSTGAL"
 HOSTKEY_NMATCH        = "HOSTGAL_NMATCH"
 HOSTKEY_NMATCH2       = "HOSTGAL_NMATCH2"
@@ -240,11 +253,6 @@ HOSTKEY_PREFIX_SB      = "HOSTGAL_SB_FLUXCAL"  # idem
 HOSTKEY_PREFIX_ZPHOT_Q       = "HOSTGAL_ZPHOT_Q"
 
 
-GARBAGEKEY_RADEC  = 'GARBAGE_RADEC'
-GARBAGEKEY_FLUX   = 'GARBAGE_FLUX'
-GARBAGEKEY_MJD    = 'GARBAGE_MJD'
-GARBAGEKEY_BAND   = 'GARBAGE_BAND'
-
 # =============================================================================
 # LISTS
 # =============================================================================
@@ -269,7 +277,6 @@ DATAKEY_LIST_RAW = [
     HOSTKEY_ELLIP,  HOSTKEY_SQRADIUS
 ]
 
-GARBAGEKEY_LIST = [ GARBAGEKEY_RADEC, GARBAGEKEY_FLUX, GARBAGEKEY_MJD, GARBAGEKEY_BAND ]
 
 # -----------------------------------------------------------------------------
 DATAKEY_LIST_CALC = [

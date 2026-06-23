@@ -82,13 +82,18 @@ class data_lsst_fastdb(Program):
         config_data = {}
         logging.info("Init data_lsst_fastdb class.")
         gpar.PREFIX_SEASON = "CHUNK"  # intermediate prefix on data files
-        
+
         super().__init__(config_inputs, config_data)
 
     def init_read_data(self):
                 
         args = self.config_inputs['args']  # command line args        
 
+        if args.photflag_detect == 0:
+            args.photflag_detect = PHOTFLAG_DETECT
+        if args.photflag_garbage == 0 :
+            args.photflag_garbage = PHOTFLAG_GARBAGE
+                    
         logging.info('')
         logging.info("Begin init_read_data")        
         logging.info("Connect to FASTDBClient")
@@ -98,13 +103,15 @@ class data_lsst_fastdb(Program):
         res = fdb.post( "count/rootid/realtime" )
         nlc_tot = res['count']
         logging.info(f" Total number of light curves in fastdb:  {nlc_tot} ")
-        if args.nevt < nlc_tot:            nlc_tot = args.nevt
+        if args.nevt < nlc_tot:      nlc_tot = args.nevt
         logging.info(f" Total number of light curves to extract:  {nlc_tot} ")
 
         n_subgroup = int( ( nlc_tot-1) / MXOBJ_PER_FETCH) + 1
         logging.info(f" Will read {n_subgroup} groups of {MXOBJ_PER_FETCH} objects")
         logging.info(f" coadd_by_nite: {args.coadd_by_nite} ")
-                     
+        logging.info(f" PHOTFLAG[DETECT,GARBAGE] = " \
+                     "{args.photflag_detect} {args.photflag_garbage}")
+        
         self.fdb        = fdb
         self.nlc_tot    = nlc_tot
         self.n_subgroup = n_subgroup
@@ -137,7 +144,10 @@ class data_lsst_fastdb(Program):
         isplit_select = args.isplitran  # 1 to nsplit, or -1 for all                                               
         n_fetch    = min(MXOBJ_PER_FETCH,args.nevt)
         n_offset   = i_subgroup * MXOBJ_PER_FETCH
-        
+
+        if n_offset + n_fetch > args.nevt:
+            n_fetch = args.nevt - n_offset
+            
         if n_offset >= nlc_tot:
             return -1  # done reading
 
@@ -247,14 +257,14 @@ class data_lsst_fastdb(Program):
                 val_list   = lc_dict[key_fastdb]
                 if 'FLUXCAL' in key_snana:
 
-                    #if evt % 3 == 0 and 'ERR' in key_snana: val_list[0] = None # xxx remove
+                    #if evt % 23 == 0 and 'ERR' in key_snana: val_list[0] = None # xxx remove
                     
                     n_garbage = self.check_garbage_flt(rootid, key_snana, val_list)
                     if n_garbage == 0:
                         val_list = [ x*FLUXSCALE_SNANA for x in val_list ]
                     pass
                 if key_snana == gpar.DATAKEY_PHOTFLAG:
-                    val_list = [ PHOTFLAG_DETECT * int(x) for x in lc_dict['isdet'] ]
+                    val_list = [ args.photflag_detect * int(x) for x in lc_dict['isdet'] ]
                 
                 snana_phot_raw[key_snana] = val_list
 
@@ -264,7 +274,7 @@ class data_lsst_fastdb(Program):
 
         if nobs_garbage > 0:
             photflag_before  = snana_phot_raw[gpar.DATAKEY_PHOTFLAG] 
-            photflag_garbage = [ PHOTFLAG_GARBAGE * int(x) for x in self.garbage_list ]
+            photflag_garbage = [ args.photflag_garbage * int(x) for x in self.garbage_list ]
             
             snana_phot_raw[gpar.DATAKEY_PHOTFLAG] = \
                 [a+b for a,b in zip(photflag_before,photflag_garbage)]
@@ -517,7 +527,7 @@ class data_lsst_fastdb(Program):
 
         # compute and store MJD_DETECT_[FIRST/SECOND/LAST]
         args            = self.config_inputs['args']        
-        photflag_detect = PHOTFLAG_DETECT
+        photflag_detect = args.photflag_detect
         
         #head_calc    = snana_data_dict['head_calc']
         #phot_raw     = snana_data_dict['phot_raw']
@@ -569,7 +579,8 @@ class data_lsst_fastdb(Program):
         return
 
     def count_detect(self,photflag_list):
-        detect_list   = [ (int(x) & PHOTFLAG_DETECT )>0 for x in photflag_list ]
+        args          = self.config_inputs['args']        
+        detect_list   = [ (int(x) & args.photflag_detect )>0 for x in photflag_list ]
         n_detect      = detect_list.count(True)
         return n_detect, detect_list
     
@@ -641,8 +652,7 @@ class data_lsst_fastdb(Program):
         # print ascii historgram of nobs_after_coadd / nobs_before_coadd
         # to check WFD/DDF separation
 
-        logging.info("")
-        logging.info(" Print distribution of coadd_ratio = nobs_after_coadd/nobs_before_coadd")
+
         ratio_list = self.nobs_coadd_ratio
 
         ratio_min = 0.0
@@ -652,8 +662,12 @@ class data_lsst_fastdb(Program):
         binned_sums, _ = np.histogram(ratio_list, bins = bins )
 
         mx_bsum = max(binned_sums)
-        nbin = len(binned_sums)
+        nbin    = len(binned_sums)
 
+        if mx_bsum == 0 : return
+
+        logging.info("")
+        logging.info(" Print distribution of coadd_ratio = nobs_after_coadd/nobs_before_coadd") 
         sym = '*'   # symbol for histogram
         mxsym = 70  # scale content axis so this max number of symbols displayed
         

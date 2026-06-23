@@ -305,6 +305,10 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
     data_format  = readme_dict['data_format']
     docana_flag  = readme_dict['docana_flag']
 
+    base   = os.path.basename(readme_file)
+    suffix = base.split('.')[1]  # README or YAML
+    logging.info(f"Write {suffix}: {base}")
+    
     script_command = ' '.join(sys.argv)
     script_command = script_command.replace('\\',' ')
     indent_str = ''
@@ -326,14 +330,16 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
     if args.des_folder is not None:
         line_list.append(f"SOURCE_DES_FOLDER:  {args.des_folder}")
 
-    line_list.append(f"SURVEY:           {args.survey}")
-    #line_list.append(f"FIELD:            {args.field} ")
-    line_list.append(f"FORMAT:           {data_format} ")
-    line_list.append(f"SCRIPT_COMMAND:   {script_command} ")
-    line_list.append(f"USERNAME:         {gpar.USERNAME} ")
-    line_list.append(f"HOSTNAME:         {gpar.HOSTNAME}")
-
+    line_list.append(f"SURVEY:            {args.survey}")
+    line_list.append(f"FORMAT:            {data_format} ")
+    line_list.append(f"SCRIPT_COMMAND:    {script_command} ")
+    line_list.append(f"USERNAME:          {gpar.USERNAME} ")
+    line_list.append(f"HOSTNAME:          {gpar.HOSTNAME}")
+    line_list.append(f"PHOTFLAG_DETECT:   {args.photflag_detect}")
+    line_list.append(f"PHOTFLAG_GARBAGE:  {args.photflag_garbage}")
+    
     n_list = []
+    
     for key in gpar.KEYLIST_README_STATS:
         key_plus_colon = f"{key}:"
         n = readme_stats[key]

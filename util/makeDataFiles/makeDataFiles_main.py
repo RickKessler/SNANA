@@ -96,8 +96,12 @@ def get_args():
     msg = "do coadd by nite"
     parser.add_argument("--coadd_by_nite", help=msg, action="store_true")
     
-    msg = "photflag mask for detections (default=4096)"
-    parser.add_argument("--photflag_detect", help=msg, type=int, default=4096)
+    msg = "photflag mask for detections (default=class value)"
+    parser.add_argument("--photflag_detect", help=msg, type=int, default=0)
+
+    msg = "photflag mask for garbage (default=class value)"
+    parser.add_argument("--photflag_garbage", help=msg, type=int, default=0)    
+    
     msg = "define detction with this SNR (if no PHOTFLAG bit)"
     parser.add_argument("--snr_detect", help=msg, type=float, default=None)    
 

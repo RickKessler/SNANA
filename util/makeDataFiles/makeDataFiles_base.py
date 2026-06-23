@@ -17,6 +17,7 @@ import os
 import sys
 import logging
 import datetime
+from pathlib import Path
 
 # import numpy as np
 # import yaml
@@ -48,6 +49,8 @@ class Program:
         logging.info("  Base init")
 
         self.config_data['t_start'] = datetime.datetime.now()
+        self.config_data['PHOTFLAG_DETECT']  = 0
+        self.config_data['PHOTFLAG_GARBAGE'] = 0
 
         # init all possible data units
         self.init_data_unit()
@@ -62,9 +65,8 @@ class Program:
             if outdir:
                 args.outdir = outdir  # for diagnostic printout at end of job
                 if not os.path.exists(outdir):
-                    logging.info(f" Create top-dir for light curves: {outdir}")
-                    sys.stdout.flush()
                     os.mkdir(outdir)
+                    logging.info(f" Create top-dir for light curves: {outdir}")
 
         # - - - - -
         self.extend_DATAKEY_LIST()
@@ -701,7 +703,7 @@ class Program:
             'data_format'  : gpar.FORMAT_TEXT,
             'docana_flag'  : False       # no DOCUMENTATION block
         }
-        util.write_readme(args,readme_dict, t_proc )
+        util.write_readme(args,readme_dict, t_proc )  # write yaml file
 
         # end write_yaml_file
 
@@ -731,12 +733,16 @@ class Program:
         phot_raw   = data_event_dict['phot_raw']
 
         
-        n_spectra    = data_event_dict.setdefault('n_spectra',0)
-        index_unit   = data_event_dict['index_unit']
-        nobs_garbage = phot_raw[gpar.DATAKEY_NOBS_GARBAGE]
+        n_spectra     = data_event_dict.setdefault('n_spectra',0)
+        index_unit    = data_event_dict['index_unit']
         
-        readme_stats = self.config_data['readme_stats_list'][index_unit]
-        readme_sum   = self.config_data['readme_stats_sum']
+        #nobs_garbage  = phot_raw[gpar.DATAKEY_NOBS_GARBAGE]
+        has_garbage_radec = head_raw[gpar.GARBAGEKEY_RADEC]
+        has_garbage_flux  = head_raw[gpar.GARBAGEKEY_FLUX]  
+        has_garbage       = has_garbage_radec or has_garbage_flux
+        
+        readme_stats  = self.config_data['readme_stats_list'][index_unit]
+        readme_sum    = self.config_data['readme_stats_sum']
         
         # always increment total number processed, regardless of status
         readme_stats[gpar.KEY_README_NEVT_PROCESS_ALL] += 1
@@ -753,8 +759,11 @@ class Program:
         # update stats by field
         field        = head_raw[gpar.DATAKEY_FIELD]
         dockey_field = f"NEVT_WRITE_BY_FIELD({field})"
-        if dockey_field not in readme_stats: readme_stats[dockey_field] = 0
-        readme_stats[dockey_field] += 1
+        if dockey_field not in readme_stats:
+            readme_stats[dockey_field] = 0
+            readme_sum[dockey_field]   = 0
+        readme_stats[dockey_field]  += 1
+        readme_sum[dockey_field]    += 1        
         
         # update stats that will eventually written to README file
         specz  = -9.0
@@ -766,13 +775,14 @@ class Program:
             photoz = head_calc[gpar.HOSTKEY_PHOTOZ]
 
 
+        #  - - - - -
         keylist_subset = [ gpar.KEY_README_NEVT_WRITE_ALL,
                            gpar.KEY_README_NEVT_WRITE_GARBAGE,
                            gpar.KEY_README_NEVT_WRITE_HOST_ZSPEC,
                            gpar.KEY_README_NEVT_WRITE_HOST_ZPHOT,
                            gpar.KEY_README_NEVT_WRITE_SPECTRA ]
         is_subset_list   = [ True,
-                             nobs_garbage > 0,
+                             has_garbage,
                              specz > 0.0,
                              photoz > 0.0,
                              n_spectra > 0 ]

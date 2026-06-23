@@ -91,7 +91,7 @@ def write_event_text_snana(args, config_data, data_event_dict):
             write_header_snana(f,head_sim)
 
         # write epoch/phot info
-        write_phot_snana(f, head_raw, phot_raw, config_data)
+        write_phot_snana(f, head_raw, phot_raw, args, config_data)
 
         # write optional spectra
         write_spec_snana(f, head_raw, spec_raw)
@@ -203,10 +203,11 @@ def write_header_snana(f, data_head):
 
     # end write_header_snana
 
-def write_phot_snana(f, head_raw, phot_raw, config_data):
+def write_phot_snana(f, head_raw, phot_raw, args, config_data):
 
     # write photometry (phot_raw) in SNANA format to text file
     # poitner f.
+
     nvar_obs      = config_data['nvar_obs']
     varlist_obs   = config_data['varlist_obs']
     varlist_fmt   = config_data['varlist_fmt']
@@ -221,8 +222,9 @@ def write_phot_snana(f, head_raw, phot_raw, config_data):
     f.write(f"\n# -------------------------------------- \n# obs info\n")
     
     if NOBS_GARBAGE > 0:
-        f.write(f"NOBS_GARBAGE: {NOBS_GARBAGE}  \n")
-        # f"# see obs with PHOTFLAG & {gpar.PHOTFLAG_GARBAGE}\n")
+        f.write(f"NOBS_GARBAGE: {NOBS_GARBAGE}  " \
+                f"# see obs with PHOTFLAG & {args.photflag_garbage}; " \
+                f"FLUX={gpar.VAL_ABORT} -> None in fastdb\n")
 
     f.write(f"NOBS: {NOBS} \n");
     f.write(f"NVAR: {nvar_obs} \n");
@@ -323,12 +325,12 @@ def write_aux_files_snana(name, args, config_data):
     # write auxilary files (.LIST and .README) for data unit "name"
     # with TEXT formatted files.
 
-    outdir        = args.outdir_snana
-    nevent_list   = config_data['data_unit_nevent_list']
-    name_list     = config_data['data_unit_name_list']
-    prefix        = config_data['data_folder_prefix']
+    outdir            = args.outdir_snana
+    nevent_list       = config_data['data_unit_nevent_list']
+    name_list         = config_data['data_unit_name_list']
+    prefix            = config_data['data_folder_prefix']
     readme_stats_list = config_data['readme_stats_list']
-    t_proc        = config_data['t_proc']
+    t_proc            = config_data['t_proc']
     
     folder_out  = output_data_folder_name(config_data, name, True)
     index_unit  = name_list.index(name)
@@ -355,7 +357,7 @@ def write_aux_files_snana(name, args, config_data):
         if 'NEVT_WRITE_BY_FIELD'  in key:
             global KEYLIST_README_STATS
             gpar.KEYLIST_README_STATS.append(key)
-    
+
     # prepare standard readme dictionary for global utility write_readme
     readme_dict = {
         'readme_file'  : readme_file,
@@ -363,7 +365,6 @@ def write_aux_files_snana(name, args, config_data):
         'data_format'  : gpar.FORMAT_TEXT,
         'docana_flag'  : True
     }
-
 
     util.write_readme(args, readme_dict, t_proc)
 
@@ -568,7 +569,8 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
 
     n_move = 0
     statsum_dict = {}
-    for key in gpar.KEYLIST_README_STATS:   statsum_dict[key] = 0
+    for key in gpar.KEYLIST_README_STATS:
+        statsum_dict[key] = 0
 
     folder_list = glob.glob1(outdir, f"{folder_list_string}" )
     for folder in folder_list :

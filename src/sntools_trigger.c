@@ -366,7 +366,7 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
 
   double VAL, EFF;
   int  IREAD, imap, NBIN ;
-  char ctmp[MXFILTINDX] ;
+  char ctmp[MXFILTINDX];
   char fnam[] = "readMap_SEARCHEFF_DETECT";  (void)fnam;
 
   // ------------ BEGIN -------------
@@ -396,7 +396,7 @@ int readMap_SEARCHEFF_DETECT  (FILE *fp,  char *key) {
     }
 
     readchar(fp,ctmp);
-    sprintf(SEARCHEFF_DETECT[imap].FILTERLIST, "%s", ctmp);  //.xyz
+    sprintf(SEARCHEFF_DETECT[imap].FILTERLIST, "%s", ctmp); 
     strcat(FILTERLIST_ALL_SEARCHEFF_DETECT,ctmp); // May 22 2026
     return(1);
   }
@@ -2011,6 +2011,7 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
   *****/
 
   int  LFIND1_PIPELINE, LFIND2_SPECID, LFIND3_zHOST, MASK ;
+  int LDMP = 0;
   char fnam[]  = "gen_SEARCHEFF" ; (void)fnam;
 
   // ----------------- BEGIN -------------
@@ -2069,6 +2070,12 @@ int gen_SEARCHEFF ( int ID                  // (I) identifier
     MASK |= APPLYMASK_SEARCHEFF_zSPEC   ;  // Mar 7 2026: got zSPEC
   }
 
+  if ( LDMP ) {
+    printf(" xxx %s: LFIND[DETECT,SPECID,zHOST] = %d  %d  %d  (MASK=%d)\n",
+	   fnam, LFIND1_PIPELINE, LFIND2_SPECID, LFIND3_zHOST, MASK);
+    fflush(stdout);
+  }
+
   return(MASK) ;
 
 } // end of gen_SEARCHEFF
@@ -2109,18 +2116,6 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   //
   //    SEARCHEFF_DATA.PHOTPROB[obs] 
   //
-  // Jan 2014: use SEARCHEFF_DATA struct instead of GENLC
-  //
-  // Oct 7 2017: fix buggy logic for MJD_TRIGGER and possibly the
-  //             logic for determining trigger logic
-  //             Bug impacts triggers formed within 1 night.
-  //
-  // Mar 14 2018: 
-  //   + check to compute PHOTPROB from map.
-  //   + on epoch satisfying trigger, set 2-bit for detectFlag
-  //   + Refactor and fix logic to ignore MAG_UNDEFINED epochs
-  //   + Refactor and fix logic so that MJD_TRIGGER is correct
-  //
   // Feb 17 2020
   //  + refactor to implement CUTVAL cut on PHOTPROB and use
   //    it as part of detection.
@@ -2136,7 +2131,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   double  RAN, EFF, MJD, MJD_LAST, MJD_DIF, TDIF_NEXT, SNR,MAG;
   double  PHOTPROB, CUTVAL, SEP_NEAREST_SRC, PSFSIG, MINSEP_DETECT ;
   char CFILT[4];
-  int LDMP  = (ID == -39 ); 
+  int LDMP  = (ID == -1111 ); 
   char fnam[] = "gen_SEARCHEFF_PIPELINE"; (void)fnam;
 
   // ------------- BEGIN -------------
@@ -2156,8 +2151,8 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
 
   if (LDMP ) {
     printf("\n xxx \n");
-    printf(" xxx ------ DUMP CID=%d  NOBS=%d  "
-	   "TDIF_NEXT=%.3f -------------- \n", 	ID, NOBS, TDIF_NEXT );    
+    printf(" xxx ------ %s DUMP CID=%d  NOBS=%d  "
+	   "TDIF_NEXT=%.3f -------------- \n", 	fnam, ID, NOBS, TDIF_NEXT );    
   }
 
   // fill OBSMARKER_DETECT to mark end of each detection period.
@@ -2215,8 +2210,10 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
     SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_PHOTPROB ; 
 
     if ( LDMP ) {
-      printf(" xxx detectFlag[%2d] = %d (IFILTOBS=%d) EFF=%.3f RAN=%.3f\n",
-	     obs, SEARCHEFF_DATA.detectFlag[obs], IFILTOBS, EFF, RAN);
+      sprintf(CFILT,"%c", FILTERSTRING[IFILTOBS] );
+      MJD  = SEARCHEFF_DATA.MJD[obs] ;
+      printf(" xxx detectFlag[%2d] = %d  MJD=%.3f  m_%s=%.3f  EFF=%.3f RAN=%.3f\n",
+	     obs, SEARCHEFF_DATA.detectFlag[obs], MJD,  CFILT,MAG,  EFF, RAN);  // .xyz
       fflush(stdout);
     }
 
@@ -2249,6 +2246,17 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   // loop again over observations to determine trigger.
   // Check both detection and PHOTPROB.
 
+  if ( LDMP ) { 
+    printf("\n xxx\n xxx %s: 2nd obs loop to determine trigger NMJD_DETECT >= %d\n", 
+	   fnam, SEARCHEFF_LOGIC.NMJD); 
+    for ( imask=0; imask < SEARCHEFF_LOGIC.NMASK; imask++ ) {
+      IFILTDEF_MASK = SEARCHEFF_LOGIC.IFILTDEF_MASK[imask];
+      printf(" xxx %s SEARCHEFF_LOGIC.IFILTDEF_MASK[%2d] = %d \n",
+	     fnam, imask, IFILTDEF_MASK );
+    }
+    fflush(stdout);
+  }
+
   for(obs = 0 ; obs < SEARCHEFF_DATA.NOBS; obs++ ) {
 
     SNR      = SEARCHEFF_DATA.SNR_CALC[obs] ;
@@ -2262,14 +2270,14 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
     MARK        = OBSMARKER_DETECT[obs] ;
 
     // set filter-detect mask if both detection and PHOTPROB are satisfied.
-    if ( (DETECT_FLAG & 1) > 0  && (DETECT_FLAG & 4)>0 ) { 
+    if  ( (DETECT_FLAG & DETECT_MASK_SNR)      > 0  && 
+	  (DETECT_FLAG & DETECT_MASK_PHOTPROB) > 0 ) { 
       IFILTOBS_MASK |= ( 1 << IFILTOBS )  ; 
 
       if ( MJD_DETECT->FIRST > 0.99E6 ) { MJD_DETECT->FIRST = MJD; }
       MJD_DETECT->LAST = MJD ;
     }
 
-   
     // Check for trigger if trigger not yet formed, and at least
     // one obs-group marker has passed.  Check IFILTOBS_MASK for detection(s).
 
@@ -2286,15 +2294,22 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
 
       if ( NDETECT>0 && !DETECT_MARK ) { NMJD_DETECT++;  DETECT_MARK=1; }
 
+      if ( LDMP ) {
+	printf(" xxx detectFlag[%2d]=%d  IFILTOBS_MASK=%6d  MJD_FIRST=%.3f NDET=%d NMJD_DET=%d\n",
+	       obs, DETECT_FLAG, IFILTOBS_MASK, MJD_DETECT->FIRST, NDETECT, NMJD_DETECT);
+	fflush(stdout);
+      }
+
       if ( NMJD_DETECT >= SEARCHEFF_LOGIC.NMJD ) {
 	LFIND = 1 ;   MJD_DETECT->TRIGGER = MJD; 
 	SEARCHEFF_DATA.detectFlag[obs] += DETECT_MASK_MJD_TRIGGER ; ;
 	
 	if ( LDMP ) {
+	  sprintf(CFILT,"%c", FILTERSTRING[IFILTOBS] );
 	  printf(" xxx \t NMJD_DETECT=%d at MJD_TRIGGER=%.4f \n",
 		 NMJD_DETECT, MJD );	   
 	  printf(" xxx \t detectFlag=%d  MAG(%s)=%.2f  SNR=%.2f\n",
-		 SEARCHEFF_DATA.detectFlag[obs], CFILT, MAG,SNR );
+		 SEARCHEFF_DATA.detectFlag[obs], CFILT, MAG, SNR );
 	}
       }
 
@@ -2306,6 +2321,12 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
   } // end obs loop
 
     //  if ( LDMP ) {  debugexit(fnam); } // check DUMP ID = 94
+
+  if ( LDMP ) { 
+    printf(" xxx %s: final DETECT=%d for CID=%d \n", fnam, LFIND, ID); 
+    printf(" xxx - - - - - - -\n");
+    fflush(stdout);
+  }
 
   return LFIND ;
 

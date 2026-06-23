@@ -354,7 +354,7 @@ def write_aux_files_snana(name, args, config_data):
     # append KEYLIST_README_STATS with FIELD-dependent stats;
     # have to wait until end to know list of fields
     for key in readme_stats_list[index_unit]:
-        if 'NEVT_WRITE_BY_FIELD'  in key:
+        if gpar.KEYPREFIX_NEVT_WRITE_BY_FIELD  in key:
             global KEYLIST_README_STATS
             gpar.KEYLIST_README_STATS.append(key)
 
@@ -558,7 +558,7 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
     #      single folder LSST_WFD01
 
     msgerr = []
-    logging.info(f"\t Create merge-folder {merge_folder}")
+    logging.info(f"  Create merge-folder {merge_folder}   (MODE={MODE})")
     merge_folder_full = f"{outdir}/{merge_folder}"
     if os.path.exists(merge_folder_full):
         msgerr.append(f"{merge_folder_full} already exists ?!?!?!")
@@ -566,17 +566,19 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
         sys.exit(msgerr)
 
     os.mkdir(merge_folder_full)
-
+    
     n_move = 0
     statsum_dict = {}
     for key in gpar.KEYLIST_README_STATS:
         statsum_dict[key] = 0
 
-    folder_list = glob.glob1(outdir, f"{folder_list_string}" )
+    folder_list = sorted(glob.glob1(outdir, f"{folder_list_string}" ))
+    
     for folder in folder_list :
         n_move += 1
         FOLDER = f"{outdir}/{folder}"
-
+        logging.info(f"\t merge {folder} -> {merge_folder}  ")
+        
         if MODE == gpar.MODE_MERGE_MOVE :
             mv_string = f"*.FITS.gz"
             cmd_mv = f"mv {mv_string} ../{merge_folder}"
@@ -596,8 +598,33 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
         # increment sum stats from readme
         README_file  = f"{FOLDER}/{folder}.README"
         README_yaml  = util.read_yaml(README_file)
+        README_DOCANA = README_yaml[gpar.DOCANA_KEY]
+
+        # loop over README keys and
+        #  + drop keys that make no sense for merged product
+        #  + identify and initialize NEVT_WRITE_BY_FIELD(field) keys
+
+        global KEYLIST_README_STATS        
+        for key in list(README_DOCANA.keys()):
+
+            if key in gpar.KEYLIST_README_STATS:
+                continue
+
+            iskey_drop  = 'SCRIPT' in key   or   'HOSTNAME' in key
+            iskey_field = gpar.KEYPREFIX_NEVT_WRITE_BY_FIELD in key
+            
+            if iskey_drop:
+                del README_DOCANA[key]
+
+            if iskey_field:
+                gpar.KEYLIST_README_STATS.append(key)
+                statsum_dict[key] = 0
+                
+        #keylist_for_humans = ' '.join(README_DOCANA)
+        #logging.info(f" xxx README_DOCANA = {keylist_for_humans}")
+                
         for key in gpar.KEYLIST_README_STATS:
-            NEVT  = README_yaml[gpar.DOCANA_KEY][key]
+            NEVT  = README_DOCANA[key]
             statsum_dict[key] += NEVT
 
     # - - - - - - - -
@@ -605,7 +632,7 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
     README_file = f"{merge_folder_full}/{merge_folder}.README"
     for key in gpar.KEYLIST_README_STATS:
         NEVT = statsum_dict[key]
-        README_yaml[gpar.DOCANA_KEY][key] = statsum_dict[key]
+        README_DOCANA[key] = statsum_dict[key]
         util.write_yaml(README_file,README_yaml)
 
     # - - - -

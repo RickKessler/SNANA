@@ -2213,7 +2213,7 @@ int gen_SEARCHEFF_PIPELINE(int ID, MJD_DETECT_DEF *MJD_DETECT) {
       sprintf(CFILT,"%c", FILTERSTRING[IFILTOBS] );
       MJD  = SEARCHEFF_DATA.MJD[obs] ;
       printf(" xxx detectFlag[%2d] = %d  MJD=%.3f  m_%s=%.3f  EFF=%.3f RAN=%.3f\n",
-	     obs, SEARCHEFF_DATA.detectFlag[obs], MJD,  CFILT,MAG,  EFF, RAN);  // .xyz
+	     obs, SEARCHEFF_DATA.detectFlag[obs], MJD,  CFILT,MAG,  EFF, RAN);  
       fflush(stdout);
     }
 

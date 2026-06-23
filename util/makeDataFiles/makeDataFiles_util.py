@@ -405,6 +405,7 @@ def read_yaml(yaml_file):
     return contents
     # end read_yaml
 
+
 def iyear_survey(survey, event_dict):
     iyear = -1
 

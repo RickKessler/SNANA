@@ -758,7 +758,7 @@ class Program:
 
         # update stats by field
         field        = head_raw[gpar.DATAKEY_FIELD]
-        dockey_field = f"NEVT_WRITE_BY_FIELD({field})"
+        dockey_field = f"{gpar.KEYPREFIX_NEVT_WRITE_BY_FIELD}({field})"
         if dockey_field not in readme_stats:
             readme_stats[dockey_field] = 0
             readme_sum[dockey_field]   = 0

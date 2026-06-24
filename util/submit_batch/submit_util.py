@@ -1465,6 +1465,8 @@ def extract_yaml(input_file, key_start, key_end):
 
     # Jan 2021: ignore everything before key_start and after key_end.
     #           if either key is None, ignore the key
+    #
+    # Jun 23 2026: open with encoding='utf-8' to protect special chars in comments
 
     msgerr = [(f"Cannot find the input yaml file:\n   {input_file}")]
     exist  = os.path.isfile(input_file)
@@ -1474,7 +1476,8 @@ def extract_yaml(input_file, key_start, key_end):
     FLAG_START = key_start is None
     FLAG_END   = False
 
-    with open(input_file, "r") as f:
+
+    with open(input_file, "r", encoding='utf-8') as f:
         for line in f:
             if key_start is not None:
                 if line.startswith(key_start) : FLAG_START = True

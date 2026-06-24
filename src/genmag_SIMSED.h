@@ -1,5 +1,6 @@
 // genmag_SIMSED.h
 
+#define FIX_SIZE_ARG_BINARY false  // False restores buggy size before -Wall compiliation
 
 // define OPTMASK bits for generating params
 #define OPTMASK_GEN_SIMSED_PARAM    1   // continuous interp

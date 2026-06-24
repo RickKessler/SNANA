@@ -23906,7 +23906,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        is written as None, fixed cosmofit bug reading string 'None' and incorreclty
        interpeting as falsey None.
 
-xx
 
 # =============================================================
          v12_02 (June 14 2026) <--- start date of git tag
@@ -23954,5 +23953,7 @@ xx
     plot_table.py
       + fix bug from comma in DOCUMENTATION block trigger csv file with commas
 
+    genmag_SIMSED.c[h]
+      see 
 END:
  

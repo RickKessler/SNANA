@@ -23951,5 +23951,8 @@ xx
       + add these compilation flags: -D_FORTIFY_SOURCE=2  -Wall 
         Note that public yaml.c gives lots of warnings; not so clear how to fix it.
 
+    plot_table.py
+      + fix bug from comma in DOCUMENTATION block trigger csv file with commas
+
 END:
  

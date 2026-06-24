@@ -40,6 +40,7 @@
 # Mar 16 2026: new inputs @@HLINE and @@VLINE to draw horizontal and/or vertical line(s)
 # Mar 23 2026: fix to work with comma-sep csv as well as space-sep csv file.
 # Mar 25 2026: fix bugs from Mar 23 change to allow comma-sep csv
+# Jun 23 2026: fix bug from comma in DOCUMENTATION block that confused check_table_varnames().
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -1715,6 +1716,7 @@ def read_tables(args, plot_info):
             df = copy.deepcopy(df_ref)
         else:
             logging.info(f"Read {tfile_base}")
+
             # Get varname info including number of rows to skip (e.g. skip DOCANA),
             # name of first column identifier, and check that requested
             # variables exist.
@@ -2006,7 +2008,8 @@ def check_table_varnames(tfile, var_list):
     MXROW_SKIP = 200 # stop checking after this many lines
 
     format_table = None
-    colsep       = r"\s+"  # default column separator is whitespace
+    COLSEP_SPACE = r"\s+"  # default column separator is whitespace
+    colsep       = None
 
     for line in t:
 
@@ -2014,7 +2017,7 @@ def check_table_varnames(tfile, var_list):
         if len(line) == 0: line = '#'  # protect checking line[0] below
 
         if line[0] != '#' and COMMA in line:
-            colsep = COMMA
+            #colsep = COMMA
             wdlist = line.split(COMMA)
         else:
             wdlist = line.split()
@@ -2029,14 +2032,18 @@ def check_table_varnames(tfile, var_list):
             first_line_nocomment = line
             table_var_list = wdlist
             format_table   = FORMAT_CSV
+            colsep = COMMA if COMMA in line else COLSEP_SPACE
 
-        if wdlist[0] == 'VARNAMES:' :            
+        if wdlist[0] == 'VARNAMES:' :  
             table_var_list = wdlist[1:]
             format_table   = FORMAT_SNANA_TABLE
+            colsep         = COMMA if COMMA in line else COLSEP_SPACE
             break
         else:
             nrow_read += 1    
 
+    if not colsep:
+        sys.exit(f"\n ERROR in check_table_varnames: could not determine colsep")
     # - - - - - -
     t.close()
 

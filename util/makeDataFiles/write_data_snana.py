@@ -366,7 +366,10 @@ def write_aux_files_snana(name, args, config_data):
         'docana_flag'  : True
     }
 
-    util.write_readme(args, readme_dict, t_proc)
+    README_content = util.create_README_content(args, readme_dict, t_proc)
+    util.write_README_content(readme_file, README_content)
+    
+    # xxx mark del util.write_readme(args, readme_dict, t_proc)
 
     # don't gzip here; instead gzip entire directory using & to return control
     GZIP_DATA_FILES = False
@@ -387,7 +390,8 @@ def convert2fits_snana(args, config_data):
     name_list     = config_data['data_unit_name_list']
     prefix        = config_data['data_folder_prefix']
     readme_stats_list = config_data['readme_stats_list']
-
+    t_proc            = config_data['t_proc']
+    
     NEVT_SPECTRA  = config_data['NEVT_SPECTRA']
     write_spectra = False
 
@@ -464,14 +468,6 @@ def convert2fits_snana(args, config_data):
             for cmd, comment in zip(cmd_list,comment_list):
                 logging.info(f"\t {comment}")
                 os.system(cmd)
-
-            # xxxxx mark delete 
-            #cmd_tar_text  = f"cd {outdir} ; " \
-            #    f"tar -cf {tar_file} {folder_text} ; " \
-            #    f"gzip {tar_file} ; " \
-            #    f"rm -r {folder_text} "
-            # os.system(cmd_tar_text)
-            # xxx end mark delete
             
         # remove YAML file
         cmd_rm = f"rm {yaml_file}"
@@ -485,7 +481,10 @@ def convert2fits_snana(args, config_data):
             'data_format'  : gpar.FORMAT_FITS,
             'docana_flag'  : True
         }
-        util.write_readme(args, readme_dict)
+
+        README_content = util.create_README_content(args, readme_dict, t_proc)
+        util.write_README_content(readme_file, README_content)        
+        # xxx mark util.write_readme(args, readme_dict)
 
         time_1   = datetime.datetime.now()
         time_dif = (time_1 - time_0).total_seconds()
@@ -633,7 +632,9 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
     for key in gpar.KEYLIST_README_STATS:
         NEVT = statsum_dict[key]
         README_DOCANA[key] = statsum_dict[key]
-        util.write_yaml(README_file,README_yaml)
+        util.write_yaml(README_file,README_yaml)  # .xyz
+        #util.write_readme_yaml(README_file, README_yaml)  # .xyz
+
 
     # - - - -
     # remove original folders

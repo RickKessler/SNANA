@@ -703,7 +703,10 @@ class Program:
             'data_format'  : gpar.FORMAT_TEXT,
             'docana_flag'  : False       # no DOCUMENTATION block
         }
-        util.write_readme(args,readme_dict, t_proc )  # write yaml file
+
+        README_content = util.create_README_content(args, readme_dict, t_proc)
+        util.write_README_content(args.output_yaml_file, README_content)
+        # xxx mark util.write_readme(args,readme_dict, t_proc )  # write yaml file
 
         # end write_yaml_file
 

@@ -39,10 +39,10 @@ BAND_LIST_LSST  = list(FILTERLIST_LSST)
 KEYMAP = { # SNANA -> fastdb
 
     # header
-    gpar.DATAKEY_SNID           : "rootid",
+    gpar.DATAKEY_SNID           : 'rootid',
     gpar.DATAKEY_NAME_TRNS      : 'diaobjectid',
-    gpar.DATAKEY_RA             : "ra",
-    gpar.DATAKEY_DEC            : "dec" ,
+    gpar.DATAKEY_RA             : 'ra',
+    gpar.DATAKEY_DEC            : 'dec' ,
 
     # PHOT
     gpar.DATAKEY_MJD         : 'mjd',
@@ -167,6 +167,7 @@ class data_lsst_fastdb(Program):
         if not match_split: return 0
         
         t0 = time.perf_counter()
+        # here is the fastdb magic:
         manyltcvs = fdb.post( "ltcv/getmanyltcvs/realtime",                          
                               json={
                                   'limit': n_fetch,
@@ -179,9 +180,12 @@ class data_lsst_fastdb(Program):
                                   'nonevalue': -999
                           } )
 
+        if args.pdb:
+            import pdb;  pdb.set_trace()   # so that Rob can take over my screen
+        
         dict_objinfo = manyltcvs['objinfo']        
-        dict_ltcsv   = manyltcvs['ltcvs']
-        nevt         = len(dict_ltcsv);
+        dict_ltcvs   = manyltcvs['ltcvs']
+        nevt         = len(dict_ltcvs);
 
         
         t1 = time.perf_counter()
@@ -190,7 +194,7 @@ class data_lsst_fastdb(Program):
 
         
         self.dict_objinfo = dict_objinfo
-        self.dict_ltcsv   = dict_ltcsv
+        self.dict_ltcvs   = dict_ltcvs
         
         return nevt
 
@@ -208,8 +212,8 @@ class data_lsst_fastdb(Program):
         DEBUG_DUMP = True
 
         dict_objinfo      = self.dict_objinfo 
-        dict_ltcsv        = self.dict_ltcsv   
-        lc_dict           = dict_ltcsv[evt]
+        dict_ltcvs        = self.dict_ltcvs   
+        lc_dict           = dict_ltcvs[evt]
         rootid     = dict_objinfo[FASTDB_KEYNAME_ROOTID][evt]
         diaobjid   = dict_objinfo[FASTDB_KEYNAME_OBJID][evt]
         SNID       = rootid
@@ -282,12 +286,13 @@ class data_lsst_fastdb(Program):
         lsst_head_private['PRIVATE(NOBS_BEFORE_COADD)']  =  nobs_before_coadd
         lsst_head_private['PRIVATE(NOBS_AFTER_COADD)']   =  nobs_after_coadd
         lsst_head_private['PRIVATE(RATIO_NOBS_COADD)']   =  ratio
+        lsst_head_private['NOBS_GARBAGE']                =  nobs_garbage
         for b, n_nite in nite_detect_dict.items():
             key_private = f'PRIVATE(N_NITE_DETECT_{b})'
             lsst_head_private[key_private] = n_nite
 
 
-        self.nobs_coadd_ratio.append(ratio)
+        self.nobs_coadd_ratio.append(ratio)  # increment for ascii histogram
 
         # figure out DDF or WFD based on coadd/total NOBS ratio.
         # TO DO later: figure out DDF+WFD overlaps

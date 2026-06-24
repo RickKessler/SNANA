@@ -138,8 +138,11 @@ def get_args():
     msg = "merge/postprocess output files (after jobs finish)"
     parser.add_argument("--merge", help=msg, action="store_true")
 
+    msg = "Invoke pdb debugger at critical location; e.g. after reading data base"
+    parser.add_argument("--pdb", help=msg, action="store_true")
+
     msg = "Developer Refactor index (pos=refac, neg=legacy)"
-    parser.add_argument("--refac", help=msg, type=int, default=0)
+    parser.add_argument("--refac", help=msg, type=int, default=0)    
 
     # - - - -
     args = parser.parse_args()

@@ -144,6 +144,8 @@ def extract_sim_readme_info(path_sim,key_list):
         except:
             line = line_tmp
 
+        if line.lstrip().startswith('#'): continue
+        
         # only store strings; ignore garbage that chokes safe_load below.
         if isinstance(line,str) :            
             line_list.append(line)
@@ -307,7 +309,72 @@ def init_readme_stats():
         readme_stats[key] = 0
     return readme_stats
 
-def write_readme(args, readme_dict, walltime_sec =-1.0):
+def create_README_content(args, readme_dict, walltime_sec =-1.0):
+
+    # input args are the user-command line args.
+    # input readme_dict contains class-specif information and
+    # is prepared by write_data_xxx module.
+    # Return full README_content that includes DOCANA keys and walltime.
+    
+    readme_file  = readme_dict['readme_file']
+    readme_stats = readme_dict['readme_stats']
+    data_format  = readme_dict['data_format']
+    docana_flag  = readme_dict['docana_flag']
+
+    
+    script_command = ' '.join(sys.argv)
+    script_command = script_command.replace('\\',' ')
+    indent_str = ''
+
+    DOCANA_content = {}
+    DOCANA_content["PURPOSE"] =  "transient lightcurve data files for analysis"
+
+    if args.lsst_fastdb is not None :
+        key_src  = 'SOURCE_LSST_FASTDB' ; val_src = True
+    if args.sirah_folder is not None :
+        key_src = 'SOURCE_SIRAH_FOLDER' ; val_src = args.sirah_folder
+    if args.snana_folder is not None:
+        key_src = 'SOURCE_SNANA_FOLDER' ; val_src = args.snana_folder
+    if args.des_folder is not None:
+        key_src = 'SOURCE_DES_FOLDER' ; val_src = args.des_folder
+    DOCANA_content[key_src] = val_src
+
+    DOCANA_content['SURVEY']         = args.survey
+    DOCANA_content['FORMAT']         = data_format
+    DOCANA_content['SCRIPT_COMMAND'] = script_command
+    DOCANA_content['USERNAME']       = gpar.USERNAME
+    DOCANA_content['HOSTNAME']       = gpar.HOSTNAME
+    DOCANA_content['PHOTFLAG_DETECT']  = args.photflag_detect
+    DOCANA_content['PHOTFLAG_GARBAGE'] = args.photflag_garbage
+
+    # - - - - - -
+    n_list = []
+    for key in gpar.KEYLIST_README_STATS:
+        n = readme_stats[key]
+        DOCANA_content[key] = n
+        n_list.append(n)
+
+    # - - - - - 
+    if walltime_sec > 0.0 :
+        walltime_min = walltime_sec / 60.0
+        DOCANA_content['WALLTIME'] = f"{walltime_min:.2f}"
+
+    nevt_all = n_list[0]
+    if nevt_all == 0 : nevt_all=1  # never allow abort on 0 events.
+    DOCANA_content['ABORT_IF_ZERO'] = nevt_all
+
+    # - - - - - - - -
+    # construct full README content for data folder
+    
+    README_content = {
+        gpar.DOCANA_KEY:     DOCANA_content,
+        gpar.DOCANA_KEY_END: ''
+    }
+    
+    return README_content
+    # end create_README_content
+
+def write_readme_legacy(args, readme_dict, walltime_sec =-1.0):
 
     # input args are the user-command line args.
     # input readme_dict is prepared by write_data_xxx module.
@@ -318,6 +385,8 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
     data_format  = readme_dict['data_format']
     docana_flag  = readme_dict['docana_flag']
 
+    # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+    
     base   = os.path.basename(readme_file)
     suffix = base.split('.')[1]  # README or YAML
     logging.info(f"Write {suffix}: {base}")
@@ -331,6 +400,8 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
     line_list.append(f"PURPOSE:  transient lightcurve data files " \
                 f"for analysis")
 
+    # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+    
     if args.lsst_fastdb is not None :
         line_list.append(f"SOURCE_LSST_FASTDB:  {True}")  
 
@@ -339,7 +410,7 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
 
     if args.snana_folder is not None:
         line_list.append(f"SOURCE_SNANA_FOLDER:  {args.snana_folder}")
-
+        
     if args.des_folder is not None:
         line_list.append(f"SOURCE_DES_FOLDER:  {args.des_folder}")
 
@@ -349,6 +420,8 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
     line_list.append(f"USERNAME:          {gpar.USERNAME} ")
     line_list.append(f"HOSTNAME:          {gpar.HOSTNAME}")
 
+    # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+    
     line_photflag_detect  = f"PHOTFLAG_DETECT:   {args.photflag_detect}"
     line_photflag_garbage = f"PHOTFLAG_GARBAGE:  {args.photflag_garbage}"
     line_list.append(line_photflag_detect)
@@ -363,6 +436,7 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
             if 'GARBAGE' in key:
                 readme_stats[key] = 0
     # - - - - - - 
+    # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
     
     n_garbabe_key    = 0
     NEVT_GARBAGE_ALL = readme_stats[ 'NEVT_' + gpar.GARBAGEKEY_ALL ]
@@ -378,21 +452,25 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
         n = readme_stats[key]
         n_list.append(n)
 
+        # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+        
         # isolate garbage keys with pad spaces (for human readability)
         is_garbage = 'GARBAGE' in key
         if is_garbage : n_garbabe_key += 1
         if n_garbabe_key  == 1:
-            line_list.append(color_char)
+            line_list.append('# '  + color_char)
             line_list.append(line_garbage)
             line_list.append(line_photflag_garbage)
         if n_garbabe_key > 1 and not is_garbage:
             line_list.append(line_garbage )
-            line_list.append(gpar.COLOR_ESCAPE)
+            line_list.append('# ' + gpar.COLOR_ESCAPE)
             n_garbabe_key = 0
             
         line_list.append(f"{key_plus_colon:<{nchar_key}}  {n}")
 
-    # - - - - - 
+    # - - - - -
+    # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+    
     if walltime_sec > 0.0 :
         walltime_min = walltime_sec / 60.0
         key_plus_colon = "WALLTIME:"
@@ -402,6 +480,8 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
     if nevt_all == 0 : nevt_all=1  # never allow abort on 0 events.
     line_list.append(f"ABORT_IF_ZERO:  {nevt_all}")
 
+    # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+    
     # - - - - - - - -
     with open(readme_file,"wt") as f:
         if docana_flag:
@@ -414,13 +494,92 @@ def write_readme(args, readme_dict, walltime_sec =-1.0):
         if docana_flag:
             f.write(f"{gpar.DOCANA_KEY_END}: \n")
 
+    # @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@            
     return
-    # end write_readme
-
+    # end write_readme_legacy
+    
 def write_yaml(file_name, yaml_contents):
     # write yaml_contents to file_name (e.g., for README)
     with open(file_name,"wt") as r:
         yaml.dump(yaml_contents, r, sort_keys=False)
+
+def write_README_content(README_file, README_content):
+
+    # Yaml dump of readme_content dictionary, and highlight GARBAGE keys
+    DOCANA_content = README_content.setdefault(gpar.DOCANA_KEY,None)
+    
+    base   = os.path.basename(README_file)
+    suffix = base.split('.')[1]  # README or YAML
+    logging.info(f"Write {suffix}: {base}")
+
+    
+    # sanity check on required DOCUMENTATION key
+    if DOCANA_content is None:
+        sys,exit(f"\n ERROR: cannot find required {gpar.DOCANA_KEY} key in content for \n{file_name}")
+
+    # - - - - - - - - - - 
+    TEST_NO_GARBAGE = 0  # only to test printing with no garbage
+    if TEST_NO_GARBAGE > 0:
+        for key in DOCANA_content:
+            if 'GARBAGE' in key: DOCANA_content[key] = 0
+    # - - - - - - - -
+    
+    HAS_GARBAGE = DOCANA_content[ 'NEVT_' + gpar.GARBAGEKEY_ALL ] > 0
+    n_garbage_key = 0
+    
+    nchar_key = 25
+    r = open(README_file,"wt")
+            
+    for key_primary in list(README_content.keys()):
+        r.write(f"{key_primary}: \n")  # e.g., DOCUMENTATON, DOCUMENTATON_END ...
+
+        content = README_content[key_primary]
+        if isinstance(content,dict) : 
+            for key, val in content.items():                
+                key_plus_colon = key + ':'
+                line = f"  {key_plus_colon:<{nchar_key}}  {val}"
+                
+                if 'WALLTIME' in key: line += '  # minutes'
+                n_garbage_key = append_garbage_highlight(r, HAS_GARBAGE, key, n_garbage_key)
+                
+                r.write(f"{line} \n")
+            
+    r.close()
+    
+    return
+# end write_README_content
+
+
+def append_garbage_highlight(r, has_garbage, key, n_garbage_key):
+
+    # append extra lines to highlight garbage;
+    # use RED color if there is garbage; otherwise green
+
+    if has_garbage :
+        garbage_border  = '# [___]  @![#$)%^&*("?]/@![#$)%^&*("?]/@![#$)%^&*("?]/@![#$)%^&*("?]'
+        garbage_color   = gpar.COLOR_RED
+    else:
+        garbage_border = '# \u2665'  # special symbol for Rob when there is no garbage
+        garbage_color   = gpar.COLOR_GREEN
+
+    
+    is_garbage = 'GARBAGE' in key
+    if is_garbage :
+        n_garbage_key += 1
+
+    line_list = []
+    if n_garbage_key == 1:
+        line_list.append('# '  + garbage_color)
+        line_list.append(garbage_border)
+    if n_garbage_key > 1 and not is_garbage:
+        line_list.append(garbage_border)
+        line_list.append('# ' + gpar.COLOR_ESCAPE)
+        n_garbage_key = 0
+
+    for line in line_list:
+        r.write(f"  {line}\n")
+    # - - - - -
+    return n_garbage_key
 
 def get_survey_snana(snana_folder):
     # for input snana_folder, run snana.exe GETINFO folder
@@ -445,9 +604,13 @@ def get_survey_snana(snana_folder):
 
 def read_yaml(yaml_file):
     yaml_lines = []
-    with open(yaml_file,"rt") as y:
-        for line in y: yaml_lines.append(line)
+    with open(yaml_file, "rt", encoding='utf-8') as y:
+        for line in y:
+            if line.lstrip().startswith('#'): continue
+            yaml_lines.append(line)
 
+    #print(f"\n xxx read_yaml with yaml_lines = \n{yaml_lines}\n")
+    
     contents  = yaml.safe_load("\n".join(yaml_lines))
     return contents
     # end read_yaml

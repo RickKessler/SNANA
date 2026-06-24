@@ -147,7 +147,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     ;
 
   size_t fret; (void)fret;
-  FILE *fpbin1, *fpbin2 ;
+  FILE *fpbin1=NULL , *fpbin2=NULL ;
 
   struct stat statbuf ; // to check if BINARY dir exists
   char fnam[] = "init_genmag_SIMSED" ;
@@ -270,7 +270,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     sprintf(bin2File,"%s/%s_%s-%s.BINARY", 
 	    PATH_BINARY, version, SURVEY, FILTLIST_SEDMODEL );
 
-    open_SEDBINARY(bin1File, FORCE_SEDBINARY,&fpbin1, 
+    open_SEDBINARY(bin1File, FORCE_SEDBINARY, &fpbin1, 
 		   &SIMSED_BINARY_INFO.RDFLAG_SED, 
 		   &SIMSED_BINARY_INFO.WRFLAG_SED);
 
@@ -469,6 +469,7 @@ void open_SEDBINARY(char *binFile, bool force_create,
   //
 
   size_t fret;  (void)fret;
+  size_t ONE   = 1;
   char fnam[] = "open_SEDBINARY" ; (void)fnam;
   // ----------- BEGIN -----------
 
@@ -488,16 +489,18 @@ void open_SEDBINARY(char *binFile, bool force_create,
 	   IVERSION_SIMSED_BINARY);
     printf("\n");
     fflush(stdout);
-    fret = fwrite(&IVERSION_SIMSED_BINARY, sizeof(int *), 1, *fpbin ) ;
+    fret = fwrite(&IVERSION_SIMSED_BINARY, sizeof(IVERSION_SIMSED_BINARY), ONE, *fpbin ) ;
   }
   else {
     *RDFLAG = true ;
     printf("\n Read SED-BINARY file for quicker init: \n");
-    printf("  %s\n", binFile );
+    printf("  %s\n", binFile ) ;
     IVERSION_SIMSED_BINARY = -9 ;
-    fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int*),  1, *fpbin);
-    printf("\t (read SED-binary format version=%d)\n", 
-	   IVERSION_SIMSED_BINARY);
+    long long I8TMP;
+    // restore later:  fret = fread(&IVERSION_SIMSED_BINARY, sizeof(int*),  ONE, *fpbin);
+    fret = fread(&I8TMP, sizeof(int*),  ONE, *fpbin);  IVERSION_SIMSED_BINARY = (int)I8TMP;
+
+    printf("\t (read SED-binary format version=%d)\n", IVERSION_SIMSED_BINARY);
     printf("\n");
     fflush(stdout);
   }
@@ -1111,12 +1114,15 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   int NDAY_PAD = 5; // allow for largest file to not have max NDAY
   if ( RDFLAG_BINARY ) {
-    fret = fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);  // .xyz 
+    fret = fread(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin);  
+    // fret = fread(&SEDMODEL.MXDAY, sizeof(SEDMODEL.MXDAY), 1, fpbin);  
   }
   else {
     SEDMODEL.MXDAY = NDAY + NDAY_PAD ; // leave a little slop in file sizes
-    if ( WRFLAG_BINARY ) 
-      { fret = fwrite(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin); }
+    if ( WRFLAG_BINARY ) {
+      fwrite(&SEDMODEL.MXDAY, sizeof(int*), 1, fpbin); 
+      //  fret = fwrite(&SEDMODEL.MXDAY, sizeof(SEDMODEL.MXDAY), 1, fpbin); 
+    }
   }
 
   // allocate DAY array for each SED (Aug 2017)

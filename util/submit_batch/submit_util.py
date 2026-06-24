@@ -1466,7 +1466,9 @@ def extract_yaml(input_file, key_start, key_end):
     # Jan 2021: ignore everything before key_start and after key_end.
     #           if either key is None, ignore the key
     #
-    # Jun 23 2026: open with encoding='utf-8' to protect special chars in comments
+    # Jun 23 2026: to protect special chars in comments,
+    #  + open with encoding='utf-8' 
+    #  + explicitly excluce comments from line_list
 
     msgerr = [(f"Cannot find the input yaml file:\n   {input_file}")]
     exist  = os.path.isfile(input_file)
@@ -1491,7 +1493,8 @@ def extract_yaml(input_file, key_start, key_end):
             if not FLAG_START : continue
             if FLAG_END: break
 
-            # xxx mark delete if line.startswith("#END_YAML"): break
+            if line.lstrip().startswith('#'): continue
+       
             line_list.append(line)
 
     config = yaml.safe_load("\n".join(line_list))

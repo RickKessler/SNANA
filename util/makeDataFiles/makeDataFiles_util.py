@@ -503,15 +503,20 @@ def write_yaml(file_name, yaml_contents):
     with open(file_name,"wt") as r:
         yaml.dump(yaml_contents, r, sort_keys=False)
 
-def write_README_content(README_file, README_content):
+def write_README_content(out_file, README_content):
 
     # Yaml dump of readme_content dictionary, and highlight GARBAGE keys
-    DOCANA_content = README_content.setdefault(gpar.DOCANA_KEY,None)
+    # If suffix has README, write content nested in DOCUMENTATION/DOCUMENTATION_END keys;
+    # If suffix has YAML, do not nest in DOCANA.
     
-    base   = os.path.basename(README_file)
+    base   = os.path.basename(out_file)
     suffix = base.split('.')[1]  # README or YAML
     logging.info(f"Write {suffix}: {base}")
 
+    IS_README = suffix == gpar.SUFFIX_README
+    IS_YAML   = suffix == gpar.SUFFIX_YAML
+
+    DOCANA_content = README_content.setdefault(gpar.DOCANA_KEY,None)
     
     # sanity check on required DOCUMENTATION key
     if DOCANA_content is None:
@@ -528,19 +533,25 @@ def write_README_content(README_file, README_content):
     n_garbage_key = 0
     
     nchar_key = 25
-    r = open(README_file,"wt")
+    r = open(out_file,"wt")
             
     for key_primary in list(README_content.keys()):
-        r.write(f"{key_primary}: \n")  # e.g., DOCUMENTATON, DOCUMENTATON_END ...
 
+        if IS_README:
+            r.write(f"{key_primary}: \n")  # e.g., DOCUMENTATON, DOCUMENTATON_END ...
+            pad = '  '
+        elif IS_YAML:
+            pad = ''
+            
         content = README_content[key_primary]
         if isinstance(content,dict) : 
             for key, val in content.items():                
                 key_plus_colon = key + ':'
-                line = f"  {key_plus_colon:<{nchar_key}}  {val}"
-                
-                if 'WALLTIME' in key: line += '  # minutes'
-                n_garbage_key = append_garbage_highlight(r, HAS_GARBAGE, key, n_garbage_key)
+                line = f"{pad}{key_plus_colon:<{nchar_key}}  {val}"
+
+                if IS_README:
+                    if 'WALLTIME' in key: line += '  # minutes'
+                    n_garbage_key = append_garbage_highlight(r, HAS_GARBAGE, key, n_garbage_key)
                 
                 r.write(f"{line} \n")
             

@@ -30,13 +30,19 @@
 #                (e.g., cigale in hostfit does not have numpy)
 # - - - - - - - - - -
 
-#import os
+import os
 import sys, yaml, argparse, subprocess, logging
 import submit_util      as util
 
 from   argparse import Namespace
 from   submit_params        import *
 from   submit_HELP          import *
+
+
+# Jun 25 2026 - avoid annoying (albeit harmless) warnings about threads to stdout 
+os.environ["NUMEXPR_MAX_THREADS"] = "256"
+os.environ["NUMEXPR_NUM_THREADS"] = "256"
+
 
 
 #from   submit_prog_sim      import Simulation

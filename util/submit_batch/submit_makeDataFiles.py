@@ -725,6 +725,7 @@ class MakeDataFiles(Program):
     def merge_cleanup_final(self):
         # every makeDataFiles succeeded, so here we simply compress output.
 
+    
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
         program          = self.config_prep['program']
@@ -747,12 +748,18 @@ class MakeDataFiles(Program):
         # - - - - - - - 
         # break up tar files into pieces based on suffix
         wildcard_list = [ 'MAKEDATA*.LOG',  'MAKEDATA*.DONE',
-                          'MAKEDATA*.YAML', 'MAKEDATA*.START', 'CPU*',  ]
-        suffix_list   = [ 'LOG', 'DONE', 'YAML', 'START', 'CPU' ]
+                          'MAKEDATA*.YAML', 'MAKEDATA*.START', 'MAKEDATA*.GARBAGE',
+                          'CPU*',  ]
+        suffix_list   = [ 'LOG', 'DONE',
+                          'YAML', 'START', 'GARBAGE',
+                          'CPU' ]    # backup name will be BACKUP_[suf].tar
 
         for w,suf in zip(wildcard_list,suffix_list):
-            tmp_list = glob.glob1(script_dir,w)
+            tmp_list = sorted(glob.glob(w, root_dir=script_dir))
             if len(tmp_list) == 0 : continue
+            if suf == 'GARBAGE':
+                self.cat_garbage_tables(tmp_list)
+            
             logging.info(f"\t Compress {w}")
             util.compress_files(+1, script_dir, w, suf, "" )
             
@@ -762,6 +769,34 @@ class MakeDataFiles(Program):
 
         # end merge_cleanup_final
 
+    def cat_garbage_tables(self, garbage_file_list):
+
+        
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+
+        # .xyz
+        import pandas as pd
+        FINAL_GARBAGE_FILE = output_dir + '/GARBAGE_ALL.DAT'
+        df_list = []
+        
+        n_nonzero = 0
+        for g in garbage_file_list:
+            g_file = script_dir + '/' + g
+            df     = pd.read_csv(g_file, comment="#", sep=r'\s+')
+            if len(df) > 0: n_nonzero += 1
+            df_list.append(df)
+            #logging.info(f" xxx {g} has nrow = {len(df)}")
+            
+        df_all = pd.concat(df_list)
+        n_all  = len(df_all)
+        base   = os.path.basename(FINAL_GARBAGE_FILE)
+        logging.info(f"\t Write {n_all} garbage rows to {base} (summed from {n_nonzero} tasks)")
+        df_all.to_csv(FINAL_GARBAGE_FILE, sep=' ', index=False)
+        
+        return
+    
     def get_merge_COLNUM_CPU(self):
         return -9
 

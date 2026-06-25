@@ -348,7 +348,7 @@ def write_aux_files_snana(name, args, config_data):
 
     data_file_list = glob.glob1(data_dir, f"{search_string}" )
     list_file      = f"{data_dir}/{folder_out}.LIST"
-    readme_file    = f"{data_dir}/{folder_out}.README"
+    readme_file    = f"{data_dir}/{folder_out}.{gpar.SUFFIX_README}"
 
     with open(list_file,"wt") as f:
         for data_file in data_file_list:            
@@ -414,7 +414,7 @@ def convert2fits_snana(args, config_data):
         folder_fits    = output_data_folder_name(config_data, name, False)
         index_unit     = name_list.index(name)
         log_file       = f"{folder_text}/convert2fits_{folder_fits}.log"
-        yaml_file      = f"{outdir}/{folder_text}.YAML"  # expected output
+        yaml_file      = f"{outdir}/{folder_text}.{gpar.SUFFIX_YAML}"  # expected output
 
         msg = f"  Convert TEXT -> FITS for {folder_fits}" \
               f" NEVT={nevent}  (write spectra: {write_spectra})"
@@ -478,7 +478,7 @@ def convert2fits_snana(args, config_data):
         os.system(cmd_rm)
 
         # re-write readme in FITS data folder
-        readme_file    = f"{outdir_fits}/{folder_fits}.README"
+        readme_file    = f"{outdir_fits}/{folder_fits}.{gpar.SUFFIX_README}"
         readme_dict = {
             'readme_file'  : readme_file,
             'readme_stats' : readme_stats_list[index_unit],
@@ -599,7 +599,7 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
             os.system(cmd)
 
         # increment sum stats from readme
-        README_file  = f"{FOLDER}/{folder}.README"
+        README_file  = f"{FOLDER}/{folder}.{gpar.SUFFIX_README}"
         README_yaml  = util.read_yaml(README_file)
         README_DOCANA = README_yaml[gpar.DOCANA_KEY]
 
@@ -632,11 +632,11 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
 
     # - - - - - - - -
     # update sum stats and re-write readme
-    README_file = f"{merge_folder_full}/{merge_folder}.README"
+    README_file = f"{merge_folder_full}/{merge_folder}.{gpar.SUFFIX_README}"
     for key in gpar.KEYLIST_README_STATS:
         NEVT = statsum_dict[key]
         README_DOCANA[key] = statsum_dict[key]
-        util.write_yaml(README_file,README_yaml)  # .xyz
+        util.write_yaml(README_file,README_yaml)  
         #util.write_readme_yaml(README_file, README_yaml)  # .xyz
 
 

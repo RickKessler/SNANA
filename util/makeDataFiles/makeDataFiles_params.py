@@ -149,6 +149,9 @@ NEVT_SCREEN_UPDATE = 500
 # -----------------------------------------------------------------------------
 # define yaml keys to store statistics for README
 
+SUFFIX_README = "README"
+SUFFIX_YAML   = "YAML"
+
 KEY_README_NEVT_PROCESS_ALL      = "NEVT_PROCESS_ALL"
 KEY_README_NEVT_WRITE_ALL        = "NEVT_WRITE_ALL"
 KEY_README_NEVT_WRITE_HOST_ZSPEC = "NEVT_WRITE_HOST_ZSPEC"

@@ -5,6 +5,7 @@
 # May 25 2022: for alerts, catenate SIMGEN-dump files to object-truth table.
 # Jan 17 2025: remove alert code
 # Jan 23 2025: sync to new keys in makeDataFiles_params.py
+# Jun 25 2026: for lsst_fastdb, add output_garbage_file arg
 
 import  os, sys, shutil, yaml, configparser, glob
 import  logging, tarfile
@@ -255,10 +256,11 @@ class MakeDataFiles(Program):
         makeDataFiles_args_list = []
         prefix_output_list = []
         isplitnite_list    = []
-
+        write_garbage_file = False
+        
         if n_splitnite > 1:
-            isplitnite_temp_list = zip(range(0, n_splitnite),\
-                                       split_mjd['min_edge'],\
+            isplitnite_temp_list = zip(range(0, n_splitnite),
+                                       split_mjd['min_edge'],
                                        split_mjd['max_edge'])
 
         else:
@@ -283,7 +285,8 @@ class MakeDataFiles(Program):
 
                 # identifying source input to makeDataFiles.sh is very fragile here
                 if 'fastdb' in input_src.lower() :
-                    args_list.append(f'--lsst_fastdb')  # Jan 12 2025
+                    args_list.append(f'--lsst_fastdb')
+                    write_garbage_file = True
                 else:
                     args_list.append(f'--snana_folder {input_src}') ### HACK 
 
@@ -323,7 +326,8 @@ class MakeDataFiles(Program):
         self.config_prep['makeDataFiles_args_list'] = makeDataFiles_args_list
         self.config_prep['prefix_output_list'] = prefix_output_list
         self.config_prep['isplitnite_list']     = isplitnite_list
-
+        self.config_prep['write_garbage_file']  = write_garbage_file
+        
         # end prepare_data_units
 
 
@@ -430,26 +434,28 @@ class MakeDataFiles(Program):
         idata_unit  = index_dict['idata_unit']
         n_job_local = index_dict['n_job_local']
 
-        makeDataFiles_arg = self.config_prep['makeDataFiles_args_list'][idata_unit]
-        isplitnite        = self.config_prep['isplitnite_list'][idata_unit]
-        prefix_base       = self.config_prep['prefix_output_list'][idata_unit]
-        prefix            = f'{prefix_base}_SPLITRAN{isplitarg:03d}'
-        program           = self.config_prep['program']
-        script_dir        = self.config_prep['script_dir']
-        output_dir        = self.config_prep['output_dir']
-        nevt              = self.config_prep['nevt']
+        makeDataFiles_arg  = self.config_prep['makeDataFiles_args_list'][idata_unit]
+        isplitnite         = self.config_prep['isplitnite_list'][idata_unit]
+        prefix_base        = self.config_prep['prefix_output_list'][idata_unit]
+        prefix             = f'{prefix_base}_SPLITRAN{isplitarg:03d}'
+        program            = self.config_prep['program']
+        script_dir         = self.config_prep['script_dir']
+        output_dir         = self.config_prep['output_dir']
+        nevt               = self.config_prep['nevt']
+        write_garbage_file = self.config_prep['write_garbage_file']
+        args               = self.config_yaml['args']
         
-        args = self.config_yaml['args']
         kill_on_fail      = args.kill_on_fail
         output_format     = args.output_format
         merge_background  = args.merge_background
         no_merge          = args.nomerge and not merge_background
 
-        msgerr            = [ ]
-        log_file   = f"{prefix}.LOG"
-        done_file  = f"{prefix}.DONE"
-        start_file = f"{prefix}.START"
-        yaml_file  = f"{prefix}.YAML"
+        msgerr        = [ ]
+        log_file      = f"{prefix}.LOG"
+        done_file     = f"{prefix}.DONE"
+        start_file    = f"{prefix}.START"
+        yaml_file     = f"{prefix}.YAML"
+        garbage_file  = f"{prefix}.GARBAGE"  # Jun 25 2026
         
         arg_split         = f'--isplitran {isplitarg}'
         arg_list          = makeDataFiles_arg + [arg_split,]
@@ -457,7 +463,12 @@ class MakeDataFiles(Program):
         if nevt is not None:
             arg_list.append(f"--nevt {nevt}")
 
-        arg_list.append(f"--output_yaml_file {yaml_file}")
+        arg_list.append(f"--output_yaml_file     {yaml_file}")
+
+        # write garbage file for select survey(s)
+        if write_garbage_file:
+            arg_list.append(f"--output_garbage_file  {garbage_file}")
+
         # if do_fast   : arg_list.append("--fast")        # may need later
 
         key = 'MAKEDATAFILE_ARGS'

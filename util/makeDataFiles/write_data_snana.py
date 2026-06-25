@@ -20,7 +20,9 @@ def write_event_text_snana(args, config_data, data_event_dict):
     #   args : user command line inputs
     #   config_data       : info about data units and phot varnames
     #   data_event_dict   : current event: header, phot, spec
-
+    #
+    # Function returns name of file written.
+    #
     # create one text file and write one event described by
     # dictionary data_event_dict.
     # Input data_unit_name is used to determine name of folder.
@@ -95,6 +97,8 @@ def write_event_text_snana(args, config_data, data_event_dict):
 
         # write optional spectra
         write_spec_snana(f, head_raw, spec_raw)
+
+    return data_file
 
     # end write_event_text_snana
 

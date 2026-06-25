@@ -115,12 +115,13 @@ class data_lsst_fastdb(Program):
         self.fdb        = fdb
         self.nlc_tot    = nlc_tot
         self.n_subgroup = n_subgroup
+        self.garbage_table_extra_columns = { 'ltcvs_offset' : 0, 'ltcsv_limit': 0 }
 
         self.nobs_coadd_ratio = []  # for diagnostic histogram to check WFD vs. DDF
         
         logging.info("Done with init_read_data")
         logging.info('')
-        
+
         return
     # end init_read_data
 
@@ -187,7 +188,6 @@ class data_lsst_fastdb(Program):
         dict_ltcvs   = manyltcvs['ltcvs']
         nevt         = len(dict_ltcvs);
 
-        
         t1 = time.perf_counter()
         logging.info(f" Fetched {nevt} lightcurves in {t1-t0:.2f} sec.\n" )
         logging.info('')
@@ -195,6 +195,9 @@ class data_lsst_fastdb(Program):
         
         self.dict_objinfo = dict_objinfo
         self.dict_ltcvs   = dict_ltcvs
+        self.ltcsv_offset = n_offset  # needed for GARBAGE table
+        self.ltcsv_limit  = n_fetch   # needed for GARBAGE table
+        self.garbage_table_extra_columns = { 'ltcvs_offset' : n_offset, 'ltcsv_limit': n_fetch }
         
         return nevt
 

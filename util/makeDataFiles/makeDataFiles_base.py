@@ -55,6 +55,7 @@ class Program:
         # init all possible data units
         self.init_data_unit()
 
+        
         # create top-level outdir
         outdir_list = [
             args.outdir_snana,
@@ -73,11 +74,12 @@ class Program:
 
         # store info for phot varnames
         self.store_varlist_obs()
-
+        
         self.NEVT_WRITE            = 0
         self.NEVT_REJECT_CUTS      = 0
         self.NEVT_REJECT_DATA_UNIT = 0
         self.garbage_list = [ False ]
+        self.garbage_table_extra_columns = {}
         
         # end Program __init__
 
@@ -179,6 +181,42 @@ class Program:
         return
         # end init_data_unit
 
+    def update_garbage_file(self, args, evtnum, data_event_dict ):
+
+        head_raw   = data_event_dict.setdefault('head_raw', None)
+        g_file     = args.output_garbage_file
+        extra_dict = self.garbage_table_extra_columns  # survey-dependent extra columns
+            
+        if evtnum < 0 :
+            logging.info(f" Open GARBAGE table {g_file}")
+            VARLIST   = [ 'SNID',  'SUBSET', 'GARBAGE_TYPE' ] + list(extra_dict.keys())
+            VARSTRING = '  '.join(VARLIST)
+            with  open(g_file,"wt") as g:
+                g.write(f"VARLIST:  {VARSTRING} \n")                
+            
+        elif head_raw[gpar.GARBAGEKEY_ALL] :
+            # if garbage is detected, write table row for current SNID
+            data_unit_name = data_event_dict['data_unit_name']  # part of subset name below
+            GARBAGE_LIST   = []
+            for key in gpar.GARBAGEKEY_LIST :
+                if key == gpar.GARBAGEKEY_ALL : continue
+                if head_raw[key] :
+                    gtype  = key.split('GARBAGE_')[1] # e.g., keep RADEC for key=GARBAGE_RADEC
+                    GARBAGE_LIST.append(gtype)
+
+            SNID         = head_raw[gpar.DATAKEY_SNID]
+            GARBAGE_TYPE = '+'.join(GARBAGE_LIST)
+            SUBSET       = f"{gpar.FORMAT_TEXT}_{data_unit_name}"  # fragile: SNANA format only
+            EXTRAS = ''
+            for key, val in extra_dict.items():
+                EXTRAS += f"{val}  "  # should work for any type
+                    
+            with  open(g_file,"at") as g:   # append mode
+                g.write(f"SN:  {SNID}  {SUBSET}  {GARBAGE_TYPE:<20}  {EXTRAS}\n")   
+                
+        return
+    # end update_garbage_file
+    
     def assign_data_unit_name(self, survey, field, iseason, iran):
 
         name = f"{survey}"
@@ -582,9 +620,13 @@ class Program:
 
         data_unit_name_list   = self.config_data['data_unit_name_list']
 
-        if args.outdir_csv is not None: 
+        if args.outdir_csv : 
             csv_writer = csvWriter( args, self.config_data )
 
+        # check for optional garbage file
+        if args.output_garbage_file:
+            self.update_garbage_file(args, -1, {}) # open table file and write VARLIST 
+            
         # - - - - - - - - - - - - - - - 
         while nevent_subgroup >= 0:
 
@@ -629,21 +671,16 @@ class Program:
 
                 # add computed variables; e.g., zCMB, MWEBV ...
                 self.compute_data_event(data_event_dict)
-
-
-                # xxxxxxxx mark .xyz
-                #head = data_event_dict['head_raw']
-                #print(f" xxx data_driver: {gpar.GARBAGEKEY_RADEC} = " \
-                #      f"{head[gpar.GARBAGEKEY_RADEC]}"  )
-                # xxxxxxxxxx
                 
                 if args.outdir_snana :
-                    write_data_snana.write_event_text_snana(args, self.config_data,
-                                                            data_event_dict)
-
+                    data_file = write_data_snana.write_event_text_snana(args, self.config_data,
+                                                                        data_event_dict)
                 elif args.outdir_csv :
                     csv_writer.write_event_csv(data_event_dict)
 
+                if args.output_garbage_file:
+                    self.update_garbage_file(args, evt, data_event_dict)
+                        
                 self.NEVT_WRITE += 1
                 
                 # increment number of events for this data unit
@@ -758,9 +795,6 @@ class Program:
         has_garbage_list = []
         for key in gpar.GARBAGEKEY_LIST :
             has_garbage_list.append(head_raw[key])
-
-        #sys.exit(f"\n xxx gpar.GARBAGEKEY_LIST = \n{gpar.GARBAGEKEY_LIST} \n" \
-        #         f" xxx has_garbage_list = {has_garbage_list}")
         
         # update stats by field
         field        = head_raw[gpar.DATAKEY_FIELD]

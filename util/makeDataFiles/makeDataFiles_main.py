@@ -135,6 +135,10 @@ def get_args():
     parser.add_argument("--output_yaml_file",
                         help=msg, type=str, default=None )
 
+    msg = "output garbage table file (garbage table to help debug)"
+    parser.add_argument("--output_garbage_file",
+                        help=msg, type=str, default=None )
+    
     msg = "merge/postprocess output files (after jobs finish)"
     parser.add_argument("--merge", help=msg, action="store_true")
 

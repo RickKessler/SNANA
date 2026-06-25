@@ -511,7 +511,7 @@ def write_README_content(out_file, README_content):
     
     base   = os.path.basename(out_file)
     suffix = base.split('.')[1]  # README or YAML
-    logging.info(f"Write {suffix}: {base}")
+    logging.info(f"\t write_README_content to {base}")
 
     IS_README = suffix == gpar.SUFFIX_README
     IS_YAML   = suffix == gpar.SUFFIX_YAML
@@ -531,7 +531,7 @@ def write_README_content(out_file, README_content):
     
     HAS_GARBAGE = DOCANA_content[ 'NEVT_' + gpar.GARBAGEKEY_ALL ] > 0
     n_garbage_key = 0
-    
+
     nchar_key = 25
     r = open(out_file,"wt")
             

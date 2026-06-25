@@ -636,9 +636,8 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
     for key in gpar.KEYLIST_README_STATS:
         NEVT = statsum_dict[key]
         README_DOCANA[key] = statsum_dict[key]
-        util.write_yaml(README_file,README_yaml)  
-        #util.write_readme_yaml(README_file, README_yaml)  # .xyz
-
+    util.write_README_content(README_file,README_yaml)
+    # xxx mark dele util.write_yaml(README_file,README_yaml)  
 
     # - - - -
     # remove original folders

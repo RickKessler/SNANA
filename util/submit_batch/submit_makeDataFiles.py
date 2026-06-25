@@ -561,7 +561,7 @@ class MakeDataFiles(Program):
         for prefix in prefix_output_list:
             f.write(f"  - {prefix} \n")
         f.write("\n")
-        # end append_info_file
+    # end append_info_file
 
     def merge_config_prep(self,output_dir):
         pass
@@ -767,16 +767,16 @@ class MakeDataFiles(Program):
         # tar up entire script dir
         util.compress_subdir(+1, script_dir)
 
-        # end merge_cleanup_final
+        return
+    
+    # end merge_cleanup_final
 
     def cat_garbage_tables(self, garbage_file_list):
 
-        
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
-        # .xyz
         import pandas as pd
         FINAL_GARBAGE_FILE = output_dir + '/GARBAGE_ALL.DAT'
         df_list = []
@@ -796,6 +796,7 @@ class MakeDataFiles(Program):
         df_all.to_csv(FINAL_GARBAGE_FILE, sep=' ', index=False)
         
         return
+    # end cat_garbage_tables
     
     def get_merge_COLNUM_CPU(self):
         return -9

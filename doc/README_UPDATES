@@ -23953,7 +23953,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     plot_table.py
       + fix bug from comma in DOCUMENTATION block trigger csv file with commas
 
+    sntools_data.c
+      + fix memory overwrite bug in get_override_file_list();
+         see https://github.com/RickKessler/SNANA/issues/1723
+       
     genmag_SIMSED.c[h]
-      see 
+      see https://github.com/RickKessler/SNANA/issues/1722
+
 END:
  

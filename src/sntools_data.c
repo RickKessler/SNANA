@@ -1340,8 +1340,9 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   char **file_list, *ptrFile, *VARNAME_MATCH, *ptr_varname;
   char VARNAME[60], PREFIX[40], PREFIXz[40] ;
   char TABLE_NAME[] = "OVERRIDE" ;
-  char VARLIST[]    = "ALL" ;
+  char VARLIST[]    = "ALL" ;  
   char fnam[]       = "RD_OVERRIDE_INIT" ; (void)fnam;
+  int LTRACE = 1 ;
 
   // ----------- BEGIN -----------
 
@@ -1355,9 +1356,16 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
 
   print_banner(fnam);
 
+  if ( LTRACE ) { 
+    printf(" xxx %s TRACE-1  len(OVERRIDE_PATH)=%lu\n", 
+	   fnam, strlen(OVERRIDE_PATH) ); fflush(stdout); 
+  }
+
   // get list of override files
   char *OVERRIDE_FILE_LIST = (char*)malloc(MXPATHLEN * 10 * sizeof(char) );
   get_override_file_list(OVERRIDE_PATH, OVERRIDE_FILE_LIST);
+
+  if ( LTRACE ) { printf(" xxx %s TRACE-2 \n", fnam); fflush(stdout); }
 
   if ( strlen(OVERRIDE_FILE_LIST) < 3 )  { return; }
 
@@ -1365,6 +1373,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   parse_commaSepList(fnam, OVERRIDE_FILE_LIST, MXFILE_OVERRIDE, MXPATHLEN,
 		     &NFILE, &file_list ); // <== returned
   
+  if ( LTRACE ) { printf(" xxx %s TRACE-3 \n", fnam); fflush(stdout); }
 
   SNTABLE_AUTOSTORE_RESET();
 
@@ -1379,6 +1388,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
       if ( !fp ) { abort_openTextFile("HEADER_OVERRIDE", PATH_LIST, ptrFile, fnam); }
       fclose(fp);
     }
+
+    if ( LTRACE ) { printf(" xxx %s TRACE-4 \n", fnam); fflush(stdout); }
 
     // read entire table and store contents
     NROW = SNTABLE_AUTOSTORE_INIT(ptrFile, TABLE_NAME, VARLIST, OPTMASK_SNTABLE );
@@ -1691,20 +1702,27 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
   // If *OVERRIDE_PATH is already a file list, return OVERRIDE_FILE_LIST = OVERRIDE_PATH.
   // If *OVERRIDE_PATH is a directory, read LIST file from directory that contains
   // list file override files.
+  //
+  // Jun 24 2026: allocate OVERRIDE_PATH_LOCAL to be same size as OVERRIDE_PATH
 
   bool IS_FILE = false ;
   bool IS_DIR  = false ;
   bool IS_LINK = false ;
   int  istat, istat_link; 
+  
+  int LEN_PATH = strlen(OVERRIDE_PATH);
+  int MEMC     = sizeof(char) * ( LEN_PATH + 2*MXPATHLEN ) ; // give extra space for ENVreplace
+  char *OVERRIDE_PATH_LOCAL = (char*)malloc(MEMC);
+
   struct stat statbuf, linkbuf ; 
-  int LDMP = 0 ;
+  int LDMP = 1 ;
   char cWARN[20];
-  char OVERRIDE_PATH_LOCAL[MXPATHLEN]; // more memory for ENVreplace
   char fnam[] = "get_override_file_list" ; (void)fnam;
 
   // ----------- BEGIN ---------
 
   OVERRIDE_FILE_LIST[0] = 0 ;
+
   sprintf(OVERRIDE_PATH_LOCAL, "%s", OVERRIDE_PATH);
 
   // if there is a comma, then it has to be a file list
@@ -1775,6 +1793,7 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
 
   fflush(stdout);
   //debugexit(fnam); // xxx REMOVE
+  free(OVERRIDE_PATH_LOCAL);
 
   return;
 

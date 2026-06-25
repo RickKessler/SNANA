@@ -41,9 +41,9 @@ AC_ARG_ENABLE([debug],
 AC_MSG_CHECKING([whether to build with debug information])
 AS_IF([test "x$enable_debug" = "xyes"],
     [AC_MSG_RESULT([yes])
-     DEBUG_CFLAGS="-g3 -O2 -fno-omit-frame-pointer"
-     DEBUG_CXXFLAGS="-g3 -O2 -fno-omit-frame-pointer"
-     DEBUG_FCFLAGS="-g3 -O2 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
+     DEBUG_CFLAGS="-g3 -O2 -D_FORTIFY_SOURCE=2 -fno-omit-frame-pointer"
+     DEBUG_CXXFLAGS="-g3 -O2 -D_FORTIFY_SOURCE=2 -fno-omit-frame-pointer"
+     DEBUG_FCFLAGS="-g3 -O2 -D_FORTIFY_SOURCE=2 -fcheck=all -fbacktrace -ffpe-trap=invalid,zero,overflow"
      DEBUG_LDFLAGS="-rdynamic"],
     [AC_MSG_RESULT([no])
      DEBUG_CFLAGS="-O2 -DNDEBUG -D_FORTIFY_SOURCE=2  -Wall"

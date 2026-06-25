@@ -24,9 +24,14 @@
 // Jan 4 2021: MXCHAR_LINE -> 3200 (was 2500)
 // Sep 07 2021: abort if found too few variables (SNTABLE_READ_EXEC_TEXT)
 // Jan 07 2025: MXCHAR_LINE -> 4000 (was 3200)
+//
+// Jun 25 2026: FILEPREFIX_TEXT[100] -> FILEPREFIX_TEXT[MXPATHLEN]
+//              and abort if len(PREFIX) > MXPATHLEN
+//              [found by code crash using -D_FORTIFY_SOURCE compilation flag]
+//
 // **********************************************
 
-char FILEPREFIX_TEXT[100];
+char FILEPREFIX_TEXT[MXPATHLEN];
 
 #define MXTABLE_TEXT 10 
 #define MXVAR_TEXT   MXVAR_TABLE
@@ -179,8 +184,20 @@ void INIT_TEXTFILES(char *PREFIX) {
   // If lightcurve text-format has been specified, then call
   // function to open list-file.
 
-  char fnam[] = "INIT_TEXTFILES" ;
+  int LEN_PREFIX = strlen(PREFIX);
   char *FMT, comment[200];
+  char fnam[] = "INIT_TEXTFILES" ;
+
+  // -------------- BEGIN ----------------
+
+
+  if ( LEN_PREFIX >= MXPATHLEN ) {
+    print_preAbort_banner(fnam);
+    printf("  PREFIX = '%s' \n", PREFIX);
+    sprintf(MSGERR1, "LEN(PREFIX) = %d", LEN_PREFIX);
+    sprintf(MSGERR2, "Cannot copy to FILEPREFIX_TEXT");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   sprintf(FILEPREFIX_TEXT, "%s", PREFIX);
 
@@ -192,7 +209,7 @@ void INIT_TEXTFILES(char *PREFIX) {
   SNLCPAK_OUTPUT.OPT_TEXT_FORMAT = -9 ; // init no ascii light curves
   FMT = SNLCPAK_OUTPUT.TEXT_FORMAT ;
   if ( strlen(FMT) > 0 && strcmp(FMT,"none") != 0 ) {  
-    sprintf(comment,"called from %s with PREFIX=%s", fnam, PREFIX);
+    sprintf(comment,"called from %s with PREFIX=%.140s", fnam, PREFIX);
     SNLCPAK_OUTPUT.OPT_TEXT_FORMAT = get_OPT_FORMAT(FMT,comment);
     OPEN_TEXTFILE_LCLIST(PREFIX) ; 
   }
@@ -220,7 +237,7 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
   // Jun 10 2026: add PGNAME arg for program name
   //
   int  NTAB, ivar, OPT_FORMAT, GZIPFLAG ;
-  char FILENAME[MXCHAR_FILENAME], comment[100];
+  char FILENAME[2*MXCHAR_FILENAME], comment[100];
   char fnam[] = "SNTABLE_CREATE_TEXT" ;
 
   // --------- BEGIN ---------
@@ -236,12 +253,12 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
 
   // construct file name from stored prefix and table name.
 
-  sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT,TBNAME,SUFFIX_TEXT);
+  // xxx mark delete 6.25.2026 sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT, TBNAME, SUFFIX_TEXT);
 
 
   if ( strchr(FILEPREFIX_TEXT,'.') == NULL ) {   
     // no dot --> add on table and suffix to file name
-    sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT,TBNAME,SUFFIX_TEXT);
+    sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT, TBNAME, SUFFIX_TEXT);
   }
   else {
     // if there is a dot in the prefix, assume it's the full filename

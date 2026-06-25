@@ -167,7 +167,6 @@ void TABLEFILE_INIT(void) {
   ADDCOL_VARLIST_LAST[0] = 0 ;
 
   s = STRING_TABLEFILE_TYPE[IFILETYPE_NULL]  ;  sprintf(s,"NULL");
-  // xxx  s = STRING_TABLEFILE_TYPE[IFILETYPE_HBOOK] ;  sprintf(s,"HBOOK");
   s = STRING_TABLEFILE_TYPE[IFILETYPE_ROOT]  ;  sprintf(s,"ROOT");
   s = STRING_TABLEFILE_TYPE[IFILETYPE_TEXT]  ;  sprintf(s,"TEXT");
 
@@ -175,7 +174,6 @@ void TABLEFILE_INIT(void) {
   s = STRING_TABLEFILE_OPENFLAG[OPENFLAG_NEW]   ;  sprintf(s,"NEW" );
   s = STRING_TABLEFILE_OPENFLAG[OPENFLAG_READ]  ;  sprintf(s,"READ");
 
-  // xxx  s = STRING_IDTABLE_SNANA[IFILETYPE_HBOOK] ; sprintf(s,"7100");
   s = STRING_IDTABLE_SNANA[IFILETYPE_ROOT]  ; sprintf(s,"SNANA");
   s = STRING_IDTABLE_SNANA[IFILETYPE_TEXT]  ; sprintf(s,"SNANA");
 
@@ -183,7 +181,6 @@ void TABLEFILE_INIT(void) {
   s = STRING_IDTABLE_FITRES[IFILETYPE_ROOT]  ; sprintf(s,"FITRES");
   s = STRING_IDTABLE_FITRES[IFILETYPE_TEXT]  ; sprintf(s,"FITRES");
 
-  // xxx  s = STRING_IDTABLE_OUTLIER[IFILETYPE_HBOOK] ; sprintf(s,"7800"  );
   s = STRING_IDTABLE_OUTLIER[IFILETYPE_ROOT]  ; sprintf(s,"OUTLIER");
   s = STRING_IDTABLE_OUTLIER[IFILETYPE_TEXT]  ; sprintf(s,"OUTLIER");
 
@@ -311,7 +308,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   }
 
 
-  
   // make sure table file has some kind of extension (Jan 2020)
   if ( TYPE_FLAG==IFILETYPE_ROOT  ||       TYPE_FLAG==IFILETYPE_MARZ ) {
     if ( strchr(FILENAME,'.') == NULL ) {
@@ -616,8 +612,6 @@ void SNTABLE_FILL(int IDTABLE ) {
   int USE ;
   //  char fnam[] = "SNTABLE_FILL" ;
   // -------- BEGIN ----------
-
-  // xxx mark if ( IDTABLE == 1600 ) { return ; } // skip special hbook-only table
        
 #ifdef USE_ROOT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ; 
@@ -784,12 +778,6 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
   // store original [unparsed] VARLiST
   sprintf(ADDCOL_VARDEF->VARLIST_ORIG,"%s", VARLIST);
 
-  /* xxxxxxxxxxxxx mark delete Dec 11 2025  xxxxxxxxxxx
-  if ( strchr(VARLIST,',') != NULL ) {
-    printf(" %s TABLE WARNING; comma in %s\n", fnam, VARLIST);
-    fflush(stdout);
-  }
-  xxxxxxxxxxxxx */
 
   NVAR = ICAST_FIRST = 0;
   sprintf(local_VARLIST,"%s", VARLIST);
@@ -2098,16 +2086,6 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   NROW = SNTABLE_READ_EXEC();
   SNTABLE_AUTOSTORE[NF].NROW = NROW ;
 
-  /* xxxxxxxx mark delete May 18 2026 xxxxxxxx
-  // ------------------------------------------
-  // store string length for each CCID for faster lookup
-  char *ptrCCID ;
-  for(i=0; i < NROW; i++ )  { 
-    ptrCCID = SNTABLE_AUTOSTORE[NF].CCID[i] ;
-    SNTABLE_AUTOSTORE[NF].LENCCID[i] = strlen(ptrCCID);
-  } 
-  xxxxxxxxxx end mark xxxxxxx */
-
   // init LASTREAD quantities
   LASTREAD_AUTOSTORE.IFILE = -9;
   LASTREAD_AUTOSTORE.IROW[0]  = -9;
@@ -2906,7 +2884,7 @@ void SNLCPAK_CLEAR_PLOT(void) {
   SNLCPAK_OUTPUT.NOBS_MAX = 0 ;
 
   for ( iflag=0; iflag < MXFLAG_SNLCPAK_EPOCH; iflag++ )  {   
-    // xxx mark     NOBS = SNLCPAK_OUTPUT.NOBS[iflag] ;
+
     //    if ( NOBS == 0 ) { continue ; }
 
     SNLCPAK_OUTPUT.NOBS[iflag] = 0 ;   
@@ -3169,11 +3147,6 @@ void SNLCPAK_FILL_PREP() {
       NFILT++ ; 
       strcat(SNLCPAK_OUTPUT.FILTLIST_PLOT, cfilt); 
 
-      /* xxx mark delete 4.28.2026 xxxx
-      sprintf(SNLCPAK_OUTPUT.FILTLIST_PLOT,"%s%s",
-	      SNLCPAK_OUTPUT.FILTLIST_PLOT, cfilt) ;
-      xxxxxxxx end mark */
-
       if ( IFMIN < 0 ) { IFMIN = IFILT ; }
       IFMAX = IFILT ;
     }
@@ -3208,7 +3181,7 @@ void SNLCPAK_CHECK(char *CCID, char *callFun) {
   // This CHECK prevents switching CIDs before calling SNLCPAK_FILL.
 
   char *ptrCCID ;
-  // xxx mark  char fnam[] = "SNLCPAK_CHECK" ;
+
   char fnam0[] = "SNLCPAK_CHECK";
   char fnam[100];
   concat_callfun_plus_fnam(callFun, fnam0, fnam);

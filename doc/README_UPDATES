@@ -23956,9 +23956,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_data.c
       + fix memory overwrite bug in get_override_file_list();
          see https://github.com/RickKessler/SNANA/issues/1723
-       
+    
+    combine_fitres.c
+      + fix memory overwrite bug: https://github.com/RickKessler/SNANA/issues/1723
+   
     genmag_SIMSED.c[h]
       see https://github.com/RickKessler/SNANA/issues/1722
 
+    
 END:
  

@@ -276,6 +276,7 @@ int main(int argc, char **argv) {
 
   int ifile ;
   char str_cputime[60];
+  int LTRACE = 0;
   char fnam[] = "main" ;  (void)fnam;
 
   // ----------------- BEGIN --------
@@ -289,11 +290,15 @@ int main(int argc, char **argv) {
   t_start = time(NULL);
   set_EXIT_ERRCODE(EXIT_ERRCODE_combine_fitres);
 
+  if ( LTRACE ) { printf(" xxx %s: TRACE-1 \n", fnam); fflush(stdout); }
+
   init_misc();
 
   PARSE_ARGV(argc,argv);
 
   INIT_TABLEVAR();
+
+  if ( LTRACE ) { printf(" xxx %s: TRACE-2 \n", fnam); fflush(stdout); }
 
   sprintf(str_cputime,"%s(INIT_TABLEVAR)", STRING_CPUTIME_INIT);
   print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
@@ -302,9 +307,13 @@ int main(int argc, char **argv) {
 
   TABLEFILE_INIT(); // Oct 27 2014
 
+  if ( LTRACE ) { printf(" xxx %s: TRACE-3 \n", fnam); fflush(stdout); }
+
   for ( ifile = 0; ifile < INPUTS.NFFILE; ifile++ ) {
     ADD_FITRES(ifile);
   }
+
+  if ( LTRACE ) { printf(" xxx %s: TRACE-4 \n", fnam); fflush(stdout); }
 
   sprintf(str_cputime,"%s(read_input_tables)", STRING_CPUTIME_INIT);
   print_cputime(t_start, str_cputime, UNIT_TIME_SECOND, 0 );
@@ -313,9 +322,13 @@ int main(int argc, char **argv) {
   if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) 
     { match_cid_hash("", -1,0); } // remove hash table
 
+  if ( LTRACE ) { printf(" xxx %s: TRACE-5 \n", fnam); fflush(stdout); }
+
   // ---------------
 
   WRITE_SNTABLE() ;
+
+  if ( LTRACE ) { printf(" xxx %s: TRACE-6 \n", fnam); fflush(stdout); }
 
   t_end = time(NULL);
   WRITE_YAML() ; // for submit_batch only
@@ -849,6 +862,8 @@ void ADD_FITRES(int ifile) {
 
   NMATCH2 = 0 ;
 
+  int LTRACE = 0;
+
   for(isn2=0; isn2 < NLIST2_FITRES; isn2++ ) {
     
 
@@ -867,6 +882,8 @@ void ADD_FITRES(int ifile) {
 
   }
 
+  if ( LTRACE ) { printf(" xxx %s TRACE-1 \n", fnam ); fflush(stdout);  }
+
   NEVT_MISSING[ifile] = NLIST_FIRST_FITRES - NMATCH2 ;
 
   fflush(stdout);
@@ -883,12 +900,16 @@ void ADD_FITRES(int ifile) {
   // free temp arrays
   freeVar_TMP(ifile, NVARALL, NVARSTR, NEVT_APPROX);
   
+  if ( LTRACE ) { printf(" xxx %s TRACE-2 \n", fnam ); fflush(stdout);  }
+
   // remove lingering tmp-fitres file converted from input csv.
   if ( NFILE_CSV > 0 && ifile == INPUTS.NFFILE - 1 ) {
     sprintf(cmd,"rm %s*.FITRES", PREFIX_CSV );
     // printf("\n xxx %s \n\n", cmd);
     isys = system(cmd);
   }
+
+  if ( LTRACE ) { printf(" xxx %s TRACE-3 \n", fnam ); fflush(stdout);  }
 
   return ;
 } // end of ADD_FITRES
@@ -1255,7 +1276,7 @@ void WRITE_SNTABLE(void) {
   // Feb 26, 2017: if CIDint already exists, don't write out another one.
 
   char 
-    OUTFILE[6][200] 
+    OUTFILE[6][MXPATHLEN] 
     ,tableVar[60]
     ,*ptrSTR
     ,BLOCKVAR[]   = "VAR"     
@@ -1266,7 +1287,7 @@ void WRITE_SNTABLE(void) {
   int GZIPFLAG = 0 ;
   int ivar, ivarstr, isn, ICAST, CIDint, NOUT, out, SKIP ;
   int IFILETYPE; (void)IFILETYPE;
-
+  int LTRACE = 0;
   char  fnam[] = "WRITE_SNTABLE" ;  (void)fnam;
   // --------------- BEGIN ------------
 
@@ -1288,11 +1309,14 @@ void WRITE_SNTABLE(void) {
 
 #ifdef USE_TEXT
   if ( CREATEFILE_TEXT )  { 
+    if ( LTRACE ) { printf(" xxx %s: TRACE-1 \n", fnam); fflush(stdout); }
     sprintf(OUTFILE[NOUT], "%s.%s", 
 	    INPUTS.OUTPREFIX_COMBINE, ptrSuffix_text ); 
     outFile_text_override(OUTFILE[NOUT],&GZIPFLAG); 
     sprintf(openOpt,"%s new", ptrSuffix_text);
-    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);
+    if ( LTRACE ) { printf(" xxx %s: TRACE-2 \n", fnam); fflush(stdout); }
+    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);  // .xyz crash is here !!!
+    if ( LTRACE ) { printf(" xxx %s: TRACE-3 \n", fnam); fflush(stdout); }
     NOUT++ ;
   }
 #endif

@@ -1,7 +1,8 @@
 # Created Jan 2025 by R.Kessler
 # Read from F.A.S.T data base (for LSST-DESC) 
 #
-# Jun 2026: complete overhaual with real data
+# Jun ?? 2026: begin complete overhaual with real data
+# Jun 26 2026: minor overhaul after Rob-Refac on fastdb
 
 import os, sys, glob, yaml, shutil, time, logging, math, io, copy
 import numpy  as np
@@ -13,13 +14,12 @@ import makeDataFiles_params as  gpar
 from   makeDataFiles_base    import Program
 from   makeDataFiles_params  import *
 
-# use try/except for imports to avoid crashing on other data sets on other clusters
+# use try/except for imports that might crash on other data sets
 try:
     import pyarrow
     from  fastdb_client import FASTDBClient
     from  astropy.table import Table
     from  astropy.table import vstack
-
 except:
     pass
 

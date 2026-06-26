@@ -710,18 +710,6 @@ class BBC(Program):
                             [SUBDIR_OUTPUT_ONE_VERSION]
             return
 
-        # xxxxxxx mark delete Jan 28 2026 xxxxxxxx
-        # Mar 10 2021: check case with only one INPDIR (with multiple versions)
-        #KEEP_LEGACY = False
-        #if n_inpdir == 1 and KEEP_LEGACY :    
-        #    logging.info(f"  Auto-match success: only one INPDIR found")
-        #    self.config_prep['n_version_out']            = n_version_list[0]
-        #    self.config_prep['version_orig_sort_list2d'] = version_list2d
-        #    self.config_prep['version_out_sort_list2d']  = version_list2d
-        #    self.config_prep['version_out_list']         = version_list2d[0]
-        #    return
-        # xxxxxxxxxxxxxxxxxxxxxx
-
         # - - - - - - - - 
         # Tricky case: there are multiple verions, so check for RANSEED_CHANGE 
         # sim that has suffix index per version. 
@@ -765,7 +753,10 @@ class BBC(Program):
                 version_out_sort_list2d[idir][iver] = v_out
 
                 n_version = n_version_list[idir]
-                #print(f"\t 1. xxx idir={idir}/{n_inpdir}   iver={iver}/{n_version} ")
+
+                #vtmp = version_list2d[idir][iver]  # debug hack
+                #print(f"\t 1. xxx idir={idir}/{n_inpdir}   iver={iver}/{n_version}  [{vtmp}]")
+
                 if n_version > 1:
                     version = version_list2d[idir][iver]
                     match   = version[-len_suffix:] == suffix_expect

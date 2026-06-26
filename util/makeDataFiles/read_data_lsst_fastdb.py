@@ -128,10 +128,6 @@ class data_lsst_fastdb(Program):
         
     def prep_read_data_subgroup(self, i_subgroup):
 
-        #dum_data = [1.5, 2.3, "apple", 4.0, 7, 5.5 ]
-        #n, ind_list = util.get_garbage_list(dum_data)
-        #sys.exit(f" xxx dum_data={dum_data} | n={n}  ind_list={ind_list}")
-        
         # read fast data base for this subgroup;
         # will parse it later for writing.
         # Objects and sources are stored separately.
@@ -175,11 +171,13 @@ class data_lsst_fastdb(Program):
                                   'offset' : n_offset,
                                   'include_source_positions':      True,
                                   'return_object_info':            True,
-                                  'include_object_positions':      True,
+                                  'return_diaobject_positions':    True,
                                   'use_weighted_source_positions': True,
-                                  'always_use_weighted_source_positions': True,
                                   'nonevalue': -999
                           } )
+
+        # include_object_positions with return_diaobject_positions
+        # xxx mark 'always_use_weighted_source_positions': True,
 
         if args.pdb:
             import pdb;  pdb.set_trace()   # so that Rob can take over my screen
@@ -187,7 +185,7 @@ class data_lsst_fastdb(Program):
         dict_objinfo = manyltcvs['objinfo']        
         dict_ltcvs   = manyltcvs['ltcvs']
         nevt         = len(dict_ltcvs);
-
+    
         t1 = time.perf_counter()
         logging.info(f" Fetched {nevt} lightcurves in {t1-t0:.2f} sec.\n" )
         logging.info('')
@@ -195,38 +193,53 @@ class data_lsst_fastdb(Program):
         
         self.dict_objinfo = dict_objinfo
         self.dict_ltcvs   = dict_ltcvs
-        self.ltcsv_offset = n_offset  # needed for GARBAGE table
-        self.ltcsv_limit  = n_fetch   # needed for GARBAGE table
+        self.ltcsv_offset = n_offset     # used only in GARBAGE table
+        self.ltcsv_limit  = n_fetch      # used only in GARBAGE table
         self.garbage_table_extra_columns = { 'ltcvs_offset' : n_offset, 'ltcsv_limit': n_fetch }
-        
+
+        if i_subgroup == -9 :
+            self.dump_dict_objinfo()
+            
         return nevt
 
     # end prep_read_data_subgroup
 
+    def dump_dict_objinfo(self):
+        
+        # dump structure of dict_objinfo to help debug this beast
+        
+        keys_objinfo = list(self.dict_objinfo.keys())
 
+        logging.info("")
+        logging.info(" dump_dict_objinfo: ")
+        for key in keys_objinfo:
+            ty = type(self.dict_objinfo[key])
+            logging.info(f"\t dict_objinfo[{key}]  is type {ty}")
+
+        logging.info("")            
+        #sys.exit("\n xxx TEMP EXIT xxx")
+        return
+    
     def read_event(self, evt ):
 
         # Called by base code:
         # read event for event number "evt" in this subgroup.
-        
+
+        rootid          = self.get_rootid(evt)  # also checks rootid consistency        
         args            = self.config_inputs['args']
         
         # init output dictionaries
-        DEBUG_DUMP = True
-
         dict_objinfo      = self.dict_objinfo 
-        dict_ltcvs        = self.dict_ltcvs   
+        dict_ltcvs        = self.dict_ltcvs 
         lc_dict           = dict_ltcvs[evt]
-        rootid     = dict_objinfo[FASTDB_KEYNAME_ROOTID][evt]
-        diaobjid   = dict_objinfo[FASTDB_KEYNAME_OBJID][evt]
+
+        diaobjid   = dict_objinfo[FASTDB_KEYNAME_OBJID][evt][0]  # fragile; take first one on list
         SNID       = rootid
         nobs       = len(lc_dict['mjd'])
         self.nobs  = nobs
         
         lc_dict['photflag'] = [0] * nobs  # hack this in until we get more info from Rubin
         
-        if DEBUG_DUMP:
-            logging.debug(f"Read {args.read_class} event {evt} : SNID = {SNID}")
         
         snana_head_raw, snana_head_calc, snana_head_sim = util.reset_data_event_dict()
         snana_head_raw[gpar.DATAKEY_SNID]        = str(SNID)
@@ -309,15 +322,7 @@ class data_lsst_fastdb(Program):
         snana_head_raw[gpar.DATAKEY_FIELD]   = field
         
         # - - - - - -
-        
-        if DEBUG_DUMP:
-            str_warn = ''
-            if nobs == 0: str_warn = "BEWARE NO OBSERVATIONS !!!"
-            logging.debug(f"\t store {nobs} sources for SNID = {SNID}   {str_warn}")
-
-        # construct SNANA dictionary
-
-                    
+        # construct SNANA dictionary            
         snana_data_dict = {
             'head_raw'     : snana_head_raw,
             'head_calc'    : snana_head_calc,
@@ -340,6 +345,21 @@ class data_lsst_fastdb(Program):
     
     # end read_event
 
+    def get_rootid(self, evt):
+
+        rootid_obj     = self.dict_objinfo[FASTDB_KEYNAME_ROOTID][evt]
+        rootid_ltcvs   = self.dict_ltcvs[evt][FASTDB_KEYNAME_ROOTID] 
+
+        if rootid_obj != rootid_ltcvs :
+            msgerr = [ f"objinfo rootid={rootid_obj} but ",
+                       f"ltcvs   rootid={rootid_ltcvs}",
+                       f"evt={evt}  offset={self.ltcsv_offset}  limit={self.ltcsv_limit}" ]
+            util.log_assert(False,msgerr)
+            
+        return rootid_obj
+        
+    # end get_rootid
+    
     def fudge_garbabe_obs(self, evt, key_snana, val_list):
 
         # fudge garbage in observation to test garbage tracking infrastructure
@@ -415,7 +435,7 @@ class data_lsst_fastdb(Program):
         
         n_new = new_n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL]
         if n_new > 0:
-            logging.info(f" WARNING: {n_new} garbage {key} values for ROOTID={rootid}")
+            logging.info(f" WARNING: {n_new:3d} garbage {key} values for ROOTID={rootid}")
             self.garbage_list = [a or b for a, b in zip(old_garbage_list,new_garbage_list)]
 
             # increment garbage counter for each type of flt garbage

@@ -293,11 +293,19 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   int  langC = LANGFLAG_PARSE_WORDS_C ;
   int  ILIST = 0, OPT_AUTOSTORE ;
   double DVAL;  char *CVAL;
-  int  LDMP = 0 ;
-  char CCID[40], STRINGID[100], ctmp[60], STRING_MATCH[60] ;
+  int  LDMP = 1 ;
+  char CCID[MXCHAR_CCID], STRINGID[100], ctmp[60], STRING_MATCH[60] ;
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
+
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------------------- \n") ;
+    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
+    printf(" xxx %s: IS_FILE  =  %d  \n", fnam, IS_FILE);
+    printf(" xxx %s: OPTMASK  =  %d  \n", fnam, *OPTMASK);
+    fflush(stdout);
+  }
 
   // construct comment STRING_MATCH to print below
   sprintf(STRING_MATCH,"CID");
@@ -310,14 +318,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     HASH_STORAGE.NVAR = 0;
     SNTABLE_AUTOSTORE_RESET();  // May 2022
     return 0; 
-  }
-
-  if ( LDMP ) {
-    printf(" xxx ---------------------------------------------- \n") ;
-    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
-    printf(" xxx %s: IS_FILE  =  %d  \n", fnam, IS_FILE);
-    printf(" xxx %s: OPTMASK  =  %d  \n", fnam, *OPTMASK);
-    fflush(stdout);
   }
 
 
@@ -774,6 +774,7 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
 
   // ---------------- BEGIN ---------------
 
+
   if ( ilist < 0 ) {
     /* free the hash table contents */
     HASH_ITER(hh, hash_table_users, s, tmp) {
@@ -787,7 +788,6 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
     // create hash table        
     s     = malloc(sizeof(struct hash_table_def));
     s->id = isn;
-
     strcpy(s->name, ccid);
     HASH_ADD_STR( hash_table_users, name, s );
     return(isn) ;

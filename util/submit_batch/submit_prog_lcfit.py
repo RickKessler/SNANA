@@ -1612,6 +1612,7 @@ class LightCurveFit(Program):
             for table_name in TABLE_NAME_LIST :
                 self.merge_table_TEXT(table_name, version_fitopt_dict)
 
+
         # move MERGE files, and remove 'MERGE_' prefix
         self.move_merge_table_files(version_fitopt_dict)
 
@@ -1741,7 +1742,7 @@ class LightCurveFit(Program):
                    f"{out_table_file2} ; " \
                    f"mv {out_table_file2} {out_table_file}"
 
-        msg = f"   merge {n_job_split} {suffix}-{table_name} table files."
+        msg = f"   merge {n_job_split} {suffix}-{table_name} table files -> {out_table_file}"
         logging.info(msg)
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
@@ -1750,9 +1751,9 @@ class LightCurveFit(Program):
             os.system(f"{cddir} ; {cmd_all}")
             util.print_elapse_time(tref,f"merge {n_job_split} table files")
 
+
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         util.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
-        # xxx mark delete self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
 
         # - - - - - -
         # for FITRES table only, do unitarity check to make sure that 
@@ -1914,10 +1915,7 @@ class LightCurveFit(Program):
         else:
             return
 
-        #if key in submit_info_yaml :
-        #    varlist_append = submit_info_yaml[key]
-        #else:
-        #    return
+        # - - - - -
 
         msgerr = []
 
@@ -1951,6 +1949,7 @@ class LightCurveFit(Program):
         
         istat = os.system(f"{cddir} ; {cmd_append} ")
         util.print_elapse_time(tref,SCRIPT_SNTABLE_DUMP)
+
 
         if istat != 0 :
             msgerr.append(f"Failed to apppend variables with command")
@@ -2072,7 +2071,7 @@ class LightCurveFit(Program):
 
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         util.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
-        # xxx mark delete self.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
+
 
         # for HBOOK, remove garbage from log file
         if itable == ITABLE_HBOOK :
@@ -2173,7 +2172,8 @@ class LightCurveFit(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
         table_wildcard   = f"{PREFIX_MERGE}_*"
-        table_list       = glob.glob1(script_dir,table_wildcard)
+        # xxx mark table_list       = glob.glob1(script_dir,table_wildcard)
+        table_list       = glob.glob(table_wildcard, root_dir = script_dir)
 
         cmd = f"cd {script_dir} ; "
         for tfile in table_list :

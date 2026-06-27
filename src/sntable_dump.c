@@ -325,7 +325,6 @@ void parse_args(int NARG, char **argv) {
       INPUTS.SNTABLE_NEVT = true ;  // Aug 2020
     }
 
-    // xxx mark    if ( strcmp_ignoreCase(argv[i],"-outlier" ) == 0 ) {
     if ( keyMatch_dash(argv[i],"outlier") || 
 	 keyMatch_dash(argv[i],"outlier_fit") ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
@@ -335,7 +334,6 @@ void parse_args(int NARG, char **argv) {
       sprintf(INPUTS.COMMENT_FLUXREF,          "fitFlux" );
     }
 
-    // xxx mark if ( strcmp_ignoreCase(argv[i],"-outlier_sim" ) == 0 ) {
     if ( keyMatch_dash(argv[i],"outlier_sim") ) {
       sscanf(argv[i+1], "%f", &INPUTS.OUTLIER_NSIGMA[0] );
       sscanf(argv[i+2], "%f", &INPUTS.OUTLIER_NSIGMA[1] );
@@ -373,13 +371,11 @@ void parse_args(int NARG, char **argv) {
     if ( IFLAG_VARNAMES ) {
       NVAR = INPUTS.NVAR ;
       sprintf(INPUTS.VARNAMES[NVAR],"%s", argv[i] );
-      // buggy if ( NVAR==0 ) { sprintf(INPUTS.VARNAMES[NVAR],"CCID ROW"); }
       if ( NVAR==0  && strcmp(argv[i],"CID")!=0 ) 
 	{ sprintf(INPUTS.VARNAMES[NVAR],"CCID"); } 
 
       strcat(INPUTS.VARLIST," ");
       strcat(INPUTS.VARLIST,argv[i] );
-      // xxx mark delete sprintf(INPUTS.VARLIST,"%s %s", INPUTS.VARLIST, argv[i] );
       INPUTS.NVAR++ ; 
     }
 

@@ -88,6 +88,8 @@
  Dec 12 2025: remove anything related to hbook; default now produces only text outpout 
                no longer produces root file unless specific -R or -r argument is given.
 
+ Jun 2026: fix few memory overwrite bugs triggered by D_FORTIFY_SOURCE compilation flag
+
 ******************************/
 
 #include <stdio.h>
@@ -155,9 +157,9 @@ bool is_csv_file(char *file_name);
 
 #define MXSTRLEN       MXCHAR_VARNAME  // changed from 28 (Sep 20 2019)
 #define MXSTRLEN_BAND      8
-#define MXSTRLEN_CID      20
-#define MXSTRLEN_FIELD    20
-#define MXSTRLEN_VERSION  32 // photometry versoin, added Dec 2016
+#define MXSTRLEN_CID      MXCHAR_CCID
+#define MXSTRLEN_FIELD    MXCHAR_FIELDNAME
+#define MXSTRLEN_VERSION  MXCHAR_FILENAME   // photometry version, added Dec 2016
 
 #define IVARSTR_CCID  0   // CCID index for CVAR_XXX arrays
 int IVARSTR_SURVEY ;      // optinal match to CCID_SURVEY
@@ -677,7 +679,7 @@ void ADD_FITRES(int ifile) {
   int REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
   char FFILE[2*MXPATHLEN];
   char *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME] ;
-  char *ptr_CTAG, ccid[60],  cmd[2*MXPATHLEN+40] ;
+  char *ptr_CTAG, ccid[MXCHAR_CCID],  cmd[2*MXPATHLEN+40] ;
   char fnam[] = "ADD_FITRES" ;  (void)fnam;
 
   // ----------- BEGIN -----------
@@ -838,12 +840,12 @@ void ADD_FITRES(int ifile) {
 
   } // end of ivar loop
 
-
   // read everything and close file.
   NLIST = SNTABLE_READ_EXEC();
   NEVT_READ[ifile] = NLIST;
 
   if ( INPUTS.DO_ROWMATCH  ) { relabel_rownum(ifile); }
+
 
   if ( ifile == 0 ) {
     NLIST_FIRST_FITRES  = NLIST ; 
@@ -863,9 +865,14 @@ void ADD_FITRES(int ifile) {
   NMATCH2 = 0 ;
 
   int LTRACE = 0;
+  if ( LTRACE ) 
+    { printf(" xxx %s TRACE-0   MATCHFLAG=%d\n", fnam, INPUTS.MATCHFLAG ); fflush(stdout);  }
 
   for(isn2=0; isn2 < NLIST2_FITRES; isn2++ ) {
     
+
+    if ( LTRACE && isn2 < 100 ) 
+      { printf(" xxx %s TRACE-1a  isn2=%d\n", fnam, isn2 ); fflush(stdout);  }
 
     if ( INPUTS.MATCHFLAG == MATCHFLAG_HASH_UTIL ) {
       sprintf(ccid, "%s", FITRES_VALUES.STR_TMP[IVARSTR_CCID][isn2]);
@@ -873,6 +880,9 @@ void ADD_FITRES(int ifile) {
     }
     else 
       { isn = match_CID_orig(ifile,isn2);  }
+
+    if ( LTRACE && isn2 < 100 ) 
+      { printf(" xxx %s TRACE-1b  isn=%d\n", fnam, isn ); fflush(stdout);  }
 
     if ( isn >= 0 ) { 
       ADD_FITRES_VARLIST(ifile,isn,isn2);   
@@ -882,7 +892,7 @@ void ADD_FITRES(int ifile) {
 
   }
 
-  if ( LTRACE ) { printf(" xxx %s TRACE-1 \n", fnam ); fflush(stdout);  }
+  if ( LTRACE ) { printf(" xxx %s TRACE-2 \n", fnam ); fflush(stdout);  }
 
   NEVT_MISSING[ifile] = NLIST_FIRST_FITRES - NMATCH2 ;
 

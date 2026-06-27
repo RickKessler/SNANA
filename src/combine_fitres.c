@@ -709,7 +709,7 @@ void ADD_FITRES(int ifile) {
 
   // open file & read header; use generic table name SNTABLE
   // since for ascii files the table name is not used.
-  IFILETYPE = TABLEFILE_OPEN( FFILE, "read text" );
+  IFILETYPE = TABLEFILE_OPEN( FFILE, "read text", fnam );
   NVARALL   = SNTABLE_READPREP(IFILETYPE,"SNTABLE");
   NVARALL_FILE[ifile] = NVARALL;
 
@@ -1311,7 +1311,7 @@ void WRITE_SNTABLE(void) {
     sprintf(OUTFILE[NOUT], "%s.%s", 
 	    INPUTS.OUTPREFIX_COMBINE, ptrSuffix_root ); 
     sprintf(openOpt,"%s new", ptrSuffix_root);
-    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);
+    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt, fnam );
     NOUT++ ;
   }
 #endif
@@ -1325,7 +1325,7 @@ void WRITE_SNTABLE(void) {
     outFile_text_override(OUTFILE[NOUT],&GZIPFLAG); 
     sprintf(openOpt,"%s new", ptrSuffix_text);
     if ( LTRACE ) { printf(" xxx %s: TRACE-2 \n", fnam); fflush(stdout); }
-    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT],openOpt);  // .xyz crash is here !!!
+    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT], openOpt, fnam); 
     if ( LTRACE ) { printf(" xxx %s: TRACE-3 \n", fnam); fflush(stdout); }
     NOUT++ ;
   }

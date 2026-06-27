@@ -396,8 +396,8 @@ extern"C" {
   void tablefile_init__(void);
   void TABLEFILE_INIT_VERIFY(char *FUNNAME, char *MSG) ;
 
-  int  TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT); // return file type
-  int  tablefile_open__(char *FILENAME, char *STRINGOPT);
+  int  TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun ); // return file type
+  int  tablefile_open__(char *FILENAME, char *STRINGOPT, char *callFun);
 
   void TABLEFILE_CLOSE(char *FILENAME) ;
   void tablefile_close__(char *FILENAME) ;

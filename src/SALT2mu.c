@@ -6055,7 +6055,7 @@ void read_data(void) {
   // loop again over each data file: read and append INFO_DATA arrays
   for(ifile=0; ifile < NFILE; ifile++ ) {
     dataFile    = INPUTS.dataFile[ifile];
-    IFILETYPE   = TABLEFILE_OPEN(dataFile,"read");
+    IFILETYPE   = TABLEFILE_OPEN(dataFile,"read", fnam);
     NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");  (void)NVAR_ORIG;
     ISTART      = TABLEVAR->NSN_ALL ;
 
@@ -10880,7 +10880,7 @@ void  read_simFile_biasCor(void) {
   // loop again over each data file: read and append arrays
   for(ifile=0; ifile < NFILE; ifile++ ) {
     simFile     = INPUTS.simFile_biasCor[ifile];
-    IFILETYPE   = TABLEFILE_OPEN(simFile,"read");
+    IFILETYPE   = TABLEFILE_OPEN(simFile,"read", fnam);
     NVAR_ORIG   = SNTABLE_READPREP(IFILETYPE,"FITRES");  (void)NVAR_ORIG;
 
     ISTART      = TABLEVAR->NSN_ALL ;
@@ -16648,7 +16648,7 @@ void  read_simFile_CCprior(void) {
   for(ifile=0; ifile < NFILE; ifile++ ) {
     simFile   = INPUTS.simFile_CCprior[ifile];
 
-    IFILETYPE = TABLEFILE_OPEN(simFile,"read");
+    IFILETYPE = TABLEFILE_OPEN(simFile,"read", fnam);
     NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,"FITRES"); (void)NVAR_ORIG;
     ISTART = INFO_CCPRIOR.TABLEVAR.NSN_ALL;
 

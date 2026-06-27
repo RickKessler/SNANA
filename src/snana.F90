@@ -6450,7 +6450,7 @@
     INTEGER LENFILE,  IFILETYPE, SIMFLAG
 
     CHARACTER  & 
-         FNAM*16  & 
+         FNAM*20  & 
         ,COPT*20  & 
         ,CFILE*(MXCHAR_FILENAME)  & 
         ,TEXTFMT*20
@@ -6527,7 +6527,7 @@
     IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
        COPT          = "new" // char(0)
        CALL ENVreplace(MARZFILE_OUT)
-       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM,   LENFILE, 20, 20)
 
        USE_TABLEFILE_MARZ = .TRUE.
        USE_TABLEFILE      = .TRUE.
@@ -6546,7 +6546,7 @@
        COPT          = "new root" // char(0)
        USE_TABLEFILE_ROOT = .TRUE.
        USE_TABLEFILE      = .TRUE.
-       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM, LENFILE, 20, 20)
 
        IF ( IFILETYPE < 0 ) THEN
           C1ERR = 'Could not open ROOT table-file'
@@ -6563,7 +6563,7 @@
        COPT          = "new text" // char(0)
        USE_TABLEFILE_TEXT = .TRUE.
        USE_TABLEFILE      = .TRUE.
-       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, LENFILE, 20)
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM, LENFILE, 20, 20)
 
        IF ( IFILETYPE < 0 ) THEN
           C1ERR = 'Could not open TEXT table-files with PREFIX='

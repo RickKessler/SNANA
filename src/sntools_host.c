@@ -1865,7 +1865,7 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
 
   TABLEFILE_INIT();
   NBIN_WAVE   = SNTABLE_NEVT(spec_file,TBLNAME);
-  IFILETYPE   = TABLEFILE_OPEN(spec_file,"read");
+  IFILETYPE   = TABLEFILE_OPEN(spec_file,"read", fnam);
   NVAR        = SNTABLE_READPREP(IFILETYPE,TBLNAME);
 
   if ( NBIN_WAVE > MXBIN_SPECBASIS ) {
@@ -4794,7 +4794,7 @@ void init_Gauss2d_Overlap(void) {
   ENVreplace(Gauss2dFile,fnam,1);
 
   TABLEFILE_INIT();
-  IFILETYPE = TABLEFILE_OPEN(Gauss2dFile, "read");
+  IFILETYPE = TABLEFILE_OPEN(Gauss2dFile, "read", fnam );
   SNTABLE_READPREP(IFILETYPE,TABLENAME);
 
   for ( IVAR = 0; IVAR < NVAR_Gauss2d; IVAR++ ) {

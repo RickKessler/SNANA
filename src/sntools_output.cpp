@@ -228,7 +228,7 @@ int get_TABLEFILE_TYPE(char *FILENAME) {
 } // end of TABLEFILE_TYPE
 
 // ==================================================
-int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
+int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
 
   // Created Apr 26 2014 by R.Kessler
   // Determine file type ( root, ...) based on suffix
@@ -256,15 +256,20 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
   //
   // Oct 14 2014: call new function OPEN_TEXTFILE(...) for read-mode
   // Jul 13 2020: declare *ENV and *FMT (used if HBOOK is NOT defined)
+  // Jun 27 2026: pass callFun and print fnam to show who calls this
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
   char *ptrtok, local_STRINGOPT[80], ctmp[20];
-  char fnam[] = "TABLEFILE_OPEN" ;
+
+  char fnam[200];
+  char fnam0[] = "TABLEFILE_OPEN";
+  concat_callfun_plus_fnam(callFun, fnam0, fnam);
 
   // ---------------------- BEGIN ---------------------
 
-
   TABLEFILE_INIT_VERIFY(fnam, FILENAME) ;
+
+  printf(" %s: \n", fnam); fflush(stdout);
 
   OPEN_FLAG = TYPE_FLAG = OPT_Q = IERR = 0 ;
   
@@ -403,7 +408,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
 #ifdef USE_ROOT
   if ( TYPE_FLAG == IFILETYPE_ROOT ) {
-    OPEN_ROOTFILE(FILENAME, stringOpt, &IERR);
+    OPEN_ROOTFILE(FILENAME, stringOpt, &IERR, fnam);
     NOPEN_TABLEFILE++ ;
   }
 #endif
@@ -453,8 +458,8 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT) {
 
 } // end of TABLEFILE_OPEN
 
-int  tablefile_open__(char *FILENAME, char *STRINGOPT) {
-  return TABLEFILE_OPEN(FILENAME,STRINGOPT);
+int  tablefile_open__(char *FILENAME, char *STRINGOPT, char *callFun ) {
+  return TABLEFILE_OPEN(FILENAME,STRINGOPT, callFun);
 }
 		      
 
@@ -1667,11 +1672,12 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   char stringOpt[] = "read";
 
   
-  IFILETYPE = TABLEFILE_OPEN(FILENAME, stringOpt); // open file to read
+  IFILETYPE = TABLEFILE_OPEN(FILENAME, stringOpt, fnam); // open file to read
   (void)IFILETYPE;
 
   NVAR_TOT  = SNTABLE_READPREP(IFILETYPE,TABLENAME);
   (void)NVAR_TOT ;
+
 
   // Oct 2019: 
   //   Abort if OUTLIER flag is set but NPTFIT isn't defined in table.
@@ -1711,6 +1717,7 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
   READTABLE_POINTERS.FP_DUMP   = FP_OUTFILE ;
   sprintf(READTABLE_POINTERS.LINEKEY_DUMP,"%s", LINEKEY_DUMP);
   sprintf(READTABLE_POINTERS.SEPKEY_DUMP, "%s", SEPKEY_DUMP);
+
 
   // do the read & write
   NREAD = SNTABLE_READ_EXEC();
@@ -1955,7 +1962,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   SNTABLE_AUTOSTORE[NF].IFILETYPE = -9;
 
   // open file and return file type(root,text)
-  IFILETYPE = TABLEFILE_OPEN(fileName,readOpt) ;
+  IFILETYPE = TABLEFILE_OPEN(fileName,readOpt, fnam) ;
   SNTABLE_READPREP(IFILETYPE,tableName );
 
   // make comma-sep list of variables in table header;

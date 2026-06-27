@@ -1464,7 +1464,7 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
   
   TABLEFILE_INIT();
   NROW      = SNTABLE_NEVT(inFile,TBNAME);
-  IFILETYPE = TABLEFILE_OPEN(inFile,"read");  (void)IFILETYPE;
+  IFILETYPE = TABLEFILE_OPEN(inFile,"read", fnam );  (void)IFILETYPE;
   NVAR_ORIG = SNTABLE_READPREP(IFILETYPE,TBNAME);  (void)NVAR_ORIG;
 
   malloc_HDarrays(+1, NROW, HD); 

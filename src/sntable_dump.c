@@ -179,7 +179,8 @@ int main(int argc, char **argv) {
 
   // ------------- BEGIN -----------
 
-  printf(" Begin sntable_dump.exe \n"); fflush(stdout);
+  print_full_command(stdout, argc, argv);
+  // xxx mark printf(" Begin sntable_dump.exe \n"); fflush(stdout);
 
   parse_args(argc,argv);
 
@@ -231,6 +232,7 @@ int main(int argc, char **argv) {
   } 
   else {
     // dump variable values to ascii/fitres file.
+    // printf(" Call SNTABLE_DUMP_VALUES to dump requested columns to separate ascii/fitres file");
     NDUMP = SNTABLE_DUMP_VALUES(TFILE, TID, NVAR, TLIST, IVAR_NPT,
 				FP_OUTFILE, LINEKEY_DUMP, SEPKEY_DUMP );  
   }

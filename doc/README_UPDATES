@@ -23923,6 +23923,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v12_02) *****
 
+    submit_prog_lcfit:
+       new APPEND_TABLE_VARLIST feature with semi-colon to control append-list for
+       both the SNANA and FITRES tables;  see submit_batch_jobs.sh -H LCFIT
+       Ignoring semi-colon results in back-compatible feature of appending only
+       FITRES table. 
+
          *****  MISCELLANEOUS(v12_02) *****
 
     snana.F90, snlc_fit.F90: 

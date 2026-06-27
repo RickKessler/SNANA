@@ -71,7 +71,8 @@ void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
   // check option to report time per event
   char msg[100];
   double rate = 0.0 ;
-  if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
+  // xxx mark del 6.26.2026  if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
+  if ( strstr(key_cputime,"RATE") !=NULL ) {
     if ( dt > 0.0 )  { rate = (double)nevt / dt ; }
     sprintf(msg,"%-20s = %.3f %s^-1", key_cputime, rate, unit_time);
   }
@@ -9088,8 +9089,13 @@ int init_SNDATA_EVENT(void) {
   // Mar 13 2021: ZEROPT_ERR[SIG] = 0 instead of -9 in case they are 
   //              not in data files.
   //
+  // Jun 26 2026: reduce MXPOCH loop [=60000]  to NEP_LAST
+  //   to speed up init.
+
+  int NEP_LAST = SNDATA.NEPOCH;
   int i_epoch, ifilt, i, igal ;
   char fnam[] = "init_SNDATA_EVENT" ;  (void)fnam;
+
   // --------- BEGIN -----------------
 
   sprintf(FLUXUNIT, "ADU");
@@ -9101,6 +9107,7 @@ int init_SNDATA_EVENT(void) {
   SNDATA.NLINES_AUXHEADER = 0;
   for ( i=0; i < 20; i++ ) 
     { sprintf(SNDATA.AUXHEADER_LINES[i],"GARBAGE AUXHEADER_LINE"); }
+
 
   SNDATA.RA_AVG  = NULLFLOAT ;
   SNDATA.DEC_AVG = NULLFLOAT ;
@@ -9241,7 +9248,8 @@ int init_SNDATA_EVENT(void) {
 
   SNDATA.SIM_HOSTLIB_GALID = -9 ;
 
-  for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+  int MXFILT = MXFILTINDX;
+  for ( ifilt=0; ifilt < MXFILT; ifilt++ ) {
 
     SNDATA.RA_AVG_BAND[ifilt]      = NULLFLOAT ;
     SNDATA.DEC_AVG_BAND[ifilt]     = NULLFLOAT ;
@@ -9260,6 +9268,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.SIM_EXPOSURE_TIME[ifilt]     = 1.0  ;
   }
 
+  // xxx proc_rate 100/sec
+
   SNDATA.PIXSIZE     = NULLFLOAT ;
   SNDATA.NXPIX       = -9 ;  
   SNDATA.NYPIX       = -9 ;  
@@ -9274,7 +9284,11 @@ int init_SNDATA_EVENT(void) {
   SNDATA.HAS_DETNUM  = false;
   SNDATA.HAS_IMGNUM  = false;
 
-  for ( i_epoch = 0; i_epoch < MXEPOCH; i_epoch++ ) {
+  // avoid wasting time with loop over huge MXEPOCH; use NEP_LOCAL
+  int MXEP_LOCAL = NEP_LAST;
+  if ( MXEP_LOCAL < 5 ) { MXEP_LOCAL = 5; }
+
+  for ( i_epoch = 0; i_epoch < MXEP_LOCAL; i_epoch++ ) {
 
     SNDATA.SEARCH_RUN[i_epoch]   = NULLINT ;
     SNDATA.TEMPLATE_RUN[i_epoch] = NULLINT ;
@@ -9343,6 +9357,8 @@ int init_SNDATA_EVENT(void) {
 
   }  //  end i_epoch init loop
 
+  // xxx proc_rate 40/sec
+
   return SUCCESS ;
 
 }   // end of init_SNDATA_EVENT
@@ -9385,14 +9401,18 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
   if ( HOSTGALz->USE_VAL2 ) 
     { sprintf(HOSTGALz->VARNAME_VAL2, "%s_%s",  PREFIXz, SUFFIX_val2); }
   else 
-    {   HOSTGALz->VARNAME_VAL2[0] = 0 ; }
+    { HOSTGALz->VARNAME_VAL2[0] = 0 ; }
 
   HOSTGALz->NZ = 0;
-  for (j=0; j < MXBIN_HOSTGALz; j++ ) {
+  int NBLOC = MXBIN_HOSTGALz;
+  for (j=0; j < NBLOC ; j++ ) {
     HOSTGALz->Z_LIST[j]    = -9.0 ;
     HOSTGALz->VAL_LIST[j]  = -9.0 ;
     HOSTGALz->VAL2_LIST[j] = -9.0 ;
   }
+
+  return;
+
 } // end init_SNDATA_HOSTGALz
 
 void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
@@ -9429,6 +9449,22 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
 
 } // end dump_SNDATA_HOSTGALz
  
+bool ISVAR_HOSTGALz(char *VARNAME) {
+
+  // Created Jun 26 2026
+  // Return true if HOSTGALz, HOSTGAL2z, etc ... is in VARNAME
+  // First draft here is hard-wired, but should find a more robust way
+
+  char fnam[] = "ISVAR_HOSTGALz" ;  (void)fnam;
+  // --------- BEGIN --------------
+  if ( strstr(VARNAME,"HOSTGALz" ) != NULL ) { return true; }
+  if ( strstr(VARNAME,"HOSTGAL2z") != NULL ) { return true; }
+  if ( strstr(VARNAME,"HOSTGAL3z") != NULL ) { return true; }
+
+  return false;
+
+} // end ISVAR_HOSTGALz
+
 
 int NZ_HOSTGALz(int MXBIN, float *Z_LIST, char *CCID) {  
 

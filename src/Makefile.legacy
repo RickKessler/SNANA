@@ -86,7 +86,7 @@ else
 endif
 
 # after running code with -pg, "gprof $SNANA_DIR/bin/[code].exe"
-#  PROFILEFLAG = -pg
+  PROFILEFLAG = -pg
 # ------------------------
 # compile default storage options for both ROOT and BAYESN.
 USE_ROOT   = 1

@@ -356,7 +356,8 @@
 
     INTEGER*4  & 
          N_VERSION              &  ! number of photometry version to read
-        ,N_SNLC_READ(MXVERS)    &  ! total numbrer of LC per version
+        ,N_SNLC_VERS(MXVERS)    &  ! total numbrer of LC per version
+        ,N_SNLC_READ            &  ! number or read SN, even if not processed (e.g. not in SNCID_LIST)
         ,N_SNLC_PROC            &  ! number of SNLC processed with SNANA_DRIVER
         ,N_SNLC_CUTS            &  ! Number of SN after cuts (bookkeeping only)
         ,N_SNLC_SPEC            &  ! idem, but with 1 or more spectra
@@ -3029,7 +3030,6 @@
 ! Sep 03 2024: set LRDFLAG_SPEC=T for SIMLIB_OUTFILE
 ! ------
 
-
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -3102,7 +3102,7 @@
       CALL MADABORT(FNAM, c1err, c2err )
     ENDIF
 
-    N_SNLC_READ(IVERS) = NSN_VERS
+    N_SNLC_VERS(IVERS) = NSN_VERS
 
 ! read SNDATA struct and tranfer global info to fortran variables
     if ( LRDFLAG_GLOBAL .OR. IVERS > 1 ) then
@@ -3144,9 +3144,23 @@
       ENDIF
 
 ! transfer from C struct to global fortran variables
+
       CALL RDHEAD_DRIVER(istat)
 
-      if ( ISTAT < 0 ) GOTO 100    ! failed cut on header var/CID
+      N_SNLC_READ = N_SNLC_READ + 1      
+      if (MOD(N_SNLC_READ,5000) .EQ. 0) then
+         print*,'  N_SNLC_READ = ', N_SNLC_READ  ! show something, even if nothing is processed
+         call flush(6)
+      endif
+
+      if ( ISTAT < 0 ) GOTO 100
+
+      ! xxxxxxxxx mark delete xxxxxxx
+      !if ( ISTAT < -9999990 ) then
+      !   N_SNLC_PROC = N_SNLC_PROC + 1     ! Jun 26 2026
+      !   GOTO 105  
+      !endif
+      ! xxxxxxxxxxxx
 
 ! Read observations for event and load SNDATA C-struct.
 ! Read optional SPECTRA and load GENSPEC C-struct.
@@ -3172,13 +3186,13 @@
 
 ! ---------------------------------------------------------------
 
-       IF ( ISTAT .EQ. 0 ) THEN
-          N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
-          call PRINT_RDSN()      ! print one-line summary
-          CALL SNANA_DRIVER( ISN, N_SNLC_PROC, IVERS)
-       ENDIF
+      IF ( ISTAT .EQ. 0 ) THEN
+         N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
+         call PRINT_RDSN()      ! print one-line summary
+         CALL SNANA_DRIVER( ISN, N_SNLC_PROC, IVERS)
+      ENDIF
 
-
+!105   CONTINUE
 ! stop reading if/when all CIDs are processed
       IF ( LDONE_CIDLIST() ) GOTO 500
 
@@ -3191,7 +3205,7 @@
        CALL RD_SNFITSIO_EVENT(OPTMASK_SNDATA_DONE, 0)
     ENDIF
 
-    ABSO_OFFSET = ABSO_OFFSET + N_SNLC_READ(IVERS)
+    ABSO_OFFSET = ABSO_OFFSET + N_SNLC_VERS(IVERS)
 
     RETURN
   END SUBROUTINE EXEC_READ_DATA
@@ -4022,13 +4036,6 @@
     call checkString_CCID(SNLC_NAME_IAUC) ! abort if illegal char in name
     IF ( SNLC_NAME_IAUC(1:4) == 'NULL' ) SNLC_NAME_IAUC = 'NONE'  ! null confuses plot_table.py
 
-! xxxxxx mark delete 9.12.2025 xxxxxxxxxxxxxx
-!      IF ( WRTABLEFILE_IAUC .and. ISNLC_LENIAUC > 0 ) THEN
-!         SNLC_CCID      = SNLC_NAME_IAUC
-!         ISNLC_LENCCID  = ISNLC_LENIAUC
-!      ENDIF
-! xxxxxxxxxxxxxxxxx
-
     CALL FETCH_SNDATA_WRAPPER("NAME_TRANSIENT",   &  ! July 2024
            ONE, SNLC_NAME_TRANSIENT, DARRAY, OPT)
     ISNLC_LENNAME = INDEX(SNLC_NAME_TRANSIENT,' ') - 1
@@ -4036,11 +4043,14 @@
 
 ! - - - - - - - - - - - - - - - - - - - - - - - - - -
 ! Convert CCID to integer CID, and check if this CCID is selected.
-    CALL PARSE_CID( SNLC_CCID, SNLC_NAME_IAUC,     &  ! inputs
-                        CID, USECID)                  ! returns args
+    CALL PARSE_CID( SNLC_CCID, SNLC_NAME_TRANSIENT, SNLC_NAME_IAUC,     &  ! inputs
+         CID, USECID)                  ! returns args
+
     SNLC_CID  = CID   ! load integer CID
+
     if ( .NOT. USECID ) then
-       ISTAT = ISTAT_SKIP;  RETURN
+       ISTAT = ISTAT_SKIP;  
+       RETURN
     endif
 ! - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -5582,9 +5592,6 @@
 
     write(6,20) 'FILTERS:', SURVEY_FILTERS(1:NFILTDEF_SURVEY), ' '
 
-! xxx mark delete Oct 16 2025 xxxxxxx
-!      write(6,21) 'NEVENT: ',  N_SNLC_READ(1), ' '
-! xxxxxxxxxx
 
     COMMENT = ''
     IF ( DATATYPE == 'SIM_MAGOBS' ) THEN
@@ -8886,8 +8893,13 @@
     CALL PRINT_JOBSPLIT_OUT()
 
 ! ------------------------
+    print*,' '
+    write(6,44) N_SNLC_READ
+44  format(T5,'Finished reading ',I7, ' events')  ! 6.26.2026
+
+
     write(6,48) N_SNLC_CUTS, N_SNLC_PROC
-48    format(/,T5,'Finished processing ',I7,  & 
+48    format(T5,'Finished processing ',I7,  & 
          ' SN after snana  cuts',  & 
           3x,'(',I7,' before cuts)'  )
     CALL FLUSH(6)
@@ -8961,13 +8973,17 @@
 ! print out processing time, and process time per SN.
 
 
-    CALL PRINT_CPUTIME(JTIME_LOOPSTART,  & 
+    CALL PRINT_CPUTIME(JTIME_LOOPSTART,        &
               "CPUTIME_PROCESS_ALL"//char(0),  & 
               "minute"//char(0), 0,    20,20)
 
-    CALL PRINT_CPUTIME(JTIME_LOOPSTART,  & 
+    CALL PRINT_CPUTIME(JTIME_LOOPSTART,         & 
               "CPUTIME_PROCESS_RATE"//char(0),  & 
-              "second"//char(0), N_SNLC_CUTS,    20,20)
+              "second"//char(0), N_SNLC_CUTS,    22,20)
+
+    CALL PRINT_CPUTIME(JTIME_LOOPSTART,        & 
+              "CPUTIME_READ_RATE" // char(0),  & 
+              "second"//char(0), N_SNLC_READ,    22,20)
 
 ! --------------------------
 ! print DUPLICATE-CID WARNING
@@ -9143,8 +9159,6 @@
 ! Used only for BATCH mode.
 ! ----------------
 
-
-
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -9164,7 +9178,7 @@
     if ( NCID_LIST > 0         ) RETURN
     if ( MXEVT_PROCESS < 10000 ) RETURN
 
-    NSN_TOT = N_SNLC_READ(1)
+    NSN_TOT = N_SNLC_VERS(1)
     FRAC = FLOAT(ISN) / FLOAT(NSN_TOT)
     PERCENT = INT(FRAC*100.0 + 0.5)
 
@@ -11258,6 +11272,7 @@
     N_SNFILE      = 0
     N_SNFILE_LAST = 0
 
+    N_SNLC_READ     = 0
     N_SNLC_PROC     = 0
     N_SNLC_CUTS     = 0
     N_SNLC_SPEC     = 0
@@ -11412,8 +11427,8 @@
 
 ! Created Jun 9 2021
 ! Check CID lists from:
-!   + integer list in NML (use and ignore)
-!   + char list in NML    (use and ignore)
+!   + integer SNCID_LIST  in NML  (use and ignore)
+!   + char    SNCCID_LIST in NML  (use and ignore)
 !   + list in separate file
 ! 
 ! For string lists that can be very long (from list file),
@@ -13684,11 +13699,12 @@
 
 
 ! ====================================
-    SUBROUTINE PARSE_CID ( ccid, iauc, cid, USECID )
+    SUBROUTINE PARSE_CID ( ccid, name_transient, name_iauc, cid, USECID )
 ! 
 ! Convert character string CCID into integer CID.
 ! Returns logical USECID=T if this CID should be processed.
 ! 
+! Jun 26 2026: pass and check name_transient
 ! ---------------------
 
 
@@ -13698,10 +13714,11 @@
 
     IMPLICIT NONE
 
-    CHARACTER  CCID*(*)  ! (I) character string for CID
-    CHARACTER  IAUC*(*)  ! (I) char string for IAUC name
-    INTEGER    CID       ! (O) integer CID
-    LOGICAL    USECID    ! (O) T => process this CID
+    CHARACTER  CCID*(*)            ! (I) character string for CID
+    CHARACTER  NAME_TRANSIENT*(*)  ! (I) char string for IAUC name
+    CHARACTER  NAME_IAUC*(*)       ! (I) char string for IAUC name
+    INTEGER    CID                 ! (O) integer CID
+    LOGICAL    USECID              ! (O) T => process this CID
 
 ! local var
 
@@ -13751,8 +13768,8 @@
     ENDIF
 
 ! ----------------------------------------------------
-    IF ( .NOT. LCIDSELECT(cid,ccid,iauc) ) RETURN
-    SNLC_CCID      = CCID    ! in case CCID -> IAUC (Dec 3, 2015)
+    IF ( .NOT. LCIDSELECT( cid, ccid, name_transient, name_iauc) ) RETURN
+    SNLC_CCID      = CCID    ! in case CCID -> NAME_TRANSIENT or NAME_IAUC
     ISNLC_LENCCID  = INDEX(CCID,' ') - 1  ! Mar 20 2016
     USECID_LOCAL   = .TRUE.
     GOTO 800
@@ -21264,7 +21281,7 @@
 ! with the cut in PARSE_CID.
 
         if ( icut .EQ. CUTBIT_CID ) then
-          LCUT = LCIDSELECT(SNLC_CID,SNLC_CCID,SNLC_NAME_IAUC)
+          LCUT = LCIDSELECT(SNLC_CID,SNLC_CCID, SNLC_NAME_TRANSIENT, SNLC_NAME_IAUC)
         endif
 
 ! set cut-bit if cut is satisfied
@@ -21328,7 +21345,7 @@
 
 
 ! ==============================================
-    LOGICAL FUNCTION LCIDSELECT(CID,CCID,NAME_IAUC)
+    LOGICAL FUNCTION LCIDSELECT(CID,CCID, NAME_TRANSIENT, NAME_IAUC)
 ! 
 ! Created Dec 4, 2012 by R.Kessler
 ! Returns TRUE if current CID/CCID is accepted by
@@ -21350,6 +21367,7 @@
 ! Jan 08 2025: set INDEX_CID_MATCH inside check for SNCID_LIST in case SNCID_LIST
 !              has overlap with CID in SNCID_LIST_FILE.
 ! 
+! Jun 26 2026: pass NAME_TRANSIENT to check (motivated by Rubin OBJID)
 ! ---------------------------
 
 
@@ -21363,11 +21381,12 @@
 
 ! input function args
     INTEGER CID
-    CHARACTER CCID*(*), NAME_IAUC*(*)
+    CHARACTER CCID*(*), NAME_TRANSIENT*(*), NAME_IAUC*(*)
 
 ! local var
-    INTEGER i, LEN, LENCCID, LENIAUC, ISN_MATCH
+    INTEGER i, LEN, LENCCID, LENTR, LENIAUC, ISN_MATCH
     REAL XCID
+    LOGICAL   MATCH_CCID, MATCH_TRANSIENT, MATCH_IAUC
     CHARACTER CCID_forC*(MXCHAR_CCID), CCIDTMP*(MXCHAR_CCID)
 
 ! functions
@@ -21399,52 +21418,71 @@
 ! Check integer window
 
     XCID = FLOAT(CID)
-    IF ( XCID .GE. CUTWIN_CID(1) .and.  & 
-           XCID .LE. CUTWIN_CID(2) ) then
+    IF ( XCID .GE. CUTWIN_CID(1) .and. XCID .LE. CUTWIN_CID(2) ) then
       LCIDSELECT = .TRUE.
       GOTO 800
     ENDIF
 
 ! Since user-defined list is small, use brute-force looping to match
 
+!    print*,' xxx found SNLC_NAME_TRANSIENT = ', NAME_TRANSIENT
+
     IF ( NCID_LIST > 0 .OR. NCCID_LIST > 0 ) THEN
-      i = 1
-      DO 130 WHILE ( SNCID_LIST(i) .GE. 1 )
-        if ( CID .EQ. SNCID_LIST(i) ) then
-          LCIDSELECT = .TRUE.
-          INDEX_CID_MATCH = MATCH_CIDLIST_EXEC(CCID_forC,LENCCID) ! in case we need fit prior from file
-! xxx mark delete May 28 2025          GOTO 800
-        endif
-        i = i + 1
-130     CONTINUE
+       i = 1
+       DO 130 WHILE ( SNCID_LIST(i) .GE. 1 )
+          if ( CID .EQ. SNCID_LIST(i) ) then
+             LCIDSELECT = .TRUE.
+             INDEX_CID_MATCH = MATCH_CIDLIST_EXEC(CCID_forC,LENCCID) ! in case we need fit prior from file
+          endif
+          i = i + 1
+130    CONTINUE
 
 ! To do: combine SNCID_LIST and SNCCID_LIST into single SNCCID_LIST to avoid duplicate code logic !!!
 !        make sure to start with clean new git tag in case things go really bad.
 
-      i = 1
-      DO 131 WHILE ( SNCCID_LIST(i) .NE. ' ' )
-        if ( CCID .EQ. SNCCID_LIST(i) ) then
-          LCIDSELECT = .TRUE.
-          INDEX_CID_MATCH = MATCH_CIDLIST_EXEC(CCID_forC,LENCCID) ! in case we need fit prior from file
-        endif
-        i = i + 1
-131     CONTINUE
+       i = 1
+       DO 131 WHILE ( SNCCID_LIST(i) .NE. ' ' )
+          MATCH_CCID       = ( CCID           .EQ. SNCCID_LIST(i) )
+          MATCH_TRANSIENT  = ( NAME_TRANSIENT .EQ. SNCCID_LIST(i) )
+          MATCH_IAUC       = ( NAME_IAUC      .EQ. SNCCID_LIST(i) )
 
+          if ( MATCH_CCID .or. MATCH_TRANSIENT .or. MATCH_IAUC ) then
+             LCIDSELECT = .TRUE.
+             INDEX_CID_MATCH = MATCH_CIDLIST_EXEC(CCID_forC,LENCCID) ! in case we need fit prior from file
+          endif
+          i = i + 1
+131    CONTINUE
+
+        
       ! May 2025: always bail after checking user list, even if there is a file that defines prior.
       GOTO 800
 
     ENDIF  ! end user-define lists
 
-! - - - - -
-! If we get here, there is no user list and only a list in a file.
-
+    ! try matching to file
     ISN_MATCH = MATCH_CIDLIST_EXEC(CCID_forC,LENCCID)
-    if ( ISN_MATCH  < 0 ) then   ! try IAUC name
-       LENIAUC    = INDEX(NAME_IAUC,' ') - 1
-       CCID_forC  = NAME_IAUC(1:LENIAUC) // char(0)
-       ISN_MATCH  = MATCH_CIDLIST_EXEC(CCID_forC,LENIAUC) ! use hash table
-       if ( ISN_MATCH .GE. 0 ) CCID = NAME_IAUC ! write IAUC to output table
+! - - - - -
+! if there is no CID match, try NAME_TRANSIENT and NAME_IAUC
+    
+
+
+    !print*,' xxx ISN_MATH, SNID, NAME_TRANSIENT = ', ISN_MATCH, CCID, NAME_TRANSIENT
+
+    if ( ISN_MATCH  < 0 ) then   ! check for NAME_TRANSIENT
+       LENTR       = INDEX(NAME_TRANSIENT,' ') - 1
+       CCID_forC   = NAME_TRANSIENT(1:LENTR) // char(0)
+       ISN_MATCH   = MATCH_CIDLIST_EXEC(CCID_forC,LENTR) ! use hash table
+       if ( ISN_MATCH .GE. 0 ) CCID = NAME_TRANSIENT ! write NAME_TRANSIENT to output table
     endif
+
+    if ( ISN_MATCH <  0 ) then   ! check for NAME_IAUC
+       LENIAUC     = INDEX(NAME_IAUC,' ') - 1
+       CCID_forC   = NAME_IAUC(1:LENIAUC) // char(0)
+       ISN_MATCH   = MATCH_CIDLIST_EXEC(CCID_forC,LENIAUC) ! use hash table
+       if ( ISN_MATCH .GE. 0 ) CCID = NAME_IAUC ! write NAME_IAUC to output table
+    endif
+
+
     INDEX_CID_MATCH = ISN_MATCH     ! load global
     LCIDSELECT = (ISN_MATCH .GE. 0)
     if ( LCIDSELECT ) GOTO 800

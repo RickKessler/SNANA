@@ -23926,7 +23926,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  MISCELLANEOUS(v12_02) *****
 
     snana.F90, snlc_fit.F90: 
-      always write COV(zPH,fitpar) for photo-z fits
+      + always write COV(zPH,fitpar) for photo-z fits
+      + for SNCCID_LIST input, check NAME_TRANSIENT and NAME_IAUC in addition to SNID/CCID.
+          (for LSST, SNID=rootid and NAME_TRANSIENT = Rubin-alert objid)
+
+    sntools_dataformat_fits.c:
+      + allocate MXBIN_HOSTGALz times more memory only for FITS columns that need it; 
+        see new ISVAR_HOSTGALz function. This greatly reduces HEAD memory allocation.
 
     sntable_cat.py
       add COV* to defaultappend-missing list

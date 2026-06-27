@@ -4921,11 +4921,10 @@ void rd_snfitsio_tblpar(int ifile, int itype) {
   fits_read_key(fp, TLONG, keyname,  &NCOLUMN, comment, &istat );
   sprintf(c1err, "read %s key", keyname);
   snfitsio_errorCheck(c1err, istat); 
-  
+
   if ( LPRINT_UPDATE ) { 
     ncol = (int)NCOLUMN ;
-    printf("   %s contains %d columns. \n", 
-	   rd_snfitsFile[ifile][itype], ncol );
+    printf("   %s contains %d columns. \n", rd_snfitsFile[ifile][itype], ncol );
   }
 
   for ( iform=0; iform < MXFORM_SNFITSIO; iform++ ) 
@@ -5074,10 +5073,11 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   int MALLOC_LEN = MALLOC_LEN_SNFITSIO[itype];
   char *ptrFile  = rd_snfitsFile[ifile][itype];
 
-  int  iform, npar, ipar, i ;
+  int  iform, npar, ipar, i, icol ;
   int  mem, MSTR, sizeof_mem, sizeof_MEM    ;
-  long long MEMTOT, MEM;
+  long long MEMTOT, MEMFORM, MEM, MEM_TMP ;
   float FMEM ;
+  char *parname;
   int   LDMP = 0 ;
   char  fnam[] = "rd_snfitsio_malloc"  ;
 
@@ -5092,6 +5092,8 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
   LEN_LOCAL += 10;
   MEMTOT = 0 ;
+
+  if ( LDMP ) { printf(" xxx %s: dump for %s \n", fnam, snfitsType[itype] ); fflush(stdout); }
 
   for ( iform=1; iform < MXFORM_SNFITSIO; iform++ ) {
 
@@ -5114,16 +5116,18 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       MSTR  = 40 ;
 
       RD_SNFITSIO_TABLEVAL_A[itype] = (char***)malloc(mem); 
-
+      MEMFORM = 0;
       for ( ipar=0; ipar <= npar; ipar++ ) {
 	RD_SNFITSIO_TABLEVAL_A[itype][ipar] = (char**)malloc(MEM); 
 	for ( i=0; i <= LEN_LOCAL; i++ ) {
 	  RD_SNFITSIO_TABLEVAL_A[itype][ipar][i] = (char*)malloc(MSTR); 
-	  MEMTOT += MSTR ;
+	  MEMFORM += MSTR ;
+	  MEMTOT  += MSTR ;
 	}
       }
 
-      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (A)\n", fnam, MEMTOT, iform); }
+      if(LDMP) { printf(" xxx %s:   MEM(A)=%lld  MEMTOT=%lld for iform=%d\n", 
+			fnam, MEMFORM, MEMTOT, iform); }
     }
 
     else if ( iform == IFORM_J ) {
@@ -5131,14 +5135,17 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       sizeof_MEM = sizeof(int);
       mem = (npar+1)      * sizeof_mem;
       MEM = (LEN_LOCAL+1) * sizeof_MEM ;
+      MEMFORM = 0 ;
 
       RD_SNFITSIO_TABLEVAL_J[itype] = (int**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
 	RD_SNFITSIO_TABLEVAL_J[itype][ipar] = (int*)malloc(MEM);
-	MEMTOT += MEM ;
+	MEMFORM += MEM ;
+	MEMTOT  += MEM ;
       }
 
-      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (J)\n", fnam, MEMTOT, iform); }
+      if(LDMP) { printf(" xxx %s:   MEMFORM(J)=%lld  MEMTOT=%lld for iform=%d\n", 
+			fnam, MEMFORM, MEMTOT, iform); }
     }
     
     else if ( iform == IFORM_I ) {
@@ -5146,13 +5153,16 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       sizeof_MEM = sizeof(short);
       mem  = (npar+1)       * sizeof_mem;
       MEM  = (LEN_LOCAL+1)  * sizeof_MEM;
+      MEMFORM = 0 ;
       RD_SNFITSIO_TABLEVAL_I[itype] = (short**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
 	RD_SNFITSIO_TABLEVAL_I[itype][ipar] = (short*)malloc(MEM); 
-	MEMTOT += MEM ;
+	MEMFORM += MEM ;
+	MEMTOT  += MEM ;
       }
 
-      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (I)\n", fnam, MEMTOT, iform); }
+      if(LDMP) { printf(" xxx %s:   MEMFORM(I)=%lld  MEMTOT=%lld for iform=%d\n", 
+			fnam, MEMFORM, MEMTOT, iform); }
     }
     
     else if ( iform == IFORM_E ) {
@@ -5160,13 +5170,21 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       sizeof_MEM = sizeof(float);
       mem = (npar+1)       * sizeof_mem;
       MEM = (LEN_LOCAL+1)  * sizeof_MEM;
-      MEM *= MXBIN_HOSTGALz ; // allow for HOSTGALz array instead of scalar (Apr 2026)
+      MEMFORM = 0 ;
       RD_SNFITSIO_TABLEVAL_E[itype] = (float**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
-	RD_SNFITSIO_TABLEVAL_E[itype][ipar] = (float*)malloc(MEM); 
-	MEMTOT += MEM ;
+	icol = RD_SNFITSIO_TABLEVAL[itype].IPAR[iform][ipar];
+	parname =  RD_SNFITSIO_TABLEDEF[itype].name[icol]; 
+	MEM_TMP = MEM;
+	if ( ISVAR_HOSTGALz(parname) )   { MEM_TMP = MEM * MXBIN_HOSTGALz; }  //.xyz
+	RD_SNFITSIO_TABLEVAL_E[itype][ipar] = (float*)malloc(MEM_TMP); 
+	MEMFORM += MEM_TMP ;
+	MEMTOT  += MEM_TMP ;
+
+	// printf(" xxx %s: E ipar=%3d  icol=%3d   %s \n", fnam, ipar, icol, parname);  fflush(stdout);
       }
-      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (E)\n", fnam, MEMTOT, iform); }
+      if (LDMP) { printf(" xxx %s:   MEMFORM(E)=%lld  MEMTOT=%lld for iform=%d\n", 
+			 fnam, MEMFORM, MEMTOT, iform); fflush(stdout); }
     }
 
     else if ( iform == IFORM_D ) {
@@ -5174,12 +5192,15 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       sizeof_MEM = sizeof(double);
       mem = (npar+1)       * sizeof_mem ;
       MEM = (LEN_LOCAL+1)  * sizeof_MEM ;
+      MEMFORM = 0;
       RD_SNFITSIO_TABLEVAL_D[itype] = (double**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
 	RD_SNFITSIO_TABLEVAL_D[itype][ipar] = (double*)malloc(MEM);
-	MEMTOT += MEM ;
+	MEMFORM += MEM ;
+	MEMTOT  += MEM ;
       }
-      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (D)\n", fnam, MEMTOT, iform); }
+      if(LDMP) { printf(" xxx %s:   MEMFORM(D)=%lld  MEMTOT=%lld for iform=%d \n", 
+			fnam, MEMFORM, MEMTOT, iform); }
     }
 
     else if ( iform == IFORM_K ) {
@@ -5187,13 +5208,15 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
       sizeof_MEM = sizeof(long long);
       mem = (npar+1)      * sizeof_mem;
       MEM = (LEN_LOCAL+1) * sizeof_MEM ;
-
+      MEMFORM = 0 ;
       RD_SNFITSIO_TABLEVAL_K[itype] = (long long**)malloc(mem); 
       for ( ipar=0; ipar <= npar; ipar++ ) {
 	RD_SNFITSIO_TABLEVAL_K[itype][ipar] = (long long*)malloc(MEM);
-	MEMTOT += MEM ;
+	MEMFORM += MEM ;
+	MEMTOT  += MEM ;
       }
-      if(LDMP) { printf(" xxx %s: MEMTOT=%lld for iform=%d (K)\n", fnam, MEMTOT, iform); }
+      if(LDMP) { printf(" xxx %s:   MEMFORM(K)=%lld  MEMTOT=%lld for iform=%d\n", 
+			fnam, MEMFORM, MEMTOT, iform); }
     }
 
     else {
@@ -5314,6 +5337,7 @@ void rd_snfitsio_head(int ifile) {
 
   int  itype,  icol, ipar, isn, NOBS, NCOL, NSNLC, OPTMASK, NROW  ;
   int  iform, n_elem;
+  char *parname ;  (void)parname;
   char  fnam[] = "rd_snfitsio_head" ;  (void)fnam;
 
   // ------------ BEGIN --------------
@@ -5326,10 +5350,13 @@ void rd_snfitsio_head(int ifile) {
     NROW = NSNLC;
 
     if ( itype == ITYPE_SNFITSIO_HEAD ) {  
-      iform  = RD_SNFITSIO_TABLEDEF[itype].iform[icol] ; 
-      n_elem = RD_SNFITSIO_TABLEDEF[itype].n_element[icol] ; 
+      iform   = RD_SNFITSIO_TABLEDEF[itype].iform[icol] ; 
+      n_elem  = RD_SNFITSIO_TABLEDEF[itype].n_element[icol] ; 
+      parname = RD_SNFITSIO_TABLEDEF[itype].name[icol] ; 
       if ( iform == IFORM_E && n_elem > 1 ) { NROW *= n_elem; }
-      // printf(" xxx %s: icol=%d  iform=%d  n_elem=%d  \n", fnam, icol, iform, n_elem);
+
+      //      printf(" xxx %s: icol=%3d  iform=%d  n_elem=%2d (%s) \n", 
+      //     fnam, icol, iform, n_elem, parname);  //.xyz
     }
 
     rd_snfitsio_tblcol ( itype, icol, 1, NROW ); 

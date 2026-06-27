@@ -126,19 +126,21 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
   fprintf(fp,"SURVEY:   %s\n", SURVEY_ARG);
 
   fprintf(fp,"SNID:             %s  "
-	  "# integer or string assigned by survey team (required)\n",
+	  "# assigned by survey team (required)\n",
 	  SNDATA.CCID);
 
   if ( IS_DATA ) {
-    fprintf(fp,"NAME_IAUC:      %s  "
-	    "# name for Intern. Atron. Union Circulars (optional)\n",
-	    SNDATA.NAME_IAUC);
 
     if (strlen(SNDATA.NAME_TRANSIENT) > 0 ) {
       fprintf(fp,"NAME_TRANSIENT: %s  "
 	      "# extra name assigned by survey team (optional)\n",
 	      SNDATA.NAME_TRANSIENT);
     }
+
+    fprintf(fp,"NAME_IAUC:      %s  "
+	    "# name for Intern. Atron. Union Circulars (optional)\n",
+	    SNDATA.NAME_IAUC);
+
   }
 
   fprintf(fp,"ZP_FLUXCAL:  %.2f  # mag = ZP_FLUXCAL - 2.5*log10(FLUXCAL) \n", 

@@ -226,7 +226,7 @@ void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR, char *callFun) {
 
   int LVBOSE = 1 ;
   char cstat[12], banner[200] ;
-  char fnam[200];
+  char fnam[180];
   char fnam0[] = "OPEN_ROOTFILE";
   concat_callfun_plus_fnam(callFun, fnam0, fnam);
 

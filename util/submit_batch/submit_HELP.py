@@ -207,11 +207,29 @@ HELP_CONFIG_LCFIT = f"""
   FLAG_USE_SAME_EVENTS: 3   # idem
   FLAG_USE_SAME_EVENTS: 7   # idem
 
-  # optional append variables from root/hbook into FITRES-TEXT table.
-  #  (in old split_and_fit script, this key was APPEND_TABLE_TEXT)
-  # To see full list of varables to append,
-  #     stable_dump.pl <hbook_or_root_file> FITRES
-   APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z
+  # - - - - - - - - - - APPEND_TABLE_VARLIST - - - - - - - - - - - - - - - - - -
+  # Since the optional ROOT file contains a much larger set of variables, 
+  # they can be extracted and appended to the TEXT-formatted tables.
+  # FITOPTnnn.SNANA.gz  contains a subset of the SNANA  table in ROOT file;
+  # FITOPTnnn.FITRES.gz contains a subset of the FITRES table in ROOT file.
+  # To see full list of ROOT-file varables to append,
+  #     stable_dump.py <root_file>  SNANA   # includes variables before LCFIT
+  #     stable_dump.py <root_file>  FITRES  # includes the SNANA table and LCFIT variables
+  #
+  # To select append variables for the SNANA and FITRES tables, use a semi-colon
+  # separator. Variables before ';' appear in both tables, while those after the
+  # colon appear only in the FITRES table. Examples:
+
+  # legacy selection of variables (i.e., no ';') appended only to the FITRES table
+  APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z  
+
+  # append SNRMAX_[griz] to both SNANA and FITRES tables (all variables appear before ';')
+  APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z ;  
+
+  # append SNRMAX_[griz] to both SNANA and FITRES tables; append m0obs_[ri] to FITRES only
+  APPEND_TABLE_VARLIST: SNRMAX_g SNRMAX_r SNRMAX_i SNRMAX_z ; m0obs_r m0obs_i 
+
+  # - - - - - - - - - - - - - - - - - - -  -
 
   # optional append variables from external file(s) into FITRES-TEXT table.
   #  (in old split_and_fit script, this key was FITRES_COMBINE_FILE)

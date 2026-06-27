@@ -1581,9 +1581,9 @@ class LightCurveFit(Program):
         # - - - - -
         # create dictionary to pass to merge_table_XXX functions below.
         version_fitopt_dict = {
-            'version'          : version,
-            'fitopt'           : fitopt_num,
-            'version_fitopt'   : version_fitopt,
+            'version'             : version,
+            'fitopt'              : fitopt_num,
+            'version_fitopt'      : version_fitopt,
             f'nevt_expect_{SUFFIX_SNANA}'  : nevt_expect_all,
             f'nevt_expect_{SUFFIX_FITRES}' : nevt_expect_cuts
         }
@@ -1756,7 +1756,7 @@ class LightCurveFit(Program):
         # nevt_expect rows are really there. Also check options to 
         # append variables to table.
 
-        if table_name == SUFFIX_FITRES: # ??? or table_name == SUFFIX_SNANA :
+        if table_name == SUFFIX_FITRES or table_name == SUFFIX_SNANA :
             nevt_expect      = version_fitopt_dict[f'nevt_expect_{table_name}']
             OUT_TABLE_FILE   = f"{script_dir}/{out_table_file}"
             nevt_find, n_nan = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
@@ -1909,12 +1909,11 @@ class LightCurveFit(Program):
         nevt_expect           = version_fitopt_dict[f'nevt_expect_{table_name}']
         
         # use CONFIG from input file (rather than SUBMIT.INFO) in case
-        # user fixes APPEND_TABLE_VARLIST after jobs ran.
-        key  = KEY_APPEND_TABLE_VARLIST
-        if key in CONFIG:
-             varlist_append = CONFIG[key]
-        else:
-            return
+        # user updates the APPEND_TABLE_VARLIST after jobs ran.
+
+        varlist_append = self.get_varlist_append(table_name)
+
+        if not varlist_append: return
 
         # - - - - -
 
@@ -1986,7 +1985,46 @@ class LightCurveFit(Program):
                   
         util.print_elapse_time(tref,"append cleanup & validate")
 
+        return
+
         # end append_table_varlist
+
+    def get_varlist_append(self,table_name):
+
+        # for table_name = SNANA, return list before semi-colon
+        # for table_name = FITRES, return all variables regardless of semi-colon
+        #
+        # E.g. 
+        #  APPEND_TABLE_VARLIST: a b c 
+        #       -> return None for SNANA table, return 'a b c' for FITRES table
+        #
+        #  APPEND_TABLE_VARLIST: a b c ; d e 
+        #       -> return 'a b c' for SNANA table, return 'a b c d e' for FITRES table
+        #
+        #  APPEND_TABLE_VARLIST: a b c ;
+        #       -> return 'a b c' for both SNANA and FITRES tables
+        #
+        # return varlist_append is a string, not a python list
+
+        CONFIG         = self.config_yaml['CONFIG']
+        varlist_append =  CONFIG.setdefault(KEY_APPEND_TABLE_VARLIST,None)
+        sep            = ';'
+
+        if varlist_append:
+            if table_name == SUFFIX_FITRES:
+                # return all variables regardless of ;
+                varlist_append = varlist_append.replace(sep,'')
+            elif table_name == SUFFIX_SNANA:
+                # return variables before semi-colon ..
+                if sep in varlist_append:
+                    varlist_append = varlist_append.split(sep)[0]
+                else:
+                    varlist_append = None # no semi-colon, so append nothing
+            else:
+                msgerr = [ 'Invalid table_name = {table_name} for {KEY_APPEND_TABLE_VARLIST} ' ]
+                util.log_assert(False,msgerr) # just abort, no done stamp
+
+        return varlist_append
 
     def append_table_textfile(self,version_fitopt_dict, table_name) :
 

@@ -3,7 +3,13 @@
 #
 # Jun ?? 2026: begin complete overhaual with real data
 # Jun 26 2026: minor overhaul after Rob-Refac on fastdb
-
+#
+#
+# To DO:
+#  - provide name of final data folder; e.g., LSST_ALERTS
+#  - load IGNORE file with garbage epochs
+#  - final folder should have FITS files, not sym links, to allow moving it
+#
 import os, sys, glob, yaml, shutil, time, logging, math, io, copy
 import numpy  as np
 import pandas as pd
@@ -242,12 +248,13 @@ class data_lsst_fastdb(Program):
         
         
         snana_head_raw, snana_head_calc, snana_head_sim = util.reset_data_event_dict()
+        snana_head_raw[gpar.DATAKEY_ZP]          = FASTDB_ZP
         snana_head_raw[gpar.DATAKEY_SNID]        = str(SNID)
         snana_head_raw[gpar.DATAKEY_NAME_TRNS]   = diaobjid
-        snana_head_raw[gpar.DATAKEY_SURVEY]   = SURVEY_LSST
-        snana_head_raw[gpar.DATAKEY_FILTERS]  = FILTERLIST_LSST
-        snana_head_raw[gpar.DATAKEY_FAKE]     = 0
-        snana_head_raw[gpar.DATAKEY_SNTYPE]   = 0
+        snana_head_raw[gpar.DATAKEY_SURVEY]      = SURVEY_LSST
+        snana_head_raw[gpar.DATAKEY_FILTERS]     = FILTERLIST_LSST
+        snana_head_raw[gpar.DATAKEY_FAKE]        = 0
+        snana_head_raw[gpar.DATAKEY_SNTYPE]      = 0
         
         for key_snana in DATAKEY_HEAD_LIST:
             key_fastdb = KEYMAP[key_snana]

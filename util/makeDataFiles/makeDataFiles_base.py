@@ -219,7 +219,7 @@ class Program:
     
     def assign_data_unit_name(self, survey, field, iseason, iran):
 
-        name = f"{survey}"
+        name = f"{survey}"  # need to allow changing this
 
         if field != gpar.FIELD_VOID:
             name += f"_{field}"

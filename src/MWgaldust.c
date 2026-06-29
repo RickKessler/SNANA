@@ -210,7 +210,10 @@ void text_MWoption(char *nameOpt, int OPT, char *TEXT, char *callFun) {
 
     else if ( OPT == OPT_MWCOLORLAW_SOMM25 ) 
       { sprintf(TEXT,"Sommovigo25 (Learning the Universe)");  }
-    
+
+    else if ( OPT == OPT_MWCOLORLAW_SOMM26 ) 
+      { sprintf(TEXT,"Sommovigo26 (Learning the Universe)");  }
+
     else {
       sprintf(c1err,"Invalid OPT_MWCOLORLAW = %d", OPT);
       sprintf(c2err,"Check OPT_MWCOLORAW_* in MWgaldust.h");
@@ -557,7 +560,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, c
     XT = GALextinct_Somm25(AV, WAVE, callFun);
     return XT;
   } else if ( OPT == OPT_MWCOLORLAW_SOMM26 ) {
-    if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 ) {
+    if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 || PARLIST[2] == -99.0 || PARLIST[3] == -99.0 ) {
       sprintf(c1err,"Found suspicious inputs: PARLIST[0]=%.1f, PARLIST[1]=%.1f, PARLIST[2]=%.1f, PARLIST[3]=%.1f.",
               PARLIST[0], PARLIST[1], PARLIST[2], PARLIST[3]);
       sprintf(c2err,"Sommovigo et al. (2026) requires four values in PARLIST_MWCOLORLAW: B0,B1,B2,B3.");

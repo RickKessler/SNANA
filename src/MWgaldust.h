@@ -16,6 +16,8 @@
 //           OPT_MWCOLORLAW_GORD23 = 223
 //  Feb 26 2025: S. Thorp
 //    define OPT_MWCOLORLAW_SOMM25 = 225
+//  Jun 26 2026: S. Thorp
+//    define OPT_MWCOLORLAW_SOMM26 = 226
 //
 //  Mar 06 2025 R.Kessler - add callFun args to better track aborts
 //
@@ -36,7 +38,7 @@
 #define OPT_MWCOLORLAW_FITZ19_CUBIC  219 // Fitzpatrick et al. (2019), cubic interp.
 #define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. (2023) (S.Thorp, 2024)
 #define OPT_MWCOLORLAW_SOMM25  225 // Sommovigo et al. (2025) Learning the Universe
-#define OPT_MWCOLORLAW_SOMM25  226 // Sommovigo et al. (2026) Learning the Universe symbolic regression
+#define OPT_MWCOLORLAW_SOMM26  226 // Sommovigo et al. (2026) Learning the Universe symbolic regression
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)

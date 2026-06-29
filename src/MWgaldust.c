@@ -389,7 +389,7 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, c
                 in the UV plus various other functions composed together at
                 other wavelengths. Tested against Gordon 2024 (JOSS 9, 7023).
 
-    OPT=225 => use Sommovigo et al. 2025 (arXiv:2502.13240) as implemented by S. Thorp.
+    OPT=225 => use Sommovigo et al. 2025 (ApJ 990, 114) as implemented by S. Thorp.
                 This is a one-parameter extinction law based on a 4-parameter Pei-like
                 functional form, and some scaling relations for the coefficients
                 (c1, c2, c3, c4) as a function of AV. RV is ignored as the shape is

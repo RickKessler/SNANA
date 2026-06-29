@@ -393,10 +393,21 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, c
                 entirely set by AV. See Eq. 2, 7, 8, 9 in the Sommovigo paper. 
                 Based on fits to simulations by the Learning the Universe collaboration.
 
+    OPT=226 => use Sommovigo et al. 2026 (arXiv:2606.10027) implemented by S. Thorp.
+                This is a 4-parameter functional form derived using symbolic regression.
+                B0 is read from PARLIST[0];
+                B1 is read from PARLIST[1];
+                B2 is read from PARLIST[2];
+                B3 is read from PARLIST[3].
+                Aborts if B0 or B3 is negative, or if not enough
+                parameters are found.
+                RV is ignored.
+
    PARLIST => optional set of double-precision parameters to refine calculations
               Number of PARLIST params and their meaning depend on OPT.
               OPT=208 : PARLIST[0]=P, PARLIST[1]=A;
               OPT=216 : PARLIST[0]=RVA, PARLIST[1]=FA;
+              OPT=226 : PARLIST[0]=B0, PARLIST[1]=B1, PARLIST[2]=B2, PARLIST[3]=B3;
 
   Returns magnitudes of extinction.
 
@@ -440,6 +451,9 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, c
   Feb 26 2025 S. Thorp
    + add Sommovigo '25
    + add 4-parameter Pei '92 curve (Li '08)
+
+  Jun 26 2026 S. Thorp
+   + add Sommovigo '26
  ***/
 
   int i, DO94  ;
@@ -541,6 +555,15 @@ double GALextinct(double RV, double AV, double WAVE, int OPT, double *PARLIST, c
     return XT;
   } else if ( OPT == OPT_MWCOLORLAW_SOMM25 ) {
     XT = GALextinct_Somm25(AV, WAVE, callFun);
+    return XT;
+  } else if ( OPT == OPT_MWCOLORLAW_SOMM26 ) {
+    if ( PARLIST[0] == -99.0 || PARLIST[1] == -99.0 ) {
+      sprintf(c1err,"Found suspicious inputs: PARLIST[0]=%.1f, PARLIST[1]=%.1f, PARLIST[2]=%.1f, PARLIST[3]=%.1f.",
+              PARLIST[0], PARLIST[1], PARLIST[2], PARLIST[3]);
+      sprintf(c2err,"Sommovigo et al. (2026) requires four values in PARLIST_MWCOLORLAW: B0,B1,B2,B3.");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+    XT = GALextinct_Somm26(AV, WAVE, PARLIST[0], PARLIST[1], PARLIST[2], PARLIST[3], callFun);
     return XT;
   }
   
@@ -1180,6 +1203,58 @@ double GALextinct_Somm25(double AV, double WAVE, char *callFun) {
        return AV*GALextinct_Pei4(x, c1, c2, c3, c4);
 
 } // end of GALextinct_Somm25
+
+// ============= SOMMOVIGO ET AL. 2026 =======================
+double GALextinct_Somm26(double AV, double WAVE, 
+        double B0, double B1, double B2, double B3, char *callFun) {
+/*** 
+  Created by S. Thorp, Jun 26 2026
+
+  Four-parameter attenuation curve based on symbolic regression
+  analysis by Learning the Universe team.
+
+  Input : 
+    AV   = V band (defined to be at 5542 Angstroms) extinction
+    WAVE = wavelength in angstroms
+    B0   ~ bump strength
+    B1   ~ FUV slope
+    B2   ~ UV-optical curvature
+    B3   ~ UV-optical slope
+  Returns :
+    XT = magnitudes of extinction
+***/
+    char fnam[60] ;
+    concat_callfun_plus_fnam(callFun, "GALextinct_Somm26", fnam) ;
+
+    // Abort if out of bounds
+    if ( WAVE > WAVEMAX_SOMM26 || WAVE < WAVEMIN_SOMM26 ) {
+      sprintf(c1err,"Requested WAVE=%.3f", WAVE);
+      sprintf(c2err,"Sommovigo et al. 2026 only valid from %.0f-%.0f Angstroms",
+              WAVEMIN_SOMM26, WAVEMAX_SOMM26);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    if ( B0 < BMIN_SOMM26 || B3 < BMIN_SOMM26 ){
+          sprintf(c1err,"Read invalid B0=%.1f or B3=%.1f from PARLIST_MWCOLORLAW!", B0, B3);
+          sprintf(c2err,"Sommovigo et al. (2026) only recommended for positive B0 and B3.");
+          errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
+    double lV = 5542.0;
+    double c0 = 0.4002;
+    double c1 = 285.6 ;
+    double c2 = 0.2092;
+    double c3 = 9.223 ;
+    double c4 = 1.016 ;
+    double k          ;
+    double x  = WAVE/lV;
+
+    k =  B0 * (exp(-c1*(x - c0)*(x - c0)) - exp(-c1*(1.0 - c0)*(1.0 - c0))); // bump term
+    k += (B1 + B2*(x - c2)) * (x - c2) * (exp(-c3*x) - exp(-c3));
+    k += exp(B3 * (tanh(c4) - tanh(c4*x)));
+
+    return AV*k;
+} // end of GALextinct_Somm26
  
 // ============= FITZPATRICK & MASSA 1990 ====================
 double GALextinct_FM90(double x, double c1, double c2, double c3, double c4, 

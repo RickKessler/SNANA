@@ -16,6 +16,8 @@
 //           OPT_MWCOLORLAW_GORD23 = 223
 //  Feb 26 2025: S. Thorp
 //    define OPT_MWCOLORLAW_SOMM25 = 225
+//  Jun 26 2026: S. Thorp
+//    define OPT_MWCOLORLAW_SOMM26 = 226
 //
 //  Mar 06 2025 R.Kessler - add callFun args to better track aborts
 //
@@ -36,6 +38,7 @@
 #define OPT_MWCOLORLAW_FITZ19_CUBIC  219 // Fitzpatrick et al. (2019), cubic interp.
 #define OPT_MWCOLORLAW_GORD23  223 // Gordon et al. (2023) (S.Thorp, 2024)
 #define OPT_MWCOLORLAW_SOMM25  225 // Sommovigo et al. (2025) Learning the Universe
+#define OPT_MWCOLORLAW_SOMM26  226 // Sommovigo et al. (2026) Learning the Universe symbolic regression
 
 #define OPT_MWEBV_OFF            0  // no extinction
 #define OPT_MWEBV_FILE           1  // FILE value (simlib or data header)
@@ -54,6 +57,7 @@
 // other parameter limits
 #define PMAX_GOOB08 -0.5 //flattest fit from Amanullah et al. (2015)
 #define PMIN_GOOB08 -2.5 //Goobar (2008) fit to LMC CS scattering
+#define BMIN_SOMM26  0.0 //lower limits on B0 and B3 in Sommovigo et al. (2026)
 // wavelength limits in Angstroms (enforced)
 #define WAVEMIN_FITZ99_EXACT 912.0 //from FM_UNRED
 #define WAVEMAX_FITZ99_EXACT 35000.0 //from FM_UNRED
@@ -68,6 +72,8 @@
 #define WAVEMAX_GORD23 320000.0 //from dust_extinction (not a typo, really goes to MIR)
 #define WAVEMIN_SOMM25 700.0 // based on the plot/text in the paper
 #define WAVEMAX_SOMM25 9134.0 // based on the plots in the paper
+#define WAVEMIN_SOMM26 1000.0 // based on text in the paper
+#define WAVEMAX_SOMM26 10000.0 // based on text in the paper
 
 // =======================================
 //      SNANA-interface functons
@@ -89,6 +95,7 @@ double GALextinct_Maiz14(double RV, double AV, double WAVE, char *callFun);
 double GALextinct_Fitz19(double RV, double AV, double WAVE, int CUBIC, char *callFun);
 double GALextinct_Gord23(double RV, double AV, double WAVE, char *callFun);
 double GALextinct_Somm25(double AV, double WAVE, char *callFun);
+double GALextinct_Somm26(double AV, double WAVE, double B0, double B1, double B2, double B3, char *callFun);
 
 void   text_MWoption(  char *what, int  OPT, char *TEXT, char *callFun) ; // return TEXT
 void   text_mwoption__(char *what, int *OPT, char *TEXT, char *callFun) ; 

@@ -150,7 +150,7 @@ B.~T. {Draine}.
 L.~{Sommovigo} et~al.
 \newblock {Learning the Universe: physically-motivated priors for dust
   attenuation curves}.
-\newblock {\em pre-print}, arXiv:2502.13240, February 2025.
+\newblock {\em Astrophys.\ J.}, 990(2):114, September 2025.
 
 \bibitem{Pei1992}
 Y.~C. {Pei}.
@@ -161,6 +161,36 @@ Y.~C. {Pei}.
 A.~{Li} et~al.
 \newblock {On Dust Extinction of Gamma-Ray Burst Host Galaxies}.
 \newblock {\em Astrophys.\ J.}, 685(2):1046--1051, October 2008.
+
+\bibitem{Sommovigo2026}
+L.~{Sommovigo} et~al.
+\newblock {Learning the Universe: The Structure of Dust Attenuation Curves in
+  Galaxy Simulations}.
+\newblock {\em pre-print}, arXiv:2606.10027, June 2026.
+
+\bibitem{Pillepich2018}
+A.~{Pillepich} et~al.
+\newblock {First results from the IllustrisTNG simulations: the stellar mass
+  content of groups and clusters of galaxies}.
+\newblock {\em MNRAS}, 475(1):648--675, March 2018.
+
+\bibitem{Pillepich2019}
+A.~{Pillepich} et~al.
+\newblock {First results from the TNG50 simulation: the evolution of stellar
+  and gaseous discs across cosmic time}.
+\newblock {\em MNRAS}, 490(3):3196--3233, December 2019.
+
+\bibitem{Camps2015}
+P.~{Camps} and M.~{Baes}.
+\newblock {SKIRT: An advanced dust radiative transfer code with a user-friendly
+  architecture}.
+\newblock {\em Astron.\ Comput.}, 9:20--33, March 2015.
+
+\bibitem{Camps2020}
+P.~{Camps} and M.~{Baes}.
+\newblock {SKIRT 9: Redesigning an advanced dust radiative transfer code to
+  allow kinematics, line transfer and polarization by aligned dust grains}.
+\newblock {\em Astron.\ Comput.}, 31:100381, April 2020.
 
 \bibitem{PSNID_2011}
 M.~Sako et~al.

@@ -4083,7 +4083,8 @@ grep  OPT_MWCOLORLAW  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWCOLORLAW_FITZ19_LINEAR -219 // approx Fitzpatrick et al. (2019)
 #define OPT_MWCOLORLAW_FITZ19_CUBIC   219 // Fitzpatrick et al. (2019)
 #define OPT_MWCOLORLAW_GORD23         223 // Gordon et al. (2023)
-#define OPT_MWCOLORLAW_SOMM25         225 // Sommovigo et al. (2025)
+#define OPT_MWCOLORLAW_SOMM25         225 // Sommovigo et al. (2025) LtU
+#define OPT_MWCOLORLAW_SOMM26         226 // Sommovigo et al. (2026) LtU
 
 grep  OPT_MWEBV  $SNANA_DIR/src/MWgaldust.h
 #define OPT_MWEBV_OFF            0  // no extinction
@@ -4259,6 +4260,15 @@ and $\log_{10}(c_4) = -0.59\times\log_{10}(A_V) - 1.42$.
 The `\texttt{GALextinct}' function does not need any extra parameters from 
 \verb!PARLIST_MWCOLORLAW! here, and will ignore the input $R_V$; the shape of 
 the curve and the amount of extinction are completely set by $A_V$.
+
+The newer four-parameter attenuation curve from LtU \cite{Sommovigo2026} has been added.
+This is based on a functional form derived through symbolic regression applied to
+Illustris TNG \cite{Pillepich2018, Pillepich2019} galaxies with SKIRT radiative transfer modelling of the dust \cite{Camps2015, Camps2020}. This is the same input datasets as the previous LtU attenuation curve \cite{Sommovigo2025}, but an improved analysis. The model
+has four constants $(c_1, c_2, c_3, c_4)$ measured at the population level, and four
+free parameters $(B_1, B_2, B_3, B_4)$ that vary galaxy-by-galaxy. 
+The `\texttt{GALextinct}' function reads $B0$ through $B3$ from the first four entries of 
+\verb!PARLIST_MWCOLORLAW!, and will abort if these are not found.
+
 
 
 \subsection{Simulating Intergalactic Extinction}

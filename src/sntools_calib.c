@@ -1403,6 +1403,8 @@ void read_calib_filters(void) {
   NMATCH_OBS = 0 ;
   FILTERLIST_READ[0] = 0 ;
 
+  MXLEN_FILTNAME = 0;
+
   for(ifilt=0; ifilt < NFILTDEF_KCOR; ifilt++ ) {
 
     // avoid obsolete "*filter_name" with wave shifts;
@@ -1423,9 +1425,11 @@ void read_calib_filters(void) {
     // match filter name to get absolute filter indices IFILT_REST & IFILT_OBS
     filter_match_kcor(FILTER_NAME, &IFILT_REST, &IFILT_OBS);
 
-    /*    
+    MXLEN_FILTNAME = max(MXLEN_FILTNAME, strlen(FILTER_NAME) );
+
+    /* 
     printf(" xxx C: %s -> IFILT[REST,OBS] = %d, %d \n",
-	   FILTER_NAME, IFILT_REST, IFILT_OBS ); fflush(stdout);
+	   FILTER_NAME, IFILT_REST, IFILT_OBS ); fflush(stdout); // xxx .xyz
     */
 
     if ( IFILT_REST > 0 ) {
@@ -1449,6 +1453,7 @@ void read_calib_filters(void) {
 
   } // end ifilt loop
 
+  SNDATA.MXLEN_FILTNAME = MXLEN_FILTNAME ;
 
   if ( NMATCH_OBS == 0 ) {
     print_preAbort_banner(fnam);

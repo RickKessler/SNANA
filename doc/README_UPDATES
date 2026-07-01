@@ -23935,6 +23935,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + always write COV(zPH,fitpar) for photo-z fits
       + for SNCCID_LIST input, check NAME_TRANSIENT and NAME_IAUC in addition to SNID/CCID.
           (for LSST, SNID=rootid and NAME_TRANSIENT = Rubin-alert objid)
+      + fix SIM_PRESCALE treatment to use N_SNLC_READ instead of N_SNLC_PROC, so that
+        N_SNLC_PROC counts after prescale is applied and matches number of events written 
+       to SNANA table.
 
     sntools_dataformat_fits.c:
       + allocate MXBIN_HOSTGALz times more memory only for FITS columns that need it; 
@@ -23978,5 +23981,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       see https://github.com/RickKessler/SNANA/issues/1722
 
     
+    sndata.h
+      define SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME to enable reducing
+      default size of the BAND and FIELD columns in the PHOT file.
+      The default values (set in init_SNDATA_GLOBAL) are MXCHAR_FILTNAME and MXCHAR_FIELDNAME,
+      but can be reduced before calling WR_SNFITIO_INIT. First use sntools_calib sets
+      MXLEN_FILTER for simulation output.
 END:
  

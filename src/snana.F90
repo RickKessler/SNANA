@@ -3155,13 +3155,6 @@
 
       if ( ISTAT < 0 ) GOTO 100
 
-      ! xxxxxxxxx mark delete xxxxxxx
-      !if ( ISTAT < -9999990 ) then
-      !   N_SNLC_PROC = N_SNLC_PROC + 1     ! Jun 26 2026
-      !   GOTO 105  
-      !endif
-      ! xxxxxxxxxxxx
-
 ! Read observations for event and load SNDATA C-struct.
 ! Read optional SPECTRA and load GENSPEC C-struct.
 ! All reading is done here to avoid STORE_PARSE_WORDS conflicts below.
@@ -3188,7 +3181,7 @@
 
       IF ( ISTAT .EQ. 0 ) THEN
          N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
-         call PRINT_RDSN()      ! print one-line summary
+         call PRINT_RDSN()             ! print one-line summary
          CALL SNANA_DRIVER( ISN, N_SNLC_PROC, IVERS)
       ENDIF
 
@@ -3982,10 +3975,7 @@
 ! Read header info and apply a few selection cuts to rapidly
 ! select small subsets:
 ! 
-!   CID
-!   SNTYPE
-!   REDSHIFT_ERR ??
-! 
+! Jun 28 2026: test SIM_PRESCALE here using N_SNLC_READ (moved from SNANA_DRIVER) 
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -3995,14 +3985,13 @@
     INTEGER ISTAT  ! (O) < 0 -> reject event
 
     INTEGER OPT, igal, CID
-    REAL*8  DARRAY(10), TMPCUT
+    REAL*8  DARRAY(10), TMPCUT, PS
     CHARACTER STRING*100, FNAM*14
     LOGICAL   USECID
 
 ! functions
     INTEGER  GET_IDSURVEY
-    LOGICAL  PASS_SNTYPE
-!  xxx mark      EXTERNAL RD_SNFITSIO_EVENT, RD_SNTEXTIO_EVENT
+    LOGICAL  PASS_SNTYPE,  REJECT_PRESCALE
 
 ! -------------- BEGIN ------------
 
@@ -4018,6 +4007,15 @@
     DARRAY(1) = -999.0
     STRING    = ''
 
+    if ( LSIM_SNANA ) THEN
+       PS = DBLE(SIM_PRESCALE)
+       if ( REJECT_PRESCALE(N_SNLC_READ,PS) ) then 
+          ISTAT = ISTAT_SKIP
+          RETURN
+       endif
+    endif
+
+    
     CALL FETCH_SNDATA_WRAPPER("SUBSURVEY",  & 
            ONE, STRING, DARRAY, OPT)
     IF ( INDEX(STRING,' ') > 2 ) THEN
@@ -9251,10 +9249,7 @@
     write(6,40) OUTFILE(1:LEN+5)
 40    format(' Write stats to YAML output: ', A )
 
-    OPEN(   UNIT   = LUNDAT  & 
-            , FILE   = OUTFILE  & 
-            , STATUS = 'UNKNOWN'  & 
-                 )
+    OPEN(UNIT   = LUNDAT, FILE = OUTFILE, STATUS = 'UNKNOWN' )
 
     JDIFF = JTIME_LOOPEND - JTIME_LOOPSTART
     T_CPU = float(JDIFF)/60.
@@ -9373,7 +9368,7 @@
 
 
 ! ======================================
-    SUBROUTINE SNANA_DRIVER(ISN_ALL, ISN_PROC, IVERS)
+    SUBROUTINE SNANA_DRIVER(ISN_ALL, ISN_PROC, IVERS )
 
 ! Created May 18, 2012 by R.Kessler
 ! 
@@ -9382,6 +9377,7 @@
 !   ISN_PROC = sparse index of processed events (after cuts)
 !   IVERS    = index of VERSION_PHOTOMETRY (added Oct 2025)
 ! 
+!
 ! Move code from MAIN to here so that each SN is fit
 ! right after it is read.
 ! 
@@ -9409,9 +9405,10 @@
 #endif
 
     INTEGER IERR
-    REAL*8  PS8
     REAL t_start
-    LOGICAL REJECT_PRESCALE
+
+    ! xxx mark REAL*8  PS8
+    ! xxx mark LOGICAL REJECT_PRESCALE
     CHARACTER FNAM*14
 
 ! ----------------- BEGIN -------------
@@ -9429,10 +9426,12 @@
       CALL MADABORT(FNAM, c1err, c2err)
     endif
 
-    if ( LSIM_SNANA ) THEN
-       PS8 = DBLE(SIM_PRESCALE)
-       if ( REJECT_PRESCALE(N_SNLC_PROC,PS8) ) RETURN
-    endif
+    ! xxxxxxx mark delete Jun 28 2026 xxxxxx
+    !if ( LSIM_SNANA ) THEN
+    !   PS8 = DBLE(SIM_PRESCALE)
+    !   if ( REJECT_PRESCALE(N_SNLC_PROC,PS8) )   RETURN
+    !endif
+    ! xxxxxxxxxx end mark 
 
 ! - - - - - - - - - - -
     NCALL_SNANA_DRIVER  = NCALL_SNANA_DRIVER  + 1
@@ -9450,7 +9449,6 @@
 #if defined(PSNID)
       CALL PSNIDINI2(IERR)
 #endif
-
 
         if ( IERR .NE. 0 ) then
           c1err = 'Problem with 2nd init when NCALL_SNANA_DRIVER=1'

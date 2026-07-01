@@ -225,6 +225,10 @@ struct SNDATA {
 
   int   PHOTFLAG_DETECT;  // mask in PHOTFLAG for detection
   int   PHOTFLAG_TRIGGER; // mask in PHOTFLAG for trigger
+  int   PHOTFLAG_GARBAGE; // mask for garbage (e.g. None, Nan, 0.000)
+
+  // 6.30.2026: define MXLEN vars to enable reducing size of PHOT.FITS files
+  int   MXLEN_FILTNAME, MXLEN_FIELDNAME;  
 
   // ---- SN-dependent stuff -------
   char SNFILE_INPUT[MXPATHLEN];

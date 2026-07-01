@@ -41,6 +41,7 @@
 # Mar 23 2026: fix to work with comma-sep csv as well as space-sep csv file.
 # Mar 25 2026: fix bugs from Mar 23 change to allow comma-sep csv
 # Jun 23 2026: fix bug from comma in DOCUMENTATION block that confused check_table_varnames().
+# Jun 30 2026: new WRITE_TF option to write tf with cuts applied and ALL columns
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -106,7 +107,7 @@ OPT_LOGZ      = "LOGZ"       # log scale along Z axis (2D only)
 OPT_GRID      = "GRID"       # draw grid on plot
 OPT_SUM       = "SUM"        # show sum of plots over files or cuts (Mar 2025 ... maybe later ??
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
-OPT_LIST_ROW  = "LIST_ROW"   # list ROWS passing cuts (same as LIST_CID)
+OPT_WRITE_TF  = "WRITE_TF"   # re-write table file(s) for subset passing cuts
 
 OPT_DIFF_CID  = "DIFF_CID"   # 2 files and 2D: plot y-axis diff for each CID
 OPT_DIFF_ALL  = "DIFF_ALL"   # 2 files and 2D: plot y-axis diff between means
@@ -116,7 +117,7 @@ VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
                    OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_SIG_NMAD, 
                    OPT_OV, OPT_OVCHI2, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
-                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID, OPT_LIST_ROW,
+                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID,  OPT_WRITE_TF,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
 
 NMAX_CID_LIST = 50  # max number of CIDs to print for @@OPT CID_LIST
@@ -420,8 +421,8 @@ and two types of command-line input delimeters
    {OPT_LOGY:<12} ==> log scale for vertical axis (1D or 2D)
    {OPT_LOGZ:<12} ==> log scale for Z axis (2D HIST only)
    {OPT_GRID:<12} ==> display grid on plot.
-   {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.      
-   {OPT_LIST_ROW:<12} ==> print up to 100 ROWs passing cuts.      
+   {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.
+   {OPT_WRITE_TF:<12} ==> write new table with subset of events pasing cuts
    {OPT_DIFF_ALL:<12} ==> 2D: plot y-axis difference in median (or mean) values between plots.
                     Overlay file1-file0, file2-file0, file3-file0, etc, or
                     overlay cut1-cut0, cut2-cut0, cut3-cut0, etc;
@@ -969,10 +970,12 @@ def arg_prep_OPT(args):
 
         OPT_out = args_upper_list
 
+    # xxxxxxxx mark delete xxxxxx
     # LIST_ROW and LIST_CID are the same, but internally we only use
     # the LIST_CID flag
-    if OPT_LIST_ROW in OPT_out and OPT_LIST_CID not in OPT_out:
-        OPT_out.append(OPT_LIST_CID)
+    #if OPT_LIST_ROW in OPT_out and OPT_LIST_CID not in OPT_out:
+    #    OPT_out.append(OPT_LIST_CID)
+    # xxxxxxxxxx end mark xxxxxxxx
 
     # check OV[CHI2] options
     if OPT_CHI2 in OPT_out: # check for legacy option that means OVCHI2
@@ -1418,8 +1421,8 @@ def translate_CUT(CUT):
     logging.info(f"          ->  {CUT_df} ")
     
     return CUT_df, raw_var_list
-
-
+    # end translate_CUT
+    
 def is_number(string): 
     try: 
         float(string) 
@@ -1774,6 +1777,8 @@ def read_tables(args, plot_info):
             logging.warning(f"zero rows read for {name_legend}")
 
         MASTER_DF_DICT[key] = {
+            'tfile'        : tfile,
+            'colsep'       : colsep,
             'df'           : df,
             'wgtfun'       : wgtfun,
             'name_legend'  : name_legend,
@@ -2115,6 +2120,7 @@ def plotter_func_driver(args, plot_info):
     OPT           = args.OPT
     do_list_cid   = OPT_LIST_CID  in OPT 
     do_ratio      = OPT_RATIO     in OPT
+    do_write_tf   = OPT_WRITE_TF  in OPT
 
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     bounds_dict          = plot_info.bounds_dict
@@ -2247,7 +2253,10 @@ def plotter_func_driver(args, plot_info):
         # - - - - -
         # check option to dump CIDs (or ROWs) for events passing cuts
         if do_list_cid:
-            print_cid_list(df, name_legend)
+            print_cid_list_cuts(df, plot_info, name_legend)
+
+        if do_write_tf:
+            write_tf_cuts(args, key_name, plot_info, name_legend)
 
         # check for fit fun option
         if args.FIT:
@@ -3070,7 +3079,7 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     ymin, ymax = plt.ylim() # valid for auto or custom bounds
 
     if args.YMAX_SCALE:  # Feb 2025
-        ymax *= args.YMAX_SCALE
+        ymax = ymin + (ymax-ymin) * args.YMAX_SCALE
         plt.ylim(ymin,ymax) 
 
     if do_diag_line:
@@ -3336,10 +3345,10 @@ def get_wgtfun_user(xcen,wgtfun):
         
     return wgt_vals
 
-def print_cid_list(df, name_legend) :
+def print_cid_list_cuts(df, plot_info, name_legend) :
     
     # print list of cids to stdout
-    varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW 
+    varname_idrow = plot_info.varname_idrow      # e.g., CID or GALID or ROW 
     id_list = sorted(df[varname_idrow].to_numpy())[0:NMAX_CID_LIST]
 
     id_string = ','.join(id_list)
@@ -3349,6 +3358,51 @@ def print_cid_list(df, name_legend) :
     return
 
 
+def  write_tf_cuts(args, key_name, plot_info, name_legend):
+
+    # write table file for rows passing cuts and include ALL columns,
+    # not just the columns needed to make plot.
+
+    tf_path   = plot_info.MASTER_DF_DICT[key_name]['tfile']
+    colsep    = plot_info.MASTER_DF_DICT[key_name]['colsep']
+    df_cuts   = plot_info.MASTER_DF_DICT[key_name]['df']
+    nrow_cuts = len(df_cuts)
+
+    tf_base = os.path.basename(tf_path)
+    tf_base = tf_base.replace('.gz','')
+    tf_out  = f"{key_name}+CUTS_{tf_base}"
+    logging.info(f" Write new {tf_out} for rows passing cuts in {tf_path}")
+    
+    # the passed df_cuts only contains columns used to plot and make cuts;
+    # to get all colummns, re-read original table again
+    df_all  = pd.read_csv(tf_path, comment="#", sep=colsep)
+    nrow_all   = len(df_all)
+
+    # get id list passing cuts
+    varname_idrow = plot_info.varname_idrow      # e.g., CID or GALID or ROW     
+    id_list = sorted(df_cuts[varname_idrow].to_numpy())
+
+    # remake dataframe with cuts and ALL colums
+    df_cuts_allcol = df_all[df_all['CID'].isin(id_list)]
+    #sys.exit(df_cuts)
+
+    # write output table
+
+    with open(tf_out,"wt") as t:
+        t.write(f"# Original table file: {tf_path}\n")
+        t.write(f"# Original number of rows: {nrow_all} \n")
+        t.write(f"# Cuts: {args.CUT}\n")
+        t.write(f"# Number of rows after cuts: {nrow_cuts} \n")
+        t.write(f"#\n")
+
+    # force some formatting to avoid numbers like 2.1 being writting as 2.10000000000001
+    #df_cuts_allcol['RA']  = df_cuts_allcol['RA'].map('{:.5f}'.format)
+    #df_cuts_allcol['DEC'] = df_cuts_allcol['DEC'].map('{:.5f}'.format)
+
+    df_cuts_allcol.to_csv(tf_out, mode="a", sep=' ', index=False )
+
+    #sys.exit(plot_info)
+    return
 
 # ===================================================
 #   Add main, June 2024

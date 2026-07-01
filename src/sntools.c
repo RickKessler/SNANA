@@ -9016,7 +9016,7 @@ int init_SNDATA_GLOBAL(void) {
   // one-time init of global variables
   //
   // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
-
+  // Jun 30 2206: init SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME
   int ifilt, ep, igal ;
   char fnam[] = "init_SNDATA_GLOBAL" ;  (void)fnam;
 
@@ -9027,6 +9027,8 @@ int init_SNDATA_GLOBAL(void) {
   FORMAT_SNDATA_READ  = 0; 
   FORMAT_SNDATA_WRITE = 0;
 
+  SNDATA.MXLEN_FILTNAME    = MXCHAR_FILTNAME ;
+  SNDATA.MXLEN_FIELDNAME   = MXCHAR_FIELDNAME ;
   SNDATA.SURVEY_NAME[0]    =  0 ;
   SNDATA.MASK_FLUXCOR      =  0 ;
   SNDATA.VARNAME_SNRMON[0] =  0 ;

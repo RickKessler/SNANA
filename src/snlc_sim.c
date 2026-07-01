@@ -26985,6 +26985,7 @@ void init_read_calib_wrapper(void) {
   READ_CALIB_DRIVER(INPUTS.CALIB_FILE, INPUTS.GENFILTERS, USE_KCOR,
 		    MAGREST_SHIFT, MAGOBS_SHIFT );
 
+
   // check for spectrograph information (for sim only)
   if ( INPUTS.SPECTROGRAPH_OPTIONS.LAMBIN_SED_TRUE < 1.0E-5 ) {
     read_spectrograph_fits(INPUTS.CALIB_FILE) ;

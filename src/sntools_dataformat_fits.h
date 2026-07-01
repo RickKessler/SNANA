@@ -236,6 +236,7 @@ struct {
 
 void WR_SNFITSIO_INIT(char *path, char *version, char *prefix,
 		      int writeFlag, int Nsubsample_mark, char *headFile);
+void WR_SNFITSIO_OVERRIDE_MXCHAR(int MXLEN_FILTNAME, int MXLEN_FIELDNAME);
 
 int  is_fits(char *file);
 void wr_snfitsio_create(int itype);

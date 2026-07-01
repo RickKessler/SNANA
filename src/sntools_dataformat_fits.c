@@ -89,6 +89,7 @@
 #include "sntools_host.h" 
 #include "sntools_trigger.h" 
 #include "sntools_spectrograph.h"
+#include "sntools_calib.h"
 
 #include <sys/stat.h>
 
@@ -96,7 +97,7 @@
 void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag, 
 		      int Nsubsample_mark,
 		      char *headFile  // ==> return arg
-		   ) {
+		      ) {
 
   // May 2011 R.Kessler
   //
@@ -266,6 +267,7 @@ void wr_snfitsio_init__(char *path, char *version, char *prefix,
 			char *headFile ) {
   WR_SNFITSIO_INIT(path,version,prefix,*writeFlag,*Nsubsample_mark,headFile);
 }
+
 
 
 // ========================================
@@ -697,6 +699,7 @@ void wr_snfitsio_addCol_filters(char *cast, char *prefix, int itype ) {
   int ifilt, ifilt_obs;
   char parName[80] ;
   char fnam[] = "wr_snfitsio_addCol_filters" ;  (void)fnam;
+
   // ------------- BEGIN -----------
 
   for ( ifilt=0; ifilt < SNDATA_FILTER.NDEF; ifilt++ ) {
@@ -765,7 +768,7 @@ void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz ) {
   
   if ( HOSTGALz->USE_VAL2 ) 
     { wr_snfitsio_addCol(tform, HOSTGALz->VARNAME_VAL2, itype ); }
-  // xxx mark  malloc_strlist(-1, 3, 60, &parNames );
+
 
   return;
 } // end wr_snfitsio_addcol_HOSTGALz
@@ -778,7 +781,8 @@ void wr_snfitsio_init_phot(void) {
   // Init HEADER table.
   // Jun 2024: band string size = 2 for sim, 20 for real data
   // Nov 2024: always define 20 char for BAND (data and sim)
-  
+  // Jun 30 2026: set MXLEN_BAND to reduce PHOT.FITS size
+
   long  NROW = 0 ;
   int itype, ncol, istat ;
   int WRFULL = ( SNFITSIO_COMPACT_FLAG == false );
@@ -794,7 +798,8 @@ void wr_snfitsio_init_phot(void) {
 
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
 
-  sprintf(FMT,"%dA", MXCHAR_FILTNAME);
+  // xxx mark sprintf(FMT,"%dA", MXCHAR_FILTNAME);
+  sprintf(FMT,"%dA", SNDATA.MXLEN_FILTNAME );
   wr_snfitsio_addCol( FMT,  "BAND" , itype ) ; 
   
   if ( WRFULL ) {
@@ -803,7 +808,8 @@ void wr_snfitsio_init_phot(void) {
     if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
       { wr_snfitsio_addCol( "1J",  "IMGNUM" , itype ) ; }  // Oct 2021; 
 
-    sprintf(FMT,"%dA", MXCHAR_FIELDNAME); // was 12A
+    // xxx mark delete sprintf(FMT,"%dA", MXCHAR_FIELDNAME); 
+    sprintf(FMT,"%dA", SNDATA.MXLEN_FIELDNAME); 
     wr_snfitsio_addCol( FMT, "FIELD"       , itype ) ; 
     
     wr_snfitsio_addCol( "1J",  "PHOTFLAG"    , itype ) ; 
@@ -1425,48 +1431,6 @@ void wr_snfitsio_global_private(fitsfile *fp) {
   return;
 
 } // end wr_snfitsio_global_private
-
-/* xxxxxxxxx mark delete xxxxxx
-// =================================================
-void wr_snfitsio_global_zphot_q(fitsfile *fp) {
-
-  // Created Feb 10 2022
-  // write zphot quantile column names
-  //
-  // @@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@
-  //
-  int  N_Q = SNDATA.HOSTGAL_NZPHOT_Q;
-  int  istat=0, ipar, PCT ; 
-  char KEYNAME[60], PARNAME[60];
-  char fnam[] = "wr_snfitsio_global_zphot_q" ;
-
-  // --------- BEGIN ----------
-
-  fits_update_key(fp, TINT, STRING_NZPHOT_Q, &SNDATA.HOSTGAL_NZPHOT_Q,
-                  "number of Q zphot quantiles", &istat );
-  sprintf(c1err,"Write NZPHOT_Q") ;
-  snfitsio_errorCheck(c1err, istat) ;
-
-  // @@@@@ SOON TO BE OBSOLETE @@@@@@@
-
-  if ( N_Q == 0 ) { return ; }
-
-  // - - - - - - 
-  
-  for(ipar=0; ipar < N_Q; ipar++ ) { 
-    PCT = SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[ipar];
-    sprintf(KEYNAME,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, ipar);  // e.g., 'PERCENTILE_ZPHOT_Q00'
-    istat=0;
-    fits_update_key(fp, TINT, KEYNAME, &PCT, KEYNAME, &istat );  
-    sprintf(c1err,"Write %s quantile key", KEYNAME) ;
-    snfitsio_errorCheck(c1err, istat) ;
-  }
-
-  // @@@@@ SOON TO BE OBSOLETE @@@@@@@
-  return;
-
-} // end wr_snfitsio_zphot_q
-xxxxxxxxxx end mark xxxxxxx */
 
 
 // ==================================
@@ -4752,73 +4716,6 @@ void rd_snfitsio_simkeys(void) {
 
 } // end of  rd_snfitsio_simkeys
 
-
-/* xxxxxxx mark delete xxxxxxxxx
-// ==========================
-void rd_snfitsio_zphot_q(void) {
-
-  // Created Feb 10 2022
-  // read optional zphot quantile percentiles from global header.
-  //
-  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
-
-  fitsfile *fp ;
-  int itype, istat, N_Q, NFIND_KEY=0, ivar, PCT ;
-  int LDMP = 1 ;
-  char keyname[60], comment[200], *cptr ;
-  char fnam[] = "rd_snfitsio_zphot_q" ;
-
-  // --------- BEGIN ----------
-
-  itype   = ITYPE_SNFITSIO_HEAD ;
-  fp      = fp_rd_snfitsio[itype] ;
-
-  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
-
-  if ( SNDATA.HOSTGAL_NZPHOT_Q > 0 ) { return; } // Sep 2023
-
-  istat = 0;
-  sprintf(keyname, "%s", STRING_NZPHOT_Q );
-  sprintf(comment,"Read %s", keyname);
-  fits_read_key(fp, TINT, keyname, &N_Q, comment, &istat );
-
-  if (istat != 0) { return ; }
-
-  // - - - - - -
-  SNDATA.HOSTGAL_NZPHOT_Q = N_Q ;  
-
-  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
-
-  // read list of percentiles from keys of the form
-  // PERCENTILE_ZPHOT_Q## 
-  for(ivar=0; ivar < N_Q; ivar++ ) {
-    sprintf(keyname,"PERCENTILE_%s%2.2d", PREFIX_ZPHOT_Q, ivar);
-    
-    istat = 0 ;
-    sprintf(comment,"Read %s", keyname);
-    fits_read_key(fp, TINT, keyname, &PCT, comment, &istat );
-    
-    //    printf(" xxx %s: PCT=%d for ivar=%d (istat=%d)\n", 
-    //	   fnam, PCT, ivar, istat );
-
-    if ( istat == 0 ) {
-      SNDATA.HOSTGAL_PERCENTILE_ZPHOT_Q[NFIND_KEY] = PCT ;
-      NFIND_KEY++ ;
-    }
-  }
-
-  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
-
-  if ( NFIND_KEY != N_Q ) {
-    sprintf(c1err,"Found %d PERCENTILE_ZPHOT_Q* keys", NFIND_KEY);
-    sprintf(c2err,"but expected to fid NZPHOT_Q = %d", N_Q);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  // @@@@@@ SOON TO BE OBSOLETE (Apr 7 2026) @@@@@@@@@@
-
-  return;
-} // end rd_snfitsio_zphot_q
-xxxxxxxxxx end mark xxxxxxx */
 
 // ==========================
 void rd_snfitsio_private(void) {

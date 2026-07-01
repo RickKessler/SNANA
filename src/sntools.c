@@ -293,7 +293,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   int  langC = LANGFLAG_PARSE_WORDS_C ;
   int  ILIST = 0, OPT_AUTOSTORE ;
   double DVAL;  char *CVAL;
-  int  LDMP = 1 ;
+  int  LDMP = 0 ;
   char CCID[MXCHAR_CCID], STRINGID[100], ctmp[60], STRING_MATCH[60] ;
   char fnam[] = "match_cidlist_init";
 

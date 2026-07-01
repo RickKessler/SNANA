@@ -15679,7 +15679,6 @@
 ! 
 ! -------------------
 
-
     USE SNDATCOM
     USE SNLCINP_NML
     USE EARLYCOM
@@ -15741,15 +15740,13 @@
 ! set cut-logicals.
     LFILT      = (INDEX(FILTERS_EARLYLC,CFILT(1:1)) > 0)
 
-    LSNR       = (SNR .GE. SNRMIN_EARLYLC) .AND.  & 
-                   (NSNR_START_EARLYLC>0)
+    LSNR       = (SNR .GE. SNRMIN_EARLYLC) .AND.  (NSNR_START_EARLYLC>0)
 
     LPHOTPROB  = PROB .GE. PHOTPROBMIN_EARLYLC
 
-    LPHOTMASK  = ( OVPMASK > 0) .AND.  & 
-                   ( NPHOTMASK_START_EARLYLC > 0)
+    LPHOTMASK  = ( OVPMASK > 0) .AND.  ( NPHOTMASK_START_EARLYLC > 0)
 
-    SAMENIGHT  = ( (MJD-MJDLAST_EARLYLC) < DT_SAMENIGHT )
+    SAMENIGHT  = ( (MJD-MJDLAST_EARLYLC) < DT_SAMENIGHT ) ! .xyz
 
     LCUTS = (LFILT .and. LSNR .and. LPHOTPROB .and. LPHOTMASK )
 
@@ -15906,7 +15903,7 @@
            USEWD(iwd) = .TRUE.;  USEWD(iwd+1) = .TRUE.
         endif
 
-        if ( cwd0(1:8) .EQ. 'MAXNIGHT' ) then
+        if ( cwd0(1:8) .EQ. 'MAXNIGHT' .or. cwd0(1:7) .EQ. 'MAXNITE') then
            read(cwd1,* ) MAXNIGHT_EARLYLC
            USEWD(iwd) = .TRUE.;  USEWD(iwd+1) = .TRUE.
         endif
@@ -17106,6 +17103,8 @@
            endif
            SNLC8_MJD_DETECT_LAST = MJD8
         endif
+
+        !print*,' xxx PHOTFLAG, MJD, LAST = ', PHOTFLAG, sngl(MJD8), SNLC8_MJD_DETECT_LAST
 
 ! check for trigger bit set by survey (5.2019)
         if ( IAND(PHOTFLAG,PHOTFLAG_TRIGGER) > 0 ) then

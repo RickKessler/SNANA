@@ -309,7 +309,7 @@ class data_lsst_fastdb(Program):
         lsst_head_private['PRIVATE(NOBS_BEFORE_COADD)']  =  nobs_before_coadd
         lsst_head_private['PRIVATE(NOBS_AFTER_COADD)']   =  nobs_after_coadd
         lsst_head_private['PRIVATE(RATIO_NOBS_COADD)']   =  ratio
-        lsst_head_private['NOBS_GARBAGE']                =  nobs_garbage
+        lsst_head_private['PRIVATE(NOBS_GARBAGE)']       =  nobs_garbage
         for b, n_nite in nite_detect_dict.items():
             key_private = f'PRIVATE(N_NITE_DETECT_{b})'
             lsst_head_private[key_private] = n_nite
@@ -490,6 +490,13 @@ class data_lsst_fastdb(Program):
         t_coadd = vstack(t_coadd_list)
         t_coadd.sort(gpar.DATAKEY_MJD)  # re-sort by MJD
 
+        # determine number of nites with detection, regardless of band : 'ANY_BAND'
+        # need to coadd again using all bands together and only use coadded PHOTFLAG
+        t_coadd_dummy                = self.coadd_single_band(t_phot, do_coadd)  
+        photflag_list                = t_coadd_dummy[gpar.DATAKEY_PHOTFLAG].tolist()
+        n_detect, detect_list        = self.count_detect(photflag_list)
+        nite_detect_dict['ANY_BAND'] = n_detect
+
         # covert coadd astropy table back to dictionary of lists 
         nobs_coadd = len(t_coadd)
 
@@ -508,7 +515,7 @@ class data_lsst_fastdb(Program):
         return nobs_coadd, phot_coadd_dict, nite_detect_dict
     # end coadd_by_nite
         
-    def coadd_single_band(self,t_band, do_coadd):
+    def coadd_single_band(self, t_band, do_coadd):
 
         # coadd table for this band, and also compute number of nites with detection
         

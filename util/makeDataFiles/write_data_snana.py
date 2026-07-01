@@ -140,6 +140,8 @@ def write_header_snana(f, data_head):
         SKIP_KEY = False
         for key_skip in key_skip_list:
             if key_skip in key: SKIP_KEY = True
+
+        if 'PRIVATE' in key: SKIP_KEY = False
         if SKIP_KEY: continue
         
         key_plus_err   = f"{key}_ERR"

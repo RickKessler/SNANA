@@ -181,6 +181,34 @@ class Program:
         return
         # end init_data_unit
 
+    def update_snid_file(self, args, evtnum, data_event_dict ):
+        head_raw   = data_event_dict.setdefault('head_raw', None)
+        head_calc  = data_event_dict.setdefault('head_calc', None)
+        s_file     = args.output_snid_file
+
+        if evtnum < 0 :
+            logging.info(f" Open SNID table {s_file}")
+            VARLIST   = [ 'SNID', 'NAME_TRANSIENT',  'SUBSET', 'MJD_DETECT_FIRST', 'MJD_DETECT_LAST' ]
+            VARSTRING = '  '.join(VARLIST)
+            with  open(s_file,"wt") as s:
+                s.write(f"VARLIST:  {VARSTRING} \n")                
+            
+        else:
+            # write table row for current SNID
+            data_unit_name = data_event_dict['data_unit_name']  # part of subset name below
+            SNID         = head_raw[gpar.DATAKEY_SNID]
+            NAME_TRNS    = head_raw[gpar.DATAKEY_NAME_TRNS]
+            SUBSET       = f"{gpar.FORMAT_TEXT}_{data_unit_name}"  # fragile: SNANA format only
+            MJD_DETECT_FIRST = head_calc[gpar.DATAKEY_MJD_DETECT_FIRST]
+            MJD_DETECT_LAST  = head_calc[gpar.DATAKEY_MJD_DETECT_LAST]            
+            
+            with  open(s_file,"at") as s:   # append mode
+                s.write(f"SN:  {SNID}  {NAME_TRNS}  {SUBSET}  " \
+                        f"{MJD_DETECT_FIRST:.3f} {MJD_DETECT_LAST:.3f}\n")
+                
+        return
+    # end update_snid_file
+    
     def update_garbage_file(self, args, evtnum, data_event_dict ):
 
         head_raw   = data_event_dict.setdefault('head_raw', None)
@@ -623,6 +651,10 @@ class Program:
         if args.outdir_csv : 
             csv_writer = csvWriter( args, self.config_data )
 
+        # check for optional SNID file
+        if args.output_snid_file:
+            self.update_snid_file(args, -1, {}) # open table file and write VARLIST
+        
         # check for optional garbage file
         if args.output_garbage_file:
             self.update_garbage_file(args, -1, {}) # open table file and write VARLIST 
@@ -678,8 +710,12 @@ class Program:
                 elif args.outdir_csv :
                     csv_writer.write_event_csv(data_event_dict)
 
+                # check supplemental table files
                 if args.output_garbage_file:
                     self.update_garbage_file(args, evt, data_event_dict)
+
+                if args.output_snid_file:
+                    self.update_snid_file(args, evt, data_event_dict)                    
                         
                 self.NEVT_WRITE += 1
                 

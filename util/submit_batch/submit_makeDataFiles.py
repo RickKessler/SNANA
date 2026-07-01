@@ -42,6 +42,8 @@ KEYLIST_SPLIT_NITE_OPTIONS  = ['--nite_detect_range', '--peakmjd_range']
 BASE_PREFIX          = 'MAKEDATA'   # base for log,yaml,done files
 DATA_UNIT_STR        = 'DATA_UNIT'  # merge table comment
 
+SUFFIX_GARBAGE = "GARBAGE"
+SUFFIX_SNIDALL = "SNIDALL"
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -257,6 +259,7 @@ class MakeDataFiles(Program):
         prefix_output_list = []
         isplitnite_list    = []
         write_garbage_file = False
+        write_snid_file    = True
         
         if n_splitnite > 1:
             isplitnite_temp_list = zip(range(0, n_splitnite),
@@ -324,9 +327,10 @@ class MakeDataFiles(Program):
         self.config_prep['isplitran_list']  = isplitran_list
 
         self.config_prep['makeDataFiles_args_list'] = makeDataFiles_args_list
-        self.config_prep['prefix_output_list'] = prefix_output_list
+        self.config_prep['prefix_output_list']  = prefix_output_list
         self.config_prep['isplitnite_list']     = isplitnite_list
         self.config_prep['write_garbage_file']  = write_garbage_file
+        self.config_prep['write_snid_file']     = write_snid_file
         
         # end prepare_data_units
 
@@ -443,6 +447,7 @@ class MakeDataFiles(Program):
         output_dir         = self.config_prep['output_dir']
         nevt               = self.config_prep['nevt']
         write_garbage_file = self.config_prep['write_garbage_file']
+        write_snid_file    = self.config_prep['write_snid_file']
         args               = self.config_yaml['args']
         
         kill_on_fail      = args.kill_on_fail
@@ -455,7 +460,8 @@ class MakeDataFiles(Program):
         done_file     = f"{prefix}.DONE"
         start_file    = f"{prefix}.START"
         yaml_file     = f"{prefix}.YAML"
-        garbage_file  = f"{prefix}.GARBAGE"  # Jun 25 2026
+        garbage_file  = f"{prefix}.{SUFFIX_GARBAGE}"   # Jun 25 2026
+        snid_file     = f"{prefix}.{SUFFIX_SNIDALL}"   # Jul 01 2026
         
         arg_split         = f'--isplitran {isplitarg}'
         arg_list          = makeDataFiles_arg + [arg_split,]
@@ -465,9 +471,12 @@ class MakeDataFiles(Program):
 
         arg_list.append(f"--output_yaml_file     {yaml_file}")
 
-        # write garbage file for select survey(s)
+        # write snid & garbage file for select survey(s)
         if write_garbage_file:
             arg_list.append(f"--output_garbage_file  {garbage_file}")
+
+        if write_snid_file:
+            arg_list.append(f"--output_snid_file  {snid_file}")            
 
         # if do_fast   : arg_list.append("--fast")        # may need later
 
@@ -748,17 +757,24 @@ class MakeDataFiles(Program):
         # - - - - - - - 
         # break up tar files into pieces based on suffix
         wildcard_list = [ 'MAKEDATA*.LOG',  'MAKEDATA*.DONE',
-                          'MAKEDATA*.YAML', 'MAKEDATA*.START', 'MAKEDATA*.GARBAGE',
+                          'MAKEDATA*.YAML', 'MAKEDATA*.START',
+                          f'MAKEDATA*.{SUFFIX_GARBAGE}', f'MAKEDATA*.{SUFFIX_SNIDALL}', 
                           'CPU*',  ]
         suffix_list   = [ 'LOG', 'DONE',
-                          'YAML', 'START', 'GARBAGE',
+                          'YAML', 'START',
+                          SUFFIX_GARBAGE, SUFFIX_SNIDALL, 
                           'CPU' ]    # backup name will be BACKUP_[suf].tar
 
-        for w,suf in zip(wildcard_list,suffix_list):
+
+        for w, suf in zip(wildcard_list,suffix_list):
             tmp_list = sorted(glob.glob(w, root_dir=script_dir))
+            
             if len(tmp_list) == 0 : continue
-            if suf == 'GARBAGE':
-                self.cat_garbage_tables(tmp_list)
+
+            # check optional table to catenate over all jobs and leave in top directory
+            suf_table_list = [ SUFFIX_GARBAGE, SUFFIX_SNIDALL ]            
+            if suf in [ SUFFIX_GARBAGE, SUFFIX_SNIDALL ]:
+                self.cat_tables(tmp_list, f"TABLE.{suf}")
             
             logging.info(f"\t Compress {w}")
             util.compress_files(+1, script_dir, w, suf, "" )
@@ -771,7 +787,39 @@ class MakeDataFiles(Program):
     
     # end merge_cleanup_final
 
-    def cat_garbage_tables(self, garbage_file_list):
+    def cat_tables(self, tmp_file_list, cat_file):
+
+        # concatenate list of table files (tmp_file_list) into a single cat_file
+        # tmp_file_list are base names assumed to be in script_dir;
+        # cat_file is  base name written to output_dir
+        
+        output_dir       = self.config_prep['output_dir']
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+
+        CAT_FILE = output_dir + '/' + cat_file
+        import pandas as pd
+        df_list = []
+        
+        n_nonzero = 0
+        for t in tmp_file_list:
+            t_file = script_dir + '/' + t
+            df     = pd.read_csv(t_file, comment="#", sep=r'\s+')
+            if len(df) > 0:
+                n_nonzero += 1
+                df_list.append(df)
+            #logging.info(f" xxx {g} has nrow = {len(df)}")
+            
+        df_all = pd.concat(df_list)
+        n_all  = len(df_all)
+        base   = os.path.basename(cat_file)
+        logging.info(f"\t Write {n_all:,} rows to {cat_file} (summed from {n_nonzero} tasks)")
+        df_all.to_csv(CAT_FILE, sep=' ', index=False)
+        
+        return
+    # end cat_tables
+
+    def cat_garbage_tables_legacy(self, garbage_file_list):
 
         output_dir       = self.config_prep['output_dir']
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -796,7 +844,8 @@ class MakeDataFiles(Program):
         df_all.to_csv(FINAL_GARBAGE_FILE, sep=' ', index=False)
         
         return
-    # end cat_garbage_tables
+    # end cat_garbage_tables_legacy
+    
     
     def get_merge_COLNUM_CPU(self):
         return -9

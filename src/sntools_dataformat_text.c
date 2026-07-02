@@ -2200,6 +2200,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   // Feb 10 2022: read zphot quantile info
   // Apr 14 2026: call rd_sntextio_SNDATA_HOSTGALz (quantiles)
   // May 07 2026: check match_override_missing_event()
+  // Jul 02 2026: protect IVAL = (int)DVAL from DVAL > 2 billion
 
   int  NFILT     = SNDATA_FILTER.NDEF;
   int  langC     = LANGFLAG_PARSE_WORDS_C ;
@@ -2216,15 +2217,15 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   int    NRD, NRD_ERR, len_word0, NZ ;
   int    IVAL;
   float  FVAL, FVAL_ERR ;
-  double DVAL=-9.0, DVAL_ERR=-9.0; 
-  bool   IS_PRIVATE, PLUS_MINUS = false ;  
+  double DVAL = -9.0, DVAL_ERR = -9.0; 
+  long long I8VAL;
+  bool   IS_PRIVATE, PLUS_MINUS =  false ;  
   char word0[100], word1_val[100], word2_pm[100],  word3_err[100];
   char PREFIX[40], PREFIXz[40], KEY[80], KEY_ERR[100], KEY_TEST[80] ;
   char STRVAL[40];
   char fnam[] = "parse_SNTEXTIO_HEAD" ;
 
-  // ------------ BEGIN -----------g
-
+  // ------------ BEGIN -----------
 
   get_PARSE_WORD(langC, iwd, word0, fnam);
 
@@ -2278,7 +2279,11 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
   if ( PLUS_MINUS ) { DVAL_ERR = atof(word3_err);  }
 
   // set int and float values for casting below
-  IVAL  = (int)DVAL;  FVAL=(float)DVAL;  FVAL_ERR=(float)DVAL_ERR;
+  I8VAL = (long long)DVAL;  IVAL=-9;
+  if ( fabs(DVAL) < 1.0E9 )    { IVAL  = (int)I8VAL; }
+
+  FVAL     = (float)DVAL;  
+  FVAL_ERR = (float)DVAL_ERR;
 
   // - - - - - - -
   // parse keys for data or sim
@@ -2435,7 +2440,7 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
       
       sprintf(KEY_TEST,"%s_OBJID:", PREFIX); 
       if ( strcmp(word0,KEY_TEST) == 0 ) {
-	SNDATA.HOSTGAL_OBJID[igal] = (long long) DVAL ;
+	SNDATA.HOSTGAL_OBJID[igal] = I8VAL ;
       }
 
       sprintf(KEY_TEST,"%s_FLAG:", PREFIX); 

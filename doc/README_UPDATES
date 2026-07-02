@@ -23963,6 +23963,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_host.c
      + abort if either Sersic size is zero (previously it required both)
 
+    sntools.c[h]
+      + new util function snana_close(fp, filename, gzipflag), analogous to snana_rewind(...).
+
     configure.ac:
       + add these compilation flags: -D_FORTIFY_SOURCE=2  -Wall 
         Note that public yaml.c gives lots of warnings; not so clear how to fix it.
@@ -23987,5 +23990,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       The default values (set in init_SNDATA_GLOBAL) are MXCHAR_FILTNAME and MXCHAR_FIELDNAME,
       but can be reduced before calling WR_SNFITIO_INIT. First use sntools_calib sets
       MXLEN_FILTER for simulation output.
+
+   few subtle bug caught by crash doing regression tests on codes compuled with debug flag.
+
+   TO-DO:
+     - define actuao NZ bins for HOSTGALz and LOGMASSz, instead of MXBINS,
+       to reduce size of _HEAD.FITS file
+     - pass SNCCID_LIST to FITS-reader to more quickly skip a large
+       number of events without reading each event
+
 END:
  

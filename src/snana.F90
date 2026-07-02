@@ -203,7 +203,8 @@
         ,PDFMIN_GOOD    = 1.0E-4    &  ! PDF > PDFMIN_GOOD counts as good point
         ,MJDOFF         = 0.0       &
         ,RV_MWCOLORLAW_DEFAULT  = 3.1    &  ! A_V/E(B-V)
-        ,CUTVAL_OPEN  = 1.0E12              ! cutwin value to accept everything.
+        ,CUTVAL_OPEN  = 1.0E9               ! cutwin value to accept everything; make sure int(val) is ok
+    ! xxx mark ,CUTVAL_OPEN  = 1.0E12              ! cutwin value to accept everything.
 
     REAL, PARAMETER ::           &
         NULLVAL          = -99999.  &      
@@ -5892,7 +5893,7 @@
     RESTORE_OVERRIDE_ZBUG = .FALSE. ! Dec 12 2021
     RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
     RESTORE_DES5YR        = .FALSE. ! May 28 2025
-    REFAC_DATA_FLAG       = 0
+    REFAC_DATA_FLAG       = 0   ! set to 701 for writing NZ bins of HOSTGALz 
 
     REQUIRE_DOCANA     =  0       ! use integer to match sim usage
 
@@ -11048,6 +11049,7 @@
           LL = INDEX(ARG, ' ' ) - 1
           print*,' ERROR: Detected un-used command-line argument: ',  & 
                        '"' , ARG(1:LL), '"'
+          call flush(6)
        endif
     ENDDO
 

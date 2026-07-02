@@ -153,9 +153,6 @@ char *TMPWORD_HOSTLIB[MXTMPWORD_HOSTLIB]; // used for splitString
 
 int OPTMASK_OPENFILE_HOSTLIB ;
 
-//for developers only
-bool REFAC_HOSTLIB;
-
 // Mar 16 2022: beware that -9 for sSFR is valid, so hostless sSFR is -99;
 // the other hostless values are -9 as before.
 #define HOSTLESS_PROPERTY_VALUE_LIST (float[]){ -9.0, -9.0, -99.0, -9.0 }

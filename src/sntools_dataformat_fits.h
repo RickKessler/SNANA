@@ -192,7 +192,6 @@ int IPAR_SNFITSIO_FAKE ;
 int IPAR_SNFITSIO_NOBS ;
 int IPAR_SNFITSIO_PTROBS_MIN ;
 int IPAR_SNFITSIO_PTROBS_MAX ;
-// xxx int IPAR_SNFITSIO_NXPIX, IPAR_SNFITSIO_NYPIX;
 
 #define  stringBlank " " ;
 
@@ -273,7 +272,7 @@ void rd_snfitsFile_close(int ifile, int itype);
 void wr_snfitsFile_close(int ifile, int itype);
 
 void snfitsio_errorCheck(char *comment, int status);
-int  IPAR_SNFITSIO(int OPT, char *parName, int itype );
+int  IPAR_SNFITSIO(int OPT, char *parName, int itype, char *callFun );
 int  IPARFORM_SNFITSIO(int OPT, int iform, char *parName, int itype);
 
 void malloc_wr_snfitsFiles(int opt, int ifile);

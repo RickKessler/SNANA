@@ -9390,7 +9390,13 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
 			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2 ) {
   int j;
   char PREFIX[20], PREFIXz[22] ;
+  int  SAY_HELLO = 0 ;
+  char fnam[] = "init_SNDATA_HOSTGALz" ;
+
   // ------------ BEGIN ----------
+
+  if ( SAY_HELLO ) 
+    { printf(" xxx %s: hello for igal=%d  %s \n", fnam, igal, SUFFIX_z); fflush(stdout); }
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
 
@@ -10155,7 +10161,6 @@ void  check_magUndefined(double mag, char *varName, char *callFun) {
   // Created Jun 23 2016
   char fnam[200] ;
   concat_callfun_plus_fnam(callFun, "check_magUndefined", fnam);
-  // xxx mark   char fnam[] = "check_magUndefined" ; //.xyz
 
   if ( mag == MAG_UNDEFINED ) {
     sprintf(c1err,"Undefined %s = %f", varName, mag);
@@ -10726,6 +10731,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
 
   // if we get here, do regular text open
   fp = fopen(FILENAME,mode);
+
   return(fp);
 
 } // end open_TEXTgz
@@ -10766,6 +10772,37 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
   }
 
 } // end snana_rewind
+
+// =====================================
+void snana_close(FILE *fp, char *FILENAME, int GZIPFLAG) {
+
+  // Created Jul 3 2026
+  int gzipFlag ;
+  char fnam[] = "snana_close" ;
+
+  // --------------- BEGIN ----------------
+
+  if ( GZIPFLAG == 0 ) {
+    printf("   CLOSE regular text file: %s \n", FILENAME);
+    fclose(fp);
+  }
+  else {
+    // close gzipped file
+    int istat = pclose(fp);
+    printf("   CLOSE gzipped text file (istat=%d): %s \n", istat, FILENAME);
+
+    if ( istat == -1 ) {
+      sprintf(c1err,"pclose Error = -1 for file=");
+      sprintf(c2err,"%s", FILENAME);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+  }
+
+  fflush(stdout);
+
+  return;
+
+} // end snana_close
 
 
 // *************************************************

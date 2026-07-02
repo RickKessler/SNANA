@@ -254,7 +254,7 @@ void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR, char *callFun) {
 
 
   if ( LVBOSE ) {
-    sprintf(banner,"%s: use  %s  mode:", fnam, cstat ) ;
+    sprintf(banner,"%.100s: use  %s  mode:", fnam, cstat ) ;
     print_banner(banner);
     printf("   Opened %s\n", FILENAME); fflush(stdout);
   }

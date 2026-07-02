@@ -163,6 +163,7 @@ extern"C" {
   void  trim_blank_spaces(char *string);
   void  debugexit(char *string);
   void  snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
+  void  snana_close(FILE *fp, char *FILENAME, int GZIPFLAG);
 #ifdef __cplusplus
 }
 #endif
@@ -796,7 +797,7 @@ void CLOSE_TEXTFILE(void) {
   
   int itab;
   FILE *FP;
-  //  char fnam[] = "CLOSE_TEXTFILE" ;
+  char fnam[] = "CLOSE_TEXTFILE" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
@@ -1010,7 +1011,8 @@ int SNTABLE_NEVT_TEXT(char *FILENAME) {
   //  printf(" xxx %s: LENF=%d FILENAME=%s \n", fnam, LENF, FILENAME);
 
   if ( LENF > 0 )  { 
-    if ( GZIPFLAG ) { pclose(fp); }   else { fclose(fp); }
+    snana_close(fp, FILENAME_TEXT, GZIPFLAG_TEXT);    
+    // xxx mark delete 7.03.2026 if ( GZIPFLAG ) { pclose(fp); }   else { fclose(fp); }
   }
   else {
     snana_rewind(fp, FILENAME_TEXT, GZIPFLAG_TEXT);
@@ -1074,6 +1076,7 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
   // then this function returns
   //    VARNAMES = "ZTRUE,RA_GAL,DEC_GAL"
   //
+  // Jul 3 2026: replcae fclose(fp) with snana_close(...) to properly handle GZIPFLAG
 
   FILE *fp;
   int  GZIPFLAG, NWD=0, NWD_ABORT=1000, fs;  (void)fs;
@@ -1107,7 +1110,9 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
   }
 
  DONE:
-  fclose(fp);
+  snana_close(fp, FILENAME, GZIPFLAG);
+  // xxx mark delete 7.03 2026   fclose(fp);
+
   return;
 
 } // end SNTABLE_VARLIST_TEXT
@@ -1190,10 +1195,13 @@ int  SNTABLE_READPREP_TEXT(void) {
   // reset NVARTOT_FITRES to exclude CID
   READTABLE_POINTERS.NVAR_TOT = NVAR ;
 
-  // close file and re-open because rewind does not work on
-  // gzipped files 
-  fclose(PTRFILE_TEXT);
-  PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, 0, &GZIPFLAG, fnam);
+  // close file and re-open because rewind does not work on gzipped files 
+
+  // xxx mark delete 7.03.2026  fclose(PTRFILE_TEXT);
+  // xxx mark dele  PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, 0, &GZIPFLAG, fnam);
+
+  snana_close(PTRFILE_TEXT, FILENAME_TEXT, GZIPFLAG_TEXT);
+  PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, 0, &GZIPFLAG_TEXT, fnam);
 
   free(VARLIST);
   return NVAR;
@@ -1214,6 +1222,7 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   // Sep  07 2021: abort if ivar < NVAR_TOT 
   //    (e.g., if split jobs with different NVAR are merged)
   //
+  // Jul 3 2026: print Close file comment
 
   int NROW = 0 ;
   int i, ivar, isn, ICAST, nptr ;
@@ -1229,6 +1238,12 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   char fnam[]    = "SNTABLE_READ_EXEC_TEXT" ;
 
   // ------------ BEGIN -----------    
+
+  /* xxx mark
+  FILE *fp_null = NULL;
+  printf(" xxx %s: receive PTRFILE_TEXT = %p   (fp_null=%p)\n", 
+	 fnam, (void*)PTRFILE_TEXT, (void*)fp_null ); fflush(stdout);
+  xxxxxxx */
 
   // get key name of ID varname such as CID, GALID, etc.
   sprintf(KEYNAME_ID,"%s", READTABLE_POINTERS.VARNAME[0] ); 
@@ -1334,7 +1349,19 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   } // end fscanf 
   
 
-  if ( GZIPFLAG_TEXT ) { pclose(FP); } else { fclose(FP); }
+  char *FILENAME = NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT];
+  snana_close(FP, FILENAME, GZIPFLAG_TEXT);
+
+  /* xxxxxxxxxx mark delet 7.03.2026 xxxxxxxx
+  if ( GZIPFLAG_TEXT ) { 
+    printf("   Close gzipped text file \n"); fflush(stdout);
+    pclose(FP); 
+  }
+  else {
+    printf("   Close unzipped text file \n"); fflush(stdout);
+    fclose(FP); 
+  }
+  xxxxxxxxxx end mark xxxxxxxx*/
 
   // May 2 2019: reset flags to allow opening another file.
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
@@ -1349,6 +1376,7 @@ void SNTABLE_CLOSE_TEXT(void) {
   // can call this function after SNTABLE_NEVT
   // so that there is no need to read entire file.
 
+  char fnam[] = "SNTABLE_CLOSE_TEXT";  (void)fnam;
   fclose(PTRFILE_TEXT); // Feb 13 2021
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
   USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;

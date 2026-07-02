@@ -2605,6 +2605,12 @@ void prep_head_HOSTLIB(void) {
   } // end ivar loop over all variables
 
 
+  if ( INPUTS.REFAC_DATA_FLAG == 701 ) {
+    int igal;
+    for(igal=0; igal < MXHOSTGAL; igal++ ) 
+      { SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ = HOSTLIB.NQZPHOT; }
+  }
+
   //-----------------------
   // sanity check on optioanl SNPARams
   USE = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USESNPAR) ;
@@ -4515,7 +4521,7 @@ double snmagshift_salt2gamma_HOSTLIB(long long int GALID) {
 // =======================================
 void init_HOSTLIB_QUANTILE_ZPHOT(void) {
 
-  // Created Apr 19 2022 by R.Kess;er
+  // Created Apr 19 2022 by R.Kess;=ler
   // For nominal usage of zphot quantiles in HOSTLIB, this function
   // only prints information to stdout.
   // If force-Gauss option is set, this function initializes

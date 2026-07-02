@@ -3582,19 +3582,6 @@ void check_duplicates_util(int EVENT_TYPE) {
   cList = TABLEVAR->fitpar[INDEX_c];  
   sList = TABLEVAR->fitpar[INDEX_s]; 
 
-  /* xxxxxxxxxxx mark delete 4.29.2026 xxxxxxxxx
-  if ( IS_DATA ) {
-    zList = TABLEVAR->zhd;
-    cList = TABLEVAR->fitpar[INDEX_c];  
-    sList = TABLEVAR->fitpar[INDEX_s]; 
-  }
-  else {
-    zList = TABLEVAR->SIM_ZCMB;
-    cList = TABLEVAR->SIM_FITPAR[INDEX_c];  
-    sList = TABLEVAR->SIM_FITPAR[INDEX_s] ;  
-  }
-  xxxxxxxx end mark */
-
 
   ORDER_SORT = + 1 ; // increasing order
   sortFloat( nsn, zList, ORDER_SORT, unsortList ) ;
@@ -4119,12 +4106,6 @@ bool crazy_M0_errors(void) {
     }
 
     if ( ERR < ERRMIN_CRAZY ) { 
-
-      /* xxx mark del May 29 2026 xxxxxxxxx
-      printf(" CrazyERR WARNING: iz=%d  z=%.3f "
-	     "M0ERR=%.5f ERRMIN_COMPUTE=%.2f/sqrt(%d) = %.5f   <muCOVscale>=%.3f\n", 
-	     iz, z, ERR, sigint_ref, NEVT, ERRMIN_COMPUTE, AVG_muCOVscale[iz] ); 
-      xxx */
 
       printf(" CrazyERR WARN: iz=%d z=%.3f "
 	     "M0ERR=%.5f ERRMIN_COMPUTE = %.3f * %.2f/sqrt(%d) = %.5f \n", 
@@ -5056,7 +5037,7 @@ double fcn_M0(int n, double *M0LIST) {
     zfrac = ( zdata - zbin0 ) / ( zbin1 - zbin0) ;
     M0    = M0bin0 + (M0bin1-M0bin0) * zfrac ;
 
-    LDMP = (n == -95 ); // xxx REMOVE
+    LDMP = (n == -95 ); 
     if ( LDMP ) {    
       fprintf(FP_STDOUT, " xxx -------------------------- \n");
       fprintf(FP_STDOUT, " xxx iz0=%d  iz1=%d \n", iz0, iz1);
@@ -6063,7 +6044,7 @@ void read_data(void) {
 			      TABLEVAR);
 
     if ( INPUTS.cat_only ) 
-      { NROW = NEVT[ifile];  SNTABLE_CLOSE_TEXT(); }
+      { NROW = NEVT[ifile]; SNTABLE_CLOSE_TEXT(); }
     else
       { NROW = SNTABLE_READ_EXEC(); }    // read entire file; load arrays
     TABLEVAR->NSN_ALL += NROW ;
@@ -22115,7 +22096,7 @@ bool accept_zrate_scale(int OPT, char *snid, double z, int EVENT_TYPE ) {
   accept = ( ran <= scale ) ;
 
   bool LDMP = (OPT & 8) > 0 ;
-  //   LDMP = ( z>1.8 && z < 1.81 ); // xxx REMOVE
+  //   LDMP = ( z>1.8 && z < 1.81 ); 
   if ( LDMP ) {
     char *stype = STRING_EVENT_TYPE[EVENT_TYPE];
     fprintf(FP_STDOUT," xxx -------------------------------------------- \n");
@@ -24695,17 +24676,6 @@ void write_fitres_line_append(FILE *fp, int indx ) {
     muCOVscale  = INFO_DATA.muCOVscale[n] ; // applied value
     if ( DO_COVADD ) {  muCOVadd  = INFO_DATA.muCOVadd[n] ; }
 
-    /* xxxx mark delete May 29 2026 xxxxxx
-    if ( DO_COVADD ) {
-      muCOVadd    = INFO_DATA.muCOVadd[n] ;
-      if ( muCOVscale > 1.0 && muCOVadd > 0.0 ) { 
-	muCOVscale = 1.0;  // effective muCOVscale = 1 of muCOVadd was applied
-      } else {
-	muCOVadd = 0.0;
-      }
-    }
-    xxxxxxxxxx end mark xxxxxxx */
-
   }
   
   if (pull > 99.999) { pull=99.999; }
@@ -26575,12 +26545,6 @@ void SUBPROCESS_PREP_NEXTITER(void) {
   rewind_and_purge(SUBPROCESS.FP_OUT);
   if ( SUBPROCESS.STDOUT_CLOBBER ) { rewind_and_purge(FP_STDOUT); }
 
-  /* xxx mark delete Feb 24 2026 xxxx
-  rewind(SUBPROCESS.FP_INP);  //  ftruncate(fd, 0)
-  rewind(SUBPROCESS.FP_OUT);   
-  if ( SUBPROCESS.STDOUT_CLOBBER ) { rewind(FP_STDOUT); }
-  xxxxxxxxx end mark xxxxxx */
-
   // - - - - - -
   
   SUBPROCESS_SIM_REWGT(ITER_EXPECT);
@@ -26897,12 +26861,6 @@ void SUBPROCESS_SIM_PRESCALE(void) {
       NSN_PS++ ;
     }
   }
-
-  /* xxx mark delete xxxxxxx
-  fprintf(FP_STDOUT,"%s: NSN_TOT = %d --> %d after prescale\n", 
-	  fnam, NSN_TOT, NSN_PS);
-  fflush(FP_STDOUT);
-  xxxxxxxxxx */
 
   return;
 
@@ -27222,7 +27180,6 @@ void SUBPROCESS_MAP1D_BININFO(int ITABLE) {
 	
 	for(ivar=0; ivar < NVAR; ivar++ )
 	  { SUBPROCESS.OUTPUT_TABLE[ITABLE].INDEX_BININFO[ivar][IB1D] = ib_per_var[ivar]; }
-	// xxx mark delete Feb 26 2026 { INDEX_BININFO[ivar][IB1D] = ib_per_var[ivar]; }
 	
       } // end ib2
     } // end ib1

@@ -711,7 +711,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_ZHEL       = true;
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
-  INPUTS.REFAC_DATA_FLAG        = 0 ;
+  INPUTS.REFAC_DATA_FLAG        = 0; // 701 ;
   NLINE_RATE_INFO   = 0;
 
   INPUTS.TIME_START[0] = 0 ;

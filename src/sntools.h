@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <glob.h>
 #include <fcntl.h>
+#include <zlib.h>
 
 #include "sndata.h"
 
@@ -851,6 +852,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK, int *GZIPFLAG, 
 FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 			  char *fullName, int *gzipFlag );
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
+void snana_close(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST,
 			char *fileName, char *funCall);
 bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName); // check file is open

@@ -1965,6 +1965,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   IFILETYPE = TABLEFILE_OPEN(fileName,readOpt, fnam) ;
   SNTABLE_READPREP(IFILETYPE,tableName );
 
+
   // make comma-sep list of variables in table header;
   // skip CID by starting at ivar=1
   for( ivar = 1 ; ivar < READTABLE_POINTERS.NVAR_TOT; ivar++ ) {    

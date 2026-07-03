@@ -3319,6 +3319,15 @@ void PREP_CCID_SAVELIST_SNFITSIO(char *SNID) {
   }
 
   NCCID_SAVELIST_SNFITSIO++ ;
+  
+  if ( NCCID_SAVELIST_SNFITSIO >= MXCCID_SAVELIST_SNFITSIO ) {
+    sprintf(c1err,"NCCID_SAVELIST_SNFITSIO=%d exceeds bound", NCCID_SAVELIST_SNFITSIO);
+    sprintf(c2err,"Reduce list size or increase MXCCID_SAVELIST_SNFITSIO");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
+  return ;
 
 } // end PREP_CCID_SAVELIST_SNFITSIO
 

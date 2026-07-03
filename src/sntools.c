@@ -9106,6 +9106,8 @@ int init_SNDATA_EVENT(void) {
   sprintf(SNDATA.NAME_TRANSIENT, "UNKNOWN" );
   sprintf(SNDATA.AUXHEADER_FILE, "UNKNOWN" );
 
+  if ( NEP_LAST == 0 ) { return SUCCESS; } // 7.03.2026 bail quickly if skipping unread events
+
   SNDATA.NLINES_AUXHEADER = 0;
   for ( i=0; i < 20; i++ ) 
     { sprintf(SNDATA.AUXHEADER_LINES[i],"GARBAGE AUXHEADER_LINE"); }
@@ -9124,6 +9126,7 @@ int init_SNDATA_EVENT(void) {
 
   SNDATA.FILTCHAR_1D[0] = 0 ;
   SNDATA.FIELDNAME_1D[0] = 0 ;
+  SNDATA.NOBS   = 0;
   SNDATA.NEPOCH = 0;
   SNDATA.NEWMJD = 0;
   SNDATA.MJD_TRIGGER      = 1.0E6 ;
@@ -9359,7 +9362,6 @@ int init_SNDATA_EVENT(void) {
 
   }  //  end i_epoch init loop
 
-  // xxx proc_rate 40/sec
 
   return SUCCESS ;
 
@@ -10777,7 +10779,6 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
 void snana_close(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
   // Created Jul 3 2026
-  int gzipFlag ;
   char fnam[] = "snana_close" ;
 
   // --------------- BEGIN ----------------

@@ -23995,9 +23995,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    TO-DO:
      - define actuao NZ bins for HOSTGALz and LOGMASSz, instead of MXBINS,
-       to reduce size of _HEAD.FITS file
+       to reduce size of _HEAD.FITS file; 
+       debug with REFAC_DATA_FLAG=701
+
      - pass SNCCID_LIST to FITS-reader to more quickly skip a large
-       number of events without reading each event
+       number of events without reading each event;
+       see SNID_SAVELIST variables and functions
+       debug with REFAC_DATA_FLAG=702
+
+     - describe this SNID_SAVELIST feature in github issue.
+
+     - bigger project: replace fopen calls with gzoopen (using zlib.h)
 
 END:
  

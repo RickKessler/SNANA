@@ -111,6 +111,12 @@ bool  SNFITSIO_SPECTRA_SKIPREAD;        // flag to skip reading spectra (see OPT
 bool  SNFITSIO_noSIMFLAG_SNANA     ;  // treat sim like real data 
 int   SNFITSIO_NSUBSAMPLE_MARK ; // indicates how many marked sub-samples
 
+
+// for searching small list of SNIDs, use this list for quick reject
+#define MXCCID_SAVELIST_SNFITSIO 100
+int  NCCID_SAVELIST_SNFITSIO ;
+char *CCID_SAVELIST_SNFITSIO[MXCCID_SAVELIST_SNFITSIO] ;  // save only the CCIDs on this list
+
 typedef struct {
   // name of each header paramater (SNID, REDSHIFT, etc ...)
   char  name[MXPAR_SNFITSIO][40] ;
@@ -127,7 +133,6 @@ typedef struct {
   // these are all set to blank
   char *ptrUnit[MXPAR_SNFITSIO] ;
  
-
 } SNFITSIO_TABLEDEF ;
 
 SNFITSIO_TABLEDEF RD_SNFITSIO_TABLEDEF[MXTYPE_SNFITSIO];
@@ -318,6 +323,9 @@ int RD_SNFITSIO_SPECROWS(char *SNID, int *ROWMIN, int *ROWMAX);
 void RD_SNFITSIO_SPECDATA(int irow, double *LAMMIN, double *LAMMAX, 
 			  double *FLAM, double *FLAMERR, double *GENFLAM);
 
+void  PREP_SNID_SAVELIST_SNFITSIO(char *SNID);
+bool  MATCH_SNID_SAVELIST_SNFITSIO(void);
+
 int   ifile_snfitsio(int isn);
 
 void  check_required_headkeys(int OPTMASK) ; 
@@ -349,6 +357,8 @@ int rd_snfitsio_dbl__(int *isn,  char *parName, double *parLIST, int *iptr) ;
 
 void set_rdmask_snfitsio__(int *N, int *mask) ;
 void rd_snfitsio_specrows__(char *SNID, int *ROWMIN, int *ROWMAX );
+
+void prep_snid_savelist_snfitsio__(char *SNID);
 
 // mangled write funs
 

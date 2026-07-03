@@ -680,7 +680,7 @@ void wr_snfitsio_init_host(int igal, int itype) {
   // add zPHOT quantiles, and logmass zgrid 
   int NZq, NZm;
   if ( REFAC_DATA_FLAG == 701 ) {
-    NZq = SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ ;  // REFAC .xyz
+    NZq = SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ ;  
     NZm = SNDATA.HOSTGALz_LOGMASS[0].NZ ; 
   }
   else {
@@ -765,13 +765,6 @@ void wr_snfitsio_addcol_HOSTGALz(int NBIN_z, HOSTGALz_DEF *HOSTGALz ) {
   char fnam[] = "wr_snfitsio_addcol_HOSTGALz" ; (void)fnam;
 
   // ---------- BEGIN ---------
-
-  /* .xyz xxxxxxxxxxxxxx
-  printf(" xxx %s: NBIN_z = %d  for %s   VALS = %.2f %.2f %.2f\n", 
-	 fnam, NBIN_z, HOSTGALz->VARNAME_VAL,
-	 HOSTGALz->VARNAME_VAL[0], HOSTGALz->VARNAME_VAL[1], HOSTGALz->VARNAME_VAL[2]); 
-  fflush(stdout);
-  xxxxxxxxxxxxxxxxxxxx */
 
   // add column for number of z bins
   sprintf(tform,"1I");
@@ -3165,6 +3158,7 @@ void RD_SNFITSIO_INIT(int init_num) {
   }
 
   RD_OVERRIDE.USE     = false ;
+  NCCID_SAVELIST_SNFITSIO = 0;
 
 } // end RD_SNFITSIO_INIT
 
@@ -3308,6 +3302,46 @@ int  rd_snfitsio_prep__(int *MSKOPT, char *PATH,  char *version)
 
 
 
+void PREP_CCID_SAVELIST_SNFITSIO(char *SNID) {
+
+  int N = NCCID_SAVELIST_SNFITSIO;
+  int MEMC = sizeof(char) * MXCHAR_CCID;
+  int LDMP = 0; // (REFAC_DATA_FLAG==702);
+  char fnam[] = "PREP_CCID_SAVELIST_SNFITSIO"; (void)fnam;
+  // --------------- BEGIN ------------
+  
+  CCID_SAVELIST_SNFITSIO[N] = (char*) malloc(MEMC);
+  sprintf(CCID_SAVELIST_SNFITSIO[N], "%s", SNID);
+
+  if ( LDMP ) {
+    printf(" xxx %s: SAVELIST[%2d] = %s \n", fnam, N, SNID);
+    fflush(stdout);
+  }
+
+  NCCID_SAVELIST_SNFITSIO++ ;
+
+} // end PREP_CCID_SAVELIST_SNFITSIO
+
+bool MATCH_CCID_SAVELIST_SNFITSIO(void) {
+  int i;
+  char *CCID_SAVE;
+  char fnam[] = "MATCH_CCID_SAVELIST_SNFITSIO"; (void)fnam;
+
+  // ------------ BEGIN -------------
+  // return true if there is no list
+  if ( NCCID_SAVELIST_SNFITSIO == 0 ) { return true; }
+
+  for ( i=0; i < NCCID_SAVELIST_SNFITSIO; i++ ) {
+    CCID_SAVE = CCID_SAVELIST_SNFITSIO[i];
+    if ( strcmp(CCID_SAVE,SNDATA.CCID)           == 0 ) { return true; }
+    if ( strcmp(CCID_SAVE,SNDATA.NAME_TRANSIENT) == 0 ) { return true; }
+    if ( strcmp(CCID_SAVE,SNDATA.NAME_IAUC)      == 0 ) { return true; }
+  }
+  return false ;
+} // end MATCH_CCID_SAVELIST_SNFITSIO
+
+void prep_ccid_savelist_snfitsio__(char *CCID)
+{ PREP_CCID_SAVELIST_SNFITSIO(CCID); }
 
 // ==================================================
 int RD_SNFITSIO_EVENT(int OPT, int isn) {
@@ -3384,6 +3418,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++ ;  NRD = RD_SNFITSIO_STR(isn, "SNID", SNDATA.CCID, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
+
     if ( !SNFITSIO_SIMFLAG_SNANA ) {
 
       // check new (NAME_IAUC) and legacy (IAUC) key names for IAUC.
@@ -3401,8 +3436,17 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
  				     &SNFITSIO_READINDX_HEAD[j] ) ;
       }
       
-    }
+    } // end SNFITSIO_SIMFLAG_SNANA
     
+
+    // Jul 2 2026: if a sparse list of SNIDs is store, check to stop reading here to save time
+    if ( REFAC_DATA_FLAG == 702 ) {
+      if ( !MATCH_CCID_SAVELIST_SNFITSIO() ) { return SUCCESS; }
+    }
+
+    // - - - - - - - - - -
+    // here we either matched CCID_SAVELIST, or there is no list ... continue reading entire event
+    // - - - - - - - - - -
 
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "FAKE", &SNDATA.FAKE, 
 				 &SNFITSIO_READINDX_HEAD[j] ) ;

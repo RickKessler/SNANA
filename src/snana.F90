@@ -297,7 +297,7 @@
          JTIME_START  & 
         ,JTIME_LOOPSTART         &  ! time at start of fits with TIME()
         ,JTIME_LOOPEND          ! time and end
-
+    
     LOGICAL  & 
          DO_FIT  & 
         ,DO_GETINFO         &  ! T=>GETINFO flag to print and quit
@@ -2676,7 +2676,6 @@
 ! Initialization driver for reading data files.
 ! Called once during global init stage.
 
-
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -2704,11 +2703,66 @@
 
     CALL EXEC_READ_DATA(IVERS,OPTMASK_SNDATA_GLOBAL)
 
+    if ( FORMAT_FITS ) call PREP_FASTREAD_CIDLISTS()
+
     RETURN
+
   END SUBROUTINE INIT_READ_DATA
 
+! =====================================================
+  SUBROUTINE PREP_FASTREAD_CIDLISTS()
+
+    ! Created Jul 2 2026
+    ! if searching a handful of events (e.g., with SNCCID_LIST) over millions
+    ! of events (e.g.. BCOR sim or LSST), the read-speed is limited by the
+    ! underlying C code reading every entire event before returning to this
+    ! fortran code to reject event using only CID.
+    ! This utility passes a list to the underlying C-code reader so that
+    ! it can bail ASAP after reading the event ID.
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+
+    INTEGER i, LENC, NSTORE
+    CHARACTER CCID*(MXCHAR_CCID)
+
+    EXTERNAL PREP_CCID_SAVELIST_SNFITSIO
+
+    ! ---------------- BEGIN ------------
+
+    NSTORE = 0
+    ! first loop over string list
+    DO i = 1, NCCID_LIST   ! .xyz
+       CCID    = SNCCID_LIST(i)
+       LENC    = INDEX(CCID,' ') - 1
+       call PREP_CCID_SAVELIST_SNFITSIO(CCID(1:LENC)//char(0), LENC)
+       NSTORE = NSTORE + 1
+    END DO
+
+    ! 2nd loop over integer list
+    DO i = 1, NCID_LIST   ! .xyz
+       write(CCID,20)  SNCID_LIST(i)
+20     format(I12)
+       CCID    = adjustl(CCID)  ! left-adjust
+       LENC    = INDEX(CCID,' ') - 1
+       call PREP_CCID_SAVELIST_SNFITSIO(CCID(1:LENC)//char(0), LENC)
+       NSTORE = NSTORE + 1
+    END DO
+    
+    if ( NSTORE > 0 ) then
+       write(6,30) NSTORE
+30     format(T5,'Finished loading list of ', I5,' CID names to speed-up RD_SNFITSIO' )
+       call flush(6)
+    endif
+
+    RETURN
+
+  END SUBROUTINE PREP_FASTREAD_CIDLISTS
+  
 ! ===============================
-    SUBROUTINE INIT_READ_OVERRIDE()
+  SUBROUTINE INIT_READ_OVERRIDE()
 
 ! Created May 2023
 ! Wrapper to call C-function RD_OVERRIDE_INIT
@@ -3048,7 +3102,7 @@
     LOGICAL   REFORMAT_LOCAL, WR_SIMLIB_OUTFILE
     CHARACTER cVERSION*(MXCHAR_VERSION), cPATH*(MXCHAR_PATH)
     CHARACTER FNAM*16
-
+    
 ! functions
     LOGICAL  LDONE_CIDLIST, IGNOREFILE_fortran
     INTEGER  RD_SNFITSIO_PREP, RD_SNTEXTIO_PREP
@@ -3130,7 +3184,7 @@
 
        IF ( N_SNLC_FITCUTS >= MXLC_FIT ) GOTO 100
 
-       CALL INIT_SNLC()
+       CALL INIT_SNLC_ARRAYS()
 
        ! absolute index independent of cuts or SPLIT jobs;
        ! used as integer index if CID is a string (see CIDASSIGN)
@@ -3149,10 +3203,7 @@
       CALL RDHEAD_DRIVER(istat)
 
       N_SNLC_READ = N_SNLC_READ + 1      
-      if (MOD(N_SNLC_READ,5000) .EQ. 0) then
-         print*,'  N_SNLC_READ = ', N_SNLC_READ  ! show something, even if nothing is processed
-         call flush(6)
-      endif
+      CALL PRINT_READ_UPDATE()
 
       if ( ISTAT < 0 ) GOTO 100
 
@@ -3182,7 +3233,7 @@
 
       IF ( ISTAT .EQ. 0 ) THEN
          N_SNLC_PROC = N_SNLC_PROC + 1 ! number of processed LC
-         call PRINT_RDSN()             ! print one-line summary
+         call PRINT_PROC_UPDATE()             ! print one-line summary
          CALL SNANA_DRIVER( ISN, N_SNLC_PROC, IVERS)
       ENDIF
 
@@ -11069,7 +11120,7 @@
 ! 
 ! Init some SN variables.
 ! Called once at beginning of program.
-! See INIT_SNLC to initilaize each SN.
+! See INIT_SNLC_ARRAYS to initilaize each SN.
 ! 
 ! Feb 19 2014: abort if SNDATA_ROOT is not defined.
 ! Jan 16 2019: init EXIT_ERRCODE
@@ -11084,7 +11135,6 @@
     USE SNCUTS
     USE SNLCINP_NML
     USE SNHOSTCOM
-! +CDE,PARSECOM.
     USE SNSIMCOM
     USE SNANAFIT
     USE FILTCOM
@@ -13425,13 +13475,37 @@
     RETURN
   END SUBROUTINE CHECK_FITSABORT
 
+! ==============================
+  SUBROUTINE PRINT_READ_UPDATE()
 
+    USE SNDATCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+    
+    INTEGER*8 JTIME_UPDATE
+    REAL*8    DT_UPDATE
+    REAL RATE_READ
+    ! ----------- BEGIN -----------
+
+    if (MOD(N_SNLC_READ,5000) .EQ. 0 .and. N_SNLC_READ > 10 ) then
+       JTIME_UPDATE = TIME()
+       DT_UPDATE    = DBLE(JTIME_UPDATE - JTIME_LOOPSTART)
+       RATE_READ    = FLOAT(N_SNLC_READ) / SNGL(DT_UPDATE)
+
+       write(6,60) N_SNLC_READ, RATE_READ
+60     format(T3,'N_SNLC_READ = ', I10,'   Rate = ', F8.1,' sec^-1' )
+       call flush(6)
+    endif
+
+    RETURN
+  END SUBROUTINE PRINT_READ_UPDATE
 
 ! ==================================
-    SUBROUTINE PRINT_RDSN()
+  SUBROUTINE PRINT_PROC_UPDATE()
 
 ! Called before SNANA_DRIVER, print one-line summary of SN that has
-! been read/parsed.
+! been read, parsed, and processed.
 ! 
 ! Apr 19 2022: replace REJECT_PRESCALE with MOD function to have
 !              more predictable prints.
@@ -13490,8 +13564,9 @@
 
     CALL FLUSH(6)
     RETURN
-  END SUBROUTINE PRINT_RDSN
+  END SUBROUTINE PRINT_PROC_UPDATE
 
+  
 ! =================================
     SUBROUTINE SET_HOSTGAL_PREFIX(IGAL,PREFIX,LENPRE)
 
@@ -14696,7 +14771,7 @@
   END SUBROUTINE MOVE_SNLC_ARRAYS
 
 ! ===================================
-    SUBROUTINE INIT_SNLC()
+    SUBROUTINE INIT_SNLC_ARRAYS()
 ! 
 ! Init SNLC_XXX arrays for this SN
 ! Called for each SN.
@@ -14705,7 +14780,10 @@
 ! Feb 07 2021: rename INIT_SNDATA -> INIT_SNLC to avoid confusion
 !               with INIT_SNDATA in sntools.c
 ! 
-
+! Jul 02 2026; 
+!    +  rename to INIT_SNLC_ARRAYS
+!    +  adjust NEP_RESET logic to account for searching rare event list in big sample.
+!
     USE SNDATCOM
     USE SNLCINP_NML
     USE SNANAFIT
@@ -14888,12 +14966,22 @@
     SIM_NOBS_UNDEFINED  = 0
     SIM_SUBSAMPLE_INDEX = -9
 
-    IF ( NCALL_SNANA_DRIVER < 2 ) then
+    ! xxxxxxxxxx mark delete 7.02.2026 xxxxxxxxxx
+    !IF ( NCALL_SNANA_DRIVER < 2 ) then
+    !   NEP_RESET = MXEPOCH
+    !ELSE
+    !   NEP_RESET = ISNLC_NEPOCH_STORE
+    !ENDIF
+    ! xxxxxxxxxxxx
+
+    if ( N_SNLC_READ == 0 ) then
        NEP_RESET = MXEPOCH
-    ELSE
-       NEP_RESET = ISNLC_NEPOCH_STORE
-    ENDIF
-!      print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
+    else
+       NEP_RESET = ISNLC_NEPOCH_STORE 
+    endif
+    if ( NEP_RESET < 5 ) NEP_RESET = 5
+
+    !print*,' xxx NCALL,NEP_RESET=', NCALL_SNANA_DRIVER, NEP_RESET
 
     DO iep = 1, NEP_RESET
 
@@ -15015,7 +15103,7 @@
     ENDDO
 
     RETURN
-  END SUBROUTINE INIT_SNLC
+  END SUBROUTINE INIT_SNLC_ARRAYS
 
 ! =======================================
     SUBROUTINE INIT_CUTMASK ( IERR )

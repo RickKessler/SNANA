@@ -1120,7 +1120,7 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
 // ==========================================
 int  SNTABLE_READPREP_TEXT(void) {
 
-  int NVAR, ivar, ISTAT, FOUNDKEY, NRD, GZIPFLAG, iwd, MSKOPT ; 
+  int NVAR, ivar, ISTAT, FOUNDKEY, NRD, iwd, MSKOPT ; 
   int LENV_TOT = 0;
   bool MATCH;
   FILE *FP ;

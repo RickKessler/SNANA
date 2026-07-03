@@ -23929,6 +23929,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        Ignoring semi-colon results in back-compatible feature of appending only
        FITRES table. 
 
+    Improved read-speed when search big data set for just 1 event:
+        https://github.com/RickKessler/SNANA/issues/1727
+
          *****  MISCELLANEOUS(v12_02) *****
 
     snana.F90, snlc_fit.F90: 

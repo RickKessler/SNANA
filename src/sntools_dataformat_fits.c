@@ -3440,9 +3440,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     
 
     // Jul 2 2026: if a sparse list of SNIDs is store, check to stop reading here to save time
-    if ( REFAC_DATA_FLAG == 702 ) {
-      if ( !MATCH_CCID_SAVELIST_SNFITSIO() ) { return SUCCESS; }
-    }
+    //  xxx mark   if ( REFAC_DATA_FLAG == 702 ) {
+    if ( !MATCH_CCID_SAVELIST_SNFITSIO() ) { return SUCCESS; }
+    // xxx mark }
 
     // - - - - - - - - - -
     // here we either matched CCID_SAVELIST, or there is no list ... continue reading entire event

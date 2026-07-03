@@ -1833,11 +1833,15 @@ void read_searcheff_raw_varnames(char *SEARCHEFF_FILE, int *OPEN_STATUS,
   // Example: SPECEFF file has  VARNAMES:  r  g-i
   //   This functions returns *NVAR_RAW = 3  and VARNAMES_RAW = 'r', 'g', 'i'
   //   
-
+  // Jul 3 2026: fix MXSUBSTR as described so eloquently in git issue 1726
+  //
   int MXVAR = MXVAR_SEARCHEFF_MAP ;
   int NSKIP = 1; // skip HOSTEFF of SPECEFF column
+  int MXSUBSTR = MXSUBSTR_SEARCHEFF_MAP ;
+
   int NKEY, NVAR, UNIQUE[MXVAR_SEARCHEFF_MAP], ivar, NVAR_RAW_LOCAL = 0 ;
-  int MXSUBSTR=4, NSUBSTR, isub ;
+  int NSUBSTR, isub ;
+
   FILE *fp;
   float fmem; 
   char **VARNAMES_LOCAL, **SUBSTRING_LIST, SUB[40], sep[2], VARLIST[80] ;

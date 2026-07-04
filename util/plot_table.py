@@ -42,7 +42,7 @@
 # Mar 25 2026: fix bugs from Mar 23 change to allow comma-sep csv
 # Jun 23 2026: fix bug from comma in DOCUMENTATION block that confused check_table_varnames().
 # Jun 30 2026: new WRITE_TF option to write tf with cuts applied and ALL columns
-#
+# Jul 05 2026: add new @@CUTMASK option to apply cuts to subset of files or variables
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -328,6 +328,12 @@ and two types of command-line input delimeters
   While math functions (sqrt, exp, log ...) are allowed for variables,
   they cannot be used for cuts.
 
+@@CUTMASK
+   Determine which tfiles or variables have cuts applied; default apply cuts to all tfiles or variables.
+   Here are some examples with 3 tfiles:
+      @@CUTMASK 0 1 1   -> apply cuts to 2nd and 3rd tfiles
+      @@CUTMASK 1 0 0   -> apply cuts only to first tfile; not cuts for 2nd and 3rd tfiles.
+      @@CUTMASK 1 1 1   -> default: cuts applied to all tfiles.
 
 @@FIT
   Apply pre-defined fit function to 1D plot:
@@ -599,6 +605,9 @@ def get_args():
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
     parser.add_argument('@@CUT', '@@cut', default =[None], help=msg, nargs="+")
 
+    msg = "cutmask-apply per file or variable; e.g., 1 0 1 -> apply cuts to 1st and 3rd file. Default is apply cuts to all files or variables."
+    parser.add_argument('@@CUTMASK', '@@cutmask', default =[1], type=int, help=msg, nargs="+")
+
     msg = "integer prescale for selecting table rows (e.g., 7 -> select 1/7 of rows)"
     parser.add_argument('@@PRESCALE', '@@prescale', default =[1],
                         type=int, help=msg, nargs="+" )
@@ -725,6 +734,7 @@ def arg_prep_driver(args):
     if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx args.VARIABLE = {args.VARIABLE}  (before modifications)")  
         print(f" xxx args.CUT      = {args.CUT}  (before modifications)")
+        print(f" xxx args.CUTMASK  = {args.CUTMASK}  (before modifications)")
         
     # - - - - - - -
     # for variable(s)
@@ -743,17 +753,21 @@ def arg_prep_driver(args):
     n_tfile_orig    = len(args.TFILE)
     n_var_orig      = len(args.VARIABLE)
     n_cut_orig      = len(args.CUT)
+    n_cutmask_orig  = len(args.CUTMASK)
     n_wgtfun_orig   = len(args.WGTFUN)
     n_wgtvar_orig   = len(args.WGTVAR)
     tfile_list      = copy.copy(args.TFILE)
     var_list        = copy.copy(args.VARIABLE)
     cut_list        = copy.copy(args.CUT)
+    cutmask_list    = copy.copy(args.CUTMASK)
     wgtfun_list     = copy.copy(args.WGTFUN)
     wgtvar_list     = copy.copy(args.WGTVAR)
 
     name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WGTFUN', '@@WGTVAR'  ]
-    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_wgtfun_orig, n_wgtvar_orig ]
-    arg_list_list  = [ tfile_list,   var_list,   cut_list,   wgtfun_list,   wgtvar_list   ]
+    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_cutmask_orig, 
+                       n_wgtfun_orig, n_wgtvar_orig ]
+    arg_list_list  = [ tfile_list,   var_list,   cut_list,   cutmask_list,   
+                       wgtfun_list,   wgtvar_list   ]
 
     # abort if more than 1 table file and more than 1 cut are requested.
     # However, allow 2 table files and 2 WGTFUNs
@@ -772,8 +786,9 @@ def arg_prep_driver(args):
     tfile_list   = arg_list_list[0]
     var_list     = arg_list_list[1]
     cut_list     = arg_list_list[2]
-    wgtfun_list  = arg_list_list[3]    
-    wgtvar_list  = arg_list_list[4]    
+    cutmask_list = arg_list_list[3]
+    wgtfun_list  = arg_list_list[4]    
+    wgtvar_list  = arg_list_list[5]    
         
     # - - - -
 
@@ -781,7 +796,9 @@ def arg_prep_driver(args):
         print(f" xxx proc_args: args.TFILE     -> {args.TFILE}")
         print(f" xxx proc_args: args.VARIABLE  -> {args.VARIABLE}")        
         print(f" xxx proc_args: args.CUT       -> {args.CUT}")
-    
+        print(f" xxx cut_list     = {cut_list}")
+        print(f" xxx cutmask_list = {cutmask_list}")
+
     table_list      = []
     table_base_list = []  # base names only; for plot legend
     for tfile in tfile_list :
@@ -794,6 +811,7 @@ def arg_prep_driver(args):
 
     args.var_list        = var_list
     args.cut_list        = cut_list
+    args.cutmask_list    = cutmask_list
     args.wgtfun_list     = wgtfun_list
     args.wgtvar_list     = wgtvar_list
     # - - - - -
@@ -1677,6 +1695,7 @@ def read_tables(args, plot_info):
     tfile_base_list = args.tfile_base_list
     var_list        = args.var_list
     cut_list        = args.cut_list
+    cutmask_list    = args.cutmask_list  
     ps_list         = args.prescale_list
     frac_list       = args.fraction_list
     wgtfun_list     = args.wgtfun_list
@@ -1695,9 +1714,10 @@ def read_tables(args, plot_info):
     same_tfiles = (len(set(tfile_list)) == 1)
     nrow_tot = 0
     
-    for tfile, var, axis_dict, cut, prescale, fraction, wgtfun, wgtvar, legend, alpha, marker in \
+    for tfile, var, axis_dict, cut, cutmask, prescale, fraction, wgtfun, wgtvar, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
-            cut_list, ps_list, frac_list, wgtfun_list, wgtvar_list, legend_list, alpha_list, marker_list):
+            cut_list, cutmask_list, ps_list, frac_list, wgtfun_list, wgtvar_list, 
+            legend_list, alpha_list, marker_list):
 
         varname_x      = axis_dict['x']
         varname_nodf_x = varname_x.replace(STR_df,'')  # for diagnostic print 
@@ -1749,8 +1769,8 @@ def read_tables(args, plot_info):
             logging.warn(f"No {varname_idrow} present in this file. OK for some file types.")
 
         # apply user cuts
-        if cut:
-            df = eval(cut)
+        if cut and cutmask>0:
+            df = eval(cut)  # .xyz
 
         if prescale > 1:
             df = df.iloc[::prescale]

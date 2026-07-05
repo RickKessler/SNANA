@@ -131,7 +131,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // Feb 05 2024: abort if PATH_BINARY is not a directory.
   // Jul 02 2025: new OPTMASK += 256 option
 
-  int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat, IS_DIR;
+  int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat, IS_DIR, LENF;
   int retval = SUCCESS ;
 
   bool USE_BINARY=false, USE_TESTMODE=false ;
@@ -323,7 +323,9 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
     if ( SIMSED_BINARY_INFO.RDFLAG_SED ) {
       // read from binary file
-      fret = fread(sedFile, sizeof(sedFile), 1, fpbin1 );
+      fret = fread(&LENF,   sizeof(int ),  1,    fpbin1 ); //read string len for sedFile
+      fret = fread(sedFile, sizeof(char),  LENF, fpbin1 );
+      sedFile[LENF] = '\0' ; // force null termination
       if ( strcmp(tmpFile,sedFile) != 0 ) {
 	printf("\n\n");
 	printf("BINARY   SED File: '%s' \n", sedFile );
@@ -338,6 +340,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
       fret = fread( &NSEDBINARY, sizeof(int   ),   1,        fpbin1 );
       fret = fread( SEDBINARY,   sizeof(float ), NSEDBINARY, fpbin1 );
+
       pack_SEDBINARY(-1);  // transfer SEDBINARY to TEMP_SEDMODEL struct
 
     } else {      
@@ -396,8 +399,19 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     if ( SIMSED_BINARY_INFO.WRFLAG_SED ) {
 
       pack_SEDBINARY(+1);   // transfer SEDMODEL to SEDBINARY array
-      fret = fwrite( tmpFile,     sizeof(tmpFile), 1,          fpbin1 ) ;
-      fret = fwrite( &NSEDBINARY, sizeof(int  ),   1,          fpbin1 ) ;
+
+      int LENF = strlen(tmpFile);
+      
+      if ( FIX_SIZE_ARG_BINARY ) {
+	fret = fwrite( &LENF,     sizeof(int ),  1,        fpbin1 ) ;
+	fret = fwrite( tmpFile,   sizeof(char),  LENF,     fpbin1 ) ;
+      }
+      else {
+	// old/obsolete
+	fret = fwrite( tmpFile,     sizeof(tmpFile), 1,          fpbin1 ) ;
+      }
+
+      fret = fwrite( &NSEDBINARY, sizeof(int  ),  1,          fpbin1 ) ;
       fret = fwrite( SEDBINARY,   sizeof(float),  NSEDBINARY, fpbin1 ) ;
     }
 
@@ -808,7 +822,6 @@ int read_SIMSED_INFO(char *PATHMODEL) {
 
   // read number of rows to use for malloc (Jan 2024)
   NSED_COUNT = count_SIMSED_INFO(PATHMODEL);
-  // xxxx  NROW_FILE = nrow_read(ptrFile, fnam);
 
   if (( fp = fopen(ptrFile,"rt")) == NULL ) {
     sprintf(c1err,"Could not open info file:");
@@ -1236,7 +1249,6 @@ void set_SIMSED_WGT_SUM(char *WGTMAP_FILE) {
       (void)istat;
 
       SEDMODEL.PARVAL[ISED][SEDMODEL.IPAR_WGT] = WGT_INTERP;
-      //printf("xxx %s ISED = %d WGT_INTERP = %le\n", fnam, ISED, WGT_INTERP);
 
       WGT_SUM += WGT_INTERP;
       SEDMODEL.WGT_SUM[ISED] = WGT_SUM;

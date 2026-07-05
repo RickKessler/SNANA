@@ -2276,8 +2276,13 @@ void pack_SEDBINARY(int OPT) {
     N++; PADWORD               = (double)SEDBINARY[N]; // should be 77777
 
     if ( PADWORD != PADWORD_SEDBINARY ) {
-      sprintf(c1err,"PADWORD=%.3f but expected %.3f",
-	      PADWORD, PADWORD_SEDBINARY);
+      print_preAbort_banner(fnam);
+
+      for(j=0; j < 5; j++ ) 
+	{ printf("   SEDBINARY[%2d] = %f \n", j, SEDBINARY[j] ); }
+
+      sprintf(c1err,"PADWORD=%.3f but expected %.3f  (OPT=%d)",
+	      PADWORD, PADWORD_SEDBINARY, OPT);
       sprintf(c2err,"IVERSION=%d NDAY=%d  DAYSTEP=%.2f  FSCALE=%.2f: Try re-making BINARY file.", 
 	      IVERSION, TEMP_SEDMODEL.NDAY, TEMP_SEDMODEL.DAYSTEP, FLUXSCALE_LOCAL );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 

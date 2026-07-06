@@ -9,7 +9,7 @@
 #   $ELASTICC_ROOT/roman+desc/inputs_hostlib/make_hostlib_from_GCRCat.py
 #
 # Jun 01 2026 RK - add SNANA and OpenCosmo code versions in provence section of DOC.
-#
+# JUL 06 2026 RK - fix bug computing magerr (replace 0.2 with 0.4 in 10**(...)
 # ==============================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
@@ -388,18 +388,29 @@ def add_col_pd(df_cat, config):
 
     print_proc_time(t0, "ADDCOL_LOGSFR", None)
 
-    # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes)
+    # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes).
+    # Beware that sky-dominated bkg is assumed, which is very rough approximation for SNR=5.
+    #
     MAG_5SIG = config.get(KEY_MAG_5SIG, [])
+    SNR5_INV = 0.2
+    FAC_DFDM = 1.086  # 2.5/ln(10)
+
     if MAG_5SIG:
         t0 = time.time()
         logging.info('  Append mag error columns:')
         for row in MAG_5SIG:
+            logging.info(f"\t append {band_err} using m5sig = {m5sig}")
             band     = row.split()[0]
             band_err = band + '_err'
             m5sig    = float(row.split()[1])
-            powm5    = 0.2 * math.pow(10.0, -0.2 * m5sig)
-            logging.info(f"\t append {band_err} using m5sig = {m5sig}")
-            df_cat[band_err] = powm5 * np.power(10.0, 0.2 * df_cat[band].values)
+
+            # xxxxxxxx mark delete Jul 6 2026 xxxxxxxx
+            #  powm5    = 0.2 * math.pow(10.0, -0.2 * m5sig)
+            # df_cat[band_err] = powm5 * np.power(10.0, 0.2 * df_cat[band].values)
+            # xxxxx end mark xxxxxxxx
+
+            powm5            = FAC_DFDM * SNR5_INV * math.pow(10.0, -0.4 * m5sig)
+            df_cat[band_err] = powm5 * np.power(10.0, 0.4 * df_cat[band].values)
         print_proc_time(t0, "ADDCOL_MAGERR", None)
 
     return df_cat  # end add_col_pd

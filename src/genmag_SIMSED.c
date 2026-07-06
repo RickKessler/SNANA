@@ -130,6 +130,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // Mar 02 2022: check UVLAM_EXTRAP
   // Feb 05 2024: abort if PATH_BINARY is not a directory.
   // Jul 02 2025: new OPTMASK += 256 option
+  // Jul 05 2026: write & read length of sedFile as first item in binary
 
   int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat, IS_DIR, LENF;
   int retval = SUCCESS ;
@@ -323,7 +324,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
     if ( SIMSED_BINARY_INFO.RDFLAG_SED ) {
       // read from binary file
-      fret = fread(&LENF,   sizeof(int ),  1,    fpbin1 ); //read string len for sedFile
+      fret = fread(&LENF,   sizeof(int ),  1,    fpbin1 ); //read string len for sedFile 
       fret = fread(sedFile, sizeof(char),  LENF, fpbin1 );
       sedFile[LENF] = '\0' ; // force null termination
       if ( strcmp(tmpFile,sedFile) != 0 ) {

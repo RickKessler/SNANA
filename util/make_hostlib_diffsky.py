@@ -296,9 +296,9 @@ def inject_mag_columns(df_cat, config):
     ### Jun, 2026. AI + AMITRA
     """Inject pre-computed magnitude columns into df_cat from the OVERRIDE_FILE parquet.
 
-    Join key: core_tag (HDF5, int64 read via h5py) ↔ serial_tag (parquet, int64).
-    Both are the same LastJourney halo ID stored as true int64 — exact match, no
-    precision loss. df_cat must contain a 'core_tag' column (added temporarily by
+    Join key: gal_id (opencosmo, int64) ↔ serial_tag (mag output file, int64).
+    gal_id is unique across real and synthetic cores (synthetic have core_tag=-1).
+    df_cat must contain a 'gal_id' column (added temporarily by
     convert_galaxy_cat_to_pandas when OVERRIDE_FILE is set); it is dropped after join.
     Mag errors are recomputed from MAG_5SIG after the merge.
     """
@@ -342,11 +342,10 @@ def inject_mag_columns(df_cat, config):
         df_mag = df_mag.rename(columns=rename_map)
         cols_to_merge = [rename_map.get(c, c) for c in cols_to_merge]
 
-    # Left-merge on core_tag (df_cat) ↔ serial_tag (parquet) — both int64, exact match
-    # Deduplicate parquet on serial_tag first: LastJourney light-cones can contain
-    # periodic-box replicas of the same halo (same core_tag, different sky position).
-    # Without dedup the merge explodes those HDF5 rows into 2 rows with the same
-    # sequential GALID but different magnitudes → duplicate GALID in SNANA HOSTLIB.
+    # Left-merge on gal_id (df_cat) ↔ serial_tag (mag output) — both int64, exact match.
+    # gal_id is unique across real + synthetic cores; replaces core_tag as join key
+    # because synthetic cores all have core_tag=-1 (not usable as a key).
+    # Deduplicate serial_tag first: light-cone periodic replicas can share gal_id.
     n_dup = df_mag['serial_tag'].duplicated().sum()
     if n_dup > 0:
         logging.warning(f"  inject_mag_columns: dropping {n_dup} duplicate serial_tag rows "
@@ -355,12 +354,12 @@ def inject_mag_columns(df_cat, config):
         df_mag = df_mag.drop_duplicates(subset=['serial_tag'], keep='first')
     n_before = len(df_cat)
     df_cat = df_cat.merge(
-        df_mag[cols_to_merge].rename(columns={'serial_tag': 'core_tag'}),
-        on='core_tag', how='left'
+        df_mag[cols_to_merge].rename(columns={'serial_tag': 'gal_id'}),
+        on='gal_id', how='left'
     )
 
-    # Drop core_tag — it was added temporarily for the join, not a HOSTLIB output column
-    df_cat = df_cat.drop(columns=['core_tag'])
+    # Drop gal_id — it was added temporarily for the join, not a HOSTLIB output column
+    df_cat = df_cat.drop(columns=['gal_id'])
 
     n_missing = df_cat[mag_bands[0]].isna().sum() if mag_bands else 0
     if n_missing > 0:
@@ -800,10 +799,11 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet
         cat_var_list = [v for v in cat_var_list if v not in mag_bands]
-        # Add core_tag temporarily — needed as join key in inject_mag_columns
-        if 'core_tag' not in cat_var_list:
-            cat_var_list.append('core_tag')
-        logging.info(f"  (OVERRIDE_FILE mode: excluding mag bands from HDF5 select, adding core_tag for join)")
+        # Add gal_id temporarily — needed as join key in inject_mag_columns
+        # (gal_id is unique across real + synthetic cores; core_tag=-1 for all synthetic)
+        if 'gal_id' not in cat_var_list:
+            cat_var_list.append('gal_id')
+        logging.info(f"  (OVERRIDE_FILE mode: excluding mag bands from HDF5 select, adding gal_id for join)")
 
     t0 = time.time()
     df_cat = galaxy_cat.select(cat_var_list).get_data().to_pandas()

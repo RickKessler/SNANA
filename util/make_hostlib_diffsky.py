@@ -9,8 +9,12 @@
 #   $ELASTICC_ROOT/roman+desc/inputs_hostlib/make_hostlib_from_GCRCat.py
 #
 # Jun 01 2026 RK - add SNANA and OpenCosmo code versions in provence section of DOC.
-# JUL 06 2026 RK - fix bug computing magerr (replace 0.2 with 0.4 in 10**(...)
-# ==============================================
+# Jul 06 2026 RK - fix bug computing magerr (replace 0.2 with 0.4 in 10**(...)
+# Jul 08 2026 RK
+#  + if .gz is in HOSTLIB name, write gzipped file
+#  + for MAG_5SIG inout key, add optional 3rd colum for stddev(m5sig)
+#
+# ===================================================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
 import re, yaml, sys, gzip, math, subprocess
@@ -134,8 +138,8 @@ HOSTLIB_VARNAMES_MAP:
 
 
 MAG_5SIG:
-- lsst_u  25  # use this 5 sigma depth to compute [band]_err columns
-- lsst_g  27
+- lsst_u  25       # use this 5 sigma depth to compute [band]_err columns
+- lsst_g  27  .2   # apply optional 0.2 mag dispersion to m5sig depth
 - lsst_r  27
 - lsst_i  27
 - lsst_z  26
@@ -285,16 +289,33 @@ def addcol_sersic_sizes(cat_inp, config):
 # logsfr_obs = logssfr_obs + logsm_obs is computed at the pandas level in add_col_pd
 
 
-
-def _get_mag_bands(config):
-    """Return list of diffsky-side mag band column names from MAG_5SIG config."""
+def parse_m5sig(config):    
+    """ parse and load m5sig dictionaries and m5sig_bands list to config.
+    """
     MAG_5SIG = config.get(KEY_MAG_5SIG, [])
-    return [row.split()[0] for row in MAG_5SIG]
+
+    m5sig_dict     = {}
+    m5sig_std_dict = {}
+    
+    for row in MAG_5SIG:
+        words = row.split()
+        band  = words[0]
+        mag   = words[1]
+        std   = 0.0
+        if len(words) > 2:  std = words[2]
+        m5sig_dict[band]     = float(mag)
+        m5sig_std_dict[band] = float(std)
+
+    config['m5sig_dict']     = m5sig_dict
+    config['m5sig_std_dict'] = m5sig_std_dict
+    config['m5sig_bands']    = list(m5sig_dict.keys())
+        
+    return config
 
 
 def inject_mag_columns(df_cat, config):
     ### Jun, 2026. AI + AMITRA
-    """Inject pre-computed magnitude columns into df_cat from the OVERRIDE_FILE parquet.
+    """Inject pre-computedd magnitude columns into df_cat from the OVERRIDE_FILE parquet.
 
     Join key: gal_id (opencosmo, int64) ↔ serial_tag (mag output file, int64).
     gal_id is unique across real and synthetic cores (synthetic have core_tag=-1).
@@ -322,11 +343,12 @@ def inject_mag_columns(df_cat, config):
 
     # Determine which mag columns to pull from the parquet
     hostlib_varname_dict = config['hostlib_varname_dict']   # diffsky → hostlib
-    mag_bands = _get_mag_bands(config)                       # diffsky names e.g. ['des_g',...]
+    m5sig_bands          = config['m5sig_bands']
 
     cols_to_merge = ['serial_tag']
     rename_map    = {}
-    for band in mag_bands:
+    for band in m5sig_bands :
+        
         if band in df_mag.columns:
             cols_to_merge.append(band)
         else:
@@ -384,7 +406,8 @@ def add_col_pd(df_cat, config):
     # logsfr = logssfr + logmass
     logging.info("  Append logsfr_obs = logssfr_obs + logsm_obs")
     df_cat['logsfr_obs'] = df_cat['logssfr_obs'] + df_cat['logsm_obs']
-
+    len_df = len(df_cat)
+    
     print_proc_time(t0, "ADDCOL_LOGSFR", None)
 
     # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes).
@@ -393,24 +416,42 @@ def add_col_pd(df_cat, config):
     MAG_5SIG = config.get(KEY_MAG_5SIG, [])
     SNR5_INV = 0.2
     FAC_DFDM = 1.086  # 2.5/ln(10)
+    MXMAGERR = 5.0
+    
+    m5sig_bands     = config['m5sig_bands']
+    if len(m5sig_bands) == 0 :
+        return df_cat   # return unchanged cat
 
-    if MAG_5SIG:
-        t0 = time.time()
-        logging.info('  Append mag error columns:')
-        for row in MAG_5SIG:
-            logging.info(f"\t append {band_err} using m5sig = {m5sig}")
-            band     = row.split()[0]
-            band_err = band + '_err'
-            m5sig    = float(row.split()[1])
+    # - - - - - - -
+    m5sig_dict      = config['m5sig_dict']
+    m5sig_std_dict  = config['m5sig_std_dict']
+    # .xyz
 
-            # xxxxxxxx mark delete Jul 6 2026 xxxxxxxx
-            #  powm5    = 0.2 * math.pow(10.0, -0.2 * m5sig)
-            # df_cat[band_err] = powm5 * np.power(10.0, 0.2 * df_cat[band].values)
-            # xxxxx end mark xxxxxxxx
+    rng = np.random.default_rng(seed=42)
 
-            powm5            = FAC_DFDM * SNR5_INV * math.pow(10.0, -0.4 * m5sig)
-            df_cat[band_err] = powm5 * np.power(10.0, 0.4 * df_cat[band].values)
-        print_proc_time(t0, "ADDCOL_MAGERR", None)
+
+    logging.info('  Append mag error columns:')
+    t0         = time.time()
+        
+    for band in m5sig_bands :
+        band_err   = band + '_err'
+        m5sig      = m5sig_dict[band]
+        m5sig_std  = m5sig_std_dict[band]
+
+        if m5sig_std > 0 :
+            m5sig_noisy = rng.normal(loc=m5sig, scale=m5sig_std, size=len_df)
+        else:
+            m5sig_noisy = np.full(len_df, m5sig)
+            
+        #m5sig_noisy = np.random.normal(m5sig, m5_err)
+
+        logging.info(f"\t append {band_err} using m5sig = {m5sig} with std = {m5sig_std}")    
+        powm5            = FAC_DFDM * SNR5_INV * np.pow(10.0, -0.4 * m5sig_noisy)
+        err_values       = powm5 * np.power(10.0, 0.4 * df_cat[band].values)
+        df_cat[band_err] = np.clip(err_values, a_min=None, a_max=MXMAGERR)
+
+
+    print_proc_time(t0, "ADDCOL_MAGERR", None)
 
     return df_cat  # end add_col_pd
 
@@ -558,7 +599,7 @@ def check_diffsky_columns(config, ds):
 
     # if OVERRIDE_FILE is configured, mag band columns are not in HDF5 — skip them
     if KEY_OVERRIDE_FILE in config:
-        exception_list += _get_mag_bands(config)
+        exception_list    += config['m5sig_bands']
 
     nerr = 0
     for varname in list(hostlib_varname_dict):
@@ -803,13 +844,13 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
 
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
-    mag_bands    = _get_mag_bands(config)
-    mag_err_cols = [b + '_err' for b in mag_bands]
+    m5sig_bands =  config['m5sig_bands']
+    mag_err_cols = [b + '_err' for b in m5sig_bands ]
     cat_var_list = [v for v in cat_var_list if v not in mag_err_cols]
 
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet
-        cat_var_list = [v for v in cat_var_list if v not in mag_bands]
+        cat_var_list = [v for v in cat_var_list if v not in m5sig_bands]
         # Add gal_id temporarily — needed as join key in inject_mag_columns
         # (gal_id is unique across real + synthetic cores; core_tag=-1 for all synthetic)
         if 'gal_id' not in cat_var_list:
@@ -971,7 +1012,11 @@ def write_hostlib_files(args, config, df_cat):
 
         logging.info(f"\t prepare row mask and DOCANA header for {hlib_file} ...")
 
-        fp      = open(hlib_file,"wt")
+        if '.gz' in hlib_file :
+            fp      = gzip.open(hlib_file,"wt")
+        else:
+            fp      = open(hlib_file,"wt")
+            
         hlib_dict['fp'] = fp  # store for GAL keys below
         ra_min  = hlib_dict['ra_range'][0]
         ra_max  = hlib_dict['ra_range'][1]
@@ -1049,6 +1094,8 @@ if __name__ == "__main__":
     args   = get_args() 
     config = read_yaml(args.config_file)
 
+    config = parse_m5sig(config)
+    
     # make sure Sersic column definitions are consistent to avoid crash later
     check_Sersic_definitions(config)
 

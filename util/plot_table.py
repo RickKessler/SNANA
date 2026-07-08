@@ -43,6 +43,8 @@
 # Jun 23 2026: fix bug from comma in DOCUMENTATION block that confused check_table_varnames().
 # Jun 30 2026: new WRITE_TF option to write tf with cuts applied and ALL columns
 # Jul 05 2026: add new @@CUTMASK option to apply cuts to subset of files or variables
+# Jul 08 2026: provide initial guess_xxx for Gaussian fitpars.
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -1581,7 +1583,8 @@ def more_human_readable(label_orig):
     math_symbol_list = [ '+', '-', '/', ':' ]
 
     for sym in math_symbol_list:
-        label_out = label_out.replace(sym,f' ${sym}$ ')
+        pass
+        # xxx remove Jul 8 2026 ??? label_out = label_out.replace(sym,f' ${sym}$ ')
     
     return label_out
     # end more_human_readable
@@ -2280,7 +2283,8 @@ def plotter_func_driver(args, plot_info):
 
         # check for fit fun option
         if args.FIT:
-            apply_plt_fit(args, name_legend, xfit_data, yfit_data, yerr_data)
+            stat_dict = info_plot_dict['stat_dict'] 
+            apply_plt_fit(args, name_legend, xfit_data, yfit_data, yerr_data, stat_dict )
 
         # check for misc plt options (mostly decoration)
         if numplot == numplot_tot-1:
@@ -2584,7 +2588,7 @@ def get_info_plot1d(args, info_plot_dict):
         for ch in math_chars:
             str_stat_logging = str_stat_logging.replace(ch,'')
 
-        logging.info(f"\t {str_stat_logging:12} value for {name_legend}:  {val:.3f}")
+        logging.info(f"\t {str_stat_logging:12} value for| {name_legend}:  {val:.3f}")
         if add_to_legend:
             math_mode = '\\' in str_stat or '{' in str_stat
             fmt_legend  = tmp_list[2]
@@ -2605,7 +2609,8 @@ def get_info_plot1d(args, info_plot_dict):
     info_plot_dict['plt_legend']        = plt_legend
     info_plot_dict['plt_text_dict']     = plt_text_dict
     info_plot_dict['wgt_ov']            = wgt_ov
-     
+    info_plot_dict['stat_dict']         = stat_dict
+    
     return  # end get_info_plot1d
 
 def get_weighted_median(values, weights):
@@ -3183,9 +3188,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
 
 # =================================================================    
-def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
+def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma, stat_dict):
     # Created Mar 2025
     # apply 1D fit based on user fit fun (Gaussian, exponential, p1, p2 ...)
+    #
+    # Jul 08 2026: pass new stat_dict and use info to provide initial guesses for Gauss params.
 
     fitfun = args.FIT[0]
     FITFUN = args.FIT[0].upper()
@@ -3204,9 +3211,17 @@ def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
         print(f" xxx ybins_sigma    = \n{ybins_sigma}")
         sys.stdout.flush()
 
+    #print(f"\n xxx stat_dict = \n{stat_dict}\n ybins_contents = \n{ybins_contents} \n")
+
     # this brute-force logic is ugly; maybe later can be more clever
     if FITFUN in FITFUN_GAUSS:
-        popt, pcov = curve_fit(func_gauss, xbins_cen, ybins_contents, sigma=ybins_sigma)
+        guess_amp  = np.max(ybins_contents)
+        guess_mean = stat_dict['avg'][0]
+        guess_sig  = stat_dict['stddev'][0]        
+        initial_guess = [ guess_amp, guess_mean, guess_sig ]
+        logging.info(f"Initial {FITFUN}-fitpar guess (amp,mean,sig) = {initial_guess}")
+        popt, pcov = curve_fit(func_gauss, xbins_cen, ybins_contents, sigma=ybins_sigma, 
+                               p0=initial_guess)
         yfun_cen   = func_gauss(xbins_cen, *popt)
     elif FITFUN in FITFUN_EXP:
         popt, pcov = curve_fit(func_exp, xbins_cen, ybins_contents, sigma=ybins_sigma)

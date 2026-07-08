@@ -9730,7 +9730,7 @@ void  init_event_GENLC(void) {
   GENLC.VPEC = GENLC.VPEC_SMEAR = 0.0 ;
 
   //  GENLC.SNTYPE_NAME[0] = 0;
-  sprintf(GENLC.SNTYPE_NAME,"UNKNOWN");
+  sprintf(GENLC.SNTYPE_NAME, "%s", UNKNOWN_STRING);
 
   for(i=0; i < MXOBS_SIMLIB; i++ ) {
     SIMLIB_OBS_GEN.IFILT_OBS[i]  = -9 ;
@@ -27337,7 +27337,7 @@ void GENMAG_DRIVER(void) {
   // Dec 18 2025: store map[GENTYPE] = name to print in readme 
   //   do this here (not in snlc_to_SNDATA) in case zero events pass trigger
   char *ctype = INPUTS.GENTYPE_TO_NAME_MAP[GENLC.SIM_GENTYPE];
-  if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL ) 
+  if ( strstr(ctype,GENLC.SNTYPE_NAME) == NULL && strcmp(GENLC.SNTYPE_NAME,UNKNOWN_STRING) != 0 )  
     { catVarList_with_sep(ctype,GENLC.SNTYPE_NAME,PLUS) ;  }
 
   return ;

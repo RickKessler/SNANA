@@ -12,7 +12,7 @@
 # Jul 06 2026 RK - fix bug computing magerr (replace 0.2 with 0.4 in 10**(...)
 # Jul 08 2026 RK
 #  + if .gz is in HOSTLIB name, write gzipped file
-#  + for MAG_5SIG inout key, add optional 3rd colum for stddev(m5sig)
+#  + for MAG_5SIG input key, add optional 3rd colum for stddev(m5sig)
 #
 # ===================================================================
 
@@ -105,9 +105,9 @@ CAT_DIR: [catalog_dir]
 # "Area_frac < 1" is used to compute ra and dec range centered on full area.
 
 HOSTLIB_FILE:  # output_hostlib    area_frac
-- TEST_DIFFSKY_LSST_LARGE.HOSTLIB   1.0
-- TEST_DIFFSKY_LSST_MEDIUM.HOSTLIB  0.1   # this smaller hostlib uses 10% of area
-- TEST_DIFFSKY_LSST_SMALL.HOSTLIB   0.01  # another even smaller hostlib uses 1% of area
+- TEST_DIFFSKY_LSST_LARGE.HOSTLIB.gz   1.0   # .gz extension results in gzipped output
+- TEST_DIFFSKY_LSST_MEDIUM.HOSTLIB     0.1   # this smaller hostlib uses 10% of area
+- TEST_DIFFSKY_LSST_SMALL.HOSTLIB      0.01  # another even smaller hostlib uses 1% of area
 
 
 HOSTLIB_VARNAMES_MAP:

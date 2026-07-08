@@ -23959,6 +23959,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c/sntools_genpdf.c[h]:
       + allow defining "GENMAG_SMEAR: <smear>" in genpdf_file or sim-input.
         See https://github.com/RickKessler/SNANA/issues/1717
+      + fix harmless bug causing spurious UNKNOWN in GENTYPE_TO_NAMES output in README
 
     sntools_gridmap.c[h], and all codes calling interp_gridmap:
       + pass callFun to interp_GRIDMAP to use in abort message.

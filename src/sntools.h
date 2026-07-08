@@ -114,7 +114,8 @@
 #define BLANK_STRING   ""
 #define NOTSET_STRING  "NOTSET" // init str pointers to avoid compile error
 #define NULLTYPE    0   // SN type with no TYPE in data base.
-#define FIELD_NONAME  "VOID"  // avoid using 'NULL' to avoid python problem.
+#define FIELD_NONAME     "VOID"  // avoid using 'NULL' to avoid python problem.
+#define UNKNOWN_STRING   "UNKNOWN" 
 
 #define INDEX_NOTSATURATE 0
 #define INDEX_SATURATE    1

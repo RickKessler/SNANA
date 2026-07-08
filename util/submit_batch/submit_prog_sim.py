@@ -2566,17 +2566,11 @@ class Simulation(Program):
                 # pick 1st readme with NGENLC_WR > 0 (Dec 2025) and return yaml contents
                 tmp_readme_file, readme_docana = self.pick_valid_readme(path_sndata_sim, tmp_genv_list)  
 
-                # xxxxxx mark delete Dec 18 2025 xxxxxxx
-                #v0          = tmp_genv_list[0]  # pick first one from list
-                #tmp_readme  = f"{path_sndata_sim}/{v0}/{v0}.README"
-                # xxxxxxxx
 
                 tmp_list_model_string.append(model_string)
                 tmp_list_readme.append(tmp_readme_file)
 
                 # increment GENTYPE_TO_NAMES from all versions
-                # xxx  with open(tmp_readme, "r") as r :
-                # xxx   readme_docana = yaml.load(r, Loader=yaml.Loader)[KEY_DOCANA_START]
                 gentype_to_name_dict = readme_docana.setdefault('GENTYPE_TO_NAME', {})
                 if not isinstance(gentype_to_name_dict,dict) : break
                 for gentype, names in gentype_to_name_dict.items():

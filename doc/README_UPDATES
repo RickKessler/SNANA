@@ -23999,17 +23999,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    few subtle bug caught by crash doing regression tests on codes compuled with debug flag.
 
+   submit_util.py
+     if wait_file has .gz extension, wait for .gz file to exist (as before)
+     and also wait for unzip file to NOT exist. Hopefully fixes cases where
+     file system is slow and gzip process takes a long time.
+
    TO-DO:
-     - define actuao NZ bins for HOSTGALz and LOGMASSz, instead of MXBINS,
-       to reduce size of _HEAD.FITS file; 
-       debug with REFAC_DATA_FLAG=701
-
-     - pass SNCCID_LIST to FITS-reader to more quickly skip a large
-       number of events without reading each event;
-       see SNID_SAVELIST variables and functions
-       debug with REFAC_DATA_FLAG=702
-
-     - describe this SNID_SAVELIST feature in github issue.
 
      - bigger project: replace fopen calls with gzoopen (using zlib.h)
 

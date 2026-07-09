@@ -10963,7 +10963,7 @@ int colnum_in_table(char *fileName, char *varName) {
   char c_get[MXPATHLEN], VARNAME_STRING[MXPATHLEN], *fg;
   FILE *fp;
 
-  char fnam[] = "colnum_in_file" ;
+  char fnam[] = "colnum_in_table" ;
 
   // ------------ BEGIN --------------
 
@@ -10997,7 +10997,7 @@ int colnum_in_table(char *fileName, char *varName) {
 
   return colnum ;
 
-} // end colnum_in_file
+} // end colnum_in_table
 
 
 

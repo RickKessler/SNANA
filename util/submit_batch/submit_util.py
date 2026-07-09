@@ -1069,6 +1069,8 @@ def write_job_info(f, JOB_INFO, icpu):
     # Jun 27 2022: check optional 2nd arg in wait_file which is string
     #              to require. E.g., requre SUCCESS in ALL.DONE file.
     #
+    # Jul 09 2026: if wait_file has .gz extension, also wait for gzunip file to NOT exist.
+
     if JOB_INFO is None :
         return
     
@@ -1140,8 +1142,19 @@ def write_job_info(f, JOB_INFO, icpu):
             f.write(f"fi \n\n")
 
         else:
-            cmd_wait = f"while [ ! -f {wait_file} ]; do sleep 10; done"
-            f.write(f"{cmd_wait}\n")
+            if '.gz' in wait_file:
+                # check that gz file exists AND unzipped file does NOT exist
+                gunzip_file = wait_file.split('.gz')[0]
+                cmd_while   = f"while [[ ! -f {wait_file} ]] || [[ -f {gunzip_file} ]]"
+            else:
+                cmd_while = f"while [ ! -f {wait_file} ]"
+
+            f.write(f"{cmd_while}; do \n  sleep 10\ndone\n") 
+
+            # xxxx mark Jul 9 2026 xxxxxx
+            #cmd_wait = f"while [ ! -f {wait_file} ]; do sleep 10; done"
+            #    f.write(f"{cmd_wait}\n")
+            # xxxxxx
 
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 

@@ -17829,15 +17829,17 @@
 ! Created Sep 2 2022
 ! Compute HOST_CONFUSION based on Eq 3 in Gupta et al, 2016
 ! 
-
+! Jul 10 2026: fix to require SNHOST_OBJID(igal) > 0 for each DDLR term;
+!              see git issue #1732
 
     USE SNDATCOM
 
     IMPLICIT NONE
 
     REAL*8   HC, DDLR_LIST(MXSNHOST)
-    INTEGER  igal, NMATCH2
-    LOGICAL LDMP / .FALSE. /
+    INTEGER  igal, NMATCH2, NMATCH2_DEFINED
+    LOGICAL LDMP / .TRUE. /
+    !LOGICAL LDMP / .FALSE. /
     character cCID*40
 
     REAL*8   HOST_CONFUSION
@@ -17854,19 +17856,38 @@
 
     if ( NMATCH2 .LE. 1 ) RETURN
 
-! convert single precions to double precision
-    DO igal = 1, NMATCH2
-      DDLR_LIST(igal) = DBLE(SNHOST_DDLR(igal))
-    ENDDO
-    cCID = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
-    HC = HOST_CONFUSION(cCID,NMATCH2,DDLR_LIST,40)
+    ! Jul 10 2026
+    ! protect NMATCH2=3 for older data that stored only 2 hosts (e.g., DES-SN5YR)
+    ! even though NMATCH2 can be > 2.
+    ! If 3rd host has no OBJID, then set NMATCH2=2 to avoid NaN from log(DDLR=0)
+    ! Beware that more recent sims will have all 3 hosts.
+    if ( NMATCH2 > 2 .and. SNHOST_OBJID(3) == 0 ) THEN
+       write(6,26) NMATCH2, SNLC_CCID(1:ISNLC_LENCCID)
+26     format(/, 'HOST_CONFUSION WARNING: NMATCH2=',I2, &
+            ' but only 2 HOSTS recorded for CID=',A,/)
+       NMATCH2 = 2  ! hack protection
+    endif
 
     IF ( LDMP ) THEN
        print*,' xxx ----------------------------------------- '
        print*, ' xxx DUMP for SET_SNHOST_CONFUSION '
-       write(6,60) SNLC_CCID(1:12), NMATCH2,  & 
+    ENDIF
+
+! convert single precisions to double precision
+    NMATCH2_DEFINED = 0
+    DO igal = 1, NMATCH2
+       if ( SNHOST_OBJID(igal) .NE. 0 ) then
+          DDLR_LIST(igal) = DBLE(SNHOST_DDLR(igal))
+          NMATCH2_DEFINED = NMATCH2_DEFINED + 1
+       endif
+    ENDDO
+    cCID = SNLC_CCID(1:ISNLC_LENCCID) // char(0)
+    HC = HOST_CONFUSION(cCID, NMATCH2_DEFINED, DDLR_LIST, 40)
+
+    IF ( LDMP ) THEN
+       write(6,60) SNLC_CCID(1:12), NMATCH2, NMATCH2_DEFINED,  & 
                DDLR_LIST(1), DDLR_LIST(2)
-60       format('  xxx CID=',A, 3x, 'NMATCH=',I2, 3x,'DDLR=', 2F9.3 )
+60       format('  xxx CID=',A, 3x, 'NMATCH2=',2I2, 3x,'DDLR=', 2F9.3 )
        print*,' xxx HOST_CONFUSION = ', HC
        print*,' xxx '
        CALL FLUSH(6)

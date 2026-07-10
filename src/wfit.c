@@ -200,6 +200,7 @@
  Nov 7 2025: new input -outfile_prob1d to give 1D marginalized PDF and CDF
 
  Jun 11 2026: add snrms**2 to COV if reading MUCOV_SYS; abort if snrms > 0 and reading MUCOV_INV
+ Jul 10 2026: compute rho_waomm and include in output YAML/COSPAR file.
 
 *****************************************************************************/
 
@@ -391,8 +392,8 @@ struct  {
   double omm_sig_std, omm_sig_upper, omm_sig_lower, omm_sig_final;
   double w0_sig_std,  w0_sig_upper,  w0_sig_lower,  w0_sig_final ;
   double wa_sig_std,  wa_sig_upper,  wa_sig_lower,  wa_sig_final ;
-  double cov_w0wa, cov_w0omm;
-  double rho_w0wa, rho_w0omm; 
+  double cov_w0wa, cov_w0omm, cov_waomm;
+  double rho_w0wa, rho_w0omm, rho_waomm; 
 
   COVMAT_DEF MUCOV[2]; // up to two cov matrices
   COVMAT_DEF MUCOV_FINAL ;
@@ -3763,12 +3764,15 @@ void wfit_Covariance(void){
   // Store covariances in WORKSPACE.cov_* and store
   // reduced covar in WORKSPACE.rho*
   //
+  // Jul 10 2026: incluce cov_waomm
+
   int i,kk, j ;
   Cosparam cpar;
   double  omm_sig = WORKSPACE.omm_sig_std;
   double  w0_sig  = WORKSPACE.w0_sig_std ;
   double  wa_sig  = WORKSPACE.wa_sig_std ;
-  double cov_w0wa=0., cov_w0omm =0., rho_w0wa=0., rho_w0omm=0.;
+  double cov_w0wa=0.0, cov_w0omm=0.0, cov_waomm=0.0 ;
+  double rho_w0wa=0.0, rho_w0omm=0.0, rho_waomm=0.0 ;
   double probsum = 0., prob=0;
   double diff_w0, diff_wa, diff_omm, sig_product ;
   bool dofit_w0wa = INPUTS.dofit_w0wa;
@@ -3792,7 +3796,8 @@ void wfit_Covariance(void){
 
 	if ( dofit_w0wa ) {
 	  diff_wa   = cpar.wa - WORKSPACE.wa_mean;
-	  cov_w0wa +=  (diff_w0 * diff_wa * prob) ;
+	  cov_w0wa  +=  (diff_w0  * diff_wa * prob) ;
+	  cov_waomm +=  (diff_omm * diff_wa * prob) ; // Jul 10 2026	  
 	}
 
       } // end j
@@ -3823,17 +3828,26 @@ void wfit_Covariance(void){
       printf(" WARNING: cannot compute rho_w0wa because w0_sig=wa_sig=0\n");
       fflush(stdout);
     }
+
+    sig_product = wa_sig * omm_sig;
+    cov_waomm /= probsum ;
+    rho_waomm = cov_waomm / sig_product ; // Jul 10 2026
   }
 
   WORKSPACE.cov_w0omm  = cov_w0omm ;
   WORKSPACE.cov_w0wa   = cov_w0wa ;
+  WORKSPACE.cov_waomm  = cov_waomm ;
+
   WORKSPACE.rho_w0omm  = rho_w0omm ;
   WORKSPACE.rho_w0wa   = rho_w0wa ;
+  WORKSPACE.rho_waomm  = rho_waomm ;
 
   printf("# ========================================== \n");
-  printf(" Reduced Covariance, w0omm = %.4f \n", WORKSPACE.rho_w0omm);
-  if ( dofit_w0wa )
-    { printf(" Reduced Covariance, w0wa = %.4f \n", WORKSPACE.rho_w0wa); }
+  printf(" Reduced Covariance rho(w0,omm) = %7.4f \n", WORKSPACE.rho_w0omm);
+  if ( dofit_w0wa ) {
+    printf(" Reduced Covariance rho(w0,wa ) = %7.4f \n", WORKSPACE.rho_w0wa); 
+    printf(" Reduced Covariance rho(wa,omm) = %7.4f \n", WORKSPACE.rho_waomm); 
+  }
 
   fflush(stdout);
 
@@ -5113,7 +5127,8 @@ void write_output_cospar(void) {
   // format_cospar = 1 : legacy csv format
   // format_cospar = 2 : YAML format
   //
-  // Sep 27 2022: write rho_wom
+  // Sep 27 2022: write rho_w0om
+  // Jul 10 2026: write rho_waomm
 
   int  use_marg  = INPUTS.use_marg;
   int  dofit_w0wa= INPUTS.dofit_w0wa ;
@@ -5213,6 +5228,11 @@ void write_output_cospar(void) {
     sprintf(vv,"%s%s", varname_w, varname_wa);
     sprintf(VARNAMES_LIST[NVAR],"rho_%s", vv );
     sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_w0wa ) ;
+    NVAR++;
+
+    sprintf(vv,"%s%s", varname_wa, varname_omm);   // Jul 10 2026
+    sprintf(VARNAMES_LIST[NVAR],"rho_%s", vv );
+    sprintf(VALUES_LIST[NVAR], "%6.3f",  WORKSPACE.rho_waomm ) ;
     NVAR++;
   }
 

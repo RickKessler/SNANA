@@ -23921,6 +23921,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     Begin major work on util/makeDataFiles/read_data_lsst_fastdb.py
 
+    snana.F90: Fix HOST_CONFUSION calculation when 3rd host is missing:
+        https://github.com/RickKessler/SNANA/issues/1732
+
          *****  USEFUL(v12_02) *****
 
     submit_prog_lcfit:

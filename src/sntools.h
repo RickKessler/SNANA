@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <glob.h>
 #include <fcntl.h>
+#include <zlib.h>
 
 #include "sndata.h"
 
@@ -113,7 +114,8 @@
 #define BLANK_STRING   ""
 #define NOTSET_STRING  "NOTSET" // init str pointers to avoid compile error
 #define NULLTYPE    0   // SN type with no TYPE in data base.
-#define FIELD_NONAME  "VOID"  // avoid using 'NULL' to avoid python problem.
+#define FIELD_NONAME     "VOID"  // avoid using 'NULL' to avoid python problem.
+#define UNKNOWN_STRING   "UNKNOWN" 
 
 #define INDEX_NOTSATURATE 0
 #define INDEX_SATURATE    1
@@ -181,6 +183,7 @@
 #define STRING_CPUTIME_INIT        "CPUTIME_INITIALIZE"
 #define STRING_CPUTIME_PROC_ALL    "CPUTIME_PROCESS_ALL"
 #define STRING_CPUTIME_PROC_RATE   "CPUTIME_PROCESS_RATE"
+#define STRING_CPUTIME_READ_RATE   "CPUTIME_READ_RATE"
 
 // Feb 2025: define a few required YAML keys for communication with submit_batch_jobs
 #define YAMLKEY_ABORT_IF_ZERO  "ABORT_IF_ZERO"
@@ -546,6 +549,7 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
 void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) ;
 void get_SNDATA_HOSTGAL_PREFIX(int igal, char *PREFIX, char *PREFIXz);
 int  NZ_HOSTGALz(int MXBIN, float *Z_LIST, char *CCID);
+bool ISVAR_HOSTGALz(char *VARNAME);
 void compute_implicit_percentiles(int NBIN_TOT, int NBIN_VALID, double *PCT_LIST);
 
 void init_GENSPEC_GLOBAL(void) ;
@@ -849,6 +853,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK, int *GZIPFLAG, 
 FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
 			  char *fullName, int *gzipFlag );
 void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
+void snana_close(FILE *fp, char *FILENAME, int GZIPFLAG);
 void abort_openTextFile(char *keyName, char *PATH_LIST,
 			char *fileName, char *funCall);
 bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName); // check file is open

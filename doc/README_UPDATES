@@ -23919,12 +23919,32 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim(Jun 20 2026): 
       default GENSIGMA_MWEBV_RATIO = 0.16 -> -9; abort if not specified by user.
 
+    Begin major work on util/makeDataFiles/read_data_lsst_fastdb.py
+
          *****  USEFUL(v12_02) *****
+
+    submit_prog_lcfit:
+       new APPEND_TABLE_VARLIST feature with semi-colon to control append-list for
+       both the SNANA and FITRES tables;  see submit_batch_jobs.sh -H LCFIT
+       Ignoring semi-colon results in back-compatible feature of appending only
+       FITRES table. 
+
+    Improved read-speed when search big data set for just 1 event:
+        https://github.com/RickKessler/SNANA/issues/1727
 
          *****  MISCELLANEOUS(v12_02) *****
 
     snana.F90, snlc_fit.F90: 
-      always write COV(zPH,fitpar) for photo-z fits
+      + always write COV(zPH,fitpar) for photo-z fits
+      + for SNCCID_LIST input, check NAME_TRANSIENT and NAME_IAUC in addition to SNID/CCID.
+          (for LSST, SNID=rootid and NAME_TRANSIENT = Rubin-alert objid)
+      + fix SIM_PRESCALE treatment to use N_SNLC_READ instead of N_SNLC_PROC, so that
+        N_SNLC_PROC counts after prescale is applied and matches number of events written 
+       to SNANA table.
+
+    sntools_dataformat_fits.c:
+      + allocate MXBIN_HOSTGALz times more memory only for FITS columns that need it; 
+        see new ISVAR_HOSTGALz function. This greatly reduces HEAD memory allocation.
 
     sntable_cat.py
       add COV* to defaultappend-missing list
@@ -23939,6 +23959,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c/sntools_genpdf.c[h]:
       + allow defining "GENMAG_SMEAR: <smear>" in genpdf_file or sim-input.
         See https://github.com/RickKessler/SNANA/issues/1717
+      + fix harmless bug causing spurious UNKNOWN in GENTYPE_TO_NAMES output in README
+      + for +HOSTNBR option, automatically gzip output HOSTLIB.
 
     sntools_gridmap.c[h], and all codes calling interp_gridmap:
       + pass callFun to interp_GRIDMAP to use in abort message.
@@ -23946,23 +23968,45 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     sntools_host.c
      + abort if either Sersic size is zero (previously it required both)
 
+    sntools.c[h]
+      + new util function snana_close(fp, filename, gzipflag), analogous to snana_rewind(...).
+
     configure.ac:
       + add these compilation flags: -D_FORTIFY_SOURCE=2  -Wall 
         Note that public yaml.c gives lots of warnings; not so clear how to fix it.
 
     plot_table.py
       + fix bug from comma in DOCUMENTATION block trigger csv file with commas
+      + new @@CUTMASK input
 
     sntools_data.c
       + fix memory overwrite bug in get_override_file_list();
          see https://github.com/RickKessler/SNANA/issues/1723
     
     combine_fitres.c
-      + fix memory overwrite bug: https://github.com/RickKessler/SNANA/issues/1723
+      + fix a few memory overwrite bugs: https://github.com/RickKessler/SNANA/issues/1723
    
     genmag_SIMSED.c[h]
       see https://github.com/RickKessler/SNANA/issues/1722
 
     
+    sndata.h
+      define SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME to enable reducing
+      default size of the BAND and FIELD columns in the PHOT file.
+      The default values (set in init_SNDATA_GLOBAL) are MXCHAR_FILTNAME and MXCHAR_FIELDNAME,
+      but can be reduced before calling WR_SNFITIO_INIT. First use sntools_calib sets
+      MXLEN_FILTER for simulation output.
+
+   few subtle bug caught by crash doing regression tests on codes compuled with debug flag.
+
+   submit_util.py
+     if wait_file has .gz extension, wait for .gz file to exist (as before)
+     and also wait for unzip file to NOT exist. Hopefully fixes cases where
+     file system is slow and gzip process takes a long time.
+
+   TO-DO:
+
+     - bigger project: replace fopen calls with gzoopen (using zlib.h)
+
 END:
  

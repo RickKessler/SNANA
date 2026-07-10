@@ -38,6 +38,8 @@ try:
 except:
     pass  # allow classes to run without SNDATA_ROOT (Aug 28 2025)
 
+SNANA_SUBDIR_BIN  = 'bin'
+SNANA_SUBDIR_UTIL = 'util'
 
 # generic program types to control batch flow
 PROGRAM_TYPE_SIM    = "SIM"    # simulation
@@ -103,7 +105,10 @@ seconds_since_midnight = int(time.time() - time.mktime(today.timetuple()))
 # to remove decimal places for seconds
 time_submit_start = str(datetime.datetime.now()).rsplit('.',1)[0]
 
+SUFFIX_SNANA  = "SNANA"
 SUFFIX_FITRES = "FITRES"
+SUFFIX_LCPLOT = "LCPLOT"
+SUFFIX_PDF    = "PDF"
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_COV    = "COV"
 

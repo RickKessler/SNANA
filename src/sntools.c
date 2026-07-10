@@ -71,7 +71,8 @@ void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
   // check option to report time per event
   char msg[100];
   double rate = 0.0 ;
-  if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
+  // xxx mark del 6.26.2026  if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
+  if ( strstr(key_cputime,"RATE") !=NULL ) {
     if ( dt > 0.0 )  { rate = (double)nevt / dt ; }
     sprintf(msg,"%-20s = %.3f %s^-1", key_cputime, rate, unit_time);
   }
@@ -293,10 +294,18 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   int  ILIST = 0, OPT_AUTOSTORE ;
   double DVAL;  char *CVAL;
   int  LDMP = 0 ;
-  char CCID[40], STRINGID[100], ctmp[60], STRING_MATCH[60] ;
+  char CCID[MXCHAR_CCID], STRINGID[100], ctmp[60], STRING_MATCH[60] ;
   char fnam[] = "match_cidlist_init";
 
   // ------------- BEGIN ------------
+
+  if ( LDMP ) {
+    printf(" xxx ---------------------------------------------- \n") ;
+    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
+    printf(" xxx %s: IS_FILE  =  %d  \n", fnam, IS_FILE);
+    printf(" xxx %s: OPTMASK  =  %d  \n", fnam, *OPTMASK);
+    fflush(stdout);
+  }
 
   // construct comment STRING_MATCH to print below
   sprintf(STRING_MATCH,"CID");
@@ -309,14 +318,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     HASH_STORAGE.NVAR = 0;
     SNTABLE_AUTOSTORE_RESET();  // May 2022
     return 0; 
-  }
-
-  if ( LDMP ) {
-    printf(" xxx ---------------------------------------------- \n") ;
-    printf(" xxx %s: fileName = '%s' \n", fnam, fileName);
-    printf(" xxx %s: IS_FILE  =  %d  \n", fnam, IS_FILE);
-    printf(" xxx %s: OPTMASK  =  %d  \n", fnam, *OPTMASK);
-    fflush(stdout);
   }
 
 
@@ -773,6 +774,7 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
 
   // ---------------- BEGIN ---------------
 
+
   if ( ilist < 0 ) {
     /* free the hash table contents */
     HASH_ITER(hh, hash_table_users, s, tmp) {
@@ -786,7 +788,6 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
     // create hash table        
     s     = malloc(sizeof(struct hash_table_def));
     s->id = isn;
-
     strcpy(s->name, ccid);
     HASH_ADD_STR( hash_table_users, name, s );
     return(isn) ;
@@ -9015,7 +9016,7 @@ int init_SNDATA_GLOBAL(void) {
   // one-time init of global variables
   //
   // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
-
+  // Jun 30 2206: init SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME
   int ifilt, ep, igal ;
   char fnam[] = "init_SNDATA_GLOBAL" ;  (void)fnam;
 
@@ -9026,6 +9027,8 @@ int init_SNDATA_GLOBAL(void) {
   FORMAT_SNDATA_READ  = 0; 
   FORMAT_SNDATA_WRITE = 0;
 
+  SNDATA.MXLEN_FILTNAME    = MXCHAR_FILTNAME ;
+  SNDATA.MXLEN_FIELDNAME   = MXCHAR_FIELDNAME ;
   SNDATA.SURVEY_NAME[0]    =  0 ;
   SNDATA.MASK_FLUXCOR      =  0 ;
   SNDATA.VARNAME_SNRMON[0] =  0 ;
@@ -9088,8 +9091,13 @@ int init_SNDATA_EVENT(void) {
   // Mar 13 2021: ZEROPT_ERR[SIG] = 0 instead of -9 in case they are 
   //              not in data files.
   //
+  // Jun 26 2026: reduce MXPOCH loop [=60000]  to NEP_LAST
+  //   to speed up init.
+
+  int NEP_LAST = SNDATA.NEPOCH;
   int i_epoch, ifilt, i, igal ;
   char fnam[] = "init_SNDATA_EVENT" ;  (void)fnam;
+
   // --------- BEGIN -----------------
 
   sprintf(FLUXUNIT, "ADU");
@@ -9098,9 +9106,12 @@ int init_SNDATA_EVENT(void) {
   sprintf(SNDATA.NAME_TRANSIENT, "UNKNOWN" );
   sprintf(SNDATA.AUXHEADER_FILE, "UNKNOWN" );
 
+  if ( NEP_LAST == 0 ) { return SUCCESS; } // 7.03.2026 bail quickly if skipping unread events
+
   SNDATA.NLINES_AUXHEADER = 0;
   for ( i=0; i < 20; i++ ) 
     { sprintf(SNDATA.AUXHEADER_LINES[i],"GARBAGE AUXHEADER_LINE"); }
+
 
   SNDATA.RA_AVG  = NULLFLOAT ;
   SNDATA.DEC_AVG = NULLFLOAT ;
@@ -9115,6 +9126,7 @@ int init_SNDATA_EVENT(void) {
 
   SNDATA.FILTCHAR_1D[0] = 0 ;
   SNDATA.FIELDNAME_1D[0] = 0 ;
+  SNDATA.NOBS   = 0;
   SNDATA.NEPOCH = 0;
   SNDATA.NEWMJD = 0;
   SNDATA.MJD_TRIGGER      = 1.0E6 ;
@@ -9241,7 +9253,8 @@ int init_SNDATA_EVENT(void) {
 
   SNDATA.SIM_HOSTLIB_GALID = -9 ;
 
-  for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ ) {
+  int MXFILT = MXFILTINDX;
+  for ( ifilt=0; ifilt < MXFILT; ifilt++ ) {
 
     SNDATA.RA_AVG_BAND[ifilt]      = NULLFLOAT ;
     SNDATA.DEC_AVG_BAND[ifilt]     = NULLFLOAT ;
@@ -9260,6 +9273,8 @@ int init_SNDATA_EVENT(void) {
     SNDATA.SIM_EXPOSURE_TIME[ifilt]     = 1.0  ;
   }
 
+  // xxx proc_rate 100/sec
+
   SNDATA.PIXSIZE     = NULLFLOAT ;
   SNDATA.NXPIX       = -9 ;  
   SNDATA.NYPIX       = -9 ;  
@@ -9274,7 +9289,11 @@ int init_SNDATA_EVENT(void) {
   SNDATA.HAS_DETNUM  = false;
   SNDATA.HAS_IMGNUM  = false;
 
-  for ( i_epoch = 0; i_epoch < MXEPOCH; i_epoch++ ) {
+  // avoid wasting time with loop over huge MXEPOCH; use NEP_LOCAL
+  int MXEP_LOCAL = NEP_LAST;
+  if ( MXEP_LOCAL < 5 ) { MXEP_LOCAL = 5; }
+
+  for ( i_epoch = 0; i_epoch < MXEP_LOCAL; i_epoch++ ) {
 
     SNDATA.SEARCH_RUN[i_epoch]   = NULLINT ;
     SNDATA.TEMPLATE_RUN[i_epoch] = NULLINT ;
@@ -9343,6 +9362,7 @@ int init_SNDATA_EVENT(void) {
 
   }  //  end i_epoch init loop
 
+
   return SUCCESS ;
 
 }   // end of init_SNDATA_EVENT
@@ -9372,7 +9392,13 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
 			  char *SUFFIX_z, char *SUFFIX_val, char *SUFFIX_val2 ) {
   int j;
   char PREFIX[20], PREFIXz[22] ;
+  int  SAY_HELLO = 0 ;
+  char fnam[] = "init_SNDATA_HOSTGALz" ;
+
   // ------------ BEGIN ----------
+
+  if ( SAY_HELLO ) 
+    { printf(" xxx %s: hello for igal=%d  %s \n", fnam, igal, SUFFIX_z); fflush(stdout); }
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
 
@@ -9385,14 +9411,18 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
   if ( HOSTGALz->USE_VAL2 ) 
     { sprintf(HOSTGALz->VARNAME_VAL2, "%s_%s",  PREFIXz, SUFFIX_val2); }
   else 
-    {   HOSTGALz->VARNAME_VAL2[0] = 0 ; }
+    { HOSTGALz->VARNAME_VAL2[0] = 0 ; }
 
   HOSTGALz->NZ = 0;
-  for (j=0; j < MXBIN_HOSTGALz; j++ ) {
+  int NBLOC = MXBIN_HOSTGALz;
+  for (j=0; j < NBLOC ; j++ ) {
     HOSTGALz->Z_LIST[j]    = -9.0 ;
     HOSTGALz->VAL_LIST[j]  = -9.0 ;
     HOSTGALz->VAL2_LIST[j] = -9.0 ;
   }
+
+  return;
+
 } // end init_SNDATA_HOSTGALz
 
 void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
@@ -9429,6 +9459,22 @@ void dump_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, char *callFun) {
 
 } // end dump_SNDATA_HOSTGALz
  
+bool ISVAR_HOSTGALz(char *VARNAME) {
+
+  // Created Jun 26 2026
+  // Return true if HOSTGALz, HOSTGAL2z, etc ... is in VARNAME
+  // First draft here is hard-wired, but should find a more robust way
+
+  char fnam[] = "ISVAR_HOSTGALz" ;  (void)fnam;
+  // --------- BEGIN --------------
+  if ( strstr(VARNAME,"HOSTGALz" ) != NULL ) { return true; }
+  if ( strstr(VARNAME,"HOSTGAL2z") != NULL ) { return true; }
+  if ( strstr(VARNAME,"HOSTGAL3z") != NULL ) { return true; }
+
+  return false;
+
+} // end ISVAR_HOSTGALz
+
 
 int NZ_HOSTGALz(int MXBIN, float *Z_LIST, char *CCID) {  
 
@@ -10117,7 +10163,6 @@ void  check_magUndefined(double mag, char *varName, char *callFun) {
   // Created Jun 23 2016
   char fnam[200] ;
   concat_callfun_plus_fnam(callFun, "check_magUndefined", fnam);
-  // xxx mark   char fnam[] = "check_magUndefined" ; //.xyz
 
   if ( mag == MAG_UNDEFINED ) {
     sprintf(c1err,"Undefined %s = %f", varName, mag);
@@ -10688,6 +10733,7 @@ FILE *open_TEXTgz(char *FILENAME, const char *mode, int OPTMASK_NOFILE,
 
   // if we get here, do regular text open
   fp = fopen(FILENAME,mode);
+
   return(fp);
 
 } // end open_TEXTgz
@@ -10728,6 +10774,36 @@ void snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG) {
   }
 
 } // end snana_rewind
+
+// =====================================
+void snana_close(FILE *fp, char *FILENAME, int GZIPFLAG) {
+
+  // Created Jul 3 2026
+  char fnam[] = "snana_close" ;
+
+  // --------------- BEGIN ----------------
+
+  if ( GZIPFLAG == 0 ) {
+    printf("   CLOSE regular text file: %s \n", FILENAME);
+    fclose(fp);
+  }
+  else {
+    // close gzipped file
+    int istat = pclose(fp);
+    printf("   CLOSE gzipped text file (istat=%d): %s \n", istat, FILENAME);
+
+    if ( istat == -1 ) {
+      sprintf(c1err,"pclose Error = -1 for file=");
+      sprintf(c2err,"%s", FILENAME);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+  }
+
+  fflush(stdout);
+
+  return;
+
+} // end snana_close
 
 
 // *************************************************
@@ -10887,7 +10963,7 @@ int colnum_in_table(char *fileName, char *varName) {
   char c_get[MXPATHLEN], VARNAME_STRING[MXPATHLEN], *fg;
   FILE *fp;
 
-  char fnam[] = "colnum_in_file" ;
+  char fnam[] = "colnum_in_table" ;
 
   // ------------ BEGIN --------------
 
@@ -10921,7 +10997,7 @@ int colnum_in_table(char *fileName, char *varName) {
 
   return colnum ;
 
-} // end colnum_in_file
+} // end colnum_in_table
 
 
 

@@ -23,6 +23,20 @@ from   submit_params import *
 
 # =================================================
 
+def glob_wrapper(wildcard, search_dir):
+
+    # created Jun 27 2026
+    # glob1 will be deprecated at 3.13, but fix doesn't work for older verions.
+
+    try:
+        # python 3.10 and higher
+        f_list = glob.glob(wildcard, root_dir = search_dir)
+    except:
+        # works before 3.10, but will be deprecated around 3.13
+        f_list = glob.glob1(search_dir, wildcard)
+
+    return f_list
+
 def grep(path_list, key_list, key_veto_list, verbose):
 
     # Created Sep 5 2025 
@@ -982,16 +996,17 @@ def backup_merge_file(merge_file):
     shutil.copyfile(merge_file, merge_file_save )
     # end backup_merge_file
 
-def get_SNANA_program_path(snana_dir, program_name):
+def get_SNANA_program_path(snana_dir, snana_subdir, program_name):
     # Created May 30 2024
-    # Return full path of SNANA program executable in /bin directory.
+    # Return full path of SNANA program executable in /bin directory,
+    # or if python utility is in /util
     # Input snana_dir is an optional user-defined SNANA code repo location;
     # if snana_dir is None then use default $SNANA_DIR/bin.
     
     if snana_dir is None :
-        program_path  = f"{SNANA_DIR}/bin/{program_name}" # default code
+        program_path  = f"{SNANA_DIR}/{snana_subdir}/{program_name}" # default code
     else:
-        program_path  = f"{snana_dir}/bin/{program_name}" # user code
+        program_path  = f"{snana_dir}/{snana_subdir}/{program_name}" # user code
         
     return program_path
 
@@ -1054,6 +1069,8 @@ def write_job_info(f, JOB_INFO, icpu):
     # Jun 27 2022: check optional 2nd arg in wait_file which is string
     #              to require. E.g., requre SUCCESS in ALL.DONE file.
     #
+    # Jul 09 2026: if wait_file has .gz extension, also wait for gzunip file to NOT exist.
+
     if JOB_INFO is None :
         return
     
@@ -1125,8 +1142,19 @@ def write_job_info(f, JOB_INFO, icpu):
             f.write(f"fi \n\n")
 
         else:
-            cmd_wait = f"while [ ! -f {wait_file} ]; do sleep 10; done"
-            f.write(f"{cmd_wait}\n")
+            if '.gz' in wait_file:
+                # check that gz file exists AND unzipped file does NOT exist
+                gunzip_file = wait_file.split('.gz')[0]
+                cmd_while   = f"while [[ ! -f {wait_file} ]] || [[ -f {gunzip_file} ]]"
+            else:
+                cmd_while = f"while [ ! -f {wait_file} ]"
+
+            f.write(f"{cmd_while}; do \n  sleep 10\ndone\n") 
+
+            # xxxx mark Jul 9 2026 xxxxxx
+            #cmd_wait = f"while [ ! -f {wait_file} ]; do sleep 10; done"
+            #    f.write(f"{cmd_wait}\n")
+            # xxxxxx
 
         f.write(f"echo '{wait_file} exists -> continue' \n\n")
 

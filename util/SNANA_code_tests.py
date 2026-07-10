@@ -739,7 +739,7 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
         DONEFILE_DEPEND = CPU_TASKLIST["DONEFILE"][itask_depend]
         PREFIX_DEPEND   = CPU_TASKLIST["PREFIX"][itask_depend]
         if not os.path.isfile(DONEFILE_DEPEND) : 
-            print(f' Delay   {PREFIX}_{TASK} (waiting for {PREFIX_DEPEND}_{task_depend} %s_%s) ')
+            print(f' Delay   {PREFIX}_{TASK} (waiting for {PREFIX_DEPEND}_{task_depend}) ')
             sys.stdout.flush()
             return 0
 

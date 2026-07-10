@@ -96,7 +96,7 @@ LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 ITABLE_TEXT  = 0
 ITABLE_HBOOK = 1
 ITABLE_ROOT  = 2
-TABLE_NAME_LIST    = [SUFFIX_FITRES, 'SNANA', 'LCPLOT', 'PDF' ] # for TEXT format only
+TABLE_NAME_LIST    = [SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF ] # for TEXT format only
 
 FORMAT_TEXT  = 'TEXT'
 FORMAT_HBOOK = 'HBOOK'
@@ -189,12 +189,14 @@ KEY_APPEND_TABLE_TEXTFILE = "APPEND_TABLE_TEXTFILE"
 PREFIX_TEMP_SNANA = "TEMP_SNANA"
 
 # define script to dump number of events in table (for hbook & root)
-SCRIPT_SNTABLE_DUMP    = "sntable_dump.py"   # Mar 17 2021
-Cprogram_SNTABLE_DUMP  = "sntable_dump.exe"  
+SCRIPT_SNTABLE_DUMP    = f"sntable_dump.py"  
+Cprogram_SNTABLE_DUMP  = f"sntable_dump.exe"  
 
 # define program to merge text-fitres files
-PROGRAM_COMBINE_FITRES = "combine_fitres.exe"
+PROGRAM_COMBINE_FITRES = f"combine_fitres.exe"
 NULLVAL_COMBINE_FITRES = -9191   # value for missing CID in extern file
+
+PROGRAM_SNANA = 'snana.exe'
 
 # flags for debug utility to force table-merge failure
 FLAG_FORCE_MERGE_TABLE_MISSING = 1
@@ -541,8 +543,6 @@ class LightCurveFit(Program):
                 path_plus_v = f"{path}/{v_tmp}"
                 v_list  = sorted(glob.glob(path_plus_v))
 
-                # xxx mark print(f" xxx {path_plus_v} --> v_list = {v_list}") # .xyz
-
                 for v in v_list:
                     found   = True
                     version = os.path.basename(v)
@@ -672,11 +672,8 @@ class LightCurveFit(Program):
         log_file        = f"{textfile_prefix}.LOG"
         yaml_file       = f"{textfile_prefix}.YAML"
 
-        if snana_dir is None :
-            cmd_snana = f"snana.exe NOFILE  "
-        else:
-            cmd_snana = f"{snana_dir}/bin/snana.exe NOFILE  "
-
+        program_snana  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_BIN, PROGRAM_SNANA)
+        cmd_snana = f"{program_snana} NOFILE  "  
         cmd_snana += f"VERSION_PHOTOMETRY {version}  "
         cmd_snana += f"MXEVT_PROCESS {nevt_proc}  "
         cmd_snana += f"JOBSPLIT 1 1  "
@@ -921,15 +918,12 @@ class LightCurveFit(Program):
         #sys.exit(f"\n xxx use_table_format = {use_table_format}  ITABLE_ROOT={ITABLE_ROOT}\n")
 
         msgerr = []
-        # if appending variables to FITRES file, make sure
-        # that either HBOOK or ROOT is specified
+        # if appending variables to FITRES file, make sure that ROOT table is specified
         CONFIG    = self.config_yaml['CONFIG']
         key       = KEY_APPEND_TABLE_VARLIST
         if key in CONFIG :
             require = False
             if use_table_format[ITABLE_ROOT]:
-                require = True
-            if use_table_format[ITABLE_HBOOK]:
                 require = True
             if not require:
                 msgerr.append(f" {key} found in CONFIG input")
@@ -1073,7 +1067,7 @@ class LightCurveFit(Program):
             print(f" xxx n_core = {n_core}   n_version={n_version}")
             print(f" xxx iver_list -> \n{iver_list_reorder}")
             print(f" xxx iopt_list -> \n{iopt_list_reorder}")
-            print(f" xxx ispl_list -> \n{isplit_list_reorder}")  # .xyz    
+            print(f" xxx ispl_list -> \n{isplit_list_reorder}")  
 
         # ---- reload globals ----
 
@@ -1547,7 +1541,8 @@ class LightCurveFit(Program):
         state       = row[COLNUM_LCFIT_MERGE_STATE]
         version     = row[COLNUM_LCFIT_MERGE_VERSION]
         fitopt_num  = row[COLNUM_LCFIT_MERGE_FITOPT]  # e.g., FITOPT001
-        nevt_expect = row[COLNUM_LCFIT_MERGE_NEVT_LCFIT_CUTS]
+        nevt_expect_cuts = row[COLNUM_LCFIT_MERGE_NEVT_LCFIT_CUTS] 
+        nevt_expect_all  = row[COLNUM_LCFIT_MERGE_NEVT_ALL]        
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
@@ -1586,10 +1581,11 @@ class LightCurveFit(Program):
         # - - - - -
         # create dictionary to pass to merge_table_XXX functions below.
         version_fitopt_dict = {
-            'version'         : version,
-            'fitopt'          : fitopt_num,
-            'version_fitopt'  : version_fitopt,
-            'nevt_expect'     : nevt_expect 
+            'version'             : version,
+            'fitopt'              : fitopt_num,
+            'version_fitopt'      : version_fitopt,
+            f'nevt_expect_{SUFFIX_SNANA}'  : nevt_expect_all,
+            f'nevt_expect_{SUFFIX_FITRES}' : nevt_expect_cuts
         }
 
         # - - - - -
@@ -1611,6 +1607,7 @@ class LightCurveFit(Program):
         if use_table_format[ITABLE_TEXT] :
             for table_name in TABLE_NAME_LIST :
                 self.merge_table_TEXT(table_name, version_fitopt_dict)
+
 
         # move MERGE files, and remove 'MERGE_' prefix
         self.move_merge_table_files(version_fitopt_dict)
@@ -1704,7 +1701,6 @@ class LightCurveFit(Program):
         version          = version_fitopt_dict['version']
         fitopt           = version_fitopt_dict['fitopt']
         version_fitopt   = version_fitopt_dict['version_fitopt']
-        nevt_expect      = version_fitopt_dict['nevt_expect']
 
         itable           = ITABLE_TEXT
         suffix           = TABLE_FORMAT_LIST[itable]
@@ -1719,14 +1715,15 @@ class LightCurveFit(Program):
             table_wildcard += f(" {table_wildcard}") # double output
 
         # if no tables exist, bail out
-        table_list = sorted(glob.glob1(script_dir,table_wildcard))
+        # xxx mark table_list = sorted(glob.glob1(script_dir,table_wildcard))
+        table_list = sorted(util.glob_wrapper(table_wildcard,script_dir))
         if len(table_list) == 0 :
             return
 
-        # for FITRES table, check that all of the VARNAMES lists 
+        # check that all of the VARNAMES lists 
         # are the same; else abort
-        if table_name == SUFFIX_FITRES :
-            self.check_table_varnames_TEXT(table_list)
+        # xxx mark if table_name == SUFFIX_FITRES :
+        self.check_table_varnames_TEXT(table_list)
 
         # construct linux command to catenate TEXT files,
         # and then a special awk command to remove all VARNAMES
@@ -1741,7 +1738,7 @@ class LightCurveFit(Program):
                    f"{out_table_file2} ; " \
                    f"mv {out_table_file2} {out_table_file}"
 
-        msg = f"   merge {n_job_split} {suffix}-{table_name} table files."
+        msg = f"   merge {n_job_split} {suffix}-{table_name} table files -> {out_table_file}"
         logging.info(msg)
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
@@ -1750,18 +1747,20 @@ class LightCurveFit(Program):
             os.system(f"{cddir} ; {cmd_all}")
             util.print_elapse_time(tref,f"merge {n_job_split} table files")
 
+
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         util.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
-        # xxx mark delete self.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
 
         # - - - - - -
         # for FITRES table only, do unitarity check to make sure that 
         # nevt_expect rows are really there. Also check options to 
         # append variables to table.
 
-        if table_name == SUFFIX_FITRES :
-            OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
+        if table_name == SUFFIX_FITRES or table_name == SUFFIX_SNANA :
+            nevt_expect      = version_fitopt_dict[f'nevt_expect_{table_name}']
+            OUT_TABLE_FILE   = f"{script_dir}/{out_table_file}"
             nevt_find, n_nan = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
+
             if n_nan > 0:
                 msgerr = [f"found {n_nan} nan in {OUT_TABLE_FILE}"]
                 self.log_assert(False,msgerr) 
@@ -1773,8 +1772,8 @@ class LightCurveFit(Program):
             # check options to append FITRES file
             # 1. APPEND_TABLE_VARLIST  -> extract vars from HBOOK or ROOT file
             # 2. APPEND_TABLE_TEXTFILE -> append vars from external file.
-            self.append_table_varlist(version_fitopt_dict)  # optional
-            self.append_table_textfile(version_fitopt_dict)  # optional
+            self.append_table_varlist(version_fitopt_dict, table_name)   # optional
+            self.append_table_textfile(version_fitopt_dict, table_name)  # optional
 
         return
         # end merge_table_TEXT
@@ -1891,41 +1890,38 @@ class LightCurveFit(Program):
         return is_match
         # end match_varnames_list
 
-    def append_table_varlist(self,version_fitopt_dict) :
+
+    def append_table_varlist(self, version_fitopt_dict, table_name) :
 
         # Check option to extract variables from HBOOK/ROOT file,
         # and append TEXT-FITRES file.
         # See CONFIG key APPEND_TABLE_VARLIST
         #
+        # Jun 27 2026: pass table_name to work for SNANA or FITRES table
 
         CONFIG                = self.config_yaml['CONFIG']
+        snana_dir             = self.config_yaml['args'].snana_dir
         submit_info_yaml      = self.config_prep['submit_info_yaml']
         merge_table_file_list = self.config_prep['merge_table_file_list']
         script_dir            = submit_info_yaml['SCRIPT_DIR']
         use_table_format      = submit_info_yaml['USE_TABLE_FORMAT']
         version_fitopt        = version_fitopt_dict['version_fitopt']
-        nevt_expect           = version_fitopt_dict['nevt_expect']
+        nevt_expect           = version_fitopt_dict[f'nevt_expect_{table_name}']
         
         # use CONFIG from input file (rather than SUBMIT.INFO) in case
-        # user fixes APPEND_TABLE_VARLIST after jobs ran.
-        key  = KEY_APPEND_TABLE_VARLIST
-        if key in CONFIG:
-             varlist_append = CONFIG[key]
-        else:
-            return
+        # user updates the APPEND_TABLE_VARLIST after jobs ran.
 
-        #if key in submit_info_yaml :
-        #    varlist_append = submit_info_yaml[key]
-        #else:
-        #    return
+        varlist_append = self.get_varlist_append(table_name)
+
+        if not varlist_append: return
+
+        # - - - - -
 
         msgerr = []
 
         text_table_file = merge_table_file_list[ITABLE_TEXT]  # file to append
         if use_table_format[ITABLE_ROOT] :
             full_table_file = merge_table_file_list[ITABLE_ROOT]
-        elif use_table_format[ITABLE_HBOOK] :
-            full_table_file = merge_table_file_list[ITABLE_HBOOK]
         else :
             msgerr.append("Cannot append TEXT table without full table")
             msgerr.append("Must define HBOOK or ROOT to append TEXT table")
@@ -1937,20 +1933,22 @@ class LightCurveFit(Program):
         tref = datetime.datetime.now()
         logging.info(f"   Append TEXT table from {full_table_file} ")
 
-        cddir = f"cd {script_dir}"
-        cmd_append = f"{SCRIPT_SNTABLE_DUMP} {full_table_file} FITRES " \
+        cddir   = f"cd {script_dir}"
+        script  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_UTIL, SCRIPT_SNTABLE_DUMP)
+        cmd_append = f"{script} {full_table_file} {table_name} " \
                      f"--VERBOSE " \
                      f"-v '{varlist_append}' " \
                      f"-a {text_table_file} > {append_log_file} 2>/dev/null"
 
 
         # abort if required C program exe is not found within 10 minutes        
-        snana_dir      = self.config_yaml['args'].snana_dir
-        Cprogram_path  = util.get_SNANA_program_path(snana_dir,Cprogram_SNTABLE_DUMP)
+
+        Cprogram_path  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_BIN, Cprogram_SNTABLE_DUMP)
         found_Cprogram = util.program_exists(Cprogram_path, TMAX_EXE_WAIT_ABORT, True) 
         
         istat = os.system(f"{cddir} ; {cmd_append} ")
         util.print_elapse_time(tref,SCRIPT_SNTABLE_DUMP)
+
 
         if istat != 0 :
             msgerr.append(f"Failed to apppend variables with command")
@@ -1958,7 +1956,7 @@ class LightCurveFit(Program):
             msgerr.append(f"See {append_log_file}")
             self.log_assert(False,msgerr) 
 
-        # replace FITRES file with append file, 
+        # replace table file with append file, 
         # and remove sntable* junk files
 
         tref = datetime.datetime.now()
@@ -1968,7 +1966,7 @@ class LightCurveFit(Program):
             cmd    = f"{cddir}; {cmd_mv} ; {cmd_rm}"
             os.system(cmd)
         else : 
-            msgerr.append(f"Append FITRES table failed with command")
+            msgerr.append(f"Append {table_name} table failed with command")
             msgerr.append(f"{cmd_append}")
             msgerr.append(f"Check if these variables are all valid:")
             msgerr.append(f"    {varlist_append}")
@@ -1987,19 +1985,60 @@ class LightCurveFit(Program):
                   
         util.print_elapse_time(tref,"append cleanup & validate")
 
+        return
+
         # end append_table_varlist
 
-    def append_table_textfile(self,version_fitopt_dict) :
+    def get_varlist_append(self,table_name):
+
+        # for table_name = SNANA, return list before semi-colon
+        # for table_name = FITRES, return all variables regardless of semi-colon
+        #
+        # E.g. 
+        #  APPEND_TABLE_VARLIST: a b c 
+        #       -> return None for SNANA table, return 'a b c' for FITRES table
+        #
+        #  APPEND_TABLE_VARLIST: a b c ; d e 
+        #       -> return 'a b c' for SNANA table, return 'a b c d e' for FITRES table
+        #
+        #  APPEND_TABLE_VARLIST: a b c ;
+        #       -> return 'a b c' for both SNANA and FITRES tables
+        #
+        # return varlist_append is a string, not a python list
+
+        CONFIG         = self.config_yaml['CONFIG']
+        varlist_append =  CONFIG.setdefault(KEY_APPEND_TABLE_VARLIST,None)
+        sep            = ';'
+
+        if varlist_append:
+            if table_name == SUFFIX_FITRES:
+                # return all variables regardless of ;
+                varlist_append = varlist_append.replace(sep,'')
+            elif table_name == SUFFIX_SNANA:
+                # return variables before semi-colon ..
+                if sep in varlist_append:
+                    varlist_append = varlist_append.split(sep)[0]
+                else:
+                    varlist_append = None # no semi-colon, so append nothing
+            else:
+                msgerr = [ 'Invalid table_name = {table_name} for {KEY_APPEND_TABLE_VARLIST} ' ]
+                util.log_assert(False,msgerr) # just abort, no done stamp
+
+        return varlist_append
+
+    def append_table_textfile(self,version_fitopt_dict, table_name) :
 
         # Check option to extract and append variables from 
         # external TEXT file. See CONFIG key APPEND_TABLE_TEXFILE
         #
+        # Jun 27 2026; pass table_name = SNANA or FITRES
+
         submit_info_yaml      = self.config_prep['submit_info_yaml']
         merge_table_file_list = self.config_prep['merge_table_file_list']
         script_dir            = submit_info_yaml['SCRIPT_DIR']
         use_table_format      = submit_info_yaml['USE_TABLE_FORMAT']
         version_fitopt        = version_fitopt_dict['version_fitopt']
-        nevt_expect           = version_fitopt_dict['nevt_expect']
+        nevt_expect           = version_fitopt_dict[f'nevt_expect_{table_name}']
         
         key  = KEY_APPEND_TABLE_TEXTFILE
         if key in submit_info_yaml :
@@ -2011,8 +2050,10 @@ class LightCurveFit(Program):
         out_file  = "TEMP_" + orig_file
         log_file  = "TEMP_COMBINE.LOG"
 
+        program_path  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_BIN, PROGRAM_COMBINE_FITRES)
+
         cddir = f"cd {script_dir}"
-        cmd1  = f"{PROGRAM_COMBINE_FITRES} {orig_file} {external_file_list} "\
+        cmd1  = f"{program_path} {orig_file} {external_file_list} "\
                 f"-outfile_text {out_file} " \
                 f"t " \
                 f"-nullval_float {NULLVAL_COMBINE_FITRES} " \
@@ -2038,8 +2079,9 @@ class LightCurveFit(Program):
         version          = version_fitopt_dict['version']
         fitopt           = version_fitopt_dict['fitopt']
         version_fitopt   = version_fitopt_dict['version_fitopt']
-        nevt_expect      = version_fitopt_dict['nevt_expect']
+        nevt_expect_cuts = version_fitopt_dict[f'nevt_expect_{SUFFIX_FITRES}'] # to check merge
 
+        snana_dir        = self.config_yaml['args'].snana_dir
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
@@ -2055,7 +2097,7 @@ class LightCurveFit(Program):
         
         # get name of program
         program_merge = f"merge_{suffix.lower()}.exe"
-        self.check_program_merge_table_CERN(program_merge)
+        program_merge = self.check_program_merge_table_CERN(program_merge)
 
         cddir           = f"cd {script_dir}"
         out_table_file  = f"{prefix}_{version_fitopt}.{suffix}"
@@ -2072,7 +2114,6 @@ class LightCurveFit(Program):
 
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         util.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
-        # xxx mark delete self.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
 
         # for HBOOK, remove garbage from log file
         if itable == ITABLE_HBOOK :
@@ -2087,10 +2128,11 @@ class LightCurveFit(Program):
         # ?? check log file for success message ??
         tref = datetime.datetime.now()
 
-        # extract number of events in final HBOOK/ROOT file
+        # extract number of events in final HBOOK/ROOT file and check
+        # that it matches expection
         NTRY_MAX = 2; ntry=0; nevt_find = -9
         while nevt_find < 0 and ntry < NTRY_MAX :
-            nevt_find = self.nrow_table_CERN(f"{OUT_TABLE_FILE}")
+            nevt_find = self.nrow_table_CERN(f"{OUT_TABLE_FILE}", SUFFIX_FITRES)
             ntry += 1
 
         if nevt_find < 0 :
@@ -2109,7 +2151,7 @@ class LightCurveFit(Program):
             logging.warning(msg)
 
         # abort if nevt_find != nevt_expect
-        self.nevt_table_check(nevt_expect, nevt_find, out_table_file, cmd)
+        self.nevt_table_check(nevt_expect_cuts, nevt_find, out_table_file, cmd)
 
         # store merge table file for append_table_text()
         merge_table_file_list =  self.config_prep['merge_table_file_list']
@@ -2117,6 +2159,7 @@ class LightCurveFit(Program):
 
         util.print_elapse_time(tref,f"validate NEVT in merge table(s)")
 
+        return
         # end merge_table_CERN
 
     def check_program_merge_table_CERN(self,program_merge):
@@ -2125,35 +2168,36 @@ class LightCurveFit(Program):
         # Abort if wait is too long.
         
         snana_dir     = self.config_yaml['args'].snana_dir
-        program_path  = util.get_SNANA_program_path(snana_dir,program_merge)
+        program_path  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_BIN, program_merge)
         found_program = util.program_exists(program_path, TMAX_EXE_WAIT_ABORT, True)
                 
-        return
+        return program_path
         # end check_program_merge_table_CERN
 
     
-    def nrow_table_CERN(self,table_file):
-        # return number of table rows in CERN file that
-        # has either HBOOK or ROOT extension
+    def nrow_table_CERN(self, table_file, table_name):
+
+        # return number of table rows in CERN file that has either HBOOK or ROOT extension
         # Return -9 on error.
         # Script prints "NEVT:  <nevt>", so parse the 2nd element.
+        # Jun 27 2026: pass table_name to work for any table
 
-        script   = SCRIPT_SNTABLE_DUMP
-        arg_NEVT = "--NEVT"
-        if '.pl' in script:  arg_NEVT = "NEVT" # legacy perl arg
+        # xxx mark script   = SCRIPT_SNTABLE_DUMP 
+        snana_dir  = self.config_yaml['args'].snana_dir
+        script    = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_UTIL, SCRIPT_SNTABLE_DUMP)
+        arg_NEVT  = "--NEVT"
 
         # abort if required C program exe is not found within 10 minutes        
         snana_dir      = self.config_yaml['args'].snana_dir
-        Cprogram_path  = util.get_SNANA_program_path(snana_dir,Cprogram_SNTABLE_DUMP)
+        Cprogram_path  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_BIN, Cprogram_SNTABLE_DUMP)
         found_Cprogram = util.program_exists(Cprogram_path, TMAX_EXE_WAIT_ABORT, True) 
         
-        cmd_nevt = f"{script} {table_file} FITRES {arg_NEVT} " \
+        cmd_nevt = f"{script} {table_file} {table_name} {arg_NEVT} " \
                    f" | grep 'NEVT:' "
         try: 
             result_line = subprocess.check_output(cmd_nevt, shell=True)
             result_line = (result_line.rstrip()).decode('utf-8')
             nevt_find   = int(result_line.split()[1])
-            # nevt_find = 0 # xxx REMOVE
             return nevt_find
         except :
             return -9
@@ -2173,7 +2217,8 @@ class LightCurveFit(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
         table_wildcard   = f"{PREFIX_MERGE}_*"
-        table_list       = glob.glob1(script_dir,table_wildcard)
+        # xxx mark table_list       = glob.glob1(script_dir,table_wildcard)
+        table_list       = util.glob_wrapper(table_wildcard,script_dir)
 
         cmd = f"cd {script_dir} ; "
         for tfile in table_list :
@@ -2329,23 +2374,26 @@ class LightCurveFit(Program):
                      f"{SUBDIR_SCRIPTS_LCFIT}")
         for wildcard in wildcard_script_dir :
             if len(wildcard) < 2: continue  # avoid accidental rm *
-            if len(glob.glob1(script_dir,wildcard)) > 0 :
-                   cmd_rm = f"rm {script_dir}/{wildcard}"
-                   print(f"\t Remove {wildcard} ")
-                   os.system(cmd_rm)
+            # xxx mark if len(glob.glob1(script_dir,wildcard)) > 0 :
+            if len(util.glob_wrapper(wildcard,script_dir)) > 0 :
+                cmd_rm = f"rm {script_dir}/{wildcard}"
+                print(f"\t Remove {wildcard} ")
+                os.system(cmd_rm)
 
         output_base = os.path.basename(output_dir)
         logging.info(f"  {fnam}: remove misc junk files from {output_base}")
         for wildcard in wildcard_output_dir :
             if len(wildcard) < 2: continue  # avoid accidental rm *
-            if len(glob.glob1(output_dir,wildcard)) > 0 :
+            # xxx mark if len(glob.glob1(output_dir,wildcard)) > 0 :
+            if len(util.glob_wrapper(wildcard,output_dir)) > 0 :
                 cmd_rm = f"rm {output_dir}/{wildcard}"
                 print(f"\t Remove {wildcard}  ")
                 os.system(cmd_rm)
                 
         # - - - - -
         # Sep 2025: check to untar PIP*.tar.gz files
-        tar_list = glob.glob1(script_dir,"PIP*.tar.gz")
+        # xxx mark tar_list = glob.glob1(script_dir,"PIP*.tar.gz")
+        tar_list = util.glob_wrapper("PIP*.tar.gz",script_dir)
         for tar in tar_list:
             logging.info(f"\t untar {tar}")
             cmd_untar = f"cd {script_dir} ; tar -xzf {tar}; rm -r {tar}"

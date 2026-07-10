@@ -230,6 +230,8 @@ def create_simgen_file(info_dict):
         f.write(f'NGENTOT_LC: 300\n')
         f.write(f'RANSEED: 12945\n')
         f.write(f'GENRANGE_TREST:  -40  100\n') 
+        f.write(f'OPT_MWEBV:            0 \n')
+        f.write(f'GENSIGMA_MWEBV_RATIO: 0 \n')
         f.write(f'DNDZ: FLAT\n')
         f.write(f'WRFLAG_YAML_FILE: 1\n')
 

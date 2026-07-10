@@ -155,7 +155,7 @@ struct TREE_INFO_READ {
 extern"C" {
 #endif
 
-  void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR);
+  void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR, char *callFun);
   void CLOSE_ROOTFILE(char *FILENAME, int OPENFLAG);
 
   void SNTABLE_CREATE_ROOT(int IDTABLE, char *name);
@@ -220,12 +220,17 @@ extern"C" {
 // ==========================================
 
 // ------------------------------------------------
-void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR) {
+void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR, char *callFun) {
 
   // Feb 2013: wrapper to initialize file for root.
 
   int LVBOSE = 1 ;
-  char cstat[12], banner[80] ;
+  char cstat[12], banner[200] ;
+  char fnam[180];
+  char fnam0[] = "OPEN_ROOTFILE";
+  concat_callfun_plus_fnam(callFun, fnam0, fnam);
+
+  // ----------- BEGIN ------------
 
   // check for quiet option 
   if ( strchr(COPT,'Q') != NULL )  { LVBOSE = 0 ; }
@@ -249,7 +254,7 @@ void OPEN_ROOTFILE(char *FILENAME, char *COPT, int *IERR) {
 
 
   if ( LVBOSE ) {
-    sprintf(banner,"OPEN_ROOTFILE: use  %s  mode:", cstat ) ;
+    sprintf(banner,"%.100s: use  %s  mode:", fnam, cstat ) ;
     print_banner(banner);
     printf("   Opened %s\n", FILENAME); fflush(stdout);
   }
@@ -498,14 +503,14 @@ int SNTABLE_NEVT_ROOT(char *FILENAME, char *treeName) {
 
   int Nrow, LENF, IERR;
   char blank[] = " " ;
-  //  char fnam[] = "SNTABLE_NEVT_ROOT" ;
+  char fnam[] = "SNTABLE_NEVT_ROOT" ;
   // ------------ BEGIN --------------
 
   Nrow = 0 ;
   LENF = strlen(FILENAME);
 
   if ( LENF > 0 ) { 
-    OPEN_ROOTFILE(FILENAME, blank, &IERR) ; 
+    OPEN_ROOTFILE(FILENAME, blank, &IERR, fnam) ; 
     if ( IERR != 0 ) { return Nrow ; }
   }
 

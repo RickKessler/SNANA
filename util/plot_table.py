@@ -41,6 +41,9 @@
 # Mar 23 2026: fix to work with comma-sep csv as well as space-sep csv file.
 # Mar 25 2026: fix bugs from Mar 23 change to allow comma-sep csv
 # Jun 23 2026: fix bug from comma in DOCUMENTATION block that confused check_table_varnames().
+# Jun 30 2026: new WRITE_TF option to write tf with cuts applied and ALL columns
+# Jul 05 2026: add new @@CUTMASK option to apply cuts to subset of files or variables
+# Jul 08 2026: provide initial guess_xxx for Gaussian fitpars.
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -106,7 +109,7 @@ OPT_LOGZ      = "LOGZ"       # log scale along Z axis (2D only)
 OPT_GRID      = "GRID"       # draw grid on plot
 OPT_SUM       = "SUM"        # show sum of plots over files or cuts (Mar 2025 ... maybe later ??
 OPT_LIST_CID  = "LIST_CID"   # list CIDs passing cuts
-OPT_LIST_ROW  = "LIST_ROW"   # list ROWS passing cuts (same as LIST_CID)
+OPT_WRITE_TF  = "WRITE_TF"   # re-write table file(s) for subset passing cuts
 
 OPT_DIFF_CID  = "DIFF_CID"   # 2 files and 2D: plot y-axis diff for each CID
 OPT_DIFF_ALL  = "DIFF_ALL"   # 2 files and 2D: plot y-axis diff between means
@@ -116,7 +119,7 @@ VALID_OPT_LIST = [ OPT_HIST, OPT_HISTFILL,
                    OPT_NEVT, OPT_AVG, OPT_MEAN, OPT_STDDEV, OPT_SIG_NMAD, 
                    OPT_OV, OPT_OVCHI2, OPT_CHI2,
                    OPT_MEDIAN, OPT_DIAG_LINE,
-                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID, OPT_LIST_ROW,
+                   OPT_LOGY, OPT_LOGZ, OPT_GRID, OPT_SUM, OPT_LIST_CID,  OPT_WRITE_TF,
                    OPT_DIFF_CID, OPT_DIFF_ALL, OPT_RATIO]
 
 NMAX_CID_LIST = 50  # max number of CIDs to print for @@OPT CID_LIST
@@ -327,6 +330,12 @@ and two types of command-line input delimeters
   While math functions (sqrt, exp, log ...) are allowed for variables,
   they cannot be used for cuts.
 
+@@CUTMASK
+   Determine which tfiles or variables have cuts applied; default apply cuts to all tfiles or variables.
+   Here are some examples with 3 tfiles:
+      @@CUTMASK 0 1 1   -> apply cuts to 2nd and 3rd tfiles
+      @@CUTMASK 1 0 0   -> apply cuts only to first tfile; not cuts for 2nd and 3rd tfiles.
+      @@CUTMASK 1 1 1   -> default: cuts applied to all tfiles.
 
 @@FIT
   Apply pre-defined fit function to 1D plot:
@@ -420,8 +429,8 @@ and two types of command-line input delimeters
    {OPT_LOGY:<12} ==> log scale for vertical axis (1D or 2D)
    {OPT_LOGZ:<12} ==> log scale for Z axis (2D HIST only)
    {OPT_GRID:<12} ==> display grid on plot.
-   {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.      
-   {OPT_LIST_ROW:<12} ==> print up to 100 ROWs passing cuts.      
+   {OPT_LIST_CID:<12} ==> print up to 100 CIDs passing cuts.
+   {OPT_WRITE_TF:<12} ==> write new table with subset of events pasing cuts
    {OPT_DIFF_ALL:<12} ==> 2D: plot y-axis difference in median (or mean) values between plots.
                     Overlay file1-file0, file2-file0, file3-file0, etc, or
                     overlay cut1-cut0, cut2-cut0, cut3-cut0, etc;
@@ -598,6 +607,9 @@ def get_args():
     msg = "cuts with boolean and algegraic operations. If >1 CUT, plots are overlaid."
     parser.add_argument('@@CUT', '@@cut', default =[None], help=msg, nargs="+")
 
+    msg = "cutmask-apply per file or variable; e.g., 1 0 1 -> apply cuts to 1st and 3rd file. Default is apply cuts to all files or variables."
+    parser.add_argument('@@CUTMASK', '@@cutmask', default =[1], type=int, help=msg, nargs="+")
+
     msg = "integer prescale for selecting table rows (e.g., 7 -> select 1/7 of rows)"
     parser.add_argument('@@PRESCALE', '@@prescale', default =[1],
                         type=int, help=msg, nargs="+" )
@@ -724,6 +736,7 @@ def arg_prep_driver(args):
     if args.DEBUG_FLAG_DUMP_TRANSLATE:
         print(f" xxx args.VARIABLE = {args.VARIABLE}  (before modifications)")  
         print(f" xxx args.CUT      = {args.CUT}  (before modifications)")
+        print(f" xxx args.CUTMASK  = {args.CUTMASK}  (before modifications)")
         
     # - - - - - - -
     # for variable(s)
@@ -742,17 +755,21 @@ def arg_prep_driver(args):
     n_tfile_orig    = len(args.TFILE)
     n_var_orig      = len(args.VARIABLE)
     n_cut_orig      = len(args.CUT)
+    n_cutmask_orig  = len(args.CUTMASK)
     n_wgtfun_orig   = len(args.WGTFUN)
     n_wgtvar_orig   = len(args.WGTVAR)
     tfile_list      = copy.copy(args.TFILE)
     var_list        = copy.copy(args.VARIABLE)
     cut_list        = copy.copy(args.CUT)
+    cutmask_list    = copy.copy(args.CUTMASK)
     wgtfun_list     = copy.copy(args.WGTFUN)
     wgtvar_list     = copy.copy(args.WGTVAR)
 
     name_arg_list  = [ '@@TFILE', '@@VARIABLE', '@@CUT', '@@WGTFUN', '@@WGTVAR'  ]
-    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_wgtfun_orig, n_wgtvar_orig ]
-    arg_list_list  = [ tfile_list,   var_list,   cut_list,   wgtfun_list,   wgtvar_list   ]
+    n_orig_list    = [ n_tfile_orig, n_var_orig, n_cut_orig, n_cutmask_orig, 
+                       n_wgtfun_orig, n_wgtvar_orig ]
+    arg_list_list  = [ tfile_list,   var_list,   cut_list,   cutmask_list,   
+                       wgtfun_list,   wgtvar_list   ]
 
     # abort if more than 1 table file and more than 1 cut are requested.
     # However, allow 2 table files and 2 WGTFUNs
@@ -771,8 +788,9 @@ def arg_prep_driver(args):
     tfile_list   = arg_list_list[0]
     var_list     = arg_list_list[1]
     cut_list     = arg_list_list[2]
-    wgtfun_list  = arg_list_list[3]    
-    wgtvar_list  = arg_list_list[4]    
+    cutmask_list = arg_list_list[3]
+    wgtfun_list  = arg_list_list[4]    
+    wgtvar_list  = arg_list_list[5]    
         
     # - - - -
 
@@ -780,7 +798,9 @@ def arg_prep_driver(args):
         print(f" xxx proc_args: args.TFILE     -> {args.TFILE}")
         print(f" xxx proc_args: args.VARIABLE  -> {args.VARIABLE}")        
         print(f" xxx proc_args: args.CUT       -> {args.CUT}")
-    
+        print(f" xxx cut_list     = {cut_list}")
+        print(f" xxx cutmask_list = {cutmask_list}")
+
     table_list      = []
     table_base_list = []  # base names only; for plot legend
     for tfile in tfile_list :
@@ -793,6 +813,7 @@ def arg_prep_driver(args):
 
     args.var_list        = var_list
     args.cut_list        = cut_list
+    args.cutmask_list    = cutmask_list
     args.wgtfun_list     = wgtfun_list
     args.wgtvar_list     = wgtvar_list
     # - - - - -
@@ -969,10 +990,12 @@ def arg_prep_OPT(args):
 
         OPT_out = args_upper_list
 
+    # xxxxxxxx mark delete xxxxxx
     # LIST_ROW and LIST_CID are the same, but internally we only use
     # the LIST_CID flag
-    if OPT_LIST_ROW in OPT_out and OPT_LIST_CID not in OPT_out:
-        OPT_out.append(OPT_LIST_CID)
+    #if OPT_LIST_ROW in OPT_out and OPT_LIST_CID not in OPT_out:
+    #    OPT_out.append(OPT_LIST_CID)
+    # xxxxxxxxxx end mark xxxxxxxx
 
     # check OV[CHI2] options
     if OPT_CHI2 in OPT_out: # check for legacy option that means OVCHI2
@@ -1418,8 +1441,8 @@ def translate_CUT(CUT):
     logging.info(f"          ->  {CUT_df} ")
     
     return CUT_df, raw_var_list
-
-
+    # end translate_CUT
+    
 def is_number(string): 
     try: 
         float(string) 
@@ -1560,7 +1583,8 @@ def more_human_readable(label_orig):
     math_symbol_list = [ '+', '-', '/', ':' ]
 
     for sym in math_symbol_list:
-        label_out = label_out.replace(sym,f' ${sym}$ ')
+        pass
+        # xxx remove Jul 8 2026 ??? label_out = label_out.replace(sym,f' ${sym}$ ')
     
     return label_out
     # end more_human_readable
@@ -1674,6 +1698,7 @@ def read_tables(args, plot_info):
     tfile_base_list = args.tfile_base_list
     var_list        = args.var_list
     cut_list        = args.cut_list
+    cutmask_list    = args.cutmask_list  
     ps_list         = args.prescale_list
     frac_list       = args.fraction_list
     wgtfun_list     = args.wgtfun_list
@@ -1692,9 +1717,10 @@ def read_tables(args, plot_info):
     same_tfiles = (len(set(tfile_list)) == 1)
     nrow_tot = 0
     
-    for tfile, var, axis_dict, cut, prescale, fraction, wgtfun, wgtvar, legend, alpha, marker in \
+    for tfile, var, axis_dict, cut, cutmask, prescale, fraction, wgtfun, wgtvar, legend, alpha, marker in \
         zip(tfile_list, var_list, axis_dict_list,
-            cut_list, ps_list, frac_list, wgtfun_list, wgtvar_list, legend_list, alpha_list, marker_list):
+            cut_list, cutmask_list, ps_list, frac_list, wgtfun_list, wgtvar_list, 
+            legend_list, alpha_list, marker_list):
 
         varname_x      = axis_dict['x']
         varname_nodf_x = varname_x.replace(STR_df,'')  # for diagnostic print 
@@ -1746,8 +1772,8 @@ def read_tables(args, plot_info):
             logging.warn(f"No {varname_idrow} present in this file. OK for some file types.")
 
         # apply user cuts
-        if cut:
-            df = eval(cut)
+        if cut and cutmask>0:
+            df = eval(cut)  # .xyz
 
         if prescale > 1:
             df = df.iloc[::prescale]
@@ -1774,6 +1800,8 @@ def read_tables(args, plot_info):
             logging.warning(f"zero rows read for {name_legend}")
 
         MASTER_DF_DICT[key] = {
+            'tfile'        : tfile,
+            'colsep'       : colsep,
             'df'           : df,
             'wgtfun'       : wgtfun,
             'name_legend'  : name_legend,
@@ -2115,6 +2143,7 @@ def plotter_func_driver(args, plot_info):
     OPT           = args.OPT
     do_list_cid   = OPT_LIST_CID  in OPT 
     do_ratio      = OPT_RATIO     in OPT
+    do_write_tf   = OPT_WRITE_TF  in OPT
 
     MASTER_DF_DICT       = plot_info.MASTER_DF_DICT
     bounds_dict          = plot_info.bounds_dict
@@ -2247,11 +2276,15 @@ def plotter_func_driver(args, plot_info):
         # - - - - -
         # check option to dump CIDs (or ROWs) for events passing cuts
         if do_list_cid:
-            print_cid_list(df, name_legend)
+            print_cid_list_cuts(df, plot_info, name_legend)
+
+        if do_write_tf:
+            write_tf_cuts(args, key_name, plot_info, name_legend)
 
         # check for fit fun option
         if args.FIT:
-            apply_plt_fit(args, name_legend, xfit_data, yfit_data, yerr_data)
+            stat_dict = info_plot_dict['stat_dict'] 
+            apply_plt_fit(args, name_legend, xfit_data, yfit_data, yerr_data, stat_dict )
 
         # check for misc plt options (mostly decoration)
         if numplot == numplot_tot-1:
@@ -2555,7 +2588,7 @@ def get_info_plot1d(args, info_plot_dict):
         for ch in math_chars:
             str_stat_logging = str_stat_logging.replace(ch,'')
 
-        logging.info(f"\t {str_stat_logging:12} value for {name_legend}:  {val:.3f}")
+        logging.info(f"\t {str_stat_logging:12} value for| {name_legend}:  {val:.3f}")
         if add_to_legend:
             math_mode = '\\' in str_stat or '{' in str_stat
             fmt_legend  = tmp_list[2]
@@ -2576,7 +2609,8 @@ def get_info_plot1d(args, info_plot_dict):
     info_plot_dict['plt_legend']        = plt_legend
     info_plot_dict['plt_text_dict']     = plt_text_dict
     info_plot_dict['wgt_ov']            = wgt_ov
-     
+    info_plot_dict['stat_dict']         = stat_dict
+    
     return  # end get_info_plot1d
 
 def get_weighted_median(values, weights):
@@ -3070,7 +3104,7 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
     ymin, ymax = plt.ylim() # valid for auto or custom bounds
 
     if args.YMAX_SCALE:  # Feb 2025
-        ymax *= args.YMAX_SCALE
+        ymax = ymin + (ymax-ymin) * args.YMAX_SCALE
         plt.ylim(ymin,ymax) 
 
     if do_diag_line:
@@ -3154,9 +3188,11 @@ def apply_plt_misc(args, plot_info, plt_text_dict):
 
 
 # =================================================================    
-def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
+def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma, stat_dict):
     # Created Mar 2025
     # apply 1D fit based on user fit fun (Gaussian, exponential, p1, p2 ...)
+    #
+    # Jul 08 2026: pass new stat_dict and use info to provide initial guesses for Gauss params.
 
     fitfun = args.FIT[0]
     FITFUN = args.FIT[0].upper()
@@ -3175,9 +3211,17 @@ def apply_plt_fit(args, name_legend, xbins_cen, ybins_contents, ybins_sigma):
         print(f" xxx ybins_sigma    = \n{ybins_sigma}")
         sys.stdout.flush()
 
+    #print(f"\n xxx stat_dict = \n{stat_dict}\n ybins_contents = \n{ybins_contents} \n")
+
     # this brute-force logic is ugly; maybe later can be more clever
     if FITFUN in FITFUN_GAUSS:
-        popt, pcov = curve_fit(func_gauss, xbins_cen, ybins_contents, sigma=ybins_sigma)
+        guess_amp  = np.max(ybins_contents)
+        guess_mean = stat_dict['avg'][0]
+        guess_sig  = stat_dict['stddev'][0]        
+        initial_guess = [ guess_amp, guess_mean, guess_sig ]
+        logging.info(f"Initial {FITFUN}-fitpar guess (amp,mean,sig) = {initial_guess}")
+        popt, pcov = curve_fit(func_gauss, xbins_cen, ybins_contents, sigma=ybins_sigma, 
+                               p0=initial_guess)
         yfun_cen   = func_gauss(xbins_cen, *popt)
     elif FITFUN in FITFUN_EXP:
         popt, pcov = curve_fit(func_exp, xbins_cen, ybins_contents, sigma=ybins_sigma)
@@ -3336,10 +3380,10 @@ def get_wgtfun_user(xcen,wgtfun):
         
     return wgt_vals
 
-def print_cid_list(df, name_legend) :
+def print_cid_list_cuts(df, plot_info, name_legend) :
     
     # print list of cids to stdout
-    varname_idrow = plot_info.varname_idrow # e.g., CID or GALID or ROW 
+    varname_idrow = plot_info.varname_idrow      # e.g., CID or GALID or ROW 
     id_list = sorted(df[varname_idrow].to_numpy())[0:NMAX_CID_LIST]
 
     id_string = ','.join(id_list)
@@ -3349,6 +3393,51 @@ def print_cid_list(df, name_legend) :
     return
 
 
+def  write_tf_cuts(args, key_name, plot_info, name_legend):
+
+    # write table file for rows passing cuts and include ALL columns,
+    # not just the columns needed to make plot.
+
+    tf_path   = plot_info.MASTER_DF_DICT[key_name]['tfile']
+    colsep    = plot_info.MASTER_DF_DICT[key_name]['colsep']
+    df_cuts   = plot_info.MASTER_DF_DICT[key_name]['df']
+    nrow_cuts = len(df_cuts)
+
+    tf_base = os.path.basename(tf_path)
+    tf_base = tf_base.replace('.gz','')
+    tf_out  = f"{key_name}+CUTS_{tf_base}"
+    logging.info(f" Write new {tf_out} for rows passing cuts in {tf_path}")
+    
+    # the passed df_cuts only contains columns used to plot and make cuts;
+    # to get all colummns, re-read original table again
+    df_all  = pd.read_csv(tf_path, comment="#", sep=colsep)
+    nrow_all   = len(df_all)
+
+    # get id list passing cuts
+    varname_idrow = plot_info.varname_idrow      # e.g., CID or GALID or ROW     
+    id_list = sorted(df_cuts[varname_idrow].to_numpy())
+
+    # remake dataframe with cuts and ALL colums
+    df_cuts_allcol = df_all[df_all['CID'].isin(id_list)]
+    #sys.exit(df_cuts)
+
+    # write output table
+
+    with open(tf_out,"wt") as t:
+        t.write(f"# Original table file: {tf_path}\n")
+        t.write(f"# Original number of rows: {nrow_all} \n")
+        t.write(f"# Cuts: {args.CUT}\n")
+        t.write(f"# Number of rows after cuts: {nrow_cuts} \n")
+        t.write(f"#\n")
+
+    # force some formatting to avoid numbers like 2.1 being writting as 2.10000000000001
+    #df_cuts_allcol['RA']  = df_cuts_allcol['RA'].map('{:.5f}'.format)
+    #df_cuts_allcol['DEC'] = df_cuts_allcol['DEC'].map('{:.5f}'.format)
+
+    df_cuts_allcol.to_csv(tf_out, mode="a", sep=' ', index=False )
+
+    #sys.exit(plot_info)
+    return
 
 # ===================================================
 #   Add main, June 2024

@@ -140,6 +140,8 @@ def write_header_snana(f, data_head):
         SKIP_KEY = False
         for key_skip in key_skip_list:
             if key_skip in key: SKIP_KEY = True
+
+        if 'PRIVATE' in key: SKIP_KEY = False
         if SKIP_KEY: continue
         
         key_plus_err   = f"{key}_ERR"
@@ -346,7 +348,8 @@ def write_aux_files_snana(name, args, config_data):
     data_dir      = f"{outdir}/{folder_out}"
     search_string = f"{prefix}*{gpar.TEXTFILE_SUFFIX}*"
 
-    data_file_list = glob.glob1(data_dir, f"{search_string}" )
+    # xxx mark data_file_list = sorted(glob.glob1(data_dir, f"{search_string}" ))
+    data_file_list = sorted(glob.glob(f"{search_string}", root_dir = data_dir ))
     list_file      = f"{data_dir}/{folder_out}.LIST"
     readme_file    = f"{data_dir}/{folder_out}.{gpar.SUFFIX_README}"
 
@@ -525,7 +528,8 @@ def merge_snana_driver(args):
     # merge SPLIT folders; get all prefixes by scooping up all SPLIT001 job
 
     search_string = f"{survey}*{gpar.PREFIX_SPLIT}001"
-    split_dir_list = sorted(glob.glob1(outdir, search_string ))
+    # xxx mark split_dir_list = sorted(glob.glob1(outdir, search_string ))
+    split_dir_list = sorted(glob.glob(search_string, root_dir=outdir ))
     for split_dir in split_dir_list:
         # if split_dir = LSST_WFDY01_SPLIT001, base_name=LSST_WFDY01
         merge_folder = split_dir.split(f"_{gpar.PREFIX_SPLIT}")[0]
@@ -536,14 +540,16 @@ def merge_snana_driver(args):
 
     # merge Y## folders into folder with all seasons
     search_string = f"{survey}_*{gpar.PREFIX_SEASON}*"
-    year_dir_list = sorted(glob.glob1(outdir, search_string ))
+    # xxx mark year_dir_list = sorted(glob.glob1(outdir, search_string ))
+    year_dir_list = sorted(glob.glob(search_string, root_dir = outdir ))
     merge_folder  = year_dir_list[0].split(f"_{gpar.PREFIX_SEASON}")[0]
     merge_snana_folders(gpar.MODE_MERGE_LINK,
                         outdir, search_string, merge_folder)
 
     # archive TEXT versions
     TEXT_archive_dir = "TEXT_archive"
-    TEXT_list = glob.glob1(outdir, f"TEXT*" )
+    # xxx mark  TEXT_list = glob.glob1(outdir, f"TEXT*" )
+    TEXT_list = glob.glob(f"TEXT*", root_dir = outdir )
     if len(TEXT_list) > 0 :
         os.mkdir(f"{outdir}/{TEXT_archive_dir}")
         cmd_mv = f"cd {outdir} ; mv TEXT*.tar.gz {TEXT_archive_dir}"
@@ -575,7 +581,8 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
     for key in gpar.KEYLIST_README_STATS:
         statsum_dict[key] = 0
 
-    folder_list = sorted(glob.glob1(outdir, f"{folder_list_string}" ))
+    # xxx mark folder_list = sorted(glob.glob1(outdir, f"{folder_list_string}" ))
+    folder_list = sorted(glob.glob(f"{folder_list_string}", root_dir = outdir ))
     
     for folder in folder_list :
         n_move += 1
@@ -588,7 +595,8 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
             cmd    = f"cd {FOLDER}; {cmd_mv}"
         else:
             cmd = f"cd {outdir}/{merge_folder} ; "
-            fits_file_list = glob.glob1(FOLDER, f"*.FITS.gz" )
+            # xxx mark fits_file_list = glob.glob1(FOLDER, f"*.FITS.gz" )
+            fits_file_list = glob.glob(f"*.FITS.gz", root_dir = FOLDER )
             for fits_file in fits_file_list :
                 cmd += f"ln -s ../{folder}/{fits_file} {fits_file} ; "
         os.system(cmd)
@@ -647,7 +655,8 @@ def merge_snana_folders(MODE, outdir, folder_list_string, merge_folder):
         os.system(cmd)
 
     # create merged LIST file
-    HEAD_list = glob.glob1(merge_folder_full, "*HEAD*.FITS.gz" )
+    # xxx mark HEAD_list = glob.glob1(merge_folder_full, "*HEAD*.FITS.gz" )
+    HEAD_list = sorted( glob.glob("*HEAD*.FITS.gz", root_dir = merge_folder_full ) )
     LIST_file = f"{merge_folder_full}/{merge_folder}.LIST"
     with open(LIST_file,"wt") as l :
         for item in HEAD_list:

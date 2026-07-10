@@ -3,6 +3,8 @@ import datetime, time, subprocess
 import submit_util as util
 #import pandas as pd
 import re
+from astropy.io import fits
+import numpy as np
 
 from   submit_params import *
 from   submit_prog_base import Program
@@ -81,9 +83,12 @@ class HostPropertyFit(Program):
         #galid_map_file = self.get_filepath(GALID_MAP_FILE, CIGALE_INPUT_SUBDIR)
         #cigale_csv_file = self.get_filepath(CIGALE_CSV_FILE, CIGALE_INPUT_SUBDIR)
 
+        prescale_num = self.config_yaml['args'].prescale
+        #print('xxx prescale = ', prescale_num)
+
         command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
 
-        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE}'
+        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE} --prescale {prescale_num}'
 
         os.mkdir(cigale_input_dir)
         os.system(command_copy)
@@ -318,12 +323,16 @@ class HostPropertyFit(Program):
 
     def append_info_file(self,f):
         CONFIG             = self.config_yaml['CONFIG']
+        n_fitopt = self.config_prep['n_fitopt']
+        #print('xxx n_fitopt ', n_fitopt)
         f.write("# BEGIN HOSTFIT INFO \n")
         f.write(f"JOBFILE_WILDCARD:    '{FITOPT_STRING}*' \n")
 
         KEY = FITOPT_STRING
         f.write(f"{KEY}: \n")
-        for row in CONFIG[KEY] :
+        # This loop should only run if there's another fitopt besides FITOPT000
+        for ijob in range(n_fitopt-1):
+            row = CONFIG[KEY][ijob]
             f.write(f"- {row} \n")
 
         return
@@ -505,9 +514,15 @@ class HostPropertyFit(Program):
 
         CONFIG     = self.config_yaml['CONFIG']
         n_core   = CONFIG['BATCH_NTHREADS']
-        
+
+        KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG                                                                                                                                                
+        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
+        print(f'xxx {len(fitopt_rows)}, {len(fitopt_dict)}')
+
         script_dir    = self.config_prep['script_dir']
         prefix = self.get_prefix_name()
+        # Move the lines below inside a for loop iterating over 000, 001, etc. and take avg CPU_PER_GAL
         symlink_log_name = script_dir + '/' + f'FITOPT000_{prefix}.LOG'
 
         with open(symlink_log_name) as f:
@@ -524,11 +539,8 @@ class HostPropertyFit(Program):
             LINE = f'CPU_PER_GALAXY: {CPU_PER_GAL}  # minutes'
             lines.append(LINE)
 
-        KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
-        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
-        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
-        fitopt_num = fitopt_dict['jobopt_num_list'][irow]
-        cigale_results_subdir =fitopt_num + '/out'
+        # Hard code FITOPT000 since number of NaN logmasses should be the same for all fitopts
+        cigale_results_subdir = 'FITOPT000/out'
         cigale_result_file = self.get_filepath('results.fits', cigale_results_subdir)
         num_invalid, tot_len = self.count_invalid_logmasses(cigale_result_file)
         LINE_nan_num = f'NaN_LOGMASSES: {num_invalid}'

@@ -271,9 +271,10 @@ void fits_read_SNGRID(int OPTMASK, char *sngridFile,
 
     // compute bin size
     float dif = SNGRID->VALUE[ipar][NROW] - SNGRID->VALUE[ipar][1] ;
-    SNGRID->BINSIZE[ipar] = dif/(float)(NROW-1);
-    //      SNGRID->VALUE[ipar][2] - SNGRID->VALUE[ipar][1] ;
-
+    if ( NROW > 1) 
+      { SNGRID->BINSIZE[ipar] = dif/(float)(NROW-1); }
+    else
+      { SNGRID->BINSIZE[ipar] = 0.0; } // fix divide-by-zero Jul 2 2026
     
     // read 2nd LAMAVG column for FILTER (Apr 2013)
     // Do NOT check for error in case of older GRID files.

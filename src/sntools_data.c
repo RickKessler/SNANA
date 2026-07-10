@@ -1342,7 +1342,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   char TABLE_NAME[] = "OVERRIDE" ;
   char VARLIST[]    = "ALL" ;  
   char fnam[]       = "RD_OVERRIDE_INIT" ; (void)fnam;
-  int LTRACE = 1 ;
+  int LTRACE = 0 ;
 
   // ----------- BEGIN -----------
 
@@ -1715,7 +1715,7 @@ void get_override_file_list(char *OVERRIDE_PATH, char *OVERRIDE_FILE_LIST) {
   char *OVERRIDE_PATH_LOCAL = (char*)malloc(MEMC);
 
   struct stat statbuf, linkbuf ; 
-  int LDMP = 1 ;
+  int LDMP = 0 ;
   char cWARN[20];
   char fnam[] = "get_override_file_list" ; (void)fnam;
 
@@ -1869,8 +1869,6 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   NEW_ID  = ( strcmp(RD_OVERRIDE.ID_LAST,  ID_LOCAL ) != 0 ) && NEW_CID;
 
   if ( NEW_ID ) {
-
-    // .xyz    if ( REFAC_DATA_FLAG ) 
 
       if ( LDMP ) {
 	printf(" xxx %s: NEW_ID for ID_LOCAL(LAST,NOW) = %s , %s (CID=%s)\n", 

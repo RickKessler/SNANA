@@ -1,4 +1,3 @@
-
 // Created Oct 2019 by R.Kessler
 
 #define MXPRIMARY_CALIB  6
@@ -8,8 +7,6 @@
 #define MXFILT_OBS_CALIB   62
 
 #define MXTABLE_KCOR   100   // max numver of kcor tables
-
-// xxx mark #define MXLAMBIN_FILT_CALIB  6000  // max wave bins for filter trans
 
 #define MXTBIN_KCOR   150
 #define MXZBIN_KCOR   100
@@ -41,6 +38,7 @@ int KCOR_VERBOSE_FLAG;
 int IFILTDEF_BESS_BX;
 int NERR_KCOR_AVWARP;
 char STRING_FRAME_CALIB[2][20];
+int MXLEN_FILTNAME; // max length of filter name
 
 struct {
   bool USE_AVWARPTABLE;  // speed up AVwarp calculation
@@ -73,7 +71,7 @@ typedef struct {
   int  IFILTDEF_INV[MXFILT_CALIB]; // vs. absolute index
   int  NDEFINE[MXFILT_CALIB];      // Number of times each IFILTDEF is defined
   int  NFILT_DUPLICATE;           // number of bands with duplicates
-  char FILTERSTRING[MXFILT_CALIB]; // list of single-char bands
+  char FILTERSTRING[MXFILT_CALIB]; // list of single-char bands ; e.g., 'ugriz'
   char *FILTER_NAME[MXFILT_CALIB]; // full name of each filter, vs. sparse indx
   char BAND_NAME[MXFILT_CALIB][2]; // single-char band name vs. sparse index
   char *SURVEY_NAME[MXFILT_CALIB];

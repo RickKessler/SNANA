@@ -1865,7 +1865,7 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
 
   TABLEFILE_INIT();
   NBIN_WAVE   = SNTABLE_NEVT(spec_file,TBLNAME);
-  IFILETYPE   = TABLEFILE_OPEN(spec_file,"read");
+  IFILETYPE   = TABLEFILE_OPEN(spec_file,"read", fnam);
   NVAR        = SNTABLE_READPREP(IFILETYPE,TBLNAME);
 
   if ( NBIN_WAVE > MXBIN_SPECBASIS ) {
@@ -2604,6 +2604,12 @@ void prep_head_HOSTLIB(void) {
 
   } // end ivar loop over all variables
 
+
+  if ( INPUTS.REFAC_DATA_FLAG == 701 ) {
+    int igal;
+    for(igal=0; igal < MXHOSTGAL; igal++ ) 
+      { SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ = HOSTLIB.NQZPHOT; }
+  }
 
   //-----------------------
   // sanity check on optioanl SNPARams
@@ -4515,7 +4521,7 @@ double snmagshift_salt2gamma_HOSTLIB(long long int GALID) {
 // =======================================
 void init_HOSTLIB_QUANTILE_ZPHOT(void) {
 
-  // Created Apr 19 2022 by R.Kess;er
+  // Created Apr 19 2022 by R.Kess;=ler
   // For nominal usage of zphot quantiles in HOSTLIB, this function
   // only prints information to stdout.
   // If force-Gauss option is set, this function initializes
@@ -4794,7 +4800,7 @@ void init_Gauss2d_Overlap(void) {
   ENVreplace(Gauss2dFile,fnam,1);
 
   TABLEFILE_INIT();
-  IFILETYPE = TABLEFILE_OPEN(Gauss2dFile, "read");
+  IFILETYPE = TABLEFILE_OPEN(Gauss2dFile, "read", fnam );
   SNTABLE_READPREP(IFILETYPE,TABLENAME);
 
   for ( IVAR = 0; IVAR < NVAR_Gauss2d; IVAR++ ) {
@@ -9906,6 +9912,7 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // July 16 2021: write DOCANA keys to FP_NEW
   // Feb 23 2026: return NLINE_GAL
   // Apr 07 2026: if input hostlib has '.gz' extension, remove it from ouput hostlib name
+  // Jul 08 2026: gzip HLIB_NEW with system() call
 
   char *SUFFIX       = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
   int  NLINE_COMMENT = HOSTLIB_APPEND->NLINE_COMMENT;
@@ -9925,10 +9932,7 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // create output file name HLIB_ORIG+APPEND, but if .gz is there then get rid of it
   if ( strstr(INPUTS.HOSTLIB_FILE,".gz") != NULL ) { LENF -= 3; }
   strncpy(HLIB_TMP, HLIB_ORIG, LENF);  HLIB_TMP[LENF] = '\0' ;
-  strcat(HLIB_TMP,SUFFIX); // append +HOSTNBR to outoput file name
-
-  // create local string with name of HOSTLIB
-  // xxx mark del Apr 7 2026   sprintf(HLIB_TMP, "%s%s", HLIB_ORIG, SUFFIX ); 
+  strcat(HLIB_TMP,SUFFIX); // append +HOSTNBR to output file name
 
   // remove path from HLIB_NEW to ensure that new file is created
   // locally and not in somebody else's directory.
@@ -9950,7 +9954,7 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  printf("\n  Created '%s' \n", HLIB_NEW);
+  printf("\n  %s: Create '%s' \n", fnam, HLIB_NEW);
   fflush(stdout);
 
   // - - - - - - - -
@@ -10005,9 +10009,8 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
     }
 
-    printf("  Wrote %d DOCANA lines to new HOSTLIB\n", NLINE_DOCANA);
+    printf("  %s: wrote %d DOCANA lines to new HOSTLIB\n", fnam, NLINE_DOCANA);
   } // end REQUIRE_DOCANA
-
 
   // - - - - - 
 
@@ -10079,7 +10082,16 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 
   if(gzipFlag ) { pclose(FP_ORIG); }  else { fclose(FP_ORIG); }
   fclose(FP_NEW);
-  printf("  Wrote %d GAL rows\n", NLINE_GAL);
+  printf("  %s: wrote %d GAL rows\n", fnam, NLINE_GAL);
+  fflush(stdout);
+
+  // Jul 8 2026: gzip HOSTNBR hostlib
+  char cmd[MXPATHLEN];
+  sprintf(cmd, "gzip %s", HLIB_NEW);
+  printf("  %s: %s ... \n",  fnam, cmd);  fflush(stdout);
+  int isys = system( cmd );  (void)isys;
+  printf("  %s: Done.\n", fnam);  
+  printf("\n");
   fflush(stdout);
 
   return NLINE_GAL ;

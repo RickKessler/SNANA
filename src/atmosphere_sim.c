@@ -1713,7 +1713,7 @@ void  mkplots(void) {
   ptrHis = INPUTS.hbook_outFile ;
 
   TABLEFILE_INIT();
-  TABLEFILE_OPEN(ptrHis,"new");
+  TABLEFILE_OPEN(ptrHis,"new", fnam);
 
   // hard-wire lambda binning to cover UV+optical
 

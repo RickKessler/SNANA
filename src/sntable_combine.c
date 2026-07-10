@@ -262,7 +262,7 @@ void openFile_combine(void) {
 
   int  IFILETYPE ;
   char openOpt[20], SUFFIX[20] ;
-  //  char fnam[] = "openFile_combine" ;
+  char fnam[] = "openFile_combine" ;
 
   // ----------- BEGIN -------------
 
@@ -273,7 +273,7 @@ void openFile_combine(void) {
   }
 
   sprintf(openOpt,"new");
-  OUTPUT.IFILETYPE = TABLEFILE_OPEN(INPUTS.OUTFILE,openOpt);
+  OUTPUT.IFILETYPE = TABLEFILE_OPEN(INPUTS.OUTFILE,openOpt, fnam);
   CDTOPDIR_OUTPUT(1);
 
 

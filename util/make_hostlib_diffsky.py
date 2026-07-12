@@ -383,10 +383,10 @@ def inject_mag_columns(df_cat, config):
     # Drop gal_id — it was added temporarily for the join, not a HOSTLIB output column
     df_cat = df_cat.drop(columns=['gal_id'])
 
-    n_missing = df_cat[mag_bands[0]].isna().sum() if mag_bands else 0
+    n_missing = df_cat[m5sig_bands[0]].isna().sum() if m5sig_bands else 0
     if n_missing > 0:
         logging.warning(f"  inject_mag_columns: {n_missing}/{n_before} galaxies have no mag match — filling 0.0")
-        for band in mag_bands:
+        for band in m5sig_bands:
             df_cat[band] = df_cat[band].fillna(0.0)
 
     logging.info(f"  inject_mag_columns: merged mags for {n_before - n_missing:,}/{n_before:,} galaxies")

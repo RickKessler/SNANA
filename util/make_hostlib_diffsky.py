@@ -20,7 +20,7 @@ import os, argparse, logging, shutil, datetime, time, glob, random
 import re, yaml, sys, gzip, math, subprocess
 import pandas as pd
 
-import opencosmo as oc
+#import opencosmo as oc
 import numpy as np
 from pathlib import Path
 
@@ -1088,7 +1088,6 @@ if __name__ == "__main__":
     setup_logging()
     logging.info("# ========== BEGIN make_simsed_binaries ===============")
 
-    logging.info(f"opencosmo version: {oc.__version__}")
     
     t_start = time.time()
     args   = get_args() 
@@ -1104,6 +1103,9 @@ if __name__ == "__main__":
 
     # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
     config  = parse_hostlib_info(config)
+
+    import opencosmo as oc
+    logging.info(f"opencosmo version: {oc.__version__}")
 
     # fetch entire galaxy catalog from HDF5
     galaxy_cat  = read_galaxy_cat(args, config)

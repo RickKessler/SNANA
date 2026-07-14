@@ -938,7 +938,6 @@ def find_duplicates(args) :
     # Created Feb 21 2025
     table_file = args.table_file_dupl[0]
 
-
     # define possible ID keys for table
     COLNAME_ID_LIST = [ 'ROW', 'CID', 'GAL' ]
 
@@ -963,12 +962,14 @@ def find_duplicates(args) :
         sys.exit(f"\n ERROR: Could not find colname {COLNAME_ID_LIST} \n\t to search duplicates ")
 
     id_list = df[colname_id].astype(str).to_list()
+    id_list = [x for x in id_list if x != 0 and x != '0' ]  # drop 0's that could mean no value
+    n_list = len(id_list)
 
     seen = set()
     dupes = [x for x in id_list if x in seen or seen.add(x)]
 
     ndup = len(dupes)
-    print(f"\n Found {ndup} {colname_id} duplicates: \n\t {dupes}")
+    print(f"\n Found {ndup} {colname_id} duplicates from {n_list} rows: \n\t {dupes}")
 
     if ndup == 0          : return
     if user_colname_check : return

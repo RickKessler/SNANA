@@ -33,6 +33,7 @@ KEY_HOSTLIB_VARNAMES_MAP = "HOSTLIB_VARNAMES_MAP"
 KEY_HOSTLIB_FILE         = "HOSTLIB_FILE"
 KEY_CUTWIN               = "CUTWIN"
 KEY_MAG_5SIG             = "MAG_5SIG"
+KEY_MAG_SNR              = "MAG_SNR"
 KEY_HOSTLIB_GALID        = "GALID"
 KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
 
@@ -288,8 +289,42 @@ def addcol_sersic_sizes(cat_inp, config):
 
 # logsfr_obs = logssfr_obs + logsm_obs is computed at the pandas level in add_col_pd
 
+def parse_config(config):
 
-def parse_m5sig(config):    
+    config = parse_config_m5sig(config)
+    config = parse_config_mag_snr(config)    
+    
+    return config
+
+# end parse_config
+
+
+def parse_config_mag_snr(config):
+
+    # Created Jul 14 2026
+    # parse MAG_SNR block if the form
+    # MAG_SNR:
+    # - [band]  [m0] [snr0]   [m1] [snr1]  [sig_m]  
+    # - ... etc
+
+    MAG_SNR = config.get(KEY_MAG_SNR, [])
+    mag_snr_dict = {}
+
+    for row in MAG_SNR:
+        words = row.split()
+        band  = words[0]
+        mag_list = [ words[1], words[3] ]
+        snr_list = [ words[2], words[4] ]
+        std_mag  = words[5]
+        mag_snr_dict[band] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
+        
+    config['mag_snr_dict'] = mag_snr_dict
+
+    #sys.exit(f"\n xxx mag_snr_dict = \n{mag_snr_dict}")
+    return config
+#end parse_config_mag_snr
+
+def parse_config_m5sig(config):    
     """ parse and load m5sig dictionaries and m5sig_bands list to config.
     """
     MAG_5SIG = config.get(KEY_MAG_5SIG, [])
@@ -311,7 +346,7 @@ def parse_m5sig(config):
     config['m5sig_bands']    = list(m5sig_dict.keys())
         
     return config
-
+#end parse_config_m5sig
 
 def inject_mag_columns(df_cat, config):
     ### Jun, 2026. AI + AMITRA
@@ -406,10 +441,35 @@ def add_col_pd(df_cat, config):
     # logsfr = logssfr + logmass
     logging.info("  Append logsfr_obs = logssfr_obs + logsm_obs")
     df_cat['logsfr_obs'] = df_cat['logssfr_obs'] + df_cat['logsm_obs']
-    len_df = len(df_cat)
-    
     print_proc_time(t0, "ADDCOL_LOGSFR", None)
 
+
+    df_cat = add_col_magerr(df_cat, config)
+    print_proc_time(t0, "ADDCOL_MAGERR", None)
+    
+
+    return df_cat  # end add_col_pd
+
+def add_col_magerr(df_cat, config):
+
+    m5sig_dict      = config['m5sig_dict']
+    if len(m5sig_dict) > 0:
+        df_cat = add_col_magerr_m5sig(df_cat,config)
+
+        
+    mag_snr_dict = config['mag_snr_dict']
+    if len(mag_snr_dict) > 0:
+        df_cat = add_col_magerr_snr(df_cat,config)
+        
+    return df_cat
+
+def add_col_magerr_snr(df_cat,config):
+
+    return df_cat
+#end add_col_magerr_snr
+
+def add_col_magerr_m5sig(df_cat,config):
+    
     # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes).
     # Beware that sky-dominated bkg is assumed, which is very rough approximation for SNR=5.
     #
@@ -417,7 +477,7 @@ def add_col_pd(df_cat, config):
     SNR5_INV = 0.2
     FAC_DFDM = 1.086  # 2.5/ln(10)
     MXMAGERR = 5.0
-    
+
     m5sig_bands     = config['m5sig_bands']
     if len(m5sig_bands) == 0 :
         return df_cat   # return unchanged cat
@@ -425,14 +485,12 @@ def add_col_pd(df_cat, config):
     # - - - - - - -
     m5sig_dict      = config['m5sig_dict']
     m5sig_std_dict  = config['m5sig_std_dict']
-    # .xyz
+    rng             = np.random.default_rng(seed=42)
 
-    rng = np.random.default_rng(seed=42)
-
-
-    logging.info('  Append mag error columns:')
+    logging.info('  Append mag error columns using MAG_5SIG:')
     t0         = time.time()
-        
+
+    len_df = len(df_cat)    
     for band in m5sig_bands :
         band_err   = band + '_err'
         m5sig      = m5sig_dict[band]
@@ -451,10 +509,8 @@ def add_col_pd(df_cat, config):
         df_cat[band_err] = np.clip(err_values, a_min=None, a_max=MXMAGERR)
 
 
-    print_proc_time(t0, "ADDCOL_MAGERR", None)
-
-    return df_cat  # end add_col_pd
-
+    return df_cat
+# end add_col_magerr_m5sig
 
 def check_Sersic_definitions(config):
 
@@ -1093,8 +1149,9 @@ if __name__ == "__main__":
     args   = get_args() 
     config = read_yaml(args.config_file)
 
-    config = parse_m5sig(config)
-    
+    # add more stuff to config for easier access below
+    config = parse_config(config)
+
     # make sure Sersic column definitions are consistent to avoid crash later
     check_Sersic_definitions(config)
 

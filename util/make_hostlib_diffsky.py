@@ -14,6 +14,9 @@
 #  + if .gz is in HOSTLIB name, write gzipped file
 #  + for MAG_5SIG input key, add optional 3rd colum for stddev(m5sig)
 #
+# Jul 14: parse_m5sig -> parse_config which calls parse_config_m5sig and parse_config_mag_snr
+#         (minor refac before implementing new MAG_SNR method for computing errors)
+#
 # ===================================================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
@@ -319,7 +322,8 @@ def parse_config_mag_snr(config):
         mag_snr_dict[band] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
         
     config['mag_snr_dict'] = mag_snr_dict
-
+    config['magerr_bands'] = list(mag_snr_dict.keys())
+    
     #sys.exit(f"\n xxx mag_snr_dict = \n{mag_snr_dict}")
     return config
 #end parse_config_mag_snr
@@ -343,8 +347,9 @@ def parse_config_m5sig(config):
 
     config['m5sig_dict']     = m5sig_dict
     config['m5sig_std_dict'] = m5sig_std_dict
-    config['m5sig_bands']    = list(m5sig_dict.keys())
-        
+    config['m5sig_bands']    = list(m5sig_dict.keys())  # to become obsolete
+    config['magerr_bands']   = list(m5sig_dict.keys())
+    
     return config
 #end parse_config_m5sig
 
@@ -427,7 +432,7 @@ def inject_mag_columns(df_cat, config):
     logging.info(f"  inject_mag_columns: merged mags for {n_before - n_missing:,}/{n_before:,} galaxies")
 
     return df_cat
-
+# end inject_mag_columns
 
 def add_col_pd(df_cat, config):
     """Add columns via simple pandas arithmetic (after HDF5→pandas conversion).
@@ -444,9 +449,10 @@ def add_col_pd(df_cat, config):
     print_proc_time(t0, "ADDCOL_LOGSFR", None)
 
 
+    # RK - Jul 14 2026 - define wrapper to add mag errors
+    t0     = time.time()    
     df_cat = add_col_magerr(df_cat, config)
     print_proc_time(t0, "ADDCOL_MAGERR", None)
-    
 
     return df_cat  # end add_col_pd
 
@@ -465,13 +471,34 @@ def add_col_magerr(df_cat, config):
 
 def add_col_magerr_snr(df_cat,config):
 
+    # add magerr column using MAG_SNR block that provides two mag,snr pairs
+    # to compute an effective ZP and sigSky.
+
+    mag_snr_dict = config['mag_snr_dict']
+    if len(mag_snr_dict) == 0:
+        return df_cat
+
+    rng    = np.random.default_rng(seed=42)
+    len_df = len(df_cat)
+    
+    logging.info('  Append mag error columns using MAG_SNR:')
+
+    for band in list(mag_snr_dict.keys()):
+        mag_list = mag_snr_dict[band]['mag_list']
+        snr_list = mag_snr_dict[band]['snr_list']
+        std_mag  = mag_snr_dict[band]['std_mag']
+        print(f" xxx {band} mag_list={mag_list}  snr_list={snr_list}  std_mag={std_mag}")
+
+    sys,exit(f"\n xxx bye from add_col_magerr_snr")
     return df_cat
+
 #end add_col_magerr_snr
 
 def add_col_magerr_m5sig(df_cat,config):
     
     # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes).
-    # Beware that sky-dominated bkg is assumed, which is very rough approximation for SNR=5.
+    # Beware that sky-dominated bkg is assumed, which becomesa poor approx
+    # as source becomes brighter.
     #
     MAG_5SIG = config.get(KEY_MAG_5SIG, [])
     SNR5_INV = 0.2
@@ -486,11 +513,10 @@ def add_col_magerr_m5sig(df_cat,config):
     m5sig_dict      = config['m5sig_dict']
     m5sig_std_dict  = config['m5sig_std_dict']
     rng             = np.random.default_rng(seed=42)
-
+    len_df          = len(df_cat)
+    
     logging.info('  Append mag error columns using MAG_5SIG:')
-    t0         = time.time()
 
-    len_df = len(df_cat)    
     for band in m5sig_bands :
         band_err   = band + '_err'
         m5sig      = m5sig_dict[band]

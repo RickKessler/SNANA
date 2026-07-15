@@ -8,6 +8,7 @@
 # Ref code for Roman-DESC hostlib:
 #   $ELASTICC_ROOT/roman+desc/inputs_hostlib/make_hostlib_from_GCRCat.py
 #
+#     HISTORY
 # Jun 01 2026 RK - add SNANA and OpenCosmo code versions in provence section of DOC.
 # Jul 06 2026 RK - fix bug computing magerr (replace 0.2 with 0.4 in 10**(...)
 # Jul 08 2026 RK
@@ -16,6 +17,12 @@
 #
 # Jul 14: parse_m5sig -> parse_config which calls parse_config_m5sig and parse_config_mag_snr
 #         (minor refac before implementing new MAG_SNR method for computing errors)
+#
+# Jul 15 2026 RK - refactor inject_mag_columns -> inject_override_columns:
+#      + generalize OVERRIDE to any variable (not just mags)
+#      + use explicit OVERRIDE_COLUMN list instead of  m5sig magerr list for variables names.
+#      + organize config inits in parse_config_driver()
+#      + if adding magerrs, auto-append obs_err_min, obs_err_min2, obs_err_min3
 #
 # ===================================================================
 
@@ -39,13 +46,15 @@ KEY_MAG_5SIG             = "MAG_5SIG"
 KEY_MAG_SNR              = "MAG_SNR"
 KEY_HOSTLIB_GALID        = "GALID"
 KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
+KEY_OVERRIDE_COL         = "OVERRIDE_COLUMNS"
 
 
 REF_DICT = {
     'REF1': [ 'Heitmann+ 2021 (N-body sim)',
               'https://ui.adsabs.harvard.edu/abs/2021ApJS..252...19H' ]
-    }
+}
 
+NULL_VAL = -999
 
 # hard-wire sersic indices for each galaxy component
 SERSIC_INDEX_DICT = {  'n_disk_Sersic': 1.0,    'n_bulge_Sersic': 4.0 }
@@ -59,7 +68,12 @@ DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
 DIFFSKY_ANGLE_PREFIX = "psi"
 
 # columns computed at the pandas level (after HDF5→pandas conversion); excluded from HDF5 select
-ADDCOL_PD_NAMES = ['logsfr_obs']
+ADDCOL_PD_NAMES  = ['logsfr_obs']
+ADDCOL_PD_ERRMIN = [ 'obs_err_min', 'obs_err_min2', 'obs_err_min3' ]
+
+VARTYPE_DIFFSKY = "DIFFSKY"
+VARTYPE_HOSTLIB = "HOSTLIB"
+
 
 # ============================
 def setup_logging():
@@ -261,7 +275,7 @@ def addcol_sersic_sizes(cat_inp, config):
     arsec_per_rad = (180.0/3.14159) * 3600.0
     fac           = .001 * arsec_per_rad       # size(arcsec) = fac * d/D_A
     
-    logging.info('')  # .xyz
+    logging.info('')  
     logging.info('Append Sersic sizes (arcsec) computed from physical sizes (kpc):')
     addcol_dict = {}
     D_A         = cat_out.select(['D_A']).get_data().value    
@@ -292,17 +306,208 @@ def addcol_sersic_sizes(cat_inp, config):
 
 # logsfr_obs = logssfr_obs + logsm_obs is computed at the pandas level in add_col_pd
 
-def parse_config(config):
+def parse_config_driver(config):
 
-    config['magerr_bands'] = []
+    # July 2026
+    # Driver routint to parse config file and compute lots of handy
+    # lists and dictionaries.
     
+
+    # make sure Sersic column definitions are consistent to avoid crash later
+    check_Sersic_definitions(config)
+
+    # parse required varname mapping between diffsky and hostlib
+    config   = parse_config_varname_map(config)
+
+    # parse optional override file
+    config   = parse_config_override(config)
+    
+    # check options to compute mag errors
+    # xxx config['magerr_bands'] = []
+    config['band_magerr_list_diffsky'] = []
     config = parse_config_m5sig(config)
     config = parse_config_mag_snr(config)    
+    config['add_magerr']   = len(config['band_magerr_list_diffsky']) > 0
     
+    # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
+    config  = parse_config_hostlib_info(config)
+
+    logging.info(f"")
+
     return config
 
-# end parse_config
+# end parse_config_driver
 
+def parse_config_varname_map(config):
+
+    logging.info('')
+    logging.info(f"Parse {KEY_HOSTLIB_VARNAMES_MAP}" )
+
+    # read map from user input and covert to dictionarys
+    HOSTLIB_VARNAMES_MAP = config[KEY_HOSTLIB_VARNAMES_MAP]
+
+    hostlib_varname_dict = {}
+    hostlib_format_dict  = {}
+
+    HOSTLIB_VARNAMES_STRING = ''
+    HOSTLIB_VARNAMES_LIST   = []
+    FOUND_GALID = False
+
+    # if [band]_obs_err are defined as HOSTLIB vars, then automatically add
+    # obs_err_min and obs_err_min2
+    rownum_list_obs_err = get_rownums_substring(HOSTLIB_VARNAMES_MAP, '_obs_err')
+    if len(rownum_list_obs_err) > 0:
+        rownum_last = int(rownum_list_obs_err[-1] )
+        global ADDCOL_PD_NAMES
+        for i, addcol in enumerate(ADDCOL_PD_ERRMIN) :
+            rownum_insert = rownum_last + 1 + i
+            HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol}  {addcol}  6.3f')
+            ADDCOL_PD_NAMES.append(addcol)            
+        
+    #sys.exit(f"\n xxx HOSTLIB_VARNAMES_MAP = \n{HOSTLIB_VARNAMES_MAP}")
+
+    for row in HOSTLIB_VARNAMES_MAP:
+        logging.info(f"\t {row}")
+        tmp_list = row.split()
+        varname_diffsky = tmp_list[0]
+        varname_hostlib = tmp_list[1]
+        format_hostlib  = tmp_list[2]
+        hostlib_varname_dict[varname_diffsky] = varname_hostlib
+        hostlib_format_dict[varname_diffsky]  = format_hostlib
+        HOSTLIB_VARNAMES_STRING += f"{varname_hostlib} "
+        HOSTLIB_VARNAMES_LIST.append(varname_hostlib)
+        
+        if varname_hostlib == KEY_HOSTLIB_GALID:  FOUND_GALID = True
+            
+    logging.info('')
+
+    config['hostlib_varname_dict']    = hostlib_varname_dict
+    config['hostlib_format_dict']     = hostlib_format_dict
+    config['HOSTLIB_VARNAMES_STRING'] = HOSTLIB_VARNAMES_STRING
+    config['HOSTLIB_VARNAMES_LIST']   = HOSTLIB_VARNAMES_LIST    
+    config['FOUND_GALID']             = FOUND_GALID
+    
+    return config
+# end parse_config_varname_map
+
+
+
+def get_rownums_substring(rowlist, substr):
+    # return list of row numbers containing "substr" string
+    # E.g., rowlist = [ 'hello', 'bye', apple',  'app' ] and substr='app',
+    # then this function returns [ 2, 3]
+    
+    rownum_list = []
+
+    rownum = 0
+    for row in rowlist:
+        if substr in row:
+            rownum_list.append(rownum)
+        rownum += 1
+        
+    return rownum_list
+# end get_rownums_substring
+
+def parse_config_hostlib_info(config):
+
+    # parse list of HOSTLIBs;
+    # for each output HOSTLIB file, store area fraction to include.
+    
+    HOSTLIB_VARNAMES_STRING = config['HOSTLIB_VARNAMES_STRING'] 
+    hostlib_dict = {}
+
+    area_frac_list = []
+    HOSTLIB_FILE_LIST = config[KEY_HOSTLIB_FILE]
+    for row in HOSTLIB_FILE_LIST:
+        hostlib_file = row.split()[0]
+        area_frac    = float(row.split()[1])            
+        hostlib_dict[hostlib_file] = {
+            'area_frac'  : area_frac ,
+            'ra_range'   : [] ,  # to be computed and filled later ..
+            'dec_range'  : []
+        }
+        area_frac_list.append(area_frac)
+
+    area_frac_max  = max(area_frac_list)
+    n_hostlib      = len(HOSTLIB_FILE_LIST)
+
+    # store more goodies on config blocl
+    config['n_hostlib']      = n_hostlib
+    config['hostlib_dict']   = hostlib_dict
+    config['area_frac_max']  = area_frac_max
+        
+    return config
+# end parse_config_hostlib_info
+
+
+def parse_config_override(config):
+
+    if KEY_OVERRIDE_FILE not in config:
+        return config  # nothing to do here
+
+    logging.info("")
+    logging.info(f"Prepare {KEY_OVERRIDE_FILE} {config[KEY_OVERRIDE_FILE]}")
+    
+    override_file = os.path.expandvars(config[KEY_OVERRIDE_FILE])
+    if not os.path.exists(override_file):
+        sys.exit(f"\n ERROR: cannot find {KEY_OVERRIDE_FILE}: \n\t {override_file}")
+
+    if KEY_OVERRIDE_COL not in config:
+        sys.exit(f"\n ERROR: missing {KEY_OVERRIDE_COL} key to define columns in {KEY_OVERRIDE_FILE}")
+
+    
+    override_varlist_orig    = config[KEY_OVERRIDE_COL].split()
+    override_varlist_diffsky = []
+    nvar_override = len(override_varlist_orig)
+    nvar_found    = 0
+    count_dict = { VARTYPE_HOSTLIB: 0, VARTYPE_DIFFSKY: 0 }
+    varlist_missing = []
+    
+    for var in override_varlist_orig:
+        vartype, (varname_diffsky, varname_hostlib) = get_vartype(var,config)
+        if vartype:
+            override_varlist_diffsky.append(varname_diffsky)
+            count_dict[vartype] += 1
+            nvar_found += 1
+            logging.info(f"   Identified {vartype} varname for {var} : varname_diffsky = {varname_diffsky}")
+        else:
+            varlist_missing.append(var)
+            logging.info(f"ERROR: could not find overide var {var} in {KEY_HOSTLIB_VARNAMES_MAP}")
+    # - - - -
+    if nvar_found != nvar_override:
+        sys.exit(f"\n ERROR: expect {nvar_override} OVERRIDE COLUMNS, \n" \
+                 f"\t but found {nvar_found} override vars in {KEY_HOSTLIB_VARNAMES_MAP}.\n" \
+                 f"\t Missing override vars: {varlist_missing}")
+
+    if count_dict[VARTYPE_HOSTLIB] > 0 and count_dict[VARTYPE_DIFFSKY] > 0:
+        sys.exit(f"\n ERROR: cannot mix DIFFSKY & HOSTLIB varnames in {KEY_OVERRIDE_COL}")
+
+    config['override_varlist']         = override_varlist_orig  # varlist in OVERRIDE_FILE
+    config['override_varlist_diffsky'] = override_varlist_diffsky # diffsky names
+    
+    PRINT_DEBUG = False
+    if PRINT_DEBUG :
+        print(f" xxx ")
+        print(f" xxx count_dict = {count_dict}")
+        print(f" xxx override_varlist_orig = {override_varlist_orig}")
+        print(f" xxx override_varlist_diffsky = {override_varlist_diffsky}")
+        sys.exit(f"\n xxx bye")
+
+    return config
+# end parse_config_override
+
+def get_vartype(varname, config):
+
+    vartype = None
+    hostlib_varname_dict = config['hostlib_varname_dict']
+    for varname_diffsky, varname_hostlib in hostlib_varname_dict.items():
+        if varname ==  varname_diffsky:
+            vartype = VARTYPE_DIFFSKY
+            return VARTYPE_DIFFSKY, (varname_diffsky,varname_hostlib)
+        if varname == varname_hostlib:
+            return VARTYPE_HOSTLIB, (varname_diffsky,varname_hostlib)
+            
+    return None, (None,None)
 
 def parse_config_mag_snr(config):
 
@@ -318,11 +523,15 @@ def parse_config_mag_snr(config):
     for row in MAG_SNR:
         words = row.split()
         band  = words[0]
+
+        # if user defines HOSTLIB mag names, convert back to diffksy mag names
+        vartype, (band_diffsky, band_hostlib) = get_vartype(band, config)
+        
         mag_list = [ float(words[1]), float(words[3]) ]
         snr_list = [ float(words[2]), float(words[4]) ]
         std_mag  = float(words[5])
-        mag_snr_dict[band] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
-        config['magerr_bands'].append(band)
+        mag_snr_dict[band_diffsky] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
+        config['band_magerr_list_diffsky'].append(band_diffsky)
         
     config['mag_snr_dict'] = mag_snr_dict
     
@@ -344,21 +553,24 @@ def parse_config_m5sig(config):
         mag   = words[1]
         std   = 0.0
         if len(words) > 2:  std = words[2]
-        m5sig_dict[band]     = float(mag)
-        m5sig_std_dict[band] = float(std)
-        config['magerr_bands'].append(band)
+
+        # if user defines HOSTLIB mag names, convert back to diffksy mag names
+        vartype, (band_diffsky, band_hostlib) = get_vartype(band, config)
         
+        m5sig_dict[band_diffsky]     = float(mag)
+        m5sig_std_dict[band_diffsky] = float(std)
+        config['band_magerr_list_diffsky'].append(band_diffsky)
+
+    # - - - - 
     config['m5sig_dict']     = m5sig_dict
     config['m5sig_std_dict'] = m5sig_std_dict
     config['m5sig_bands']    = list(m5sig_dict.keys())  # to become obsolete
 
-
-    #sys.exit(f"\n xxx magerr_bands = {config['magerr_bands']}")
     
     return config
 #end parse_config_m5sig
 
-def inject_mag_columns(df_cat, config):
+def inject_override_columns(df_cat, config):
     ### Jun, 2026. AI + AMITRA
     """Inject pre-computedd magnitude columns into df_cat from the OVERRIDE_FILE parquet.
 
@@ -367,79 +579,83 @@ def inject_mag_columns(df_cat, config):
     df_cat must contain a 'gal_id' column (added temporarily by
     convert_galaxy_cat_to_pandas when OVERRIDE_FILE is set); it is dropped after join.
     Mag errors are recomputed from MAG_5SIG after the merge.
+
+    Jul 15 2026 RK - refactor to use initialized lists and work for any variables, not just mags.
     """
-    # XXX explicitly pass full file name AM. And here check if it is parquet, but dont construct another file name
-    # Add this over ride into the help menu
+
     override_file = os.path.expandvars(config[KEY_OVERRIDE_FILE])
 
     if override_file.endswith('.parquet'):
-        logging.info(f"inject_mag_columns: reading parquet {override_file}")
-        df_mag = pd.read_parquet(override_file)
+        logging.info(f"inject_override_columns: reading parquet {override_file}")
+        df_ov = pd.read_parquet(override_file)
     else:
-        logging.info(f"inject_mag_columns: reading HOSTLIB text {override_file}")
+        logging.info(f"inject_override_columns: reading HOSTLIB text {override_file}")
         with open(override_file) as f:
             for i, line in enumerate(f):
                 if line.startswith("VARNAMES:"):
                     header_line = i
                     break
-        df_mag = pd.read_csv(override_file, sep=r"\s+", skiprows=header_line, header=0)
+        df_ov = pd.read_csv(override_file, sep=r"\s+", skiprows=header_line, header=0)
 
-    logging.info(f"  inject table: {len(df_mag):,} rows, columns: {list(df_mag.columns)}")
+    logging.info(f"  inject table: {len(df_ov):,} rows, columns: {list(df_ov.columns)}")
 
-    # Determine which mag columns to pull from the parquet
+    # Determine which  columns to pull from the parquet
     hostlib_varname_dict = config['hostlib_varname_dict']   # diffsky → hostlib
 
-    # xxx mark m5sig_bands         = config['m5sig_bands']
-    magerr_bands         = config['magerr_bands']
-    
+    override_varlist          =  config['override_varlist']          # names in OVERRIDE_FILE
+    override_varlist_diffsky  =  config['override_varlist_diffsky']  # diffsky names
     cols_to_merge = ['serial_tag']
-    rename_map    = {}
-    for band in magerr_bands :
+    rename_map = {}
+    
+    for var_orig, var_diffsky in zip(override_varlist,override_varlist_diffsky) :
         
-        if band in df_mag.columns:
-            cols_to_merge.append(band)
+        if var_orig in df_ov.columns:
+            cols_to_merge.append(var_orig)
+            if var_orig != var_diffsky:
+                rename_map[var_orig] = var_diffsky
         else:
-            hlib_name = hostlib_varname_dict.get(band)
-            if hlib_name and hlib_name in df_mag.columns:
-                rename_map[hlib_name] = band
-                cols_to_merge.append(hlib_name)
-            else:
-                logging.warning(f"  inject_mag_columns: band '{band}' not in parquet — filling 0.0")
-                df_cat[band] = 0.0
+            logging.warning(f"  inject_override_columns: '{var}' not in " \
+                            f"{KEY_OVERRIDE_FILE} — filling {NULL_VAL}")
+            df_cat[var_orig] = NULL_VAL
 
+    # if override names are hostlib names, remap to diffsky names
     if rename_map:
-        df_mag = df_mag.rename(columns=rename_map)
+        df_ov         = df_ov.rename(columns=rename_map)
         cols_to_merge = [rename_map.get(c, c) for c in cols_to_merge]
 
     # Left-merge on gal_id (df_cat) ↔ serial_tag (mag output) — both int64, exact match.
     # gal_id is unique across real + synthetic cores; replaces core_tag as join key
     # because synthetic cores all have core_tag=-1 (not usable as a key).
     # Deduplicate serial_tag first: light-cone periodic replicas can share gal_id.
-    n_dup = df_mag['serial_tag'].duplicated().sum()
+    n_dup = df_ov['serial_tag'].duplicated().sum()
     if n_dup > 0:
-        logging.warning(f"  inject_mag_columns: dropping {n_dup} duplicate serial_tag rows "
+        logging.warning(f"  inject_override_columns: dropping {n_dup} duplicate serial_tag rows "
                         f"from override table (light-cone periodic replicas); "
                         f"affected galaxies get first-occurrence magnitudes")
-        df_mag = df_mag.drop_duplicates(subset=['serial_tag'], keep='first')
+        df_ov = df_ov.drop_duplicates(subset=['serial_tag'], keep='first')
+
+    # - - - -
     n_before = len(df_cat)
     df_cat = df_cat.merge(
-        df_mag[cols_to_merge].rename(columns={'serial_tag': 'gal_id'}),
+        df_ov[cols_to_merge].rename(columns={'serial_tag': 'gal_id'}),
         on='gal_id', how='left'
     )
 
     # Drop gal_id — it was added temporarily for the join, not a HOSTLIB output column
     df_cat = df_cat.drop(columns=['gal_id'])
 
-    n_missing = df_cat[magerr_bands[0]].isna().sum() if magerr_bands else 0
+    n_missing = df_cat[override_varlist_diffsky[0]].isna().sum() if override_varlist_diffsky else 0
     if n_missing > 0:
-        logging.warning(f"  inject_mag_columns: {n_missing}/{n_before} galaxies have no mag match — filling 0.0")
-        for band in magerr_bands:
-            df_cat[band] = df_cat[band].fillna(0.0)
+        logging.warning(f"  inject_override_columns: {n_missing}/{n_before} galaxies have no mag match "\
+                        f"— filling {NULL_VAL}")
+        for var in override_varlist_diffsky:
+            df_cat[var] = df_cat[var].fillna(NULL_VAL)
 
-    logging.info(f"  inject_mag_columns: merged mags for {n_before - n_missing:,}/{n_before:,} galaxies")
+    # .xyz
+    logging.info(f"  inject_override_columns: merged for {n_before - n_missing:,}/{n_before:,} galaxies")
 
     return df_cat
-# end inject_mag_columns
+# end inject_override_columns
 
 def add_col_pd(df_cat, config):
     """Add columns via simple pandas arithmetic (after HDF5→pandas conversion).
@@ -465,15 +681,34 @@ def add_col_pd(df_cat, config):
 
 def add_col_magerr(df_cat, config):
 
+    add_magerr = False
+    
     m5sig_dict      = config['m5sig_dict']
     if len(m5sig_dict) > 0:
         df_cat = add_col_magerr_m5sig(df_cat,config)
-
+        add_magerr = True
         
     mag_snr_dict = config['mag_snr_dict']
     if len(mag_snr_dict) > 0:
         df_cat = add_col_magerr_snr(df_cat,config)
+        add_magerr = True
+
+    # add auto-computed columns for min and 2nd min error among bands
+    if add_magerr:
+        add_col_magerr_min(df_cat, config)
         
+    return df_cat
+
+
+def add_col_magerr_min(df_cat, config):
+
+    # auto-add colummn for min mag error, 2nd min, and 3rd min.
+    band_list     = config['band_magerr_list_diffsky']
+    band_err_list = [ b + '_err' for b in band_list ]
+
+    for rank, addcol in enumerate(ADDCOL_PD_ERRMIN):
+        df_cat[addcol] = df_cat[band_err_list].apply(lambda row: sorted(row)[rank], axis=1)
+
     return df_cat
 
 def add_col_magerr_snr(df_cat,config):
@@ -491,10 +726,11 @@ def add_col_magerr_snr(df_cat,config):
     # compute gauss random for each galaxy, with sigma=1
     gauran = rng.normal(loc=0.0, scale=1.0, size=len_df)
     
-   
+    band_list = config['band_magerr_list_diffsky']
+    
     logging.info('  Append mag error columns using MAG_SNR:')
 
-    for band in list(mag_snr_dict.keys()):
+    for band in band_list:
         mag_list = mag_snr_dict[band]['mag_list']
         snr_list = mag_snr_dict[band]['snr_list']
         std_mag  = mag_snr_dict[band]['std_mag']
@@ -529,7 +765,6 @@ def add_col_magerr_snr(df_cat,config):
         band_err   = band + '_err'  # key name to add
         df_cat[band_err] = np.clip(magerr, a_min=None, a_max=5.0)
         
-    # .xyz
     #sys,exit(f"\n xxx bye from add_col_magerr_snr")
     return df_cat
 
@@ -546,7 +781,7 @@ def add_col_magerr_m5sig(df_cat,config):
     FAC_DFDM = 1.086  # 2.5/ln(10)
     MXMAGERR = 5.0
 
-    m5sig_bands     = config['m5sig_bands']
+    m5sig_bands  = config['band_magerr_list_diffsky']
     if len(m5sig_bands) == 0 :
         return df_cat   # return unchanged cat
 
@@ -720,9 +955,9 @@ def check_diffsky_columns(config, ds):
     # these are computed and hence don't exist in catalog
     exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr' ]
 
-    # if OVERRIDE_FILE is configured, mag band columns are not in HDF5 — skip them
+    # if OVERRIDE_FILE is configured,  columns are not in HDF5 — skip them
     if KEY_OVERRIDE_FILE in config:
-        exception_list    += config['magerr_bands']
+        exception_list    += config['override_varlist_diffsky']
         # xxx mark exception_list    += config['m5sig_bands']
 
     nerr = 0
@@ -790,81 +1025,11 @@ def print_columns(substring, column_list, descript_list):
     
     return   # end print_columns
 
-def parse_varname_map(config):
-
-    logging.info('')
-    logging.info(f"Parse {KEY_HOSTLIB_VARNAMES_MAP}" )
-
-    # read map from user input and covert to dictionarys
-    HOSTLIB_VARNAMES_MAP = config[KEY_HOSTLIB_VARNAMES_MAP]
-
-    hostlib_varname_dict = {}
-    hostlib_format_dict  = {}
-
-    HOSTLIB_VARNAMES_STRING = ''
-    HOSTLIB_VARNAMES_LIST   = []
-    FOUND_GALID = False
-    
-    for row in HOSTLIB_VARNAMES_MAP:
-        logging.info(f"\t {row}")
-        tmp_list = row.split()
-        varname_diffsky = tmp_list[0]
-        varname_hostlib = tmp_list[1]
-        format_hostlib  = tmp_list[2]
-        hostlib_varname_dict[varname_diffsky] = varname_hostlib
-        hostlib_format_dict[varname_diffsky]  = format_hostlib
-        HOSTLIB_VARNAMES_STRING += f"{varname_hostlib} "
-        HOSTLIB_VARNAMES_LIST.append(varname_hostlib)
-        
-        if varname_hostlib == KEY_HOSTLIB_GALID:  FOUND_GALID = True
-            
-    logging.info('')
-
-    config['hostlib_varname_dict']    = hostlib_varname_dict
-    config['hostlib_format_dict']     = hostlib_format_dict
-    config['HOSTLIB_VARNAMES_STRING'] = HOSTLIB_VARNAMES_STRING
-    config['HOSTLIB_VARNAMES_LIST']   = HOSTLIB_VARNAMES_LIST    
-    config['FOUND_GALID']             = FOUND_GALID
-    
-    return config
-
-
-def parse_hostlib_info(config):
-
-    # parse list of HOSTLIBs;
-    # for each output HOSTLIB file, store area fraction to include.
-    
-    HOSTLIB_VARNAMES_STRING = config['HOSTLIB_VARNAMES_STRING'] 
-    hostlib_dict = {}
-
-    area_frac_list = []
-    HOSTLIB_FILE_LIST = config[KEY_HOSTLIB_FILE]
-    for row in HOSTLIB_FILE_LIST:
-        hostlib_file = row.split()[0]
-        area_frac    = float(row.split()[1])            
-        hostlib_dict[hostlib_file] = {
-            'area_frac'  : area_frac ,
-            'ra_range'   : [] ,  # to be computed and filled later ..
-            'dec_range'  : []
-        }
-        area_frac_list.append(area_frac)
-
-    area_frac_max  = max(area_frac_list)
-    n_hostlib      = len(HOSTLIB_FILE_LIST)
-
-    # store more goodies on config blocl
-    config['n_hostlib']      = n_hostlib
-    config['hostlib_dict']   = hostlib_dict
-    config['area_frac_max']  = area_frac_max
-        
-    return config
-
-
 def write_hostlib_header(fp, hlib_file, ngal, config):
 
     # write DOCUMENTATION block and VARNAMES
 
-    hostlib_dict            = config['hostlib_dict']
+    hostlib_dict            =  config['hostlib_dict']
     HOSTLIB_VARNAMES_STRING =  config['HOSTLIB_VARNAMES_STRING'] 
     HOSTLIB_VARNAMES_MAP    =  config[KEY_HOSTLIB_VARNAMES_MAP]
     CUTWIN                  =  config.setdefault(KEY_CUTWIN,None)
@@ -964,24 +1129,35 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     hostlib_varname_dict = config['hostlib_varname_dict']
     cat_var_list         = list(hostlib_varname_dict.keys())
 
+    exclude_var_list = []
     # exclude columns computed at pandas level — not present in HDF5 catalog
-    cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
+    exclude_var_list += ADDCOL_PD_NAMES
+    # xxx mark cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
 
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
-    # xxx mark m5sig_bands =  config['m5sig_bands']
-    magerr_bands =  config['magerr_bands']
-    mag_err_cols = [b + '_err' for b in magerr_bands ]
-    cat_var_list = [v for v in cat_var_list if v not in mag_err_cols]
+    exclude_var_list += [b + '_err' for b in config['band_magerr_list_diffsky'] ]
+    
+    # xxxxxxxxxx mark delete xxxxxxxxxx
+    #magerr_bands =  config['magerr_bands']
+    #mag_err_cols = [b + '_err' for b in magerr_bands ]
+    #cat_var_list = [v for v in cat_var_list if v not in mag_err_cols]
+    # xxxxxxxxx end mark xxxxxx
+    
     
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet
-        cat_var_list = [v for v in cat_var_list if v not in magerr_bands]        
-        # Add gal_id temporarily — needed as join key in inject_mag_columns
+        exclude_var_list += config['override_varlist_diffsky']
+        # xxx mark cat_var_list = [v for v in cat_var_list if v not in magerr_bands]
+        
+        # Add gal_id temporarily — needed as join key in inject_override_columns
         # (gal_id is unique across real + synthetic cores; core_tag=-1 for all synthetic)
         if 'gal_id' not in cat_var_list:
             cat_var_list.append('gal_id')
-        logging.info(f"  (OVERRIDE_FILE mode: excluding mag bands from HDF5 select, adding gal_id for join)")
+        logging.info(f"  (OVERRIDE_FILE mode: exclude override vars from HDF5 select, adding gal_id for join)")
 
+    # exclude some columns from final cat_var_list 
+    cat_var_list = [v for v in cat_var_list if v not in exclude_var_list ]
+    
     t0     = time.time()
     df_cat = galaxy_cat.select(cat_var_list).get_data().to_pandas()
     print_proc_time(t0, "CONVERT_TO_PANDAS", None )
@@ -1213,26 +1389,20 @@ if __name__ == "__main__":
     setup_logging()
     logging.info("# ========== BEGIN make_simsed_binaries ===============")
 
-    
     t_start = time.time()
-    args   = get_args() 
-    config = read_yaml(args.config_file)
+    args    = get_args() 
+    config  = read_yaml(args.config_file)
 
-    # add more stuff to config for easier access below
-    config = parse_config(config)
-    
-    # make sure Sersic column definitions are consistent to avoid crash later
-    check_Sersic_definitions(config)
+    # parse config and add more stuff for easier access below
+    config = parse_config_driver(config)
 
-    # parse varname mapping between diffsky and hostlib
-    config   = parse_varname_map(config)
-
-    # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
-    config  = parse_hostlib_info(config)
-
+    # - - - - - - - - - 
     import opencosmo as oc
-    logging.info(f"opencosmo version: {oc.__version__}")
-
+    logging.info(f"")
+    logging.info(f"# ===============================================")
+    logging.info(f"      opencosmo version: {oc.__version__}")
+    logging.info(f"# ===============================================")
+    
     # fetch entire galaxy catalog from HDF5
     galaxy_cat  = read_galaxy_cat(args, config)
 
@@ -1249,7 +1419,7 @@ if __name__ == "__main__":
 
     if KEY_OVERRIDE_FILE in config:
         # Inject pre-computed mags from parquet; join on core_tag ↔ serial_tag (both int64)
-        df_cat = inject_mag_columns(df_cat, config)
+        df_cat = inject_override_columns(df_cat, config)
 
     # add columns via pandas arithmetic (logsfr, mag errors) — works in both modes
     df_cat = add_col_pd(df_cat, config)

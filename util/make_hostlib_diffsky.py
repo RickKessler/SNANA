@@ -590,12 +590,17 @@ def inject_override_columns(df_cat, config):
         df_ov = pd.read_parquet(override_file)
     else:
         logging.info(f"inject_override_columns: reading HOSTLIB text {override_file}")
-        with open(override_file) as f:
+        
+        open_func = gzip.open if override_file.endswith(".gz") else open
+        with open_func(override_file, "rt", encoding="utf-8") as f:
+            iline_varnames = 0 
             for i, line in enumerate(f):
                 if line.startswith("VARNAMES:"):
-                    header_line = i
+                    iline_varnames = i
                     break
-        df_ov = pd.read_csv(override_file, sep=r"\s+", skiprows=header_line, header=0)
+
+        logging.info(f"\t Skip {iline_varnames} lines before VARNAMES key")
+        df_ov = pd.read_csv(override_file, sep=r"\s+", skiprows=iline_varnames, header=0)
 
     logging.info(f"  inject table: {len(df_ov):,} rows, columns: {list(df_ov.columns)}")
 

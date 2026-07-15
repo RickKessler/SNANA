@@ -90,6 +90,10 @@
 
  Jun 2026: fix few memory overwrite bugs triggered by D_FORTIFY_SOURCE compilation flag
 
+ Jul 15 2026: for HOSTLIB with GALID column, 
+            + do NOT add CIDint col to output
+            + preserve GALID column instead of CCID
+
 ******************************/
 
 #include <stdio.h>
@@ -1340,8 +1344,10 @@ void WRITE_SNTABLE(void) {
 
   // check of CIDint is already there (Feb 2017)
   int CIDint_EXISTS = 0 ;
+  int GALID_EXISTS = 0 ;
   for ( ivar=0; ivar < NVARALL_FITRES; ivar++ ) {
     if ( strcmp(VARNAME_COMBINE[ivar],"CIDint")==0 ) { CIDint_EXISTS=1; }
+    if ( strcmp(VARNAME_COMBINE[ivar],"GALID") ==0 ) { GALID_EXISTS=1; }
   }
 
 
@@ -1358,11 +1364,15 @@ void WRITE_SNTABLE(void) {
       // include char CCID & integer CID representation for CID
       if ( ivar == 0 ) {
 
-	sprintf(tableVar, "CCID:C*%d ", MXLEN );  
+	if ( GALID_EXISTS ) 
+	  { sprintf(tableVar, "GALID:C*%d ", MXLEN ); }
+	else
+	  { sprintf(tableVar, "CCID:C*%d ", MXLEN ); }
+	
 	SNTABLE_ADDCOL(TABLEID_COMBINE, BLOCKVAR, 
 		       TABLEROW_VALUES.CCID, tableVar, 1 ) ;
 
-	if ( CIDint_EXISTS == 0 ) {
+	if ( CIDint_EXISTS == 0 && GALID_EXISTS==0 ) {
 	  sprintf(tableVar, "CIDint:I" );  
 	  SNTABLE_ADDCOL(TABLEID_COMBINE, BLOCKVAR, 
 			 &TABLEROW_VALUES.CIDint, tableVar, 1 ) ;

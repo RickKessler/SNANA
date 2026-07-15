@@ -294,6 +294,8 @@ def addcol_sersic_sizes(cat_inp, config):
 
 def parse_config(config):
 
+    config['magerr_bands'] = []
+    
     config = parse_config_m5sig(config)
     config = parse_config_mag_snr(config)    
     
@@ -316,13 +318,13 @@ def parse_config_mag_snr(config):
     for row in MAG_SNR:
         words = row.split()
         band  = words[0]
-        mag_list = [ words[1], words[3] ]
-        snr_list = [ words[2], words[4] ]
-        std_mag  = words[5]
+        mag_list = [ float(words[1]), float(words[3]) ]
+        snr_list = [ float(words[2]), float(words[4]) ]
+        std_mag  = float(words[5])
         mag_snr_dict[band] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
+        config['magerr_bands'].append(band)
         
     config['mag_snr_dict'] = mag_snr_dict
-    config['magerr_bands'] = list(mag_snr_dict.keys())
     
     #sys.exit(f"\n xxx mag_snr_dict = \n{mag_snr_dict}")
     return config
@@ -344,11 +346,14 @@ def parse_config_m5sig(config):
         if len(words) > 2:  std = words[2]
         m5sig_dict[band]     = float(mag)
         m5sig_std_dict[band] = float(std)
-
+        config['magerr_bands'].append(band)
+        
     config['m5sig_dict']     = m5sig_dict
     config['m5sig_std_dict'] = m5sig_std_dict
     config['m5sig_bands']    = list(m5sig_dict.keys())  # to become obsolete
-    config['magerr_bands']   = list(m5sig_dict.keys())
+
+
+    #sys.exit(f"\n xxx magerr_bands = {config['magerr_bands']}")
     
     return config
 #end parse_config_m5sig
@@ -365,7 +370,7 @@ def inject_mag_columns(df_cat, config):
     """
     # XXX explicitly pass full file name AM. And here check if it is parquet, but dont construct another file name
     # Add this over ride into the help menu
-    override_file = config[KEY_OVERRIDE_FILE]
+    override_file = os.path.expandvars(config[KEY_OVERRIDE_FILE])
 
     if override_file.endswith('.parquet'):
         logging.info(f"inject_mag_columns: reading parquet {override_file}")
@@ -383,11 +388,13 @@ def inject_mag_columns(df_cat, config):
 
     # Determine which mag columns to pull from the parquet
     hostlib_varname_dict = config['hostlib_varname_dict']   # diffsky → hostlib
-    m5sig_bands          = config['m5sig_bands']
 
+    # xxx mark m5sig_bands         = config['m5sig_bands']
+    magerr_bands         = config['magerr_bands']
+    
     cols_to_merge = ['serial_tag']
     rename_map    = {}
-    for band in m5sig_bands :
+    for band in magerr_bands :
         
         if band in df_mag.columns:
             cols_to_merge.append(band)
@@ -423,10 +430,10 @@ def inject_mag_columns(df_cat, config):
     # Drop gal_id — it was added temporarily for the join, not a HOSTLIB output column
     df_cat = df_cat.drop(columns=['gal_id'])
 
-    n_missing = df_cat[m5sig_bands[0]].isna().sum() if m5sig_bands else 0
+    n_missing = df_cat[magerr_bands[0]].isna().sum() if magerr_bands else 0
     if n_missing > 0:
         logging.warning(f"  inject_mag_columns: {n_missing}/{n_before} galaxies have no mag match — filling 0.0")
-        for band in m5sig_bands:
+        for band in magerr_bands:
             df_cat[band] = df_cat[band].fillna(0.0)
 
     logging.info(f"  inject_mag_columns: merged mags for {n_before - n_missing:,}/{n_before:,} galaxies")
@@ -480,16 +487,50 @@ def add_col_magerr_snr(df_cat,config):
 
     rng    = np.random.default_rng(seed=42)
     len_df = len(df_cat)
+
+    # compute gauss random for each galaxy, with sigma=1
+    gauran = rng.normal(loc=0.0, scale=1.0, size=len_df)
     
+   
     logging.info('  Append mag error columns using MAG_SNR:')
 
     for band in list(mag_snr_dict.keys()):
         mag_list = mag_snr_dict[band]['mag_list']
         snr_list = mag_snr_dict[band]['snr_list']
         std_mag  = mag_snr_dict[band]['std_mag']
-        print(f" xxx {band} mag_list={mag_list}  snr_list={snr_list}  std_mag={std_mag}")
+        noise    = gauran * std_mag
+        
+        m0   = mag_list[0] + noise  # mag ref per event with noise
+        m1   = mag_list[1] + noise
+        snr0 = snr_list[0]  # scalar
+        snr1 = snr_list[1]  # scalar
 
-    sys,exit(f"\n xxx bye from add_col_magerr_snr")
+        # compute effective zp and sigsky for each galaxy
+        tmp_p0    = np.pow(10.0,-0.4*m0)
+        tmp_p1    = np.pow(10.0,-0.4*m1)
+        tmp_numer = (tmp_p0 - tmp_p1)
+        tmp_denom = (tmp_p0/snr0)**2 - (tmp_p1/snr1)**2
+        tmp_ratio = tmp_numer/tmp_denom
+        n_tot = len(tmp_ratio)
+        n_neg = sum(1 for x in tmp_ratio if x < 0)
+
+        if n_neg > 0:
+            sys.exit(f"\n ERROR: {n_neg} of {n_tot} {band} galaxies have neg arg for log in ZP calc.")
+            
+        #print(f" xxx {band} :  n_tot = {n_tot}  | n_neg = {n_neg} | m0 = {m0[0:4]}")
+        zp        = 2.5*np.log10(tmp_numer/tmp_denom)
+
+        f0        = np.pow(10.0,-0.4*(m0-zp))
+        covsky    = (f0/snr0)**2 - f0
+
+        flux      = np.pow(10.0,-0.4*(df_cat[band].values-zp))
+        magerr    = 1.086 * np.sqrt(covsky+flux)/flux
+
+        band_err   = band + '_err'  # key name to add
+        df_cat[band_err] = np.clip(magerr, a_min=None, a_max=5.0)
+        
+    # .xyz
+    #sys,exit(f"\n xxx bye from add_col_magerr_snr")
     return df_cat
 
 #end add_col_magerr_snr
@@ -681,7 +722,8 @@ def check_diffsky_columns(config, ds):
 
     # if OVERRIDE_FILE is configured, mag band columns are not in HDF5 — skip them
     if KEY_OVERRIDE_FILE in config:
-        exception_list    += config['m5sig_bands']
+        exception_list    += config['magerr_bands']
+        # xxx mark exception_list    += config['m5sig_bands']
 
     nerr = 0
     for varname in list(hostlib_varname_dict):
@@ -926,20 +968,21 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
 
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
-    m5sig_bands =  config['m5sig_bands']
-    mag_err_cols = [b + '_err' for b in m5sig_bands ]
+    # xxx mark m5sig_bands =  config['m5sig_bands']
+    magerr_bands =  config['magerr_bands']
+    mag_err_cols = [b + '_err' for b in magerr_bands ]
     cat_var_list = [v for v in cat_var_list if v not in mag_err_cols]
-
+    
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet
-        cat_var_list = [v for v in cat_var_list if v not in m5sig_bands]
+        cat_var_list = [v for v in cat_var_list if v not in magerr_bands]        
         # Add gal_id temporarily — needed as join key in inject_mag_columns
         # (gal_id is unique across real + synthetic cores; core_tag=-1 for all synthetic)
         if 'gal_id' not in cat_var_list:
             cat_var_list.append('gal_id')
         logging.info(f"  (OVERRIDE_FILE mode: excluding mag bands from HDF5 select, adding gal_id for join)")
 
-    t0 = time.time()
+    t0     = time.time()
     df_cat = galaxy_cat.select(cat_var_list).get_data().to_pandas()
     print_proc_time(t0, "CONVERT_TO_PANDAS", None )
     logging.info(f"")
@@ -1177,7 +1220,7 @@ if __name__ == "__main__":
 
     # add more stuff to config for easier access below
     config = parse_config(config)
-
+    
     # make sure Sersic column definitions are consistent to avoid crash later
     check_Sersic_definitions(config)
 

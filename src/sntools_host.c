@@ -175,7 +175,6 @@ void INIT_HOSTLIB(void) {
   // open hostlib and start reading
   prep_head_HOSTLIB();  // prepare HOSTLIB variables after reading WGTMAP
 
-
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();
 
@@ -369,7 +368,8 @@ void initvar_HOSTLIB(void) {
 
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )  
     { HOSTLIB.IVAR_MAGOBS[ifilt] = -9 ;  }
-  sprintf(HOSTLIB.filterList, "%s", "" );
+
+  // xxx mark delete   sprintf(HOSTLIB.filterList, "%s", "" );
 
 
   // -----------------------
@@ -2545,6 +2545,8 @@ void prep_head_HOSTLIB(void) {
   // Created Mar 28 2026
   // HOSTLIB VARNAMES have already been read by read_head_HOSTLIB;
   // here to the preparation and lots of error checking.
+  //
+  // Jul 16 2026: load IVAR_MAGOBS[_ERR] here instead of in init_GALMAG_HOSTLIB
 
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
@@ -2744,13 +2746,29 @@ void prep_head_HOSTLIB(void) {
   IVAR_DEC[2]  = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_DEC_GAL,  0, fnam) ;
   HOSTLIB.IVAR_RA = HOSTLIB.IVAR_DEC = -9 ;
  
-
   for(i = 0; i < 3; i++ ) {
     if ( IVAR_RA[i]  > 0 ) { HOSTLIB.IVAR_RA  = IVAR_RA[i] ; }
     if ( IVAR_DEC[i] > 0 ) { HOSTLIB.IVAR_DEC = IVAR_DEC[i] ; }
   }
 
+  // 7.16.2026 - load IVAR_MAGOBS[_ERR] here (moved out of init_GALMAG_HOSTLIB) 
+  int MATCH_FLAG = 2; // case-sensitive varname match (Apr 29 2021)
+  int NMAGOBS=0, ifilt, ifilt_obs, IVAR, IVAR_ERR;
+  char cvar[40], cvar_err[40];
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+    magkey_HOSTLIB(ifilt_obs, cvar, cvar_err); // returns cvar and cvar_err
+    IVAR     = IVAR_HOSTLIB_STORE(cvar,     MATCH_FLAG, fnam) ;
+    IVAR_ERR = IVAR_HOSTLIB_STORE(cvar_err, MATCH_FLAG, fnam) ;
+    if ( IVAR > 0 ) 
+      { HOSTLIB.IVAR_MAGOBS[ifilt_obs]     = IVAR    ;  NMAGOBS++ ;  }
+    if ( IVAR_ERR > 0 ) 
+      { HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] = IVAR_ERR ;  }
+  }
+  HOSTLIB.NFILT_MAGOBS = NMAGOBS ;  // store in global
 
+
+  // - - - - - - -
   // Mar 2025 check for specbasis coeff
   HOSTLIB.IVAR_COEFF_SPECBASIS00 = IVAR_HOSTLIB_STORE("COEFF_SPECBASIS00", 0, fnam);
   
@@ -3332,6 +3350,8 @@ void check_redshift_HOSTLIB(void) {
 int passCuts_HOSTLIB(double *xval ) {
 
   // Return 1 if cuts are satisfied; zero otherwise.
+  // Jul 16 2026: check passCuts_SNR
+
   int ivar_ALL, i, LRA ,LRA2;
   double ZTRUE, RA, RA2, DEC;
   char fnam[] = "passCuts_HOSTLIB" ;  (void)fnam;
@@ -3377,6 +3397,15 @@ int passCuts_HOSTLIB(double *xval ) {
     if ( NCOEFF_NONZERO == 0 ) { return(0); }
   }
 
+
+  // Jul 16 2026: check SNR cuts
+  if ( INPUTS.HOSTLIB_NBAND_SNR_STORE > 0 ) {
+    // ivar_ALL         = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_GALID] ;
+    long long GALID  = (long long)xval[0] ;
+    bool store       = snr_store_HOSTLIB(GALID, xval);
+    if ( !store ) { return(0); }
+    
+  }
   return(1);
 
 } // end passCuts_HOSTLIB
@@ -3400,7 +3429,7 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   //              Replace WDLIST with global TMPWORD_HOSTLIB.
   //
   // Sep 16 2024: check HOSTLIB_ABMAG_OFFSET;
-  
+
   int MXCHAR          = MXCHAR_LINE_HOSTLIB;
   double ABMAG_FORCE  = INPUTS.HOSTLIB_ABMAG_FORCE;
   double ABMAG_OFFSET = INPUTS.HOSTLIB_ABMAG_OFFSET;
@@ -4656,13 +4685,15 @@ void init_HOSTLIB_ZPHOTEFF(void) {
 // =======================================
 void init_GALMAG_HOSTLIB(void) {
 
-  int NR, j, jth, ifilt, ifilt_obs, IVAR, NMAGOBS, MATCH_FLAG, IVAR_ERR ;
-  char cvar[12], cfilt[2], cvar_err[40];
+  int NR, j, jth; 
   char fnam[] = "init_GALMAG_HOSTLIB" ;  (void)fnam;
   double Rmax, TH, THbin ; 
 
   // --------------- BEGIN --------------
 
+  /* xxxxxxxxxx mark del Jul 16 2026 xxxxxxxxxxxx
+     int ifilt, ifilt_obs, IVAR, NMAGOBS, MATCH_FLAG, IVAR_ERR ;
+     char cvar[12], cfilt[2], cvar_err[40];
   // always check for gal mags. Store IVAR for each observer-mag
   NMAGOBS = 0 ;
   MATCH_FLAG = 2; // case-sensitive varname match (Apr 29 2021)
@@ -4671,7 +4702,7 @@ void init_GALMAG_HOSTLIB(void) {
     ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
 
     sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] ); 
-    magkey_HOSTLIB(ifilt_obs,cvar,cvar_err); // returns cvar
+    magkey_HOSTLIB(ifilt_obs, cvar, cvar_err); // returns cvar and cvar_err
 
     IVAR     = IVAR_HOSTLIB_STORE(cvar,     MATCH_FLAG, fnam) ;
     IVAR_ERR = IVAR_HOSTLIB_STORE(cvar_err, MATCH_FLAG, fnam) ;
@@ -4679,7 +4710,7 @@ void init_GALMAG_HOSTLIB(void) {
     if ( IVAR > 0 ) {
       NMAGOBS++ ;
       HOSTLIB.IVAR_MAGOBS[ifilt_obs] = IVAR ;
-      strcat(HOSTLIB.filterList,cfilt) ;
+      // xxx mark delete strcat(HOSTLIB.filterList,cfilt) ;
     }
     if ( IVAR_ERR > 0 ) {
       NMAGOBS++ ;
@@ -4688,6 +4719,9 @@ void init_GALMAG_HOSTLIB(void) {
   }
 
   HOSTLIB.NFILT_MAGOBS = NMAGOBS ;  // store in global
+
+  xxxxxxxxxxx end mark xxxxxxxxxxxx */
+
 
   // first check option to compute host mags.
 
@@ -4726,7 +4760,7 @@ void init_GALMAG_HOSTLIB(void) {
   }
 
   
-  if ( NMAGOBS <= 0 ) {
+  if ( HOSTLIB.NFILT_MAGOBS <= 0 ) {
     sprintf(c1err, "%s" , "Galaxy mags under SN requested, but no mags are");
     sprintf(c2err, "given in HOSTLIB. Need [filt]%s keys.", 
 	    HOSTLIB_SUFFIX_MAGOBS );
@@ -8048,13 +8082,6 @@ void GEN_SNHOST_NBR(int IGAL) {
 } // end GEN_SNHOST_NBR
 
 
-
-
-
-
-
-
-
 // ==================================
 bool snr_detect_HOSTLIB(int IGAL) {
 
@@ -8067,6 +8094,8 @@ bool snr_detect_HOSTLIB(int IGAL) {
 
 
   int  NBAND_SNR_DETECT = INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
+  long long GALID = get_GALID_HOSTLIB(IGAL);
+
   int IVAR_MAG, IVAR_MAGERR, ifilt_obs, ifilt, NBAND_EXIST = 0;
   char cfilt[2];
   double MAG_ERR, SNR ;
@@ -8108,7 +8137,17 @@ bool snr_detect_HOSTLIB(int IGAL) {
     }
   }
 
-  // - - - -
+  bool REFAC = (INPUTS.DEBUG_FLAG == 715) ;
+  if ( REFAC ) {
+    //printf(" xxx %s: call passCuts_snr_HOSTLIB ... \n", fnam ); fflush(stdout);
+    detect = passCuts_snr_HOSTLIB(GALID, NBAND_EXIST, SNR_LIST, 
+				  NBAND_SNR_DETECT, INPUTS.HOSTLIB_SNR_DETECT, fnam );
+    return detect ;
+  }
+
+ 
+  // - - - - below is legacy - - - - -
+
   // abort if there are fewer bands than needed to apply the SNR cut
   if ( NBAND_EXIST < NBAND_SNR_DETECT ) {
     sprintf(c1err,"NBAND_EXIST = %d but NBAND_SNR_EXIST==%d", 
@@ -8116,7 +8155,8 @@ bool snr_detect_HOSTLIB(int IGAL) {
     sprintf(c2err,"Check <BAND>_OBS in HOSTLIB, "
 	    "and sim-input HOSTLIB_SNR_DETECT.");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
- }
+  }
+
 
   // sort HOST mags by SNR, in decreasing order
   int ORDER_SORT = -1; // decreasing order
@@ -8135,7 +8175,6 @@ bool snr_detect_HOSTLIB(int IGAL) {
   int i, LDMP = 0;
   int NNBR_ORIG = SNHOSTGAL.NNBR_ALL ;
   if ( LDMP && NNBR_ORIG > 1 ) {
-    long long GALID = get_GALID_HOSTLIB(IGAL);
     printf("XXX: ----------------------------------- \n");
     printf("XXX: %s DUMP for CID=%d  GALID = %lld \n",
 	   fnam, GENLC.CID, GALID);
@@ -8150,6 +8189,133 @@ bool snr_detect_HOSTLIB(int IGAL) {
 
 } // end snr_detect_HOSTLIB
 
+
+
+// ==================================
+bool snr_store_HOSTLIB(long long GALID, double *xval) {
+
+  // Created Jul 2026
+  // Return True if this  *xval row is detected based in SNR cuts from
+  // sim-input HOSTLIB_SNR_STORE.
+  // Galaxy mag and error are needed in HOSTLIB;
+  //  [band]_obs and [band]_obs_err
+  // Abort if either HOSTLIB column is missing.
+
+  int ivar_ALL, IVAR_MAG, IVAR_MAGERR, ifilt_obs, ifilt, NBAND_EXIST = 0;
+  char cfilt[2];
+  double MAG_ERR, SNR ;
+  double SNR_LIST[MXFILTINDX];
+  bool passCut = true;
+  int LDMP = 0 ;
+  char fnam[] = "snr_store_HOSTLIB";  (void)fnam;
+
+  // ------------ BEGIN ----------
+
+  // check option to scale uncertainty based on survey duration;
+  set_MAGOBS_ERR_SCALE_HOSTLIB();
+
+  for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
+
+    ifilt_obs = GENLC.IFILTMAP_OBS[ifilt];
+    sprintf(cfilt,"%c", FILTERSTRING[ifilt_obs] );
+
+    IVAR_MAG       = HOSTLIB.IVAR_MAGOBS[ifilt_obs] ;    
+    IVAR_MAGERR    = HOSTLIB.IVAR_MAGOBS_ERR[ifilt_obs] ;
+
+    SNR = 0.0 ; MAG_ERR = MAGERR_UNDEFINED;
+      
+    if (( IVAR_MAG > 0 ) && (IVAR_MAGERR > 0)) {
+      ivar_ALL    = HOSTLIB.IVAR_ALL[IVAR_MAGERR] ;
+      MAG_ERR     = xval[ivar_ALL];   
+      MAG_ERR    *= SNHOSTGAL.MAGOBS_ERR_SCALE;
+      
+      // Oct 5 2023: set crazy MAG_ERR to 9.0
+      if ( MAG_ERR < 0.0 || MAG_ERR > MAGERR_UNDEFINED) { MAG_ERR=MAGERR_UNDEFINED;}  
+      if ( MAG_ERR > 0.0 ) {  SNR  = (2.5/LNTEN) / MAG_ERR ;  }
+    
+      SNR_LIST[NBAND_EXIST]      = SNR ;
+      NBAND_EXIST++;
+    }
+
+    if ( LDMP ) {
+      printf(" xxx %s: GALID=%lld  IVAR_MAG[ERR]=%2d[%2d] MAG_ERR(%s) = %.3f  SNR=%.3f \n", 
+	     fnam, GALID, IVAR_MAG, IVAR_MAGERR, cfilt, MAG_ERR, SNR ); fflush(stdout);
+    }
+  }
+
+  passCut = passCuts_snr_HOSTLIB(GALID, NBAND_EXIST, SNR_LIST, 
+				 INPUTS.HOSTLIB_NBAND_SNR_STORE, INPUTS.HOSTLIB_SNR_STORE, fnam );
+
+  if ( LDMP ) {
+    printf(" xxx %s: passCut = %d \n", fnam, passCut); fflush(stdout);
+    //    debugexit(fnam);
+  }
+
+  return passCut ;
+
+} // end snr_store_HOSTLIB
+
+
+bool passCuts_snr_HOSTLIB(long long GALID, int NBAND, double *SNR_LIST, 
+			  int NBAND_SNR_CUT, double *SNR_CUT_LIST, char *callFun) {
+
+  // Created Jul 15 2026 by R.Kessler
+  // Utility to determine if SNR_LIST passes cuts from SNR_CUT_LIST
+  //
+  // Inputs:
+  //  GALID    : galaxy id used for abort message
+  //  NBAND    : total number of bands with SNR value
+  //  SNR_LIST : list of SNR values over bands
+  //  NBAND_SNR_CUT : number of bands with SNR cut defined
+  //  SNR_CUT_LIST  : list of SNR cuts
+
+  bool detect = true;
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "passCuts_snr_HOSTLIB", fnam);
+
+  // ----------------- BEGIN ---------------
+
+  // abort if there are fewer bands than needed to apply the SNR cut
+  if ( NBAND < NBAND_SNR_CUT ) {
+    sprintf(c1err,"NBAND = %d but NBAND_SNR_CUT==%d", 
+	    NBAND, NBAND_SNR_CUT);
+    sprintf(c2err,"Check <BAND>_OBS in HOSTLIB, "
+	    "and sim-input HOSTLIB_SNR_DETECT / HOSTLIB_SNR_STORE");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
+  // sort HOST mags by SNR, in decreasing order
+  int ORDER_SORT = -1; // decreasing order
+  int INDEX_SORT[MXFILTINDX];
+  sortDouble( NBAND, SNR_LIST, ORDER_SORT, INDEX_SORT ) ;
+
+  // loop over SNR cut values and apply SNR cut in sorted space.
+  int icut, isort; 
+  for(icut=0; icut < NBAND_SNR_CUT; icut++){
+    isort = INDEX_SORT[icut];
+    if ( SNR_LIST[isort] < SNR_CUT_LIST[icut] ) {
+      detect = false;
+    }
+  }
+
+  int i, LDMP = 0;
+  int NNBR_ORIG = SNHOSTGAL.NNBR_ALL ;
+  if ( LDMP && NNBR_ORIG > 1 ) {
+    printf("XXX: ----------------------------------- \n");
+    printf("XXX: %s DUMP for CID=%d  GALID = %lld \n",
+	   fnam, GENLC.CID, GALID);
+    printf("XXX: SNR_LIST = ");
+    for(i=0; i < NBAND; i++) { printf("%.3f  ",SNR_LIST[i]); }
+    printf("\nXXX: detect = %d  (CID=%d, zSN=%.3f  NNBR_ORIG=%d)\n", 
+	   detect, GENLC.CID, GENLC.REDSHIFT_CMB, NNBR_ORIG );
+    fflush(stdout);
+  }
+
+  return detect;
+
+} // end passCuts_snr_HOSTLIB
 
 // ==================================
 bool mag_detect_HOSTLIB(int IGAL) {

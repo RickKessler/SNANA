@@ -466,6 +466,7 @@ typedef struct {    // HOSTLIB_GENZPHOT_FUDGEMAP_DEF
 } HOSTLIB_GENZPHOT_FUDGEMAP_DEF ;
 
 
+
 typedef struct { // INPUTS_GENPDF_DEF
 
   char MAP_FILE[MXPATHLEN];   // PDF for color, stretch, etc ...
@@ -611,13 +612,17 @@ struct INPUTS {
   float  HOSTLIB_MAXDDLR2 ;            // keep 2nd host with DDLR < MAXDDLR2
   float  HOSTLIB_SMEAR_SERSIC ;        // PSF smear (FWHM, arcsec) for DLR_meas
   
+  char   HOSTLIB_SNR_STORE_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
+  int    HOSTLIB_NBAND_SNR_STORE;      // size of above list
+  double HOSTLIB_SNR_STORE[10];        // comma-sep list of SNR_band to store from hostlib
+
   char   HOSTLIB_SNR_DETECT_STRING[40]; // e.g., 5,4 -> SNR>5,4 for 2 bands
   int    HOSTLIB_NBAND_SNR_DETECT;     // size of above list
-  float  HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
+  double HOSTLIB_SNR_DETECT[10];       // comma-sep list of SNR_band to detect
   
   char   HOSTLIB_MAG_DETECT_STRING[40]; // e.g., 27,27 -> MAG>27 for 2 bands
   int    HOSTLIB_NBAND_MAG_DETECT;     // size of above list
-  float  HOSTLIB_MAG_DETECT[10];       // comma-sep list of MAG_band to detect
+  double HOSTLIB_MAG_DETECT[10];       // comma-sep list of MAG_band to detect
 
   int    HOSTLIB_NMJD_SNR_SCALE;     // number of MJD ranges to scale host-SNR
   float  HOSTLIB_SNR_SCALE[10][3];   //  up to 10 x { scale, MJDRange[2] }

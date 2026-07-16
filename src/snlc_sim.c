@@ -1178,6 +1178,10 @@ void set_user_defaults(void) {
   INPUTS.HOSTLIB_MAXDDLR2     = 7.0 ;   // allow 2nd host with this cut
   INPUTS.HOSTLIB_SMEAR_SERSIC = 0.0 ;   // arcsec
 
+  INPUTS.HOSTLIB_SNR_STORE_STRING[0] = 0 ;
+  INPUTS.HOSTLIB_NBAND_SNR_STORE     = 0;
+  for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_SNR_STORE[i] = 0.0 ; }
+
   INPUTS.HOSTLIB_SNR_DETECT_STRING[0] = 0 ;
   INPUTS.HOSTLIB_NBAND_SNR_DETECT     = 0;
   for(i=0; i < 10; i++ ) { INPUTS.HOSTLIB_SNR_DETECT[i] = 0.0 ; }
@@ -3059,7 +3063,7 @@ void parse_input_HOSTLIB_GAL_DETECT(char *FEATURE, char *STRING) {
 
   // Created Jun 2022
   // 
-  // parse input FEATURE = "SNR" or "MAG"
+  // parse input FEATURE =  "SNR_STORE" or "SNR_DETET" or "MAG_DETECT"
   // and STRING of the form, e.g., 
   //   5   -> one band with SNR>5
   //   5,5 -> two bands with SNR>5
@@ -3078,23 +3082,36 @@ void parse_input_HOSTLIB_GAL_DETECT(char *FEATURE, char *STRING) {
   //   HOSTLIB_MAG_DETECT: 28,26,27
   // the MAG_DETECT list is stored as 26,27,28
   //
+  // Jul 15 2026: change val_detect_ptr from float to double
 
   int i, NBAND;
-  int MXBAND=10, MXCHAR=8, ORDER_SORT ;
-  float VAL, VAL_LIST[10], *val_detect_ptr;
-  int  *nband_ptr ;
-  char **str_list, *string_ptr;
+  int MXBAND=10, MXCHAR=8, ORDER_SORT=0 ;
+  float VAL, VAL_LIST[10];
+  double *val_detect_ptr = NULL;
+  int  *nband_ptr = NULL;
+  char **str_list, *string_ptr = NULL;
   char fnam[] = "parse_input_HOSTLIB_GAL_DETECT";
 
   // ---------- BEGIN -----------
 
-  if ( strcmp(FEATURE,"SNR") == 0 ) {
+  if ( strcmp(FEATURE,"SNR_STORE") == 0 ) {
+    // apply SNR cut to store/reject rows from HOSTLIB;
+    // cannot match SN to a rejected host
+    string_ptr     = INPUTS.HOSTLIB_SNR_STORE_STRING;
+    nband_ptr      = &INPUTS.HOSTLIB_NBAND_SNR_STORE ;
+    val_detect_ptr = INPUTS.HOSTLIB_SNR_STORE;
+    ORDER_SORT     = -1;
+  }
+  else if ( strcmp(FEATURE,"SNR_DETECT") == 0 ) {
+    // apply SNR cut to detect host galaxy matched to SN;
+    // if not detected, it's a missing host and SN might match to 2nd closest host.
     string_ptr     = INPUTS.HOSTLIB_SNR_DETECT_STRING;
     nband_ptr      = &INPUTS.HOSTLIB_NBAND_SNR_DETECT ;
     val_detect_ptr = INPUTS.HOSTLIB_SNR_DETECT;
     ORDER_SORT     = -1;
   }
-  else {
+  else if ( strcmp(FEATURE,"MAG_DETECT") == 0 ) {
+    // apply MAG cut to detect host galaxy matched to SN;
     string_ptr     = INPUTS.HOSTLIB_MAG_DETECT_STRING;
     nband_ptr      = &INPUTS.HOSTLIB_NBAND_MAG_DETECT ;
     val_detect_ptr = INPUTS.HOSTLIB_MAG_DETECT;
@@ -3102,7 +3119,7 @@ void parse_input_HOSTLIB_GAL_DETECT(char *FEATURE, char *STRING) {
   }
 
   if ( IGNOREFILE(STRING) ) {
-    *nband_ptr = 0;
+    *nband_ptr    = 0;
     string_ptr[0] = 0 ;
     return ;
   }
@@ -4035,13 +4052,18 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTLIB_SMEAR_SERSIC", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%f", &INPUTS.HOSTLIB_SMEAR_SERSIC );
   }
+  // - - - - -
+  else if ( keyMatchSim(1, "HOSTLIB_SNR_STORE", WORDS[0],keySource) ) {
+    N++;  parse_input_HOSTLIB_GAL_DETECT("SNR_STORE", WORDS[N]);
+  }
   else if ( keyMatchSim(1, "HOSTLIB_SNR_DETECT", WORDS[0],keySource) ) {
-    N++;  parse_input_HOSTLIB_GAL_DETECT("SNR", WORDS[N]);
+    N++;  parse_input_HOSTLIB_GAL_DETECT("SNR_DETECT", WORDS[N]);
   }
   else if ( keyMatchSim(1, "HOSTLIB_MAG_DETECT", WORDS[0],keySource) ) {
-    N++;  parse_input_HOSTLIB_GAL_DETECT("MAG", WORDS[N]);
+    N++;  parse_input_HOSTLIB_GAL_DETECT("MAG_DETECT", WORDS[N]);
   }
-  
+  // - - - - -
+
   else if ( strstr(WORDS[0],"HOSTLIB_SNR_SCALE") != NULL )  {
     N++;  parse_input_HOSTLIB_SNR_SCALE(WORDS,keySource); // June 29 2022
   }

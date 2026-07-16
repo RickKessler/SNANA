@@ -2222,14 +2222,18 @@ def plotter_func_driver(args, plot_info):
             if do_ov2d_binned_stat and NDIM == 2  :
                 overlay2d_binned_stat(args, info_plot_dict, None)
 
-            if args.FIT:
+            if args.FIT and NDIM == 1:
                 xfit_data   = np.array(xval_list)
                 yfit_data   = np.array(yval_list) 
                 if yerr_list is None:
                     yerr_data   = yerr_list
                 else:
                     yerr_data   = np.array(yerr_list)
-                    
+
+            if args.FIT and NDIM == 2:  # July 14 2026
+                xfit_data = info_plot_dict['xbins_cen'] 
+                yfit_data = info_plot_dict['y_stat']      # mean per bin
+                yerr_data = info_plot_dict['y_err_stat']  # error on mean per bin
 
         elif do_plot_hist and NDIM == 1 :            
             (contents_1d, xedges, patches) = \
@@ -2283,7 +2287,7 @@ def plotter_func_driver(args, plot_info):
 
         # check for fit fun option
         if args.FIT:
-            stat_dict = info_plot_dict['stat_dict'] 
+            stat_dict = info_plot_dict.setdefault('stat_dict',None)
             apply_plt_fit(args, name_legend, xfit_data, yfit_data, yerr_data, stat_dict )
 
         # check for misc plt options (mostly decoration)
@@ -2999,6 +3003,7 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
         stat_legend = which_stat  # default for legend
         y_stat  = binned_statistic(xval_list, yval_list,
                                   bins=xbins, statistic=which_stat)[0]
+        y_stat[np.isnan(y_stat)] = 0  # convert Nan (empty bins) to 0  7.14.2026
 
         # compute error on the mean per bin: stddev/sqrt(N), or just STDDEV
         y_std   = binned_statistic(xval_list, yval_list,
@@ -3048,7 +3053,10 @@ def overlay2d_binned_stat(args, info_plot_dict, ovcolor ):
         plt_legend  += ' ' + stat_legend
         plt.errorbar(xbins_cen, y_stat, yerr=y_err_stat,
                      fmt=plt_marker, label=plt_legend, color=ovcolor, zorder=5 ) 
-            
+         
+        info_plot_dict['y_stat']     = y_stat
+        info_plot_dict['y_err_stat'] = y_err_stat
+
     return  # end of overlay2d_binned_stat
 
 def replace_zeros(float_list):

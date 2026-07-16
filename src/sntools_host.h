@@ -262,16 +262,10 @@ struct HOSTLIB_DEF {
   int IVAR_COEFF_SPECBASIS00 ;       // location of first specbasis coeff (mar 2025)
   int NFILT_MAGOBS;  // NFILT with host mag info read
 
-  char filterList[MXFILTINDX]; // filter list for gal-mag
+  // xxx mark del 7.16.2026  char filterList[MXFILTINDX]; // filter list for gal-mag
 
-  /* xxxx mark delete xxxxx
-  char VARNAME_ZPHOT_Q[MXBIN_ZPHOTEFF][12];
-  int  PERCENTILE_ZPHOT_Q[MXBIN_ZPHOTEFF]; // list of percentiles
-  xxxxxx end mark */
 
   char   VARNAME_QZPHOT[MXBIN_HOSTGALz_QUANTILE][20];
-  // xxx mark  double PERCENTILE_QZPHOT[MXBIN_HOSTGALz_QUANTILE]; // list of percentiles
-
   double SIGMA_QGAUSS[MXBIN_ZPHOTEFF];   // for forced Gauss quantiles
 
   // redshift information
@@ -797,9 +791,12 @@ double snmagshift_salt2gamma_HOSTLIB(long long int GALID);
 
 void   set_GALID_UNIQUE(int i);
 
+bool snr_store_HOSTLIB(long long GALID, double *xval);
 bool snr_detect_HOSTLIB(int IGAL);
 bool mag_detect_HOSTLIB(int IGAL);
 void set_MAGOBS_ERR_SCALE_HOSTLIB(void);
+bool passCuts_snr_HOSTLIB(long long GALID, int NBAND, double *SNR_LIST,
+                          int NBAND_SNR_CUT, double *SNR_CUT_LIST, char *callFun) ;
 
 // SPECBASIS functions
 void   read_specTable_HOSTLIB(void);

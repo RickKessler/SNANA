@@ -44,6 +44,7 @@
 # Jun 30 2026: new WRITE_TF option to write tf with cuts applied and ALL columns
 # Jul 05 2026: add new @@CUTMASK option to apply cuts to subset of files or variables
 # Jul 08 2026: provide initial guess_xxx for Gaussian fitpars.
+# Jul 16 2026: if cutmask=0 then do not require CUT variable(s) to exist in corresponding table file.
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -336,6 +337,9 @@ and two types of command-line input delimeters
       @@CUTMASK 0 1 1   -> apply cuts to 2nd and 3rd tfiles
       @@CUTMASK 1 0 0   -> apply cuts only to first tfile; not cuts for 2nd and 3rd tfiles.
       @@CUTMASK 1 1 1   -> default: cuts applied to all tfiles.
+
+  Cut variable(s) must exist only in the table file(s) where cutmask > 0;
+  for tf where cutmask=0, the @@CUT variable(s) need not exist.
 
 @@FIT
   Apply pre-defined fit function to 1D plot:
@@ -990,12 +994,6 @@ def arg_prep_OPT(args):
 
         OPT_out = args_upper_list
 
-    # xxxxxxxx mark delete xxxxxx
-    # LIST_ROW and LIST_CID are the same, but internally we only use
-    # the LIST_CID flag
-    #if OPT_LIST_ROW in OPT_out and OPT_LIST_CID not in OPT_out:
-    #    OPT_out.append(OPT_LIST_CID)
-    # xxxxxxxxxx end mark xxxxxxxx
 
     # check OV[CHI2] options
     if OPT_CHI2 in OPT_out: # check for legacy option that means OVCHI2
@@ -1253,8 +1251,10 @@ def split_var_string(STRING, DELIM_LIST, FUNC_LIST):
 def translate_driver(args):
 
     # add df. as needed to args.VARIABLE
-    args.raw_var_list = []
-    args.stddev_yaxis = []
+    args.raw_var_list      = []
+    args.raw_plotvar_list  = []
+    args.raw_cutvar_list   = []  # independent subset using @@CUT
+    args.stddev_yaxis      = []
 
     for ivar, var in enumerate(args.var_list):
 
@@ -1264,13 +1264,16 @@ def translate_driver(args):
 
         df_var, raw_plotvar_list = translate_VARIABLE(var)
         args.var_list[ivar]      = df_var
-        args.raw_var_list       += raw_plotvar_list  # used to check existence of vars
+        args.raw_plotvar_list   += raw_plotvar_list  # used to check existence of vars
     logging.info('')
     
     for icut, cut in enumerate(args.cut_list):
         cut_list, raw_cutvar_list = translate_CUT(cut)  # add df. and df.loc as needed
         args.cut_list[icut]       = cut_list
-        args.raw_var_list        += raw_cutvar_list
+        args.raw_cutvar_list     += [v for v in raw_cutvar_list if v not in args.raw_plotvar_list] 
+                                     
+    args.raw_var_list = args.raw_plotvar_list + args.raw_cutvar_list
+
     logging.info('')
     
     # tack on error vars
@@ -1280,8 +1283,10 @@ def translate_driver(args):
             if len(var) > 0: args.raw_var_list += [var]
 
     # remove duplicates
-    args.raw_var_list = list(set(args.raw_var_list))
-    
+    args.raw_var_list     = list(set(args.raw_var_list))
+    args.raw_plotvar_list = list(set(args.raw_plotvar_list))
+    args.raw_cutvar_list  = list(set(args.raw_cutvar_list))    
+
     if args.DEBUG_FLAG_DUMP_TRANSLATE :
         sys.exit(f"\n xxx bye .")
     
@@ -1748,9 +1753,16 @@ def read_tables(args, plot_info):
             # variables exist.
             # count number of rows to skip before VARNAMES; e.g., skip DOCANA for HOSTLIB 
 
-            varname_idrow, nrow_skip, colsep = check_table_varnames(tfile,args.raw_var_list)
+            # if cutmask=0, then only check plotvars; else check plotvar & cutvars
+            var_list_local = args.raw_var_list if cutmask>0 else args.raw_plotvar_list 
+
+            varname_idrow, nrow_skip, colsep = check_table_varnames(tfile, var_list_local)
+            # xxx mark varname_idrow, nrow_skip, colsep = check_table_varnames(tfile, args.raw_var_list)
+
             plot_info.varname_idrow  = varname_idrow            
-            usecol_list = [ varname_idrow ] + args.raw_var_list
+
+            # xxx mark usecol_list = [ varname_idrow ] + args.raw_var_list
+            usecol_list = [ varname_idrow ] + var_list_local
 
             if wgtvar:
                 if wgtvar_list[0] not in usecol_list:

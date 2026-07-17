@@ -25,12 +25,12 @@ def get_args():
     parser.add_argument("--input_table_file", help="Input SNANA table file; e.g., HOSTLIB or FITRES")
     parser.add_argument("--input_cigale_results", help="Cigale results file (results.fits)")
     parser.add_argument("--output_cigale_file", help="Outputted cigale input file")
-    parser.add_argument("--output_galid_map", help="Map between cigale ids and SNANA GALIDs")
     parser.add_argument("--output_snana_file", help="Outputted SNANA file with host properties included")
     parser.add_argument("--mode", required=True, help="snana_to_cigale or cigale_to_snana")
     parser.add_argument("--zgrid", nargs=3, help="Redshift grid")
     parser.add_argument("--varname_z", help="Redshift column in input file")
     parser.add_argument("--prescale", help="Fraction of galaxy sample to use (e.g., prescale 26 selects 1/26)")
+    parser.add_argument("--nsplit", help="Number of files to split the snana_to_cigale output (cigale input file) into")
     args = parser.parse_args()
     return args
 
@@ -228,9 +228,7 @@ def create_output_header_and_cols(col_entries, mag_entries, data, zgrid):
         header_parts.append(col["cigale_col"])
         snana_vals = data[col["snana_col"]]
         if col["cigale_col"] == "id":
-            n = len(snana_vals)
-            cigale_ids = np.arange(n * len(zgrid), dtype=np.int64)
-            snana_galids_tiled = np.tile(snana_vals.astype(np.int64), len(zgrid))
+            cigale_ids = np.array([f"{val}_zbin{i}" for i in range(1, len(zgrid)+1) for val in snana_vals])
             output_cols.append(cigale_ids)
         else:
             output_cols.append(np.tile(snana_vals, len(zgrid)))
@@ -254,7 +252,7 @@ def create_output_header_and_cols(col_entries, mag_entries, data, zgrid):
         output_cols.append(np.tile(flux_mjy, len(zgrid)))
         header_parts.append(col["cigale_col"] + "_err")
         output_cols.append(np.tile(flux_err_mjy, len(zgrid)))
-    return header_parts, output_cols, snana_galids_tiled
+    return header_parts, output_cols
 
 
 def create_output_header_and_cols_nozgrid(col_entries, mag_entries, data):
@@ -315,10 +313,48 @@ def write_cigale_output(cigale_output_path, header_parts, output_cols):
             for col in output_cols:
                 if np.issubdtype(col.dtype, np.integer):
                     vals.append(f"{int(col[i]):d}")
+                elif np.issubdtype(col.dtype, np.str_):
+                    vals.append(col[i])
                 else:
                     vals.append(f"{col[i]:.6f}")
             f.write(" ".join(vals) + "\n")
     print(f"Wrote {nrows} rows to {cigale_output_path}", file=sys.stderr)
+    print(nrows)
+
+
+def write_cigale_output_split(cigale_output_path, header_parts, output_cols, nsplit):
+    """
+    Writes cigale file in the required format of a cigale input.
+    Splits up output file into nsplit versions, each with the same
+    column names and a roughly equal number of rows (rows are split
+    in order: the first file gets the top chunk, etc.).
+    """
+    header_parts[0] = "#" + header_parts[0]
+    header = " ".join(header_parts) + "\n"
+    nrows = len(output_cols[0])
+
+    # Row-index boundaries for each split, as even as possible.
+    # e.g. nrows=100, nsplit=9 -> one chunk of 12 and eight of 11.
+    row_chunks = np.array_split(np.arange(nrows), nsplit)
+
+    # Build one output path per split by inserting the index before the extension.
+    root, ext = os.path.splitext(cigale_output_path)
+
+    for s, rows in enumerate(row_chunks):
+        split_path = f"{root}_{s}{ext}"
+        with open(split_path, "w") as f:
+            f.write(header)
+            for i in rows:
+                vals = []
+                for col in output_cols:
+                    if np.issubdtype(col.dtype, np.integer):
+                        vals.append(f"{int(col[i]):d}")
+                    elif np.issubdtype(col.dtype, np.str_):
+                        vals.append(col[i])
+                    else:
+                        vals.append(f"{col[i]:.6f}")
+                f.write(" ".join(vals) + "\n")
+        print(f"Wrote {len(rows)} rows to {split_path}", file=sys.stderr)
     print(nrows)
 
 
@@ -342,10 +378,10 @@ def snana_to_cigale(args, config, mode):
     cigale_output_path = resolve(args.output_cigale_file, config, 'OUTPUT_CIGALE_FILE', '--output_cigale_file', mode)
 
     # Other params
-    galid_map_path = args.output_galid_map if args.output_galid_map is not None else config.get("OUTPUT_GALID_MAP")
     zgrid = args.zgrid if args.zgrid is not None else config.get("REDSHIFT_GRID").split()
     varname_z = args.varname_z if args.varname_z is not None else config.get("REDSHIFT_COL")
     prescale = args.prescale if args.prescale is not None else config.get("PRESCALE")
+    nsplit = args.nsplit if args.nsplit is not None else config.get("NSPLIT")
 
     col_entries = parse_column_map(config["CIGALE_COLUMN_MAP"], varname_z = varname_z)
     mag_entries = parse_mag_map(config["CIGALE_MAG_MAP"])
@@ -363,14 +399,9 @@ def snana_to_cigale(args, config, mode):
     if zgrid:
         redshift_grid = parse_redshift_grid(zgrid)
 
-        header_parts, output_cols, snana_galids_tiled = create_output_header_and_cols(
+        header_parts, output_cols = create_output_header_and_cols(
             col_entries, mag_entries, data, redshift_grid
         )
-
-        if galid_map_path:
-            write_galid_map(galid_map_path, output_cols, snana_galids_tiled)
-        else:
-            raise ValueError("galid_map_path must be provided if using zgrid")
 
     elif varname_z:
         header_parts, output_cols = create_output_header_and_cols_nozgrid(
@@ -380,7 +411,17 @@ def snana_to_cigale(args, config, mode):
     else:
         raise ValueError(f"Either zgrid or varname_z must be provided for mode '{mode}'")
 
-    write_cigale_output(cigale_output_path, header_parts, output_cols)
+    if nsplit:
+        try:
+            nsplit = int(nsplit)
+        except ValueError:
+            raise ValueError(f"nsplit must be an integer.")
+        if nsplit > 1:
+            write_cigale_output_split(cigale_output_path, header_parts, output_cols, nsplit)
+        else:
+            write_cigale_output(cigale_output_path, header_parts, output_cols)
+    else:
+        write_cigale_output(cigale_output_path, header_parts, output_cols) # Same else statement as above
 
 
 ### CIGALE_TO_SNANA-specific functions ###
@@ -494,7 +535,10 @@ def write_snana_output(output_path, snana_cols, galids, redshifts, logmass, logm
     first appearance in `galids`; within each galaxy, rows are sorted by
     ascending redshift, followed by `num_pad_rows` of all-'-9' padding.
     """
-    galids_int = galids.astype(np.int64)
+    if np.issubdtype(galids.dtype, np.str_) and ('_' in galids[0]):
+        galids_int = np.array([int(float(gal.split('_')[0])) for gal in galids]) # e.g., convert '0_zbin1' back to 0  
+    else:
+        galids_int = galids.astype(np.int64)
 
     seen_order = list(dict.fromkeys(galids_int.tolist()))
 
@@ -534,9 +578,6 @@ def cigale_to_snana(args, config, mode):
     cigale_results_path = resolve(args.input_cigale_results, config, 'INPUT_CIGALE_RESULTS', '--input_cigale_results', mode)
     output_path = resolve(args.output_snana_file, config, 'OUTPUT_SNANA_FILE', '--output_snana_file', mode)
 
-    # Other params
-    galid_map_path = args.output_galid_map if args.output_galid_map is not None else config.get("INPUT_GALID_MAP")
-
     # Currently, snana_format needs to be given in config
     snana_format = config["SNANA_FORMAT"]
     column_map = validate_column_map(config["COLUMN_MAP"], snana_format)
@@ -551,20 +592,7 @@ def cigale_to_snana(args, config, mode):
         [cigale_id_col, cigale_z_col, cigale_mass_col, cigale_mass_err_col],
     )
 
-    if galid_map_path:
-        galid_map = load_galid_map(galid_map_path)
-        cigale_ids = data[cigale_id_col].astype(np.int64)
-        missing = [int(c) for c in cigale_ids if int(c) not in galid_map]
-        if missing:
-            raise ValueError(
-                f"{len(missing)} cigale ids from {cigale_results_path} are not in "
-                f"{galid_map_path} (e.g., {missing[:5]}). Make sure the map matches the run."
-            )
-        galids = np.array([galid_map[int(c)] for c in cigale_ids], dtype=np.int64)
-    else:
-        # If no galid map path is provided, that means the cigale ids are
-        # already equal to the galids
-        galids = data[cigale_id_col].astype(np.int64)
+    galids = data[cigale_id_col]
 
     redshifts = data[cigale_z_col].astype(float)
     logmass, logmass_err = linear_mass_to_logmass(

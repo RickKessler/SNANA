@@ -10,11 +10,11 @@ from   submit_params import *
 from   submit_prog_base import Program
 
 SUBCLASS_HOSTFIT_CIGALE = 'CIGALE'
+SUBCLASS_HOSTFIT_CIGALE_LEGACY = 'CIGALE_LEGACY'
 #PROGRAM_CIGALE_TRANSLATOR = '/home/jmedoff/SNANA/util/cigale_translator.py'
 #PROGRAM_CIGALE_TRANSLATOR = 'cigale_translator.py'
 CIGALE_INPUT_SUBDIR = 'CIGALE_INPUT'
 CIGALE_CSV_FILE = 'cigale_input.in'
-GALID_MAP_FILE = 'galid_map.csv'
 FITOPT_STRING = 'FITOPT'
 
 # define columns for MERGE.LOG;  column 0 is always for STATE                  
@@ -48,15 +48,28 @@ class HostPropertyFit(Program):
 
         
     def submit_prepare_driver(self):
-        input_file = self.config_yaml['args'].input_file
-        output_dir = self.config_prep['output_dir']
+        args = self.config_yaml['args']
 
         #SNANA_TO_CIGALE = util.extract_yaml(input_file, "SNANA_TO_CIGALE:", None)
 
         #CIGALE_TO_SNANA = util.extract_yaml(input_file, "CIGALE_TO_SNANA:", None)
 
-        SUBCLASS = SUBCLASS_HOSTFIT_CIGALE
-        
+        if args.devel_flag:
+            SUBCLASS = SUBCLASS_HOSTFIT_CIGALE
+        else:
+            #SUBCLASS = SUBCLASS_HOSTFIT_CIGALE_LEGACY
+            self.submit_prepare_driver_legacy()
+            return
+        # Start devel here
+
+        return
+
+    def submit_prepare_driver_legacy(self):
+        SUBCLASS = SUBCLASS_HOSTFIT_CIGALE_LEGACY
+        args = self.config_yaml['args']
+        input_file = args.input_file
+        output_dir = self.config_prep['output_dir']
+
         cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
         self.prep_cigale_translator(cigale_input_dir)
         self.prep_cigale_fitopt()
@@ -77,10 +90,17 @@ class HostPropertyFit(Program):
         return
 
     def prep_cigale_translator(self, cigale_input_dir):
+        args = self.config_yaml['args']
+        if not args.devel_flag:
+            self.prep_cigale_translator_legacy(cigale_input_dir)
+            return
+        # Start devel here                                                                                                                                                            
+        return
+
+    def prep_cigale_translator_legacy(self, cigale_input_dir):
         CONFIG     = self.config_yaml['CONFIG']
         cigale_translator_file = CONFIG['CIGALE_TRANSLATOR_FILE']
         program_cigale_translator = CONFIG['CIGALE_TRANSLATOR_SCRIPT']
-        #galid_map_file = self.get_filepath(GALID_MAP_FILE, CIGALE_INPUT_SUBDIR)
         #cigale_csv_file = self.get_filepath(CIGALE_CSV_FILE, CIGALE_INPUT_SUBDIR)
 
         prescale_num = self.config_yaml['args'].prescale
@@ -88,7 +108,9 @@ class HostPropertyFit(Program):
 
         command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
 
-        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --output_galid_map {GALID_MAP_FILE} --prescale {prescale_num}'
+        #command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num}'
+        # Test nsplit
+        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num} --nsplit 3'
 
         os.mkdir(cigale_input_dir)
         os.system(command_copy)
@@ -101,6 +123,15 @@ class HostPropertyFit(Program):
 
 
     def prep_cigale_fitopt(self):
+        args = self.config_yaml['args']
+        if not args.devel_flag:
+            self.prep_cigale_fitopt_legacy()
+            return
+        # Start devel here        
+
+        return
+
+    def prep_cigale_fitopt_legacy(self):
         CONFIG     = self.config_yaml['CONFIG']
         KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
         fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
@@ -127,6 +158,15 @@ class HostPropertyFit(Program):
         return
 
     def prep_cigale_symlinks(self):
+        args = self.config_yaml['args']
+        if not args.devel_flag:
+            self.prep_cigale_symlinks_legacy()
+            return
+        # Start devel here 
+
+        return
+
+    def prep_cigale_symlinks_legacy(self):
         fitopt_dict = self.config_prep['fitopt_dict']
         fitopt_dir_list = self.config_prep['fitopt_dir_list']
         script_dir    = self.config_prep['script_dir']
@@ -461,14 +501,13 @@ class HostPropertyFit(Program):
         #cigale_translator_file = cigale_input_dir + '/' + CONFIG['CIGALE_TRANSLATOR_FILE']
         
         cigale_translator_file = self.get_filepath(CONFIG['CIGALE_TRANSLATOR_FILE'], CIGALE_INPUT_SUBDIR)
-        galid_map_file = self.get_filepath(GALID_MAP_FILE, CIGALE_INPUT_SUBDIR)
         cigale_result_file = self.get_filepath('results.fits', cigale_results_subdir)
         output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num)
 
         row  = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         fitopt_num = row[COLNUM_HOSTFIT_MERGE_FITOPT]
         
-        command_exe = f'{program_cigale_translator} {cigale_translator_file} --mode CIGALE_TO_SNANA --input_cigale_results {cigale_result_file} --output_galid_map {galid_map_file} --output_snana_file {output_snana_file}'
+        command_exe = f'{program_cigale_translator} {cigale_translator_file} --mode CIGALE_TO_SNANA --input_cigale_results {cigale_result_file} --output_snana_file {output_snana_file}'
 
         os.system(command_exe)
 

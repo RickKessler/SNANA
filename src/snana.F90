@@ -11601,8 +11601,8 @@
     i = 1
     DO WHILE ( SNCCID_IGNORE(i) .NE. ' ' )
        CALL NMLCHECK_SNCCID("SNCCID_IGNORE",SNCCID_IGNORE(i))
-       i = i + 1
        SNCCID_IGNORE_ALL(i) = SNCCID_IGNORE(i)
+       i = i + 1
     END DO
     NCCID_IGNORE = i - 1
 

@@ -29,8 +29,8 @@
 #
 # Sep 22 2021 R.Kessler
 #    + major overhaul to create a "standard" output under OUTDIR that is
-#      intended for multiple cosmology fitting programs. 
-#      If COSMOMC_TEMPALTES_PATH is defined, the legacy /cosmomc 
+#      intended for multiple cosmology fitting programs.
+#      If COSMOMC_TEMPALTES_PATH is defined, the legacy /cosmomc
 #      subDir is created as well.
 #
 # Oct 01 2021 R,Kessler
@@ -43,7 +43,7 @@
 #             programs can auto-detect real data and apply default blinding.
 #             Only works on SALT2mu/BBC jobs run after Oct 6 2021.
 #
-# Nov 23 2021 
+# Nov 23 2021
 #   + for unbinned replace MUERR -> MUERR_RENORM
 #   + rebin working, but <z> still not quite right.
 #
@@ -52,21 +52,21 @@
 #              Cov for cosmomc still unzipped until somebody shows
 #              that cosmomc can read gzip file.
 #
-# Apr 27 2022: reduce cov labels to new row and diag only -> 
+# Apr 27 2022: reduce cov labels to new row and diag only ->
 #               reduce output file size by ~50%
 #
 # Apr 30 2022: write MUERR_SYS = sqrt(COVSYS_DIAG) to hubble diagram
 #              (diagnostic only; not used in cosmology fit)
 #
 # May 2 2022 A.Mitra: check for unitary matrix and pos-definite.
-# Jul 19 2022 RK 
+# Jul 19 2022 RK
 #   + define INFO_YML_FILENAME as global
 #   + write ISDATA_REAL flag to HD header
 #
 # Aug 2022 P. Armstrong: create hubble_diagram for systematics
 #
-# Sep 28 2022 RK - 
-#   + new optional inputs --sys_scale_file 
+# Sep 28 2022 RK -
+#   + new optional inputs --sys_scale_file
 #   + read optional 3rd arg to scale errors in COVOPTS
 # Sep 30 2022 RK
 #   + optional --yaml_file arg to communicate with sumbit_batch_jobs
@@ -74,9 +74,9 @@
 # Oct 10 2022 A.Mitra and R.K.
 #   + New input arguments --label_cov_rows with default = False.
 #
-# Oct 13 2022 RK 
+# Oct 13 2022 RK
 #   + for INFO.YAML, add HD file name and name of each covsys file.
-#   + change cov format from 12.8f to 12.6e to get 7 digits of 
+#   + change cov format from 12.8f to 12.6e to get 7 digits of
 #     precision instead of only 3 or 4 digits using 12.8f
 #
 # Nov 9 2022 RK
@@ -84,19 +84,19 @@
 #   + for unbinned, write correct zHEL (no vpec correction)
 #   + write zHD and zHEL comments at top of hubble_diagram.txt
 #
-# Dec 7 2022 RK 
+# Dec 7 2022 RK
 #   + fix bug in prep_config(); affects pippin integration
 #   + write SNANA_VERSION to INFO.YML file
 #   + new --nosys arg
 #
-# Mar 08 2023 RK 
+# Mar 08 2023 RK
 #     - read VERSION_PHOTOMETRY from hubble diagram table header
 #     - read cospar_biascor from sim-README
 #     - write above info to INFO.YML (to pass on to cosmology fitting codes)
 #
 # Apr 05 2023 M.Vincenzi: update -H [HELP] on how to remove one syst.
 #
-# Jan 05 2024 RK 
+# Jan 05 2024 RK
 #   - write PROBIA_BEAMS to hubble diagram (for diagnostic)
 #   - new input option --skip_invert_check
 #   - break up python function(function) for matrices to avoid core dumps
@@ -150,11 +150,11 @@
 #   Change write-CHUNK size from 1M to 5M
 #
 # Feb 07 2025: fix CPU write-time to exclude matrix invert time
-# Feb 17 2025: 
-#   + write BBC_DIR to INFO.YAML file 
+# Feb 17 2025:
+#   + write BBC_DIR to INFO.YAML file
 #   + fix --lable_cov_rows and write more output per cov row.
 #
-# Feb 25 2025: 
+# Feb 25 2025:
 #   + for CIDindex, expand CID+IDSURVEY to CID+IDSURVEY+FIELD to avoid duplicates.
 #   + Write FIELD to unbinned hubble_diagram.
 #   + use cospar from biasCor sim in get_HDcalc (to compute mean z in each rebin)
@@ -183,12 +183,12 @@
 #
 # Oct 17 2025: abort on duplicate CID_IDSURVEY_FIELD; see n_dup
 #
-# Nov 21 2025: 
+# Nov 21 2025:
 #  + update to allow sys_scale_file to include MUOPT scales as well as FITOPTs
 #    Includes partrial refactor to treat FITOPT and MUOPT scales the same way
 #    using the same dictionary structure. Previously, the FITOPT and MUOPT
 #    dictionaries had different structures, which makes code more confusing.
-#    
+#
 # Mar 24 2026 Rujuta P: col_iz = HD[VARNAME_iz] --> HD[VARNAME_iz].to_numpy()
 #
 # ===============================================
@@ -208,6 +208,7 @@ import astropy.units as u
 from   astropy.cosmology import Planck13, z_at_value
 from   astropy.cosmology import FlatLambdaCDM
 from   astropy.cosmology import w0waCDM
+from   gensed_BYOSED import required_keys
 
 
 
@@ -271,7 +272,7 @@ VARNAME_NEVT_BIN = 'NEVT'
 SUBDIR_COSMOMC = "cosmomc"
 
 # keys in header of FITRES and M0DIF tables output by SALT2mu
-KEYNAME_ISDATA             = "ISDATA_REAL" 
+KEYNAME_ISDATA             = "ISDATA_REAL"
 KEYNAME_VERSION_PHOTOMETRY = "VERSION_PHOTOMETRY"
 
 KEYNAME_SYS_SCALE_FILE = "SYS_SCALE_FILE"
@@ -299,9 +300,9 @@ SOURCE_COV_FILE  = "FILE"
 # ============================
 def setup_logging():
 
-    #logging.basicConfig(level=logging.DEBUG, 
+    #logging.basicConfig(level=logging.DEBUG,
     logging.basicConfig(level=logging.INFO,
-        format="[%(levelname)6s |%(filename)10s] %(message)s")                        
+        format="[%(levelname)6s |%(filename)10s] %(message)s")
     # xxx mark format="[%(levelname)8s |%(filename)21s:%(lineno)3d]   %(message)s")
 
     logging.getLogger("matplotlib").setLevel(logging.ERROR)
@@ -317,69 +318,69 @@ def read_yaml(path):
 
 def get_args():
     parser = argparse.ArgumentParser()
-    
+
     msg = "HELP menu for config options"
     parser.add_argument("-H", "--HELP", help=msg, action="store_true")
 
     msg = "name of the yml config file to run"
-    parser.add_argument("input_file", help=msg, 
+    parser.add_argument("input_file", help=msg,
                         nargs="?", default=None)
 
-    msg = "override INPUT_DIR (=BBC output)" 
-    parser.add_argument("-i", "--input_dir", help=msg, 
+    msg = "override INPUT_DIR (=BBC output)"
+    parser.add_argument("-i", "--input_dir", help=msg,
                         nargs='?', type=str, default=None)
-    
-    msg = "override OUTDIR" 
-    parser.add_argument("-o", "--outdir", help=msg, 
+
+    msg = "override OUTDIR"
+    parser.add_argument("-o", "--outdir", help=msg,
                         nargs='?', type=str, default=None)
-    
+
     msg = "override data VERSION"
-    parser.add_argument("-v", "--version", help=msg, 
+    parser.add_argument("-v", "--version", help=msg,
                         nargs='?', type=str, default=None)
-    
-    msg = "override METHOD (e.g., JLA, BBC)" 
-    parser.add_argument("--method", help=msg, 
+
+    msg = "override METHOD (e.g., JLA, BBC)"
+    parser.add_argument("--method", help=msg,
                         nargs='?', type=str, default=None)
 
     msg = "use only this muopt number"
-    parser.add_argument("-m", "--muopt", help=msg, 
-                        nargs='?', type=int, default=-1 ) 
+    parser.add_argument("-m", "--muopt", help=msg,
+                        nargs='?', type=int, default=-1 )
 
     msg = f"override {KEYNAME_SYS_SCALE_FILE} in the input file"
-    parser.add_argument("--sys_scale_file", help=msg, 
-                        nargs='?', type=str, default=None ) 
+    parser.add_argument("--sys_scale_file", help=msg,
+                        nargs='?', type=str, default=None )
 
     msg = f"no systematics (stat only)"
     parser.add_argument("--nosys", help=msg, action="store_true")
 
     # xxx not yet ...
     #msg = "scale all systematics by this factor"
-    #parser.add_argument("--sys_scale_global", help=msg, 
-    #                    nargs='?', type=float, default=1.0 ) 
-    
-    msg = "Add labels in covariance matrix output (visual debug)"                                                                                      
+    #parser.add_argument("--sys_scale_global", help=msg,
+    #                    nargs='?', type=float, default=1.0 )
+
+    msg = "Add labels in covariance matrix output (visual debug)"
     parser.add_argument("--label_cov_rows", help=msg, action="store_true" )
 
     msg = "Use each SN instead of BBC binning (unbinned)"
     parser.add_argument("-u", "--unbinned", help=msg, action="store_true")
 
     msg = "number of x1 bins for rebinning (default=0 -> no rebin)"
-    parser.add_argument("--nbin_x1", help=msg, 
+    parser.add_argument("--nbin_x1", help=msg,
                         nargs='?', type=int, default=0 )
 
     msg = "number of c bins for rebinning (default=0 -> no rebin)"
-    parser.add_argument("--nbin_c", help=msg, 
+    parser.add_argument("--nbin_c", help=msg,
                         nargs='?', type=int, default=0 )
 
     msg = "number of z bins for rebinning ONLY if there is no BiasCor (default=0)"
-    parser.add_argument("--nbin_z", help=msg, 
+    parser.add_argument("--nbin_z", help=msg,
                         nargs='?', type=int, default=0 )
-    
+
     #msg = "rebin args; 0 (unbinned) or e.g., c:5,x1:2 (5 c bins,2 x1 bins)"
     #parser.add_argument("--rebin", help=msg, nargs='+', type=str )
 
     msg = "Subtract MUERR(VPEC) from MUERR. Forces unbinned."
-    parser.add_argument("-s", "--subtract_vpec", help=msg, 
+    parser.add_argument("-s", "--subtract_vpec", help=msg,
                         action="store_true")
 
     msg = "Produce a hubble diagram for every systematic"
@@ -400,23 +401,23 @@ def get_args():
     parser.add_argument("--write_format_cov", help=msg,
                         nargs='?', type=str, default=WRITE_FORMAT_COV_DEFAULT )
 
-    
+
     msg = "Max HD size to run posdef test on covtot_inv (beware it's slow for big matrix)"
     parser.add_argument("--mxsize_test_posdef", help=msg,
                         nargs='?', type=int, default=6000 )
-    
+
     msg = "output yaml file (for submit_batch_jobs)"
-    parser.add_argument("--yaml_file", help=msg, 
+    parser.add_argument("--yaml_file", help=msg,
                         nargs='?', type=str, default=None )
 
     msg = "flag to enable tracemalloc; value is Nseconds of sleep after each trace"
     parser.add_argument("--tracemalloc", help=msg,
-                        nargs='?', type=int, default=1 ) 
+                        nargs='?', type=int, default=1 )
 
     msg = "debug flag for development"
     parser.add_argument("--debug_flag", help=msg,
-                        nargs='?', type=int, default=0 ) 
-    
+                        nargs='?', type=int, default=0 )
+
     # parse it
 
     args = parser.parse_args()
@@ -427,8 +428,8 @@ def get_args():
 
     if args.subtract_vpec:
         args.unbinned = True
-        
-    if (args.nbin_x1 > 0 or args.nbin_c > 0): 
+
+    if (args.nbin_x1 > 0 or args.nbin_c > 0):
         args.rebin    = True
         args.unbinned    = False  # recommended by D.Brout, Aug 8 2022
 
@@ -437,7 +438,7 @@ def get_args():
 
     if args.label_cov_rows:
         args.write_format_cov = WRITE_FORMAT_COV_TEXT  # Jun 13 2025
-    
+
     args.write_cov_text = False
     args.write_cov_npz  = False
     args.write_cov_csv  = False
@@ -448,16 +449,16 @@ def get_args():
     elif args.write_format_cov == WRITE_FORMAT_COV_CSV:
         args.write_cov_csv  = True
     else:
-        sys.exit(f"\n ERROR: invalid --write_format_cov {args.write_format_cov}") 
+        sys.exit(f"\n ERROR: invalid --write_format_cov {args.write_format_cov}")
 
 
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit()
 
-    if args.HELP : 
+    if args.HELP :
         print_help_menu()
-    
+
     return args
     # end get_args
 
@@ -468,7 +469,7 @@ def print_help_menu():
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 INPUT_DIR:  <BBC output dir from submit_batch_jobs or from Pippin>
-VERSION:    <subDir under INPUT_DIR>  
+VERSION:    <subDir under INPUT_DIR>
 
 {KEYNAME_SYS_SCALE_FILE}: <optional yaml file with systematic scales> # include FITOPT and MUOPT scales
   [allows legacy key SYSFILE: ]
@@ -555,18 +556,18 @@ def read_header_info(hd_file):
     found_ver_phot = False
 
     for line in line_list:
-        line  = line.rstrip()  # remove trailing space and linefeed  
+        line  = line.rstrip()  # remove trailing space and linefeed
         line  = line.decode('utf-8')
         wd_list = line.split()
 
-        if any(KEYNAME_ISDATA in s for s in wd_list):  
+        if any(KEYNAME_ISDATA in s for s in wd_list):
             key_isdata     = f"{KEYNAME_ISDATA}:"
             j              = wd_list.index(key_isdata)
             if j > 0 :
-                isdata_real    = int(wd_list[j+1])            
+                isdata_real    = int(wd_list[j+1])
                 found_isdata   = True
 
-        if any(KEYNAME_VERSION_PHOTOMETRY in s for s in wd_list):  
+        if any(KEYNAME_VERSION_PHOTOMETRY in s for s in wd_list):
             key = wd_list[1].replace(':','')  # item 0 is hash, item 1 is key
             if len(wd_list) > 2 :
                 arg = wd_list[2].split(',')
@@ -605,7 +606,7 @@ def load_hubble_diagram(hd_file, args, config):
     df = pd.read_csv(hd_file, sep=r'\s+', comment="#")
     logging.debug(f"\tLoaded data with Nrow x Ncol {df.shape} from {hd_file}")
 
-    
+
     # Jun 2024: if MUERR or MUDIFERR = 999, replace with NaN
     #   [replaces old logic of replacing any 999 with NaN]
     colname_muerr_list = [ VARNAME_MUERR, VARNAME_MUDIFERR ]
@@ -635,7 +636,7 @@ def load_hubble_diagram(hd_file, args, config):
             assert "MUERR_VPEC" in df.columns, msgerr
 
             df[VARNAME_MUERR] = np.sqrt(df[VARNAME_MUERR]**2 - \
-                                        df[VARNAME_MUERR_VPEC]**2)  
+                                        df[VARNAME_MUERR_VPEC]**2)
             logging.debug(f"Subtracted {VARNAME_MUERR_VPEC} " \
                           f"from {VARNAME_MUERR}")
 
@@ -647,7 +648,7 @@ def load_hubble_diagram(hd_file, args, config):
         # Oct 16 2025: abort on duplicate rows
         dup_rows = df[df.duplicated(subset=['CIDstr'] )]
         n_dup    = len(dup_rows)
-        if n_dup > 0 :            
+        if n_dup > 0 :
             hd_base = os.path.basename(hd_file)
             dup_list = dup_rows['CIDstr'].tolist()
             msgerr = f"\n FATAL DUPLICATE ERROR: \n" \
@@ -655,8 +656,8 @@ def load_hubble_diagram(hd_file, args, config):
                      f"\t {hd_file} ; \n" \
                      f"\t Duplicate list: {dup_list}"
             assert False, msgerr
-     
-        # we need to make a new column to index the dataframe on 
+
+        # we need to make a new column to index the dataframe on
         # unique rows for merging two different systematic ...
         # or combining sims with different surveys that have random CID overlaps.
         df['CIDindex'] = df[VARNAME_CID].astype(str)       + "_" + \
@@ -671,20 +672,20 @@ def load_hubble_diagram(hd_file, args, config):
         # should not need z-sorting here for M0DIF, but what the heck
         df = df.rename(columns={"z": VARNAME_zHD})  # Nov 9 2022
         df = df.sort_values(VARNAME_zHD)
-        
+
     # - - - -  -
-    
+
     return df
     # end load_hubble_diagram
 
 
 def get_hubble_diagrams(folder, args, config):
 
-    # return table for each Hubble diagram 
+    # return table for each Hubble diagram
 
     is_rebin    = args.rebin
-    is_unbinned = args.unbinned 
-    is_binned   = args.binned 
+    is_unbinned = args.unbinned
+    is_binned   = args.binned
 
     folder_expand = os.path.expandvars(folder)
     folder_path   = Path(folder_expand)
@@ -701,7 +702,7 @@ def get_hubble_diagrams(folder, args, config):
     for infile in infile_listdir:
 
         skip = False
-        for s in str_skip_list : 
+        for s in str_skip_list :
             if s in infile : skip = True
 
         if skip: continue
@@ -713,9 +714,9 @@ def get_hubble_diagrams(folder, args, config):
         if args.muopt >= 0 :
             muopt_num = f"MUOPT{args.muopt:03d}"
             is_M0DIF  = is_M0DIF and muopt_num in infile
-            
+
         do_load = False
-        if is_binned   and is_M0DIF  : do_load = True 
+        if is_binned   and is_M0DIF  : do_load = True
         if is_unbinned and is_FITRES : do_load = True
         if is_rebin    and is_FITRES : do_load = True
 
@@ -730,9 +731,9 @@ def get_hubble_diagrams(folder, args, config):
             label_list.append(label)
             hd_file = folder_path/infile
 
-            # grab contents of every M0DIF(binned) or FITRES(unbinned) hd file 
+            # grab contents of every M0DIF(binned) or FITRES(unbinned) hd file
             HD_list[label] = load_hubble_diagram(hd_file, args, config)
-            if first_load:  
+            if first_load:
                 hd_header_info  = read_header_info(hd_file)
                 cospar_biascor  = get_cospar_sim(hd_header_info)
                 logging.info(f" cospar_biascor = {cospar_biascor}")
@@ -744,27 +745,27 @@ def get_hubble_diagrams(folder, args, config):
     config['hd_header_info']  = hd_header_info
     config['cospar_biascor']  = cospar_biascor  # Feb 26 2025
 
-    
+
     zcalc_grid, mucalc_grid = get_HDcalc(config)
     config['zcalc_grid']  = zcalc_grid
     config['mucalc_grid'] = mucalc_grid
-    
+
     # - - - - -  -
-    # for unbinned or rebin, select SNe that are common to all 
+    # for unbinned or rebin, select SNe that are common to all
     # FITOPTs and MUOPTs
     if is_unbinned or is_rebin:
         HD_list = get_common_set_of_sne(HD_list)
 
-    # - - - - - - 
+    # - - - - - -
     label0 = label_list[0]
     nsn    = len(HD_list[label0])
     base   = os.path.basename(infile_list[0])
     logging.info(f"Input Hubble diagram size for {base}: {nsn}")
 
-    # - - - - -    
+    # - - - - -
     # df['e'] = e.values or  df1 = df1.assign(e=e.values)
 
-    if is_rebin : 
+    if is_rebin :
         label0 = label_list[0]
         get_rebin_info(config,HD_list[label0])
 
@@ -825,10 +826,10 @@ def get_rebin_info(config,HD):
     # Figure out x1 and c rebinning for input Hubble diagram table 'HD'.
     # Load bin info into config.
 
-    epsilon = 1.0E-6    
-    zmin  = HD[VARNAME_zHD].min() - epsilon 
-    zmax  = HD[VARNAME_zHD].max() + epsilon 
-    x1min = HD[VARNAME_x1].min()  - epsilon 
+    epsilon = 1.0E-6
+    zmin  = HD[VARNAME_zHD].min() - epsilon
+    zmax  = HD[VARNAME_zHD].max() + epsilon
+    x1min = HD[VARNAME_x1].min()  - epsilon
     x1max = HD[VARNAME_x1].max()  + epsilon
     cmin  = HD[VARNAME_c].min()   - epsilon
     cmax  = HD[VARNAME_c].max()   + epsilon
@@ -850,13 +851,13 @@ def get_rebin_info(config,HD):
 
         #varlist = ['CID', 'zHD', 'IZBIN']
         #sys.exit(f"\n xxx z-range = {zmin} to {zmax} : HD = \n{HD[varlist][15530:15570]}")
-        
+
     nbin_z  = len(HD[VARNAME_iz].unique())  # from FITRES file
 
     logging.info(f"\t z (min,max) = {zmin:.3f} {zmax:.3f}   (nbin={nbin_z}) ")
     logging.info(f"\t x1(min,max) = {x1min:.3f} {x1max:.3f}  (nbin={nbin_x1}) ")
-    logging.info(f"\t c (min,max) = {cmin:.3f} {cmax:.3f}  (nbin={nbin_c}) ") 
-    
+    logging.info(f"\t c (min,max) = {cmin:.3f} {cmax:.3f}  (nbin={nbin_c}) ")
+
     bins_x1 = np.linspace(x1min, x1max, num=nbin_x1+1, endpoint=True)
     bins_c  = np.linspace(cmin,   cmax, num=nbin_c+1,  endpoint=True)
 
@@ -930,9 +931,9 @@ def rebin_hubble_diagram(config, HD_unbinned):
     if VARNAME_MUERR_RENORM in HD_unbinned:
         col_muerr_renorm = HD_unbinned[VARNAME_MUERR_RENORM]
     else:
-        col_muerr_renorm = col_muerr  
+        col_muerr_renorm = col_muerr
 
-    HD_rebin_dict = { VARNAME_ROW: [], 
+    HD_rebin_dict = { VARNAME_ROW: [],
                       VARNAME_zHD: [], VARNAME_MU: [] , VARNAME_MUERR: [],
                       VARNAME_MUREF: [], VARNAME_NEVT_BIN: [] }
 
@@ -980,7 +981,7 @@ def rebin_hubble_diagram(config, HD_unbinned):
 
 def get_HDcalc(config):
 
-    
+
     cospar_biascor = config['cospar_biascor']  # from BBCs M0DIF or FITRES output
     legacy = False
 
@@ -995,12 +996,12 @@ def get_HDcalc(config):
     # return calculated HD for input cospar
     zmin    = 0.001
     zmax    = 4.001
-    z_grid  = np.geomspace(zmin, zmax, 4000)    
+    z_grid  = np.geomspace(zmin, zmax, 4000)
 
     if legacy:
         cosmo  = FlatLambdaCDM(H0=70, Om0=0.315)
     else:
-        cosmo  = w0waCDM(H0=70, Om0=OM_BBC, Ode0=ODE_BBC, w0=w0_BBC, wa=wa_BBC) 
+        cosmo  = w0waCDM(H0=70, Om0=OM_BBC, Ode0=ODE_BBC, w0=w0_BBC, wa=wa_BBC)
 
     mu_grid = cosmo.distmod(z_grid)
 
@@ -1013,7 +1014,7 @@ def get_HDcalc(config):
             mu = mu_grid[iz]
             print(f" xxx z = {z:.5f}  mu = {mu:.5f}")
             sys.stdout.flush()
-     
+
     return z_grid, mu_grid
     # end get_HDcalc
 
@@ -1028,12 +1029,12 @@ def get_name_from_fitopt_muopt(f, m):
 
 
 def get_sys_scales(which_opt, submit_info, config):
-    """ 
+    """
     Created nov 21 2025 by R.Kessler
     Re-write obsolete get_fitopt_scales to a more general method that works
     on both FITOPT ane MUOPT syst scales.
     Returns a dict mapping of [which_opt] numbers to (label, scale).
-    
+
     Inputs:
       which_opt = 'FITOPT' or 'MUOPT', for LCFIT or BBC, respectively
       submit_info = contents of SUBMIT.INFO file for LCFIT or BBC stage
@@ -1059,10 +1060,10 @@ def get_sys_scales(which_opt, submit_info, config):
     # - - - - - -
     key = which_opt + '_OUT_LIST'
     sysopt_list = submit_info[key]
-    if sysopt_list is None: 
+    if sysopt_list is None:
         return None
-        
-    # - - - - - - 
+
+    # - - - - - -
     sys_scale_file = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
     if sys_scale_file:
         sys_scales = read_yaml(sys_scale_file)
@@ -1083,23 +1084,23 @@ def get_sys_scales(which_opt, submit_info, config):
         d = int(number.replace(which_opt, ""))
         result[d] = (label, scale)
 
-    result[0] = ( 'DEFAULT', 1.0 ) 
+    result[0] = ( 'DEFAULT', 1.0 )
 
     return result
     # end get_sys_scales
 
 
 def get_fitopt_scales(lcfit_info, config):
-    """ 
+    """
     Returns a dict mapping FITOPT numbers to (label, scale).
     """
 
     # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
     fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
-    if fitopt_list is None: 
+    if fitopt_list is None:
         return None
 
-    # - - - - - - 
+    # - - - - - -
     sys_scale_file = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
     if sys_scale_file:
         sys_scales = read_yaml(sys_scale_file)
@@ -1117,14 +1118,14 @@ def get_fitopt_scales(lcfit_info, config):
         d = int(number.replace("FITOPT", ""))
         result[d] = (label, scale)
 
-    result[0] = ( 'DEFAULT', 1.0 ) 
+    result[0] = ( 'DEFAULT', 1.0 )
     # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
     return result
     # end get_fitopt_scales
 
 def get_fitopt_scales_legacy(lcfit_info, sys_scales):
     # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
-    """ 
+    """
     Returns a dict mapping FITOPT numbers to (label, scale).
     """
     fitopt_list = lcfit_info["FITOPT_OUT_LIST"]
@@ -1148,19 +1149,19 @@ def get_fitopt_scales_legacy(lcfit_info, sys_scales):
 
 def get_muopt_scales(bbc_info, config):
 
-    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@    
+    # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
     # Created Nov 21 2025 by R.Kessler
     # Check both submit_info and input config for muopt scales
 
     muopt_list = bbc_info["MUOPT_OUT_LIST"]
-    if muopt_list is None : 
+    if muopt_list is None :
         return sys_scales
 
     sys_scales = { "DEFAULT" : 1.0 }
-    
+
     # xxx if 'MUOPT_SCALES' in config:
     # xxx   sys_scales  = config["MUOPT_SCALES"]
-    
+
     sys_scale_file = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
     if sys_scale_file:
         sys_scales = read_yaml(sys_scale_file)
@@ -1174,21 +1175,21 @@ def get_muopt_scales(bbc_info, config):
         if label != "DEFAULT" and label is not None:
             if label not in sys_scales:
                 pass
-            #logging.warning(f"No FITOPT scale found for {label} ")                                                                
+            #logging.warning(f"No FITOPT scale found for {label} ")
         scale = sys_scales.get(label, 1.0)
 
         d = int(number.replace("MUOPT", ""))
         result[d] = (label, scale)
- 
-    result[0] = ( 'DEFAULT', 1.0 ) 
+
+    result[0] = ( 'DEFAULT', 1.0 )
     # @@@@@@@@ OBSOLETE; MARK DELET @@@@@@@@@@@
     return result
 
 def get_cov_from_diff(df1, df2, scale):
-    
-    """ Returns both the covariance contribution and summary stats 
+
+    """ Returns both the covariance contribution and summary stats
     (slope and mean abs diff).
-    
+
     Jan 2025: return cov and diff to prepare for memory-reducing option
     """
 
@@ -1225,9 +1226,9 @@ def get_cov_from_diff(df1, df2, scale):
         weights = 1 / np.sqrt(0.003**2 + df1[VARNAME_MUERR].to_numpy()**2 \
                               + df2[VARNAME_MUERR].to_numpy()**2)
         mask = np.isfinite(weights)
-    
+
         reg.fit(df1.loc[mask, [VARNAME_zHD]],
-                diff[mask], 
+                diff[mask],
                 sample_weight=weights[mask])
         coef = reg.coef_[0]
         mean_abs_deviation = np.average(np.abs(diff), weights=weights)
@@ -1235,29 +1236,73 @@ def get_cov_from_diff(df1, df2, scale):
     else:
         coef, mean_abs_deviation, max_abs_deviation = 0, 0, 0
 
-            
+
     return cov, diff, (coef, mean_abs_deviation, max_abs_deviation)
     # end get_cov_from_diff
 
-def get_covsys_from_covfile(data, covfile, scale):
+def get_covsy_from_npzcovfile(cid_data_list, covfile):
+    """ Gets cov matrix from a .npz file with keys CID, IDSURVEY, MU_COV. """
 
-    # Read and return extra covs (e.g., for VPEC)
-    # Jun 2025: major refact to fix broken code; read gzip or unzip
+    npz_required_keys = {'CID', 'IDSURVEY', 'MU_COV'}
 
-    logging.info(f"Read extra cov from {covfile}")
+    c = np.load(covfile)
+    file_keys    = set(c.keys())
+    missing_keys = npz_required_keys - file_keys
+    if missing_keys:
+        raise KeyError(f"Missing required keys in the .npz file: {missing_keys}")
 
-    # convert data CID_IDSURVEY_FIELD back to CID_IDSURVEY because 
-    # there is no FIELD info extra_cov file.
-    cid_data_list = data['CIDstr'].array 
-    cid_data_list = [ '_'.join(c.split('_')[0:2]) for c in cid_data_list]
-    n_data        = len(cid_data_list)
+    CIDstr = c['CID'].astype(str) + "_" + c['IDSURVEY'].astype(str)
+    mask   = np.isin(CIDstr, cid_data_list)
+
+    # Reconstruct the full covariance matrix from the upper triangular part
+    n        = len(c['CID'])
+    cov_triu = c['MU_COV']
+    cov_full = np.zeros((n, n), dtype=cov_triu.dtype)
+    cov_full[np.triu_indices(n)] = cov_triu
+    cov_full += cov_full.T - np.diag(np.diag(cov_full))
+
+    cov_selected    = cov_full[np.ix_(mask, mask)]
+    CIDstr_selected = CIDstr[mask]
+    n_cov           = cov_selected.shape[0]
+
+    n_missing = 0
+    n_use     = 0
+    n_tot     = 0
+    covsum    = 0.0
+    covout    = np.zeros( (len(cid_data_list), len(cid_data_list)) )
+
+    for i,j in np.triu_indices(n_cov):
+
+        n_tot += 1
+        if n_tot % 10000 == 0 : logging.info(f"\t processing cov row {n_tot} ")
+
+        if CIDstr_selected[i] in cid_data_list:
+            j1 = cid_data_list.index(CIDstr_selected[i])
+        else:
+            n_missing += 1 ; continue
+
+        if CIDstr_selected[j] in cid_data_list:
+            j2 = cid_data_list.index(CIDstr_selected[j])
+        else:
+            n_missing += 1 ; continue
+
+        n_use += 1
+        mu_cov        = cov_selected[i,j]
+        covout[j1,j2] = mu_cov
+        covsum       += mu_cov  # diagnostic for regression test
+
+    return covout, (n_tot, n_use, n_missing, covsum)
+    # end get_covsy_from_npzcovfile
+
+def get_covsys_from_datcovfile(n_data, cid_data_list, covfile):
+    """ Gets cov matrix from a .dat(.gz) file with columns CID1, IDSURVEY1, CID2, IDSURVEY2, MU_COV. """
 
     #  check delimeter in cov sys file (comma or blank spaces)
     if '.gz' in covfile:
-        c = gzip.open(covfile, 'r') 
+        c = gzip.open(covfile, 'r')
         is_gzip = True
     else:
-        c = open(covfile, 'r')         
+        c = open(covfile, 'r')
         is_gzip = False
 
     lines = c.readlines()
@@ -1272,25 +1317,24 @@ def get_covsys_from_covfile(data, covfile, scale):
         break
     c.close()
 
-    df_cov = pd.read_csv(covfile, float_precision='high', low_memory=False, 
+    df_cov = pd.read_csv(covfile, float_precision='high', low_memory=False,
                          compression='infer', comment='#', delim_whitespace=False, sep=covsep )
 
     nrow_cov = len(df_cov)
     df_cov['CID1'] = df_cov['CID1'].astype(str) + "_" + df_cov['IDSURVEY1'].astype(str)
     df_cov['CID2'] = df_cov['CID2'].astype(str) + "_" + df_cov['IDSURVEY2'].astype(str)
     covout    = np.zeros( (n_data, n_data) )
-    mudifout  = np.zeros(n_data)
 
     mask1 = df_cov['CID1'].isin(cid_data_list)
     mask2 = df_cov['CID2'].isin(cid_data_list)
     df_cov_select = df_cov[mask1 & mask2]
     nrow_cov_sel  = len(df_cov_select)
     logging.info(f"\t Require valid CID and reduce nrow(cov) = {nrow_cov} -> {nrow_cov_sel} ")
-    
+
     n_missing = 0
     n_use     = 0
     n_tot     = 0
-    covsum    = 0.0 
+    covsum    = 0.0
 
     for i,row in df_cov_select.iterrows():
 
@@ -1300,23 +1344,43 @@ def get_covsys_from_covfile(data, covfile, scale):
         CID1 = row['CID1']
         CID2 = row['CID2']
         j1 = -9;  j2 = -9
-        if CID1 in cid_data_list: 
+        if CID1 in cid_data_list:
             j1 = cid_data_list.index(CID1)
         else:
             n_missing += 1 ; continue
 
-        if CID2 in cid_data_list: 
+        if CID2 in cid_data_list:
             j2 = cid_data_list.index(CID2)
         else:
-            n_missing += 1 ; continue          
+            n_missing += 1 ; continue
 
-        n_use += 1    
+        n_use += 1
         mu_cov        = row['MU_COV']
         covout[j1,j2] = mu_cov
         covsum       += mu_cov  # diagnostic for regression test
 
-        if j1 == j2 :
-            mudifout[j1]  = np.sqrt(mu_cov)
+    return covout, (n_tot, n_use, n_missing, covsum)
+    # end get_covsys_from_datcovfile
+
+def get_covsys_from_covfile(data, covfile):
+
+    # Read and return extra covs (e.g., for VPEC)
+    # Jun 2025: major refact to fix broken code; read gzip or unzip
+
+    logging.info(f"Read extra cov from {covfile}")
+
+    # convert data CID_IDSURVEY_FIELD back to CID_IDSURVEY because
+    # there is no FIELD info extra_cov file.
+    cid_data_list = data['CIDstr'].array
+    cid_data_list = [ '_'.join(c.split('_')[0:2]) for c in cid_data_list]
+    n_data        = len(cid_data_list)
+
+    if '.npz' in covfile:
+        covout, (n_tot, n_use, n_missing, covsum) = \
+            get_covsy_from_npzcovfile(cid_data_list, covfile)
+    else:
+        covout, (n_tot, n_use, n_missing, covsum) = \
+            get_covsys_from_datcovfile(n_data, cid_data_list, covfile)
 
     # - - - - - -
     (sgn, logcovdet)  = np.linalg.slogdet(covout)
@@ -1326,10 +1390,10 @@ def get_covsys_from_covfile(data, covfile, scale):
     logging.info(f"\t {n_missing} extra COV rows skipped that didn't match valid CID")
     logging.info(f"\t Diagnostic covsum = {covsum:.5e}")
 
-    return covout, mudifout, (0, 0, 0)
+    return covout, None, (0, 0, 0)
     # end get_covsys_from_covfile
 
-def get_contributions(m0difs, fitopt_scales, muopt_labels, 
+def get_contributions(m0difs, fitopt_scales, muopt_labels,
                       muopt_scales, extracovdict):
     """ Gets a dict mapping 'FITOPT_LABEL|MUOPT_LABEL' to covariance)"""
     result_cov, result_mudif, slopes = {}, {}, []
@@ -1338,7 +1402,7 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
     for name, df in m0difs.items():
         f, m = get_fitopt_muopt_from_name(name)
         logging.debug(f"Determining contribution for FITOPT {f}, MUOPT {m}")
-        
+
         # Get label and scale for FITOPTS and MUOPTS. Note 0 index is DEFAULT
 
         # xxxxxx mark delete Nov 21 2025 xxxxxxxxx
@@ -1355,12 +1419,12 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         muopt_label,  muopt_scale  = muopt_scales[m]
 
         logging.info(f"\t FITOPT{f:03d} has err_scale={fitopt_scale}, " \
-                     f"MUOPT{m:03d} has err_scale={muopt_scale}") 
+                     f"MUOPT{m:03d} has err_scale={muopt_scale}")
 
         cov_label = f"{fitopt_label}|{muopt_label}"
 
         #if FLAG_WAIT: input(f"Press Enter to continue get_contribution for f={f} m={m}")
-        
+
         # Depending on f and m, compute the contribution to the covariance matrix
         if f == f_REF and m == m_REF :
             # This is the base file, so don't return anything.
@@ -1379,7 +1443,7 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
             df_compare = m0difs[get_name_from_fitopt_muopt(0, 0)]
             cov, mudif, summary = \
                 get_cov_from_diff(df, df_compare, fitopt_scale)
-        
+
         result_cov[cov_label]   = cov
         result_mudif[cov_label] = mudif
         source_cov[cov_label]   = SOURCE_COV_MUDIF
@@ -1389,11 +1453,9 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
     for key, value in extracovdict.items():
         logging.info("# - - - - - - - - - - - - - - - - ")
         logging.info(f"Get extra cov from file for {key}")
-        num_muopt = value[0]  # Nov 2025, RK
         cov_file  = os.path.expandvars(value[1])
-        scale     = muopt_scales[num_muopt]
-        cov, mudif, summary = get_covsys_from_covfile(df, cov_file, scale)
-        
+        cov, mudif, summary = get_covsys_from_covfile(df, cov_file)
+
         fitopt_label = 'DEFAULT'
         muopt_label  = key
         cov_label    = f"{fitopt_label}|{muopt_label}"
@@ -1401,8 +1463,8 @@ def get_contributions(m0difs, fitopt_scales, muopt_labels,
         result_mudif[cov_label] = mudif
         source_cov[cov_label]   = SOURCE_COV_FILE
         slopes.append([name, fitopt_label, muopt_label, *summary])
-        
-    # - - - - 
+
+    # - - - -
     summary_df = pd.DataFrame(slopes, columns=["name", "fitopt_label", "muopt_label", "slope", "mean_abs_deviation", "max_abs_deviation"])
     summary_df = summary_df.sort_values(["slope", "mean_abs_deviation", "max_abs_deviation"], ascending=False)
     return result_cov, result_mudif, source_cov, summary_df
@@ -1425,16 +1487,16 @@ def apply_filter(string, pattern):
 
 def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contributions_source, base, calibrators):
 
-    # Parse covopts (from input config file) that look like 
+    # Parse covopts (from input config file) that look like
     #        "[cal] [+cal,=DEFAULT]"
     #
     # Split covopt into two terms so that extra pad spaces don't
     # break findall command (RK May 14 2021)
     #
     # 9.29.2022 RK - optional 3rd arg with sys scale ?
-    #         "[cal] [+cal,=DEFAULT, SCALE=1.3]" 
-    # 
-    
+    #         "[cal] [+cal,=DEFAULT, SCALE=1.3]"
+    #
+
     covopt_list = covopt.split() # break into two terms
     tmp0 = covopt_list[0]
     tmp1 = covopt_list[1]
@@ -1455,7 +1517,7 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
         covopt_scale = sig_scale * sig_scale
 
     logging.info(f"Compute cov for {label:14}  [cov scale={covopt_scale:.3f}]")
-    
+
     # generic message-content for debug or error
     msg_content1 =  \
         f"COV({label}): FITOPT/MUOPT filters = " \
@@ -1480,11 +1542,11 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
     # - - - - -
     t_start = time.time()
     n_cov = 0
-    
+
     for key, tmp  in contributions.items():
-            
+
         source = contributions_source[key]
-        
+
         fitopt_label, muopt_label = key.split("|")
 
         apply_fitopt = apply_filter(fitopt_label, fitopt_filter)
@@ -1496,13 +1558,12 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
 
         if apply_fitopt and apply_muopt :
 
-            if FLAG_REDUCE_MEMORY:
+            if source == SOURCE_COV_FILE:
+                cov = contributions_cov[key]  # cannot build cov-from-file using mudif (6.2025)
+            elif FLAG_REDUCE_MEMORY:
                 cov = tmp[:, None] @ tmp[None, :]    # tmp = mudif array
             else:
                 cov = tmp                            # tmp is cov for this contribution
-
-            if source == SOURCE_COV_FILE: 
-                cov = contributions_cov[key]  # cannot build cov-from-file using mudif (6.2025)
 
             if final_cov is None:
                 final_cov = cov.copy()
@@ -1530,8 +1591,8 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
     # - - - - - -
     t_make_mat = time.time() - t_start
     logging.info(f"\t ({t_make_mat:.1f} sec to sum {n_cov} contributions to {label})")
-    
-    assert final_cov is not None,  f"No syst matches {msg_content1}\n final_cov = {final_cov} " 
+
+    assert final_cov is not None,  f"No syst matches {msg_content1}\n final_cov = {final_cov} "
 
 
     return label, final_cov, covopt_scale
@@ -1539,19 +1600,19 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
 
 
 def get_cov_invert(args, label, cov_sys, muerr_stat_list):
-    
+
     # Created Jan 5 2024 by R.Kessler
     # move this code out of get_cov_from_covopt() so that a flag
     # can be easily put around calling this method.
 
-    
+
     #logging.info(f"\t Invert covtot for {label}")
     t_start = time.time()
     size    = len(muerr_stat_list)
-    do_test_posdef = size <= args.mxsize_test_posdef 
-    
+    do_test_posdef = size <= args.mxsize_test_posdef
+
     try:
-        # CosmoMC will add the diag terms, 
+        # CosmoMC will add the diag terms,
         # so lets do it here and make sure its all good
         diag_muerr_cov = np.diag(muerr_stat_list**2)
         covtot         = cov_sys + diag_muerr_cov # cov, not cov^-1 yet
@@ -1560,11 +1621,11 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
         # First just try and invert it to catch singular matrix errors
         # precision -> covtot_inv
         logging.info(f"\t\t WAIT for {label} covtot invert process ... ")
-        covtot_inv = np.linalg.inv(covtot)    
+        covtot_inv = np.linalg.inv(covtot)
         t_inv      = time.time()
         str_tproc = f"({t_inv-t_start:.2f} sec)"
         logging.info(f"\t\t {label} covtot has been inverted {str_tproc}")
-        
+
         # A.Mitra, May 2022
         # Check if matrix is unitary and pos-definite.
         pr   = np.dot(covtot,covtot_inv)
@@ -1577,7 +1638,7 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
             logging.info(f"\t\t {label} covtot is UNITARY {str_tproc}")
         else :
             logging.warning(f"\t {label} covtot is not UNITARY {str_tproc}")
-        
+
         # Jan 2025: skip pos-def check on large matrices since it can be very slow
         if do_test_posdef:
             flag2     = is_pos_def(np.round(covtot_inv,decimals=3))
@@ -1587,13 +1648,13 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
                 logging.info(f"\t\t {label} covtot_inv is Pos-Definite {str_tproc}")
             else :
                 logging.warning(f"\t {label} covtot_inv is not Pos-Definite {str_tproc}")
-        
+
             # check that COV is well conditioned to deal with float precision
             epsilon = sys.float_info.epsilon
             cond    = np.linalg.cond(covtot_inv)
             t_cond  = time.time()
-            str_tproc = f"({t_cond-t_posdef:.2f} sec)"            
-            logging.info(f"\t\t {label} covtot_inv condition = {cond:.3f} {str_tproc}") 
+            str_tproc = f"({t_cond-t_posdef:.2f} sec)"
+            logging.info(f"\t\t {label} covtot_inv condition = {cond:.3f} {str_tproc}")
             msgerr  = f"{label} covtot_inv is ill-conditioned and cannot be inverted"
             assert cond < 1 / epsilon, msgerr
 
@@ -1603,11 +1664,11 @@ def get_cov_invert(args, label, cov_sys, muerr_stat_list):
 
     t_tot = time.time() - t_start
     logging.info(f"\t\t TOTAL {label} invert+diagnostic time: {t_tot:.1f} sec")
-    
+
     return covtot_inv, t_tot
 
     # end get_cov_invert
-                
+
 
 def is_unitary(matrix: np.ndarray) -> bool:
     # Created May 2022 by A.Mitra
@@ -1655,15 +1716,15 @@ def write_standard_output(config, args, covsys_list, base,
     os.makedirs(outdir, exist_ok=True)
 
     args.t_invert_sum = 0.0
-    args.t_write_sum  = 0.0 
+    args.t_write_sum  = 0.0
 
     # Apr 30 2022: get array of muerr_sys(ALL) for diagnostic output
     config['muerr_sys_list']    = get_muerr_sys(covsys_list)
-    
+
 
     # 9.16.2025 - load size of HD and number of z-bins for binned
     label0  = label_list[0]
-    HD_size = len(data[label0]) 
+    HD_size = len(data[label0])
     config['HD_size'] = HD_size
     if args.binned:  config['nbin_z'] = HD_size  # for binned, nbin_z = HD_size
 
@@ -1686,18 +1747,18 @@ def write_standard_output(config, args, covsys_list, base,
             write_HD_binned(config, data_file, data[label])
 
     args.t_write_sum += (time.time() - t0)
-    
+
     # write covariance matrices and datasets
     opt_cov = 0  # no comment in cov file
     if label_cov_rows: opt_cov+=1
-    
+
     non_zero_dict = {}
     n_warn_zero = 0
 
     for i, (label, covsys) in enumerate(covsys_list):
 
         logging.info(f"# - - - - - - - - - - - - - - - - - - - -")
-        
+
         non_zero_count       = np.count_nonzero(covsys)
         non_zero_dict[label] = non_zero_count
         if non_zero_count == 0: n_warn_zero += 1
@@ -1705,27 +1766,27 @@ def write_standard_output(config, args, covsys_list, base,
         if config['write_covsys']:
             base_file   = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
             cov_file    = outdir / base_file
-            t_write = write_covariance_driver(args, cov_file, covsys, opt_cov, data)     
+            t_write = write_covariance_driver(args, cov_file, covsys, opt_cov, data)
             args.t_write_sum += t_write
 
-        # Apr 2024: check writing covtot_inv 
+        # Apr 2024: check writing covtot_inv
         if config['write_covtot_inv']:
 
             # perform inversion here, then delete it from memory after writing it to file.
             covtot_inv, t_invert  = \
-                get_cov_invert(args, label, covsys, base[VARNAME_MUERR])            
+                get_cov_invert(args, label, covsys, base[VARNAME_MUERR])
             base_file   = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
             cov_file    = outdir / base_file
-            t_write = write_covariance_driver(args, cov_file, covtot_inv, opt_cov, data)  
+            t_write = write_covariance_driver(args, cov_file, covtot_inv, opt_cov, data)
             args.t_write_sum += t_write
 
             tracemalloc_snapshot(args, f'Stage 50: after inverting {label}')
 
             # resource control/monitor
             del covtot_inv   # avoid memory pile up (Jan 2025)
-            gc.collect()     # ensure release of memory               
-            args.t_invert_sum += t_invert            
-        
+            gc.collect()     # ensure release of memory
+            args.t_invert_sum += t_invert
+
         if config['write_covtot']:
             base_file  = get_cov_filename(i, PREFIX_COVTOT, args.write_format_cov)
             cov_file   = outdir / base_file
@@ -1735,7 +1796,7 @@ def write_standard_output(config, args, covsys_list, base,
 
             # resource control/monitor
             del covtot
-            gc.collect() 
+            gc.collect()
 
 
     # - - - - - -
@@ -1752,7 +1813,7 @@ def write_standard_output(config, args, covsys_list, base,
 
 
 def get_cov_filename(i, prefix, write_format_cov):
-    # Created Oct 13 2022 by R.Kessler: 
+    # Created Oct 13 2022 by R.Kessler:
     # return name of cov file for input prefix and systematic index i
     prefix_plus_index  = f"{prefix}_{i:03d}"
     suffix     = SUFFIX_COV_DICT[write_format_cov]
@@ -1772,7 +1833,7 @@ def get_muerr_sys(covs):
     for i, (label, cov) in enumerate(covs):
         if label == "ALL":
             covsys_all = cov
-        
+
     if covsys_all is not None :
         covdiag_list = covsys_all.diagonal()
         muerr_sys_list = np.sqrt(covdiag_list)
@@ -1785,10 +1846,10 @@ def get_muerr_sys(covs):
 
 def write_cosmomc_output(config, args, covs, base):
 
-    # Copy & modify INI files. 
+    # Copy & modify INI files.
     # Create covariance matrices
     # Create dataset file
- 
+
     logging.info("")
     logging.info("# - - - - - - - - - - - - - - - - - - - - - - - -")
     logging.info(f"       OUTPUT FOR COSMOMC-JLA ")
@@ -1805,7 +1866,7 @@ def write_cosmomc_output(config, args, covs, base):
     os.makedirs(out, exist_ok=True)
 
     # Create lcparam file
-    
+
     data_file      = out / f"data.txt"
     data_file_wCID = out / f"data_wCID.txt"
     prefix_covsys  = "sys"
@@ -1816,10 +1877,10 @@ def write_cosmomc_output(config, args, covs, base):
     opt_cov = 0     # write cov with no comments
     for i, (label, cov) in enumerate(covs):
         dataset_file = out / f"dataset_{i}.txt"
-        covsyst_file = out / f"{prefix_covsys}_{i}.txt" 
+        covsyst_file = out / f"{prefix_covsys}_{i}.txt"
 
         t_write = write_covariance_text(covsyst_file, cov, opt_cov, None)
-        write_cosmomc_dataset(dataset_file, data_file, 
+        write_cosmomc_dataset(dataset_file, data_file,
                               covsyst_file, dataset_template)
         dataset_files.append(dataset_file)
 
@@ -1855,7 +1916,7 @@ def write_cosmomc_output(config, args, covs, base):
 def write_cosmomc_dataset(path, data_file, cov_file, template_path):
     with open(template_path) as f_in:
         with open(path, "w") as f_out:
-            f_out.write(f_in.read().format(data_file=data_file, 
+            f_out.write(f_in.read().format(data_file=data_file,
                                            cov_file=cov_file))
     # end write_cosmomc_dataset
 
@@ -1863,7 +1924,7 @@ def write_cosmomc_HD(path, base, unbinned, cosmomc_format=True):
 
     if not cosmomc_format:
         if unbinned:
-            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_zHD, 
+            varlist = [VARNAME_CID, VARNAME_IDSURVEY, VARNAME_zHD,
                        VARNAME_MU, VARNAME_MUERR]
         else:
             varlist = [VARNAME_zHD, VARNAME_MU, VARNAME_MUERR]
@@ -1928,21 +1989,21 @@ def write_HD_binned(config, path, base):
         syserr_list = muerr_list # anything to allow zip loop
 
     if wrflag_musim:
-        varlist += ' MUSIM' 
+        varlist += ' MUSIM'
         zcalc_grid    = config['zcalc_grid']
-        mucalc_grid   = config['mucalc_grid']    
+        mucalc_grid   = config['mucalc_grid']
 
     with open(path, "w") as f:
         write_HD_comments(f, config, unbinned, wrflag_syserr, False, wrflag_musim )
-        
+
         f.write(f"VARNAMES: {varlist}\n")
         for (name, z, mu, muerr, nevt, syserr) in \
-            zip(name_list, zHD_list, mu_list, muerr_list, 
+            zip(name_list, zHD_list, mu_list, muerr_list,
                 nevt_list, syserr_list):
             val_list = f"{name:<6}  {z:6.5f} {z:6.5f} {mu:8.5f} {muerr:8.5f} "
-            if wrflag_nevt:   
+            if wrflag_nevt:
                 val_list += f" {nevt:4d} "
-            if wrflag_syserr: 
+            if wrflag_syserr:
                 val_list += f" {syserr:8.5f}"
             if wrflag_musim:
                 musim  = np.interp(z, zcalc_grid, mucalc_grid.value )
@@ -1966,7 +2027,7 @@ def write_HD_unbinned(config, path, base):
 
     unbinned = True
     logging.info(f"Write unbinned HD to {path}")
-    
+
     #print(f"\n xxx base=\n{base} \n")
 
     varname_row = "CID"
@@ -1983,14 +2044,14 @@ def write_HD_unbinned(config, path, base):
     zHEL_list   = base[VARNAME_zHEL].to_numpy()
     mu_list     = base[VARNAME_MU].to_numpy()
     muerr_list  = base[VARNAME_MUERR].to_numpy()
-    
+
     # check for optional quantities that may not exist in older files
     found_muerr_vpec   = VARNAME_MUERR_VPEC in base
     found_muerr_sys    = muerr_sys_list is not None
     found_pbeams       = VARNAME_PROBCC_BEAMS in base  # Jan 2024
-    found_musim_cospar_biascor = not config[KEYNAME_ISDATA] 
+    found_musim_cospar_biascor = not config[KEYNAME_ISDATA]
 
-    if found_muerr_vpec :   
+    if found_muerr_vpec :
         varlist += f" {VARNAME_MUERR_VPEC}"
         muerr2_list = base[VARNAME_MUERR_VPEC].to_numpy()
     else:
@@ -2013,14 +2074,14 @@ def write_HD_unbinned(config, path, base):
     if found_musim_cospar_biascor:
         varlist += f" MUSIM"
         zcalc_grid    = config['zcalc_grid']
-        mucalc_grid   = config['mucalc_grid']    
+        mucalc_grid   = config['mucalc_grid']
 
     # - - - - - - -
 
     with open(path, "w") as f:
         write_HD_comments(f, config, unbinned, found_muerr_sys, found_pbeams, found_musim_cospar_biascor )
         f.write(f"VARNAMES: {varlist}\n")
-        
+
         for (name, idsurv, zHD, zHEL, mu, muerr, muerr2, syserr, pbeams) in \
             zip(name_list, idsurv_list, zHD_list, zHEL_list,
                 mu_list, muerr_list, muerr2_list, syserr_list, pbeams_list ):
@@ -2067,7 +2128,7 @@ def write_HD_comments(f, config, unbinned, wrflag_syserr, wrflag_pbeams, wrflag_
         f.write(f"# MUSIM     = mu computed with biasCor cosmology " \
                 "(diagnostic)\n")
 
-    # write ISDATA flag as comment in HD 
+    # write ISDATA flag as comment in HD
     ISDATA = config[KEYNAME_ISDATA]
     f.write(f"# {KEYNAME_ISDATA}: {ISDATA}   "\
             "# flag for cosmology fitter to choose blind option\n")
@@ -2098,7 +2159,7 @@ def write_covariance_driver(args, cov_file, covtot, opt_cov, data):
 
     if args.write_cov_npz:
         t_write = write_covariance_npz(cov_file, covtot)
-    elif args.write_cov_text:  
+    elif args.write_cov_text:
         t_write = write_covariance_text(cov_file, covtot, opt_cov, data)
     elif args.write_cov_csv:
         t_write = write_covariance_csv(cov_file, covtot, opt_cov, data)
@@ -2112,7 +2173,7 @@ def write_covariance_text(path, cov, opt_cov, data):
     # path    : the filename of the output covariance matrix
     # cov     : covariance matrix
     # opt_cov : 1 --> label each row (for diagnostics)
-    # data    :  information for opt_cov = 1 
+    # data    :  information for opt_cov = 1
     # write cov matrix to path; return time to write (seconds)
 
     add_labels     = (opt_cov == 1) # label some elements for human readability
@@ -2124,7 +2185,7 @@ def write_covariance_text(path, cov, opt_cov, data):
 
     # RK - write diagnostic to stdout for regression test
     detcov_test(path,cov)
-        
+
     # - - - - -
     # Write out the matrix
     nwr = 0 ; rownum = -1; colnum=-1
@@ -2132,14 +2193,14 @@ def write_covariance_text(path, cov, opt_cov, data):
     if '.gz' in str(path):
         f = gzip.open(path,"wt", compresslevel=6 )
     else:
-        f = open(path,"wt") 
+        f = open(path,"wt")
 
     f.write(f"{nrow}\n")
 
     if add_labels:
         string_tmp = ""
         n_tmp = 0
-        
+
         HD_TMP     = data['FITOPT000_MUOPT000']
         row_info_dict = {
             'CID_LIST'      : HD_TMP[VARNAME_CID].to_list(),
@@ -2178,7 +2239,7 @@ def write_covariance_text(path, cov, opt_cov, data):
                 str_stat = f"({M:.1f} million)"  # write total stats for large matrix
             else:
                 str_stat = ""   # write nothing for small cov
-                
+
             logging.info(f"\t\t Write chunk {n_chunk} of {n_chunk_expect}  {str_stat}")
             f.write(f"{str_cov}\n")
             f.flush()
@@ -2197,7 +2258,7 @@ def write_covariance_csv(path, cov, opt_cov, data):
     # path    : the filename of the output covariance matrix
     # cov     : covariance matrix
     # opt_cov : 1 --> label each row (for diagnostics)
-    # data    :  information for opt_cov = 1 
+    # data    :  information for opt_cov = 1
     # write cov matrix to path; return time to write (seconds)
 
     add_labels     = (opt_cov == 1) # label some elements for human readability
@@ -2214,7 +2275,7 @@ def write_covariance_csv(path, cov, opt_cov, data):
     if '.gz' in str(path):
         f = gzip.open(path,"wt", compresslevel=6 )
     else:
-        f = open(path,"wt") 
+        f = open(path,"wt")
 
     f.write(f"VARNAMES:  ROW  index1d irow  jcol  COV \n")
 
@@ -2225,7 +2286,7 @@ def write_covariance_csv(path, cov, opt_cov, data):
         index1d = nwr+1
         line    = f"ROW:  {index1d:5d}  {index1d:5d}  {rownum:3d}  {colnum:3d}  {c:13.9f}"
         nwr    += 1
-        f.write(f"{line}\n") ;       
+        f.write(f"{line}\n") ;
         f.flush()
 
 
@@ -2239,7 +2300,7 @@ def write_covariance_npz(path, cov):
     # Inputs :
     #   path : the filename of the output covariance matrix
     #   cov  : covariance matrix
-    # write cov matrix to path in npz format; 
+    # write cov matrix to path in npz format;
     # return time to write (seconds)
 
     file_base      = os.path.basename(path)
@@ -2258,7 +2319,7 @@ def write_covariance_npz(path, cov):
     }
 
     # Feb 4 2026: no longer compress npz output because wfit C code can't read it
-    np.savez(path_no_ext, **npz_arg_dict) 
+    np.savez(path_no_ext, **npz_arg_dict)
 
     # xxxxxxx mark delete: wfit C code can no longer read compressed npz xxxxxxx
     #np.savez_compressed(
@@ -2292,7 +2353,7 @@ def get_label_cov_flatten(nwr, nrow, row_info_dict):
 
     # return diagnostic label
     # this method doesnot impact scientific output\
-        
+
     label = "NO LABEL"
     is_new_row = False
     colnum = int(nwr/nrow) # ex : nwr = 56, nrow = 5, 11 = column
@@ -2304,7 +2365,7 @@ def get_label_cov_flatten(nwr, nrow, row_info_dict):
     idsurvey_col  = row_info_dict['IDSURVEY_LIST'][colnum]
     zhd_row       = row_info_dict['zHD_LIST'][rownum]
     zhd_col       = row_info_dict['zHD_LIST'][colnum]
-    
+
     label = f"# CID,IDSURVEY,zHD,index = " \
             f"[ {cid_row:>8}, {idsurvey_row:3d}, {zhd_row:.5f}, {rownum} ] x " \
             f"[ {cid_col:>8}, {idsurvey_col:3d}, {zhd_row:.5f}, {colnum} ]"
@@ -2312,15 +2373,15 @@ def get_label_cov_flatten(nwr, nrow, row_info_dict):
     if rownum == colnum :
         label += '  diag'
     return label
-    
+
 def write_summary_output(args, config, covsys_list, base):
 
-    # write information to INFO.YAML that is intended to be 
+    # write information to INFO.YAML that is intended to be
     # picked up by cosmology fitting progam. Info includes
     # each covsys label & file, name of hubble diagram file.
     # and ISDATA_REAL flag.
     # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
-    # Feb 17 2025: write BBC_DIR 
+    # Feb 17 2025: write BBC_DIR
     # May 13 2025; fix refactor bug and restore ISDATA_REAL
 
     out        = Path(config["OUTDIR"])
@@ -2330,25 +2391,25 @@ def write_summary_output(args, config, covsys_list, base):
 
     info['HD']           = HD_FILENAME
     info[KEYNAME_ISDATA] = config[KEYNAME_ISDATA]  # May 13 2025
-    
+
     covsys_info = {}
     for i, (label, covsys) in enumerate(covsys_list):
         covsys_file     = None
         covtot_inv_file = None
         if config['write_covsys']:
             covsys_file = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
-        
+
         if config['write_covtot_inv']:
             covtot_inv_file = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
-            
+
         covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}"
         if i==0:
             SIZE_HD = covsys.shape[0]
-            
+
     # - - - - - - -
     info['SIZE_HD'] = SIZE_HD
     info["COVOPTS"] = covsys_info
-    
+
     SNANA_VERSION = get_snana_version()
     info['SNANA_VERSION'] = SNANA_VERSION
 
@@ -2356,14 +2417,14 @@ def write_summary_output(args, config, covsys_list, base):
     for key, val  in version_phot_dict.items():
         info[key] = val
 
-    # - - - - - - - 
+    # - - - - - - -
     info2 = {}
-    BBC_INFO_FILE   = f"{os.path.dirname(BBC_DIR)}/SUBMIT.INFO" 
-    info2['BBC_DIR']        = BBC_DIR  # Feb 17 2025    
+    BBC_INFO_FILE   = f"{os.path.dirname(BBC_DIR)}/SUBMIT.INFO"
+    info2['BBC_DIR']        = BBC_DIR  # Feb 17 2025
     info2['BBC_INFO_FILE']  = BBC_INFO_FILE
     info2[KEYNAME_SYS_SCALE_FILE] = config.setdefault(KEYNAME_SYS_SCALE_FILE,None)
 
-    # - - - - - 
+    # - - - - -
     logging.info("# - - - - - - - - - - - - - - - - - - - - - - - - - -")
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:
@@ -2377,8 +2438,8 @@ def write_summary_output(args, config, covsys_list, base):
 
         f.write(f"\n")
         yaml.safe_dump(info2, f )
-        
-    # - - - - - - - - - - - - - 
+
+    # - - - - - - - - - - - - -
     # append more info manually to avoid alphabetical order and to append comments
     cospar_biascor = config['cospar_biascor']
     with open(out / INFO_YML_FILENAME, "at") as f:
@@ -2390,7 +2451,7 @@ def write_summary_output(args, config, covsys_list, base):
         info_cospar = { 'COSPAR_BIASCOR': cospar_biascor }
         yaml.safe_dump(info_cospar, f )
 
-        
+
     return
     # end write_summary_output
 
@@ -2407,7 +2468,7 @@ def get_string_bin_method(args, config):
     nbin_z  = config['nbin_z']
     nbin_c  = config['nbin_c']
     nbin_x1 = config['nbin_x1']
-    HD_size = config['HD_size']  
+    HD_size = config['HD_size']
 
     if is_unbinned :
         method = 'UNBIN'
@@ -2437,7 +2498,7 @@ def get_version_photomety(BBC_DIR):
     FF               = f"{BBC_DIR}/{base_fitopt_file}"
     with gzip.open(FF,"r") as f:
         line_list = f.readlines()
-        
+
     for line in line_list:
         line  = line.decode('utf-8')
         wdlist = line.split()
@@ -2452,8 +2513,8 @@ def get_version_photomety(BBC_DIR):
 
 def get_cospar_sim(hd_header_info):
 
-    # for input 'hd_header_info' (from BBC M0 or FITRES file) 
-    #  + determine snana_folder 'sim_version', 
+    # for input 'hd_header_info' (from BBC M0 or FITRES file)
+    #  + determine snana_folder 'sim_version',
     #  + run snana.exe GETINFO folder to extract name of README file
     #  + parse README to get cosmo params
     #
@@ -2463,7 +2524,7 @@ def get_cospar_sim(hd_header_info):
     # be found using this method.
 
 
-    # figure out first sim version from biasCor sims; 
+    # figure out first sim version from biasCor sims;
     # assumes same cospar in all biasCor sims.
     sim_version = None
     for key,item in hd_header_info.items() :
@@ -2479,7 +2540,7 @@ def get_cospar_sim(hd_header_info):
     msgerr     = '\n'
 
     cmd = f"snana.exe GETINFO {sim_version}"
-    
+
     ret = subprocess.run( [cmd], shell=True,
                           capture_output=True, text=True )
     ret_stdout = ret.stdout.split()
@@ -2503,12 +2564,12 @@ def get_cospar_sim(hd_header_info):
 
     readme_contents = read_yaml(readme_file)
     docana          = readme_contents[KEY_DOCANA] # DOCUMENTATION block
-    
+
     if KEY_SIM_INPUT in docana :
         sim_inputs      = docana[KEY_SIM_INPUT]
         if sim_inputs is None: sim_inputs = [] # sim-readme bug protection (May 2023)
     else :
-        sim_inputs = []  # allow for for older SNANA versions 
+        sim_inputs = []  # allow for for older SNANA versions
         logging.warning(f"did not find {KEY_SIM_INPUT} in biasCor sim README")
 
     for cospar in KEYLIST_COSPAR_SIM:
@@ -2589,7 +2650,7 @@ def remove_nans(data):
     try:
         base = base.drop('FIELD', axis=1)
     except:
-        #FIELD not in df  
+        #FIELD not in df
         pass
     mask = ~(base.isnull().any(axis=1))
     for name, df in data.items():
@@ -2623,7 +2684,7 @@ def create_covariance(config, args):
     #fitopt_scales_legacy = get_fitopt_scales(submit_info, sys_scale) # warning: muopts are ignored here
     # xxxxxxxx end mark xxxxxx
 
-    fitopt_scales = get_sys_scales('FITOPT', submit_info, config) 
+    fitopt_scales = get_sys_scales('FITOPT', submit_info, config)
 
     # - - - - - -
     # Also need to get the MUOPT labels from the original LCFIT directory
@@ -2634,8 +2695,8 @@ def create_covariance(config, args):
     # Feb 15 2021 RK - check option to selet only one of the muopt
     if args.muopt >= 0 :
         tmp_label    = muopt_labels[args.muopt]
-        muopt_labels = { args.muopt : "DEFAULT" }     
-    
+        muopt_labels = { args.muopt : "DEFAULT" }
+
     # - - - - - -
 
     muopt_scales = get_sys_scales('MUOPT', submit_info, config)
@@ -2646,7 +2707,7 @@ def create_covariance(config, args):
         print(f"\n 0 xxx fitopt_scales = \n{fitopt_scales} \n\n xxx muopt_scales = \n{muopt_scales}\n")
         print(f" xxx extra_covs = {extra_covs}")
 
-    #tack on extra covs as muopts (refactored Nov 2025 by R.Kessler)    
+    #tack on extra covs as muopts (refactored Nov 2025 by R.Kessler)
     extracovdict = {}
     for extra in extra_covs:
         label     = extra.split()[0]
@@ -2676,8 +2737,8 @@ def create_covariance(config, args):
     # FITOPT/MUOPT pair contributes to cov
     contributions_cov, contributions_mudif, contributions_source, summary = \
             get_contributions(data, fitopt_scales,
-                              muopt_labels, 
-                              muopt_scales, 
+                              muopt_labels,
+                              muopt_scales,
                               extracovdict)
 
     tracemalloc_snapshot(args, 'Stage 30: after contributions_cov')
@@ -2688,11 +2749,11 @@ def create_covariance(config, args):
 
     # Add covopt to compute everything
     if args.nosys:
-        covopts_default = ["[=DEFAULT] [,=DEFAULT]"] # Dec 2022 
+        covopts_default = ["[=DEFAULT] [,=DEFAULT]"] # Dec 2022
     else:
         covopts_default = ["[ALL] [,]"]
 
-    covopts = covopts_default + config.get("COVOPTS",[])  
+    covopts = covopts_default + config.get("COVOPTS",[])
 
     args.tstart_cov = time.time()
     covsys_list = []
@@ -2722,7 +2783,7 @@ def create_covariance(config, args):
     # write standard output for cov(s) and hubble diagram (9.22.2021)
 
     write_standard_output(config, args, covsys_list, base,
-                          data, label_list)    
+                          data, label_list)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :
@@ -2736,7 +2797,7 @@ def create_covariance(config, args):
     if args.yaml_file is not None:
         n_covmat = len(covsys_list)
         label0, covsys0  = covsys_list[0]
-        covsize  = covsys0.shape[0]  # Nov 2024        
+        covsize  = covsys0.shape[0]  # Nov 2024
         write_yaml(args, n_covmat, covsize)
 
     return
@@ -2744,7 +2805,7 @@ def create_covariance(config, args):
 
 def prep_config(config,args):
 
-    # Dec 7 2022: fix bug setting override args at start of method instead 
+    # Dec 7 2022: fix bug setting override args at start of method instead
     #   of at the end.
 
     # - - - - -
@@ -2759,7 +2820,7 @@ def prep_config(config,args):
     if args.write_mask_cov & WRITE_MASK_COVSYS:
         config['write_covsys'] = True
     if args.write_mask_cov & WRITE_MASK_COVTOT_INV:
-        config['write_covtot_inv'] = True  
+        config['write_covtot_inv'] = True
     if args.write_mask_cov & WRITE_MASK_COVTOT:
         config['write_covtot'] = True
 
@@ -2768,7 +2829,7 @@ def prep_config(config,args):
     logging.info(f"WRITE_COVTOT:   {config['write_covtot']}")
     logging.info(f"FLAG_REDUCE_MEMORY: {FLAG_REDUCE_MEMORY} ")
     logging.info(f"Check pos-def on covtot_inv for HD size <= {args.mxsize_test_posdef}")
-    
+
     # - - - - -
     # check override args (RK, Feb 15 2021)
     if args.input_dir is not None :
@@ -2777,7 +2838,7 @@ def prep_config(config,args):
 
     if args.outdir is not None :
         config["OUTDIR"] = args.outdir
-        logging.info(f"OPTION: override OUTDIR with {args.outdir}")        
+        logging.info(f"OPTION: override OUTDIR with {args.outdir}")
 
     if args.sys_scale_file is not None :
         config[KEYNAME_SYS_SCALE_FILE] = args.sys_scale_file
@@ -2790,15 +2851,15 @@ def prep_config(config,args):
 
     if args.muopt >= 0 :
         global m_REF ; m_REF = args.muopt  # RK, Feb 2021
-        logging.info(f"OPTION: use only MUOPT{m_REF:03d}")        
+        logging.info(f"OPTION: use only MUOPT{m_REF:03d}")
 
     # xxx ??? xxx
     #if 'RESTORE_DES5YR' in config:
     #    args.restore_des5yr = config['RESTORE_DES5YR']
-        
-    # - - -  - -    
 
-    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE', 
+    # - - -  - -
+
+    key_legacy_list = [ 'COSMOMC_TEMPLATES',      'DATASET_FILE',
                         'SYSFILE' ]
     key_update_list = [ 'COSMOMC_TEMPLATES_PATH', 'COSMOMC_DATASET_FILE',
                         'SYS_SCALE_FILE' ]
@@ -2807,13 +2868,13 @@ def prep_config(config,args):
         if key_legacy in config:
             msg = f"Replace legacy key '{key_legacy}' with {key_update}"
             logging.info(msg)
-            config[key_update] = config[key_legacy] 
+            config[key_update] = config[key_legacy]
 
-    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE', 
+    path_list = [ 'INPUT_DIR', 'OUTDIR', 'SYS_SCALE_FILE',
                   'COSMOMC_TEMPLATES_PATH' ]
     for path in path_list:
         if path in config:
-            config[path] = os.path.expandvars(config[path]) ;   
+            config[path] = os.path.expandvars(config[path]) ;
 
     # check special/legacy features for cosmoMC/JLA
     config['use_cosmomc'] = False
@@ -2842,7 +2903,7 @@ def loginfo_cpu_summary(args):
     if args.write_mask_cov & WRITE_MASK_COVTOT_INV :
         cpu_minutes = args.t_invert_sum / 60.0
         logging.info(f"CPUTIME_COV_INVERT   = {cpu_minutes:.3f} minutes")
-    
+
     cpu_minutes = args.t_write_sum / 60.0
     logging.info(f"CPUTIME_WRITE_HD+COV = {cpu_minutes:.3f} minutes")
 
@@ -2916,7 +2977,7 @@ if __name__ == "__main__":
 
     setup_logging()
     logging.info(f"# ========== BEGIN create_covariance {tnow} ===============")
-        
+
     command = " ".join(sys.argv)
     logging.info(f"# Command: {command}")
     sys.stdout.flush()
@@ -2933,5 +2994,5 @@ if __name__ == "__main__":
 
 
     logging.info('Done.')
-    
+
     # end main

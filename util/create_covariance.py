@@ -1251,7 +1251,7 @@ def get_covsy_from_npzcovfile(cid_data_list, covfile):
     if missing_keys:
         raise KeyError(f"Missing required keys in the .npz file: {missing_keys}")
 
-    CIDstr = c['CID'].astype(str) + "_" + c['IDSURVEY'].astype(str)
+    CIDstr = np.char.add(np.char.add(c['CID'].astype(str), "_"), c['IDSURVEY'].astype(str))
     mask   = np.isin(CIDstr, cid_data_list)
 
     # Reconstruct the full covariance matrix from the upper triangular part

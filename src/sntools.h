@@ -75,7 +75,7 @@
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA   10.0        // max snana redshift, Sept 9, 2022
 #define PSFMAX_SNANA 5.0         // max allowed PSF, FWHM, arcsec (Mar 2021)
-#define MXLAMBIN_SNANA 6000      // max number of wave bins (SED, filters ...)
+#define MXLAMBIN_SNANA 8000      // max number of wave bins (SED, filters ...) # RP edited Jul 21, 2026
 
 #define COMMA      ","              // to split comma-sep strings
 #define COLON      ":"              // to split colon-sep strings

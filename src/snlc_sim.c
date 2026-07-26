@@ -1574,11 +1574,8 @@ int read_input_file(char *input_file, int keySource ) {
   
   // unpack ENV, and make sure that input file exists
   ENVreplace(input_file,fnam,1);
-  if ( (fp = fopen(input_file, "rt"))==NULL ) {       
-    sprintf ( c1err, "Cannot open input file :" );
-    sprintf ( c2err," '%s' ", input_file);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  fp = fopen(input_file, "rt");
+  check_file_pointer(fp, input_file, "rt", fnam);
   fclose(fp);
 
   INPUTS.NREAD_INPUT_FILE++ ;
@@ -11465,6 +11462,7 @@ void wr_VERIFY_SED_TRUE(int FLAG_PROC, int ifilt_obs, double MJD, double genmag_
     fflush(stdout);
     INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE = fopen(VERFIY_FILE_NAME,"wt");
     FP  = INPUTS.SPECTROGRAPH_OPTIONS.FP_VERIFY_SED_TRUE;
+    check_file_pointer(FP, VERFIY_FILE_NAME, "wt", fnam);
     fprintf(FP,"VARNAMES: %s\n", VARLIST);
     return ;
   }
@@ -14584,6 +14582,7 @@ void wr_SIMGEN_FILTERS( char *PATH_FILTERS ) {
     sprintf(filtFile,"%s/%s.dat", PATH_FILTERS, cfilt );
    
     fp_filt = fopen(filtFile, "wt") ;
+    check_file_pointer(fp_filt, filtFile, "wt", fnam);
 
     for ( ilam=0; ilam < NLAM; ilam++ ) 
       { fprintf(fp_filt,"%7.1f  %.6f \n", lam[ilam], TransSN[ilam] );  }
@@ -14639,11 +14638,8 @@ void wr_SIMGEN_YAML_SUMMARY(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   char fnam[] = "wr_SIMGEN_YAML_SUMMARY" ;
 
   // ------------ BEGIN ---------------
-  if ( (fp = fopen(ptrFile, "wt")) == NULL ) {       
-    sprintf ( c1err, "Cannot open SIMGEN YAML file :" );
-    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  fp = fopen(ptrFile, "wt");  
+  check_file_pointer(fp, ptrFile, "wt", fnam);
 
   fprintf(fp, "SURVEY:          %s\n",    GENLC.SURVEY_NAME   );
   fprintf(fp, "IDSURVEY:        %d\n",    GENLC.IDSURVEY );
@@ -14764,11 +14760,8 @@ void wr_SIMGEN_DUMP(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     // (for faster writing)
     SIMFILE_AUX->OUTLINE = (char *) malloc( 50 + sizeof(char)*NVAR*20 );
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP = fopen(ptrFile, "wt")) == NULL ) {       
-      sprintf ( c1err, "Cannot open SIMGEN dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+    SIMFILE_AUX->FP_DUMP = fopen(ptrFile, "wt") ;
+    check_file_pointer(SIMFILE_AUX->FP_DUMP, ptrFile, "wt", fnam);
 
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
@@ -14927,11 +14920,8 @@ void wr_SIMGEN_DUMP_SL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     print_banner(BANNER);
 
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP_SL = fopen(ptrFile, "wt")) == NULL ) {       
-      sprintf ( c1err, "Cannot open SIMGEN SL-dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+    SIMFILE_AUX->FP_DUMP_SL = fopen(ptrFile, "wt");
+    check_file_pointer(SIMFILE_AUX->FP_DUMP_SL, ptrFile, "wt", fnam);
 
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
@@ -15054,12 +15044,8 @@ void wr_SIMGEN_DUMP_DCR(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     print_banner(BANNER);
 
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP_DCR = fopen(ptrFile, "wt")) == NULL ) {       
-      sprintf ( c1err, "Cannot open SIMGEN DCR-dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
+    SIMFILE_AUX->FP_DUMP_DCR = fopen(ptrFile, "wt") ;
+    check_file_pointer(SIMFILE_AUX->FP_DUMP_DCR, ptrFile, "wt", fnam);
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
     fp = SIMFILE_AUX->FP_DUMP_DCR ;
@@ -15203,12 +15189,8 @@ void wr_SIMGEN_DUMP_NOISE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX,
 
     
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP_NOISE = fopen(ptrFile, "wt")) == NULL ) {       
-      sprintf ( c1err, "Cannot open SIMGEN NOISE-dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
-
+    SIMFILE_AUX->FP_DUMP_NOISE = fopen(ptrFile, "wt") ;
+    check_file_pointer(SIMFILE_AUX->FP_DUMP_NOISE, ptrFile, "wt", fnam);
     
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
@@ -15355,11 +15337,8 @@ void wr_SIMGEN_DUMP_SPEC(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
     } // end ifilt
 
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP_SPEC = fopen(ptrFile, "wt")) == NULL ) {       
-      sprintf ( c1err, "Cannot open SIMGEN SPEC-dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+    SIMFILE_AUX->FP_DUMP_SPEC = fopen(ptrFile, "wt") ;
+    check_file_pointer(SIMFILE_AUX->FP_DUMP_SPEC, ptrFile, "wt", fnam);
 
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
@@ -15494,11 +15473,8 @@ void wr_SIMGEN_DUMP_TRAINSALT(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP_TRAINSALT = fopen(ptrFile, "wt")) == NULL ) {       
-      sprintf ( c1err, "Cannot open SIMGEN TRAINSALT-dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+    SIMFILE_AUX->FP_DUMP_TRAINSALT = fopen(ptrFile, "wt") ;
+    check_file_pointer(SIMFILE_AUX->FP_DUMP_TRAINSALT, ptrFile, "wt", fnam);
 
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
@@ -15560,12 +15536,9 @@ void wr_SIMGEN_DUMP_RATE(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP_RATE = fopen(ptrFile, "wt")) == NULL ) {
-      sprintf ( c1err, "Cannot open SIMGEN RATE-dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-    
+    SIMFILE_AUX->FP_DUMP_RATE = fopen(ptrFile, "wt") ;
+    check_file_pointer(SIMFILE_AUX->FP_DUMP_RATE, ptrFile, "wt", fnam);
+
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
     fp = SIMFILE_AUX->FP_DUMP_RATE ;
@@ -15645,11 +15618,8 @@ void wr_SIMGEN_DUMP_MWCL(int OPT_DUMP, SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
     // open file and write header
-    if ( (SIMFILE_AUX->FP_DUMP_MWCL = fopen(ptrFile, "wt")) == NULL ) {       
-      sprintf ( c1err, "Cannot open SIMGEN MWCL-dump file :" );
-      sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+    SIMFILE_AUX->FP_DUMP_MWCL = fopen(ptrFile, "wt") ;
+    check_file_pointer(SIMFILE_AUX->FP_DUMP_MWCL, ptrFile, "wt", fnam);
 
     printf("\t open %s\n", ptrFile );
     fflush(stdout);
@@ -22902,17 +22872,11 @@ void cp_zvariation(char *outFile_zvar) {
 
   // open files
 
-  if ( (fpz = fopen(ptrZfile, "rt"))==NULL ) {   
-    sprintf ( c1err, "Cannot open ZVARIATION_FILE (NPAR_ZVAR_USR=%d)",
-	      NPAR_ZVAR_USR );
-    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, ptrZfile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-  if ( (fpz2 = fopen(ptrZfile2, "wt"))==NULL ) {   
-    sprintf ( c1err, "Cannot open target ZVARIATION_FILE " );
-    sprintf ( c2err," '%s' ", ptrZfile2 );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  fpz = fopen(ptrZfile, "rt");
+  check_file_pointer(fpz, ptrZfile, "rt", fnam);
+
+  fpz2 = fopen(ptrZfile2, "wt");
+  check_file_pointer(fpz2, ptrZfile2, "wt", fnam);
 
   while( fgets(cline, 80, fpz)  != NULL ) 
     { fprintf(fpz2, "%s", cline); }
@@ -25181,7 +25145,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.WRFLAG_ATMOS     = (WRFLAG_ATMOS>0);
   SNDATA.WRFLAG_SPECTRA   = (INPUTS.WRITE_MASK & WRITE_MASK_SPECTRA) >0 ;
 
-  if ( GENLC.NEPOCH >= MXEPOCH ) {
+  if ( GENLC.NEPOCH >= MXEPOCH-1 ) {
     print_preAbort_banner(fnam);
     printf("\t LIBID=%d  z=%.3f  PEAKMJD=%.3f\n", 
 	   GENLC.SIMLIB_ID, GENLC.REDSHIFT_CMB, GENLC.PEAKMJD );
@@ -26959,11 +26923,8 @@ void check_model_default(int index_model ) {
     sprintf(defaultFile,"%s/%s.%s", 
 	    defaultPath, PTR_GENMODEL, suffix);
 
-    if ( (fp = fopen(defaultFile, "rt")) == NULL ) {
-      sprintf(c1err,"Default version file does not exist:");
-      sprintf(c2err,"%.*s", MXCHAR_MSGERR, defaultFile );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+    fp = fopen(defaultFile, "rt") ;
+    check_file_pointer(fp, defaultFile, "rt", fnam);
 
     // read default model-version from default-file
     readchar(fp, model ) ;
@@ -30729,7 +30690,10 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   // create mandatory files.
   SIMFILE_AUX->FP_LIST   = fopen(SIMFILE_AUX->LIST,   "wt") ;  
+  check_file_pointer(SIMFILE_AUX->FP_LIST, SIMFILE_AUX->LIST, "wt", fnam);
+
   SIMFILE_AUX->FP_README = fopen(SIMFILE_AUX->README, "wt") ;  
+  check_file_pointer(SIMFILE_AUX->FP_README, SIMFILE_AUX->README, "wt", fnam);
 
   // write out the already existing 'init' part of the README file
   for ( i = 1; i <= VERSION_INFO.NLINE_README_INIT; i++ ) {
@@ -30995,7 +30959,7 @@ void hide_readme_file(char *readme_file, char *hide_readme_file) {
   int isys;
   FILE *FP;
   char cmd[4*MXPATHLEN];
-  // char fnam[] = "hide_readme_file" ;
+  char fnam[] = "hide_readme_file" ;  (void)fnam;
 
   // --------- BEGIN ----------
 
@@ -31005,6 +30969,7 @@ void hide_readme_file(char *readme_file, char *hide_readme_file) {
 
   // open and create minimal readme to avoid abort in analysis codes
   FP = fopen(readme_file,"wt");
+  check_file_pointer(FP, readme_file, "wt", fnam);
 
   fprintf(FP,"%s\n", KEYNAME_DOCANA_REQUIRED );
 
@@ -31705,11 +31670,7 @@ void SIMLIB_DUMP_DRIVER(void) {
     get_filename_SIMLIB_DUMP("AVG", PREFIX,  SIMLIB_DUMPFILE_AVG);    
 
     fpdmp0 = fopen(SIMLIB_DUMPFILE_AVG, "wt") ;    
-    if ( !fpdmp0 ) {
-      sprintf(c1err,"Could not open DUMP_LIBID file to write:");
-      sprintf(c2err,"%.*s", MXCHAR_MSGERR, SIMLIB_DUMPFILE_AVG );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-    }
+    check_file_pointer(fpdmp0, SIMLIB_DUMPFILE_AVG, "wt", fnam);
 
     write_docana_SIMLIB_DUMP(fpdmp0, SIMLIB_DUMPMASK_AVG);
 
@@ -31733,6 +31694,7 @@ void SIMLIB_DUMP_DRIVER(void) {
 
     get_filename_SIMLIB_DUMP("OBS", PREFIX, SIMLIB_DUMPFILE_OBS);
     fpdmp1 = fopen(SIMLIB_DUMPFILE_OBS, "wt") ;
+    check_file_pointer(fpdmp1, SIMLIB_DUMPFILE_OBS, "wt", fnam);
     write_docana_SIMLIB_DUMP(fpdmp1, SIMLIB_DUMPMASK_OBS);
    
    
@@ -32685,11 +32647,9 @@ void DUMP_GENMAG_DRIVER(void) {
   // --------------------------------------------
   // open one output dump file (FITRES format)
   sprintf(dmpFile, "DUMP_GENMAG_%s.TEXT", INPUTS.MODELNAME );
-  if ( (FPDMP = fopen(dmpFile, "wt"))==NULL ) {       
-    sprintf ( c1err, "Cannot open output file :" );
-    sprintf ( c2err,"'%.*s'", MXCHAR_MSGERR,  dmpFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  FPDMP = fopen(dmpFile, "wt") ;
+  check_file_pointer(FPDMP, dmpFile, "wt", fnam);
+
   fprintf(FPDMP,"# GENMODEL:  %s \n", INPUTS.MODELNAME );
   fprintf(FPDMP,"# REDSHIFT_HELIO: %.4f \n", GENLC.REDSHIFT_HELIO );
   fprintf(FPDMP,"#\n");

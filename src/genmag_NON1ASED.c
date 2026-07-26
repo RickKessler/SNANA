@@ -536,11 +536,9 @@ int count_NON1A_LIST(char *PATHMODEL) {
   // --------------- BEGIN ----------------
 
   sprintf(listFile, "%s/NON1A.LIST",  PATHMODEL );
-  if ( (fp = fopen(listFile, "rt"))==NULL ) { 
-    sprintf ( c1err, "Cannot open file :" );
-    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, listFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  fp = fopen(listFile, "rt") ;
+  check_file_pointer(fp, listFile, "rt", fnam);
+
 
   while( (fscanf(fp, "%s", cget)) != EOF) {
     if ( ISKEY_NON1A_LIST(cget) ) { Ncount++ ; }
@@ -593,14 +591,9 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
 
   sprintf(INP_NON1ASED->LISTFILE, "%s/NON1A.LIST",  INP_NON1ASED->PATH );
   listFile = INP_NON1ASED->LISTFILE;
-  // xxx mark  sprintf(INP_NON1ASED->LISTFILE, "%s", listFile);
 
-  if ( (fp = fopen(listFile, "rt"))==NULL ) { 
-    sprintf ( c1err, "Cannot open file :" );
-    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, listFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
+  fp = fopen(listFile, "rt");
+  check_file_pointer(fp, listFile, "rt", fnam);
 
   printf("    Read all NON1A from '%s' \n", listFile);
 

@@ -1174,13 +1174,8 @@ void read_SALT2_INFO_FILE(int OPTMASK) {
 
   check_file_docana((int)REQUIRE_DOCANA, infoFile);
 
-  if (( fp = fopen(infoFile, "rt")) == NULL ) {
-    print_preAbort_banner(fnam);
-    printf("\t SALT2_MODELPATH = '%s' \n", SALT2_MODELPATH);
-    sprintf(c1err,"Could not open SALT2 info file:");
-    sprintf(c2err," %.*s", MXCHAR_MSGERR, infoFile );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  fp = fopen(infoFile, "rt") ;
+  check_file_pointer(fp, infoFile, "rt", fnam);
 
   // init info variables to reasonable  default values
 

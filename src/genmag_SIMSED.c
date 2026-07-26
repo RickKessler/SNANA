@@ -824,11 +824,8 @@ int read_SIMSED_INFO(char *PATHMODEL) {
   // read number of rows to use for malloc (Jan 2024)
   NSED_COUNT = count_SIMSED_INFO(PATHMODEL);
 
-  if (( fp = fopen(ptrFile,"rt")) == NULL ) {
-    sprintf(c1err,"Could not open info file:");
-    sprintf(c2err,"%.*s", MXCHAR_MSGERR, ptrFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
+  fp = fopen(ptrFile,"rt") ;
+  check_file_pointer(fp, ptrFile, "rt", fnam);
 
   printf("\n Read list of SEDs and parameters from \n  %s \n", ptrFile);
 
@@ -1065,11 +1062,9 @@ int count_SIMSED_INFO(char *PATHMODEL ) {
 
   sprintf(FILENAME, "%s/%s", PATHMODEL, SIMSED_INFO_FILENAME);
 
-  if (( fp = fopen(FILENAME,"rt")) == NULL ) {
-    sprintf(c1err,"Could not open info file:");
-    sprintf(c2err,"%s", FILENAME );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
+  fp = fopen(FILENAME,"rt") ;
+  check_file_pointer(fp, FILENAME, "rt", fnam);
+
   printf("\n Read number of SEDs  from \n  %s \n", FILENAME );
   fflush(stdout);
 

@@ -309,12 +309,15 @@ void  DUMP_MAP_FLUXERRMODEL(int IMAP) {
 
   if ( OPENFLAG ) { 
     fp = fopen(dumpFileName,"wt"); // new file
+    check_file_pointer(fp, dumpFileName, "wt", fnam);
+
     printf("\t Dump %s \n", dumpFileName );
     NROW_DUMP_FLUXERRMAP = 0 ;
   } 
-  else
-    { fp = fopen(dumpFileName,"at"); } // append mode
-
+  else  { 
+    fp = fopen(dumpFileName,"at");  // append mode
+    check_file_pointer(fp, dumpFileName, "at", fnam);
+  }
 
   if ( OPENFLAG ) {
     // write header when file is opened

@@ -353,6 +353,8 @@ int init_filter_SEDMODEL(
     sprintf(filtFile, "genmag_SEDMODEL_%s-trans.dat", 
 	    FILTER_SEDMODEL[ifilt].name );
     fp_filt = fopen(filtFile, "wt");
+    check_file_pointer(fp_filt, filtFile, "wt", fnam);
+
     printf("\t dump filter-trans to %s )\n", filtFile );
     
     for ( ilam=0; ilam < FILTER_SEDMODEL[ifilt].NLAM ; ilam++ ) {

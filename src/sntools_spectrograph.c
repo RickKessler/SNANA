@@ -144,7 +144,6 @@ void read_spectrograph_text(char *inFile) {
   NROW_FILE = nrow_read(inFile,fnam);
 
   fp = open_TEXTgz(inFile, "rt", 0, &GZIPFLAG, fnam );
-  // xxx mark delete Mar 2024  fp = fopen(inFile,"rt");
 
   if ( !fp ) {
     sprintf(c1err,"Could not find SPECTROGRAPH table file:");

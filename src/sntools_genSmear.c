@@ -1342,15 +1342,10 @@ void read_genSmear_SALT2INFO(char *versionSALT2, GRIDMAP1D_DEF *SIGCOH_LAM,
 
   // --------- BEGIN -------
 
-  // xxx  sprintf(INFO_FILE, "%s/SALT2.INFO", versionSALT2);
   sprintf(INFO_FILE, "%s/%s", versionSALT2, SALT2_INFO_FILE ); // 11.04.2020
 
-
-  if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
-      sprintf(c1err,"Cannot open infoFile " );
-      sprintf(c2err,"%.*s", MXCHAR_MSGERR, INFO_FILE);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;    
-  }
+  fp = fopen(INFO_FILE, "rt") ;
+  check_file_pointer(fp, INFO_FILE, "rt", fnam);
 
   SIGCOH_LAM->NBIN = 0 ;  // SIGCOH vs. lam array
 
@@ -1990,11 +1985,8 @@ void read_VCR_INFO(void) {
 
   // ------------- BEGIN ------------
 
-  if ( (fp = fopen(infoFile,"rt") ) == NULL ) {
-    sprintf(c1err,"Cannot open info file:");
-    sprintf(c2err,"%.*s", MXCHAR_MSGERR, infoFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
-  }
+  fp = fopen(infoFile,"rt");
+  check_file_pointer(fp, infoFile, "rt", fnam);
 
   GENSMEAR_VCR.NCOLOR = NC = 0 ;
   GENSMEAR_VCR.SIGMACOH_MB = NULLDOUBLE ;
@@ -3042,11 +3034,8 @@ void read_OIR_INFO(void) {
 
   NC = 7;
   
-  if ( (fp = fopen(infoFile,"rt") ) == NULL ) {
-    sprintf(c1err,"Cannot open info file:");
-    sprintf(c2err,"%.*s", MXCHAR_MSGERR, infoFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
-  }
+  fp = fopen(infoFile,"rt");
+  check_file_pointer(fp, infoFile, "rt", fnam);
 
   for(ic=0; ic < NBAND_OIR; ic++ ) {
     GENSMEAR_OIR.COLOR_SIGMA[ic]  = NULLDOUBLE ;
@@ -3303,12 +3292,8 @@ void parse_COVSED_INFO_FILE(void) {
   GENSMEAR_COVSED.LAMPAIR_DEBUG[0] = -999.0;
   GENSMEAR_COVSED.LAMPAIR_DEBUG[1] = -999.0;
 
-  if ( (fp = fopen(INFO_FILE, "rt")) == NULL ) { 
-      sprintf(c1err,"Cannot open required info File " );
-      sprintf(c2err,"%.*s", MXCHAR_MSGERR, INFO_FILE);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;    
-  }
-  
+  fp = fopen(INFO_FILE, "rt");
+  check_file_pointer(fp, INFO_FILE, "rt", fnam);
 
   while ( (fscanf(fp, "%s", c_get)) != EOF ) {
 

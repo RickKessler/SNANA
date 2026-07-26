@@ -1142,11 +1142,7 @@ void write_epoch_list_init(char *outFile) {
   }
 
   WRITE_EPOCH_LIST.FP_OUT = fopen(outFile,"wt");
-  if( !WRITE_EPOCH_LIST.FP_OUT ) {
-    sprintf(c1err,"Could not open outFile");
-    sprintf(c2err,"%s", outFile);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
+  check_file_pointer(WRITE_EPOCH_LIST.FP_OUT, outFile, "wt", fnam);
 
   sprintf(WRITE_EPOCH_LIST.VARNAMES_LIST,"CID MJD BAND ");
   print_banner(fnam);
@@ -3593,11 +3589,7 @@ void read_SURVEYDEF(void) {
 
   sprintf(SURVEYDEF_FILE,"%s/SURVEY.DEF", PATH_SNDATA_ROOT);
   fp = fopen(SURVEYDEF_FILE,"rt");
-  if ( !fp ) {
-    sprintf(c1err,"Could not open SURVEY.DEF file");
-    sprintf(c2err,"%.*s", MXCHAR_MSGERR, SURVEYDEF_FILE);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  check_file_pointer(fp, SURVEYDEF_FILE, "rt", fnam);
 
   // init each survey name to NULL
   for(idTmp=0; idTmp < MXIDSURVEY; idTmp++ ) { 
@@ -5703,12 +5695,7 @@ FILE *openFile_PATH_SNDATA_SIM(char *mode) {
   sprintf(fileName, "%s/SIM/%s", SNDATA_ROOT, PATH_SNDATA_SIM_LIST );
   sprintf(modeArg, "%ct", mode[0] );
   fp = fopen(fileName,modeArg);
-
-  if ( !fp ) {
-    sprintf(c1err,"Cannot open PATH_SNDATA_SIM file in %s mode:", mode);
-    sprintf(c2err,"%.*s", MXCHAR_MSGERR, fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-  }
+  check_file_pointer(fp, fileName, modeArg, fnam);
 
   //  printf("\n Open %s in %s-mode (%s)\n", fileName, mode, modeArg);
   return(fp) ;
@@ -10083,12 +10070,7 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *key_stop, char *
   if ( strstr(key_stop,COLON) == NULL ) { strcat(key_stop,COLON) ; }
 
   fp = fopen(fileName,"rt");
-  if ( ! fp  ) {
-    sprintf(c1err,"Cannot open yaml file '%s'", fileName);
-    sprintf(c2err,"Trying to read yaml keys: '%s' '%s'  ...", key_list[0], key_list[1]);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
+  check_file_pointer(fp, fileName, "rt", fnam);
 
   int n_key_found = 0, fs ; (void)fs ;
   while( (fscanf(fp, "%s", c_get)) != EOF) {
@@ -11269,6 +11251,23 @@ int wr_filtband_float(
   return(0); // add Aug 7 2014 to avoid compile warnings.
 
 } // end of wr_filtband_float
+
+void check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun) {
+
+  // Created Jul 26 by R.Kessler after Claude nagged me about not checking 
+  // file pointers following some of the fopen calls.
+  
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "check_file_pointer", fnam);
+
+  if ( fp == NULL ) {
+    sprintf(c1err,"Unable to open file with mode = %s", mode);
+    sprintf(c2err,"Check '%s'", file_name);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  return;
+
+} // end check_file_pointer
 
 // *********************************************************
 void check_EOF(FILE *fp, char *file_name, char *fun_name, int nline_read) {

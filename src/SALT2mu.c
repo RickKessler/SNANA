@@ -12950,6 +12950,7 @@ void  write_COVINT_biasCor(void) {
 
   sprintf(outFile,"%s.COVINT", INPUTS.PREFIX );
   fp = fopen(outFile,"wt");
+  check_file_pointer(fp, outFile, "wt", fnam);
 
   fprintf(fp, "# REDCOV01 = COVINT(mB,x1)/(sigma_mB*sigma_x1) \n");
   fprintf(fp, "# REDCOV02 = COVINT(mB,c )/(sigma_mB*sigma_c ) \n");
@@ -13682,6 +13683,8 @@ void update_fitres_passcuts(int flag, int isn, char *which, FILE **fp) {
     if ( FOUND_FIELD ) { strcat(VARLIST,"FIELD"); }
 
     *fp = fopen(outfile, "wt");
+    check_file_pointer(*fp, outfile, "wt", fnam);
+
     fprintf(*fp, "# list of %s events passing BBC cuts \n\n", which);
     fprintf(*fp, "VARNAMES:  %s\n", VARLIST );
     fflush(*fp);
@@ -14981,6 +14984,8 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muBias_list
   sprintf(outfile,"%s_IDSAMPLE%d_MUCOVCORR.DAT", INPUTS.PREFIX, IDSAMPLE); 
   printf("DEBUG: Create diagnostic file %s\n", outfile);
   fp = fopen(outfile,"wt");
+  check_file_pointer(fp, outfile, "wt", fnam);
+
   fprintf(fp,"VARNAMES: ROW BIN_MUCOV Ncell  zMEAN cMEAN mMEAN "
 	  "MUCOVSCALE MUCOVADD\n");
 
@@ -15017,6 +15022,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muBias_list
   sprintf(outfile,"%s_IDSAMPLE%d_BIASCOR.DAT", INPUTS.PREFIX, IDSAMPLE); 
   printf("DEBUG: Create diagnostic file %s\n", outfile);
   fp = fopen(outfile,"wt");
+  check_file_pointer(fp, outfile, "wt", fnam);
 
   fprintf(fp, "# each CID is biasCor event for IDSAMPLE=%d\n", IDSAMPLE);
 
@@ -16609,6 +16615,8 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     sprintf(outfile_cc,"%s_CCPRIOR.FITRES", INPUTS.PREFIX);
     if ( INPUTS.write_ccprior_status == 0 ) { 	
       fcc = fopen(outfile_cc, "wt"); 
+      check_file_pointer(fcc, outfile_cc, "wt", fnam);
+
       fprintf(fcc, "#  CCprior events passing BBC cuts.\n");
       fprintf(fcc, "#  Colummn definitions:.\n");
       fprintf(fcc, "#    DMU         : mu - mumodel - mubias(Ia)\n");
@@ -16627,6 +16635,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
     }
     else {
       fcc = fopen(outfile_cc,"at"); 
+      check_file_pointer(fcc, outfile_cc, "at", fnam);
     }
 
     double PDF_TRUE, PDF_GAUSS, PDF_INTERP;
@@ -18388,11 +18397,7 @@ void parse_parFile(char *parFile ) {
 
   // Look for a file of default options
   fdef = fopen(parFile,"rt");
-  if (!fdef) {
-    sprintf(c1err,"could not open SALT2mu parameter-input file:");
-    sprintf(c2err," %s ", parFile);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
+  check_file_pointer(fdef, parFile, "rt", fnam);
 
 
   fprintf(FP_STDOUT,
@@ -21392,11 +21397,7 @@ void  prep_input_zrate_scale(void) {
   ENVreplace(zrate_scale_file, fnam, 1);
 
   fp = fopen(zrate_scale_file,"rt");
-  if ( !fp )  {
-    sprintf(c1err,"Could not open zrate_scale_file");
-    sprintf(c2err,"%s", zrate_scale_file);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);     
-  }
+  check_file_pointer(fp, zrate_scale_file, "rt", fnam);
 
   print_banner(fnam);  
   fprintf(FP_STDOUT, "\t Read z,scale list from %s\n", zrate_scale_file);
@@ -22388,11 +22389,8 @@ void write_yaml_info(char *fileName) {
   print_banner(fnam);
 
   fp = fopen(fileName,"wt");
-  if ( !fp )  {
-    sprintf(c1err,"Could not open YAML summary file:");
-    sprintf(c2err,"%s", fileName);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
+  check_file_pointer(fp, fileName, "wt", fnam);
+
 
   for(evtype=1; evtype < MXEVENT_TYPE; evtype++ ) {
     if ( USE_EVENT_TYPE[evtype] )
@@ -22631,12 +22629,7 @@ void  write_M0_fitres(char *fileName) {
   calc_zM0_data(); // fill FITRESULT.zM0[iz]
 
   fp = fopen(fileName,"wt");
-
-  if ( !fp )  {
-    sprintf(c1err,"Could not open M0-outFile");
-    sprintf(c2err,"%s", fileName);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
+  check_file_pointer(fp, fileName, "wt", fnam);
 
   fprintf(FP_STDOUT, "\n Write MUDIF vs. redshift to %s\n" , fileName); 
 
@@ -22747,12 +22740,8 @@ void  write_M0_csv(char *fileName) {
   if ( INPUTS.cutmask_write == -9 ) { return ; } // July 2016
 
   fp = fopen(fileName,"wt");
+  check_file_pointer(fp, fileName, "wt", fnam);
 
-  if ( !fp )  {
-    sprintf(c1err,"Could not open M0-outFile");
-    sprintf(c2err,"%s", fileName);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
 
   fprintf(FP_STDOUT, "\n Write input HD for CosmoMC to %s\n" , fileName); 
 
@@ -22809,12 +22798,8 @@ void write_M0_cov(char *fileName) {
   if ( INPUTS.cutwin_only )         { return; }
 
   fp = fopen(fileName,"wt");
+  check_file_pointer(fp, fileName, "wt", fnam);
 
-  if ( !fp )  {
-    sprintf(c1err,"Could not open cov-outFile");
-    sprintf(c2err,"%s", fileName);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
 
   fprintf(FP_STDOUT, "\n Write COV_stat matrix to %s\n" , fileName); 
 
@@ -22891,6 +22876,7 @@ void write_chi2grid(char *chi2grid_file) {
   fflush(FP_STDOUT);
   
   fp = fopen(chi2grid_file,"wt");
+  check_file_pointer(fp, chi2grid_file, "wt", fnam);
 
   fprintf(fp,"VARNAMES:  ROW  alpha  beta chi2_alpha chi2_beta \n");
 

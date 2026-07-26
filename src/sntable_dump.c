@@ -572,17 +572,22 @@ void  open_fitresFile(void) {
   char VARNAME_ROW[] = "ROW";
   char SEP[4] = " " ;
   char *ptrVar;
-  //  char fnam[] = "open_fitresFile" ;
+  char fnam[] = "open_fitresFile" ;  (void)fnam;
   // -------------- BEGIN --------------
 
   FP_OUTFILE = NULL ;
 
   if ( INPUTS.NVAR == 0 ) { return ; }
 
-  if ( strcmp(INPUTS.OUTFILE_FITRES,"stdout") == 0 ) 
-    { FP_OUTFILE = stdout ; }
-  else 
-    { FP_OUTFILE = fopen(INPUTS.OUTFILE_FITRES, "wt") ; }
+  if ( strcmp(INPUTS.OUTFILE_FITRES,"stdout") == 0 )   { 
+    FP_OUTFILE = stdout ; 
+  }
+  else { 
+    FP_OUTFILE = fopen(INPUTS.OUTFILE_FITRES, "wt") ; 
+    check_file_pointer(FP_OUTFILE, INPUTS.OUTFILE_FITRES, "wt", fnam);
+  }
+
+
 
   if ( INPUTS.ADD_HEADER == 0 ) { return ; }
 
@@ -671,7 +676,7 @@ void write_IGNORE_FILE(void) {
   char VARLIST[200], CCID[32], CCID_LAST[32], CVAL[32], BAND[2];
   char *VARNAME_CHI2 = INPUTS.OUTLIER_VARNAME_CHI2FLUX ;
   char TBLNAME[] = "OUTLIERS" ; 
-  //  char fnam[] = "write_IGNORE_FILE" ;
+  char fnam[] = "write_IGNORE_FILE" ;  (void)fnam;
 
   // ---------------- BEGIN ---------------
 
@@ -686,6 +691,8 @@ void write_IGNORE_FILE(void) {
 
   // ------ open IGNORE file ------
   FP = fopen(INPUTS.OUTFILE_IGNORE, "wt") ;
+  check_file_pointer(FP, INPUTS.OUTFILE_IGNORE, "wt", fnam);
+
   CCID_LAST[0] = 0 ;
 
   write_headerInfo(FP); 

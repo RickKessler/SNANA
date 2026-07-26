@@ -24019,5 +24019,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    TO-DO:
      - bigger project: replace fopen calls with gzoopen (using zlib.h)
 
+     - check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun)
+     - check_malloc_pointer(void *ptr, char *varname, char *callFun);
+
 END:
  

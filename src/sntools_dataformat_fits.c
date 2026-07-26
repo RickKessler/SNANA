@@ -4218,11 +4218,8 @@ int rd_snfitsio_list(void) {
 
   // ----------- BEGIN ---------
 
-  if ( (fp = fopen(SNFITSIO_LISTFILE, "rt"))==NULL ) {       
-    sprintf ( c1err, "Cannot open LIST file :" );
-    sprintf ( c2err," '%.*s' ", MXCHAR_MSGERR, SNFITSIO_LISTFILE );
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  fp = fopen(SNFITSIO_LISTFILE, "rt") ;
+  check_file_pointer(fp, SNFITSIO_LISTFILE, "rt", fnam);
 
   itype = ITYPE_SNFITSIO_HEAD ;
   NFILE_RD_SNFITSIO = 0;

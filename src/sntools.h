@@ -619,6 +619,7 @@ void check_uniform_bins(int NBIN, double *VAL, char *comment_forAbort);
 void check_argv(void);
 void check_arg_len(char *keyName, char *arg, int MXLEN) ;
 void check_EOF(FILE *fp, char *file_name, char *fun_name, int nline_read) ;
+void check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun);
 
 double NoiseEquivAperture(double PSFSIG1, double PSFSIG2, double PSFratio);
 double noiseequivaperture_(double *PSFSIG1, double *PSFSIG2, double *PSFratio);

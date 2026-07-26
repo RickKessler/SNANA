@@ -130,11 +130,8 @@ void init_extrap_latetime_Ia(char *fileName) {
   ENVreplace(fileName,fnam,1);
 
   fp = fopen(fileName,"rt");
-  if ( !fp ) {
-    sprintf(c1err,"Could not open MODEL_EXTRAP_LATETIME:");
-    sprintf(c2err,"%s", fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
-  }
+  check_file_pointer(fp, fileName, "rt", fnam);
+
 
   printf("\n   Read EXTRAP_LATETIME(SNIa) parameters from :\n");
   printf("\t %s \n", fileName);

@@ -150,12 +150,9 @@ void parse_snoopy_modelinfo(char *modelPath ) {
 
   sprintf(infoFile,"%s/%s.info", modelPath, SNOOPYNAME );
 
-  if (! (fp = fopen(infoFile, "rt"))) { 
-    sprintf(c1err,"Could not find info file:" ); 
-    sprintf(c2err," '%.*s'", MXCHAR_MSGERR, infoFile ) ;
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-   
+  fp = fopen(infoFile, "rt") ;
+  check_file_pointer(fp, infoFile, "rt", fnam);
+
    sprintf(SNOOPY_MODELINFO.GRIDFILE,"%s", "BLANK");
    SNOOPY_MODELINFO.OPT_GRIDFILE = 0;
 

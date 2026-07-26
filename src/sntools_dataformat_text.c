@@ -65,11 +65,7 @@ void WR_SNTEXTIO_DATAFILE(char *OUTFILE) {
   // ----------- BEGIN ------------
 
   fp = fopen(OUTFILE, "wt");
-  if ( !fp ) {
-    sprintf(c1err,"Could not open data text file");
-    sprintf(c2err,"%s", OUTFILE);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
+  check_file_pointer(fp, OUTFILE, "wt", fnam);
 
   FORMAT_SNDATA_WRITE = FORMAT_SNDATA_TEXT ;
 

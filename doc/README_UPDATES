@@ -24009,8 +24009,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      and also wait for unzip file to NOT exist. Hopefully fixes cases where
      file system is slow and gzip process takes a long time.
 
-   TO-DO:
+   configure.ac:
+     + my first UofC Claude-enterprise request was to resolve git issue 
+          https://github.com/RickKessler/SNANA/issues/1698
+       It found and fixed 2 bugs, which I manually installed since AI
+       cannot post a PR nor issue (since it cannot become a collaborator)
+       Waiting to hear from David if this fix works on his Macbook ...
 
+   TO-DO:
      - bigger project: replace fopen calls with gzoopen (using zlib.h)
 
 END:

@@ -118,11 +118,23 @@ AC_CHECK_LIB([m],[cos])
 
 
 # Check for GSL
+# If GSL_DIR is set, prepend its lib/ and include/ paths so that custom
+# installs (conda, Homebrew, etc.) are found automatically.
+AC_ARG_VAR([GSL_DIR], [root directory of GSL installation (e.g. /usr/local or $CONDA_PREFIX)])
+AS_IF([test -n "$GSL_DIR"],
+  [AC_MSG_NOTICE([Using GSL from GSL_DIR=$GSL_DIR])
+   LDFLAGS="-L${GSL_DIR}/lib $LDFLAGS"
+   CPPFLAGS="-I${GSL_DIR}/include $CPPFLAGS"])
+
 AC_CHECK_LIB([gslcblas], [cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [
-    AC_MSG_ERROR([GSL CBLAS library not found])
+    AC_MSG_ERROR([GSL CBLAS library not found.
+  If GSL is installed in a non-standard location, set GSL_DIR, for example:
+    GSL_DIR=/usr/local ./configure
+  macOS Homebrew:  GSL_DIR=$(brew --prefix gsl) ./configure
+  conda/mamba:     GSL_DIR=$CONDA_PREFIX ./configure])
 ])
 
-AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [GSLLIB="-lgsl]", [
+AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [GSLLIB="-lgsl"], [
     AC_MSG_ERROR([GSL library not found])
 ], [-lgslcblas])
 

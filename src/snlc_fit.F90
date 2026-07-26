@@ -138,8 +138,6 @@
        ,MASK_CHI2_SIGMA_LOGDET  = 4   &  ! Eventually should become default
        ,MASK_CHI2_SIGMA_IGNORE  = 128    ! Compute quantity for output, but do not use in fit
 
-!    CHARACTER METHOD_SPLINE_QUANTILES*20 ! XXX MARK 
-
   END MODULE SNFITPAR
 
 
@@ -527,7 +525,6 @@
         ,INISTP_SHAPE2         &  ! I: initial step for 2nd shape-par
 ! 
         ,INIVAL_PEAKMJD        &  ! I: initial value for MJD  (days)
-        ,INIVAL_PEAKMJD_SHIFT  &  ! I: shift INIVAL_PEAKMJD by this much
         ,INIVAL_RV             &  ! I: initial value for RV
         ,INIVAL_AV             &  ! I: initial value for AV
         ,INIVAL_AVRV           &  ! I:
@@ -678,7 +675,7 @@
          ,FILTLIST_FITRESTMAG, LUMIFIX_FITRESTMAG, SHAPEFIX_FITRESTMAG  & 
          ,COLORFIX_FITRESTMAG, LAMEXTRAP_FITRESTMAG, DLAMTOL_FITRESTMAG  & 
          ,FILTLIST_DMPFUN, TREST_DMPFUN, SCALE_PLOTCHI2  & 
-         ,NEARFILT_IGNORE_REST     &  ! xxxx mark , FILTLAM_SHIFT
+         ,NEARFILT_IGNORE_REST     & 
          ,DOFIT_PHOTOZ, SKIP_PHOTOZ_INIT  & 
          ,LDMP_PHOTOZ_DROPFILTER  & 
          ,LFIXPAR_ALL, LFIXPAR_ADJUST, LKCOR_AVWARP, LKCOR_STRETCH  & 
@@ -708,7 +705,7 @@
          ,INISTP_PEAKMJD, INISTP_AV, INISTP_RV, INISTP_AVRV  & 
          ,INISTP_DLMAG, INISTP_X0, INISTP_PHOTOZ, INISTP_COLOR  & 
          ,INISTP_SHAPE, INISTP_SHAPE2  & 
-         ,INIVAL_PEAKMJD, INIVAL_PEAKMJD_SHIFT  & 
+         ,INIVAL_PEAKMJD  & 
          ,INIVAL_AV, INIVAL_RV, INIVAL_AVRV  & 
          ,INIVAL_DLMAG, INIVAL_PHOTOZ, INIVAL_COLOR, INIVAL_X0  & 
          ,INIVAL_SHAPE, INIVAL_SHAPE2, INIVAL_SHIFT_ERRFRAC  & 
@@ -1964,7 +1961,6 @@
 
 
 ! Apr 29 2022: check 1st iter override from SNCID_LIST_FILE
-! xxx mark delete      IF ( FIRST_ITER ) CALL FITINI_LIST_FILE(iter)
 
     IF ( LREST_FITMODEL .and. ITER .EQ. NFIT_ITERATION ) THEN
       CALL FITINI_PRKCOR()   ! print Kcor info
@@ -3114,7 +3110,7 @@
           NFILT_UNDEFINED = NFILT_UNDEFINED + 1
 
           write(6,30) SNLC_CCID, cfilt(1:1), SIM_REDSHIFT_HELIO
- 30         format(T3,'WARNING: CID ', A8,' has ',  & 
+ 30         format(T3,'WARNING: CID ', A18,' has ',  & 
               A,'-band undefined for SIMCHI2_CHEAT(zsim=',F5.3,')' )
           call flush(6)
        endif
@@ -4468,7 +4464,7 @@
                   (REJECT_DELCHI2 .or. REJECT_SIGNOISE) .and.  & 
                   (.not. REJECT_TREST )
 
-            if ( epoch < MXFIT_DATA ) then
+            if ( epoch <= MXFIT_DATA ) then
               I4EP_ALL(epoch,IEP_REJECT)  = 0
               I4EP_ALL(epoch,IEP_REJECT2) = 0
               if ( LREJECT  ) I4EP_ALL(epoch,IEP_REJECT)  = 1
@@ -4571,7 +4567,7 @@
       DO 801 irow = 1,    NFITDATA
       DO 802 icol = irow, NFITDATA
        COV_INV  = covmat2(irow,icol)
-       if ( COV_INV .EQ. 0.0 ) GOTO 802
+       if ( abs(COV_INV) < 1.0E-30 ) GOTO 802
 
        FF   = del_flux(irow) * del_flux(icol)
        if ( irow .EQ. icol ) then
@@ -4996,15 +4992,15 @@
     LOGICAL USE_Q
 ! BEGIN
     USE_Q = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
-    sig = SNHOST_ZPHOT_ERR(1)
+    sig         = SNHOST_ZPHOT_ERR(1)
     CHI2_LOGSIG = DLOG(2.0*3.14159*sig*sig)
-    CHI2_LOGSIG = 0
+    ! xxx ??? CHI2_LOGSIG = 0 ! unclear why this is zeroed out ?
+    CHI2PRIOR_QUANTILE = -9.0 ! init
     CHI2PRIOR_CALC = ((ZSN - SNHOST_ZPHOT(1))/sig)**2 + CHI2_LOGSIG
     if (USE_Q) then
-      CHI2PRIOR_QUANTILE = -2.0*DLOG( PROBZ )
+       if ( PROBZ > 0.0 )  CHI2PRIOR_QUANTILE = -2.0*DLOG( PROBZ )
       CHI2PRIOR_ORIG = -9
     else
-      CHI2PRIOR_QUANTILE = -9
       pull   = PRIOR_ZPULL(ZSN)
       CHI2PRIOR_ORIG = CHI2_PRIOR(ipar_zPHOT,pull) + CHI2_LOGSIG
     endif
@@ -6799,7 +6795,6 @@
     INISTP_PHOTOZ    = 0.0
 
     INIVAL_PEAKMJD       = NULLVAL
-    INIVAL_PEAKMJD_SHIFT = 999999.
     INIVAL_AV        = NULLVAL
     INIVAL_RV        = RV_MWCOLORLAW
     INIVAL_AVRV      = 0.1
@@ -7003,7 +6998,6 @@
     FILTLIST_FIT    = ''
     FILTLIST_DMPFCN = ''
     FILTLIST_DMPFUN = ''
-! xxx mark       FILTLAM_SHIFT   = ''
     TREST_DMPFUN(1) = -999.
     TREST_DMPFUN(2) = +999.
     SCALE_PLOTCHI2 = 1.0  ! scale range to plot chi2
@@ -7687,11 +7681,6 @@
       else if(MATCH_NMLKEY('USESIM_DLMAG', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) USESIM_DLMAG
 
-! xxxxxxx mark delete Aug 23 2025 xxxxx
-!        else if(MATCH_NMLKEY('USESIM_REDSHIFT', 1,i,ARGLIST)) then
-!            READ(ARGLIST(1),*) USESIM_REDSHIFT
-! xxxxxxxxxxxx
-
       else if(MATCH_NMLKEY('INIVAL_RV', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) INIVAL_RV
 
@@ -7706,9 +7695,6 @@
 
       else if(MATCH_NMLKEY('INIVAL_PEAKMJD', 1,i,ARGLIST)) then
           READ(ARGLIST(1),*) INIVAL_PEAKMJD
-
-      else if(MATCH_NMLKEY('INIVAL_PEAKMJD_SHIFT',1,i,ARGLIST)) then
-          READ(ARGLIST(1),*) INIVAL_PEAKMJD_SHIFT
 
       else if(MATCH_NMLKEY('INISTP_SHAPE',1,i,ARGLIST)) then
           READ(ARGLIST(1),*) INISTP_SHAPE
@@ -7861,8 +7847,6 @@
 ! set logical flag for used LINE_ARGS
 
        FOUND_MATCH = FOUND_MATCH_NMLKEY(i,ilast,ARG,ARGLIST(1))
-
-! xxx mark delete Aug 14 2024   IF ( i .GT. ilast ) THEN
        IF ( FOUND_MATCH ) THEN
          DO iuse = ilast, i
             USE_LINE_ARGS(iuse) = .TRUE.
@@ -10458,7 +10442,7 @@
 
     IF ( LPRINT ) THEN
       write(BANNER,19) CCID(1:LCCID), iter
-19      format('FITINI_COV: init fit arrays for CID=',A,' ITER=',I1)
+19      format('FITINI_COV: init fit arrays for CID=',A,' ITER=',I2)
       CALL PRBANNER(BANNER)
     ENDIF
 
@@ -10930,7 +10914,7 @@
 
       N = N + 1
 
-      IF ( N > MXFIT_DATA ) GOTO 102
+      IF ( N >= MXFIT_DATA ) GOTO 102
 
       EPLIST_FIT(N) = ep  ! allows FCN to quickly find useful epochs
 
@@ -11113,7 +11097,7 @@
 
     LCCID = INDEX(CCID,' ') - 1
     write(6,20) CCID(1:LCCID),ITER,COMMENT
-20    format(T5,A,'(ITER=',I1,'): ', A)
+20    format(T5,A,'(ITER=',I2,'): ', A)
 
     CALL FLUSH(6)
 
@@ -12035,14 +12019,12 @@
          CHI2  = SQDIF / SQSIG
          ARG   = MIN(700.0, 0.5 * CHI2)  ! protect NaN for DEXP
          PROB  = DEXP(-arg)
-         !xxx mark CHI2  = -2.0 * DLOG(prob)
        ELSE IF ( LHI ) THEN
          DIF   = VAR - RANGE(2)
          SQDIF = DIF * DIF
          CHI2  = SQDIF / SQSIG
          ARG   = MIN(700.0, 0.5 * CHI2)  ! protect NaN for DEXP
          PROB  = DEXP(-arg)
-         !xxx mark CHI2  = -2.0 * DLOG(prob)
 
        ELSE
          CHI2  = DBLE(0.0)
@@ -12078,7 +12060,7 @@
        ENDIF
 
        PRIOR_VALGRID(IVAR,ipar)  = VAR
-       PRIOR_CHI2GRID(IVAR,IPAR) = CHI2 * CHI2 
+       PRIOR_CHI2GRID(IVAR,IPAR) = CHI2 * CHI2 ! intentioanl to suppress boundaries
        PRIOR_PROBGRID(IVAR,IPAR) = PROB
 50    CONTINUE
 
@@ -14581,7 +14563,7 @@
     ELSE
        c1err = 'Unknown CFRAME = ' // CFRAME
        write(c2err,660) SNLC_CCID, IFILT
-660      format('CID=',A8, 4x, 'IFILT=', I2 )
+660      format('CID=',A12, 4x, 'IFILT=', I2 )
        CALL MADABORT("MODELMAG_CALC", c1err, c2err )
     ENDIF
 
@@ -15375,7 +15357,7 @@
 
 
       write(6,20) iter, NFILT, FILTLIST(1:NFILT), ctmp
- 20     format(T10,'ITER=',I1,' -> NFILT = ', I2, 2x, A, 3x, A)
+ 20     format(T10,'ITER=',I2,' -> NFILT = ', I2, 2x, A, 3x, A)
       CALL FLUSH(6)
 
        IFLAG_FITMAGDIF(iter) = IFLAG
@@ -15543,7 +15525,7 @@
 
     write(6,40) SNLC_CCID(1:ISNLC_LENCCID),  & 
            ITER, FILTLIST_FIT_USE(1:NFILT_OBS_USEFIT)
- 40   format(T5,'FITMAGDIF_PREP(CID=',A,' ITER=',I1,') -> fit  ', A)
+ 40   format(T5,'FITMAGDIF_PREP(CID=',A,' ITER=',I2,') -> fit  ', A)
     call flush(6)
 
     CALL INIT_FUDGE_FITERR
@@ -16416,7 +16398,7 @@
        write(c1err,601)  NFILT_OBS_USEFIT
 601      format('L_BRACKET=T  but  NFILT_OBS_USEFIT = ',I2)
        write(c2err,602) SNLC_CCID, ITER, CFILTDEF
-602      format('CID=',A8, 2x, 'ITER=',I1,' -> RestFilt=',A1)
+602      format('CID=',A12, 2x, 'ITER=',I2,' -> RestFilt=',A1)
        CALL MADABORT('FITRESTMAG_PREP', C1ERR, C2ERR)
     ENDIF
 
@@ -18839,13 +18821,10 @@
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, FILTLIST_FIT_USE,  & 
               VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, 40 )
 
-
-! xxx mark delete    IF ( .not. WRTABLEFILE_ZPHOT ) then
     VARLIST = 'OPT_PHOTOZ:I' // char(0)
     LENLIST = INDEX(VARLIST, ' ') - 1
     CALL SNTABLE_ADDCOL_int(ID, CBLOCK, OPT_PHOTOZ,  & 
          VARLIST(1:LENLIST)//char(0), 1, LENBLOCK, LENLIST )
-! xxx mark delet    ENDIF
 
 
 ! - - - - start with SNANA-analogs that could not be computed in snana
@@ -19076,7 +19055,6 @@
     IF ( VARNAME(1:2) .EQ. 'x2' .and. NSHAPEPAR==1) SKIP = .TRUE.
 
     IF ( VARNAME(1:5) .EQ. 'zPHOT' ) THEN
-! xxx mark delete 6.15.2026      IF ( DOFIT_PHOTOZ .and. (.not.WRTABLEFILE_ZPHOT) )then
       IF ( DOFIT_PHOTOZ )then
          SKIP = .TRUE.
       ENDIF
@@ -19432,8 +19410,6 @@
     LENPKMJD = 0
 
     NCOV_TBL = 0  ;  NCOV_TBL_PKMJD = 0
-
-    ! xxx mark delte 6.15.2026  SKIP_ZPHOT = (.not. WRTABLEFILE_ZPHOT)
     SKIP_ZPHOT = .FALSE.
 
     DO 21 ipar1 = IPAR_PEAKMJD, IPAR_MAX-1  ! start with PEAKMJD

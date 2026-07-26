@@ -159,7 +159,6 @@
         ,FLAG_DOCANA_END    =  2   &  ! flags DOCUMENTATION_END
         ,FLAG_DOCANA_ERROR  = -1   &  ! flags missing DOCANA keys
         ,SNLCPAK_EPFLAG_FLUXDATA    = 1     &  ! epoch-dependent
-! xxx mark delete        ,SNLCPAK_EPFLAG_FLUXMODEL   = 11    & 
         ,SNLCPAK_EPFLAG_REJECT      = 2  & 
         ,SNLCPAK_EPFLAG_CHI2        = 3  & 
         ,SNLCPAK_EPFLAG_FITFUN      = 4  &   ! fit function on MJD grid to see smooth function
@@ -168,7 +167,6 @@
         ,SNLCPAK_EPFLAG_KCOR        = 7  & 
         ,SNLCPAK_EPFLAG_AVWARP      = 8  & 
         ,SNLCPAK_EPFLAG_SIMFLUXREST = 9  & 
-! xxx mark delete        ,SNLCPAK_EPFLAG_ERRCALC     = 10  & 
         ,SNLCPAK_BANDFLAG_NDOF    = 100  & 
         ,SNLCPAK_BANDFLAG_PKFLUX  = 101   &  ! filter-dependent
         ,SNLCPAK_BANDFLAG_PKMJD   = 102  & 
@@ -204,7 +202,6 @@
         ,MJDOFF         = 0.0       &
         ,RV_MWCOLORLAW_DEFAULT  = 3.1    &  ! A_V/E(B-V)
         ,CUTVAL_OPEN  = 1.0E9               ! cutwin value to accept everything; make sure int(val) is ok
-    ! xxx mark ,CUTVAL_OPEN  = 1.0E12              ! cutwin value to accept everything.
 
     REAL, PARAMETER ::           &
         NULLVAL          = -99999.  &      
@@ -531,10 +528,7 @@
     INTEGER NFILT_REQEP, IFILTLIST_REQEP(MXFILT_ALL)
     REAL  TRANGE_REQEP(3), SNRMIN_REQEP
     LOGICAL ISFRAME_REST_REQEP, ISFRAME_OBS_REQEP
-
-
     REAL NDAYS_ABOVE_SNRMIN_REQEP
-
 
   END MODULE REQEPCOM
 
@@ -1242,7 +1236,6 @@
     INTEGER*4  & 
           SNHOST_NMATCH             &  ! number of host matches, e.g., d_DLR<4
          ,SNHOST_NMATCH2            &  ! number of host matches, e.g., d_DLR<7
-         ! xxx mark ,SNHOST_NZPHOT_Q(MXSNHOST) &  ! May 2022: number of zphot quantiles
          ,SNHOST_FLAG(MXSNHOST)        ! May 21 2021: indicate problems with host
 
     REAL  & 
@@ -1653,7 +1646,6 @@
          ,( cutwin_var(1,cutbit_peakmjd),   cutwin_peakmjd )  & 
          ,( cutwin_var(1,cutbit_nobs_predetect),cutwin_nobs_predetect)  & 
          ,( cutwin_var(1,cutbit_nseason_active),cutwin_nseason_active)  & 
-! xxx mark         ,( cutwin_var(1,cutbit_search),        cutwin_searcheff_mask)  & 
          ,( cutwin_var(1,cutbit_snrmax),        cutwin_snrmax  )  & 
          ,( cutwin_var(1,cutbit_snrmax2),       cutwin_snrmax2  )  & 
          ,( cutwin_var(1,cutbit_snrsum),        cutwin_snrsum  )  & 
@@ -2098,7 +2090,6 @@
         IFILT_OBS_EVAL_MASK(2,MXFILT_ALL) ! set for each filter
 
     character FILTLIST_FIT_USE*(MXFILT_ALL)  ! filter-list USED each fit
-! xxxxxx mark delete Jun 8 2026    character FILTLIST_FIT_USE*64
 
 ! define filter properties using MXFILT_ALL
 ! Nov 12, 2010: split FILT_XXX into FILTOBS_XXX and FILTREST_XXX
@@ -2119,7 +2110,6 @@
         ,FILTOBS_MAG_PRIMARY(MXFILT_ALL)       &  ! primary mag vs. ifilt_obs
         ,FILTOBS_ZPOFF_PRIMARY(MXFILT_ALL)     &  ! mag(native) - mag(synth)
         ,FILTOBS_ZPOFF_SNPHOT(MXFILT_ALL)      &  ! apply these ZPOFF to SNphot
-! xxx mark      &  ,FILTOBS_LAMSHIFT(MXFILT_ALL)         ! lambda shift per filter
 ! 
         ,FILTREST_TRANS(MXLAMBIN_FILT,MXFILT_ALL)    &  ! filter transmissions
         ,FILTREST_TRANSMAX(MXFILT_ALL)               &  ! max trans
@@ -5409,7 +5399,7 @@
     SUBROUTINE PROCESS_DATA_VERSION(IVERS)
 
 ! Created Feb 16 2021 as part of I/O refactor.
-! Called from MAIN to read & ananlyze events.
+! Called from MAIN to read & analyze events.
 
 
     USE SNDATCOM
@@ -6390,7 +6380,7 @@
     IF ( i .GE. MIN .and. i .LE. MAX ) RETURN
 
     write(MSG1,61) VARNAME, i, MIN, MAX, FUNNAME
- 61   format(A,'-index ',I4,' outside valid range ',I2,'-',I5, 3x,  & 
+ 61   format(A,'-index ',I4,' outside valid range ',I4,'-',I5, 3x,  & 
                 '(FUN=',A,')'  )
 
     MSG2 = COMMENT
@@ -6722,7 +6712,6 @@
 ! SNANA or LC, user must explicitly request it in the &SNLCINP
 ! namelist, SNTABLE_LIST = 'SNANA(text:[format])' and SNANA->LCPLOT.
 
-! xxx mark delete      TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'none'
     TEXTFORMAT_TABLE(ITABLE_SNANA)     = 'key'  ! Mar 2025
     TEXTFORMAT_TABLE(ITABLE_FITRES)    = 'key'
     TEXTFORMAT_TABLE(ITABLE_OUTLIER)   = 'key'
@@ -7805,11 +7794,6 @@
          STRING_LIST = ARGLIST(1)(1:MXCHAR_PATH)
          NCID_LIST   = PARSE_INTLIST(STRING_LIST,SNCID_LIST)
 
-! xxxx mark delete Jun 26 2025 xxx
-!           if ( SNCID_LIST(1) > 0 ) then
-!               CUTWIN_CID(1) = 0;  CUTWIN_CID(2)=0
-!           endif
-! xxx end mark xxx
 ! - - - -
       else if ( MATCH_NMLKEY('CUTWIN_NEPOCH',  & 
                   2, iArg, ARGLIST) ) then
@@ -8795,7 +8779,7 @@
                 + MSKOPT_PARSE_WORDS_IGNORECOMMENT
     NWD = STORE_PARSE_WORDS(MSKOPT, cFILE, FNAM//char(0), LENFILE, 12)
 
-    LENCID = INDEX(CCID,' ')-1
+    LENCID = MXCHAR_CCID  !  bug fix by Claude INDEX(CCID,' ')-1
 
 ! check if 1st word is DOCANA key
     CALL get_PARSE_WORD_fortran(1, WD1, LENCID)
@@ -8824,7 +8808,7 @@
        NCCID_IGNORE = NCCID_IGNORE + 1
        SNCCID_IGNORE_ALL(NCCID_IGNORE) = CCID
 
-       IF ( NCCID_IGNORE > MXIGNORE_LIST ) then
+       IF ( NCCID_IGNORE >= MXIGNORE_LIST ) then
          write(c1err,661 ) NCCID_IGNORE
          write(c2err,662 ) MXIGNORE_LIST
          CALL  MADABORT(FNAM, C1ERR, C2ERR)
@@ -9153,8 +9137,6 @@
 
       DO 888 ICUT = 1, NCUTBIT_SNLC
 
-! xxx mark delete Feb 8 2026    if(.NOT.LSIM_SNANA .and. icut.EQ.CUTBIT_SEARCH ) goto 888
-
 ! print line if any entry has a change in NPASSCUT
          LPRIN = .FALSE.
          IF ( ICUT .EQ. 1 ) THEN
@@ -9458,9 +9440,6 @@
 
     INTEGER IERR
     REAL t_start
-
-    ! xxx mark REAL*8  PS8
-    ! xxx mark LOGICAL REJECT_PRESCALE
     CHARACTER FNAM*14
 
 ! ----------------- BEGIN -------------
@@ -9477,13 +9456,6 @@
       c2err = 'Try splitting job into multiple jobs with CID-ranges'
       CALL MADABORT(FNAM, c1err, c2err)
     endif
-
-    ! xxxxxxx mark delete Jun 28 2026 xxxxxx
-    !if ( LSIM_SNANA ) THEN
-    !   PS8 = DBLE(SIM_PRESCALE)
-    !   if ( REJECT_PRESCALE(N_SNLC_PROC,PS8) )   RETURN
-    !endif
-    ! xxxxxxxxxx end mark 
 
 ! - - - - - - - - - - -
     NCALL_SNANA_DRIVER  = NCALL_SNANA_DRIVER  + 1
@@ -10355,6 +10327,8 @@
     WRITE(LUNTMP,700) LINE
     WRITE(LUNTMP,701) VARNAMES_LIST  ! avoid blank space
 701   FORMAT(A)
+
+    CLOSE(LUNTMP)  ! 7.26.2026 found by Claude
 
     RETURN
   END SUBROUTINE INIT_REFORMAT_SPECTRA_ONLY
@@ -11248,7 +11222,6 @@
         FILTOBS_LAMRMS(ifilt)           = -9.0
         FILTOBS_LAMRANGE(1,ifilt)       = -9.0
         FILTOBS_LAMRANGE(2,ifilt)       = -9.0
-! xxx mark           FILTOBS_LAMSHIFT(ifilt)         =  0.0
         NLAMBIN_FILTOBS(ifilt)          =  0
 
         FILTREST_TRANSMAX(ifilt)         =  0.0
@@ -14966,14 +14939,6 @@
     SIM_NOBS_UNDEFINED  = 0
     SIM_SUBSAMPLE_INDEX = -9
 
-    ! xxxxxxxxxx mark delete 7.02.2026 xxxxxxxxxx
-    !IF ( NCALL_SNANA_DRIVER < 2 ) then
-    !   NEP_RESET = MXEPOCH
-    !ELSE
-    !   NEP_RESET = ISNLC_NEPOCH_STORE
-    !ENDIF
-    ! xxxxxxxxxxxx
-
     if ( N_SNLC_READ == 0 ) then
        NEP_RESET = MXEPOCH
     else
@@ -15337,7 +15302,6 @@
     cutvar_name(CUTBIT_NFILT_TRESTMAX) = 'NFILT_Trestmax:'
     cutvar_name(CUTBIT_NFILT_TREST2)   = 'NFILT_Trest2:'
     cutvar_name(CUTBIT_NFIELD)         = 'NFIELD:'
-! xxx mark    cutvar_name(CUTBIT_SEARCH)         = 'SEARCHEFF_MASK:'
 
     DO ifilt      = 1, NFILT_SNRMAX
         ifilt_obs = IFILT_SNRMAX(ifilt)
@@ -17101,13 +17065,6 @@
 
         SNLC_SNR(ep) = Xnsig
 
-! xxxxxxx mark delete Mar 2025 xxxxxxxx
-! check how many obs are in the INCLUDE_MJD window (Aug 2015)
-!          LINCMJD = MJD8 .GE. CUTWIN_MJD_INCLUDE(1) .and.
-!     &              MJD8 .LE. CUTWIN_MJD_INCLUDE(2)
-!          IF ( LINCMJD ) ISNLC_NMJD_INCLUDE = ISNLC_NMJD_INCLUDE + 1
-! xxxxxxxxxxxxxxxx
-
 ! check MJD-exclude window to reject epochs (but keep LC)
         LXMJD = MJD8 .GE. CUTWIN_MJD_EXCLUDE(1) .and.  & 
                   MJD8 .LE. CUTWIN_MJD_EXCLUDE(2)
@@ -17666,8 +17623,6 @@
          METHOD_SPLINE(1:LM)         // char(0),  &
          "LOGMASS_ERRGRID"           // char(0),  &
          IPRINT, MEAN, STD, IERR, ISNLC_LENCCID, LM)
-    
-    ! xxx mark if ( IERR /= 0 ) RETURN   ! bad z grid; caller handles
     
     return
     END SUBROUTINE SET_SNHOST_LOGMASS_SPLINE
@@ -19970,11 +19925,6 @@
 
        FLUXSUM = 0.0 ; SQERRSUM = 0.0
 
-! xxxxxxxx mark delete xxxxxxxxx
-!       CALL ARRAYSTAT_LEGACY(NLAMBIN, FLAMERR_SPECTRUM,  & 
-!                        FLAMERR_AVG, FLAMERR_RMS, FLAMERR_MEDIAN)
-! xxxxxxxx
-
        CALL ARRAYSTAT_MEDIAN(NLAMBIN, FLAMERR_SPECTRUM, WGT_IGNORE, FNAM,  & 
             FLAMERR_MEDIAN, 32)
 
@@ -21235,11 +21185,6 @@
 
        SNLC_CUTVAR(CUTBIT_NEPOCH)  =  & 
              float ( ISNLC_NEPOCH_STORE )
-
-! xxxxxxx mark delete Feb 8 2026 xxxxxxxxxx
-!       SNLC_CUTVAR(CUTBIT_SEARCH)  =  & 
-!             SIM_SEARCHEFF_MASK
-! xxxxxxxxxxxxxxxxx
 
        SNLC_CUTVAR(CUTBIT_NFIELD)  =  & 
              float ( ISNLC_NFIELD_OVP )
@@ -23378,14 +23323,6 @@
     VARLIST = 'zFLAG:I' // char(0)  ! z-quality flag (May 2020)
     CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_zFLAG, VARLIST, 0, LENBLOCK, 20 )
 
-! xxxxxxxx mark delete Nov 30 2025xxxxxxx
-! z = zCMB for spec z, but for photo-z fit z & zERR are the original
-! data redshifts to allow plotting zHD-z resids
-!    VARLIST = 'z:F,zERR:F'  // char(0)
-!    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_REDSHIFT, VARLIST, 0,  & 
-!                         LENBLOCK, 20)
-! xxxxxxxxxx end mark xxxxxxx
-
 ! tack on VPEC
     VARLIST = 'VPEC:F'  // char(0)
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_VPEC, VARLIST, 1, LENBLOCK, 20 )
@@ -23476,7 +23413,7 @@
 ! - - - - time above threshold for REQUIRE_EPOCHS - - - - - -
 
     IF( NFILT_REQEP > 0 ) THEN
-      VARLIST = 'NDAYS_ABOVE_SNRMIN:F' // char(0)
+      VARLIST = 'NDAYS_ABOVE_SNRMIN:F' // char(0)  ! yes, this is a float
       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, NDAYS_ABOVE_SNRMIN_REQEP,  & 
                           VARLIST, ITEXT_YES,       LENBLOCK, 40 )
     ENDIF
@@ -24915,7 +24852,6 @@
     IF ( RESTORE_DES5YR ) OPT_MWCOLORLAW = -99 ! restore approx Fitzpatrick99 CL
 
     LDATA         = .NOT. LSIM_SNANA
-! xxx mark delete May 28 2025 SETMWCL_USER  = ( OPT_MWCOLORLAW  > -1   )
     SETMWCL_USER  = ( OPT_MWCOLORLAW  > -998 )  ! allow -99 for approx Fitzpatrick (May 28 2025)
     SETEBV_USER   = ( OPT_MWEBV       > -8   )
     SETRV_USER    = ( RV_MWCOLORLAW   > -0.01 )

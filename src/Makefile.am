@@ -39,6 +39,10 @@ SNLDFLAGS = -m64 $(PROFILEFLAG) $(DEBUG_LDFLAGS)
 IPY = @PYTHON_INCLUDES@
 LPY = @PYTHON_LIBS@
 
+# Include flags (set by configure.ac from GSL_DIR / CFITSIO_DIR)
+IGSL      = @IGSL@
+ICFITSIO  = @ICFITSIO@
+
 # Library flags (set by configure.ac)
 LCFITSIO  = $(CFITSIOLIB)
 LGSL      = $(GSLLIB) $(GSLCBLASLIB)

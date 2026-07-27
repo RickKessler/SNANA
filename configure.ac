@@ -124,7 +124,9 @@ AC_ARG_VAR([GSL_DIR], [root directory of GSL installation (e.g. /usr/local or $C
 AS_IF([test -n "$GSL_DIR"],
   [AC_MSG_NOTICE([Using GSL from GSL_DIR=$GSL_DIR])
    LDFLAGS="-L${GSL_DIR}/lib $LDFLAGS"
-   CPPFLAGS="-I${GSL_DIR}/include $CPPFLAGS"])
+   CPPFLAGS="-I${GSL_DIR}/include $CPPFLAGS"
+   IGSL="-I${GSL_DIR}/include"],
+  [IGSL=""])
 
 AC_CHECK_LIB([gslcblas], [cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [
     AC_MSG_ERROR([GSL CBLAS library not found.
@@ -141,6 +143,7 @@ AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [GSLLIB="-lgsl"], [
 
 AC_SUBST([GSLCBLASLIB])
 AC_SUBST([GSLLIB])
+AC_SUBST([IGSL])
   
 
 
@@ -152,7 +155,9 @@ AC_ARG_VAR([CFITSIO_DIR], [root directory of CFITSIO installation (e.g. /usr/loc
 AS_IF([test -n "$CFITSIO_DIR"],
   [AC_MSG_NOTICE([Using CFITSIO from CFITSIO_DIR=$CFITSIO_DIR])
    LDFLAGS="-L${CFITSIO_DIR}/lib $LDFLAGS"
-   CPPFLAGS="-I${CFITSIO_DIR}/include $CPPFLAGS"])
+   CPPFLAGS="-I${CFITSIO_DIR}/include $CPPFLAGS"
+   ICFITSIO="-I${CFITSIO_DIR}/include"],
+  [ICFITSIO=""])
 
 AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [
     AC_MSG_ERROR([cfitsio library not found.
@@ -163,6 +168,7 @@ AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [
   module env:      CFITSIO_DIR=$CFITSIO_DIR ./configure])
 ], [$LIBS])
 AC_SUBST([CFITSIOLIB])
+AC_SUBST([ICFITSIO])
 
 AC_ARG_VAR(ROOTSYS)
 if test -n "$ROOTSYS"; then

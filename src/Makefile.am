@@ -44,8 +44,11 @@ IGSL      = @IGSL@
 ICFITSIO  = @ICFITSIO@
 
 # Library flags (set by configure.ac)
-LCFITSIO  = $(CFITSIOLIB)
-LGSL      = $(GSLLIB) $(GSLCBLASLIB)
+LCFITSIO  = @CFITSIOLIB@
+LGSL      = @GSLLIB@ @GSLCBLASLIB@
+
+#xxx mark LCFITSIO  = $(CFITSIOLIB)
+#xxx mark LGSL      = $(GSLLIB) $(GSLCBLASLIB)
 
 # ROOT (conditionally set by configure.ac)
 if USE_ROOT

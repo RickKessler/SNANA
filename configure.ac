@@ -145,7 +145,23 @@ AC_SUBST([GSLLIB])
 
 
 
-AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [AC_MSG_ERROR([cfitsio library not found. Please install CFITSIO.])], [$LIBS])
+# Check for CFITSIO
+# If CFITSIO_DIR is set, prepend its lib/ and include/ paths so that custom
+# installs (conda, Homebrew, module environments, etc.) are found automatically.
+AC_ARG_VAR([CFITSIO_DIR], [root directory of CFITSIO installation (e.g. /usr/local or $CONDA_PREFIX)])
+AS_IF([test -n "$CFITSIO_DIR"],
+  [AC_MSG_NOTICE([Using CFITSIO from CFITSIO_DIR=$CFITSIO_DIR])
+   LDFLAGS="-L${CFITSIO_DIR}/lib $LDFLAGS"
+   CPPFLAGS="-I${CFITSIO_DIR}/include $CPPFLAGS"])
+
+AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [
+    AC_MSG_ERROR([cfitsio library not found.
+  If CFITSIO is installed in a non-standard location, set CFITSIO_DIR, for example:
+    CFITSIO_DIR=/usr/local ./configure
+  macOS Homebrew:  CFITSIO_DIR=$(brew --prefix cfitsio) ./configure
+  conda/mamba:     CFITSIO_DIR=$CONDA_PREFIX ./configure
+  module env:      CFITSIO_DIR=$CFITSIO_DIR ./configure])
+], [$LIBS])
 AC_SUBST([CFITSIOLIB])
 
 AC_ARG_VAR(ROOTSYS)

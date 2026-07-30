@@ -287,6 +287,7 @@ def create_output_header_and_cols_nozgrid(col_entries, mag_entries, data):
 
 def write_galid_map(galid_map_path, output_cols, snana_galids_tiled):
     """
+    DEPRECATED FUNCTION
     Write GALID map. Maps cigale ids to SNANA GALIDs. If using a redshift grid,
     the SNANA GALIDs will have duplicates, whereas cigale ids cannot have duplicates,
     hence the distinction (and therefore mapping) between these two sets of ids.
@@ -306,6 +307,11 @@ def write_cigale_output(cigale_output_path, header_parts, output_cols):
     """
     header_parts[0] = "#" + header_parts[0]
     nrows = len(output_cols[0])
+
+    # Still add SUBSET prefix even for just one file
+    root, ext = os.path.splitext(cigale_output_path)
+    cigale_output_path = f"{root}_SUBSET000{ext}"
+
     with open(cigale_output_path, "w") as f:
         f.write(" ".join(header_parts) + "\n")
         for i in range(nrows):
@@ -341,7 +347,7 @@ def write_cigale_output_split(cigale_output_path, header_parts, output_cols, nsp
     root, ext = os.path.splitext(cigale_output_path)
 
     for s, rows in enumerate(row_chunks):
-        split_path = f"{root}_{s}{ext}"
+        split_path = f"{root}_SUBSET{s:03d}{ext}"
         with open(split_path, "w") as f:
             f.write(header)
             for i in rows:
@@ -355,7 +361,7 @@ def write_cigale_output_split(cigale_output_path, header_parts, output_cols, nsp
                         vals.append(f"{col[i]:.6f}")
                 f.write(" ".join(vals) + "\n")
         print(f"Wrote {len(rows)} rows to {split_path}", file=sys.stderr)
-    print(nrows)
+        print(len(rows))
 
 
 def prescale_input_data(data, prescale):
@@ -483,6 +489,7 @@ def validate_column_map(column_map, snana_format):
 
 def load_galid_map(path):
     """
+    DEPRECATED FUNCTION
     Load the sidecar CSV written by SNANA_TO_CIGALE.
     Returns a dict {cigale_id (int): snana_galid (int)}.
     """

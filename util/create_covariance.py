@@ -1271,7 +1271,7 @@ def get_covsy_from_npzcovfile(cid_data_list, covfile):
     covsum    = 0.0
     covout    = np.zeros( (len(cid_data_list), len(cid_data_list)) )
 
-    for i,j in np.triu_indices(n_cov):
+    for i,j in zip(*np.triu_indices(n_cov)):
 
         n_tot += 1
         if n_tot % 10000 == 0 : logging.info(f"\t processing cov row {n_tot} ")

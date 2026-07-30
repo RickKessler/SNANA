@@ -16,8 +16,11 @@ SUBCLASS_HOSTFIT_CIGALE_LEGACY = 'CIGALE_LEGACY'
 CIGALE_INPUT_SUBDIR = 'CIGALE_INPUT'
 CIGALE_CSV_FILE = 'cigale_input.in'
 FITOPT_STRING = 'FITOPT'
+#MAX_GAL_PER_TASK = 5000000
+MAX_GAL_PER_TASK = 50 # test
 
-# define columns for MERGE.LOG;  column 0 is always for STATE                  
+# define columns for MERGE.LOG;  column 0 is always for STATE  
+
 COLNUM_HOSTFIT_MERGE_FITOPT      = 1
 COLNUM_HOSTFIT_MERGE_NGAL        = 2
 COLNUM_HOSTFIT_MERGE_CPU         = 3
@@ -46,7 +49,41 @@ class HostPropertyFit(Program):
         
         return output_dir_name, SUBDIR_SCRIPTS_HOSTFIT
 
+
+    def get_nrows_cigale(self):
+        CONFIG     = self.config_yaml['CONFIG']
+        cigale_translator_file = CONFIG['CIGALE_TRANSLATOR_FILE']
         
+        with open(cigale_translator_file, "r") as f:
+            cigale_translator_config = yaml.safe_load(f)
+        input_table_file = cigale_translator_config["SNANA_TO_CIGALE"]["INPUT_TABLE_FILE"]
+        redshift_grid = cigale_translator_config["SNANA_TO_CIGALE"].get("REDSHIFT_GRID")
+
+        row_keys=("GAL", "SN") # Allows input table files with rows indicated by GAL: or SN: (matches with cigale_translator.py)
+
+        keys = {k.rstrip(":") for k in row_keys}
+        counts = {k: 0 for k in keys}
+
+        opener = gzip.open if input_table_file.endswith(".gz") else open
+        with opener(input_table_file, "rt") as f:
+            for line in f:
+                tokens = line.split(None, 1)
+                if tokens:
+                    tok = tokens[0].rstrip(":")
+                    if tok in counts:
+                        counts[tok] += 1
+
+        present = {k: n for k, n in counts.items() if n > 0}
+        if len(present) == 0:
+            raise ValueError(f"{input_table_file}: no rows found for any of {sorted(keys)}")
+        if len(present) > 1:
+            raise ValueError(f"{input_table_file}: found multiple row types {present}; expected exactly one")
+        
+        nrows_input_table = next(iter(present.values()))
+        nbins_zgrid = int(redshift_grid.split()[-1])
+        return nrows_input_table*nbins_zgrid
+
+
     def submit_prepare_driver(self):
         args = self.config_yaml['args']
 
@@ -61,6 +98,26 @@ class HostPropertyFit(Program):
             self.submit_prepare_driver_legacy()
             return
         # Start devel here
+        input_file = args.input_file
+        output_dir = self.config_prep['output_dir']
+
+        nrows = self.get_nrows_cigale()
+        nsplit = (nrows + MAX_GAL_PER_TASK - 1) // MAX_GAL_PER_TASK
+        print(f'nrows = {nrows}, nsplit = {nsplit}')
+        self.config_prep['cigale_input_nsplit'] = nsplit
+
+        cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
+        self.prep_cigale_translator(cigale_input_dir)
+        self.prep_cigale_fitopt()
+        self.prep_cigale_symlinks()
+
+        self.config_prep['cigale_input_dir'] = cigale_input_dir
+        self.config_prep['n_job_tot'] = self.config_prep['n_core']
+        self.config_prep['n_done_tot'] = self.config_prep['n_core']
+        self.config_prep['n_job_split'] = 1
+        self.config_prep['SUBCLASS'] = SUBCLASS
+
+        logging.info(f'SUBCLASS = {SUBCLASS}')
 
         return
 
@@ -94,7 +151,29 @@ class HostPropertyFit(Program):
         if not args.devel_flag:
             self.prep_cigale_translator_legacy(cigale_input_dir)
             return
-        # Start devel here                                                                                                                                                            
+
+        # Start devel here
+        CONFIG     = self.config_yaml['CONFIG']
+        cigale_translator_file = CONFIG['CIGALE_TRANSLATOR_FILE']
+        program_cigale_translator = CONFIG['CIGALE_TRANSLATOR_SCRIPT']
+        #cigale_csv_file = self.get_filepath(CIGALE_CSV_FILE, CIGALE_INPUT_SUBDIR)
+
+        prescale_num = self.config_yaml['args'].prescale
+        #print('xxx prescale = ', prescale_num)
+        nsplit = self.config_prep['cigale_input_nsplit']
+
+        command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
+        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num} --nsplit {nsplit}'
+        # Test nsplit
+        #command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num} --nsplit 3'
+
+        os.mkdir(cigale_input_dir)
+        os.system(command_copy)
+        # Execute via subprocess to get nrows output (this is now calculated above in get_nrows_cigale(), so I should maybe change this)
+        result = subprocess.run(command_exe, shell=True, stdout=subprocess.PIPE, text=True, check=True)
+        nrows = [int(x) for x in result.stdout.splitlines()] # list of ints (e.g., [50, 50, 50])
+        self.config_prep['cigale_input_nrows'] = nrows
+
         return
 
     def prep_cigale_translator_legacy(self, cigale_input_dir):
@@ -108,26 +187,56 @@ class HostPropertyFit(Program):
 
         command_copy = f'cp {cigale_translator_file} {cigale_input_dir}/{cigale_translator_file}'
 
-        #command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num}'
+        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num}'
         # Test nsplit
-        command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num} --nsplit 3'
+        #command_exe = f'cd {cigale_input_dir}; {program_cigale_translator} {cigale_translator_file} --mode SNANA_TO_CIGALE --output_cigale_file {CIGALE_CSV_FILE} --prescale {prescale_num} --nsplit 3'
 
         os.mkdir(cigale_input_dir)
         os.system(command_copy)
-        # Execute via subprocess to get nrows output
+        # Execute via subprocess to get nrows output (this is now calculated above in get_nrows_cigale(), so I should change this)
         result = subprocess.run(command_exe, shell=True, stdout=subprocess.PIPE, text=True, check=True)
         nrows = int(result.stdout.strip())
         self.config_prep['cigale_input_nrows'] = nrows
 
         return
 
-
     def prep_cigale_fitopt(self):
         args = self.config_yaml['args']
         if not args.devel_flag:
             self.prep_cigale_fitopt_legacy()
             return
-        # Start devel here        
+
+        # Start devel here
+        CONFIG     = self.config_yaml['CONFIG']
+        KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
+        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
+        n_subset = self.config_prep['cigale_input_nsplit']
+
+        self.config_prep['fitopt_dict'] = fitopt_dict
+        self.config_prep['n_fitopt'] = fitopt_dict['n_jobopt']
+
+        # CREATE WORKING DIR FOR EACH FITOPT (AND NOW ALSO SUBSET)
+        output_dir = self.config_prep['output_dir']
+        fitopt_dir_list = []
+        subset_dir_list = []
+        jobopt_num_list = fitopt_dict['jobopt_num_list']
+        jobopt_arg_list = fitopt_dict['jobopt_arg_list']
+
+        for fitopt_num, fitopt_arg in zip(jobopt_num_list, jobopt_arg_list):
+            logging.info(f'prepare {fitopt_num}')
+            fitopt_dir = f'{output_dir}/{fitopt_num}'
+            fitopt_dir_list.append(fitopt_dir)
+            os.mkdir(fitopt_dir)
+
+            for s in range(n_subset):
+                subset_dir = f'{fitopt_dir}/SUBSET{s:03d}'
+                subset_dir_list.append(subset_dir)
+                os.mkdir(subset_dir)   
+                self.prep_pcigale_ini_file(subset_dir, fitopt_arg)
+
+        self.config_prep['fitopt_dir_list'] = fitopt_dir_list
+        self.config_prep['subset_dir_list'] = subset_dir_list
 
         return
 
@@ -151,7 +260,7 @@ class HostPropertyFit(Program):
             fitopt_dir = f'{output_dir}/{fitopt_num}'
             fitopt_dir_list.append(fitopt_dir)
             os.mkdir(fitopt_dir)
-            self.prep_pcigale_ini_file(fitopt_dir, fitopt_arg)
+            self.prep_pcigale_ini_file_legacy(fitopt_dir, fitopt_arg)
 
         self.config_prep['fitopt_dir_list'] = fitopt_dir_list
 
@@ -162,8 +271,38 @@ class HostPropertyFit(Program):
         if not args.devel_flag:
             self.prep_cigale_symlinks_legacy()
             return
-        # Start devel here 
 
+        # Start devel here 
+        fitopt_dict = self.config_prep['fitopt_dict']
+        #fitopt_dir_list = self.config_prep['fitopt_dir_list']
+        subset_dir_list = self.config_prep['subset_dir_list']
+        #print(f'xxx subset_dir_list = {subset_dir_list}')
+        script_dir    = self.config_prep['script_dir']
+        n_subset = self.config_prep['cigale_input_nsplit']
+
+        jobopt_num_list = fitopt_dict['jobopt_num_list']
+        subset_num_list = [f'{jobopt}_SUBSET{s:03d}' for jobopt in jobopt_num_list for s in range(n_subset)]
+        self.config_prep['subset_num_list'] = subset_num_list
+        #print(f'xxx subset_num_list = {subset_num_list}')
+        prefix        =self.get_prefix_name()
+        sym_link_log_list = []
+        sym_link_done_list = []
+
+        #for fitopt_num, fitopt_dir in zip(jobopt_num_list, fitopt_dir_list):
+        for subset_num, subset_dir in zip(subset_num_list, subset_dir_list):
+            symlink_log_name = subset_num + '_' + f'{prefix}.LOG'
+            log_file_orig = subset_dir + '/' +f'{prefix}.LOG'
+            symlink_log_command = f'cd {script_dir}; ln -s {log_file_orig} {symlink_log_name}'
+
+            symlink_done_name = subset_num + '_' + f'{prefix}.DONE'
+            done_file_orig = subset_dir + '/' +f'{prefix}.DONE'
+            symlink_done_command = f'cd {script_dir}; ln -s {done_file_orig} {symlink_done_name}'
+
+            sym_link_log_list.append(symlink_log_command)
+            sym_link_done_list.append(symlink_done_command)
+
+        self.config_prep['sym_link_log_list'] = sym_link_log_list
+        self.config_prep['sym_link_done_list'] = sym_link_done_list
         return
 
     def prep_cigale_symlinks_legacy(self):
@@ -245,23 +384,27 @@ class HostPropertyFit(Program):
 
         return
 
-    def prep_pcigale_ini_file(self, fitopt_dir, fitopt_arg):
+    def prep_pcigale_ini_file(self, subset_dir, fitopt_arg):
         CONFIG     = self.config_yaml['CONFIG']
         nthread    = self.config_prep['nthreads']
         output_dir = self.config_prep['output_dir']
         cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
+        #n_subset = len(glob.glob(os.path.join(cigale_input_dir, "cigale_input_SUBSET*.in")))
+        n_subset = self.config_prep['cigale_input_nsplit']
 
         pcigale_ini_file_orig = CONFIG['CIGALE_INPUT_FILE_LIST'].split()[0]
         pcigale_ini_spec_file_orig = CONFIG['CIGALE_INPUT_FILE_LIST'].split()[1]
-        pcigale_ini_file_target = f'{fitopt_dir}/{pcigale_ini_file_orig}'
-        pcigale_ini_spec_file_target = f'{fitopt_dir}/{pcigale_ini_spec_file_orig}'
-        
+        pcigale_ini_file_target = f'{subset_dir}/{pcigale_ini_file_orig}'
+        pcigale_ini_spec_file_target = f'{subset_dir}/{pcigale_ini_spec_file_orig}'
+
         # MODIFY .ini FILE
         cigale_bands_str = self.get_cigale_bands_str()
-        cigale_datafile_str = cigale_input_dir + '/' + CIGALE_CSV_FILE
+        subset_num = os.path.basename(subset_dir) # e.g., SUBSET000
+        root, ext = os.path.splitext(CIGALE_CSV_FILE)
+        cigale_csv_subset_file = root + '_' + subset_num + ext
+        cigale_datafile_str = cigale_input_dir + '/' + cigale_csv_subset_file
         fitopt_arg_full = f'data_file = {cigale_datafile_str} cores = {nthread} bands = {cigale_bands_str} {fitopt_arg}'
         fitopt_arg_dict = self.fitopt_str_to_dict(fitopt_arg_full)
-        
 
         # FUTURE MODIFICATION OF .ini.spec FILE?
 
@@ -275,12 +418,42 @@ class HostPropertyFit(Program):
 
         return
 
+    def prep_pcigale_ini_file_legacy(self, fitopt_dir, fitopt_arg):
+        CONFIG     = self.config_yaml['CONFIG']
+        nthread    = self.config_prep['nthreads']
+        output_dir = self.config_prep['output_dir']
+        cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
+
+        pcigale_ini_file_orig = CONFIG['CIGALE_INPUT_FILE_LIST'].split()[0]
+        pcigale_ini_spec_file_orig = CONFIG['CIGALE_INPUT_FILE_LIST'].split()[1]
+        pcigale_ini_file_target = f'{fitopt_dir}/{pcigale_ini_file_orig}'
+        pcigale_ini_spec_file_target = f'{fitopt_dir}/{pcigale_ini_spec_file_orig}'
+
+        # MODIFY .ini FILE
+        cigale_bands_str = self.get_cigale_bands_str()
+        cigale_datafile_str = cigale_input_dir + '/' + CIGALE_CSV_FILE
+        fitopt_arg_full = f'data_file = {cigale_datafile_str} cores = {nthread} bands = {cigale_bands_str} {fitopt_arg}'
+        fitopt_arg_dict = self.fitopt_str_to_dict(fitopt_arg_full)
+
+        # FUTURE MODIFICATION OF .ini.spec FILE?
+
+        command_copy = f'cp {pcigale_ini_file_orig} {pcigale_ini_file_target}'
+        os.system(command_copy)
+        command_copy = f'cp {pcigale_ini_spec_file_orig} {pcigale_ini_spec_file_target}'
+        os.system(command_copy)
+
+        self.replace_keys_pcigale(pcigale_ini_file_target, fitopt_arg_dict)
+        self.replace_keys_pcigale(pcigale_ini_spec_file_target, {})
+
+        return
 
     def write_command_file(self, icpu, f):
+        # xxx add legacy
         n_core   = self.config_prep['n_core']
         n_fitopt = self.config_prep['n_fitopt']
+        n_subset = self.config_prep['cigale_input_nsplit']
         n_job    = 0
-        for ijob in range(n_fitopt):
+        for ijob in range(n_fitopt*n_subset):
             n_job += 1  # track total number pof jobs; counter starts at 1, not 0
             if ijob % n_core == icpu:
             #if ijob == icpu:
@@ -299,7 +472,10 @@ class HostPropertyFit(Program):
         return prefix
 
     def prep_JOB_INFO_hostfit(self, ijob):
-        #SNANA_TO_CIGALE = self.config_prep['SNANA_TO_CIGALE']
+        # xxx add legacy
+        # xxx This needs to be updated to account for the subsets
+        # job_dir needs to be the subset_dir within fitopt_dir
+        # and the total number of ijobs should be num_fitopt*num_subset
         program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
@@ -307,11 +483,12 @@ class HostPropertyFit(Program):
         input_file    = args.input_file
         SUBCLASS = self.config_prep['SUBCLASS']
         fitopt_dict = self.config_prep['fitopt_dict']
-        fitopt_dir = self.config_prep['fitopt_dir_list'][ijob]
+        #fitopt_dir = self.config_prep['fitopt_dir_list'][ijob]
+        subset_dir = self.config_prep['subset_dir_list'][ijob]
         sym_log_link = self.config_prep['sym_link_log_list'][ijob]
         sym_done_link = self.config_prep['sym_link_done_list'][ijob]
 
-        fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"
+        #fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"
         prefix        = self.get_prefix_name()
         done_file     = f"{prefix}.DONE"
         log_file      = f"{prefix}.LOG"
@@ -320,7 +497,8 @@ class HostPropertyFit(Program):
         start_file    = f'{prefix}.START'
         
         JOB_INFO      = {}
-        JOB_INFO['job_dir']     = fitopt_dir  # where to run job
+        #JOB_INFO['job_dir']     = fitopt_dir  # where to run job
+        JOB_INFO['job_dir']     = subset_dir  # where to run job  
         JOB_INFO['program']     = program
         JOB_INFO['input_file']  = 'run'
         JOB_INFO['log_file']    = log_file
@@ -333,8 +511,10 @@ class HostPropertyFit(Program):
         return JOB_INFO
 
     def create_merge_table(self,f):
+        # xxx add legacy   
         n_fitopt = self.config_prep['n_fitopt']
         fitopt_dict = self.config_prep['fitopt_dict']
+        n_subset = self.config_prep['cigale_input_nsplit']
 
         header_line_merge = \
                         f" STATE  FITOPT  NGAL  CPU  "
@@ -346,14 +526,16 @@ class HostPropertyFit(Program):
         }
 
         STATE = SUBMIT_STATE_WAIT # all start in WAIT state
-        NGAL = self.config_prep['cigale_input_nrows']
+        NGALs = self.config_prep['cigale_input_nrows'] # list of len n_subset
 
-        for ijob in range(n_fitopt):
-            fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"   
+        for ijob in range(n_fitopt*n_subset):
+            #fitopt_num    = fitopt_dict['jobopt_num_list'][ijob] # e.g., "FITOPT000"   
+            subset_num = self.config_prep['subset_num_list'][ijob] # e.g., "FITOPT000_SUBSET000"
+            _, subset_index = self.strip_fitopt_subset(subset_num, type_flag = int)
             ROW_MERGE = []
             ROW_MERGE.append(STATE)
-            ROW_MERGE.append(fitopt_num)
-            ROW_MERGE.append(NGAL)
+            ROW_MERGE.append(subset_num)
+            ROW_MERGE.append(NGALs[subset_index])
             ROW_MERGE.append(0.0) # CPU
             INFO_MERGE['row_list'].append(ROW_MERGE)
         # - - - - -                                                           
@@ -487,28 +669,42 @@ class HostPropertyFit(Program):
         filepath = output_dir + '/' + subdir + '/' + filename
         return filepath
 
+    def strip_fitopt_subset(self, fitopt_subset, type_flag = str):
+        if type_flag is str:
+            fitopt, subset = fitopt_subset.split('_')
+        elif type_flag is int:
+            fitopt_str, subset_str = fitopt_subset.split('_')
+            fitopt = int(fitopt_str[-3:])
+            subset = int(subset_str[-3:])
+        else:
+            raise ValueError(f"type_flag should be str or int. Given: {type_flag}")
+        return fitopt, subset
+
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
+        # xxx add legacy?
+        row  = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
+        fitopt_subset_num = row[COLNUM_HOSTFIT_MERGE_FITOPT]
+        fitopt_num, subset_num = self.strip_fitopt_subset(fitopt_subset_num)
+        fitopt_subset_dir = fitopt_num + '/' + subset_num
+
         CONFIG     = self.config_yaml['CONFIG']
-        KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
-        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
-        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
-        fitopt_num = fitopt_dict['jobopt_num_list'][irow]
-        cigale_results_subdir =fitopt_num + '/out'
+        #KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG
+        #fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
+        #fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
+        #fitopt_num = fitopt_dict['jobopt_num_list'][irow]
+        #cigale_results_subdir =fitopt_num + '/out'
+        cigale_results_subdir =fitopt_subset_dir + '/out'
         program_cigale_translator = CONFIG['CIGALE_TRANSLATOR_SCRIPT']
 
-        #output_dir = self.config_prep['output_dir']
-        #cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
+        output_dir = self.config_prep['output_dir']
+        cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
         #cigale_translator_file = cigale_input_dir + '/' + CONFIG['CIGALE_TRANSLATOR_FILE']
-        
+
         cigale_translator_file = self.get_filepath(CONFIG['CIGALE_TRANSLATOR_FILE'], CIGALE_INPUT_SUBDIR)
         cigale_result_file = self.get_filepath('results.fits', cigale_results_subdir)
-        output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num)
+        output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_subset_dir)
 
-        row  = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
-        fitopt_num = row[COLNUM_HOSTFIT_MERGE_FITOPT]
-        
         command_exe = f'{program_cigale_translator} {cigale_translator_file} --mode CIGALE_TO_SNANA --input_cigale_results {cigale_result_file} --output_snana_file {output_snana_file}'
-
         os.system(command_exe)
 
         num_invalid, tot_len = self.count_invalid_logmasses(cigale_result_file)
@@ -518,6 +714,19 @@ class HostPropertyFit(Program):
             cigale_translator_config = yaml.safe_load(f)
         input_table_file = cigale_translator_config["SNANA_TO_CIGALE"]["INPUT_TABLE_FILE"]
         self.update_output_documentation(output_snana_file, input_table_file)
+
+        # Check if all subsets are done (count DONE files) - if so, combine them
+        #n_done = len(glob.glob(f"{fitopt_num}/SUBSET*/*.DONE"))
+        n_done = len(glob.glob(os.path.join(output_dir, f"{fitopt_num}/SUBSET*/LOGMASS_GRID.DAT.gz")))
+        n_subset = len(glob.glob(os.path.join(cigale_input_dir, "cigale_input_SUBSET*.in")))
+        #print(f'xxx n_done, n_subset = {n_done}, {n_subset}')
+        if n_done == n_subset:
+            subset_output_files = []
+            for s in range(n_subset):
+                output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num + f'/SUBSET{s:03d}')
+                subset_output_files.append(output_snana_file)
+            combined_output_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num)
+            self.combine_logmass_grids(subset_output_files, combined_output_file)
 
         return
 
@@ -557,29 +766,37 @@ class HostPropertyFit(Program):
         KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG                                                                                                                                                
         fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
         fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
-        print(f'xxx {len(fitopt_rows)}, {len(fitopt_dict)}')
+
+        output_dir = self.config_prep['output_dir']
+        cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
+        n_subset = len(glob.glob(os.path.join(cigale_input_dir, "cigale_input_SUBSET*.in")))
 
         script_dir    = self.config_prep['script_dir']
         prefix = self.get_prefix_name()
-        # Move the lines below inside a for loop iterating over 000, 001, etc. and take avg CPU_PER_GAL
-        symlink_log_name = script_dir + '/' + f'FITOPT000_{prefix}.LOG'
 
-        with open(symlink_log_name) as f:
-            log = f.read()
+        CPU_PER_GAL_LIST = []
+        for fitopt_num in fitopt_dict['jobopt_num_list']:
+            for s in range(n_subset):
+                symlink_log_name = script_dir + '/' + f'{fitopt_num}_SUBSET{s:03d}_{prefix}.LOG'
 
-        duration = re.search(r"Total duration:\s*(\d+):(\d+):(\d+)", log)
-        num_objects = re.search(r"Number of objects\s*[│|]\s*(\d+)", log)
+                with open(symlink_log_name) as f:
+                    log = f.read()
+
+                duration = re.search(r"Total duration:\s*(\d+):(\d+):(\d+)", log)
+                num_objects = re.search(r"Number of objects\s*[│|]\s*(\d+)", log)
         
-        if duration and num_objects:
-            h, mins, s = (int(x) for x in duration.groups())
-            tproc = datetime.timedelta(hours=h, minutes=mins, seconds=s).total_seconds() / 60  # minutes
-            ngal = int(num_objects.group(1))
-            CPU_PER_GAL = round(tproc * n_core / ngal, 4) # minutes
-            LINE = f'CPU_PER_GALAXY: {CPU_PER_GAL}  # minutes'
-            lines.append(LINE)
+                if duration and num_objects:
+                    h, mins, s = (int(x) for x in duration.groups())
+                    tproc = datetime.timedelta(hours=h, minutes=mins, seconds=s).total_seconds() / 60  # minutes
+                    ngal = int(num_objects.group(1))
+                    CPU_PER_GAL = tproc * n_core / ngal # minutes
+                    CPU_PER_GAL_LIST.append(CPU_PER_GAL)
+        MEAN_CPU_PER_GAL = round(np.mean(CPU_PER_GAL_LIST), 4)
+        LINE = f'CPU_PER_GALAXY: {MEAN_CPU_PER_GAL}  # minutes'
+        lines.append(LINE)
 
         # Hard code FITOPT000 since number of NaN logmasses should be the same for all fitopts
-        cigale_results_subdir = 'FITOPT000/out'
+        cigale_results_subdir = 'FITOPT000/SUBSET000/out'
         cigale_result_file = self.get_filepath('results.fits', cigale_results_subdir)
         num_invalid, tot_len = self.count_invalid_logmasses(cigale_result_file)
         LINE_nan_num = f'NaN_LOGMASSES: {num_invalid}'
@@ -592,4 +809,119 @@ class HostPropertyFit(Program):
     def merge_cleanup_final(self):
         return
 
+    def combine_logmass_grids(self, input_files, output_file):
+        """Concatenate LOGMASS_GRID files from different subsets"""
+        input_files = [str(p) for p in input_files]
+        if len(input_files) < 2:
+            raise ValueError("need at least two input files to combine")
+
+        header_lines = None
+        ref_varnames = None
+        grids = {}
+        n_dupes = 0
+        cigale_files = []
+
+        for ifile, path in enumerate(input_files):
+            header, varnames, n_read = [], None, 0
+            seen_varnames = in_body = False
+
+            opener = gzip.open if path.endswith(".gz") else open
+            with opener(path, 'rt') as f:
+                for lineno, raw in enumerate(f, start=1):
+                    line = raw.rstrip("\n")
+                    stripped = line.strip()
+                    if not stripped.startswith("GAL:"):
+                        if not in_body:
+                            header.append(line)
+                            if stripped.startswith("VARNAMES:"):
+                                seen_varnames = True
+                                varnames = line.split()[1:]
+                        continue
+
+                    in_body = True
+                    n_read += 1
+                    parts = stripped.split()
+                    if len(parts) < 3:
+                        raise ValueError(f"{path}:{lineno}: GAL: row has too few columns: {stripped!r}")
+                    galid = parts[1]
+                    try:
+                        zgrid = float(parts[2])
+                    except ValueError:
+                        raise ValueError(f"{path}:{lineno}: cannot parse ZGRID {parts[2]!r} as float")
+
+                    zmap = grids.setdefault(galid, {})
+                    zkey = round(zgrid, 6)   # avoid float-repr mismatches between files
+                    if zkey not in zmap:
+                        zmap[zkey] = [line]
+                        continue
+                    n_dupes += 1
+
+            if not seen_varnames:
+                raise ValueError(f"{path}: no VARNAMES line found")
+            if n_read == 0:
+                raise ValueError(f"{path}: no GAL: rows found")
+
+            for value in self.cigale_block(header)[0]:
+                if value not in cigale_files:
+                    cigale_files.append(value)
+
+            if ifile == 0:
+                header_lines, ref_varnames = header, varnames
+            elif varnames != ref_varnames:
+                print(f"WARNING: VARNAMES in {path} differ from {input_files[0]}\n"
+                      f"         {input_files[0]}: {ref_varnames}\n"
+                      f"         {path}: {varnames}",
+                      file=sys.stderr)
+
+        galids = list(grids)
+
+        # List all the CIGALE_RESULTS_FILEs in the combined LOGMASS_GRID file
+        if cigale_files:
+            _, istart, iend, indent = self.cigale_block(header_lines)
+            #print(f'xxx len(cigale_files) = {len(cigale_files)}, istart = {istart}')
+            if len(cigale_files) == 1:
+                header_lines[istart:iend] = [f"{indent}CIGALE_RESULTS_FILE: {cigale_files[0]}"]
+            else:
+                header_lines[istart:iend] = ([f"{indent}CIGALE_RESULTS_FILE:"]
+                                         + [f"{indent}- {value}" for value in cigale_files])
+
+        n_rows = 0
+        opener = gzip.open if output_file.endswith(".gz") else open
+        with opener(output_file, "wt") as out:
+            for line in header_lines:
+                out.write(line + "\n")
+            for igal, galid in enumerate(galids):
+                if igal:
+                    out.write("\n")
+                zmap = grids[galid]
+                for zkey in sorted(zmap):
+                    for line in zmap[zkey]:
+                        out.write(line + "\n")
+                        n_rows += 1
+
+        print('Combined LOGMASS_GRID subsets:')
+        print(f'n_files: {len(input_files)}')
+        print(f'n_galid: {len(galids)}')
+        print(f'n_rows: {n_rows}')
+        print(f'n_duplicates: {n_dupes}')
+
+        return
+
+    def cigale_block(self, header):
+        """Locate CIGALE_RESULTS_FILE in documentation block"""
+        for i, line in enumerate(header):
+            stripped = line.strip()
+            if not stripped.startswith("CIGALE_RESULTS_FILE:"):
+                continue
+            indent = line[:len(line) - len(line.lstrip())]
+            inline = stripped[len("CIGALE_RESULTS_FILE:"):].strip()
+            if inline:
+                return [inline], i, i + 1, indent
+            # YAML-list form: consume the "- item" lines that follow
+            values, j = [], i + 1
+            while j < len(header) and header[j].strip().startswith("- "):
+                values.append(header[j].strip()[2:].strip())
+                j += 1
+            return values, i, j, indent
+        return [], None, None, ""
 

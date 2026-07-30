@@ -8744,8 +8744,10 @@ namelist prior options are given below.
     and Gauss roll-off. Default range is \{$-9,+9$\} and $\sigma=0.01$.
 %
   \item \verb|PRIOR_DMU_RANGE(2)|  and \verb|PRIOR_DMU_SIGMA|: 
-    range of flat prior for $\mu-\mu_{\rm theory}$, mainly for photo-$z$ fits,
+    range of flat prior for $\mu-\mu_{\rm theory}$, primarily intended for photo-$z$ fits,
     and Gauss roll-off. Default range is \{$-9,+9$\} and $\sigma=0.1$.
+    Since $\mu$ is not a fit parameter for SALT2 model,
+    $\mu \equiv m_B + \alpha x1 - \beta c$ with  $\alpha=0.14$ and $\beta=3.2$.
 %
   \item \verb|PRIOR_DELTA_PROFILE(4)|:
     Used only for \mlcs\ $\Delta$,  

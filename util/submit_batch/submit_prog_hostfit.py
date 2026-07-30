@@ -16,8 +16,7 @@ SUBCLASS_HOSTFIT_CIGALE_LEGACY = 'CIGALE_LEGACY'
 CIGALE_INPUT_SUBDIR = 'CIGALE_INPUT'
 CIGALE_CSV_FILE = 'cigale_input.in'
 FITOPT_STRING = 'FITOPT'
-#MAX_GAL_PER_TASK = 5000000
-MAX_GAL_PER_TASK = 50 # test
+MAX_GAL_PER_TASK_DEFAULT = 5000000
 
 # define columns for MERGE.LOG;  column 0 is always for STATE  
 
@@ -86,20 +85,18 @@ class HostPropertyFit(Program):
 
     def submit_prepare_driver(self):
         args = self.config_yaml['args']
-
-        #SNANA_TO_CIGALE = util.extract_yaml(input_file, "SNANA_TO_CIGALE:", None)
-
-        #CIGALE_TO_SNANA = util.extract_yaml(input_file, "CIGALE_TO_SNANA:", None)
-
-        if args.devel_flag:
-            SUBCLASS = SUBCLASS_HOSTFIT_CIGALE
-        else:
-            #SUBCLASS = SUBCLASS_HOSTFIT_CIGALE_LEGACY
-            self.submit_prepare_driver_legacy()
-            return
+        SUBCLASS = SUBCLASS_HOSTFIT_CIGALE
+        
+        #if not args.devel_flag:
+        #    self.submit_prepare_driver_legacy()
+        #    return
+        
         # Start devel here
         input_file = args.input_file
         output_dir = self.config_prep['output_dir']
+
+        CONFIG     = self.config_yaml['CONFIG']
+        MAX_GAL_PER_TASK = int(CONFIG.get('MAX_GAL_PER_TASK', MAX_GAL_PER_TASK_DEFAULT))
 
         nrows = self.get_nrows_cigale()
         nsplit = (nrows + MAX_GAL_PER_TASK - 1) // MAX_GAL_PER_TASK
@@ -148,9 +145,9 @@ class HostPropertyFit(Program):
 
     def prep_cigale_translator(self, cigale_input_dir):
         args = self.config_yaml['args']
-        if not args.devel_flag:
-            self.prep_cigale_translator_legacy(cigale_input_dir)
-            return
+        #if not args.devel_flag:
+        #    self.prep_cigale_translator_legacy(cigale_input_dir)
+        #    return
 
         # Start devel here
         CONFIG     = self.config_yaml['CONFIG']
@@ -202,9 +199,9 @@ class HostPropertyFit(Program):
 
     def prep_cigale_fitopt(self):
         args = self.config_yaml['args']
-        if not args.devel_flag:
-            self.prep_cigale_fitopt_legacy()
-            return
+        #if not args.devel_flag:
+        #    self.prep_cigale_fitopt_legacy()
+        #    return
 
         # Start devel here
         CONFIG     = self.config_yaml['CONFIG']
@@ -268,9 +265,9 @@ class HostPropertyFit(Program):
 
     def prep_cigale_symlinks(self):
         args = self.config_yaml['args']
-        if not args.devel_flag:
-            self.prep_cigale_symlinks_legacy()
-            return
+        #if not args.devel_flag:
+        #    self.prep_cigale_symlinks_legacy()
+        #    return
 
         # Start devel here 
         fitopt_dict = self.config_prep['fitopt_dict']
@@ -448,7 +445,6 @@ class HostPropertyFit(Program):
         return
 
     def write_command_file(self, icpu, f):
-        # xxx add legacy
         n_core   = self.config_prep['n_core']
         n_fitopt = self.config_prep['n_fitopt']
         n_subset = self.config_prep['cigale_input_nsplit']
@@ -472,10 +468,6 @@ class HostPropertyFit(Program):
         return prefix
 
     def prep_JOB_INFO_hostfit(self, ijob):
-        # xxx add legacy
-        # xxx This needs to be updated to account for the subsets
-        # job_dir needs to be the subset_dir within fitopt_dir
-        # and the total number of ijobs should be num_fitopt*num_subset
         program       = self.config_prep['program']
         output_dir    = self.config_prep['output_dir']
         script_dir    = self.config_prep['script_dir']
@@ -511,7 +503,6 @@ class HostPropertyFit(Program):
         return JOB_INFO
 
     def create_merge_table(self,f):
-        # xxx add legacy   
         n_fitopt = self.config_prep['n_fitopt']
         fitopt_dict = self.config_prep['fitopt_dict']
         n_subset = self.config_prep['cigale_input_nsplit']
@@ -681,7 +672,6 @@ class HostPropertyFit(Program):
         return fitopt, subset
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
-        # xxx add legacy?
         row  = MERGE_INFO_CONTENTS[TABLE_MERGE][irow]
         fitopt_subset_num = row[COLNUM_HOSTFIT_MERGE_FITOPT]
         fitopt_num, subset_num = self.strip_fitopt_subset(fitopt_subset_num)

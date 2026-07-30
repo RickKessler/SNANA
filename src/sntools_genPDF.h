@@ -8,8 +8,8 @@
 
 #define MXMAP_GENPDF    8  // max number of maps per file
 #define MXVAR_GENPDF   20  // max varnames per mape
-#define MXROW_GENPDF 15000   // max number of rows per map
-#define MXITER_GENPDF  1000   // max number of iterations for genPDF
+#define MXROW_GENPDF 50000   // max number of rows per map; raised for dense broken-alpha maps
+#define MXITER_GENPDF 100000  // max iterations for high-stat narrow GENPDF maps
 #define PROBMAX_REJECT_GENPDF 1.0E-3  // ignore range where P > this value
 
 #define  OPTMASK_GENPDF_EXTRAP        1
@@ -34,6 +34,8 @@ struct {
   int      NVAR;              // May 26 2021
   GRIDMAP_DEF  GRIDMAP ;
   int      IVAR_HOSTLIB[MXVAR_GENPDF];
+  double   *PTRVAL_SNVAR[MXVAR_GENPDF];
+  bool     USE_HOSTLIB[MXVAR_GENPDF];
   
   // track stats on number of iterations to find value
   int N_CALL ;

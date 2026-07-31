@@ -89,6 +89,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //   Nov 10 2022 RK - skip parsing comment lines
   //   May 20 2024 RK - read MAG_OFFSET
   //   Jun 18 2026 RK - read GENMAG_SMEAR
+  //   Jul 30 2026 X.Tang - allow SN variables (e.g. SALT2x1, SALT2c) as
+  //                        conditioning vars, in addition to HOSTLIB vars
   // -----------
 
   FILE *fp;
@@ -405,6 +407,7 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   //
   // May 2024: avoid sigma = 0
   // Jun 18 2026: sig_tiny = PEAK/1E8 -> PEAK/1E6 to avoid numerical problems
+  // Jul 30 2026 X.Tang - init IVAR_HOSTLIB/PTRVAL_SNVAR/USE_HOSTLIB per ivar
 
   double PEAK    = GENGAUSS->PEAK ;
   // xxxx mark Jun 18 2025   double sig_tiny = PEAK/1.0E8; 
@@ -570,6 +573,9 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // For multi-dim genPDF map, additional HOSTLIB-dependent values
   // are internally included.
   //
+  // Jul 30 2026 X.Tang - fetch conditioning values from SNVAR pointer
+  //                      when conditioning var is not a HOSTLIB column
+  //
 
   int    IMAP = -9 ;
   double prob  = -9.0 ;
@@ -632,6 +638,8 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID) {
   // 
   // Dec 2023: implement PROB_EXPON_REWGT
   // Apr 22 2026: add CID arg for LDMP/diagnostics
+  // Jul 30 2026 X.Tang - fetch conditioning values from SNVAR pointer
+  //                      when conditioning var is not a HOSTLIB column
 
   int    IGAL               = SNHOSTGAL.IGAL;
 

@@ -563,6 +563,54 @@ void checkAbort_VARNAME_GENPDF(char *varName) {
 
 } // end checkAbort_VARNAME_GENPDF
 
+// ==========================================================
+void checkVarGen_genPDF(char *validList) {
+
+  // Created Jul 31 2026 by X.Tang
+  // Abort if the generated variable (first VARNAMES element) of any
+  // GENPDF map is not in the comma-separated *validList provided by
+  // the calling program; an optional LOG prefix is allowed to match
+  // the LOGparName logic in IMAP_GENPDF. Catches a typo'd generated
+  // variable at init time, and names it in the abort message,
+  // instead of the deferred getRan_genPDF abort that does not.
+
+  int  imap, ilist, NLIST=0 ;
+  bool MATCH ;
+  char *VARGEN, *ptrList[MXVAR_GENPDF], listLocal[200] ;
+  char comma[] = "," ;
+  char fnam[] = "checkVarGen_genPDF" ;
+
+  // -------- BEGIN --------
+
+  if ( NMAP_GENPDF == 0 ) { return; }
+
+  sprintf(listLocal, "%s", validList);
+  for(ilist=0; ilist < MXVAR_GENPDF; ilist++ )
+    { ptrList[ilist] = (char*) malloc( 60*sizeof(char) ); }
+  splitString(listLocal, comma, fnam, MXVAR_GENPDF, &NLIST, ptrList);
+
+  for(imap=0; imap < NMAP_GENPDF; imap++ ) {
+    VARGEN = GENPDF[imap].VARNAMES[0];
+    MATCH  = false ;
+    for(ilist=0; ilist < NLIST; ilist++ ) {
+      if ( strcmp(VARGEN,ptrList[ilist]) == 0 ) { MATCH = true; }
+      if ( strncmp(VARGEN,"LOG",3) == 0 &&
+	   strcmp(&VARGEN[3],ptrList[ilist]) == 0 ) { MATCH = true; }
+    }
+    if ( !MATCH ) {
+      sprintf(c1err,"Invalid generated variable '%s' in GENPDF map %s",
+	      VARGEN, GENPDF[imap].MAPNAME );
+      sprintf(c2err,"Valid: %s (optional LOG prefix)", validList);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  }
+
+  for(ilist=0; ilist < MXVAR_GENPDF; ilist++ ) { free(ptrList[ilist]); }
+
+  return;
+
+} // end checkVarGen_genPDF
+
 #ifndef USE_SUBPROCESS
 
 // ===================================

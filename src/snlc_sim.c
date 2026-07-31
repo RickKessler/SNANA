@@ -207,9 +207,20 @@ int main(int argc, char **argv) {
 
   rewgt_genPDF(+1); // option to rewgt (intended for BiasCor)
 
-  // - - - - 
+  // - - - -
   init_genmodel();
-  init_modelSmear(); 
+
+  // Jul 31 2026 X.Tang: after init_genmodel sets SHAPEPAR_GENNAME,
+  // verify the generated variable of each GENPDF map so a typo'd
+  // name aborts here instead of later in getRan_genPDF.
+  {
+    char validList_genPDF[200];
+    sprintf(validList_genPDF, "%s,SALT2c,SALT2ALPHA,SALT2BETA,%s,%s,%s",
+	    GENLC.SHAPEPAR_GENNAME, PARNAME_AV, PARNAME_RV, PARNAME_EBV);
+    checkVarGen_genPDF(validList_genPDF);
+  }
+
+  init_modelSmear();
   init_genSpec();     // July 2016: prepare optional spectra
 
   // init atmosphere/DCR after we know survey ID from SIMLIB, and

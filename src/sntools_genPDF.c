@@ -89,6 +89,8 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   //   Nov 10 2022 RK - skip parsing comment lines
   //   May 20 2024 RK - read MAG_OFFSET
   //   Jun 18 2026 RK - read GENMAG_SMEAR
+  //   Jul 30 2026 X.Tang - allow SN variables (e.g. SALT2x1, SALT2c) as
+  //                        conditioning vars, in addition to HOSTLIB vars
   // -----------
 
   FILE *fp;
@@ -270,6 +272,12 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 		   IDMAP, NDIM, NFUN, OPT_EXTRAP_GENPDF, 
 		   MXROW_GENPDF, fnam, &GENPDF[NMAP].GRIDMAP );
 
+      for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) {
+	GENPDF[NMAP].IVAR_HOSTLIB[ivar] = -9;
+	GENPDF[NMAP].PTRVAL_SNVAR[ivar] = NULL;
+	GENPDF[NMAP].USE_HOSTLIB[ivar]  = true;
+      }
+
       GENPDF[NMAP].N_CALL      = 0 ;
       GENPDF[NMAP].N_ITER_SUM  = 0 ;
       GENPDF[NMAP].N_ITER_MAX  = 0 ;
@@ -313,12 +321,16 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
 #ifndef USE_SUBPROCESS
   // - - - - - - - -
   // loop thru maps again and check that extra variables (after 1st column)
-  // exist in HOSTLIB
-  int  ivar_hostlib, imap, NVAR_HOSTLIB=0 ;
+  // exist in HOSTLIB or are supported SN variables.
+  bool IS_SNVAR;
+  int  ivar_hostlib, imap, NVAR_HOSTLIB=0, NVAR_SNVAR=0 ;
   int  ABORTFLAG = 0 ;
+  int  ISPARSE_SNVAR ;
   char *VARNAME;
+  double *ptr_SNVAR;
 
-  printf("\n   Check for GENPDF variables in HOSTLIB:\n"); fflush(stdout);
+  printf("\n   Check GENPDF conditioning variables (HOSTLIB or SNVAR):\n");
+  fflush(stdout);
   
   for(imap=0; imap < NMAP; imap++ ) {
     NVAR = GENPDF[imap].NVAR ;
@@ -326,23 +338,46 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     if ( GENPDF[imap].GRIDMAP.NDIM == 1 ) { continue; }
 
     NVAR_HOSTLIB = 0 ;
+    NVAR_SNVAR   = 0 ;
     for(ivar=1; ivar < NVAR-1; ivar++ )	{ 
       VARNAME = GENPDF[imap].VARNAMES[ivar] ;
       checkAlternateVarNames_HOSTLIB(VARNAME);
       ivar_hostlib = IVAR_HOSTLIB_STORE(VARNAME,ABORTFLAG, fnam);
-      if ( ivar_hostlib < 0 ) {
-	sprintf(c1err,"Could not find HOSTLIB variable '%s'", VARNAME);
-	sprintf(c2err,"Check HOSTLIB and check GENPDF_FILE");
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+      if ( ivar_hostlib >= 0 ) {
+	printf("\t Found HOSTLIB IVAR=%2d for VARNAME='%s' (%s) \n",
+	       ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME );
+	fflush(stdout);
+	GENPDF[imap].IVAR_HOSTLIB[ivar] = ivar_hostlib;
+	GENPDF[imap].USE_HOSTLIB[ivar]  = true;
+	NVAR_HOSTLIB++ ;
+	continue ;
       }
 
-      printf("\t Found HOSTLIB IVAR=%2d for VARNAME='%s' (%s) \n",
-	     ivar_hostlib, VARNAME, GENPDF[imap].MAPNAME ); fflush(stdout);
-      GENPDF[imap].IVAR_HOSTLIB[ivar] = ivar_hostlib;
-      NVAR_HOSTLIB++ ;
+      // If not in HOSTLIB, allow SN variables (e.g., SALT2x1, SALT2c, RV, AV).
+      ISPARSE_SNVAR = HOSTLIB_WGTMAP.N_SNVAR;
+      IS_SNVAR      = checkSNvar_HOSTLIB_WGTMAP(VARNAME);
+      ptr_SNVAR     = NULL;
+      if ( IS_SNVAR ) {
+	ptr_SNVAR = HOSTLIB_WGTMAP.ptrVal_SNVAR[ISPARSE_SNVAR];
+      }
+
+      if ( IS_SNVAR && ptr_SNVAR != NULL ) {
+	printf("\t Found SNVAR pointer for VARNAME='%s' (%s)\n",
+	       VARNAME, GENPDF[imap].MAPNAME );
+	fflush(stdout);
+	GENPDF[imap].USE_HOSTLIB[ivar]  = false;
+	GENPDF[imap].PTRVAL_SNVAR[ivar] = ptr_SNVAR;
+	NVAR_SNVAR++ ;
+	continue ;
+      }
+
+      sprintf(c1err,"Could not find conditioning variable '%s'", VARNAME);
+      sprintf(c2err,"Expected HOSTLIB column or supported SNVAR in GENPDF map");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
-    printf("    Found %d HOSTLIB variables in GENPDF map %s\n",
-	   NVAR_HOSTLIB, GENPDF[imap].MAPNAME);    fflush(stdout);
+    printf("    Found %d HOSTLIB vars and %d SNVARs in GENPDF map %s\n",
+	   NVAR_HOSTLIB, NVAR_SNVAR, GENPDF[imap].MAPNAME);
+    fflush(stdout);
   }
 
 #endif
@@ -372,6 +407,7 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   //
   // May 2024: avoid sigma = 0
   // Jun 18 2026: sig_tiny = PEAK/1E8 -> PEAK/1E6 to avoid numerical problems
+  // Jul 30 2026 X.Tang - init IVAR_HOSTLIB/PTRVAL_SNVAR/USE_HOSTLIB per ivar
 
   double PEAK    = GENGAUSS->PEAK ;
   // xxxx mark Jun 18 2025   double sig_tiny = PEAK/1.0E8; 
@@ -424,6 +460,13 @@ void init_genPDF_from_GenGauss(int IMAP, GENGAUSS_ASYM_DEF *GENGAUSS) {
   compute_genGauss_GRIDMAP(GENGAUSS, NAME, IDMAP, OPT_EXTRAP_GENPDF, 
 			   NBIN, RANGE, fnam,
 			   &GENPDF[IMAP].GRIDMAP ); // <== returned
+
+  int ivar;
+  for(ivar=0; ivar < MXVAR_GENPDF; ivar++ ) {
+    GENPDF[IMAP].IVAR_HOSTLIB[ivar] = -9;
+    GENPDF[IMAP].PTRVAL_SNVAR[ivar] = NULL;
+    GENPDF[IMAP].USE_HOSTLIB[ivar]  = true;
+  }
 
   GENPDF[IMAP].PROB_EXPON_REWGT = 1.0 ; // Mar 14, 2024
 
@@ -520,6 +563,54 @@ void checkAbort_VARNAME_GENPDF(char *varName) {
 
 } // end checkAbort_VARNAME_GENPDF
 
+// ==========================================================
+void checkVarGen_genPDF(char *validList) {
+
+  // Created Jul 31 2026 by X.Tang
+  // Abort if the generated variable (first VARNAMES element) of any
+  // GENPDF map is not in the comma-separated *validList provided by
+  // the calling program; an optional LOG prefix is allowed to match
+  // the LOGparName logic in IMAP_GENPDF. Catches a typo'd generated
+  // variable at init time, and names it in the abort message,
+  // instead of the deferred getRan_genPDF abort that does not.
+
+  int  imap, ilist, NLIST=0 ;
+  bool MATCH ;
+  char *VARGEN, *ptrList[MXVAR_GENPDF], listLocal[200] ;
+  char comma[] = "," ;
+  char fnam[] = "checkVarGen_genPDF" ;
+
+  // -------- BEGIN --------
+
+  if ( NMAP_GENPDF == 0 ) { return; }
+
+  sprintf(listLocal, "%s", validList);
+  for(ilist=0; ilist < MXVAR_GENPDF; ilist++ )
+    { ptrList[ilist] = (char*) malloc( 60*sizeof(char) ); }
+  splitString(listLocal, comma, fnam, MXVAR_GENPDF, &NLIST, ptrList);
+
+  for(imap=0; imap < NMAP_GENPDF; imap++ ) {
+    VARGEN = GENPDF[imap].VARNAMES[0];
+    MATCH  = false ;
+    for(ilist=0; ilist < NLIST; ilist++ ) {
+      if ( strcmp(VARGEN,ptrList[ilist]) == 0 ) { MATCH = true; }
+      if ( strncmp(VARGEN,"LOG",3) == 0 &&
+	   strcmp(&VARGEN[3],ptrList[ilist]) == 0 ) { MATCH = true; }
+    }
+    if ( !MATCH ) {
+      sprintf(c1err,"Invalid generated variable '%s' in GENPDF map %s",
+	      VARGEN, GENPDF[imap].MAPNAME );
+      sprintf(c2err,"Valid: %s (optional LOG prefix)", validList);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+  }
+
+  for(ilist=0; ilist < MXVAR_GENPDF; ilist++ ) { free(ptrList[ilist]); }
+
+  return;
+
+} // end checkVarGen_genPDF
+
 #ifndef USE_SUBPROCESS
 
 // ===================================
@@ -529,6 +620,9 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
   // For input parName and value x, return genPDF function value.
   // For multi-dim genPDF map, additional HOSTLIB-dependent values
   // are internally included.
+  //
+  // Jul 30 2026 X.Tang - fetch conditioning values from SNVAR pointer
+  //                      when conditioning var is not a HOSTLIB column
   //
 
   int    IMAP = -9 ;
@@ -541,14 +635,27 @@ double funVal_genPDF(char *parName, double x, GENGAUSS_ASYM_DEF *GENGAUSS) {
   if ( NMAP_GENPDF > 0 ) {
     int    istat, NDIM, ivar, IVAR_HOSTLIB;
     double xval[MXVAR_GENPDF], EXPON_REWGT ;
+    double *PTR_SNVAR;
     IMAP        = IMAP_GENPDF(parName, &IS_LOGPARAM) ;
     NDIM        = GENPDF[IMAP].GRIDMAP.NDIM ;
     EXPON_REWGT = GENPDF[IMAP].PROB_EXPON_REWGT ;
 
     xval[0] = x;
     for(ivar=1; ivar < NDIM ; ivar++ ) {
-      IVAR_HOSTLIB   = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
-      xval[ivar]     = get_VALUE_HOSTLIB(IVAR_HOSTLIB, SNHOSTGAL.IGAL);
+      if ( GENPDF[IMAP].USE_HOSTLIB[ivar] ) {
+	IVAR_HOSTLIB = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
+	xval[ivar]   = get_VALUE_HOSTLIB(IVAR_HOSTLIB, SNHOSTGAL.IGAL);
+      }
+      else {
+	PTR_SNVAR = GENPDF[IMAP].PTRVAL_SNVAR[ivar];
+	if ( PTR_SNVAR == NULL ) {
+	  sprintf(c1err,"Null SNVAR pointer for VARNAME='%s'",
+		  GENPDF[IMAP].VARNAMES[ivar]);
+	  sprintf(c2err,"IMAP=%d", IMAP);
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	}
+	xval[ivar] = *PTR_SNVAR;
+      }
     }
 
     istat = interp_GRIDMAP(&GENPDF[IMAP].GRIDMAP, xval, fnam, &prob);  (void)istat;
@@ -579,6 +686,8 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID) {
   // 
   // Dec 2023: implement PROB_EXPON_REWGT
   // Apr 22 2026: add CID arg for LDMP/diagnostics
+  // Jul 30 2026 X.Tang - fetch conditioning values from SNVAR pointer
+  //                      when conditioning var is not a HOSTLIB column
 
   int    IGAL               = SNHOSTGAL.IGAL;
 
@@ -587,6 +696,7 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID) {
   int    N_EVAL = 0, IMAP, ivar, NDIM, istat, itmp, IVAR_HOSTLIB;
   double val_inputs[MXVAR_GENPDF], prob_ref, prob, r = 0.0 ;
   double VAL_RANGE[2], FUNMAX, EXPON_REWGT, prob_ratio ;
+  double *PTR_SNVAR;
   int    LDMP = 0 ;
   bool   IS_LOGPARAM = false ; // true -> param stored as LOGparam
   char   *MAPNAME ;
@@ -609,8 +719,20 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID) {
       // tack on optional dependence on HOSTLIB
       // Leave var_inputs[0] to be filled below inside while loop
       for(ivar=1; ivar < NDIM; ivar++ ) {
-	IVAR_HOSTLIB     = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
-	val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
+	if ( GENPDF[IMAP].USE_HOSTLIB[ivar] ) {
+	  IVAR_HOSTLIB     = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
+	  val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
+	}
+	else {
+	  PTR_SNVAR = GENPDF[IMAP].PTRVAL_SNVAR[ivar];
+	  if ( PTR_SNVAR == NULL ) {
+	    sprintf(c1err,"Null SNVAR pointer for VARNAME='%s'",
+		    GENPDF[IMAP].VARNAMES[ivar]);
+	    sprintf(c2err,"IMAP=%d", IMAP);
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+	  }
+	  val_inputs[ivar] = *PTR_SNVAR;
+	}
       }
 
       // get min/max VALUE range for random selection;
@@ -671,10 +793,18 @@ double getRan_genPDF(char *parName, GENGAUSS_ASYM_DEF *GENGAUSS, int CID) {
 	  printf("   %s(%s) \n", MAPNAME, GENPDF[IMAP].GRIDMAP.VARLIST );
 	  
 	  for(ivar=1; ivar < NDIM; ivar++ ) {
-	    IVAR_HOSTLIB = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
-	    val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
-	    printf("\t %s = %f \n", 
-		   HOSTLIB.VARNAME_STORE[IVAR_HOSTLIB], val_inputs[ivar] );
+	    if ( GENPDF[IMAP].USE_HOSTLIB[ivar] ) {
+	      IVAR_HOSTLIB = GENPDF[IMAP].IVAR_HOSTLIB[ivar];
+	      val_inputs[ivar] = get_VALUE_HOSTLIB(IVAR_HOSTLIB,IGAL);
+	      printf("\t %s = %f \n",
+		     HOSTLIB.VARNAME_STORE[IVAR_HOSTLIB], val_inputs[ivar] );
+	    }
+	    else {
+	      PTR_SNVAR = GENPDF[IMAP].PTRVAL_SNVAR[ivar];
+	      val_inputs[ivar] = *PTR_SNVAR;
+	      printf("\t %s(SNVAR) = %f \n",
+		     GENPDF[IMAP].VARNAMES[ivar], val_inputs[ivar] );
+	    }
 	  }
 
 	  for(itmp = 0; itmp < N_ITER; itmp++ ) {
@@ -882,4 +1012,3 @@ void iter_summary_genPDF(void) {
 } // end iter_summary_genPDF
 
 #endif
-

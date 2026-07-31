@@ -1,5 +1,4 @@
 /****************************************************
-
   Created Jun 12 2020 by R.Kessler
 
   Generic utility to draw random numbers from probability distribution
@@ -28,6 +27,9 @@
               profile can go into genPDF map file.
 
   Apr 22 2026: abort if VARNAME has SIM_ prefix
+
+  Jul 28 2026: TZ - allow SN variables (e.g. SALT2x1, SALT2c) as conditioning variables
+                    (initial motivation is broken alpha vs. x1)
 
  ****************************************************/
 
@@ -519,7 +521,7 @@ void assign_VARNAME_GENPDF(int imap, int ivar, char *varName) {
 
   char *MAPNAME = GENPDF[imap].MAPNAME ;
   char *VARLIST = GENPDF[imap].GRIDMAP.VARLIST;
-  //  char fnam[] = "assign_VARNAME_GENPDF";
+  char fnam[] = "assign_VARNAME_GENPDF";  (void)fnam;
   // ---------- BEGIN ------------
 
   if ( ivar == 0 )  { 
@@ -598,7 +600,7 @@ void checkVarGen_genPDF(char *validList) {
 	   strcmp(&VARGEN[3],ptrList[ilist]) == 0 ) { MATCH = true; }
     }
     if ( !MATCH ) {
-      sprintf(c1err,"Invalid generated variable '%s' in GENPDF map %s",
+      sprintf(c1err,"Invalid generated variable '%80.s' in GENPDF map %40.s",
 	      VARGEN, GENPDF[imap].MAPNAME );
       sprintf(c2err,"Valid: %s (optional LOG prefix)", validList);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);

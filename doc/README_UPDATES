@@ -23944,6 +23944,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + fix SIM_PRESCALE treatment to use N_SNLC_READ instead of N_SNLC_PROC, so that
         N_SNLC_PROC counts after prescale is applied and matches number of events written 
        to SNANA table.
+      + MXWR_TEXT = 400 -> 1000 (for DEBASS)
 
     sntools_dataformat_fits.c:
       + allocate MXBIN_HOSTGALz times more memory only for FITS columns that need it; 

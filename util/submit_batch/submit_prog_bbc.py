@@ -114,6 +114,9 @@
 #
 # Jun 05 2026: move import pandas into combine_csv_files, the only function that needs it. 
 #               Needed to run in envs (e.g., cigale) that do not have pandas installed. 
+#
+# Aug 4 2026: few fixes to revive "INPDIR+: None"
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -338,7 +341,15 @@ class BBC(Program):
             self.log_assert(False,msgerr)
 
         CONFIG_INPDIR = CONFIG[key]
-        n_inpdir      = len(CONFIG_INPDIR)
+        if util.match_string_to_list(CONFIG_INPDIR, ['None', 'Ignore'] ):
+            n_inpdir      = 0            
+        elif isinstance(CONFIG_INPDIR,list):
+            n_inpdir      = len(CONFIG_INPDIR)
+        else:
+            sys.exit(f"\n ERROR: Don't know how to process {key} = {CONFIG_INPDIR}")
+
+
+        #sys.exit(f"\n xxx n_inpdir = {n_inpdir}\n xxx CONFIG_INPDIR = {CONFIG_INPDIR}")
 
         inpdir_list         = [ ]
         survey_list         = [ ]    # for each inpdir
@@ -379,17 +390,14 @@ class BBC(Program):
             msgerr = [f"Missing required {DEFAULT_DONE_FILE} file in", 
                       f"{path_orig}" ] 
             util.check_file_exists(DONE_PATHFILE,msgerr)
-            # xxx mark delet  self.check_file_exists(DONE_PATHFILE,msgerr)
 
             msgerr = [f"Missing required {MERGE_LOG_FILE} file in", 
                       f"{path_orig}" ] 
             util.check_file_exists(MERGE_LOG_PATHFILE,msgerr)
-            # xxx mark del self.check_file_exists(MERGE_LOG_PATHFILE,msgerr)
 
             msgerr = [f"Missing required {SUBMIT_INFO_FILE} file in", 
                       f"{path_orig}" ] 
             util.check_file_exists(INFO_PATHFILE,msgerr)
-            # xxxx mark del self.check_file_exists(INFO_PATHFILE,msgerr)
 
             #  make sure DONE stamp exists with SUCCESS
             with open(DONE_PATHFILE,'r') as f :
@@ -466,7 +474,7 @@ class BBC(Program):
         if not SAME and not IGNORE_SAME_TEST :
             msgerr = []
             msgerr.append(f"Mis-match number of FITOPT; "\
-                          f"n_fitopt = {n_fitopt_list} for") 
+                          f"n_fitopt = {n_fitopt_list} for:") 
             for path in inpdir_list_orig :
                 msgerr.append(f"\t {path}")
             self.log_assert(False,msgerr)
@@ -509,13 +517,15 @@ class BBC(Program):
         logging.info(f"\n\t *** WARNING: INPDIR ignore --> " \
                      f"use datafile argument *** ")
         n_inpdir = 1
-        self.config_prep['n_inpdir']            = n_inpdir
-        self.config_prep['inpdir_list']         = None
-        self.config_prep['survey_list']         = [ 'UNKNOWN' ]
-        self.config_prep['version_list2d']      = [] * n_inpdir
-        self.config_prep['fitopt_table_list2d'] = [] * n_inpdir
+        self.config_prep['n_inpdir']               = n_inpdir
+        self.config_prep['inpdir_list']            = None
+        self.config_prep['survey_list']            = [ 'UNKNOWN' ]
+        self.config_prep['n_fitopt_inplist']       = [] * n_inpdir
+        self.config_prep['version_list2d']         = [] * n_inpdir
+        self.config_prep['fitopt_table_list2d']    = [] * n_inpdir
         self.config_prep['fitopt_num_outlist_map'] = []
         self.config_prep['sync_evt_list']          = [ False ]
+        self.config_prep['INFILE_LIST']            = []
         return;
 
 
@@ -537,7 +547,7 @@ class BBC(Program):
         n_inpdir    = len(CONFIG_INPDIR)
 
         # Mar 8 2021: check option to ignore INPDIR+ and use datafile= arg
-        if CONFIG_INPDIR == 'None' or CONFIG_INPDIR == 'Ignore' :
+        if util.match_string_to_list(CONFIG_INPDIR, ['None', 'Ignore'] ):
             return None, None
             
         # - - - -
@@ -818,13 +828,13 @@ class BBC(Program):
         msgerr = []
 
         if not USE_INPDIR or ignore_fitopt : 
+            FNUM0 = 'FITOPT000' 
             self.config_prep['n_fitopt']                = 1
-            self.config_prep['fitopt_num_outlist']      = [ 'FITOPT000' ]
-            self.config_prep['fitopt_num_outlist_map']  = [[ 'FITOPT000' ]*n_inpdir ]  # Feb 2025
+            self.config_prep['fitopt_num_outlist']      = [ FNUM0 ]
+            self.config_prep['fitopt_num_outlist_map']  = [ [FNUM0]*n_inpdir ]  # Feb 2025
             self.config_prep['FITOPT_OUT_LIST']         = [ ]
-
-            #fitopt_num_outlist_map = self.config_prep['fitopt_num_outlist_map']
-            #sys.exit(f"\n xxx fitopt_num_outlist_map = \n{fitopt_num_outlist_map}")
+            self.config_prep['replace_fitopt_simfile_biascor_dict'] = { FNUM0: None }
+            self.config_prep['replace_fitopt_simfile_ccprior_dict'] = { FNUM0: None }
             return 
 
         if IS_FITOPT_MAP :
@@ -897,10 +907,6 @@ class BBC(Program):
                 self.replace_fitopt_simfile(fitopt_num_outlist, KEY_REPLACE_SIMFILE_BIASCOR)
         replace_fitopt_simfile_ccprior_dict = \
                 self.replace_fitopt_simfile(fitopt_num_outlist, KEY_REPLACE_SIMFILE_CCPRIOR)
-
-        #print(f"\n xxx replace_fitopt_simfile_biascor_dict \n{replace_fitopt_simfile_biascor_dict} \n")
-        #print(f"\n xxx replace_fitopt_simfile_ccprior_dict \n{replace_fitopt_simfile_ccprior_dict} \n")
-        #sys.exit(f"\n xxx map = {fitopt_num_outlist} \n") #RCC
 
         self.config_prep['replace_fitopt_simfile_biascor_dict'] = replace_fitopt_simfile_biascor_dict
         self.config_prep['replace_fitopt_simfile_ccprior_dict'] = replace_fitopt_simfile_ccprior_dict

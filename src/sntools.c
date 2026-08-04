@@ -11011,8 +11011,11 @@ bool check_openFile_docana(bool REQUIRE_DOCANA, FILE *fp, char *fileName) {
 
 } // end check_openFile_docana
 
+
+
 // *************************************
 void check_file_docana(int optmask, char *fileName) {
+
   // Created Aug 26 2020
   // Open and read first line of fileName; if not DOCANA key 
   // then abort or give warning based on input optmask.
@@ -11251,6 +11254,24 @@ int wr_filtband_float(
   return(0); // add Aug 7 2014 to avoid compile warnings.
 
 } // end of wr_filtband_float
+
+
+void check_malloc_pointer(void *ptr, char *varname, char *callFun) {
+
+  // Created Aug 4 by R.Kessler after Claude nagged me about not checking 
+  // malloc pointers.
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "check_malloc_pointer", fnam);
+
+  if ( ptr == NULL ) {
+    sprintf(c1err,"Invalid malloc pointer for varname = '%s'", varname);
+    sprintf(c2err,"Check function %s", callFun);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+  return;
+
+} // end check_malloc_pointer
 
 void check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun) {
 
@@ -11858,6 +11879,8 @@ float malloc_double2D(int opt, int LEN1, int LEN2, double ***array2D ) {
   if ( opt > 0 ) {
 
     *array2D = (double**) malloc(MEM1) ; MEMTOT += MEM1;
+    check_malloc_pointer(*array2D, "*array2D", fnam);
+
     for(i1=0; i1< LEN1; i1++ ) {
       (*array2D)[i1] = (double*) malloc(MEM2) ; MEMTOT += MEM2;
     }
@@ -11972,6 +11995,8 @@ float malloc_float3D(int opt, int LEN1, int LEN2, int LEN3,
   if ( opt > 0 ) {
 
     *array3D = (float***) malloc(MEM1) ; MEMTOT+=MEM1;
+    check_malloc_pointer(*array3D, "*array3D", fnam);
+
     for(i1=0; i1<LEN1; i1++ ) {
       (*array3D)[i1] = (float**) malloc(MEM2) ; MEMTOT+=MEM2;
       for(i2=0; i2<LEN2; i2++ ) {

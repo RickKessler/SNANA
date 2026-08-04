@@ -351,7 +351,8 @@ HELP_CONFIG_BBC = f"""
     etc ...
 
        or
-  INPDIR+: None  # flag to ignore INPDIR+; instead, use datafile= argument
+  INPDIR+: None    # flag to ignore INPDIR+; instead, use datafile= argument
+  INPDIR+: Ignore  # idem
 
   # to include external FITRES files (e.g., from a separate analysis)
   INPFILE+:

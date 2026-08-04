@@ -466,6 +466,14 @@ def get_stat_dict(value_list,error_list):
 
     # end get_stat_dict
 
+def match_string_to_list(string, match_list):
+    if not isinstance(string,str):
+        return False
+
+    for m in match_list:
+        if string == m: return True
+    return False
+
 def merge_table_reset(merge_file, table_name, colnum_state, colnum_zero_list):
 
     # read {table_name} from {merge_file} and reset table as follows:

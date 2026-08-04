@@ -3575,6 +3575,9 @@ void check_duplicates_util(int EVENT_TYPE) {
   unsortList = (int    *)malloc(MEMI); // allocate sorted list
   IS_DUPL    = (bool   *)malloc(MEMB);
 
+  check_malloc_pointer(unsortList, "unsortList", fnam);
+  check_malloc_pointer(IS_DUPL,    "IS_DUPL",    fnam);
+
   for(isn=0; isn<nsn; isn++)  { IS_DUPL[isn] = false; }
 
   // beware that arrays are float (not double) to conserve memory
@@ -17776,7 +17779,7 @@ void print_eventStats(int event_type, char *callFun) {
       IS_PHOTOZ  = SAMPLE_BIASCOR[idsample].IS_PHOTOZ ;
       NAME       = SAMPLE_BIASCOR[idsample].NAME ;
 
-      printf(" xxx %s: BCOR IDSAMPLE=%d(%s)  NSN=%d \n", fnam, idsample, NAME, NSN);
+      // xxx mark printf(" xxx %s: BCOR IDSAMPLE=%d(%s)  NSN=%d \n", fnam, idsample, NAME, NSN);
 
       if ( NSN == 0 ) {
 	NMISSING++ ;

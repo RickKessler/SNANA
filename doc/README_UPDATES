@@ -23932,6 +23932,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        Ignoring semi-colon results in back-compatible feature of appending only
        FITRES table. 
 
+    submit_prob_bbc:
+      few fixes to revive "INPDIR+: None" feature
+
     Improved read-speed when search big data set for just 1 event:
         https://github.com/RickKessler/SNANA/issues/1727
 
@@ -24019,9 +24022,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    TO-DO:
      - bigger project: replace fopen calls with gzoopen (using zlib.h)
-
-     - check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun)
-     - check_malloc_pointer(void *ptr, char *varname, char *callFun);
+     + check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun)
+     + check_malloc_pointer(void *ptr, char *varname, char *callFun);
+        (use in only a few places to start)
 
 END:
  

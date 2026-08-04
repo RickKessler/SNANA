@@ -1637,6 +1637,8 @@ int read_input_file(char *input_file, int keySource ) {
   // store_PARSE_WORDS may be used later to parse some of the input
   INPUTS.NWORDLIST = NWD_FILE ;
   INPUTS.WORDLIST  = (char**) malloc ( sizeof(char*) * NWD_FILE );
+  check_malloc_pointer(INPUTS.WORDLIST, "INPUTS.WORDLIST", fnam);
+
   for(iwd=0; iwd < NWD_FILE; iwd++ ) {    
     get_PARSE_WORD(0, iwd, tmpWord, fnam );
     LENWD = strlen(tmpWord) ;
@@ -3228,6 +3230,7 @@ int parse_input_SEARCHEFF(char **WORDS, int keySource) {
     if ( NSHIFT == 0 ) {
       fmem = malloc_strlist(+1, MXSHIFT_SEARCHEFF, 40, &INPUTS_SEARCHEFF.SHIFT_VARNAMES_SPEC );
       INPUTS_SEARCHEFF.SHIFT_VALUES_SPEC = (double*)malloc(MEMD_SHIFT);
+      check_malloc_pointer(INPUTS_SEARCHEFF.SHIFT_VALUES_SPEC, "INPUTS_SEARCHEFF.SHIFT_VALUES_SPEC", fnam);
     }
     // if WORDS[0] = 'SEARCHEFF_SPEC_SHIFT(r_obs_auto)', varname = 'r_obs_auto'
     extractStringOpt(WORDS[0],varname) ;   
@@ -3242,6 +3245,7 @@ int parse_input_SEARCHEFF(char **WORDS, int keySource) {
     if ( NSHIFT == 0 ) {
       fmem = malloc_strlist(+1, MXSHIFT_SEARCHEFF, 40, &INPUTS_SEARCHEFF.SHIFT_VARNAMES_zHOST );
       INPUTS_SEARCHEFF.SHIFT_VALUES_zHOST = (double*)malloc(MEMD_SHIFT);
+      check_malloc_pointer(INPUTS_SEARCHEFF.SHIFT_VALUES_zHOST, "INPUTS_SEARCHEFF.SHIFT_VALUES_zHOST", fnam);
     }
     extractStringOpt(WORDS[0],varname) ;   
     N++; sscanf(WORDS[N], "%f", &shift );
@@ -3360,9 +3364,9 @@ void parse_input_GENZPHOT_FUDGEMAP(char *string) {
   INPUTS.HOSTLIB_GENZPHOT_FUDGEMAP.NzBIN = NzBIN;
   if ( VERBOSE ) {    print_banner(fnam);  }
 
-  split_string2    = (char**) malloc( 2 * sizeof(char*) );
-  split_string2[0] = (char*)malloc( 40*sizeof(char) );
-  split_string2[1] = (char*)malloc( 40*sizeof(char) );
+  split_string2    = (char**) malloc( 2  * sizeof(char*) );
+  split_string2[0] = (char *) malloc( 40 * sizeof(char ) );
+  split_string2[1] = (char *) malloc( 40 * sizeof(char ) );
 
   // each element is z:rms, so split each element by colon
   for ( iz=0; iz < NzBIN; iz++ ) {
@@ -5390,7 +5394,6 @@ void parse_GENMAG_SMEAR_MODELNAME(void) {
   ptrSplit[0] = (char*) malloc(MEMC);
   ptrSplit[1] = (char*) malloc(MEMC);
   
-
   sprintf(inString,"%s", INPUTS.GENMAG_SMEAR_MODELNAME);
 
   splitString(inString, colon, fnam, 2,      // inputs               
@@ -6448,10 +6451,7 @@ void  parse_input_GENPOP_ASYMGAUSS(void) {
 
   // - - - - - -
   for(iwd=0; iwd < NWD_TOT; iwd++ ) {
-    
     sprintf(KEY_TMP, "%s", WORDS[iwd]);
-
-    //    printf(" xxx read KEY_TMP[%d] = '%s' \n", iwd, KEY_TMP);
     ISKEY_MODEL = ( strcmp(KEY_TMP,KEY_MODEL_NAME) == 0 ) ;
     ISKEY_END   = ( strcmp(KEY_TMP,KEY_MODEL_END)  == 0 ) ;
 

@@ -112,7 +112,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   GENGAUSS_ASYM_DEF  gengauss_SALT2BETA;
   GENGAUSS_ASYM_DEF  gengauss_SALT2c;  // June 2025
   bool  USE_SALT2 = false;
-  char **ptr_ITEMLIST, *fg;  (void)fg;
+  char **ptr_ITEMLIST = NULL, *fg;  (void)fg;
   int KEYSOURCE = 1; // default source is from file
 
   char fnam[]     = "init_genPDF";
@@ -136,11 +136,14 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
   init_GENGAUSS_ASYM(&gengauss_SALT2c,     0.0 );
 
   ptr_ITEMLIST = (char**)malloc( MXWD_TMPLINE*sizeof(char*));
+  check_malloc_pointer(ptr_ITEMLIST, "ptr_ITEMLIST", fnam);  
+
   for(i=0; i<MXWD_TMPLINE; i++) 
     { ptr_ITEMLIST[i] = (char*)malloc(80*sizeof(char)); }
 
   LINE    = (char*) malloc(MEMC_TMPLINE);     // allow for long comments
   TMPLINE = (char*) malloc(MEMC_TMPLINE+100); 
+  check_malloc_pointer(TMPLINE, "TMPLINE", fnam);
 
 #ifndef USE_SUBPROCESS
   if ( HOSTLIB_WGTMAP.N_SNVAR > 0 ) {
@@ -578,7 +581,7 @@ void checkVarGen_genPDF(char *validList) {
 
   int  imap, ilist, NLIST=0 ;
   bool MATCH ;
-  char *VARGEN, *ptrList[MXVAR_GENPDF], listLocal[200] ;
+  char *VARGEN, *ptrList[MXVAR_GENPDF], listLocal[200], ctmp[100] ;
   char comma[] = "," ;
   char fnam[] = "checkVarGen_genPDF" ;
 
@@ -587,8 +590,12 @@ void checkVarGen_genPDF(char *validList) {
   if ( NMAP_GENPDF == 0 ) { return; }
 
   sprintf(listLocal, "%s", validList);
-  for(ilist=0; ilist < MXVAR_GENPDF; ilist++ )
-    { ptrList[ilist] = (char*) malloc( 60*sizeof(char) ); }
+  for(ilist=0; ilist < MXVAR_GENPDF; ilist++ )  { 
+    ptrList[ilist] = (char*) malloc( 60*sizeof(char) ); 
+
+    sprintf(ctmp,"ptrList[%d]", ilist);
+    check_malloc_pointer(ptrList[ilist], ctmp, fnam);
+  }
   splitString(listLocal, comma, fnam, MXVAR_GENPDF, &NLIST, ptrList);
 
   for(imap=0; imap < NMAP_GENPDF; imap++ ) {

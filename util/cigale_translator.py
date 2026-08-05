@@ -384,7 +384,9 @@ def snana_to_cigale(args, config, mode):
     cigale_output_path = resolve(args.output_cigale_file, config, 'OUTPUT_CIGALE_FILE', '--output_cigale_file', mode)
 
     # Other params
-    zgrid = args.zgrid if args.zgrid is not None else config.get("REDSHIFT_GRID").split()
+    zgrid = args.zgrid if args.zgrid is not None else config.get("REDSHIFT_GRID")
+    if zgrid:
+        zgrid = zgrid.split()
     varname_z = args.varname_z if args.varname_z is not None else config.get("REDSHIFT_COL")
     prescale = args.prescale if args.prescale is not None else config.get("PRESCALE")
     nsplit = args.nsplit if args.nsplit is not None else config.get("NSPLIT")
@@ -432,13 +434,23 @@ def snana_to_cigale(args, config, mode):
 
 ### CIGALE_TO_SNANA-specific functions ###
 
-REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE = {
-    "GALID",
-    "HOSTGALz_LOGMASS_ZGRID",
-    "HOSTGALz_LOGMASS_VALGRID",
-    "HOSTGALz_LOGMASS_ERRGRID",
+# Output column names (SNANA VARNAMES) for the two CIGALE_TO_SNANA cases.
+LOGMASS_COLNAMES_ZGRID = {
+    "galid": "GALID",
+    "redshift": "HOSTGALz_LOGMASS_ZGRID",
+    "logmass": "HOSTGALz_LOGMASS_VALGRID",
+    "logmass_err": "HOSTGALz_LOGMASS_ERRGRID",
 }
 
+LOGMASS_COLNAMES_NOZGRID = {
+    "galid": "GALID",
+    "redshift": "REDSHIFT",
+    "logmass": "LOGMASS",
+    "logmass_err": "LOGMASS_ERR",
+}
+
+REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE = set(LOGMASS_COLNAMES_ZGRID.values())
+REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE_NOZGRID = set(LOGMASS_COLNAMES_NOZGRID.values())
 
 def build_doc_header(snana_cols, cigale_results_path):
     varnames_line = "VARNAMES:  " + "  ".join(snana_cols)
@@ -471,6 +483,8 @@ def validate_column_map(column_map, snana_format):
     """
     Validate COLUMN_MAP against the required keys for the given SNANA_FORMAT.
     For now only LOGMASS_OVERRIDE is supported.
+    Either column naming convention is accepted (grid or no-grid).
+    Returns (cigale_cols, configured_colnames).
     """
     if snana_format != "LOGMASS_OVERRIDE":
         raise ValueError(
@@ -478,13 +492,19 @@ def validate_column_map(column_map, snana_format):
             f"Currently only 'LOGMASS_OVERRIDE' is implemented."
         )
     keys = set(column_map.keys())
-    if keys != REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE:
+    if keys == REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE:
+        configured_colnames = LOGMASS_COLNAMES_ZGRID
+    elif keys == REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE_NOZGRID:
+        configured_colnames = LOGMASS_COLNAMES_NOZGRID
+    else:
         raise ValueError(
             f"COLUMN_MAP for SNANA_FORMAT=LOGMASS_OVERRIDE must contain exactly "
-            f"these entries: {sorted(REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE)}. "
-            f"Got: {sorted(keys)}"
+            f"these entries: {sorted(REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE)} "
+            f"(redshift grid) or {sorted(REQUIRED_COLUMN_KEYS_LOGMASS_OVERRIDE_NOZGRID)} "
+            f"(no redshift grid). Got: {sorted(keys)}"
         )
-    return dict(column_map)
+    cigale_cols = {role: column_map[name] for role, name in configured_colnames.items()}
+    return cigale_cols, configured_colnames
 
 
 def load_galid_map(path):
@@ -536,18 +556,34 @@ def fmt_val(x):
     return f"{x:.6f}"
 
 
-def write_snana_output(output_path, snana_cols, galids, redshifts, logmass, logmass_err, cigale_results_path, num_pad_rows=0):
+def normalize_galids(galids):
     """
-    Write the SNANA LOGMASS_OVERRIDE-format file. Galaxies appear in order of
-    first appearance in `galids`; within each galaxy, rows are sorted by
-    ascending redshift, followed by `num_pad_rows` of all-'-9' padding.
+    Convert the cigale id column to integer SNANA GALIDs. With a redshift grid the
+    ids carry a zbin tag ('0_zbin1' -> 0); without one they are already GALIDs.
     """
     if np.issubdtype(galids.dtype, np.str_) and ('_' in galids[0]):
-        galids_int = np.array([int(float(gal.split('_')[0])) for gal in galids]) # e.g., convert '0_zbin1' back to 0  
-    else:
-        galids_int = galids.astype(np.int64)
+        return np.array([int(float(gal.split('_')[0])) for gal in galids])
+    return galids.astype(np.int64)
 
+
+def has_redshift_grid(galids_int):
+    """
+    True if a redshift grid was used, i.e. some GALID appears more than once.
+    """
+    return len(set(galids_int.tolist())) != len(galids_int)
+
+
+def write_snana_output(output_path, snana_cols, galids_int, redshifts, logmass, logmass_err, cigale_results_path, num_pad_rows=0, blank_line_between_galids=True):
+    """
+    Write the SNANA LOGMASS_OVERRIDE-format file. Galaxies appear in order of
+    first appearance in `galids_int`; within each galaxy, rows are sorted by
+    ascending redshift, followed by `num_pad_rows` of all-'-9' padding.
+    GALID blocks are separated by a blank line unless `blank_line_between_galids`
+    is False (the no-redshift-grid case), where the rows are written contiguously.
+    """
     seen_order = list(dict.fromkeys(galids_int.tolist()))
+
+    write_blank_between_galids = blank_line_between_galids or (num_pad_rows > 0)
 
     opener = gzip.open if output_path.endswith(".gz") else open
     mode = "wt" if output_path.endswith(".gz") else "w"
@@ -570,7 +606,7 @@ def write_snana_output(output_path, snana_cols, galids, redshifts, logmass, logm
             for _ in range(num_pad_rows):
                 f.write(f"GAL: {gid}  -9  -9  -9\n")
 
-            if i != len(seen_order) - 1:
+            if write_blank_between_galids and i != len(seen_order) - 1:
                 f.write("\n")
 
     total_real_rows = int(np.sum(np.isfinite(redshifts)))
@@ -587,29 +623,41 @@ def cigale_to_snana(args, config, mode):
 
     # Currently, snana_format needs to be given in config
     snana_format = config["SNANA_FORMAT"]
-    column_map = validate_column_map(config["COLUMN_MAP"], snana_format)
+    cigale_cols, configured_colnames = validate_column_map(config["COLUMN_MAP"], snana_format)
 
-    cigale_id_col = column_map["GALID"]
-    cigale_z_col = column_map["HOSTGALz_LOGMASS_ZGRID"]
-    cigale_mass_col = column_map["HOSTGALz_LOGMASS_VALGRID"]
-    cigale_mass_err_col = column_map["HOSTGALz_LOGMASS_ERRGRID"]
+    cigale_id_col = cigale_cols["galid"]
+    cigale_z_col = cigale_cols["redshift"]
+    cigale_mass_col = cigale_cols["logmass"]
+    cigale_mass_err_col = cigale_cols["logmass_err"]
 
     data = read_cigale_results(
         cigale_results_path,
         [cigale_id_col, cigale_z_col, cigale_mass_col, cigale_mass_err_col],
     )
 
-    galids = data[cigale_id_col]
+    galids = normalize_galids(data[cigale_id_col])
 
     redshifts = data[cigale_z_col].astype(float)
     logmass, logmass_err = linear_mass_to_logmass(
         data[cigale_mass_col], data[cigale_mass_err_col]
     )
 
-    snana_cols = list(column_map.keys())
+    zgrid_used = has_redshift_grid(galids)
+    colnames = LOGMASS_COLNAMES_ZGRID if zgrid_used else LOGMASS_COLNAMES_NOZGRID
+    if colnames is not configured_colnames:
+        print(
+            f"WARNING: COLUMN_MAP uses the "
+            f"{'redshift grid' if configured_colnames is LOGMASS_COLNAMES_ZGRID else 'no redshift grid'}"
+            f" naming convention, but {cigale_results_path} has "
+            f"{'multiple redshifts' if zgrid_used else 'one redshift'} per GALID; "
+            f"writing VARNAMES as {list(colnames.values())}",
+            file=sys.stderr,
+        )
+
+    snana_cols = list(colnames.values())
     n_gal, n_rows = write_snana_output(
-        output_path, snana_cols, galids, redshifts, logmass, logmass_err, 
-        cigale_results_path
+        output_path, snana_cols, galids, redshifts, logmass, logmass_err,
+        cigale_results_path, blank_line_between_galids=zgrid_used
     )
     print(f"Wrote {n_gal} galaxies ({n_rows} grid rows) to {output_path}", file=sys.stderr)
 

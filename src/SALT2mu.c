@@ -327,6 +327,16 @@ For help, run code with no arguments
     + increase MXFILE_XXX = 20 -> 30
     + MXCHAR_DATAFILE_STRING  8*MXPATHLEN -> 10*MXPATHLEN  [2400 -> 3000]
 
+ Aug 05 2026 TZ Tang:
+   + implement broken-alpha (two-slope) standardization: new fit params
+     alpha1 (p24), dalpha1_dz (p25), x1_cen (p26). For x1 < x1_cen,
+     alpha = alpha1 + z*dalpha1_dz (step model); biasCor interpolation
+     uses the branch-selected per-event alpha. Feature is inactive unless
+     p24/u24 is set --> exact backward compatibility when off.
+   + fix fitparName typo dalpah_dlogm -> dalpha_dlogm
+   + input alias alpha1= now maps to p24 (was p3, which is now dalpha_dz);
+     new aliases dalpha_dz= and dbeta_dz= for p3/p4.
+
  ******************************************************/
 
 #include "sntools.h" 
@@ -1293,6 +1303,7 @@ struct INPUTS {
   char varname_gamma[MXCHAR_VARNAME]; // name of variable to fit gamma HR step;
                            // e.g, "HOST_LOGMASS" or "SSFR", etc...
   int USE_GAMMA0 ;   // true if p5 is floated or fixed to non-zero value
+  int USE_ALPHA1 ;   // true if p24 (alpha1) floated or fixed to non-zero value (broken alpha, Aug 2026)
   int cutmask_write; // mask of errors to write SN to output
 
   // define fixed intrinsic scatter matrix
@@ -1375,15 +1386,17 @@ struct INPUTS_ZPOLY_COVMAT {
 
 
 // Aug 4 2026: gamma1->dgdz, alpha1-> da_dz, beta1->db_dz,  alphaHost->da_dlogm
+// Aug 5 2026 TZ Tang: fix typo dalpah_dlogm -> dalpha_dlogm, and fill blank
+//             slots 24,25,26 with broken-alpha params alpha1, dalpha1_dz, x1_cen
 char FITPARNAMES_DEFAULT[MXCOSPAR][20] = {
   "blank" ,
   "alpha0      ", "beta0       ", "dalpha_dz   ", "dbeta_dz    ",
   "gamma0      ", "dgamma_dz   ", "logmass_cen ", "logmass_tau ",
   "Omega_L     ", "Omega_k     ", "w0          ", "wa          ",
-  "scalePCC    ", "sigint      ", "dalpah_dlogm", "dbeta_dlogm ",
+  "scalePCC    ", "sigint      ", "dalpha_dlogm", "dbeta_dlogm ",
   "H11mucc0    ", "H11mucc1    ", "H11mucc2    ",
   "H11sigcc0   ", "H11sigcc1   ", "H11sigcc2   ",
-  "blank24     ", "blank25     ", "blank26     ", "blank27     ",
+  "blank24     ", "alpha1      ", "dalpha1_dz  ", "x1_cen      ",
   "blank28     ", "blank29     ", "blank30     "
 } ;
 
@@ -1395,6 +1408,7 @@ int IPAR_LOGMASS_CEN, IPAR_LOGMASS_TAU ;
 int IPAR_scalePCC, IPAR_H11, NPAR_H11_TOT, NPAR_H11_USER ;
 int IPAR_COVINT_PARAM ;  // sigint or SCALE_COVINT(biasCor)
 int IPAR_OL, IPAR_Ok, IPAR_w0, IPAR_wa;
+int IPAR_ALPHA1, IPAR_DALPHA1_DZ, IPAR_X1_CEN ;  // broken-alpha params, Aug 2026
 
 
 // define inputs to fit that are read or calculated
@@ -1620,6 +1634,7 @@ void  prep_input_driver(void);
 void  prep_input_trueIa(void);
 void  prep_input_nmax(char *item);
 void  prep_input_gamma(void) ;
+void  prep_input_broken_alpha(void) ;
 void  prep_input_probcc0(void);
 void  prep_input_load_COSPAR(double *COSPAR);
 void  prep_input_varname_missing(void);
@@ -1687,7 +1702,7 @@ void   set_INTERPWGT_abg(INTERPWGT_AlphaBetaGammaDM *INTERPWGT, double VAL);
 void   get_INTERPWGT_abg(double alpha,double beta,double gammadm, int DUMPFLAG,
 			INTERPWGT_AlphaBetaGammaDM *INTERPWGT, char *callFun );
 
-void   fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass,
+void   fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass, double x1,
 			       double *alpha, double *beta, double *gammadm );
 
 void   read_simFile_CCprior(void);
@@ -4345,6 +4360,8 @@ void *MNCHI2FUN(void *thread) {
   // Sep 24 2021: abort on muerrsq < 0
   // Sep 27 2021: require muCOVadd>0 to implement; fixes rare muerrsq<0 problem.
   // May 05 2025: abort if PIa < 0 or > 1
+  // Aug 05 2026 TZ Tang: pass event x1 (=s) to fcnFetch_AlphaBetaGamma for
+  //              broken-alpha branch selection; force INTERPFLAG_abg=2 if USE_ALPHA1
 
   thread_chi2sums_def *thread_chi2sums = (thread_chi2sums_def *)thread;
   //  int  npar      = thread_chi2sums->npar_fcn ;
@@ -4451,7 +4468,9 @@ void *MNCHI2FUN(void *thread) {
     // check for z-dependent alpha or beta
     if ( INPUTS.ipar[3] || INPUTS.ipar[4] ) { INTERPFLAG_abg = 2; } 
     // check for hostmass-dependent alpha or beta (April 2 2018)
-    if ( INPUTS.ipar[15] || INPUTS.ipar[16] ) { INTERPFLAG_abg = 2; } 
+    if ( INPUTS.ipar[15] || INPUTS.ipar[16] ) { INTERPFLAG_abg = 2; }
+    // check for broken alpha, which makes alpha depend on x1
+    if ( INPUTS.USE_ALPHA1 ) { INTERPFLAG_abg = 2; }  // Aug 2026: x1-dependent alpha
   }
 
   chi2sum_tot = chi2sum_Ia    = 0.0;
@@ -4554,7 +4573,8 @@ void *MNCHI2FUN(void *thread) {
     if ( z < 1.0E-8 ) { continue ; } // Jun 3 2013 (obsolete?)
 
     // fetch alpha,beta,gamma (include z-dependence)
-    fcnFetch_AlphaBetaGamma(xval, z, logmass, &alpha, &beta, &gamma); 
+    // s = x1 (stretch) selects the broken-alpha branch (Aug 5 2026, TZ Tang)
+    fcnFetch_AlphaBetaGamma(xval, z, logmass, s, &alpha, &beta, &gamma);
 
     gammaDM = get_gammadm_host(z, logmass, hostPar );
 
@@ -4921,7 +4941,7 @@ void *MNCHI2FUN(void *thread) {
 
 
 // ==============================================
-void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass, 
+void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass, double x1,
 			      double *alpha, double *beta, double *gamma) {
 
   // Apr 2 2018
@@ -4931,6 +4951,19 @@ void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass,
   //              Allows fixing dalpha/dmass & dbeta/dmass wihtout floating.
   //
   // Aug 4 2026: replace hard-wired xval-indices with IPAR_XXX
+  //
+  // Aug 05 2026 TZ Tang: add broken-alpha branch selection (alpha1 for x1 < x1_cen)
+  //
+  // Broken-alpha convention (Option A, "step model"):
+  //   alpha(x1,z) = alpha0 + z*dalpha_dz   for x1 >= x1_cen
+  //               = alpha1 + z*dalpha1_dz  for x1 <  x1_cen
+  // The standardization term remains alpha*x1, so the alpha*x1 correction is
+  // discontinuous at the pivot by (alpha0-alpha1)*x1_cen. This is intentional
+  // and matches the published ZTF free-break fits; sims inject SIM_alpha per
+  // event with this same step convention.
+  // Host-logmass slope/split terms (aHost) apply identically to both branches.
+  // When INPUTS.USE_ALPHA1 is false, the arithmetic below is identical to the
+  // original single-alpha code.
   //
 
   double a0          = xval[IPAR_ALPHA0] ;      // alpha0
@@ -4944,10 +4977,17 @@ void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass,
   double logmass_cen = xval[IPAR_LOGMASS_CEN];    // log(Msplit) for gamma0
   double dlogmass    = logmass - logmass_cen ;
   double alpha_local, beta_local, gamma_local ;
+  double a0_use = a0, da_dz_use = da_dz ;  // broken-alpha branch values, Aug 2026
   int    OPT_LOGMASS_SLOPE=0, OPT_LOGMASS_SPLIT=0 ;
 
-  alpha_local = a0  + z*da_dz ;
-  beta_local  = b0  + z*db_dz ;  
+  // broken alpha: pick low-stretch branch for x1 < x1_cen (Aug 5 2026, TZ Tang)
+  if ( INPUTS.USE_ALPHA1 && x1 < xval[IPAR_X1_CEN] ) {
+    a0_use    = xval[IPAR_ALPHA1] ;      // second slope for low-stretch branch
+    da_dz_use = xval[IPAR_DALPHA1_DZ] ;
+  }
+
+  alpha_local = a0_use + z*da_dz_use ;
+  beta_local  = b0  + z*db_dz ;
   gamma_local = g0  + z*dg_dz ;
 
   if ( INPUTS.ipar[15]<=1 || INPUTS.ipar[16]<=1 ) 
@@ -5642,6 +5682,9 @@ double zerr_adjust(double z, double zerr, double vpecerr, char *name) {
 // ******************************************
 void set_defaults(void) {
 
+  // Aug 05 2026 TZ Tang: add broken-alpha defaults (IPAR_ALPHA1, IPAR_DALPHA1_DZ,
+  //                      IPAR_X1_CEN, x1_cen = -0.25, USE_ALPHA1 = 0)
+
   int isurvey, ifield, order, ipar, N ;
   char fnam[] = "set_defaults";
   
@@ -5873,6 +5916,7 @@ void set_defaults(void) {
   IPAR_scalePCC=13, IPAR_COVINT_PARAM=14 ;
   IPAR_OL=9; IPAR_Ok=10; IPAR_w0=11;  IPAR_wa=12;
   IPAR_H11=17; NPAR_H11_TOT=6; NPAR_H11_USER=0;
+  IPAR_ALPHA1=24; IPAR_DALPHA1_DZ=25; IPAR_X1_CEN=26; // broken alpha, Aug 2026
 
 
   for(ipar=0; ipar < MAXPAR; ipar++ ) {
@@ -5887,6 +5931,7 @@ void set_defaults(void) {
   INPUTS.parval[IPAR_H11+1]        = .1;
   INPUTS.parval[IPAR_H11+2]        = .1;
   INPUTS.parval[IPAR_H11+3]        = .1;
+  INPUTS.parval[IPAR_X1_CEN]       = -0.25 ;  // default x1 pivot for broken alpha
 
 
   for(ipar=0; ipar < MAXPAR; ipar++ )  {  INPUTS.izpar[ipar] = -99;   }
@@ -5928,6 +5973,7 @@ void set_defaults(void) {
 
   sprintf(INPUTS.varname_gamma,VARNAME_LOGMASS);
   INPUTS.USE_GAMMA0  = 0 ;
+  INPUTS.USE_ALPHA1  = 0 ;
 
   INPUTS.LCUTWIN_DISABLE  = false;
   INPUTS.APPLY_CUTWIN_pIa = false;
@@ -18525,7 +18571,10 @@ int ppar(char* item) {
   //
   // Oct 14 2020: refactor to use parse_commaSepList utility
   //
-  int  ipar, len, ikey, ntmp, MEMC ;  
+  // Aug 05 2026 TZ Tang: repoint alpha1= alias to p24 (broken alpha) and add
+  //              new dalpha_dz= and dbeta_dz= aliases for p3 and p4.
+  //
+  int  ipar, len, ikey, ntmp, MEMC ;
   char key[MXCHAR_VARNAME], *s, tmpString[60];
   char fnam[] = "ppar" ;
 
@@ -19005,14 +19054,20 @@ int ppar(char* item) {
   }
 
   // read alternate names for p%d params
-  if ( uniqueOverlap(item,"alpha0=")) 
+  if ( uniqueOverlap(item,"alpha0="))
     { sscanf(&item[7],"%lf",&INPUTS.parval[1]); return(1); }
-  if ( uniqueOverlap(item,"beta0=")) 
+  if ( uniqueOverlap(item,"beta0="))
     { sscanf(&item[6],"%lf",&INPUTS.parval[2]); return(1); }
-  if ( uniqueOverlap(item,"alpha1=")) 
-    { sscanf(&item[7],"%lf",&INPUTS.parval[3]); return(1); }
-  if ( uniqueOverlap(item,"beta1=")) 
-    { sscanf(&item[6],"%lf",&INPUTS.parval[4]); return(1); }
+  // alpha1 renamed Aug 2026: alias follows the fitted-par name, so it now
+  // points at p24 (broken-alpha second slope); p3 is now dalpha_dz.
+  if ( uniqueOverlap(item,"alpha1="))
+    { sscanf(&item[7],"%lf",&INPUTS.parval[24]); return(1); }
+  if ( uniqueOverlap(item,"dalpha_dz="))
+    { sscanf(&item[10],"%lf",&INPUTS.parval[3]); return(1); }
+  if ( uniqueOverlap(item,"dbeta_dz="))
+    { sscanf(&item[9],"%lf",&INPUTS.parval[4]); return(1); }
+  if ( uniqueOverlap(item,"beta1="))
+    { sscanf(&item[6],"%lf",&INPUTS.parval[4]); return(1); } // legacy name for dbeta_dz
   if ( uniqueOverlap(item,"OL=")) 
     { sscanf(&item[3],"%lf",&INPUTS.parval[9]); return(1); }
   if ( uniqueOverlap(item,"Ok=")) 
@@ -21309,6 +21364,9 @@ void  prep_fitpar(void) {
 
   // Created July 2023
   // set parameter bounds for each fit par
+  //
+  // Aug 05 2026 TZ Tang: add broken-alpha params p24-p26 and call
+  //              prep_input_broken_alpha()
 
   char usage[10];
   double a0=-9.0, a1=-9.0, b0=-9.0, b1=-9.0, g0=-9.0, g1=-9.0 ;
@@ -21361,7 +21419,15 @@ void  prep_fitpar(void) {
   set_fitPar( 21, val[21],  0.05, -9.0,  9.0,  ipar[21] ); // H11sig1
   set_fitPar( 22, val[22],  0.05, -9.0,  9.0,  ipar[22] ); // H11sig2
 
+  // broken-alpha params: two slopes split at x1_cen pivot (Aug 5 2026, TZ Tang)
+  // alpha1 bounds are deliberately wider than the SALT2 alpha0 bounds (a0,a1
+  // above) because the low-stretch slope can approach 0 or go negative.
+  set_fitPar( 24, val[24], 0.01, -0.50, 0.50, ipar[24] ); // alpha1 (x1 < x1_cen branch)
+  set_fitPar( 25, val[25], 0.02, -0.50, 0.50, ipar[25] ); // dAlpha1/dz
+  set_fitPar( 26, val[26], 0.10, -3.00, 3.00, ipar[26] ); // x1_cen pivot
+
   prep_input_gamma();
+  prep_input_broken_alpha();
 
   int i;
   for (i=0; i < MXCOSPAR;++i)    {
@@ -21855,6 +21921,65 @@ void  prep_input_gamma(void) {
   return ;
 
 } // end prep_input_gamma
+
+
+// **********************************************
+void  prep_input_broken_alpha(void) {
+
+  // Created Aug 5 2026 by TZ Tang
+  // Prepare broken-alpha (two-slope, x1-pivot) params:
+  // set USE_ALPHA1 if alpha1 (p24) is floated or fixed at non-zero value.
+  // If alpha1 is used but its initial value is not set, default it to the
+  // alpha0 initial value so the model starts at the single-alpha limit.
+
+  int  LDMP = 1;
+  char fnam[] = "prep_input_broken_alpha" ;
+
+  // ---------- BEGIN -------------
+
+  // set USE_ALPHA1 flag if 1) alpha1 is floated, or 2) initial alpha1 != 0
+
+  if ( INPUTS.ipar[IPAR_ALPHA1] )
+    { INPUTS.USE_ALPHA1 = 1; }
+
+  if ( fabs(INPUTS.parval[IPAR_ALPHA1]) > 1.0E-8 )
+    { INPUTS.USE_ALPHA1 = 1; }
+
+  if ( INPUTS.USE_ALPHA1 == 0 ) { return ; }
+
+  // broken alpha selects branches with SALT2 stretch x1; abort for BAYESN
+  // since the generic stretch there is theta1, not x1 (Aug 5 2026, TZ Tang)
+  if ( INPUTS.ISMODEL_LCFIT_BAYESN ) {
+    sprintf(c1err,"broken-alpha (alpha1, p24) is not defined for BAYESN model");
+    sprintf(c2err,"Remove p24/u24/alpha1 input, or use SALT2 light-curve fits.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  // if alpha1 initial value is not set, start it at the alpha0 initial
+  // value so that the fit begins at the single-alpha limit.
+  if ( fabs(INPUTS.parval[IPAR_ALPHA1]) < 1.0E-12 ) {
+    INPUTS.parval[IPAR_ALPHA1] = INPUTS.parval[IPAR_ALPHA0] ;
+    if ( LDMP ) {
+      fprintf(FP_STDOUT, "\t %s: alpha1 initial value defaults to "
+	      "alpha0 = %.4f \n", fnam, INPUTS.parval[IPAR_ALPHA1] );
+    }
+  }
+
+  if ( LDMP ) {
+    fprintf(FP_STDOUT, "\n %s: set USE_ALPHA1 flag (broken alpha enabled) \n",
+	    fnam );
+    fprintf(FP_STDOUT, "\t x1_cen(pivot) initial value = %.4f \n",
+	    INPUTS.parval[IPAR_X1_CEN] );
+    fprintf(FP_STDOUT, "\t step model: alpha = alpha0 + z*dalpha_dz "
+	    "for x1 >= x1_cen, \n");
+    fprintf(FP_STDOUT, "\t             alpha = alpha1 + z*dalpha1_dz "
+	    "for x1 <  x1_cen. \n");
+    fflush(FP_STDOUT);
+  }
+
+  return ;
+
+} // end prep_input_broken_alpha
 
 
 // **********************************************

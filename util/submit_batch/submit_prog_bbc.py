@@ -2430,6 +2430,7 @@ class BBC(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_splitran       = submit_info_yaml['NSPLITRAN']
         use_wfit         = submit_info_yaml['USE_WFIT']
+        INPDIR_LIST      = submit_info_yaml.setdefault('INPDIR_LIST',None)
         script_subdir    = SUBDIR_SCRIPTS_BBC
 
         logging.info(f"  BBC cleanup: create {FITPAR_SUMMARY_FILE}") 
@@ -2479,9 +2480,10 @@ class BBC(Program):
             wildcard = f"{jobfile_wildcard}*.{suffix}"
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
-        # Mar 2023: cleanup PREP files
-        wildcard = f"{PREFIX_PREP}*"
-        util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
+        # Mar 2023: cleanup PREP files .xyz
+        if INPDIR_LIST:
+            wildcard = f"{PREFIX_PREP}*"
+            util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")
 
 
         logging.info("")
@@ -2957,14 +2959,18 @@ class BBC(Program):
         indx_muopt_label  = 1
         indx_muopt_args   = 2
 
-        FITOPT_LABEL = FITOPT_LIST[ifit][indx_fitopt_label]
-        FITOPT_ARGS  = FITOPT_LIST[ifit][indx_fitopt_args]
-        MUOPT_LABEL  = MUOPT_LIST[imu][indx_muopt_label]
-        MUOPT_ARGS   = MUOPT_LIST[imu][indx_muopt_args]
+        #sys.exit(f"\n xxx FITOPT_LIST = {FITOPT_LIST}\n")
 
-        # if ARGS =  'KEY\\(inner\\)', remove backslashes to get 'KEY(inner)'
-        FITOPT_ARGS = FITOPT_ARGS.replace('\\','')
-        MUOPT_ARGS  = MUOPT_ARGS.replace('\\','')
+        if FITOPT_LIST:
+            FITOPT_LABEL = FITOPT_LIST[ifit][indx_fitopt_label]
+            FITOPT_ARGS  = FITOPT_LIST[ifit][indx_fitopt_args]
+            # if ARGS =  'KEY\\(inner\\)', remove backslashes to get 'KEY(inner)'
+            FITOPT_ARGS = FITOPT_ARGS.replace('\\','')
+        if MUOPT_LIST:
+            MUOPT_LABEL  = MUOPT_LIST[imu][indx_muopt_label]
+            MUOPT_ARGS   = MUOPT_LIST[imu][indx_muopt_args]
+            MUOPT_ARGS  = MUOPT_ARGS.replace('\\','')
+
 
         # check list sizes to accomodate noINPDIR option
         n_list = 0

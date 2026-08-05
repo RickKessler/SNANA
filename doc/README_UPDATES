@@ -23914,7 +23914,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     Begin using autotools for building C & fortran codes; see README.md
 
-    MXCHAR_CCID = 32 -> 40 to handle 128-bit ROOTIDs in fastdb
+    MXCHAR_CCID = 32 -> 40 to handle 128-bit ROOTIDs in DESC's fastdb
 
     snlc_sim(Jun 20 2026): 
       default GENSIGMA_MWEBV_RATIO = 0.16 -> -9; abort if not specified by user.
@@ -23999,7 +23999,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     genmag_SIMSED.c[h]
       see https://github.com/RickKessler/SNANA/issues/1722
 
-    
     sndata.h
       define SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME to enable reducing
       default size of the BAND and FIELD columns in the PHOT file.
@@ -24020,12 +24019,28 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        It found and fixed 2 bugs, which I manually installed since AI
        cannot post a PR nor issue (since it cannot become a collaborator)
        Waiting to hear from David if this fix works on his Macbook ...
+       fix did not quite work.
 
    TO-DO:
      - bigger project: replace fopen calls with gzoopen (using zlib.h)
-     + check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun)
-     + check_malloc_pointer(void *ptr, char *varname, char *callFun);
+     + create check_file_pointer(FILE *fp, char *file_name, char *mode, char *callFun)
+     + create check_malloc_pointer(void *ptr, char *varname, char *callFun);
         (use in only a few places to start)
+
+
+# =============================================================
+         v12_02b (Aug 4 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_02b) *****
+
+
+         *****  USEFUL(v12_02b) *****
+
+
+         *****  MISCELLANEOUS(v12_02b) *****
+
+    submit_prob_bbc:
+      - fix merge process to work when there is no INPDIR+ key
 
 END:
  

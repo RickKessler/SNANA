@@ -79,7 +79,10 @@ class HostPropertyFit(Program):
             raise ValueError(f"{input_table_file}: found multiple row types {present}; expected exactly one")
         
         nrows_input_table = next(iter(present.values()))
-        nbins_zgrid = int(redshift_grid.split()[-1])
+        if redshift_grid:
+            nbins_zgrid = int(redshift_grid.split()[-1])
+        else:
+            nbins_zgrid = 1
         return nrows_input_table*nbins_zgrid
 
 
@@ -97,10 +100,14 @@ class HostPropertyFit(Program):
 
         CONFIG     = self.config_yaml['CONFIG']
         MAX_GAL_PER_TASK = int(CONFIG.get('MAX_GAL_PER_TASK', MAX_GAL_PER_TASK_DEFAULT))
+        KEYLIST       = [ FITOPT_STRING ]    # key under CONFIG                                                                                                                                                
+        fitopt_rows   = util.get_YAML_key_values(CONFIG,KEYLIST)
+        fitopt_dict = util.prep_jobopt_list(fitopt_rows,FITOPT_STRING,1,None)
+        n_fitopt = fitopt_dict['n_jobopt']
 
         nrows = self.get_nrows_cigale()
         nsplit = (nrows + MAX_GAL_PER_TASK - 1) // MAX_GAL_PER_TASK
-        print(f'nrows = {nrows}, nsplit = {nsplit}')
+        #print(f'nrows = {nrows}, nsplit = {nsplit}')
         self.config_prep['cigale_input_nsplit'] = nsplit
 
         cigale_input_dir = output_dir + '/' + CIGALE_INPUT_SUBDIR
@@ -109,8 +116,10 @@ class HostPropertyFit(Program):
         self.prep_cigale_symlinks()
 
         self.config_prep['cigale_input_dir'] = cigale_input_dir
-        self.config_prep['n_job_tot'] = self.config_prep['n_core']
-        self.config_prep['n_done_tot'] = self.config_prep['n_core']
+        #self.config_prep['n_job_tot'] = self.config_prep['n_core']
+        #self.config_prep['n_done_tot'] = self.config_prep['n_core']
+        self.config_prep['n_job_tot'] = n_fitopt * nsplit
+        self.config_prep['n_done_tot'] = n_fitopt * nsplit
         self.config_prep['n_job_split'] = 1
         self.config_prep['SUBCLASS'] = SUBCLASS
 
@@ -567,6 +576,7 @@ class HostPropertyFit(Program):
         output_dir       = self.config_prep['output_dir']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
+        #print('xxx n_job_split =', n_job_split)
 
         # init outputs of function
         n_state_change     = 0
@@ -711,12 +721,18 @@ class HostPropertyFit(Program):
         n_subset = len(glob.glob(os.path.join(cigale_input_dir, "cigale_input_SUBSET*.in")))
         #print(f'xxx n_done, n_subset = {n_done}, {n_subset}')
         if n_done == n_subset:
-            subset_output_files = []
-            for s in range(n_subset):
-                output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num + f'/SUBSET{s:03d}')
-                subset_output_files.append(output_snana_file)
-            combined_output_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num)
-            self.combine_logmass_grids(subset_output_files, combined_output_file)
+            if n_subset == 1:
+                output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num + '/SUBSET000')
+                output_snana_file_target = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num)
+                command_cp = f'cp {output_snana_file} {output_snana_file_target}'
+                os.system(command_cp)
+            else:
+                subset_output_files = []
+                for s in range(n_subset):
+                    output_snana_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num + f'/SUBSET{s:03d}')
+                    subset_output_files.append(output_snana_file)
+                combined_output_file = self.get_filepath('LOGMASS_GRID.DAT.gz', fitopt_num)
+                self.combine_logmass_grids(subset_output_files, combined_output_file)
 
         return
 

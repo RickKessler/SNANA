@@ -1401,7 +1401,6 @@ char FITPARNAMES_DEFAULT[MXCOSPAR][20] = {
 } ;
 
 
-
 int IPAR_ALPHA0, IPAR_DALPHA_DZ, IPAR_BETA0, IPAR_DBETA_DZ, IPAR_GAMMA0, IPAR_DGAMMA_DZ;
 int IPAR_DALPHA_DLOGM, IPAR_DBETA_DLOGM;
 int IPAR_LOGMASS_CEN, IPAR_LOGMASS_TAU ;
@@ -4975,20 +4974,28 @@ void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass, double x1,
   double aHost       = xval[IPAR_DALPHA_DLOGM];   // dalpha/dlog(Mhost)
   double bHost       = xval[IPAR_DBETA_DLOGM];    // dbeta/dlog(Mhost)
   double logmass_cen = xval[IPAR_LOGMASS_CEN];    // log(Msplit) for gamma0
+  double a1          = xval[IPAR_ALPHA1];         // for broken alpha
+  double da1_dz      = xval[IPAR_DALPHA1_DZ];     // idem
   double dlogmass    = logmass - logmass_cen ;
+  double a0_use= -9.0,  da_dz_use = -9.0 ;
   double alpha_local, beta_local, gamma_local ;
-  double a0_use = a0, da_dz_use = da_dz ;  // broken-alpha branch values, Aug 2026
   int    OPT_LOGMASS_SLOPE=0, OPT_LOGMASS_SPLIT=0 ;
 
-  // broken alpha: pick low-stretch branch for x1 < x1_cen (Aug 5 2026, TZ Tang)
   if ( INPUTS.USE_ALPHA1 && x1 < xval[IPAR_X1_CEN] ) {
-    a0_use    = xval[IPAR_ALPHA1] ;      // second slope for low-stretch branch
-    da_dz_use = xval[IPAR_DALPHA1_DZ] ;
+    // broken alpha: pick low-stretch branch for x1 < x1_cen (Aug 5 2026, TZ Tang)
+    a0_use    = a1 ;
+    da_dz_use = da1_dz;  
+  }
+  else {
+    // default with single alpha
+    a0_use    = a0 ;
+    da_dz_use = da_dz ;
   }
 
+  // .xyz
   alpha_local = a0_use + z*da_dz_use ;
-  beta_local  = b0  + z*db_dz ;
-  gamma_local = g0  + z*dg_dz ;
+  beta_local  = b0     + z*db_dz ;
+  gamma_local = g0     + z*dg_dz ;
 
   if ( INPUTS.ipar[15]<=1 || INPUTS.ipar[16]<=1 ) 
     { OPT_LOGMASS_SLOPE = 1; }

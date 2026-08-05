@@ -508,7 +508,7 @@ double  BIASCOR_SNRMIN_SIGINT    = 60. ; //compute biasCor sigInt for SNR>xxx
 
 
 /* Number of "cosmological" and "SN" parameters  */
-#define MXCOSPAR 24  // 22->24 (July 9 2018)
+#define MXCOSPAR 30  // 22->24 (July 9 2018)
 
 /* Maximum number parameters (must be >=MAXZBIN+MXCOSPAR) */
 #define MAXPAR  MAXBIN_z+MXCOSPAR  // RK: compute instead of hard-wire at 30
@@ -1374,21 +1374,23 @@ struct INPUTS_ZPOLY_COVMAT {
 } INPUTS_ZPOLY_COVMAT ;
 
 
-
+// Aug 4 2026: gamma1->dgdz, alpha1-> da_dz, beta1->db_dz,  alphaHost->da_dlogm
 char FITPARNAMES_DEFAULT[MXCOSPAR][20] = {
   "blank" ,
-  "alpha0      ", "beta0       ", "alpha1      ","beta1       ",
-  "gamma0      ", "gamma1      ", "logmass_cen ","logmass_tau ",
-  "Omega_L     ", "Omega_k     ", "w0          ","wa          ",
-  "scalePCC    ", "sigint      ", "alphaHost   ","betaHost    ",
+  "alpha0      ", "beta0       ", "dalpha_dz   ", "dbeta_dz    ",
+  "gamma0      ", "dgamma_dz   ", "logmass_cen ", "logmass_tau ",
+  "Omega_L     ", "Omega_k     ", "w0          ", "wa          ",
+  "scalePCC    ", "sigint      ", "dalpah_dlogm", "dbeta_dlogm ",
   "H11mucc0    ", "H11mucc1    ", "H11mucc2    ",
   "H11sigcc0   ", "H11sigcc1   ", "H11sigcc2   ",
-  "blank4      "
+  "blank24     ", "blank25     ", "blank26     ", "blank27     ",
+  "blank28     ", "blank29     ", "blank30     "
 } ;
 
 
 
-int IPAR_ALPHA0, IPAR_BETA0, IPAR_GAMMA0, IPAR_GAMMA1;
+int IPAR_ALPHA0, IPAR_DALPHA_DZ, IPAR_BETA0, IPAR_DBETA_DZ, IPAR_GAMMA0, IPAR_DGAMMA_DZ;
+int IPAR_DALPHA_DLOGM, IPAR_DBETA_DLOGM;
 int IPAR_LOGMASS_CEN, IPAR_LOGMASS_TAU ;
 int IPAR_scalePCC, IPAR_H11, NPAR_H11_TOT, NPAR_H11_USER ;
 int IPAR_COVINT_PARAM ;  // sigint or SCALE_COVINT(biasCor)
@@ -4928,15 +4930,18 @@ void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass,
   // Aug 19 2018: set OPT_LOGMASS_SLOPE if either ipar<=1 (instead of ==1)
   //              Allows fixing dalpha/dmass & dbeta/dmass wihtout floating.
   //
-  double a0          = xval[1] ; // alpha0
-  double b0          = xval[2] ; // beta0
-  double da_dz       = xval[3] ; // dalpha/dz
-  double db_dz       = xval[4] ; // dbeta/dz
-  double g0          = xval[5] ; // gamma
-  double dg_dz       = xval[6] ;
-  double aHost       = xval[15]; // dalpha/dlog(Mhost)
-  double bHost       = xval[16]; // dbeta/dlog(Mhost)
-  double logmass_cen = xval[7];  // log(Msplit) for gamma0
+  // Aug 4 2026: replace hard-wired xval-indices with IPAR_XXX
+  //
+
+  double a0          = xval[IPAR_ALPHA0] ;      // alpha0
+  double b0          = xval[IPAR_BETA0] ;       // beta0
+  double da_dz       = xval[IPAR_DALPHA_DZ] ;   // dalpha/dz
+  double db_dz       = xval[IPAR_DBETA_DZ] ;    // dbeta/dz
+  double g0          = xval[IPAR_GAMMA0] ;      // gamma
+  double dg_dz       = xval[IPAR_DGAMMA_DZ] ;
+  double aHost       = xval[IPAR_DALPHA_DLOGM];   // dalpha/dlog(Mhost)
+  double bHost       = xval[IPAR_DBETA_DLOGM];    // dbeta/dlog(Mhost)
+  double logmass_cen = xval[IPAR_LOGMASS_CEN];    // log(Msplit) for gamma0
   double dlogmass    = logmass - logmass_cen ;
   double alpha_local, beta_local, gamma_local ;
   int    OPT_LOGMASS_SLOPE=0, OPT_LOGMASS_SPLIT=0 ;
@@ -5861,8 +5866,10 @@ void set_defaults(void) {
   // Default parameters 
 
   // set IPAR_XXX params to access FITRESULTS.
-  IPAR_ALPHA0=1, IPAR_BETA0=2;
-  IPAR_GAMMA0=5; IPAR_GAMMA1=6;  IPAR_LOGMASS_CEN=7; IPAR_LOGMASS_TAU=8;
+  IPAR_ALPHA0=1; IPAR_BETA0=2;
+  IPAR_DALPHA_DZ = 3;  IPAR_DBETA_DZ=4;
+  IPAR_DALPHA_DLOGM=15; IPAR_DBETA_DLOGM=16;
+  IPAR_GAMMA0=5; IPAR_DGAMMA_DZ=6;  IPAR_LOGMASS_CEN=7; IPAR_LOGMASS_TAU=8;
   IPAR_scalePCC=13, IPAR_COVINT_PARAM=14 ;
   IPAR_OL=9; IPAR_Ok=10; IPAR_w0=11;  IPAR_wa=12;
   IPAR_H11=17; NPAR_H11_TOT=6; NPAR_H11_USER=0;

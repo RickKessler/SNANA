@@ -23958,6 +23958,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     SALT2mu.c 
      + increase a few char limits: https://github.com/RickKessler/SNANA/issues/1716
+     + update IPAR_XXX params and names; e.g, IPAR_GAMMA1 -> IPAR_DGAMMA_DZ
 
     snlc_fit.F90
      + fix dumb bug storing only 80 chars of FITMODEL_NAME from command line override,

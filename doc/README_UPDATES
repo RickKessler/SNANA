@@ -24055,6 +24055,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        [-0.05,0.40] (kept positive for IDEAL COVINT option); warn when a
        floated physics param is railed at or near a MINUIT bound; write
        COV_alpha0_alpha1, RHO_alpha0_alpha1 to YAML output.
+     + dustflag_keep_sim_alpha=1 (Aug 6 2026, TZ Tang): BS21 dust flag keeps
+       per-event SIM_ALPHA instead of forcing SIM_ALPHA = p1 (SIM_BETA is
+       still forced to p2, since BS21 predicts no true SIM_BETA). Lets the
+       muresid_biasCor fix and broken-alpha-generated biasCor grids act on
+       BS21 biasCor samples. Default 0 = legacy behavior.
 
          *****  MISCELLANEOUS(v12_02b) *****
 

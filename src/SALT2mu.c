@@ -343,6 +343,11 @@ For help, run code with no arguments
      true alpha,beta (was one common user-input alpha,beta) so multi-node
      alpha,beta grids do not inflate muCOVscale/muCOVadd/SIGINT_ABGRID.
      BS21 dust grids unaffected. restore_bug_mucov_abg=1 -> old behavior.
+   + dustflag_keep_sim_alpha=1: BS21 dust flag keeps per-event SIM_ALPHA
+     (SIM_BETA still forced to p2; BS21 predicts no true SIM_BETA, but
+     SIM_ALPHA is a genuine sim input). Needed so the muresid_biasCor fix
+     and broken-alpha-generated biasCor grids can act on BS21 biasCor
+     samples. Default 0 = legacy behavior (force SIM_ALPHA = p1 too).
    + broken alpha on: widen alpha0 bounds to [-0.05,0.40] (kept positive
      for IDEAL COVINT option); warn when a floated physics param is
      railed at or within 2*ERR of a MINUIT bound; write COV_alpha0_alpha1
@@ -1360,6 +1365,7 @@ struct INPUTS {
   int restore_bug_zmax_biascor; // Apr 2023
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
   int restore_bug_mucov_abg; // Aug 2026: common-alpha muresid in mu-space muCOV maps
+  int dustflag_keep_sim_alpha; // Aug 2026: keep per-event SIM_ALPHA under BS21 dust flag
   int restore_des5yr;   // restore bug setting mubias=0 for CCprior
   int restore_sn_unite; // restore sigint_scat(STD) instead of MAD
 
@@ -6026,6 +6032,7 @@ void set_defaults(void) {
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_mumodel_zhel = 0;
   INPUTS.restore_bug_mucov_abg    = 0 ;
+  INPUTS.dustflag_keep_sim_alpha  = 0 ;
 
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
@@ -11186,18 +11193,24 @@ void set_DUST_FLAG_biasCor(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
-  if ( nav > 0 ) {  
-    INFO_BIASCOR.DUST_FLAG = true; 
+  if ( nav > 0 ) {
+    bool KEEP_ALPHA = ( INPUTS.dustflag_keep_sim_alpha > 0 ) ;
+    INFO_BIASCOR.DUST_FLAG = true;
     Alpha       = INPUTS.parval[IPAR_ALPHA0];
     Beta        = INPUTS.parval[IPAR_BETA0];
     fprintf(FP_STDOUT,"\n Detected BS21 Dust model for BiasCor\n");
-    fprintf(FP_STDOUT,"\t --> Force all SIM_ALPHA = p1 = %f \n", Alpha);
+    if ( KEEP_ALPHA )
+      { fprintf(FP_STDOUT,"\t --> Keep per-event SIM_ALPHA "
+		"(dustflag_keep_sim_alpha=1)\n"); }
+    else
+      { fprintf(FP_STDOUT,"\t --> Force all SIM_ALPHA = p1 = %f \n", Alpha); }
     fprintf(FP_STDOUT,"\t --> Force all SIM_BETA  = p2 = %f \n", Beta);
     fprintf(FP_STDOUT,"\n");
     fflush(stdout);
     int NSN_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL;
     for ( isn=0; isn < NSN_ALL; isn++ ) {
-      INFO_BIASCOR.TABLEVAR.SIM_ALPHA[isn]  = Alpha ; // overwrite !!!
+      if ( !KEEP_ALPHA )
+	{ INFO_BIASCOR.TABLEVAR.SIM_ALPHA[isn]  = Alpha ; } // overwrite !!!
       INFO_BIASCOR.TABLEVAR.SIM_BETA[isn]   = Beta ; // overwrite !!!
     }
   }
@@ -19317,6 +19330,9 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_bug_mucov_abg="))
     { sscanf(&item[22],"%d", &INPUTS.restore_bug_mucov_abg); return(1); }
 
+  if ( uniqueOverlap(item,"dustflag_keep_sim_alpha="))
+    { sscanf(&item[24],"%d", &INPUTS.dustflag_keep_sim_alpha); return(1); }
+
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag);
     return(1); 
@@ -25476,6 +25492,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",
     "restore_bug_mucov_abg=1     # common user-input alpha,beta in muresid_biasCor (BIASCOR_MU)",
+    "dustflag_keep_sim_alpha=1   # BS21 dust flag: keep per-event SIM_ALPHA (still force SIM_BETA=p2)",
     "restore_des5yr=1            # restore DES-SN5YR bug in which CC prior events are not bias-corrected.",
     "restore_sn_unite=1          # restore SN_UNITE with sigma_scat(STD) instead of using MAD.",
     0

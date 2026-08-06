@@ -339,6 +339,14 @@ For help, run code with no arguments
    + optional sigmoid smoothing of the alpha break: new param x1_tau (p27),
      default 0 = hard step; x1_tau > 0 lets the pivot float (u26=1).
      Floating x1_cen with x1_tau=0 aborts. New aliases x1_cen=, x1_tau=.
+   + fix muresid_biasCor for BIASCOR_MU: use each biasCor event's own
+     true alpha,beta (was one common user-input alpha,beta) so multi-node
+     alpha,beta grids do not inflate muCOVscale/muCOVadd/SIGINT_ABGRID.
+     BS21 dust grids unaffected. restore_bug_mucov_abg=1 -> old behavior.
+   + broken alpha on: widen alpha0 bounds to [-0.05,0.40] (kept positive
+     for IDEAL COVINT option); warn when a floated physics param is
+     railed at or within 2*ERR of a MINUIT bound; write COV_alpha0_alpha1
+     and RHO_alpha0_alpha1 to YAML output.
 
  ******************************************************/
 
@@ -1351,6 +1359,7 @@ struct INPUTS {
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
+  int restore_bug_mucov_abg; // Aug 2026: common-alpha muresid in mu-space muCOV maps
   int restore_des5yr;   // restore bug setting mubias=0 for CCprior
   int restore_sn_unite; // restore sigint_scat(STD) instead of MAD
 
@@ -1519,6 +1528,10 @@ struct {
   double PARERR[MXSPLITRAN+1][MAXPAR];
 
   double COVMAT[MAXPAR][MAXPAR];
+
+  // alpha0-alpha1 covariance for broken-alpha fits (Aug 2026, TZ Tang)
+  double COV_ALPHA0_ALPHA1;
+  double RHO_ALPHA0_ALPHA1;
 
   // keep track of chi2red and sigMB for each iteration
   int    NFIT_ITER ;    // Number of fit iterations (was sig1repeats)
@@ -2635,6 +2648,22 @@ void exec_mnpout_mnerrs(void) {
       }
       fflush(FP_STDOUT);
 
+      // Aug 05 2026 TZ Tang: warn on floated physics param at/near a
+      // MINUIT bound (railed params report ERR=0 with normal MNCOV status).
+      // ipar < MXCOSPAR skips M0 z-bins, whose tiny bounds are intentional.
+      if ( ipar < MXCOSPAR && bnd1 < bnd2 && BLIND_OFFSET(ipar) == 0.0 ) {
+	double dbnd = PARVAL - bnd1 ;
+	if ( bnd2 - PARVAL < dbnd ) { dbnd = bnd2 - PARVAL ; }
+	bool railed = ( dbnd < 1.0E-12 ) ;
+	if ( railed || ( PARERR > 1.0E-12 && dbnd < 2.0*PARERR ) ) {
+	  fprintf(FP_STDOUT, "  WARNING(%s): %s = %f is %s "
+		  "MINUIT bound [%.3f,%.3f]; check error validity.\n",
+		  fnam, text, PARVAL,
+		  railed ? "railed at" : "within 2*ERR of", bnd1, bnd2 );
+	  fflush(FP_STDOUT);
+	}
+      }
+
     }
 
     // fill global arrays for later
@@ -2649,10 +2678,31 @@ void exec_mnpout_mnerrs(void) {
   FITRESULT.PARVAL[NJOB_SPLITRAN][IPAR_COVINT_PARAM] = FITINP.COVINT_PARAM_FIX;
   FITRESULT.PARERR[NJOB_SPLITRAN][IPAR_COVINT_PARAM] = 1.0E-8 ;
   
-  // load full cov matrix 
+  // load full cov matrix
   fprintf(FP_STDOUT,"%s: call mnemat\n", fnam); fflush(FP_STDOUT);
   int num = MAXPAR;
   mnemat_(FITRESULT.COVMAT,&num);
+
+  // Aug 05 2026 TZ Tang: store alpha0-alpha1 covariance for broken alpha;
+  // COVMAT is indexed by 0-based internal index (IPARMAPINV_MN, -9=fixed).
+  // RHO = -9 flags not-computed (both params must float).
+  FITRESULT.COV_ALPHA0_ALPHA1 =  0.0 ;
+  FITRESULT.RHO_ALPHA0_ALPHA1 = -9.0 ;
+  if ( INPUTS.USE_ALPHA1 ) {
+    int iv0 = FITINP.IPARMAPINV_MN[IPAR_ALPHA0] ;
+    int iv1 = FITINP.IPARMAPINV_MN[IPAR_ALPHA1] ;
+    if ( iv0 >= 0 && iv1 >= 0 ) {
+      double COV = FITRESULT.COVMAT[iv0][iv1] ;
+      double C00 = FITRESULT.COVMAT[iv0][iv0] ;
+      double C11 = FITRESULT.COVMAT[iv1][iv1] ;
+      FITRESULT.COV_ALPHA0_ALPHA1 = COV ;
+      if ( C00 > 0.0 && C11 > 0.0 )
+	{ FITRESULT.RHO_ALPHA0_ALPHA1 = COV / sqrt(C00*C11) ; }
+      fprintf(FP_STDOUT, "%s: cov(alpha0,alpha1) = %.4e  (rho = %.3f)\n",
+	      fnam, COV, FITRESULT.RHO_ALPHA0_ALPHA1 );
+      fflush(FP_STDOUT);
+    }
+  }
 
   return ;
 
@@ -5974,7 +6024,8 @@ void set_defaults(void) {
   INPUTS.restore_bug_sigint0    = 0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
-  INPUTS.restore_bug_mumodel_zhel = 0; 
+  INPUTS.restore_bug_mumodel_zhel = 0;
+  INPUTS.restore_bug_mucov_abg    = 0 ;
 
   INPUTS.nthread           = 1 ; // 1 -> no thread
 
@@ -12757,8 +12808,12 @@ double muresid_biasCor(int ievt ) {
   // naive distance from Trip formula.
   //
   // Aug 22 2019: include dmHost term based on initial hostPar values.
-  // Apr 02 2020: for BIASCOR_MU option, a,b = user input p1,p2  
+  // Apr 02 2020: for BIASCOR_MU option, a,b = user input p1,p2
   // May 09 2024: fix to work for BayeSN
+  // Aug 05 2026 TZ Tang: for BIASCOR_MU, use each event's own true a,b
+  //   (fallback to user input if undefined) so multi-node grids do not
+  //   inflate muCOVscale/muCOVadd/SIGINT_ABGRID.
+  //   restore_bug_mucov_abg=1 restores common-alpha behavior.
   
   bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2 ;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN ;
@@ -12805,13 +12860,19 @@ double muresid_biasCor(int ievt ) {
   muz    = muTrue + dmu ;  // mu at measured z and biasCor COSPAR
 
   if ( ISMODEL_LCFIT_SALT2 ) {
-    if ( DOBIAS_MU ) {
-      // sim_alpha[beta] may not exist or make sense, so set a,b to user-input values     
-      a  = INPUTS.parval[IPAR_ALPHA0];  //   fragile alert !!! .xyz
-      b  = INPUTS.parval[IPAR_BETA0];   
-    }  
+    if ( DOBIAS_MU && INPUTS.restore_bug_mucov_abg ) {
+      // legacy: common user-input a,b -> spurious (a_true-a_input)*x1
+      // spread in muCOV cells (no x1 binning) on multi-node grids
+      a  = INPUTS.parval[IPAR_ALPHA0];
+      b  = INPUTS.parval[IPAR_BETA0];
+    }
     else{
-      get_abg_biasCor(ievt, &a, &b, &g, fnam); 
+      // event's own true a,b (matches mu_obs convention); fallback if undefined
+      get_abg_biasCor(ievt, &a, &b, &g, fnam);
+      if ( DOBIAS_MU && ( a < -8.0 || b < -8.0 ) ) {
+	a  = INPUTS.parval[IPAR_ALPHA0];
+	b  = INPUTS.parval[IPAR_BETA0];
+      }
     }
     
     mB       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_d][ievt] ; 
@@ -19253,6 +19314,9 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_bug_mumodel_zhel="))
     { sscanf(&item[25],"%d", &INPUTS.restore_bug_mumodel_zhel); return(1); }
 
+  if ( uniqueOverlap(item,"restore_bug_mucov_abg="))
+    { sscanf(&item[22],"%d", &INPUTS.restore_bug_mucov_abg); return(1); }
+
   if ( uniqueOverlap(item,"debug_flag=")) { 
     sscanf(&item[11],"%d", &INPUTS.debug_flag);
     return(1); 
@@ -21688,6 +21752,12 @@ void prep_debug_flag(void) {
     fflush(FP_STDOUT);
   }
 
+  if ( INPUTS.restore_bug_mucov_abg ) {
+    printf("\n RESTORE BUG using common user-input alpha,beta "
+	   "in muresid_biasCor (BIASCOR_MU)\n");
+    fflush(FP_STDOUT);
+  }
+
   if ( INPUTS.debug_flag!=0) {
     printf("\n debug flag set to %d\n", INPUTS.debug_flag );
     fflush(FP_STDOUT);
@@ -21991,6 +22061,21 @@ void  prep_input_broken_alpha(void) {
       fprintf(FP_STDOUT, "\t %s: alpha1 initial value defaults to "
 	      "alpha0 = %.4f \n", fnam, INPUTS.parval[IPAR_ALPHA1] );
     }
+  }
+
+  // widen alpha0 bounds (default lower bound 0.02 can rail the
+  // high-stretch branch); keep positive lower bound for IDEAL COVINT
+  // option, whose get_COVINT_biasCor aborts on alpha < 1E-5.
+  if ( (INPUTS.opt_biasCor & MASK_BIASCOR_COVINT) == 0 ) {
+    if ( INPUTS.parbndmin[IPAR_ALPHA0] > -0.05 )
+      { INPUTS.parbndmin[IPAR_ALPHA0] = -0.05 ; }
+  }
+  if ( INPUTS.parbndmax[IPAR_ALPHA0] <  0.40 )
+    { INPUTS.parbndmax[IPAR_ALPHA0] =  0.40 ; }
+  if ( LDMP ) {
+    fprintf(FP_STDOUT, "\t %s: alpha0 bounds widened to [%.2f, %.2f] \n",
+	    fnam, INPUTS.parbndmin[IPAR_ALPHA0],
+	    INPUTS.parbndmax[IPAR_ALPHA0] );
   }
 
   // floating pivot with hard step -> piecewise-constant chi2; require x1_tau>0
@@ -22623,6 +22708,14 @@ void write_yaml_info(char *fileName) {
 
   sprintf(KEY,"ISDATA_REAL:");
   fprintf(fp,"%-22.22s %d\n", KEY, ISDATA_REAL );
+
+  // alpha0-alpha1 covariance (Aug 2026 TZ Tang); RHO=-9 -> not computed
+  if ( INPUTS.USE_ALPHA1 && FITRESULT.RHO_ALPHA0_ALPHA1 > -8.0 ) {
+    sprintf(KEY,"COV_alpha0_alpha1:");
+    fprintf(fp,"%-22.22s %.6e\n", KEY, FITRESULT.COV_ALPHA0_ALPHA1 );
+    sprintf(KEY,"RHO_alpha0_alpha1:");
+    fprintf(fp,"%-22.22s %.4f\n", KEY, FITRESULT.RHO_ALPHA0_ALPHA1 );
+  }
 
   // - - - - - - - -
   // write NEVT_[WHAT]_bySAMPLE (e.g., LOWZ, SDSS, PS1, DES)
@@ -25382,6 +25475,7 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_sigint0         # restore bug calling recalc_datacov when sigint=0 (Feb 2022)",       
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",
+    "restore_bug_mucov_abg=1     # common user-input alpha,beta in muresid_biasCor (BIASCOR_MU)",
     "restore_des5yr=1            # restore DES-SN5YR bug in which CC prior events are not bias-corrected.",
     "restore_sn_unite=1          # restore SN_UNITE with sigma_scat(STD) instead of using MAD.",
     0

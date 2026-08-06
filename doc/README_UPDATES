@@ -23962,9 +23962,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + broken-alpha (Aug 5 2026, TZ Tang): new fit params alpha1 (p24), dalpha1_dz (p25),
        x1_cen (p26) for two-slope stretch standardization split at x1 pivot;
        biasCor interpolation uses branch-selected per-event alpha.
-     + broken-alpha smoothing (Aug 5 2026, TZ Tang): new fit param x1_tau (p27);
-       x1_tau > 0 replaces the hard step with a sigmoid blend so the pivot
-       can float (u26=1); default 0 keeps the step. Aliases x1_cen=, x1_tau=.
 
     snlc_fit.F90
      + fix dumb bug storing only 80 chars of FITMODEL_NAME from command line override,
@@ -24039,9 +24036,25 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v12_02b) *****
 
+    SALT2mu.c
+     + fix muresid_biasCor for BIASCOR_MU (Aug 5 2026, TZ Tang): use each
+       biasCor event's own true alpha,beta instead of one common user-input
+       value, so multi-node alpha,beta grids no longer inflate
+       muCOVscale/muCOVadd/SIGINT_ABGRID. BS21 dust grids unaffected.
+       restore_bug_mucov_abg=1 restores old behavior. Validation:
+       control-sim CHI2RED with opt_biascor=4336 goes 0.86 -> 0.99 (GRID
+       biasCor map) and 0.50 -> 1.00 (WIDE map); single-node map unchanged.
 
          *****  USEFUL(v12_02b) *****
 
+    SALT2mu.c
+     + broken-alpha smoothing (Aug 5 2026, TZ Tang): new fit param x1_tau (p27);
+       x1_tau > 0 replaces the hard step with a sigmoid blend so the pivot
+       can float (u26=1); default 0 keeps the step. Aliases x1_cen=, x1_tau=.
+     + broken-alpha extras (Aug 5 2026, TZ Tang): widen alpha0 bounds to
+       [-0.05,0.40] (kept positive for IDEAL COVINT option); warn when a
+       floated physics param is railed at or near a MINUIT bound; write
+       COV_alpha0_alpha1, RHO_alpha0_alpha1 to YAML output.
 
          *****  MISCELLANEOUS(v12_02b) *****
 

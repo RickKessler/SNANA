@@ -1364,7 +1364,6 @@ struct INPUTS {
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
-  int restore_bug_mucov_abg; // Aug 2026: common-alpha muresid in mu-space muCOV maps
   int dustflag_keep_sim_alpha; // Aug 2026: keep per-event SIM_ALPHA under BS21 dust flag
   int restore_des5yr;   // restore bug setting mubias=0 for CCprior
   int restore_sn_unite; // restore sigint_scat(STD) instead of MAD
@@ -1593,6 +1592,7 @@ int  SALT2mu_DRIVER_SUMMARY(void);
 
 void apply_blindpar(void);
 void check_duplicates_util(int EVENT_TYPE);
+void check_initval(int ipar, double valmin, double valmax, char *callFun);
 void check_redshifts(void) ;
 void check_vpec_sign(void);
 void check_zhel(void) ;
@@ -5038,8 +5038,10 @@ void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass, double x1,
     // broken alpha: pick low-stretch branch for x1 < x1_cen, or
     // sigmoid-blend the two branches if x1_tau > 0 (Aug 5 2026, TZ Tang)
     double x1_tau = xval[IPAR_X1_TAU] ;
-    if ( x1_tau > 1.0E-9 ) {
-      double arg = ( x1 - xval[IPAR_X1_CEN] ) / x1_tau ;
+    double x1_cen = xval[IPAR_X1_CEN] ;
+    bool   valid_x1_tau = (x1_tau > 1.0E-9 );
+    if ( valid_x1_tau ) {
+      double arg = ( x1 - x1_cen ) / x1_tau ;
       double S ;
       if      ( arg >  20.0 ) { S = 1.0 ; }  // avoid exp overflow far from pivot
       else if ( arg < -20.0 ) { S = 0.0 ; }
@@ -5047,11 +5049,13 @@ void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass, double x1,
       a0_use    = a1     + ( a0    - a1     ) * S ;
       da_dz_use = da1_dz + ( da_dz - da1_dz ) * S ;
     }
-    else if ( x1 < xval[IPAR_X1_CEN] ) {
+    else if ( x1 < x1_cen  ) {
+      // low-stretch region using broken alpha step
       a0_use    = a1 ;
       da_dz_use = da1_dz ;
     }
     else {
+      // high-stretch region using step
       a0_use    = a0 ;
       da_dz_use = da_dz ;
     }
@@ -5062,15 +5066,15 @@ void  fcnFetch_AlphaBetaGamma(double *xval, double z, double logmass, double x1,
     da_dz_use = da_dz ;
   }
 
-  // .xyz
+  // - - - - - - - - - - - - 
   alpha_local = a0_use + z*da_dz_use ;
   beta_local  = b0     + z*db_dz ;
   gamma_local = g0     + z*dg_dz ;
 
-  if ( INPUTS.ipar[15]<=1 || INPUTS.ipar[16]<=1 ) 
+  if ( INPUTS.ipar[IPAR_DALPHA_DLOGM]<=1 || INPUTS.ipar[IPAR_DBETA_DLOGM]<=1 ) 
     { OPT_LOGMASS_SLOPE = 1; }
 
-  if ( INPUTS.ipar[15]==2 || INPUTS.ipar[16]==2 ) 
+  if ( INPUTS.ipar[IPAR_DALPHA_DLOGM]==2 || INPUTS.ipar[IPAR_DBETA_DLOGM]==2 ) 
     { OPT_LOGMASS_SPLIT = 1; }
 
   if ( OPT_LOGMASS_SLOPE ) {
@@ -6031,7 +6035,6 @@ void set_defaults(void) {
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_mumodel_zhel = 0;
-  INPUTS.restore_bug_mucov_abg    = 0 ;
   INPUTS.dustflag_keep_sim_alpha  = 0 ;
 
   INPUTS.nthread           = 1 ; // 1 -> no thread
@@ -11194,24 +11197,36 @@ void set_DUST_FLAG_biasCor(void) {
   }
 
   if ( nav > 0 ) {
-    bool KEEP_ALPHA = ( INPUTS.dustflag_keep_sim_alpha > 0 ) ;
+    fprintf(FP_STDOUT,"\n Detected BS21 Dust model for BiasCor\n");
+
+    bool KEEP_ALPHA = ( INPUTS.dustflag_keep_sim_alpha > 0  || INPUTS.parval[IPAR_ALPHA1] > .001 ) ;
+    // Aug 11 2026: perhaps set KEEP_ALPHA permanent  by setting FORCE_ALPHA=False and removing KEEP_ALPHA
+
+    bool FORCE_ALPHA = !KEEP_ALPHA ;
+    bool FORCE_BETA  = true;
+
     INFO_BIASCOR.DUST_FLAG = true;
     Alpha       = INPUTS.parval[IPAR_ALPHA0];
     Beta        = INPUTS.parval[IPAR_BETA0];
-    fprintf(FP_STDOUT,"\n Detected BS21 Dust model for BiasCor\n");
-    if ( KEEP_ALPHA )
-      { fprintf(FP_STDOUT,"\t --> Keep per-event SIM_ALPHA "
-		"(dustflag_keep_sim_alpha=1)\n"); }
-    else
+    if ( FORCE_ALPHA )
       { fprintf(FP_STDOUT,"\t --> Force all SIM_ALPHA = p1 = %f \n", Alpha); }
-    fprintf(FP_STDOUT,"\t --> Force all SIM_BETA  = p2 = %f \n", Beta);
+    else
+      { fprintf(FP_STDOUT,"\t --> Keep per-event SIM_ALPHA \n"); }
+
+    if ( FORCE_BETA )
+      { fprintf(FP_STDOUT,"\t --> Force all SIM_BETA = p2 = %f \n", Beta); }
+    else
+      { fprintf(FP_STDOUT,"\t --> Keep per-event SIM_BETA  \n"); }
+
     fprintf(FP_STDOUT,"\n");
-    fflush(stdout);
+    fflush(FP_STDOUT);
     int NSN_ALL = INFO_BIASCOR.TABLEVAR.NSN_ALL;
     for ( isn=0; isn < NSN_ALL; isn++ ) {
-      if ( !KEEP_ALPHA )
+      if ( FORCE_ALPHA )
 	{ INFO_BIASCOR.TABLEVAR.SIM_ALPHA[isn]  = Alpha ; } // overwrite !!!
-      INFO_BIASCOR.TABLEVAR.SIM_BETA[isn]   = Beta ; // overwrite !!!
+
+      if ( FORCE_BETA ) 
+	{ INFO_BIASCOR.TABLEVAR.SIM_BETA[isn]   = Beta ; }  // overwrite !!!
     }
   }
  
@@ -12826,7 +12841,6 @@ double muresid_biasCor(int ievt ) {
   // Aug 05 2026 TZ Tang: for BIASCOR_MU, use each event's own true a,b
   //   (fallback to user input if undefined) so multi-node grids do not
   //   inflate muCOVscale/muCOVadd/SIGINT_ABGRID.
-  //   restore_bug_mucov_abg=1 restores common-alpha behavior.
   
   bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2 ;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN ;
@@ -12873,7 +12887,7 @@ double muresid_biasCor(int ievt ) {
   muz    = muTrue + dmu ;  // mu at measured z and biasCor COSPAR
 
   if ( ISMODEL_LCFIT_SALT2 ) {
-    if ( DOBIAS_MU && INPUTS.restore_bug_mucov_abg ) {
+    if ( DOBIAS_MU ) {
       // legacy: common user-input a,b -> spurious (a_true-a_input)*x1
       // spread in muCOV cells (no x1 binning) on multi-node grids
       a  = INPUTS.parval[IPAR_ALPHA0];
@@ -19327,8 +19341,6 @@ int ppar(char* item) {
   if ( uniqueOverlap(item,"restore_bug_mumodel_zhel="))
     { sscanf(&item[25],"%d", &INPUTS.restore_bug_mumodel_zhel); return(1); }
 
-  if ( uniqueOverlap(item,"restore_bug_mucov_abg="))
-    { sscanf(&item[22],"%d", &INPUTS.restore_bug_mucov_abg); return(1); }
 
   if ( uniqueOverlap(item,"dustflag_keep_sim_alpha="))
     { sscanf(&item[24],"%d", &INPUTS.dustflag_keep_sim_alpha); return(1); }
@@ -21768,12 +21780,6 @@ void prep_debug_flag(void) {
     fflush(FP_STDOUT);
   }
 
-  if ( INPUTS.restore_bug_mucov_abg ) {
-    printf("\n RESTORE BUG using common user-input alpha,beta "
-	   "in muresid_biasCor (BIASCOR_MU)\n");
-    fflush(FP_STDOUT);
-  }
-
   if ( INPUTS.debug_flag!=0) {
     printf("\n debug flag set to %d\n", INPUTS.debug_flag );
     fflush(FP_STDOUT);
@@ -22039,12 +22045,14 @@ void  prep_input_gamma(void) {
 // **********************************************
 void  prep_input_broken_alpha(void) {
 
-  // Created Aug 5 2026 by TZ Tang
+  // Created Aug 5 2026 by TZ Tang + Claude
   // Aug 05 2026 TZ Tang: add x1_tau (p27) sigmoid-smoothing checks
   // Prepare broken-alpha (two-slope, x1-pivot) params:
   // set USE_ALPHA1 if alpha1 (p24) is floated or fixed at non-zero value.
   // If alpha1 is used but its initial value is not set, default it to the
   // alpha0 initial value so the model starts at the single-alpha limit.
+
+  INPUTS.USE_ALPHA1 = INPUTS.ipar[IPAR_ALPHA1];
 
   int  LDMP = 1;
   char fnam[] = "prep_input_broken_alpha" ;
@@ -22053,13 +22061,11 @@ void  prep_input_broken_alpha(void) {
 
   // set USE_ALPHA1 flag if 1) alpha1 is floated, or 2) initial alpha1 != 0
 
-  if ( INPUTS.ipar[IPAR_ALPHA1] )
-    { INPUTS.USE_ALPHA1 = 1; }
-
-  if ( fabs(INPUTS.parval[IPAR_ALPHA1]) > 1.0E-8 )
-    { INPUTS.USE_ALPHA1 = 1; }
-
   if ( INPUTS.USE_ALPHA1 == 0 ) { return ; }
+
+  check_initval(IPAR_ALPHA1, 1.0e-9, 0.4, fnam);
+  check_initval(IPAR_X1_CEN, -3.0,   3.0, fnam);
+  check_initval(IPAR_X1_TAU,  0.05, 20.0, fnam);
 
   // broken alpha selects branches with SALT2 stretch x1; abort for BAYESN
   // since the generic stretch there is theta1, not x1 (Aug 5 2026, TZ Tang)
@@ -22069,6 +22075,8 @@ void  prep_input_broken_alpha(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
+
+  /* xxxxxx mark delete 8.11.2026 xxxxxxxxxxx
   // if alpha1 initial value is not set, start it at the alpha0 initial
   // value so that the fit begins at the single-alpha limit.
   if ( fabs(INPUTS.parval[IPAR_ALPHA1]) < 1.0E-12 ) {
@@ -22078,28 +22086,35 @@ void  prep_input_broken_alpha(void) {
 	      "alpha0 = %.4f \n", fnam, INPUTS.parval[IPAR_ALPHA1] );
     }
   }
+  xxxxxxxxxx end mark xxxxxxxxx */
 
-  // widen alpha0 bounds (default lower bound 0.02 can rail the
+
+  // widen alpha0 bounds (default lower bound 0.02 can derail the
   // high-stretch branch); keep positive lower bound for IDEAL COVINT
   // option, whose get_COVINT_biasCor aborts on alpha < 1E-5.
   if ( (INPUTS.opt_biasCor & MASK_BIASCOR_COVINT) == 0 ) {
     if ( INPUTS.parbndmin[IPAR_ALPHA0] > -0.05 )
       { INPUTS.parbndmin[IPAR_ALPHA0] = -0.05 ; }
   }
+
   if ( INPUTS.parbndmax[IPAR_ALPHA0] <  0.40 )
     { INPUTS.parbndmax[IPAR_ALPHA0] =  0.40 ; }
+
   if ( LDMP ) {
     fprintf(FP_STDOUT, "\t %s: alpha0 bounds widened to [%.2f, %.2f] \n",
 	    fnam, INPUTS.parbndmin[IPAR_ALPHA0],
 	    INPUTS.parbndmax[IPAR_ALPHA0] );
   }
 
+  /* xxxxxxxx mark deelete 
   // floating pivot with hard step -> piecewise-constant chi2; require x1_tau>0
-  if ( INPUTS.ipar[IPAR_X1_CEN] && INPUTS.parval[IPAR_X1_TAU] < 1.0E-9 ) {
+  // xxx mark delet  if ( INPUTS.ipar[IPAR_X1_CEN] && INPUTS.parval[IPAR_X1_TAU] < 1.0E-9 ) {
+  if ( !VALID_INITVAL_X1_CEN ) {
     sprintf(c1err,"Floating x1_cen (u26=1) requires sigmoid width x1_tau > 0");
     sprintf(c2err,"Set p27 (e.g. p27=0.3), or fix the pivot with u26=0.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
+
 
   // floated x1_tau starting at 0 has vanishing derivative; start at 0.5
   if ( INPUTS.ipar[IPAR_X1_TAU] && INPUTS.parval[IPAR_X1_TAU] < 0.01 ) {
@@ -22118,6 +22133,8 @@ void  prep_input_broken_alpha(void) {
 	      "to %.2f \n", fnam, INPUTS.parbndmin[IPAR_X1_TAU] );
     }
   }
+  xxxxxxxxxxxxx end mark xxxxxxxx */
+
 
   if ( LDMP ) {
     fprintf(FP_STDOUT, "\n %s: set USE_ALPHA1 flag (broken alpha enabled) \n",
@@ -22143,7 +22160,30 @@ void  prep_input_broken_alpha(void) {
 
 } // end prep_input_broken_alpha
 
+void check_initval(int ipar, double valmin, double valmax, char *callFun) {
 
+  // Created Aug 2026 by R.Kessler and TZ Tang
+  // Utility to abort if user input param value is outside required range.
+
+  bool USE           = INPUTS.ipar[ipar];
+  double initval     = INPUTS.parval[ipar] ;
+  bool VALID_INITVAL = ( USE && initval >= valmin &&  initval <= valmax) ;
+  char fnam[200] = "check_initval" ;
+
+  concat_callfun_plus_fnam(callFun, "check_initval", fnam); 
+  // ----------- BEGIN ----------
+
+  if ( !VALID_INITVAL ) {
+    sprintf(c1err,"Invalid init-value for %s(ipar=%d) = %f", FITPARNAMES_DEFAULT[ipar], ipar, initval); 
+    sprintf(c2err,"Require initval range: %f to %f ", valmin, valmax);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+  //.xyz
+
+  return;
+
+} // check_initval
+ 
 // **********************************************
 void  prep_input_varname_missing(void) {
 
@@ -25491,7 +25531,6 @@ void print_SALT2mu_HELP(void) {
     "restore_bug_sigint0         # restore bug calling recalc_datacov when sigint=0 (Feb 2022)",       
     "restore_bug2_mucovadd=1     # use wrong sigint for covadd",
     "restore_bug_mumodel_zhel=1  # restore 1+zHD approx in mumodel calc (instead of 1+zhel)",
-    "restore_bug_mucov_abg=1     # common user-input alpha,beta in muresid_biasCor (BIASCOR_MU)",
     "dustflag_keep_sim_alpha=1   # BS21 dust flag: keep per-event SIM_ALPHA (still force SIM_BETA=p2)",
     "restore_des5yr=1            # restore DES-SN5YR bug in which CC prior events are not bias-corrected.",
     "restore_sn_unite=1          # restore SN_UNITE with sigma_scat(STD) instead of using MAD.",

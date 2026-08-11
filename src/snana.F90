@@ -9876,11 +9876,11 @@
 
 ! Created Jan 2015
 ! Apply &SNLCINP SIM_PRESCALE (if >1) to randomly pre-scale
-! the simulation. Use reproducible random numbers based
-! on input integer N (incremental index) ,
-!   RAN = mod(N,PI)/PI
+! the simulation. Use reproducible algorithm.
+! Return TRUE to reject event.
 ! 
 ! Apr 26 2017: pass PRESCALE as argument.
+! Aug 11 2026: replace algorithm; see FIXBUG
 
 
     USE SNPAR
@@ -9889,7 +9889,7 @@
 
     INTEGER N           ! (I) use for pseudo-random pre-scale
     REAL*8  PRESCALE    ! (I) prescale
-
+    LOGICAL FIXBUG
     DOUBLE PRECISION XN, RAN, RANMAX
 
 ! ------------- BEGIN --------------
@@ -9897,11 +9897,23 @@
     REJECT_PRESCALE = .FALSE.
 
     IF ( PRESCALE < 1.000001 ) RETURN
+    XN     = DBLE(N)    
+    FIXBUG = .TRUE.
 
-    XN     = DBLE(N)
-    RAN    = mod(XN,PI)/PI
-    RANMAX = 1.0/PRESCALE
-    IF ( RAN > RANMAX ) REJECT_PRESCALE = .TRUE.
+    IF ( FIXBUG ) THEN
+       if ( mod(XN,PRESCALE) .NE. 0 ) REJECT_PRESCALE = .TRUE.
+    ELSE
+       ! old buggy algorithm that fails for very large prescale
+       RAN    = mod(XN,PI)/PI
+       RANMAX = 1.0/PRESCALE
+       IF ( RAN > RANMAX ) REJECT_PRESCALE = .TRUE.
+    ENDIF
+
+!    print*,'ROW:  ', N, N, RAN
+!    write(6,66) N, RAN, RANMAX
+!66  format(T2,'xxx N=', I7, '  RAN, RANNAX = ', 2F12.5)
+!    call flush(6)
+
 
     RETURN
   END FUNCTION  REJECT_PRESCALE

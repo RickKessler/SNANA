@@ -24066,5 +24066,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     submit_prob_bbc:
       - fix merge process to work when there is no INPDIR+ key
 
+    snana.F90
+      - fix bad algorithm to apply SIM_PRESCALE. Old algorithm failed
+        for large pre-scale values.
+
 END:
  

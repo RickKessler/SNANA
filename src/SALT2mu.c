@@ -12841,7 +12841,9 @@ double muresid_biasCor(int ievt ) {
   // Aug 05 2026 TZ Tang: for BIASCOR_MU, use each event's own true a,b
   //   (fallback to user input if undefined) so multi-node grids do not
   //   inflate muCOVscale/muCOVadd/SIGINT_ABGRID.
-  // Aug 11 2026: restore_bug_mucov_abg removed; per-event a,b always.
+  // Aug 11 2026: restore_bug_mucov_abg removed. Per-event a,b applied
+  //   only with broken alpha (USE_ALPHA1) so existing single-alpha
+  //   results do not change; see TODO below to make it the default.
 
   bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2 ;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN ;
@@ -12888,12 +12890,23 @@ double muresid_biasCor(int ievt ) {
   muz    = muTrue + dmu ;  // mu at measured z and biasCor COSPAR
 
   if ( ISMODEL_LCFIT_SALT2 ) {
-    // event's own true a,b (matches mu_obs convention); fallback if undefined
-    get_abg_biasCor(ievt, &a, &b, &g, fnam);
-    bool UNDEFINED_ab = ( a < -8.0 || b < -8.0 ) ;
-    if ( DOBIAS_MU && UNDEFINED_ab ) {
+    // TODO: make per-event a,b the default for all BIASCOR_MU
+    //       (requires regenerating regression references)
+    bool LEGACY_ab = ( DOBIAS_MU && !INPUTS.USE_ALPHA1 ) ;
+
+    if ( LEGACY_ab ) {
+      // legacy common user-input a,b; preserves current single-alpha results
       a  = INPUTS.parval[IPAR_ALPHA0];
       b  = INPUTS.parval[IPAR_BETA0];
+    }
+    else {
+      // event's own true a,b (matches mu_obs convention); fallback if undefined
+      get_abg_biasCor(ievt, &a, &b, &g, fnam);
+      bool UNDEFINED_ab = ( a < -8.0 || b < -8.0 ) ;
+      if ( DOBIAS_MU && UNDEFINED_ab ) {
+	a  = INPUTS.parval[IPAR_ALPHA0];
+	b  = INPUTS.parval[IPAR_BETA0];
+      }
     }
     
     mB       = (double)INFO_BIASCOR.TABLEVAR.fitpar[INDEX_d][ievt] ; 

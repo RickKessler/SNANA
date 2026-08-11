@@ -12841,9 +12841,6 @@ double muresid_biasCor(int ievt ) {
   // Aug 05 2026 TZ Tang: for BIASCOR_MU, use each event's own true a,b
   //   (fallback to user input if undefined) so multi-node grids do not
   //   inflate muCOVscale/muCOVadd/SIGINT_ABGRID.
-  // Aug 11 2026: restore_bug_mucov_abg removed. Per-event a,b applied
-  //   only with broken alpha (USE_ALPHA1) so existing single-alpha
-  //   results do not change; see TODO below to make it the default.
 
   bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2 ;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN ;

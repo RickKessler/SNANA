@@ -11199,7 +11199,7 @@ void set_DUST_FLAG_biasCor(void) {
   if ( nav > 0 ) {
     fprintf(FP_STDOUT,"\n Detected BS21 Dust model for BiasCor\n");
 
-    bool KEEP_ALPHA = ( INPUTS.dustflag_keep_sim_alpha > 0  || INPUTS.parval[IPAR_ALPHA1] > .001 ) ;
+    bool KEEP_ALPHA = ( INPUTS.dustflag_keep_sim_alpha > 0  || INPUTS.USE_ALPHA1 ) ;
     // Aug 11 2026: perhaps set KEEP_ALPHA permanent  by setting FORCE_ALPHA=False and removing KEEP_ALPHA
 
     bool FORCE_ALPHA = !KEEP_ALPHA ;
@@ -12841,7 +12841,7 @@ double muresid_biasCor(int ievt ) {
   // Aug 05 2026 TZ Tang: for BIASCOR_MU, use each event's own true a,b
   //   (fallback to user input if undefined) so multi-node grids do not
   //   inflate muCOVscale/muCOVadd/SIGINT_ABGRID.
-  
+
   bool ISMODEL_LCFIT_SALT2  = INPUTS.ISMODEL_LCFIT_SALT2 ;
   bool ISMODEL_LCFIT_BAYESN = INPUTS.ISMODEL_LCFIT_BAYESN ;
   bool DOBIAS_MU = ( INPUTS.opt_biasCor & MASK_BIASCOR_MU     ) ;
@@ -12887,16 +12887,20 @@ double muresid_biasCor(int ievt ) {
   muz    = muTrue + dmu ;  // mu at measured z and biasCor COSPAR
 
   if ( ISMODEL_LCFIT_SALT2 ) {
-    if ( DOBIAS_MU ) {
-      // legacy: common user-input a,b -> spurious (a_true-a_input)*x1
-      // spread in muCOV cells (no x1 binning) on multi-node grids
+    // TODO: make per-event a,b the default for all BIASCOR_MU
+    //       (requires regenerating regression references)
+    bool LEGACY_ab = ( DOBIAS_MU && !INPUTS.USE_ALPHA1 ) ;
+
+    if ( LEGACY_ab ) {
+      // legacy common user-input a,b; preserves current single-alpha results
       a  = INPUTS.parval[IPAR_ALPHA0];
       b  = INPUTS.parval[IPAR_BETA0];
     }
-    else{
+    else {
       // event's own true a,b (matches mu_obs convention); fallback if undefined
       get_abg_biasCor(ievt, &a, &b, &g, fnam);
-      if ( DOBIAS_MU && ( a < -8.0 || b < -8.0 ) ) {
+      bool UNDEFINED_ab = ( a < -8.0 || b < -8.0 ) ;
+      if ( DOBIAS_MU && UNDEFINED_ab ) {
 	a  = INPUTS.parval[IPAR_ALPHA0];
 	b  = INPUTS.parval[IPAR_BETA0];
       }
@@ -22054,6 +22058,10 @@ void  prep_input_broken_alpha(void) {
 
   INPUTS.USE_ALPHA1 = INPUTS.ipar[IPAR_ALPHA1];
 
+  // Aug 11 2026: fixed non-zero alpha1 also enables broken alpha
+  if ( fabs(INPUTS.parval[IPAR_ALPHA1]) > 1.0E-8 )
+    { INPUTS.USE_ALPHA1 = 1; }
+
   int  LDMP = 1;
   char fnam[] = "prep_input_broken_alpha" ;
 
@@ -22065,7 +22073,28 @@ void  prep_input_broken_alpha(void) {
 
   check_initval(IPAR_ALPHA1, 1.0e-9, 0.4, fnam);
   check_initval(IPAR_X1_CEN, -3.0,   3.0, fnam);
-  check_initval(IPAR_X1_TAU,  0.05, 20.0, fnam);
+
+  // fixed x1_tau may be 0 (hard step); floated x1_tau must start
+  // above the tau->0 degeneracy where the pivot freezes
+  double x1_tau_min = 0.0 ;
+  if ( INPUTS.ipar[IPAR_X1_TAU] ) { x1_tau_min = 0.05 ; }
+  check_initval(IPAR_X1_TAU, x1_tau_min, 20.0, fnam);
+
+  // floating pivot with hard step -> piecewise-constant chi2; require x1_tau>0
+  if ( INPUTS.ipar[IPAR_X1_CEN] && INPUTS.parval[IPAR_X1_TAU] < 1.0E-9 ) {
+    sprintf(c1err,"Floating x1_cen (u26=1) requires sigmoid width x1_tau > 0");
+    sprintf(c2err,"Set p27 (e.g. p27=0.3), or fix the pivot with u26=0.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+  }
+
+  // keep floated x1_tau away from the tau->0 limit
+  if ( INPUTS.ipar[IPAR_X1_TAU] && INPUTS.parbndmin[IPAR_X1_TAU] < 0.05 ) {
+    INPUTS.parbndmin[IPAR_X1_TAU] = 0.05 ;
+    if ( LDMP ) {
+      fprintf(FP_STDOUT, "\t %s: floated x1_tau lower bound raised "
+	      "to %.2f \n", fnam, INPUTS.parbndmin[IPAR_X1_TAU] );
+    }
+  }
 
   // broken alpha selects branches with SALT2 stretch x1; abort for BAYESN
   // since the generic stretch there is theta1, not x1 (Aug 5 2026, TZ Tang)
@@ -22165,9 +22194,9 @@ void check_initval(int ipar, double valmin, double valmax, char *callFun) {
   // Created Aug 2026 by R.Kessler and TZ Tang
   // Utility to abort if user input param value is outside required range.
 
-  bool USE           = INPUTS.ipar[ipar];
+  // check init value only; param may be fixed (u=0) or floated (u=1)
   double initval     = INPUTS.parval[ipar] ;
-  bool VALID_INITVAL = ( USE && initval >= valmin &&  initval <= valmax) ;
+  bool VALID_INITVAL = ( initval >= valmin &&  initval <= valmax) ;
   char fnam[200] = "check_initval" ;
 
   concat_callfun_plus_fnam(callFun, "check_initval", fnam); 

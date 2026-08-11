@@ -18484,7 +18484,7 @@ void SIMLIB_prepGlobalHeader(void) {
  
 
   FIELD = SIMLIB_GLOBAL_HEADER.FIELD ;
-  sprintf(GENLC.FIELDNAME[0], "%.*s", MXCHAR_FIELDNAME, FIELD );
+  sprintf(GENLC.FIELDNAME[0], "%.*s", MXCHAR_FIELDNAME-2, FIELD );
   if ( !IGNOREFILE(FIELD) )
     { printf("\t SIMLIB Field : %.*s \n", MXCHAR_FIELDLIST, FIELD ); }
 
@@ -20350,7 +20350,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   GENLC.SIMLIB_ID  = SIMLIB_HEADER.LIBID ;
 
-  sprintf(GENLC.FIELDNAME[0], "%.*s", MXCHAR_FIELDNAME, SIMLIB_HEADER.FIELD);
+  sprintf(GENLC.FIELDNAME[0], "%.*s", MXCHAR_FIELDNAME-2, SIMLIB_HEADER.FIELD);
 
   // load  optionalsubsurvey info (Jan 2022)
   SUBSURVEY = SIMLIB_HEADER.SUBSURVEY_NAME;
@@ -31186,7 +31186,7 @@ void prioritize_genPDF_ASYMGAUSS(void) {
       // either abort, or implement priority.
 
       if ( KEYSOURCE_FUN == KEYSOURCE_GENPDF ) {
-	sprintf(c1err,"Ambiguous method to generate '%s' ; ", PARNAME);
+	sprintf(c1err,"Ambiguous method to generate '%.20s' ; ", PARNAME);
 	sprintf(c2err,"GENPDF and %s are both from %s",
 		FUNNAME[FUNTYPE], KEYSOURCE_STR[KEYSOURCE_GENPDF] );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	

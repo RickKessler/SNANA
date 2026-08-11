@@ -136,7 +136,7 @@ AC_CHECK_LIB([gslcblas], [cblas_dgemm], [GSLCBLASLIB="-lgslcblas"], [
   conda/mamba:     GSL_DIR=$CONDA_PREFIX ./configure])
 ])
 
-AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [GSLLIB="-lgsl"], [
+AC_CHECK_LIB([gsl], [gsl_blas_dgemm], [GSLLIB="-L/$GSL_DIR/lib -lgsl"], [
     AC_MSG_ERROR([GSL library not found])
 ], [-lgslcblas])
 
@@ -159,7 +159,7 @@ AS_IF([test -n "$CFITSIO_DIR"],
    ICFITSIO="-I${CFITSIO_DIR}/include"],
   [ICFITSIO=""])
 
-AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-lcfitsio"], [
+AC_CHECK_LIB([cfitsio], [ffopen], [CFITSIOLIB="-L/$CFITSIO_DIR/lib -lcfitsio"], [
     AC_MSG_ERROR([cfitsio library not found.
   If CFITSIO is installed in a non-standard location, set CFITSIO_DIR, for example:
     CFITSIO_DIR=/usr/local ./configure

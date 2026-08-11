@@ -24041,9 +24041,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        biasCor event's own true alpha,beta instead of one common user-input
        value, so multi-node alpha,beta grids no longer inflate
        muCOVscale/muCOVadd/SIGINT_ABGRID. BS21 dust grids unaffected.
-       restore_bug_mucov_abg=1 restores old behavior. Validation:
-       control-sim CHI2RED with opt_biascor=4336 goes 0.86 -> 0.99 (GRID
-       biasCor map) and 0.50 -> 1.00 (WIDE map); single-node map unchanged.
+       Validation: control-sim CHI2RED with opt_biascor=4336 goes
+       0.86 -> 0.99 (GRID biasCor map) and 0.50 -> 1.00 (WIDE map);
+       single-node map unchanged.
+       Aug 11 2026: restore_bug_mucov_abg flag removed; per-event
+       alpha,beta is now the only behavior.
+     + broken-alpha inputs (Aug 11 2026): explicit init values required
+       (check_initval; no alpha1 auto-default from alpha0). Fixed (u=0)
+       x1_cen/x1_tau still allowed; fixed x1_tau=0 = hard step. Floated
+       x1_tau must start >= 0.05 and gets MINUIT lower bound 0.05
+       (tau -> 0 freezes the pivot and collapses its error).
 
          *****  USEFUL(v12_02b) *****
 

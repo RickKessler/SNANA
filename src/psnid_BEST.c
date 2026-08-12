@@ -416,7 +416,7 @@ char PSNID_CHARTYPE_LISTS[PSNID_NTYPES][80] =
     "Ia" ,                          // itype = PSNID_ITYPE_SNIA 
     "Ib  Ic   Ibc Ic-BL" ,          // itype = PSNID_ITYPE_SNIBC
     "II  IIP  IIL  IIn  IIN IIb",   // itype = PSNID_ITYPE_SNII
-    "PEC1A Iax iax 91BG 91bg",      // itype = PSNID_ITYPE_PEC1A (e.g., 91bg or Iax)
+    "PEC1A PEC1A-Iabg Iax iax 91BG 91bg",   // itype = PSNID_ITYPE_PEC1A (e.g., 91bg or Iax)
     "MODEL1" ,     // generic MODEL 1
     "MODEL2" ,
     "MODEL3" ,

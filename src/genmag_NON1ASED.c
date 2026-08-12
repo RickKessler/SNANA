@@ -586,7 +586,7 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
   char FILE_NAME[MXPATHLEN], file_name[MXPATHLEN], *listFile ;
   char tmpLine[100], *ptrTmp = tmpLine ; (void)ptrTmp ;
   char fnam[] = "read_NON1A_LIST" ;
-
+  int LDMP = 0;
   // ------------- BEGIN -----------
 
   sprintf(INP_NON1ASED->LISTFILE, "%s/NON1A.LIST",  INP_NON1ASED->PATH );
@@ -659,6 +659,11 @@ void read_NON1A_LIST(INPUTS_NON1ASED_DEF *INP_NON1ASED ) {
       INP_NON1ASED->FLUXSCALE[index]  = SCALE ;
       sprintf(INP_NON1ASED->LIST_TYPE[index], "%s", type );
       sprintf(INP_NON1ASED->LIST_NAME[index], "%s", file_name );
+
+      if ( LDMP ) {
+	printf(" xxx %s: index=%d  type=%s  file_name=%s \n", fnam, index, type, file_name);
+	fflush(stdout);
+      }
 
       // check for peculiar SN1A (Aug 2016)
       INP_NON1ASED->LIST_ISPEC1A[index] = 0 ;

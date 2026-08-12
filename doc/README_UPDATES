@@ -24075,5 +24075,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     psnid_BEST.c:
       - expand PEC1A strings to include Iax and 91bg
 
+    snlc_sim.h:
+      GENLC.SNTEMPLATE[80] -> [MXPATHLEN] allocation to avoid crash when
+      NON1A.LIST points to file using full path that is longer than 80 chars.
+
 END:
  

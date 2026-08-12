@@ -28965,6 +28965,7 @@ void genmodel(
   int NHOSTPAR; char *NAMES_HOSTPAR = NULL; 
   double VAL_HOSTPAR[MXHOSTPAR_PySEDMODEL];
 
+  int LDMP = ( GENLC.CID == -169 );
   char cfilt_obs[2], cfilt_rest[2]    ;
   char fnam[] = "genmodel" ;
 
@@ -28993,6 +28994,11 @@ void genmodel(
   AV           = GENLC.AV ;
   ifilt_rest = -9;
   ptr_genmag = ptr_generr = &dummy; // avoid compile warning
+
+  if ( LDMP ) {
+    printf(" 1. xxx %s: CID=%d   ifilt_obs=%d \n", fnam, GENLC.CID, ifilt_obs);
+    fflush(stdout);
+  }
 
   if ( GENFRAME_OPT == GENFRAME_REST ) {
 
@@ -29056,7 +29062,6 @@ void genmodel(
   }
   // change epoch-pointer to local array
   ptr_epoch = Tmodel ;
-
 
   // check option to interpolate model on an Epoch grid.
   // e.g., to mimic interpolated fakes on images.
@@ -29319,7 +29324,7 @@ void genmodel(
     index    = GENLC.TEMPLATE_INDEX; 
     isp      = GENLC.NON1ASED.ISPARSE ;
     sprintf(GENLC.SNTYPE_NAME,  "%s", INPUTS.NON1ASED.LIST_TYPE[index] );
-    sprintf(GENLC.SNTEMPLATE,   "%s", INPUTS.NON1ASED.LIST_NAME[index] );
+    sprintf(GENLC.SNTEMPLATE,   "%s", INPUTS.NON1ASED.LIST_NAME[index] );  // <== crash here
     sprintf(GENLC.NON1ASED.TYPE[isp], "%s", GENLC.SNTYPE_NAME );
 
     genmag_NON1ASED (
@@ -29334,6 +29339,7 @@ void genmodel(
 		  ,ptr_genmag          // (O) obs mags
 	 	  ,ptr_generr          // (O) obs mag-errs
 		  );
+
   }
   else if (  INDEX_GENMODEL  == MODEL_NON1AGRID ) {  // Mar 2016
 

@@ -1162,7 +1162,7 @@ struct GENLC {
 
   double GENMAG_OFF_GLOBAL ;  // INPUTS.GENMAG_OFF_GLOBAL + z-dependence
 
-  char  SNTEMPLATE[80];
+  char  SNTEMPLATE[MXPATHLEN];
   char  SNTYPE_NAME[60];   // 1a, 1b, 1c, II, etc ...
 
   char  DISTANCE_NAME[40];    // DLMAG, mB, ...

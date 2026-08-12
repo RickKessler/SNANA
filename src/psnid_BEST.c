@@ -409,12 +409,14 @@ extern void init_table_simvar__(int *ID_TABLE, char *BLOCK, int len);
 //                   instead of hard-wired in the code
 // Feb 13 2017 RK - add IIb to list (for Jones 2017 paper)
 // May 23 2022 RK - add Ic-BL to handle V19 templates
+// Aug 12 2026 RK - expand PEC1A string to include explicit Iax and 91bg
+
 char PSNID_CHARTYPE_LISTS[PSNID_NTYPES][80] =   
   { 
     "Ia" ,                          // itype = PSNID_ITYPE_SNIA 
     "Ib  Ic   Ibc Ic-BL" ,          // itype = PSNID_ITYPE_SNIBC
     "II  IIP  IIL  IIn  IIN IIb",   // itype = PSNID_ITYPE_SNII
-    "PEC1A-Iabg",                   // itype = PSNID_ITYPE_PEC1A
+    "PEC1A Iax iax 91BG 91bg",      // itype = PSNID_ITYPE_PEC1A (e.g., 91bg or Iax)
     "MODEL1" ,     // generic MODEL 1
     "MODEL2" ,
     "MODEL3" ,
@@ -480,6 +482,7 @@ double PSNID_BASE_COLOR[PSNID_NTYPES];
 
 struct SIMVAR_PSNID {
   int N, MODEL, ITYPE ;    
+  char TYPE[20];  // Aug 2026
 } SIMVAR_PSNID ;
 
 
@@ -1300,7 +1303,7 @@ void psnid_best_split_nonia_types(int *types, int optdebug)
 int psnid_strTypeMatch(int itype, char *string, int optDebug ) {
 
   // Ceated Jan 27, 2013 by R.Kessler
-  // Returns 1(TRUE) of input *string matches integer itype.
+  // Returns 1(TRUE) if input *string matches integer itype.
   // Returns 0(FALSE) if not.
   // optdebug =1 => print result to screen for debug.
   
@@ -1314,6 +1317,7 @@ int psnid_strTypeMatch(int itype, char *string, int optDebug ) {
   ISTAT = 0;  // default = FALSE
   sprintf(cList,"%s", PSNID_CHARTYPE_LISTS[itype] ) ;
   
+  // .xyz
   // check each sub-string separated by blank space
   ptrtok = strtok(cList," ");
 
@@ -5913,13 +5917,17 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
   // Jun 18, 2013: fix aweful bug: set NONIA_INDEX to SHAPEPAR
   //               instead of TMAX
   //
+  // Aug 12 2026: add SIMVAR_PSNID.TYPE = string name of type; e.g., Ia, II, Ib ...
+  //              The string name is needed in cases where ITYPE = -9.
+  //
 
   int   ivar, ID, t, z, ISIA, IPAR ;
   int   ifilt_obs, USE  ;
 
   int    *IPTR ;
   double *DPTR ;
-
+  char   *CPTR ;
+ 
   char 
     *ptrVARNAME
     ,TABLENAME[60]
@@ -5961,7 +5969,8 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
     SNTABLE_ADDCOL(ID, CBLOCK, IPTR, TABLENAME, 1); 
   }
 
-  // always book SIM_ITYPE; for data it's just set to -9.
+
+  // always book SIM_ITYPE; for real data it's just set to -9.
   ivar++ ; ptrVARNAME =  PSNID_FITRES.VARNAMES[ivar] ;
   sprintf(ptrVARNAME,"SIM_ITYPE");   
   //  psnid_dump_VARNAME(LDMP,ptrVARNAME);
@@ -5969,6 +5978,15 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
     sprintf(TABLENAME,"%.40s:I", ptrVARNAME);
     IPTR = &SIMVAR_PSNID.ITYPE ;
     SNTABLE_ADDCOL(ID, CBLOCK, IPTR, TABLENAME, 1);
+  }
+
+  ivar++ ; ptrVARNAME =  PSNID_FITRES.VARNAMES[ivar] ;
+  sprintf(ptrVARNAME,"SIM_TYPE");   
+  //  psnid_dump_VARNAME(LDMP,ptrVARNAME);
+  if ( DO_ADDCOL) {
+    sprintf(TABLENAME,"%.20s:C*20", ptrVARNAME);
+    CPTR = SIMVAR_PSNID.TYPE ;
+    SNTABLE_ADDCOL(ID, CBLOCK, CPTR, TABLENAME, 1);
   }
 
   
@@ -6219,26 +6237,27 @@ void psnid_best_define_TableRESIDS(void) {
 void PSNID_BEST_UPDATE_OUTPUT(char *CCID) {
 
   int itype ;
-  //  char fnam[] = "PSNID_BEST_UPDATE_OUTPUT" ;
+  char fnam[] = "PSNID_BEST_UPDATE_OUTPUT" ;  (void)fnam;
   
   // ---------------- BEGIN --------------
 
   SIMVAR_PSNID.ITYPE = -9 ; // init to unknown ITYPE
+  sprintf(SIMVAR_PSNID.TYPE,"%s", UNKNOWN_STRING);
 
   // for simulation determine SIM_ITYPE using PSNID indices 
   // (not snana indices)
   if ( PSNID_INPUTS.LSIM ) {
 
-    char SIMNAME_TYPE[12];
-    get_simname_type__(SIMNAME_TYPE, 12);
+    // xxx mark char SIMNAME_TYPE[12];
+    get_simname_type__(SIMVAR_PSNID.TYPE, 20);
 
     for ( itype=0; itype < PSNID_NTYPES; itype++ ) { 
-      if ( psnid_strTypeMatch(itype,SIMNAME_TYPE, 0) == 1 )  
+      if ( psnid_strTypeMatch(itype,SIMVAR_PSNID.TYPE, 0) == 1 )  
 	{ SIMVAR_PSNID.ITYPE=itype ; }
     } 
   }  // end of LSIM block
 
-  
+
   if ( PSNID_INPUTS.WRSTAT_TABLE   ) 
     { SNTABLE_FILL(PSNID_TABLE_ID); }
 

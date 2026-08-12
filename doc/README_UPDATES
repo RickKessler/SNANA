@@ -24069,6 +24069,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snana.F90
       - fix bad algorithm to apply SIM_PRESCALE. Old algorithm failed
         for large pre-scale values.
+      - if SIMNAME_TYPE has SALT or BAYESN in the name, change SIMNAME_TYPE='Ia';
+        needed for psnid compatibility
+
+    psnid_BEST.c:
+      - expand PEC1A strings to include Iax and 91bg
 
 END:
  

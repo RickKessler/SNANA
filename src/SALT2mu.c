@@ -2,7 +2,7 @@
 Created by J. Marriner.
 Installed into snana v8_38, January 2010.  
  
-Program to take output from the SALT fitter dict files and
+Program to take output from the SALT fitter dict files and  
 1.  Determine alpha and beta parameters
 2.  Output a file of bias-corrected distances for cosmological fits
 

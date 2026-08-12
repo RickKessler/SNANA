@@ -4573,7 +4573,12 @@
 
     CALL FETCH_SNDATA_WRAPPER("SIM_TYPE_NAME",   &  ! e.g., Ia, Ibc
           ONE, STRING, DARRAY, OPT)
-    SIMNAME_TYPE = STRING(1:12)
+    SIMNAME_TYPE = STRING(1:20) 
+    if ( INDEX(SIMNAME_TYPE,'SALT')   > 0   .or. &
+         INDEX(SIMNAME_TYPE,'BAYESN') > 0   .or. &
+         INDEX(SIMNAME_TYPE,'SNOOPY') > 0  ) then   
+       SIMNAME_TYPE = 'Ia'    ! Aug 12 2026
+    endif
 
     CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  & 
           ONE, STRING, DARRAY, OPT)
@@ -21803,6 +21808,7 @@
     IF ( .NOT. LSIM_SNANA ) RETURN
     LL = INDEX(SIMNAME_TYPE,' ') - 1
     NAME = SIMNAME_TYPE(1:LL) // char(0)  ! Ia, Ib, IIN, etc ...
+    
     RETURN
   END SUBROUTINE GET_SIMNAME_TYPE
 

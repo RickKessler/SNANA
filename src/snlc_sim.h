@@ -570,6 +570,7 @@ struct INPUTS {
   int  USE_SIMLIB_SPECTROGRAPH;  // use SPECTROGRAPH keys in SIMLIB entries (May 30 2025)
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  USE_SIMLIB_GROUPID;    // use GROUPID from SIMLIB header
+  int  USE_SIMLIB_IDEXPT;     // write this value to PHOT file column IMGNUM
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
 
 
@@ -1360,6 +1361,7 @@ struct GENLC {
 
   int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
   int     DETNUM[MXEPSIM]  ; // detector/CCD number (Aug 11 2025)
+  int     IDEXPT[MXEPSIM]  ; // exposure number or visit id
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)

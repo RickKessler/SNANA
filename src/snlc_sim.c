@@ -1140,6 +1140,7 @@ void set_user_defaults(void) {
   INPUTS.USE_SIMLIB_SPECTROGRAPH = 0 ;
   INPUTS.USE_SIMLIB_SALT2    = 0;
   INPUTS.USE_SIMLIB_GROUPID  = 0;
+  INPUTS.USE_SIMLIB_IDEXPT   = 0;
   
   INPUTS.SIMLIB_MSKOPT = 0 ;
   GENLC.SIMLIB_IDLOCK  = -9;
@@ -3842,6 +3843,10 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "USE_SIMLIB_GROUPID",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_GROUPID );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_IDEXPT",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_IDEXPT );
     INPUTS.USE_SIMLIB_GENOPT=1;
   }
   else if ( keyMatchSim(1, "SIMLIB_MSKOPT",  WORDS[0],keySource) ) {
@@ -20458,7 +20463,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
 
   // - - - - - - -
   bool KEEP;
-  int isort, ifilt, IFILT_OBS, NEXPOSE, DETNUM, NEP, NEP_NEWMJD ;
+  int isort, ifilt, IFILT_OBS, NEXPOSE, IDEXPT, DETNUM, NEP, NEP_NEWMJD ;
   int  IFLAG_SYNFILT, IFLAG_TEMPLATE, IFIELD, APP ;
   double MJD, CCDGAIN, RDNOISE, SKYSIG, ZPT[2], MAG ;
   double SKYSIG_T, RDNOISE_T, ZPT_T ;
@@ -20504,6 +20509,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     IFILT_OBS  = SIMLIB_OBS_RAW.IFILT_OBS[OBSRAW] ;
     NEXPOSE    = SIMLIB_OBS_RAW.NEXPOSE[OBSRAW] ;
     DETNUM     = SIMLIB_OBS_RAW.DETNUM[OBSRAW] ;
+    IDEXPT     = SIMLIB_OBS_RAW.IDEXPT[OBSRAW] ;  // IMGNUM
     FIELD      = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW];
     APP        = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW];   
 
@@ -20580,6 +20586,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.MJD[NEP]           = MJD ;
     GENLC.NEXPOSE[NEP]       = NEXPOSE; // June 2022
     GENLC.DETNUM[NEP]        = DETNUM;  // Aug 2025
+    GENLC.IDEXPT[NEP]        = IDEXPT;  // Aug 2026
     sprintf( GENLC.FIELDNAME[NEP], "%s", FIELD );
 
     // store min/max TREST (Apr 2021) for efficiency studies.
@@ -20606,6 +20613,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.MAG[NEP]         = MAG ;
     SIMLIB_OBS_GEN.NEXPOSE[NEP]     = NEXPOSE ;
     SIMLIB_OBS_GEN.DETNUM[NEP]      = DETNUM ;
+    SIMLIB_OBS_GEN.IDEXPT[NEP]      = IDEXPT ;
     SIMLIB_OBS_GEN.ISTORE_RAW[NEP]  = OBSRAW ;
     SIMLIB_OBS_GEN.APPEND_PHOTFLAG[NEP] = APP ;
     sprintf(SIMLIB_OBS_GEN.FIELDNAME[NEP], "%s", FIELD );
@@ -25005,7 +25013,7 @@ void snlc_to_SNDATA(int FLAG) {
   double ZP_S, ZP_T, SKYSIG_T_scale, arg;
   double MCOR_MAP_MW, MCOR_TRUE_MW ;
   
-  char ctmp[200], ccid[12], cfilt[2];
+  char ctmp[400], ccid[12], cfilt[2];
   char *cptr, *tmpName;
   char fnam[] = "snlc_to_SNDATA" ;
 
@@ -25397,6 +25405,11 @@ void snlc_to_SNDATA(int FLAG) {
 
     SNDATA.DETNUM[epoch]       = GENLC.DETNUM[epoch];
     if ( SNDATA.DETNUM[epoch] >= 0 ) { SNDATA.HAS_DETNUM = true; }
+
+    if ( INPUTS.USE_SIMLIB_IDEXPT ) {
+      SNDATA.IMGNUM[epoch]       = GENLC.IDEXPT[epoch];  // Aug 2026
+      if ( SNDATA.IMGNUM[epoch] >= 0 ) { SNDATA.HAS_IMGNUM = true; }
+    }
 
     SNDATA.GAIN[epoch]      =  SIMLIB_OBS_GEN.CCDGAIN[epoch] ;
     SNDATA.READNOISE[epoch] =  SIMLIB_OBS_GEN.READNOISE[epoch] ;

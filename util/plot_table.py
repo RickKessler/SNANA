@@ -164,7 +164,7 @@ FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP,
 
 
 # list possible VARNAME to identify row
-VALID_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID', 'id' ]
+VALID_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID', 'id', 'POINTING'  ]
 
 # internal strings to identify type of string in @V or @@CUT
 STRTYPE_VAR       = "VARIABLE"

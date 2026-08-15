@@ -1474,7 +1474,9 @@ etc ...
   USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
   USE_SIMLIB_TAKE_SPECTRUM: 1  # use TAKE_SPECTRUM keys in header 
   USE_SIMLIB_SPECTROGRAPH:  1  # use SPECTROGRAPH keys under each LIBID
-  USE_SIMLIB_SALT2:    1  # use SALT2c & SALT2x1 keys in header
+  USE_SIMLIB_SALT2:         1  # use SALT2c & SALT2x1 keys in header
+  USE_SIMLIB_GROUPID:       1  # pick HOST with RA,DEC near SIMLIB RA,DEC
+  USE_SIMLIB_IDEXPT:        1  # write IDEXPT value to IMGNUM column in data file
 
   SMEARFLAG_FLUX:    1  # apply Poisson noise to fluxes
   SMEARFLAG_ZEROPT:  1  # apply ZPTSIG to true flux, but not reported flux

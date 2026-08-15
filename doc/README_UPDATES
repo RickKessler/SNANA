@@ -24078,6 +24078,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.h:
       GENLC.SNTEMPLATE[80] -> [MXPATHLEN] allocation to avoid crash when
       NON1A.LIST points to file using full path that is longer than 80 chars.
+    
+    snlc_sim.c
+      new sim-input USE_SIMLIB_IDEXPT to write this column value to PHOT file
+      under IMGNUM column. 
 
 END:
  

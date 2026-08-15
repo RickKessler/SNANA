@@ -24,6 +24,8 @@
 #      + organize config inits in parse_config_driver()
 #      + if adding magerrs, auto-append obs_err_min, obs_err_min2, obs_err_min3
 #
+# Aug 15 2026 RK - add CONE_REGIONS key, but only 1 cone allowed until there
+#                  is a cone-merge utility
 # ===================================================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
@@ -174,7 +176,11 @@ CUTWIN:
 - redshift_true    0  1.8
 - lsst_r           0   28
 
+CONE_REGIONS:
+- <ra>  <dec>  <radius>  # degrees
+[maybe later can add more independent cone regions]
     """
+    
     print(f"{help_menu}\n")
     
     sys.exit()    
@@ -682,8 +688,9 @@ def add_col_pd(df_cat, config):
     # RK - Jul 14 2026 - define wrapper to add mag errors
     t0     = time.time()    
     df_cat = add_col_magerr(df_cat, config)
+    
     print_proc_time(t0, "ADDCOL_MAGERR", None)
-
+    
     return df_cat  # end add_col_pd
 
 def add_col_magerr(df_cat, config):
@@ -713,8 +720,14 @@ def add_col_magerr_min(df_cat, config):
     band_list     = config['band_magerr_list_diffsky']
     band_err_list = [ b + '_err' for b in band_list ]
 
+    logging.info(f"Add {ADDCOL_PD_ERRMIN} among bands ... ")
+
+    sorted_vals = np.sort(df_cat[band_err_list].values, axis=1)
     for rank, addcol in enumerate(ADDCOL_PD_ERRMIN):
-        df_cat[addcol] = df_cat[band_err_list].apply(lambda row: sorted(row)[rank], axis=1)
+        df_cat[addcol] = sorted_vals[:, rank]
+    
+    #for rank, addcol in enumerate(ADDCOL_PD_ERRMIN):
+    #    df_cat[addcol] = df_cat[band_err_list].apply(lambda row: sorted(row)[rank], axis=1)
 
     return df_cat
 
@@ -1004,13 +1017,16 @@ def apply_cuts(cat_inp, config):
         logging.info(f"   Apply cut {cutmin} < {cutvar} < {cutmax} ")
         cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
         n_row_out = len(cat_out)
-        logging.info(f"\t n_row after {cutvar} cut: {n_row_out} ")
+        logging.info(f"\t n_row after {cutvar} cut: {n_row_out:,} ")
 
     # Aug 2026: check for cone regions (e.g., Roman)
     # PROBLEM: Claude method converts oc object cat_out to astropy table to use vstack,
     # but then this function return table instead of oc object.
-    if len(CONE_REGIONS) > 0:
-        cat_cone_list = []
+    n_cone = len(CONE_REGIONS)
+    if n_cone > 0:
+        if n_cone > 1:
+            sys.exit(f"\n ERROR: cannot merge {n_cone} cones; only 1 allowed.")
+        
         for row in CONE_REGIONS:
             ra_cen       = float(row.split()[0])
             dec_cen      = float(row.split()[1])
@@ -1021,11 +1037,10 @@ def apply_cuts(cat_inp, config):
             cone     = oc.make_cone( (ra_cen,dec_cen), radius_cone)  # default unit is degrees
             cat_cone = cat_out.bound(cone)
             n        = len(cat_cone)
-            logging.info(f"\t n_galaxies in cone : {n}   type={type(cat_out)}")
+            logging.info(f"\t n_galaxies in cone : {n:,} ")
             if n == 0 : continue
-            cat_cone_list.append(cat_cone)
     
-        cat_out = vstack(cat_cone_list)
+        cat_out = cat_cone
 
     # - - - - - - - 
     n_row_out = len(cat_out)

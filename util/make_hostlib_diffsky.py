@@ -36,6 +36,8 @@ from pathlib import Path
 
 from astropy.cosmology import LambdaCDM
 
+from astropy.table import Table, vstack
+
 # =======
 
 KEY_CAT_DIR              = "CAT_DIR"
@@ -986,9 +988,12 @@ def apply_cuts(cat_inp, config):
     t0 = time.time()
     cat_out = cat_inp
 
-    n_row_inp = len(cat_inp)
-    CUTWIN  =  config.setdefault(KEY_CUTWIN,None)
-    if CUTWIN is None: return cat_out
+    n_row_inp    = len(cat_inp)
+    CUTWIN       = config.setdefault(KEY_CUTWIN,[])
+    CONE_REGIONS = config.setdefault('CONE_REGIONS',[])
+    APPLY_CUTS   = len(CUTWIN)>0  or len(CONE_REGIONS)>0
+    
+    if not  APPLY_CUTS: return cat_out
 
     logging.info(f"")
     logging.info(f"Apply cuts:")
@@ -1000,7 +1005,29 @@ def apply_cuts(cat_inp, config):
         cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
         n_row_out = len(cat_out)
         logging.info(f"\t n_row after {cutvar} cut: {n_row_out} ")
-        
+
+    # Aug 2026: check for cone regions (e.g., Roman)
+    # PROBLEM: Claude method converts oc object cat_out to astropy table to use vstack,
+    # but then this function return table instead of oc object.
+    if len(CONE_REGIONS) > 0:
+        cat_cone_list = []
+        for row in CONE_REGIONS:
+            ra_cen       = float(row.split()[0])
+            dec_cen      = float(row.split()[1])
+            radius_cone  = float(row.split()[2])
+            label        = f"cone_ra{ra_cen}_dec{dec_cen}"
+            logging.info(f"Select cone region around RA={ra_cen:7.2f}  DEC={dec_cen:7.2f} " \
+                         f"  RADIUS={radius_cone} deg")
+            cone     = oc.make_cone( (ra_cen,dec_cen), radius_cone)  # default unit is degrees
+            cat_cone = cat_out.bound(cone)
+            n        = len(cat_cone)
+            logging.info(f"\t n_galaxies in cone : {n}   type={type(cat_out)}")
+            if n == 0 : continue
+            cat_cone_list.append(cat_cone)
+    
+        cat_out = vstack(cat_cone_list)
+
+    # - - - - - - - 
     n_row_out = len(cat_out)
     logging.info('')
     logging.info(f" Cuts reduce {n_row_inp:,} rows to {n_row_out:,} rows")
@@ -1137,22 +1164,14 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     exclude_var_list = []
     # exclude columns computed at pandas level — not present in HDF5 catalog
     exclude_var_list += ADDCOL_PD_NAMES
-    # xxx mark cat_var_list = [v for v in cat_var_list if v not in ADDCOL_PD_NAMES]
 
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
     exclude_var_list += [b + '_err' for b in config['band_magerr_list_diffsky'] ]
-    
-    # xxxxxxxxxx mark delete xxxxxxxxxx
-    #magerr_bands =  config['magerr_bands']
-    #mag_err_cols = [b + '_err' for b in magerr_bands ]
-    #cat_var_list = [v for v in cat_var_list if v not in mag_err_cols]
-    # xxxxxxxxx end mark xxxxxx
     
     
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet
         exclude_var_list += config['override_varlist_diffsky']
-        # xxx mark cat_var_list = [v for v in cat_var_list if v not in magerr_bands]
         
         # Add gal_id temporarily — needed as join key in inject_override_columns
         # (gal_id is unique across real + synthetic cores; core_tag=-1 for all synthetic)

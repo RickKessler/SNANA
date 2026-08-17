@@ -134,9 +134,11 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   FORMAT_SNDATA_WRITE = FORMAT_SNDATA_FITS ;
 
 
-  // set global logical for SIM
   SNFITSIO_DATAFLAG             = false ;
   SNFITSIO_ATMOS                = false ;
+  SNFITSIO_DETINFO              = false ;
+
+  // set global logical for SIM
   SNFITSIO_SIMFLAG_SNANA        = false ;
   SNFITSIO_SIMFLAG_MAGOBS       = false ; 
 
@@ -198,6 +200,9 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
 
   OVP = ( writeFlag & WRITE_MASK_ATMOS ) ;
   if ( OVP > 0 ) { SNFITSIO_ATMOS = true; } // July 2023
+
+  OVP = ( writeFlag & WRITE_MASK_DETINFO ) ;
+  if ( OVP > 0 ) { SNFITSIO_DETINFO = true; } // Aug 2026
 
   IFILE_WR_SNFITSIO = 1;     // only one file written here.
 
@@ -809,15 +814,22 @@ void wr_snfitsio_init_phot(void) {
 
   wr_snfitsio_addCol( "1D" , "MJD"         , itype ) ;  // 1D = double
 
-  // xxx mark sprintf(FMT,"%dA", MXCHAR_FILTNAME);
   sprintf(FMT,"%dA", SNDATA.MXLEN_FILTNAME );
   wr_snfitsio_addCol( FMT,  "BAND" , itype ) ; 
   
   if ( WRFULL ) {
-    wr_snfitsio_addCol( "1I",  "DETNUM"      , itype ) ;
-  
-    if ( !SNFITSIO_SIMFLAG_SNANA )   // real data or fakes overlaid on images
+    
+    if ( SNFITSIO_DETINFO ) {
+      wr_snfitsio_addCol( "1J",  "IMGNUM", itype ) ; 
+      wr_snfitsio_addCol( "1I",  "DETNUM", itype ) ;
+      wr_snfitsio_addCol( "1E" , "XPIX"  , itype ) ;
+      wr_snfitsio_addCol( "1E" , "YPIX"  , itype ) ;
+    }
+
+    /* xxxxxxxx mark delete Aug 17 2026; moved up before DETNUM xxxxxxxxxxxx
+        if ( SNDATA.HAS_IMGNUM ) 	
       { wr_snfitsio_addCol( "1J",  "IMGNUM" , itype ) ; }  // Oct 2021; 
+    xxxxxxxxx end mark xxxxxxxxx */
 
     // xxx mark delete sprintf(FMT,"%dA", MXCHAR_FIELDNAME); 
     sprintf(FMT,"%dA", SNDATA.MXLEN_FIELDNAME); 
@@ -851,8 +863,11 @@ void wr_snfitsio_init_phot(void) {
     wr_snfitsio_addCol( "1E" , "ZEROPT_ERR" , itype ) ;
     wr_snfitsio_addCol( "1E" , "TEXPOSE"    , itype ) ; 
     wr_snfitsio_addCol( "1E" , "GAIN"       , itype ) ; 
+
+    /* xxxxxxxx mark delete Aug 17 2026 xxxxxxxxxxx
     wr_snfitsio_addCol( "1E" , "XPIX" , itype ) ;
     wr_snfitsio_addCol( "1E" , "YPIX" , itype ) ;
+    xxxxxxxxx end mark xxxxxxx*/
 
     if ( SNFITSIO_ATMOS ) {  // July 2023
       wr_snfitsio_addCol( "1E" , "dRA" ,     itype ) ; // RA(obs) - RA_AVG(band)
@@ -1084,9 +1099,9 @@ void wr_snfitsio_create(int itype ) {
   //  SNFITSIO_CODE_IVERSION = 25; // Jul 2024: IAUC->NAME_IAUC; add NAME_TRANSIENT
   //  SNFITSIO_CODE_IVERSION = 26; // Sep 6 2024: read TEXPOSE and INSTRUMENT for spectra
   // SNFITSIO_CODE_IVERSION = 27; // Jul 23 2025  write/read ZP_FLUXCAL
-  
-  SNFITSIO_CODE_IVERSION = 28;  // LOGMASS[_ERR](z)
+  // SNFITSIO_CODE_IVERSION = 28;  // LOGMASS[_ERR](z)
 
+  SNFITSIO_CODE_IVERSION = 29 ; // Aug 2026: chech HAS_IMGNUM to allow writing this to sim; 
   // - - - - - - - 
 
   fits_update_key(fp, TINT, "CODE_IVERSION", &SNFITSIO_CODE_IVERSION, 
@@ -2518,16 +2533,32 @@ void wr_snfitsio_update_phot(int ep) {
   wr_snfitsio_fillTable ( ptrColnum, "BAND", itype );
 
   if ( WRFULL ) {
-    // DETNUM (Mar 2021)
-    LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].value_I = (short int)SNDATA.DETNUM[ep] ;
-    wr_snfitsio_fillTable ( ptrColnum, "DETNUM", itype );
 
+    if ( SNFITSIO_DETINFO  ) { 
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.IMGNUM[ep] ;
+      wr_snfitsio_fillTable ( ptrColnum, "IMGNUM", itype );
+
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_I = (short int)SNDATA.DETNUM[ep] ;
+      wr_snfitsio_fillTable ( ptrColnum, "DETNUM", itype );
+
+    /******** mark delete Aug 17 2026 xxxxxxx
     // IMGNUM (Oct 2021)
     if ( !SNFITSIO_SIMFLAG_SNANA ) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.IMGNUM[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "IMGNUM", itype );
+    }
+    xxxxxxxxx end mark xxxxx*/
+
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.XPIX[ep] ;
+      wr_snfitsio_fillTable ( ptrColnum, "XPIX", itype );
+    
+      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.YPIX[ep] ;
+      wr_snfitsio_fillTable ( ptrColnum, "YPIX", itype );
     }
 
     // FIELD
@@ -2608,6 +2639,7 @@ void wr_snfitsio_update_phot(int ep) {
     WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.GAIN[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "GAIN", itype );
 
+    /* xxxxxxxxxx mark delete Aug 2026 xxxxxxx
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.XPIX[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "XPIX", itype );
@@ -2615,6 +2647,8 @@ void wr_snfitsio_update_phot(int ep) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
     WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.YPIX[ep] ;
     wr_snfitsio_fillTable ( ptrColnum, "YPIX", itype );
+    xxxxxxx end mark xxxx*/
+
 
     // check writing atmos/DCR information (July 2023)
     if ( SNFITSIO_ATMOS ) {  
@@ -3971,11 +4005,25 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     // store arrays need to re-write in text format
     for(ep=0; ep<=NRD; ep++) { SNDATA.OBSFLAG_WRITE[ep] = true ; }
 
+    if ( SNFITSIO_CODE_IVERSION >= 29 ) {
+      j++; NRD = RD_SNFITSIO_INT(isn, "IMGNUM", &SNDATA.IMGNUM[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+    }
+
     j++; NRD = RD_SNFITSIO_INT(isn, "DETNUM", &SNDATA.DETNUM[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
 
-    j++; NRD = RD_SNFITSIO_INT(isn, "IMGNUM", &SNDATA.IMGNUM[ep0], 
+    if ( SNFITSIO_CODE_IVERSION < 29 ) {
+      j++; NRD = RD_SNFITSIO_INT(isn, "IMGNUM", &SNDATA.IMGNUM[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
+    }
+    
+    if ( SNFITSIO_CODE_IVERSION >= 29  ) {
+      j++; NRD = RD_SNFITSIO_FLT(isn, "XPIX", &SNDATA.XPIX[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+      j++; NRD = RD_SNFITSIO_FLT(isn, "YPIX", &SNDATA.YPIX[ep0], 
+				 &SNFITSIO_READINDX_PHOT[j] ) ;
+    }
 
     // note that FIELD returns comma-separated list in 1D string
     j++; NRD = RD_SNFITSIO_STR(isn, "FIELD", SNDATA.FIELDNAME_1D, 
@@ -4014,7 +4062,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++; NRD = RD_SNFITSIO_FLT(isn, "GAIN", &SNDATA.GAIN[ep0], 
 			       &SNFITSIO_READINDX_PHOT[j] ) ;
 
-    if ( SNDATA.NXPIX > 0 ) {
+    if ( SNFITSIO_CODE_IVERSION < 29  ) {
       j++; NRD = RD_SNFITSIO_FLT(isn, "XPIX", &SNDATA.XPIX[ep0], 
 				 &SNFITSIO_READINDX_PHOT[j] ) ;
       j++; NRD = RD_SNFITSIO_FLT(isn, "YPIX", &SNDATA.YPIX[ep0], 

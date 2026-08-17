@@ -95,6 +95,7 @@ int MALLOC_LEN_SNFITSIO[MXTYPE_SNFITSIO] ; // malloc length per file type
 
 bool  SNFITSIO_DATAFLAG ;       // true -> real data (not sim, not fakes)
 bool  SNFITSIO_ATMOS ;          // write atmos/DCR per obs for data [and sim]
+bool  SNFITSIO_DETINFO    ; // write detector info: IMGNUM, DETNUM, XPIX, YPIX [data or sim]
 bool  SNFITSIO_SIMFLAG_SNANA ;  // SNANA sim
 bool  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
 bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)

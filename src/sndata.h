@@ -59,6 +59,7 @@
 #define WRITE_MASK_SED_TRUE   1024     // write true SED instead of spectra (sim only)
 #define WRITE_MASK_COMPACT      64  // suppress non-essential PHOT output
 #define WRITE_MASK_COMPACT_noFLUXCAL  4096 // internally set if SMEARFLAG_FLUX=0
+#define WRITE_MASK_DETINFO 8192   // write detector info: IMGNUM, DETNUM, XPIX, YPIX
 
 #define OPT_ZPTSIG_TRUN  1   // option to use ZPTSIG from template
 #define OPT_ZPTSIG_SRUN  2   // idem for search run
@@ -213,6 +214,7 @@ struct SNDATA {
   bool  WRFLAG_SKYSIG_T ;
   bool  WRFLAG_ATMOS ;         // include RA,DEC,AIRMASS per obs (May 2023)
   bool  WRFLAG_SPECTRA ;       // write spectra
+  bool  WRFLAG_DETINFO ;       // write IMGNUM, DETNUM, XPIX, YPIX
 
   int   APPLYFLAG_MWEBV;           // T=> correct FLUXCAL
   int   MASK_FLUXCOR;     // indicates SNANA fudges applied to flux[err]
@@ -275,7 +277,8 @@ struct SNDATA {
 
   int   DETNUM[MXEPOCH] ; // detector/CCD number or sensor id
   int   IMGNUM[MXEPOCH] ; // 10.13.2021 image number (e.g. EXPNUM, VISIT_ID)
-  bool  HAS_DETNUM, HAS_IMGNUM, HAS_TEXPOSE;
+  // xxx mark del Aug 17 2026  bool  HAS_IMGNUM, HAS_DETNUM, HAS_XYPIX, 
+  int   HAS_TEXPOSE;
 
   bool   OBSFLAG_WRITE[MXEPOCH];
   double MJD[MXEPOCH];            // MJD for each epoch

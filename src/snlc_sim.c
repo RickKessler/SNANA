@@ -7383,7 +7383,8 @@ void prep_user_input(void) {
   WRFLAG_COMPACT   = 0 ;
   WRFLAG_ATMOS     = 0 ;
   WRFLAG_noSPEC    = 0 ;
-  
+  WRFLAG_DETINFO   = 0 ;  // whether to write IMGNUM,DETNUM,XPIS,YPIX
+
   // check for whether to write FULL, TERSE, FITS, etc ,
   // EXCEPT for the GRID-GEN option (for psnid ...), 
   if ( GENLC.IFLAG_GENSOURCE != IFLAG_GENGRID  ) {
@@ -7397,6 +7398,7 @@ void prep_user_input(void) {
     WRFLAG_COMPACT   = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_COMPACT   ) ;
     WRFLAG_ATMOS     = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_ATMOS     ) ;
     WRFLAG_noSPEC    = ( INPUTS.FORMAT_MASK  & FORMAT_MASK_noSPEC    ) ;
+    WRFLAG_DETINFO   = INPUTS.USE_SIMLIB_IDEXPT;
   }
 
   if ( WRFLAG_BLINDTEST ) 
@@ -9663,6 +9665,8 @@ void  init_event_GENLC(void) {
 
     GENLC.NEXPOSE[epoch]     =  1 ; 
     GENLC.DETNUM[epoch]      = -9 ; 
+    GENLC.XPIX[epoch]        = -9.0 ; 
+    GENLC.YPIX[epoch]        = -9.0 ; 
     GENLC.MJD[epoch]         = NULLFLOAT ;
     GENLC.epoch_obs[epoch]   = NULLFLOAT ;
     GENLC.epoch_rest[epoch]  = NULLFLOAT ;
@@ -10578,7 +10582,7 @@ bool DO_GENSPEC(int imjd) {
   int  OPT_DICT = 1 ;   // 0=exact match, 1=partial string match
   int  ifield ;
   double preScale, r1 ;
-  int LTRACE = 0 ; // (SIMLIB_HEADER.LIBID >= 0) ;  // .xyz
+  int LTRACE = 0 ; // (SIMLIB_HEADER.LIBID >= 0) ; 
   char *field_tmp ; 
   char fnam[] = "DO_GENSPEC" ;
 
@@ -18366,6 +18370,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
     else if ( strcmp(c_get,"PIXSIZE:") == 0 ) {      
       readdouble(fp_SIMLIB, 1, &SIMLIB_GLOBAL_HEADER.PIXSIZE );
     }
+
     else if ( strcmp(c_get,"SOLID_ANGLE:") == 0 ) { 
       readdouble(fp_SIMLIB, 1, &SIMLIB_GLOBAL_HEADER.SOLID_ANGLE );
     }
@@ -18548,12 +18553,12 @@ void SIMLIB_prepGlobalHeader(void) {
   }
 
   fflush(stdout);
-
+  
 
   char *unit ;
   unit = SIMLIB_GLOBAL_HEADER.PSF_UNIT ;
   if ( strcmp(unit,SIMLIB_PSF_PIXEL_SIGMA) == 0  ) {  }
-  else if ( strcmp(unit,SIMLIB_PSF_ARCSEC_FWHM ) == 0 ) {  }
+  else if ( strcmp(unit,SIMLIB_PSF_ARCSEC_FWHM ) == 0 )  {  }
   else if ( strcmp(unit,SIMLIB_PSF_NEA_PIXEL  )  == 0 ) 
     { SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT = true; }
   else if ( strcmp(unit,SIMLIB_PSF_NEA_ARCSECSQ ) == 0 ) 
@@ -19678,7 +19683,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  parse_SIMLIB_IDEXPT(ctmp, 
 			      &SIMLIB_OBS_RAW.IDEXPT[ISTORE],
 			      &SIMLIB_OBS_RAW.NEXPOSE[ISTORE],
-			      &SIMLIB_OBS_RAW.DETNUM[ISTORE] );
+			      &SIMLIB_OBS_RAW.DETNUM[ISTORE], 
+			      &SIMLIB_OBS_RAW.XPIX[ISTORE] ,
+			      &SIMLIB_OBS_RAW.YPIX[ISTORE] 
+			      );
 	 
 	  IWD++; sscanf(WDLIST[IWD], "%s" , SIMLIB_OBS_RAW.BAND[ISTORE]     );
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.CCDGAIN[ISTORE]  );
@@ -19704,6 +19712,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE] );  
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]   );
 	  
+	  
+	  // - - - - - done reading columns - - - - -
+	  //.xyz
+
 	  if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
 	    { SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
 	  
@@ -20123,6 +20135,8 @@ void SIMLIB_addCadence_SPECTROGRAPH(void) {
       SIMLIB_OBS_RAW.IDEXPT[ISTORE]     = -9 ;
       SIMLIB_OBS_RAW.NEXPOSE[ISTORE]    =  0 ;
       SIMLIB_OBS_RAW.DETNUM[ISTORE]     = -9 ;
+      SIMLIB_OBS_RAW.XPIX[ISTORE]       = -9.0 ;
+      SIMLIB_OBS_RAW.YPIX[ISTORE]       = -9.0 ;
       SIMLIB_OBS_RAW.CCDGAIN[ISTORE]    = -9.0 ;
       SIMLIB_OBS_RAW.READNOISE[ISTORE]  = -9.0 ;
       SIMLIB_OBS_RAW.SKYSIG[ISTORE]     = -9.0 ;
@@ -20465,7 +20479,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   bool KEEP;
   int isort, ifilt, IFILT_OBS, NEXPOSE, IDEXPT, DETNUM, NEP, NEP_NEWMJD ;
   int  IFLAG_SYNFILT, IFLAG_TEMPLATE, IFIELD, APP ;
-  double MJD, CCDGAIN, RDNOISE, SKYSIG, ZPT[2], MAG ;
+  double MJD, CCDGAIN, RDNOISE, SKYSIG, ZPT[2], MAG, XPIX, YPIX ;
   double SKYSIG_T, RDNOISE_T, ZPT_T ;
   double SHIFT_ZPT, SCALE_SKYSIG, SCALE_SKYSIG_T, SCALE_RDNOISE, SCALE_PSF ;
   double MJD_DIF, MJD_LAST_KEEP, DT, DUMMY_STORE[3] ;
@@ -20508,8 +20522,10 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     MAG        = SIMLIB_OBS_RAW.MAG[OBSRAW] ;
     IFILT_OBS  = SIMLIB_OBS_RAW.IFILT_OBS[OBSRAW] ;
     NEXPOSE    = SIMLIB_OBS_RAW.NEXPOSE[OBSRAW] ;
-    DETNUM     = SIMLIB_OBS_RAW.DETNUM[OBSRAW] ;
     IDEXPT     = SIMLIB_OBS_RAW.IDEXPT[OBSRAW] ;  // IMGNUM
+    DETNUM     = SIMLIB_OBS_RAW.DETNUM[OBSRAW] ;
+    XPIX       = SIMLIB_OBS_RAW.XPIX[OBSRAW] ;
+    YPIX       = SIMLIB_OBS_RAW.YPIX[OBSRAW] ;
     FIELD      = SIMLIB_OBS_RAW.FIELDNAME[OBSRAW];
     APP        = SIMLIB_OBS_RAW.APPEND_PHOTFLAG[OBSRAW];   
 
@@ -20585,8 +20601,10 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     GENLC.genmag_obs[NEP]    = MAG ;
     GENLC.MJD[NEP]           = MJD ;
     GENLC.NEXPOSE[NEP]       = NEXPOSE; // June 2022
-    GENLC.DETNUM[NEP]        = DETNUM;  // Aug 2025
     GENLC.IDEXPT[NEP]        = IDEXPT;  // Aug 2026
+    GENLC.DETNUM[NEP]        = DETNUM;  // Aug 2025
+    GENLC.XPIX[NEP]          = XPIX;    // Aug 2026
+    GENLC.YPIX[NEP]          = YPIX;    // Aug 2026
     sprintf( GENLC.FIELDNAME[NEP], "%s", FIELD );
 
     // store min/max TREST (Apr 2021) for efficiency studies.
@@ -20612,8 +20630,10 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
     SIMLIB_OBS_GEN.ZPTERR[NEP]      = ZPT[1] ;
     SIMLIB_OBS_GEN.MAG[NEP]         = MAG ;
     SIMLIB_OBS_GEN.NEXPOSE[NEP]     = NEXPOSE ;
-    SIMLIB_OBS_GEN.DETNUM[NEP]      = DETNUM ;
     SIMLIB_OBS_GEN.IDEXPT[NEP]      = IDEXPT ;
+    SIMLIB_OBS_GEN.DETNUM[NEP]      = DETNUM ;
+    SIMLIB_OBS_GEN.XPIX[NEP]        = XPIX  ;
+    SIMLIB_OBS_GEN.YPIX[NEP]        = YPIX  ;
     SIMLIB_OBS_GEN.ISTORE_RAW[NEP]  = OBSRAW ;
     SIMLIB_OBS_GEN.APPEND_PHOTFLAG[NEP] = APP ;
     sprintf(SIMLIB_OBS_GEN.FIELDNAME[NEP], "%s", FIELD );
@@ -21816,43 +21836,62 @@ double get_TEXPOSE(int epoch) {
 } // end get_TEXPOSE
 
 // ================================================
-void parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, int *DETNUM ) {
+void parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, 
+			 int *DETNUM, double *XPIX, double *YPIX ) {
 
   // Created Jan 3 2018
   // If inString has no *   -->  IDEXPT = inString and NEXPOSE=1
   // If inString = ID*NEXP  -->  IDEXPT = ID and NEXPOSE=NEXP
-  // Optional detector number (DETNUM) in ()
+  // Optional detector number (DETNUM), x-pixel location (XPIX) and y-pixel (YPIX) 
+  // in parentheses.
   //
   //
   // Examples:
-  //    inString        IDEXPT   NEXPOSE   DETNUM
-  //    - - - - - - - - - - - - - - - - - - - - - - -
-  //     243289         243289      1        -9
-  //     243289*4       243289      4        -9
-  //     243289(12)     243289      1        12
-  //     243289*4(12)   243289      4        12
+  //    inString                 IDEXPT   NEXPOSE   DETNUM  XPIX   YPIX
+  //    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+  //     243289                  243289      1        -9     -9     -9
+  //     243289*4                243289      4        -9     -9     -9
+  //     243289(12)              243289      1        12     -9     -9
+  //     243289*4(12)            243289      4        12     -9     -9
+  //     243289*4(12,234,1056)   243289      4        12    234.0   1056.0
   //
   //
   // Aug 11 2025: add *DETNUM arg for detector number
-  //
+  // Aug 17 2026: add XPIX and YPIX args
 
-  int  ID_TMP, NEXPOSE_TMP, DETNUM_TMP, NRD;
+  int  ID_TMP=-9, NEXPOSE_TMP=1, DETNUM_TMP = -9,  MXARG=4, NARG=0;
+  double XPIX_TMP = -9.0, YPIX_TMP = -9.0 ;
   char star[] = "*" ;
-  char instring_local[100], instring_detnum[8];
-  char WDLIST[2][20], *ptrWDLIST[2];
+  char instring_local[100], instring_detloc[60], **ptrSplit;
   char fnam[] = "parse_SIMLIB_IDEXPT" ;
 
   // ----------- BEGIN ------------
 
-  ID_TMP      = -9;
-  NEXPOSE_TMP =  1;  // default
-  DETNUM_TMP  = -9;
-
   // check for optional DETNUM in ()
   sprintf(instring_local, "%s", inString); 
-  extractStringOpt(instring_local, instring_detnum);
-  if ( strlen(instring_detnum) > 0 ) 
-    { sscanf(instring_detnum, "%d", &DETNUM_TMP);  }
+  extractStringOpt(instring_local, instring_detloc);
+  if ( strlen(instring_detloc) > 0 ) {
+    // check how many comma-sep args: 1 for DETNUM only; 3 for DETNUM,XPIX,YPIX
+
+    malloc_strlist(+1, MXARG, 60, &ptrSplit);
+    splitString(instring_detloc, COMMA, fnam,  MXARG, &NARG, ptrSplit);
+    
+    if ( NARG == 1 ) {
+       sscanf(ptrSplit[0], "%d", &DETNUM_TMP);        
+    }
+    else if ( NARG == 3 ) {
+       sscanf(ptrSplit[0], "%d",  &DETNUM_TMP);        
+       sscanf(ptrSplit[1], "%le", &XPIX_TMP);        
+       sscanf(ptrSplit[2], "%le", &YPIX_TMP);        
+    }
+    else {
+      sprintf(c1err,"Invalid NARG=%d for instring_detloc = '%s'", NARG, instring_detloc);
+      sprintf(c2err,"Expected 1 or 3 comma-sep args; see IDEXPT key in SNANA manual");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+    }
+    malloc_strlist(-1, MXARG, 60, &ptrSplit); // free memory
+
+  }
 
   // check for * followed by NEXPOSE
   if ( strchr(instring_local,'*') == NULL ) {
@@ -21861,17 +21900,19 @@ void parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, int *DETNUM 
   }
   else {
     // found star, read both ID and NEXPOSE
-    ptrWDLIST[0] = WDLIST[0] ;
-    ptrWDLIST[1] = WDLIST[1] ;
-    splitString(instring_local, star, fnam, 3,  &NRD, ptrWDLIST ); 
-    sscanf( WDLIST[0] , "%d", &ID_TMP ); 
-    sscanf( WDLIST[1] , "%d", &NEXPOSE_TMP ); 
+    malloc_strlist(+1, 3, 20, &ptrSplit);
+    splitString(instring_local, star, fnam, 3,  &NARG, ptrSplit ); 
+    sscanf( ptrSplit[0] , "%d", &ID_TMP ); 
+    sscanf( ptrSplit[1] , "%d", &NEXPOSE_TMP ); 
+    malloc_strlist(-1, 3, 20, &ptrSplit);
   }
 
   // load output arguments
   *IDEXPT  = ID_TMP ;
   *NEXPOSE = NEXPOSE_TMP ;
   *DETNUM  = DETNUM_TMP ; // Aug 11 2025
+  *XPIX    = XPIX_TMP ;
+  *YPIX    = YPIX_TMP ;
 
   /*
   printf(" xxx %s: inString='%s'  NRD=%d   ID=%d  NEXPOSE=%d \n",
@@ -25163,6 +25204,7 @@ void snlc_to_SNDATA(int FLAG) {
   SNDATA.WRFLAG_SKYSIG_T  = SIMLIB_TEMPLATE.USEFLAG;
   SNDATA.WRFLAG_ATMOS     = (WRFLAG_ATMOS>0);
   SNDATA.WRFLAG_SPECTRA   = (INPUTS.WRITE_MASK & WRITE_MASK_SPECTRA) >0 ;
+  SNDATA.WRFLAG_DETINFO   = WRFLAG_DETINFO ;
 
   if ( GENLC.NEPOCH >= MXEPOCH-1 ) {
     print_preAbort_banner(fnam);
@@ -25403,12 +25445,12 @@ void snlc_to_SNDATA(int FLAG) {
 
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
 
-    SNDATA.DETNUM[epoch]       = GENLC.DETNUM[epoch];
-    if ( SNDATA.DETNUM[epoch] >= 0 ) { SNDATA.HAS_DETNUM = true; }
 
     if ( INPUTS.USE_SIMLIB_IDEXPT ) {
-      SNDATA.IMGNUM[epoch]       = GENLC.IDEXPT[epoch];  // Aug 2026
-      if ( SNDATA.IMGNUM[epoch] >= 0 ) { SNDATA.HAS_IMGNUM = true; }
+      SNDATA.IMGNUM[epoch]     = GENLC.IDEXPT[epoch];  // Aug 2026
+      SNDATA.DETNUM[epoch]     = GENLC.DETNUM[epoch];
+      SNDATA.XPIX[epoch]       = GENLC.XPIX[epoch];
+      SNDATA.YPIX[epoch]       = GENLC.YPIX[epoch];
     }
 
     SNDATA.GAIN[epoch]      =  SIMLIB_OBS_GEN.CCDGAIN[epoch] ;
@@ -30779,6 +30821,7 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
   
   if ( WRITE_SPECTRA  )  { INPUTS.WRITE_MASK += WRITE_MASK_SPECTRA  ; }
   if ( WRITE_SED_TRUE )  { INPUTS.WRITE_MASK += WRITE_MASK_SED_TRUE ; } // Oct 29 2024
+  if ( WRFLAG_DETINFO )  { INPUTS.WRITE_MASK += WRITE_MASK_DETINFO  ; } // Aug 17 2026
 
   // - - - - 
   // check option for fits format (Jun 2011)
@@ -30786,10 +30829,8 @@ void init_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
     // abort of any text-option is defined along with fits format
     if ( WRFLAG_TEXT  ) {
-      sprintf(c1err, "Cannot mix TEXT and FITS format ; FORMAT_MASK=%d",
-	      INPUTS.FORMAT_MASK );
-      sprintf(c2err,"WRFLAG[TEXT,FITS] = %d, %d",
-	      WRFLAG_TEXT, WRFLAG_FITS );
+      sprintf(c1err, "Cannot mix TEXT and FITS format ; FORMAT_MASK=%d", INPUTS.FORMAT_MASK );
+      sprintf(c2err,"WRFLAG[TEXT,FITS] = %d, %d", WRFLAG_TEXT, WRFLAG_FITS );
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
     }
 

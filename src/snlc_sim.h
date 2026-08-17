@@ -140,6 +140,7 @@ int WRFLAG_FILTERS   ;
 int WRFLAG_ATMOS    ; // May 2023
 int WRFLAG_COMPACT   ; // Jan 2018
 int WRFLAG_noSPEC ;    // Apr 2024
+int WRFLAG_DETINFO;    // Aug 2026
 
 #define SIMLIB_PSF_PIXEL_SIGMA   "PIXEL_SIGMA"        // default
 #define SIMLIB_PSF_ARCSEC_FWHM   "ARCSEC_FWHM"        // option
@@ -1360,8 +1361,10 @@ struct GENLC {
   double  peakmag_rest3[MXFILTINDX] ;
 
   int     NEXPOSE[MXEPSIM] ; // Number of coadded exposures
-  int     DETNUM[MXEPSIM]  ; // detector/CCD number (Aug 11 2025)
   int     IDEXPT[MXEPSIM]  ; // exposure number or visit id
+  int     DETNUM[MXEPSIM]  ; // detector/CCD number (Aug 11 2025)
+  double  XPIX[MXEPSIM];     // x-pixel locaton on DET
+  double  YPIX[MXEPSIM];     // y-pixel locaton on DET
 
   int     NWIDTH_SIMGEN_DUMP;
   double  WIDTH[MXFILTINDX];  // generated LC width per band (for monitor)
@@ -1570,6 +1573,7 @@ struct SIMLIB_GLOBAL_HEADER {
   char USERNAME[40];
   int  NLIBID, NLIBID_VALID ;
   double PIXSIZE, SOLID_ANGLE ;
+
   int  NPE_PIXEL_SATURATE;    // Jan 3, 2018
   int  PHOTFLAG_SATURATE ;
   int  PHOTFLAG_SNRMAX ;
@@ -1682,6 +1686,8 @@ typedef struct  {
   int     IDEXPT[MXOBS_SIMLIB];
   int     NEXPOSE[MXOBS_SIMLIB];  // Jan 2018 (for saturation calc)
   int     DETNUM[MXOBS_SIMLIB];   // Aug 2025 for IDEXPT(DETNUM) 
+  double  XPIX[MXOBS_SIMLIB];      // optional x-pixel  for IDEXPT(DETNUM,XPIX,YPIX)
+  double  YPIX[MXOBS_SIMLIB];      // optional y-pixel 
   double  MJD[MXOBS_SIMLIB];
   double  CCDGAIN[MXOBS_SIMLIB];
   double  READNOISE[MXOBS_SIMLIB];
@@ -1693,8 +1699,8 @@ typedef struct  {
   double  NEA[MXOBS_SIMLIB];
   double  ZPTADU[MXOBS_SIMLIB];    // ZPT in ADU for entire exposure
   double  ZPTERR[MXOBS_SIMLIB];    // ZPT error
-  double  MAG[MXOBS_SIMLIB];       // optional mag
-  double  PIXSIZE[MXOBS_SIMLIB] ;   // Nov 26, 2011
+  double  MAG[MXOBS_SIMLIB];       // optional mag (e.g., fake ov mag)
+  double  PIXSIZE[MXOBS_SIMLIB] ;   // pixel size (can appear mutiple times in header)
 
   char    *PTR_FIELDNAME[MXOBS_SIMLIB];
   char    FIELDNAME[MXOBS_SIMLIB][MXCHAR_FIELDNAME];
@@ -1958,7 +1964,8 @@ void   check_parse_args_for_COLON(int ncheck, char **WORDS);
 
 void   parse_SIMLIB_GENRANGES(char **WDLIST) ;
 
-void   parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, int *DETNUM) ;
+void   parse_SIMLIB_IDEXPT(char *inString, int *IDEXPT, int *NEXPOSE, 
+			   int *DETNUM, double *XPIX, double *YPIX) ;
 
 bool   parse_SIMLIB_TEXPOSE(char *inString, char *field);
 double get_TEXPOSE(int epoch);

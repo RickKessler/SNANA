@@ -9108,6 +9108,7 @@ int init_SNDATA_EVENT(void) {
   SNDATA.WRFLAG_PHOTPROB      = false ;
   SNDATA.WRFLAG_ATMOS         = false ;
   SNDATA.WRFLAG_SPECTRA       = true  ;
+  SNDATA.WRFLAG_DETINFO       = false ;
 
   SNDATA.SNTYPE = 0 ;
 
@@ -9273,8 +9274,11 @@ int init_SNDATA_EVENT(void) {
   // epoch info
 
   SNDATA.HAS_TEXPOSE = false;
-  SNDATA.HAS_DETNUM  = false;
+  /* xxxxxx mark del Aug 2026 xxxxx
   SNDATA.HAS_IMGNUM  = false;
+  SNDATA.HAS_DETNUM  = false;
+  SNDATA.HAS_XYPIX   = false;
+  xxxxxxxxx */
 
   // avoid wasting time with loop over huge MXEPOCH; use NEP_LOCAL
   int MXEP_LOCAL = NEP_LAST;

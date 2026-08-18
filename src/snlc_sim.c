@@ -1209,6 +1209,8 @@ void set_user_defaults(void) {
   HOSTLIB_NBR_WRITE.NNBR_WRITE_MAX  = 10;   // write up to 10 NBRs
   //  HOSTLIB_NBR.MXCHAR_NBR_LIST = 80;   // max string-length of list
 
+  MAX_HOSTLIB_SELECT = 1000000;
+
   // define polynom function of ztrue for zSN-zGAL tolerance.
   char CPOLY_DZTOL[] = "0.002,0.04" ;
   init_GENPOLY(&INPUTS.HOSTLIB_GENPOLY_DZTOL);
@@ -3960,6 +3962,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_VERBOSE) ;
     INPUTS.HOSTLIB_USE = HOSTLIB_FLAG_REWRITE; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
+  }
+
+  else if ( keyMatchSim( 1, "MAX_HOSTLIB_SELECT", WORDS[0], keySource ) ) {
+    N++; sscanf(WORDS[N], "%d", &MAX_HOSTLIB_SELECT );
   }
 
   else if ( keyMatchSim(1, "+HOSTMAGS", WORDS[0], keySource ) ) {

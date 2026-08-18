@@ -10202,6 +10202,7 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   int MSKOPT_PARSE=MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
   int NDUMP = -6;
   char *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
+  bool ISLINE_GAL;
 
   LINE_APPEND  = (char*) malloc ( sizeof(char) * MXCHAR_LINE_APPEND );
   FIRSTWORD    = (char*) malloc ( sizeof(char) * 100 );
@@ -10213,45 +10214,49 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
     NWD_LINE = store_PARSE_WORDS(MSKOPT_PARSE,LINE,fnam);
     LINE_APPEND[0] = 0 ;
 
-    if ( NWD_LINE > 2 ) {
-      get_PARSE_WORD(0, 0, FIRSTWORD, fnam );
-      if ( strcmp(FIRSTWORD,"VARNAMES:") == 0 ) 
-	{ sprintf(LINE_APPEND,"%s", VARNAMES); }
+    if ( NWD_LINE <= 2 ) { continue; }
 
-      else if ( strcmp(FIRSTWORD,"GAL:") == 0 ) {
-
-	NLINE_GAL++ ;
-
-	// make sure GALID matches
-	igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort] ;
-	ivar       = HOSTLIB.IVAR_GALID ;
-	GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
-
-	if ( igal_unsort < NDUMP ) {
-	  printf(" xxx %s: igal_unsort=%2d GALID=%lld \n",
-		 fnam, igal_unsort, GALID); fflush(stdout);
-	}
-
-	get_PARSE_WORD(0, 1, NEXTWORD, fnam);    // read GALID
-	sscanf(NEXTWORD, "%lld", &GALID_orig);
-	if ( GALID != GALID_orig ) {
-	  sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
-	  sprintf(c2err,"GALID(orig)=%lld, but stored GALID=%lld",
-		  GALID_orig, GALID ) ;
-	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-	}
-
-	sprintf(LINE_APPEND, "%s", HOSTLIB_APPEND->LINE_APPEND[igal_unsort]);
-	igal_unsort++ ;
-      }
+    ISLINE_GAL = false;
+    get_PARSE_WORD(0, 0, FIRSTWORD, fnam );
+    if ( strcmp(FIRSTWORD,"VARNAMES:") == 0 )   { 
+      sprintf(LINE_APPEND,"%s", VARNAMES); 
     }
+    
+    else if ( strcmp(FIRSTWORD,"GAL:") == 0 ) {
+      
+      NLINE_GAL++ ;
+      ISLINE_GAL = true;
+
+      // make sure GALID matches
+      igal_zsort = HOSTLIB.LIBINDEX_ZSORT[igal_unsort] ;
+      ivar       = HOSTLIB.IVAR_GALID ;
+      GALID      = (long long)HOSTLIB.VALUE_ZSORTED[ivar][igal_zsort] ;
+
+      if ( igal_unsort < NDUMP ) {
+	printf(" xxx %s: igal_unsort=%2d GALID=%lld \n",
+	       fnam, igal_unsort, GALID); fflush(stdout);
+      }
+      
+      get_PARSE_WORD(0, 1, NEXTWORD, fnam);    // read GALID
+      sscanf(NEXTWORD, "%lld", &GALID_orig);
+      if ( GALID != GALID_orig ) {
+	sprintf(c1err,"GALID mis-match for igal_unsort=%d", igal_unsort);
+	sprintf(c2err,"GALID(orig)=%lld, but stored GALID=%lld",
+		GALID_orig, GALID ) ;
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      
+      sprintf(LINE_APPEND, "%s", HOSTLIB_APPEND->LINE_APPEND[igal_unsort]);
+      igal_unsort++ ;
+    }
+  
 
     if ( NLINE_GAL >= INPUTS.HOSTLIB_MAXREAD ) { break    ; } 
     if ( strcmp(LINE_APPEND,"REJECT") == 0   ) { continue ; } // Aug 18 2026
 
     ptrCR = strchr(LINE,'\n'); if(ptrCR){*ptrCR=' ';} // remove <CR>
     fprintf(FP_NEW,"%s %s\n", LINE, LINE_APPEND);
-    NLINE_WRITE++ ;
+    if ( ISLINE_GAL ) { NLINE_WRITE++ ; }
   }
 
 
@@ -11101,19 +11106,17 @@ void rewrite_HOSTLIB_select(char *append_file) {
   double WGT, ran1;
   bool ACCEPT;
   long long int GALID;
-  char MSG[100], LINE_APPEND[20];
+  char MSG[100], LINE_APPEND[200];
   char fnam[] = "rewrite_HOSTLIB_select" ;
 
   // ----------------- BEGIN -----------------
 
   print_banner(fnam);
-  
   // - - - - -
   
   // - - - -
   malloc_HOSTLIB_APPEND(NGAL_ORIG, &HOSTLIB_APPEND);
-
-  HOSTLIB_APPEND.VARNAMES_APPEND[0] = 0;
+  sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "WGT_SELECT");
   sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", "+SELECT");
 
   
@@ -11141,11 +11144,12 @@ void rewrite_HOSTLIB_select(char *append_file) {
 	     igal_unsort, GALID, WGT, ran1);      fflush(stdout);
     }
 
-    ACCEPT = (WGT > ran1);
+    ACCEPT = (ran1 < WGT &&  NGAL_SELECT < MAX_HOSTLIB_SELECT);
 
-    LINE_APPEND[0] = 0 ; // default blank string --> accept without modification
-    if ( ACCEPT )
-      { NGAL_SELECT++ ; }
+    if ( ACCEPT ) { 
+      sprintf(LINE_APPEND,"%.3f", WGT);
+      NGAL_SELECT++ ; 
+    }
     else 
       { sprintf(LINE_APPEND,"REJECT");  }  // reject flag
 
@@ -11153,8 +11157,8 @@ void rewrite_HOSTLIB_select(char *append_file) {
 
   } // end igal_unsort loop over all galaxies
 
-  //sprintf(HOSTLIB_APPEND->LINE_APPEND[i],"NULL_APPEND");
 
+  // - - - - - -
   sprintf(MSG,"Select %d of %d galaxies", NGAL_SELECT, NGAL_ORIG);
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 

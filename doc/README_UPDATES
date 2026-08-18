@@ -24088,5 +24088,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       Check that reformat FITS -> TEXT and TEXT -> FITS preserves new info.
       See WRFLAG_DETNUM = flag to read/write IMGNUM, DETNUM, XPIX, YPIX
 
+      Add new +HOSTSELECT command line option; see manual
+
 END:
  

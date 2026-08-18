@@ -336,6 +336,7 @@ struct {
 
 } HOSTLIB_NBR_WRITE ;
 
+int MAX_HOSTLIB_SELECT; // used onl with +HOSTSELECT command
 
 struct {
   double ZWIN[2], RAWIN[2], DECWIN[2];

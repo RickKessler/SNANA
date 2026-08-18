@@ -5166,6 +5166,33 @@ Each row should begin with ``{\tt GAL:}'' key.
 The sim program ends after writing a new \hostlib,
 and warnings are printed for the number of missing GALIDs.
 
+% ------------------------------------
+\subsubsection{Select weighted subset from {\tt HOSTLIB} ({\tt +HOSTSELECT}) }
+\label{sss:hostlib_select}
+% ------------------------------------
+
+To generating host galaxies for image[sim] overlays, it may be convenient to pre-select
+hosts using the command
+%
+\begin{verbatim}                                   
+   snlc_sim.exe NOFILE  +HOSTAPPEND \
+       MAX_HOSTLIB_SELECT 100000   \
+       HOSTLIB_FILE <hostlib>      \
+       HOSTLIB_WGTMAP_FILE <wgtmap_file>
+\end{verbatim} 
+%
+\verb|MAX_HOSTLIB_SELECT| has default value of 1 million, and can be increased or decreased.
+With  \verb|NOFILE| argument, \verb|HOSTLIB_FILE| is required and
+\verb|HOSTLIB_WGTMAP_FILE| is optional.  Galaxies are selected with \verb|WGT>RAN|
+where \verb|WGT| is computed from the host properties and \verb|WGTMAP| file, and
+\verb|RAN| is a random number between 0 and 1. If a \verb|WGTMAP| file is not
+provided, every event is selected and there is no reason to use this option
+except to select the first \verb|MAX_HOSTLIB_SELECT| galaxies.
+
+The output \verb|HOSTLIB| (with \verb|+SELECT| extension in file name) includes
+an extra column \verb|WGT_SELECT|. This output is recommended only to define placement
+of events on images, and is NOT recommended to generated to generate SNANA sims for science.
+
 
 % ------------------------------------
 \subsubsection{Treatment of {\tt LOGMASS} }

@@ -617,7 +617,7 @@ void get_user_input(void) {
   char *INCLUDE_FILE, *EXCLUDE_FILE ;
   char ARG_INCLUDE_LIST[MXINPUT_FILE_SIM][MXPATHLEN] ;
   char ARG_EXCLUDE_LIST[MXINPUT_FILE_SIM][MXPATHLEN] ;
-  //  char fnam[] = "get_user_input"    ;
+  char fnam[] = "get_user_input"    ;  (void)fnam;
 
   // ------------ BEGIN ---------------
 
@@ -1153,10 +1153,10 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_SPECDATA_FILE, "NONE" ); 
   sprintf(INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT, "%s" , HOSTLIB_VARNAME_ZPHOT); 
   
-  HOSTLIB_WGTMAP.OPT_EXTRAP       = 0 ; 
-  INPUTS.HOSTLIB_STOREPAR_LIST[0] = 0 ; // optional vars -> outfile
+  HOSTLIB_WGTMAP.OPT_EXTRAP         = 0 ; 
+  INPUTS.HOSTLIB_STOREPAR_LIST[0]   = 0 ; // optional vars -> outfile
   INPUTS.HOSTLIB_COMMENTPAR_LIST[0] = 0;
-  INPUTS.HOSTLIB_PLUS_COMMAND[0]  = 0 ;
+  INPUTS.HOSTLIB_PLUS_COMMAND[0]    = 0 ;
 
   INPUTS.HOSTLIB_USE         = 0;
   INPUTS.HOSTLIB_MSKOPT      = 0;
@@ -1708,9 +1708,10 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
 
   ISKEY_CID      = ( strstr(WORDS[0], "CID") != NULL ) ;
 
-  ISKEY_HOSTLIB = (strstr(WORDS[0],"HOSTLIB_") != NULL || 
-		   strstr(WORDS[0],"NBR"     ) != NULL ||
-		   strstr(WORDS[0],"HOSTAPPEND" ) != NULL );
+  ISKEY_HOSTLIB = (strstr(WORDS[0],"HOSTLIB_"   ) != NULL || 
+		   strstr(WORDS[0],"NBR"        ) != NULL ||
+		   strstr(WORDS[0],"HOSTAPPEND" ) != NULL ||
+		   strstr(WORDS[0],"HOSTSELECT" ) != NULL );
 
   ISKEY_SIMLIB    = (strstr(WORDS[0],"SIMLIB_" ) != NULL );
 
@@ -3951,6 +3952,16 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     }
     INPUTS.HOSTLIB_MSKOPT |= INPUTS.HOSTLIB_MSKOPT_ADD ;
   }
+
+  else if ( keyMatchSim( 1, "+HOSTSELECT", WORDS[0], keySource ) ) {  // Aug 2026
+    INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_SELECT ; 
+    N += FLAG_NWD_ZERO; // flag that key has no argument
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_USE) ;
+    setbit_HOSTLIB_MSKOPT(HOSTLIB_MSKOPT_VERBOSE) ;
+    INPUTS.HOSTLIB_USE = HOSTLIB_FLAG_REWRITE; // set rewrite flag
+    sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
+  }
+
   else if ( keyMatchSim(1, "+HOSTMAGS", WORDS[0], keySource ) ) {
     INPUTS.HOSTLIB_MSKOPT += HOSTLIB_MSKOPT_PLUSMAGS ; // add synth mags
     N += FLAG_NWD_ZERO; // flag that key has no argument 
@@ -3966,6 +3977,7 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
     INPUTS.HOSTLIB_USE = HOSTLIB_FLAG_REWRITE; // set rewrite flag
     sprintf(INPUTS.HOSTLIB_PLUS_COMMAND,"%s", WORDS[0]);
   }
+
   else if ( keyMatchSim( 1, "SEPNBR_MAX", WORDS[0], keySource ) ) {
     N++; sscanf(WORDS[N], "%le", &HOSTLIB_NBR_WRITE.SEPNBR_MAX );
   }
@@ -10420,6 +10432,9 @@ void rewrite_HOSTLIB_DRIVER(void) {
 
   if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_APPEND )>0 ) 
     { rewrite_HOSTLIB_plusAppend(INPUTS.HOSTLIB_APPEND_FILE); }
+
+  if ( (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SELECT )>0 ) 
+    { rewrite_HOSTLIB_select(INPUTS.HOSTLIB_APPEND_FILE); }  // Aug 2026
 
 } // end rewrite_HOSTLIB_DRIVER
 

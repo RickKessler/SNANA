@@ -45,10 +45,11 @@
 #define HOSTLIB_MSKOPT_DUMP       1024 // screen-dump for each host 
 #define HOSTLIB_MSKOPT_DUMPROW    2048 // DUMP 1 row per host for parsing
 
-#define HOSTLIB_MSKOPT_APPEND     4096  // append columns from file
-#define HOSTLIB_MSKOPT_PLUSMAGS   8192  // compute & add host mags from SED
-#define HOSTLIB_MSKOPT_PLUSNBR   16384  // append list of nbr to HOSTLIB
-#define HOSTLIB_MSKOPT_ZPHOT_QGAUSS 32768  // write Gauss quantiles for zPHOT
+#define HOSTLIB_MSKOPT_APPEND       4096     // +HOSTAPPEND: append columns from file
+#define HOSTLIB_MSKOPT_PLUSMAGS     8192     // +HOSTMAG: compute & add host mags from SED
+#define HOSTLIB_MSKOPT_PLUSNBR      (1<<14)  // 16k +HOSTNBR: append list of nbr to HOSTLIB
+#define HOSTLIB_MSKOPT_SELECT       (1<<15)  // 32k +HOSTSLECT option
+#define HOSTLIB_MSKOPT_ZPHOT_QGAUSS (1<<16)  // 65k write Gauss quantiles for zPHOT
 
 #define HOSTLIB_FLAG_USE      1   // for INPUTS.HOSTLIB_USE
 #define HOSTLIB_FLAG_REWRITE  2   // for INPUTS.HOSTLIB_USE
@@ -442,9 +443,12 @@ struct HOSTLIB_WGTMAP_DEF {
   int     ibin_SNVAR ;                         // SNVAR bin per event
 
   // weigt storage for each galaxy
-  double  WGTMAX ; // max weight for entire  wgtmap
+  double  WGTMAX ;      // max weight for entire  wgtmap
+  double  WGTMAX_GAL;   // max weight among hostlib galaxies
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
-  //double *WGT ;         // wgt for each hostlib entry
+  double *WGT ;         // wgt for each hostlib entry (for +HOSTSELECT only)
+  bool   MALLOC_WGT;    // flag that WGT has been malloced and stored (for special options only)
+
   short int *I2SNMAGSHIFT ;  // SN mag shift for each hostlib entry
   double **WGTSUM_SNVAR;              // idem
   short int **I2SNMAGSHIFT_SNVAR ;    // idem
@@ -637,7 +641,6 @@ struct {
 
 typedef struct {
   char VARNAMES_APPEND[MXFILTINDX*5]; // allow "obs_X " per band
-
   int  NLINE_COMMENT ;
   char *COMMENT[MXFILTINDX];
   char FILENAME_SUFFIX[40];
@@ -823,6 +826,7 @@ void   rewrite_HOSTLIB_plusMags(void);
 void   monitor_HOSTLIB_plusNbr(int OPT, HOSTLIB_APPEND_DEF *HOSTLIB_APPEND);
 double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG);
 void   rewrite_HOSTLIB_plusAppend(char *append_file);
+void   rewrite_HOSTLIB_select(char *append_file);
 
 
 

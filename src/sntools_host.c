@@ -397,7 +397,8 @@ void initvar_HOSTLIB(void) {
   HOSTLIB_WGTMAP.GRIDMAP.NDIM = 0;
   HOSTLIB_WGTMAP.GRIDMAP.NFUN = 0;
   HOSTLIB_WGTMAP.GRIDMAP.NROW = 0;
-  HOSTLIB_WGTMAP.WGTMAX    = 0.0 ;
+  HOSTLIB_WGTMAP.WGTMAX       = 0.0 ;
+  HOSTLIB_WGTMAP.WGTMAX_GAL   = 0.0 ;
   HOSTLIB_WGTMAP.READSTAT  = false ; // init to weight-map NOT read
   HOSTLIB_WGTMAP.NCHECKLIST = 0;
   HOSTLIB_WGTMAP.N_SNVAR      =  0 ;
@@ -1270,6 +1271,7 @@ void  read_HOSTLIB_WGTMAP(void) {
 
   // set a few things after reading WGTMAP
   HOSTLIB_WGTMAP.WGTMAX = HOSTLIB_WGTMAP.GRIDMAP.FUNMAX[0];
+  
   HOSTLIB_WGTMAP.READSTAT = true ;
 
   if ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SNMAGSHIFT )
@@ -4217,7 +4219,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   int  i, NDIM, ivar, ivar_STORE, NROW, ibin, istat ;
   int  NGAL, igal, isparse, IVAL ;
   short int I2MAG;
-  bool VBOSE, LDMPWGT ;
+  bool LDMPWGT ;
 
   int N_SNVAR         = HOSTLIB_WGTMAP.N_SNVAR ;
   int NBTOT_SNVAR     = HOSTLIB_WGTMAP.NBTOT_SNVAR ;
@@ -4226,6 +4228,10 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1]; 
   bool   USE_GAMMA_GRID = (GAMMA_GRID_MAX > GAMMA_GRID_MIN );  
+
+  bool VBOSE      = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_VERBOSE );
+  bool HOSTSELECT = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SELECT ) ;
+  HOSTLIB_WGTMAP.MALLOC_WGT = HOSTSELECT ;
 
   long long GALID, GALID_CHECK ;
 
@@ -4239,8 +4245,6 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   char fnam[] = "init_HOSTLIB_WGTMAP" ;  (void)fnam;
 
   // --------- BEGIN -----------
-
-  VBOSE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_VERBOSE );
 
   malloc_HOSTLIB_WGTMAP();
 
@@ -4323,7 +4327,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       } // end ivar loop
       
 
-      // interpolate to get TMPVAL = WGT and SNMAGSIFT
+      // interpolate to get TMPVAL = WGT and SNMAGSHIFT
       istat = interp_GRIDMAP(&HOSTLIB_WGTMAP.GRIDMAP, VAL_WGTMAP, fnam, TMPVAL ) ;
       
       if ( istat != SUCCESS ) {
@@ -4349,6 +4353,8 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       WGT        = TMPVAL[0] / HOSTLIB_WGTMAP.WGTMAX ;
       SNMAGSHIFT = TMPVAL[1] ; 
       
+      if ( WGT > HOSTLIB_WGTMAP.WGTMAX_GAL ) { HOSTLIB_WGTMAP.WGTMAX_GAL = WGT; }
+
     WGTSUM:
       
       // check for random assignment of SNMAGSHIFT (for BiasCor)
@@ -4374,8 +4380,10 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin][igal] = I2MAG ;
       }
       else {
-	HOSTLIB_WGTMAP.WGTSUM[igal]     = WGTSUM ;
+	HOSTLIB_WGTMAP.WGTSUM[igal]       = WGTSUM ; 
 	HOSTLIB_WGTMAP.I2SNMAGSHIFT[igal] = I2MAG ;
+	if ( HOSTLIB_WGTMAP.MALLOC_WGT ) { HOSTLIB_WGTMAP.WGT[igal] = WGT ;  }
+  
       }
 
       WGTSUM_LAST  =  WGTSUM ;
@@ -4451,6 +4459,12 @@ void malloc_HOSTLIB_WGTMAP(void) {
     HOSTLIB_WGTMAP.WGTSUM       = (double    *)malloc(MEMD2);
     HOSTLIB_WGTMAP.I2SNMAGSHIFT = (short int *)malloc(MEMS2);
     MEMTOT += (double)(MEMD2 + MEMS2) ;
+
+    if ( HOSTLIB_WGTMAP.MALLOC_WGT ) { // Aug 18 2026: only for +HOSTSELECT option
+      HOSTLIB_WGTMAP.WGT   = (double*)malloc(MEMD2);
+      MEMTOT              += (double )(MEMD2) ;
+    }
+
   }
 
   HOSTLIB_WGTMAP.MEMTOT_MB = ( MEMTOT*1.0E-6 );
@@ -6018,7 +6032,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
-  // select host-galaxy from library
+  // select WGTMAP-weighted host-galaxy from library
   GEN_SNHOST_GALID(ZGEN_HELIO);
   IGAL = SNHOSTGAL.IGAL ;
   if ( IGAL < 0 ) { return ; } // Aug 2015
@@ -10079,6 +10093,7 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // Feb 23 2026: return NLINE_GAL
   // Apr 07 2026: if input hostlib has '.gz' extension, remove it from ouput hostlib name
   // Jul 08 2026: gzip HLIB_NEW with system() call
+  // Aug 18 2026: if LINE_APPEND == REJECT, skip rewrite for this line. For +HOSTSELECT option
 
   char *SUFFIX       = HOSTLIB_APPEND->FILENAME_SUFFIX; // or new HOSTLIB
   int  NLINE_COMMENT = HOSTLIB_APPEND->NLINE_COMMENT;
@@ -10183,7 +10198,7 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
   // - - - - - - - - - - - - - - - - - 
   // read each original line; then write original line plus appended line.
   long long GALID, GALID_orig ;
-  int igal_unsort, igal_zsort, ivar, NWD_LINE, NLINE_GAL=0;
+  int igal_unsort, igal_zsort, ivar, NWD_LINE, NLINE_GAL=0, NLINE_WRITE=0;
   int MSKOPT_PARSE=MSKOPT_PARSE_WORDS_STRING+MSKOPT_PARSE_WORDS_IGNORECOMMA;
   int NDUMP = -6;
   char *LINE_APPEND, *FIRSTWORD, *NEXTWORD, *ptrCR ;
@@ -10226,29 +10241,23 @@ int rewrite_HOSTLIB(HOSTLIB_APPEND_DEF *HOSTLIB_APPEND) {
 	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
 	}
 
-	sprintf(LINE_APPEND,"%s",HOSTLIB_APPEND->LINE_APPEND[igal_unsort]);
-
-	/* xxx
-	for(ifilt=1; ifilt <= NFILT; ifilt++ ) {
-	  sprintf(cval, " %6.3f", MAG_STORE[ifilt][igal_unsort] );
-	  strcat(LINE_APPEND,cval);
-	}
-	xxxxxxx */
-
+	sprintf(LINE_APPEND, "%s", HOSTLIB_APPEND->LINE_APPEND[igal_unsort]);
 	igal_unsort++ ;
       }
     }
 
-    if ( NLINE_GAL >= INPUTS.HOSTLIB_MAXREAD ) { break; }
+    if ( NLINE_GAL >= INPUTS.HOSTLIB_MAXREAD ) { break    ; } 
+    if ( strcmp(LINE_APPEND,"REJECT") == 0   ) { continue ; } // Aug 18 2026
 
     ptrCR = strchr(LINE,'\n'); if(ptrCR){*ptrCR=' ';} // remove <CR>
     fprintf(FP_NEW,"%s %s\n", LINE, LINE_APPEND);
+    NLINE_WRITE++ ;
   }
 
 
   if(gzipFlag ) { pclose(FP_ORIG); }  else { fclose(FP_ORIG); }
   fclose(FP_NEW);
-  printf("  %s: wrote %d GAL rows\n", fnam, NLINE_GAL);
+  printf("  %s: wrote %d of %d GAL rows\n", fnam, NLINE_WRITE, NLINE_GAL);
   fflush(stdout);
 
   // Jul 8 2026: gzip HOSTNBR hostlib
@@ -11064,13 +11073,101 @@ void rewrite_HOSTLIB_plusAppend(char *append_file) {
   }
 
   printf("  Done. \n");     fflush(stdout);
-
   exit(0);
 
   return ;
 
 } // end rewrite_HOSTLIB_plusAppend
 
+// **************************************************
+void rewrite_HOSTLIB_select(char *append_file) {
+
+  // Created Aug 18 2026
+  // Use WGTMAP to select weighted sub-sample and re-write new HOSTLIB.
+  // Intended use is to use the gaalxy RA,DEC list to construct SIMLIB/cadence
+  // for image overlays. Do NOT use this hostlib output for biasCor or
+  // or for validation sims.
+
+  // TO-DO:
+  //   - apply WGTMAP
+  //   - user input for output size of HOSTLIB
+  //   - NGAL_SELECT here does not match NLINE_WRITE in rewrite_HOSTLIB function ??
+
+  int NGAL_ORIG     = HOSTLIB.NGAL_STORE;
+  double WGTMAX_GAL = HOSTLIB_WGTMAP.WGTMAX_GAL;
+
+  HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
+  int  NGAL_SELECT, igal_unsort;
+  double WGT, ran1;
+  bool ACCEPT;
+  long long int GALID;
+  char MSG[100], LINE_APPEND[20];
+  char fnam[] = "rewrite_HOSTLIB_select" ;
+
+  // ----------------- BEGIN -----------------
+
+  print_banner(fnam);
+  
+  // - - - - -
+  
+  // - - - -
+  malloc_HOSTLIB_APPEND(NGAL_ORIG, &HOSTLIB_APPEND);
+
+  HOSTLIB_APPEND.VARNAMES_APPEND[0] = 0;
+  sprintf(HOSTLIB_APPEND.FILENAME_SUFFIX, "%s", "+SELECT");
+
+  
+  INPUTS.ISEED = 477791;
+  init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN);
+
+  // - - - - 
+  // loop over all galaxies and prepare string to append.
+  NGAL_SELECT = 0 ;
+  //.xyz
+  for(igal_unsort=0; igal_unsort < NGAL_ORIG; igal_unsort++ ) {
+
+    // get GALID for diagnostics (not needed for selection)
+    GALID  = get_GALID_HOSTLIB(igal_unsort);
+
+    // get weight for selection
+    WGT = HOSTLIB_WGTMAP.WGT[igal_unsort];
+    WGT /= WGTMAX_GAL;
+
+    // random between 0 and 1
+    ran1 = getRan_Flat1(1) ; 
+
+    if ( igal_unsort < 3 ) {  // diagnostic print
+      printf("\t Diagnostic: WGT(igal=%d,GALID=%lld)  = %le   (randome=%.4f)\n", 
+	     igal_unsort, GALID, WGT, ran1);      fflush(stdout);
+    }
+
+    ACCEPT = (WGT > ran1);
+
+    LINE_APPEND[0] = 0 ; // default blank string --> accept without modification
+    if ( ACCEPT )
+      { NGAL_SELECT++ ; }
+    else 
+      { sprintf(LINE_APPEND,"REJECT");  }  // reject flag
+
+    sprintf(HOSTLIB_APPEND.LINE_APPEND[igal_unsort],"%s", LINE_APPEND);
+
+  } // end igal_unsort loop over all galaxies
+
+  //sprintf(HOSTLIB_APPEND->LINE_APPEND[i],"NULL_APPEND");
+
+  sprintf(MSG,"Select %d of %d galaxies", NGAL_SELECT, NGAL_ORIG);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+
+  // execute re-write
+  int NLINE_GAL = rewrite_HOSTLIB(&HOSTLIB_APPEND);
+  (void)NLINE_GAL ;
+
+  printf("  Done. \n");     fflush(stdout);
+  exit(0);
+  return;
+
+} // end rewrite_HOSTLIB_select
 
 
 

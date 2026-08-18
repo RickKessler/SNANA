@@ -358,6 +358,8 @@ For help, run code with no arguments
    + opt_chi2max=2: re-score the chi2max cut once against the converged
      fit (from the full sample, so pre-fit rejects can return), then
      refit once; see rescore_chi2max().
+   + opt_chi2max=3: iterate membership to a fixed point with the scoring
+     denominator anchored at a full-sample fit; see iterate_chi2max().
 
  ******************************************************/
 
@@ -411,6 +413,19 @@ int     NCALL_SALT2mu_DRIVER_EXEC;
 bool    DID_CHI2MAX_RESCORE = false ;
 int     NREJ_CHI2MAX_PASS1  = 0 ;
 int     NREJ_CHI2MAX_PASS2  = 0 ;
+
+// Aug 2026: opt_chi2max=3 state (fixed-point iteration on membership,
+// with the SCORING error model anchored to the full-sample fit).
+#define MXITER_CHI2MAX_RESCORE 10  // max membership iterations
+int     NITER_CHI2MAX_RESCORE = 0 ;   // number of scoring iterations performed
+int     NREJ_CHI2MAX_ITER[MXITER_CHI2MAX_RESCORE+2] ; // reject count per iter
+bool    CONVERGED_CHI2MAX_RESCORE = false ;
+bool    TWOCYCLE_CHI2MAX_RESCORE  = false ;
+double *DENOM_CHI2MAX_RESCORE     = NULL ; // frozen per-event scoring muerrsq
+bool   *REJ_CHI2MAX_PREV1         = NULL ; // membership_{k-1} (the fitted one)
+bool   *REJ_CHI2MAX_PREV2         = NULL ; // membership_{k-2}
+bool   *REJ_CHI2MAX_CURR          = NULL ; // membership_k (just scored)
+double *SCORE_CHI2MAX_RESCORE     = NULL ; // chi2_score of the current iter
 
 #define MXVAR_OVERRIDE 20
 
@@ -1258,7 +1273,10 @@ struct INPUTS {
   double *chi2max_list;    // list vs. IDSURVEY
   int    iflag_chi2max;    // 1->cut, 2->fitwgt0; 4->global, 8-> vs. IDSURVEY
   int    opt_chi2max;  // Aug 2026: 0(default)-> off; 1-> legacy cut;
-                           // 2-> re-score once vs. converged fit, then refit
+                           // 2-> re-score once vs. converged fit, then
+                           // refit; 3-> iterate membership to a
+                           // fixed point with the scoring denominator frozen
+                           // at a full-sample (anchor) fit
   
   SELECT_VAR_DEF SELECT_CUTWIN ;
   SELECT_VAR_DEF SELECT_PARSHIFT;
@@ -1618,6 +1636,8 @@ void applyCut_nmax(void);
 void applyCut_chi2max(void);
 bool use_opt_chi2max(void);   // Aug 2026
 void rescore_chi2max(void);       // Aug 2026
+bool anchor_pass_chi2max(void);            // Aug 2026 (opt_chi2max=3)
+bool iterate_chi2max(int iter, bool LAST); // Aug 2026 (opt_chi2max=3)
 void merge_duplicates(int N, int *isnList);
 void setup_zbins_fit(void);
 void setup_BININFO_redshift(void); // setup BBC redshift bins
@@ -2325,11 +2345,20 @@ void SALT2mu_DRIVER_EXEC(void) {
     if ( !SUBPROCESS.USE ) { prep_input_repeat(fnam); }
   }
 
-  // Aug 2026: optional 2nd fit pass that re-scores the chi2max outlier cut
-  // against the converged fit (opt_chi2max=2).  NPASS_FIT=1 reproduces
-  // the legacy single-pass behavior byte for byte.
+  // Aug 2026: optional extra fit pass(es) that re-score the chi2max cut
+  // against the converged fit; NPASS_FIT=1 reproduces legacy behavior.
+  //   opt_chi2max=2 -> 2 passes, rescore_chi2max() in between.
+  //   opt_chi2max=3 -> anchor pass, then up to MXITER_CHI2MAX_RESCORE
+  //                    membership iterations decided by iterate_chi2max().
   int NPASS_FIT = 1, ipass_fit ;
-  if ( use_opt_chi2max() ) { NPASS_FIT = 2; }
+  bool USE_RESCORE_ITER = ( use_opt_chi2max() &&
+			    INPUTS.opt_chi2max >= 3 ) ;
+  if ( use_opt_chi2max() ) {
+    if ( USE_RESCORE_ITER )
+      { NPASS_FIT = MXITER_CHI2MAX_RESCORE ; }
+    else
+      { NPASS_FIT = 2; }
+  }
 
   for ( ipass_fit=1; ipass_fit <= NPASS_FIT; ipass_fit++ ) {
 
@@ -2421,7 +2450,15 @@ void SALT2mu_DRIVER_EXEC(void) {
 
     // re-score the outlier cut against this converged fit, then loop back
     // for exactly one refit (no fixed-point iteration on membership)
-    if ( ipass_fit < NPASS_FIT ) { rescore_chi2max(); }
+    if ( USE_RESCORE_ITER ) {
+      // opt_chi2max=3: score membership against THIS converged mean model
+      // with the anchored (frozen) denominator; iterate_chi2max returns false
+      // when the iteration has terminated, and has then already restored the
+      // fit state to the membership this pass was run on.
+      bool DO_REFIT = iterate_chi2max(ipass_fit, ipass_fit == NPASS_FIT);
+      if ( !DO_REFIT ) { break; }
+    }
+    else if ( ipass_fit < NPASS_FIT ) { rescore_chi2max(); }
 
   }  // end ipass_fit loop over fit passes
 
@@ -3333,8 +3370,14 @@ void applyCut_chi2max(void) {
   bool DOCUT_APPLY   = (iflag_chi2max & IFLAG_APPLY)   > 0 ;
   bool DOCUT_GLOBAL  = (iflag_chi2max & IFLAG_GLOBAL ) > 0 ;
 
+  // Aug 2026: opt_chi2max=3 runs this routine as the ANCHOR pass: score
+  // and report, but reject nothing, so the anchor fit sees the full
+  // sample.  Always false for opt_chi2max=1/2.
+  bool SCORE_ONLY = anchor_pass_chi2max();
+
   double chi2max ;
   int len, icondn, n, cutmask, idsample, idsurvey, NREJ=0, n_fail[MXNUM_SAMPLE] ;
+  int NSCORE_FAIL = 0 ;
   const int null=0 ;
   double chi2;
   bool FAILCUT ;
@@ -3424,7 +3467,13 @@ void applyCut_chi2max(void) {
       sprintf(str_chi2, "Chi2(%s) = %.2f  ", name, chi2 );
       if ( idsample >= 0 ) { n_fail[idsample]++ ; }
 
-      if ( DOCUT_APPLY )  { 
+      if ( SCORE_ONLY ) {
+	// opt_chi2max=3 anchor pass: score, report, apply nothing
+	sprintf(msg_fail, "%s -> would reject, NOT applied (anchor pass)   (%s/%s)",
+		str_chi2, survey, field);
+	NSCORE_FAIL++ ;
+      }
+      else if ( DOCUT_APPLY )  {
 	sprintf(msg_fail, "%s -> reject   (%s/%s)", str_chi2, survey, field);
 	setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR);
 	NREJ++ ;
@@ -3444,8 +3493,19 @@ void applyCut_chi2max(void) {
   } // end n loop over SN
 
 
+  if ( SCORE_ONLY ) {
+    fprintf(FP_STDOUT, "   chi2max ANCHOR pass (opt_chi2max=3): "
+	    "%d events above threshold, NONE rejected;\n"
+	    "      the anchor fit uses the FULL sample and defines the frozen "
+	    "scoring denominator.\n", NSCORE_FAIL );
+    fflush(FP_STDOUT);
+    fprintf(FP_STDOUT, " Finished %s\n", fnam); fflush(FP_STDOUT);
+    DO_H0marg = false ;
+    return ;
+  }
+
   fprintf(FP_STDOUT, "   chi2max rejects TOTAL: %d events \n", NREJ);
-  
+
   // Dec 2025: write chi2max reject by IDSAMPLE
   int n_f;
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
@@ -3686,6 +3746,362 @@ void rescore_chi2max(void) {
   return ;
 
 } // end rescore_chi2max
+
+
+// ******************************************
+bool anchor_pass_chi2max(void) {
+
+  // Created Aug 2026 (TZ Tang) for opt_chi2max=3.
+  // True while applyCut_chi2max() runs as the ANCHOR pass (score and
+  // report, reject nothing).  False for opt_chi2max=1/2, whose code
+  // paths are untouched.
+
+  if ( INPUTS.opt_chi2max < 3 ) { return false; }
+  return use_opt_chi2max();
+
+} // end anchor_pass_chi2max
+
+
+// ******************************************
+bool iterate_chi2max(int iter, bool LAST) {
+
+  // Created Aug 2026 (TZ Tang) for opt_chi2max=3.
+  // One membership iteration of the anchored fixed point, called from
+  // SALT2mu_DRIVER_EXEC after fit pass 'iter' converges; LAST=true forces
+  // termination.
+  //   Returns true  -> membership changed; caller refits.
+  //   Returns false -> iteration terminated, with the membership of the
+  //                    just-finished fit restored; do not refit.
+  // The scoring denominator DENOM[n] is frozen at the anchor (full-sample)
+  // fit, and chi2_score = mures^2/DENOM[n] is re-scored against the
+  // current mean model each pass.  Re-deriving sigint on the trimmed
+  // sample each pass is a ratchet (each removal shrinks sigint and raises
+  // every other chi2), hence the anchor.  Each pass still fits its own
+  // sigint; only the CUT denominator is frozen.  INFO_DATA.chi2 is not
+  // reused because FCN fills it with the current muerrsq (+ log-sigma
+  // term for fitflag_sigmb=2).  Same clear-bits-first discipline as
+  // rescore_chi2max().
+
+  int  NSN_DATA       = INFO_DATA.TABLEVAR.NSN_ALL ;
+  int  iflag_chi2max  = INPUTS.iflag_chi2max ;
+  int  IFLAG_GLOBAL   = 4 ;
+  bool DOCUT_GLOBAL   = (iflag_chi2max & IFLAG_GLOBAL ) > 0 ;
+
+  int  DOFIT_FLAG_ORIG = DOFIT_FLAG ;
+  bool HAS_FITWGT0     = ( INFO_DATA.set_fitwgt0 != NULL &&
+			   INFO_DATA.set_fitwgt0_cutwin != NULL ) ;
+  bool ANCHOR          = ( iter == 1 );  // pass just finished = anchor pass
+
+  double chi2max, chi2_score, mures, denom ;
+  double *MUERRSQ_LAST_SAVE ;
+  int  len, icondn, n, cutmask, idsurvey ;
+  int  NREJ_CURR=0, NSCORE=0, NBACK=0, NNEW=0, NCHANGE, NDENOM=0, NBADDENOM=0 ;
+  int  MEMD = (NSN_DATA+1) * sizeof(double);
+  int  MEMB = (NSN_DATA+1) * sizeof(bool);
+  const int null=0 ;
+  bool CONVERGED=false, TWOCYCLE=false, SAME1, SAME2, DO_REFIT ;
+  char mcom[60], *name, *survey, *field ;
+  char fnam[] = "iterate_chi2max" ;
+
+  // ----------- BEGIN ------------
+
+  fprintf(FP_STDOUT, "\n Begin %s: chi2max re-score iteration %d "
+	  "(anchored fixed point)\n", fnam, iter );
+  fflush(FP_STDOUT);
+
+  if ( ANCHOR ) {
+    DENOM_CHI2MAX_RESCORE = (double*) malloc(MEMD);
+    SCORE_CHI2MAX_RESCORE = (double*) malloc(MEMD);
+    REJ_CHI2MAX_PREV1     = (bool  *) malloc(MEMB);
+    REJ_CHI2MAX_PREV2     = (bool  *) malloc(MEMB);
+    REJ_CHI2MAX_CURR      = (bool  *) malloc(MEMB);
+    for(n=0; n < NSN_DATA; n++ ) {
+      DENOM_CHI2MAX_RESCORE[n] = -9.0 ;
+      SCORE_CHI2MAX_RESCORE[n] = -9.0 ;
+      // membership_0 and membership_-1 = the full sample (nothing rejected)
+      REJ_CHI2MAX_PREV1[n] = false ;
+      REJ_CHI2MAX_PREV2[n] = false ;
+      REJ_CHI2MAX_CURR[n]  = false ;
+    }
+    NITER_CHI2MAX_RESCORE     = 0 ;
+    CONVERGED_CHI2MAX_RESCORE = false ;
+    TWOCYCLE_CHI2MAX_RESCORE  = false ;
+  }
+
+  // Snapshot muerrsq_last from the just-finished fit; if this is the LAST
+  // iteration it is restored before the closing FCN, so the FITRES CHI2
+  // column carries the same log term as a single-pass fit would write.
+  MUERRSQ_LAST_SAVE = (double*) malloc(MEMD);
+  for (n=0; n < NSN_DATA; ++n)
+    { MUERRSQ_LAST_SAVE[n] = INFO_DATA.muerrsq_last[n] ; }
+
+  // - - - 1. undo the current chi2max/MINBIN decision on every event - - -
+  for (n=0; n < NSN_DATA; ++n)  {
+    unsetbit_CUTMASK(n, CUTBIT_CHI2,   &INFO_DATA.TABLEVAR );
+    unsetbit_CUTMASK(n, CUTBIT_MINBIN, &INFO_DATA.TABLEVAR );
+    if ( HAS_FITWGT0 )
+      { INFO_DATA.set_fitwgt0[n] = INFO_DATA.set_fitwgt0_cutwin[n] ; }
+  }
+  INFO_DATA.TABLEVAR.NSN_CUTBIT[CUTBIT_CHI2]     = 0 ;
+  NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_CHI2]    = 0 ;
+  INFO_DATA.TABLEVAR.NSN_CUTBIT[CUTBIT_MINBIN]   = 0 ;
+  NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_MINBIN]  = 0 ;
+
+  fprintf(FP_STDOUT, "\n Setup z-bins on the full sample before scoring: \n");
+  setup_zbins_fit();
+
+  // - - - 2. current converged error model, then refresh every event - - -
+  fprintf(FP_STDOUT, "\t fitted %s of this pass = %.5f "
+	  "(NOT used as the scoring denominator)\n",
+	  FITRESULT.PARNAME[IPAR_COVINT_PARAM], FITINP.COVINT_PARAM_FIX );
+  recalc_dataCov();
+
+  DO_H0marg  = true ;            // forces iflag=3 inside MNCHI2FUN
+  DOFIT_FLAG = FITFLAG_CHI2 ;    // required there to refresh muerrsq_last
+
+  strcpy(mcom,"CALL FCN 1");  len = strlen(mcom);
+  mncomd_(fcn, mcom, &icondn, &null, len);   fflush(FP_STDOUT);
+  mncomd_(fcn, mcom, &icondn, &null, len);   fflush(FP_STDOUT);
+
+  DO_H0marg  = false ;
+
+  // - - - 3. anchor pass: FREEZE the scoring denominator - - -
+  // Freeze muerr^2 (not the FCN's muerrsq; one ulp apart): MUERR is what
+  // the FITRES writes, i.e. what a user reproducing the cut would use.
+  if ( ANCHOR ) {
+    for (n=0; n < NSN_DATA; ++n)  {
+      if ( INFO_DATA.TABLEVAR.CUTMASK[n] ) { continue; }
+      DENOM_CHI2MAX_RESCORE[n] = INFO_DATA.muerr[n] * INFO_DATA.muerr[n] ;
+      NDENOM++ ;
+    }
+    fprintf(FP_STDOUT, "   FREEZE scoring denominator at the ANCHOR "
+	    "(full-sample) fit:\n"
+	    "      %s = %.5f,  %d events with frozen MUERR^2.\n",
+	    FITRESULT.PARNAME[IPAR_COVINT_PARAM], FITINP.COVINT_PARAM_FIX,
+	    NDENOM );
+  }
+
+  // - - - 4. score every event against the CURRENT mean model - - -
+  for (n=0; n < NSN_DATA; ++n)  {
+    REJ_CHI2MAX_CURR[n]      = false ;
+    SCORE_CHI2MAX_RESCORE[n] = -9.0 ;
+
+    cutmask  = INFO_DATA.TABLEVAR.CUTMASK[n] ;
+    if ( cutmask ) { continue; }   // rejected by some OTHER cut; stays out
+
+    denom = DENOM_CHI2MAX_RESCORE[n] ;
+    if ( denom <= 0.0 ) { NBADDENOM++ ; continue; }  // never scored at anchor
+
+    idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[n];
+    if ( DOCUT_GLOBAL )
+      { chi2max = INPUTS.chi2max ; }
+    else
+      { chi2max = INPUTS.chi2max_list[idsurvey]; }
+
+    mures      = INFO_DATA.mures[n] ;
+    chi2_score = mures*mures/denom ;
+    SCORE_CHI2MAX_RESCORE[n] = chi2_score ;
+    NSCORE++ ;
+
+    if ( chi2_score > chi2max ) { REJ_CHI2MAX_CURR[n] = true; NREJ_CURR++ ; }
+  }
+
+  if ( NBADDENOM > 0 ) {
+    fprintf(FP_STDOUT, "   WARNING: %d event(s) have no frozen denominator "
+	    "(not in the anchor fit) and are left in the sample.\n", NBADDENOM);
+  }
+
+  NITER_CHI2MAX_RESCORE       = iter ;
+  NREJ_CHI2MAX_ITER[iter]     = NREJ_CURR ;
+
+  // - - - 5. compare with the two previous memberships - - -
+  SAME1 = SAME2 = true ;
+  for (n=0; n < NSN_DATA; ++n)  {
+    if ( REJ_CHI2MAX_CURR[n] != REJ_CHI2MAX_PREV1[n] ) { SAME1 = false; }
+    if ( REJ_CHI2MAX_CURR[n] != REJ_CHI2MAX_PREV2[n] ) { SAME2 = false; }
+    if (  REJ_CHI2MAX_PREV1[n] && !REJ_CHI2MAX_CURR[n] ) { NBACK++ ; }
+    if ( !REJ_CHI2MAX_PREV1[n] &&  REJ_CHI2MAX_CURR[n] ) { NNEW++  ; }
+  }
+  NCHANGE = NBACK + NNEW ;
+
+  CONVERGED = SAME1 ;
+  TWOCYCLE  = ( !SAME1 && SAME2 && iter >= 2 );
+
+  fprintf(FP_STDOUT, "   iteration %d: %d of %d scored events rejected "
+	  "(%d returned, %d newly rejected vs. the fitted membership)\n",
+	  iter, NREJ_CURR, NSCORE, NBACK, NNEW );
+
+  if ( NCHANGE > 0 && NCHANGE <= 20 ) {
+    for (n=0; n < NSN_DATA; ++n)  {
+      if ( REJ_CHI2MAX_CURR[n] == REJ_CHI2MAX_PREV1[n] ) { continue; }
+      name     = INFO_DATA.TABLEVAR.name[n];
+      idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[n];
+      survey   = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
+      field    = INFO_DATA.TABLEVAR.field[n];
+      fprintf(FP_STDOUT, "\t %-8s chi2_score=%8.2f -> %s   (%s/%s)\n",
+	      name, SCORE_CHI2MAX_RESCORE[n],
+	      REJ_CHI2MAX_CURR[n] ? "reject" : "restore", survey, field );
+    }
+  }
+
+  // - - - 6. decide: another pass, or stop here - - -
+  DO_REFIT = ( !CONVERGED && !TWOCYCLE && !LAST );
+
+  if ( CONVERGED ) {
+    CONVERGED_CHI2MAX_RESCORE = true ;
+    fprintf(FP_STDOUT, "   chi2max re-score CONVERGED after %d iteration(s); "
+	    "final rejected = %d\n", iter, NREJ_CURR );
+  }
+  else if ( TWOCYCLE ) {
+    TWOCYCLE_CHI2MAX_RESCORE = true ;
+    fprintf(FP_STDOUT,
+	    "\n *** WARNING: chi2max re-score TWO-CYCLE at iteration %d ***\n"
+	    "   The membership oscillates between two sets; there is no fixed "
+	    "point.\n", iter );
+    fprintf(FP_STDOUT, "   set A (KEPT; the membership of the reported fit):");
+    for (n=0; n < NSN_DATA; ++n)  {
+      if ( REJ_CHI2MAX_PREV1[n] )
+	{ fprintf(FP_STDOUT, " %s", INFO_DATA.TABLEVAR.name[n] ); }
+    }
+    fprintf(FP_STDOUT, "\n   set B (discarded; scored at iteration %d):", iter);
+    for (n=0; n < NSN_DATA; ++n)  {
+      if ( REJ_CHI2MAX_CURR[n] )
+	{ fprintf(FP_STDOUT, " %s", INFO_DATA.TABLEVAR.name[n] ); }
+    }
+    fprintf(FP_STDOUT, "\n   Keeping set A so that the reported fit and the "
+	    "written sample agree.\n\n");
+  }
+  else if ( LAST ) {
+    fprintf(FP_STDOUT,
+	    "\n *** WARNING: chi2max re-score did NOT converge in %d "
+	    "iterations ***\n"
+	    "   Keeping the membership of the reported fit "
+	    "(%d rejected); the last scoring pass wanted %d.\n\n",
+	    MXITER_CHI2MAX_RESCORE, NREJ_CHI2MAX_ITER[iter-1], NREJ_CURR );
+  }
+
+  // trajectory line, printed every iteration so a truncated log still has it
+  fprintf(FP_STDOUT, "   NREJ trajectory (iter 1..%d): 0", iter);
+  { int k; for(k=1; k <= iter; k++ )
+      { fprintf(FP_STDOUT, " -> %d", NREJ_CHI2MAX_ITER[k]); } }
+  fprintf(FP_STDOUT, "\n");
+
+  // - - - 7. commit a membership - - -
+  if ( DO_REFIT ) {
+    // adopt membership_k and let the driver refit on it
+    for (n=0; n < NSN_DATA; ++n)  {
+      if ( REJ_CHI2MAX_CURR[n] )
+	{ setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR); }
+    }
+    // shift the history: membership_{k-1} -> {k-2},  membership_k -> {k-1}
+    for (n=0; n < NSN_DATA; ++n)  {
+      REJ_CHI2MAX_PREV2[n] = REJ_CHI2MAX_PREV1[n] ;
+      REJ_CHI2MAX_PREV1[n] = REJ_CHI2MAX_CURR[n] ;
+    }
+    // clear CUTBIT_MINBIN so the next pass's setup_zbins_fit derives the
+    // z-bin float flags from the RE-CUT sample, with exec_mnparm right behind
+    // it to keep MINUIT's FIX state in step
+    for (n=0; n < NSN_DATA; ++n)
+      { unsetbit_CUTMASK(n, CUTBIT_MINBIN, &INFO_DATA.TABLEVAR ); }
+    INFO_DATA.TABLEVAR.NSN_CUTBIT[CUTBIT_MINBIN]   = 0 ;
+    NSTORE_CUTBIT[EVENT_TYPE_DATA][CUTBIT_MINBIN]  = 0 ;
+
+    DOFIT_FLAG = DOFIT_FLAG_ORIG ;
+    free(MUERRSQ_LAST_SAVE);
+    fprintf(FP_STDOUT, " Finished %s -> refit on the new membership\n", fnam);
+    fflush(FP_STDOUT);
+    return true ;
+  }
+
+  // Terminating.  Restore membership_{k-1}, which is the set the fit that
+  // was just reported actually used, so that the fit results, the event
+  // statistics and the written sample all describe the same events.  When
+  // the iteration CONVERGED this is identical to membership_k.
+  for (n=0; n < NSN_DATA; ++n)  {
+    if ( REJ_CHI2MAX_PREV1[n] )
+      { setbit_CUTMASK(n, CUTBIT_CHI2, &INFO_DATA.TABLEVAR); }
+  }
+  // Audit trail.  The per-iteration block above prints only events whose
+  // verdict CHANGED, which goes silent on exactly the events under dispute
+  // (an event that is scored just under the threshold every iteration never
+  // changes and never prints).  So on the way out, print the whole final
+  // reject list with its score, and the highest-scoring events that were
+  // KEPT, which is where a reader looks to see how close the call was.
+  fprintf(FP_STDOUT, "   final membership audit: the set below is the one the "
+	  "reported fit used\n"
+	  "      (%s); each score is mures^2/DENOM_anchor "
+	  "as of iteration %d.\n",
+	  CONVERGED ? "re-derived unchanged by the last iteration"
+	            : "NOT re-derived -- see the warning above", iter );
+  for (n=0; n < NSN_DATA; ++n)  {
+    if ( !REJ_CHI2MAX_PREV1[n] ) { continue; }
+    idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[n];
+    survey   = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
+    fprintf(FP_STDOUT, "\t REJECT %-8s score=%8.2f   (%s/%s)\n",
+	    INFO_DATA.TABLEVAR.name[n], SCORE_CHI2MAX_RESCORE[n],
+	    survey, INFO_DATA.TABLEVAR.field[n] );
+  }
+  { int k, ibest ; double best ; bool *shown = (bool*) malloc(MEMB) ;
+    for (n=0; n < NSN_DATA; ++n) { shown[n] = false; }
+    for (k=0; k < 5; k++ ) {
+      ibest = -9 ;  best = -1.0 ;
+      for (n=0; n < NSN_DATA; ++n)  {
+	if ( REJ_CHI2MAX_PREV1[n] || shown[n] )   { continue; }
+	if ( SCORE_CHI2MAX_RESCORE[n] <= best )   { continue; }
+	best = SCORE_CHI2MAX_RESCORE[n] ;  ibest = n ;
+      }
+      if ( ibest < 0 ) { break; }
+      shown[ibest] = true ;
+      idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[ibest];
+      survey   = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
+      fprintf(FP_STDOUT, "\t keep   %-8s score=%8.2f   (%s/%s)\n",
+	      INFO_DATA.TABLEVAR.name[ibest], best,
+	      survey, INFO_DATA.TABLEVAR.field[ibest] );
+    }
+    free(shown);
+  }
+
+  fprintf(FP_STDOUT, "\n Setup z-bins on the final membership: \n");
+  setup_zbins_fit();
+
+  // Refresh FITRESULT and the per-event output arrays at the converged
+  // parameters on that final membership.  The parameters, the covariances
+  // (recalc_dataCov above ran at this pass's converged scatter) and the
+  // membership are all the ones the last fit iteration used, so this
+  // reproduces the state left by the fit's own "CALL FCN 3", including the
+  // log-sigma reference that the CHI2 output column is measured against.
+  for (n=0; n < NSN_DATA; ++n)
+    { INFO_DATA.muerrsq_last[n] = MUERRSQ_LAST_SAVE[n] ; }
+
+  strcpy(mcom,"CALL FCN 3");  len = strlen(mcom);
+  mncomd_(fcn, mcom, &icondn, &null, len);   fflush(FP_STDOUT);
+
+  DOFIT_FLAG = DOFIT_FLAG_ORIG ;
+
+  // provenance for the YAML output.  PASS1 = what iteration 1 rejected (the
+  // one-shot answer at the anchored denominator); PASS2 = what the KEPT
+  // membership rejects, which differs from NREJ_CURR only when the iteration
+  // stopped without a fixed point.
+  { int NREJ_KEPT = 0 ;
+    for (n=0; n < NSN_DATA; ++n) { if (REJ_CHI2MAX_PREV1[n]) { NREJ_KEPT++; } }
+    DID_CHI2MAX_RESCORE = true ;
+    NREJ_CHI2MAX_PASS1  = NREJ_CHI2MAX_ITER[1] ;
+    NREJ_CHI2MAX_PASS2  = NREJ_KEPT ;
+  }
+
+  free(MUERRSQ_LAST_SAVE);
+  free(DENOM_CHI2MAX_RESCORE);  DENOM_CHI2MAX_RESCORE = NULL ;
+  free(SCORE_CHI2MAX_RESCORE);  SCORE_CHI2MAX_RESCORE = NULL ;
+  free(REJ_CHI2MAX_PREV2);      REJ_CHI2MAX_PREV2     = NULL ;
+  free(REJ_CHI2MAX_CURR);       REJ_CHI2MAX_CURR      = NULL ;
+  free(REJ_CHI2MAX_PREV1);      REJ_CHI2MAX_PREV1     = NULL ;
+
+  fprintf(FP_STDOUT, " Finished %s -> no more passes\n", fnam);
+  fflush(FP_STDOUT);
+
+  return false ;
+
+} // end iterate_chi2max
 
 
 // *******************************
@@ -21749,9 +22165,10 @@ void prep_input_driver(void) {
   // Aug 2026: echo opt_chi2max here, at the END of prep_input_driver,
   // because keys parsed above can still switch the cut off (e.g. muref_zpoly
   // sets iflag_chi2max=0).  Silent for opt_chi2max <= 1.
-  if ( INPUTS.opt_chi2max < 0 || INPUTS.opt_chi2max > 2 ) {
+  if ( INPUTS.opt_chi2max < 0 || INPUTS.opt_chi2max > 3 ) {
     sprintf(c1err,"Invalid opt_chi2max=%d", INPUTS.opt_chi2max);
-    sprintf(c2err,"Valid values: 0 (off), 1 (legacy cut), 2 (one re-score).");
+    sprintf(c2err,"Valid values: 0 (off), 1 (legacy cut), 2 (one re-score), "
+	    "3 (anchored iteration).");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
 
@@ -21772,6 +22189,33 @@ void prep_input_driver(void) {
     if ( strlen(reason) > 0 ) {
       fprintf(FP_STDOUT, "opt_chi2max=%d --> WARNING: %s; "
 	      "key has no effect.\n", INPUTS.opt_chi2max, reason );
+    }
+    else if ( INPUTS.opt_chi2max >= 3 ) {
+      // Aug 2026: refuse combos with no well-defined frozen denominator
+      if ( (INPUTS.iflag_chi2max & DOFLAG_SELECT_APPLY) == 0 ) {
+	sprintf(c1err,"chi2max(FITWGT0) is not supported with "
+		"opt_chi2max=3");
+	sprintf(c2err,"Use opt_chi2max=2, or apply chi2max as a cut.");
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+      }
+      if ( INFO_CCPRIOR.USE ) {
+	sprintf(c1err,"A CC prior is not supported with opt_chi2max=3");
+	sprintf(c2err,"The BEAMS chi2 has no single frozen denominator; "
+		"use opt_chi2max=2.");
+	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
+      }
+      fprintf(FP_STDOUT,
+	      "opt_chi2max=3 --> anchored fixed-point iteration:\n"
+	      "\t pass 1 fits the FULL sample (chi2max scored, not applied) "
+	      "and freezes\n"
+	      "\t the per-event scoring denominator at ITS converged error "
+	      "model; then\n"
+	      "\t membership is iterated (<= %d passes) against the current "
+	      "mean model.\n"
+	      "\t The FITTED sigint is the ordinary trimmed-sample sigint; "
+	      "only the\n"
+	      "\t SCORING denominator is anchored.\n",
+	      MXITER_CHI2MAX_RESCORE );
     }
     else {
       fprintf(FP_STDOUT, "opt_chi2max=%d --> re-score chi2max once vs. "
@@ -23132,11 +23576,29 @@ void write_yaml_info(char *fileName) {
   // Aug 2026: provenance, written only when the chi2max re-score actually ran
   if ( DID_CHI2MAX_RESCORE ) {
     sprintf(KEY,"OPT_CHI2MAX:");
-    fprintf(fp,"%-22.22s %d\n", KEY, 1 );
+    fprintf(fp,"%-22.22s %d\n", KEY, INPUTS.opt_chi2max );
     sprintf(KEY,"NREJ_CHI2MAX_PASS1:");
     fprintf(fp,"%-22.22s %d\n", KEY, NREJ_CHI2MAX_PASS1 );
     sprintf(KEY,"NREJ_CHI2MAX_PASS2:");
     fprintf(fp,"%-22.22s %d\n", KEY, NREJ_CHI2MAX_PASS2 );
+
+    // opt_chi2max=3 only: the membership iteration's trajectory
+    if ( INPUTS.opt_chi2max >= 3 ) {
+      int k;
+      sprintf(KEY,"NITER_RESCORE:");
+      fprintf(fp,"%-22.22s %d\n", KEY, NITER_CHI2MAX_RESCORE );
+      sprintf(KEY,"NREJ_CHI2MAX_ITER:");
+      fprintf(fp,"%-22.22s [", KEY );
+      for(k=1; k <= NITER_CHI2MAX_RESCORE; k++ ) {
+	fprintf(fp,"%d%s", NREJ_CHI2MAX_ITER[k],
+		(k < NITER_CHI2MAX_RESCORE) ? ", " : "" );
+      }
+      fprintf(fp,"]\n");
+      sprintf(KEY,"RESCORE_CONVERGED:");
+      fprintf(fp,"%-22.22s %d\n", KEY, CONVERGED_CHI2MAX_RESCORE ? 1 : 0 );
+      sprintf(KEY,"RESCORE_TWOCYCLE:");
+      fprintf(fp,"%-22.22s %d\n", KEY, TWOCYCLE_CHI2MAX_RESCORE ? 1 : 0 );
+    }
   }
 
   sprintf(KEY,"CPU_MINUTES:");
@@ -25778,6 +26240,9 @@ void print_SALT2mu_HELP(void) {
     "opt_chi2max=1          # legacy chi2max cut applied before fit",
     "opt_chi2max=2          # re-score chi2max cut once vs. converged fit, then",
     "                       # refit once (not with NSPLITRAN>1 or SUBPROCESS)",
+    "opt_chi2max=3          # iterate membership to a fixed point; scoring MUERR^2",
+    "                       # anchored at full-sample fit (spec samples; aborts",
+    "                       # with CC prior or chi2max(FITWGT0))",
     "",
     "select_trueIa=1        # select only true SNIa, disable CC prior  (sim only)",
     "",

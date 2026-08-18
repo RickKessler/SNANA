@@ -24083,5 +24083,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       new sim-input USE_SIMLIB_IDEXPT to write this column value to PHOT file
       under IMGNUM column. 
 
+      Allow XPIX,YPIX to be specified in SIMLIB (see manual) and written to 
+      PHOT table in data files.
+      Check that reformat FITS -> TEXT and TEXT -> FITS preserves new info.
+      See WRFLAG_DETNUM = flag to read/write IMGNUM, DETNUM, XPIX, YPIX
+
 END:
  

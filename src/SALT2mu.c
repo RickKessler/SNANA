@@ -6708,10 +6708,9 @@ void apply_data_parshift(TABLEVAR_DEF *TABLEVAR, SELECT_VAR_DEF *PARSHIFT) {
 void read_data_override(void) {
 
   // Created Nov 13 2020
-  // Read optional data_override file, and replace values
-  // in data arrays. For VPEC and VPEC_ERR, also modify
-  // zHD and zHDERR, respectively. Similarly, for zHEL
-  // override, update zCMB and zHD.
+  // Read optional data_override file, and replace value in data arrays. 
+  // For VPEC and VPEC_ERR, also modify zHD and zHDERR, respectively. 
+  // Similarly, for zHEL override, update zCMB and zHD.
   //
   // May 12 2021: for HOST_LOGMASS, also set CUTVAL for applying cuts.
   // Nov 18 2021: 
@@ -6967,6 +6966,18 @@ void read_data_override(void) {
 	  if(!override_zhd) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
 	  override_zhd = true ;
 	}
+	else if ( ivar_over == IVAR_OVER_zHD ) {  // Aug 17 2026 (git issue 1760)
+	  zhd_over     = dval;
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
+	  override_zhd = true ;  
+	  // .xyz need to test this ??
+	}
+	else if ( ivar_over == IVAR_OVER_zHDERR ) {  // Aug 17 2026 (git issue 1760)
+	  sprintf(c1err,"Cannot override zHDERR because VPECERR/zHELERR are not known.");
+	  sprintf(c2err,"Suggest providing VPEC_ERR and/or zHELERR");
+	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	  
+	}
+
 	else if ( ivar_over == IVAR_OVER_LOGMASS && ICUTWIN_GAMMA >= 0 ) {
 	  double logmass = dval;
 	  INFO_DATA.TABLEVAR.CUTVAL[ICUTWIN_GAMMA][isn] = logmass ;

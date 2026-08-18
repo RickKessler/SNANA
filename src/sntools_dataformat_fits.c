@@ -204,6 +204,8 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   OVP = ( writeFlag & WRITE_MASK_DETINFO ) ;
   if ( OVP > 0 ) { SNFITSIO_DETINFO = true; } // Aug 2026
 
+  //  printf(" xxx %s: SNFITSIO_DETINFO= %d \n", fnam, SNFITSIO_DETINFO); fflush(stdout);
+
   IFILE_WR_SNFITSIO = 1;     // only one file written here.
 
   // store path and VERSION in globals 
@@ -1130,14 +1132,21 @@ void wr_snfitsio_create(int itype ) {
 		  "Zero point for calibrated flux", &istat );
 
   // misc flags
+  /* xxxx mark delete Aug 17 2026 xxxxxxx
   fits_update_key(fp, TINT, "MWEBV_APPLYFLAG",  // July 2018
 		  &SNDATA.APPLYFLAG_MWEBV,
 		  "1 -> Apply MWEBV cor to FLUXCAL", &istat );
+  xxxxxxx end mark */
+
+  fits_update_key(fp, TINT, "DETINFO_FLAG",  // July 2023
+		  &SNFITSIO_DETINFO,
+		  "1 -> PHOT table incoudes IMGNUM,DETNUM,XPIX,YPIX", &istat );
 
   fits_update_key(fp, TINT, "ATMOS_FLAG",  // July 2023
 		  &SNFITSIO_ATMOS,
 		  "1 -> dRA,dDEC,dMAG per obs (for DCR)", &istat );
 
+  // - - - -
   fits_update_key(fp, TINT, "PHOTFLAG_DETECT", // July 2022
 		  &SNDATA.PHOTFLAG_DETECT,
 		  "PHOTFLAG mask for detection", &istat );
@@ -4510,6 +4519,13 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     }
   }
 
+
+  // Aug 2026: read new DETINFO_FLAG to know if PHOT columns incude IMGNUM,DETNUM,XPIX,YPIX
+  sprintf(keyname, "DETINFO_FLAG" ); 
+  fits_read_key(fp, TINT, keyname,
+                &FLAG, comment, &istat );
+  if ( istat == 0 && FLAG ) { SNFITSIO_DETINFO = SNDATA.WRFLAG_DETINFO = 1; }
+  istat = 0 ;
 
   // July 2023: read optional flag to indicate extra PHOT colums for DCR:
   //   dRA, dDEC, AIRMASS

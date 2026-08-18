@@ -898,13 +898,14 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
   bool WRFLAG_TRIGGER    = (SNDATA.MJD_TRIGGER < 0.99E6 && 
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
-  bool WRFLAG_DETINFO    = SNDATA.WRFLAG_DETINFO; // Aug 2026
+  bool WRFLAG_DETINFO    = SNDATA.WRFLAG_DETINFO ; // Aug 2026
 
-  /* xxx mark 
+  /* xxx mark delete
   bool WRFLAG_IMGNUM     = SNDATA.HAS_IMGNUM ;
   bool WRFLAG_DETNUM     = SNDATA.HAS_DETNUM ;
   bool WRFLAG_XYPIX      = SNDATA.HAS_XYPIX ;
   xxxxx */
+
   bool WRFLAG_TEXPOSE    = SNDATA.HAS_TEXPOSE ;
   bool WRFLAG_METADATA   = true;
   bool WRFLAG_MAG        = false; 
@@ -920,7 +921,7 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 
   // ------------ BEGIN -----------
 
-  printf(" xxx %s WRFLAG_DETINFO= %d \n", fnam, WRFLAG_DETINFO); 
+  //  printf(" xxx %s WRFLAG_DETINFO = %d \n", fnam, SNDATA.WRFLAG_DETINFO); fflush(stdout);
 
   // check things to suppress/enable for reading real data in text format
   if ( IS_DATA && RDTEXT ) {
@@ -1795,7 +1796,7 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
       { IVAROBS_SNTEXTIO.IMGNUM = ivar; }  
 
     else if ( strcmp(varName,"DETNUM") == 0  || strcmp(varName,"CCDNUM") == 0 ) 
-      { IVAROBS_SNTEXTIO.DETNUM = ivar; }  
+      { IVAROBS_SNTEXTIO.DETNUM = ivar; }
 
     else if ( strcmp(varName,"XPIX") == 0 ) 
       { IVAROBS_SNTEXTIO.XPIX = ivar; }  

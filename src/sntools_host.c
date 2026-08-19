@@ -4203,8 +4203,8 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   //
   // Inputs:
   //   OPT_INIT   : not used
-  //   IGAL_START : first IGAL to compute wgt
-  //   IGAL_END   : last IGAL to compute wgt
+  //   IGAL_START : first z-sorted IGAL to compute wgt
+  //   IGAL_END   : last  z-sorted IGAL to compute wgt
   //
   // - - - - - - - - - - - - - - - 
   // Jan 27 2017: fix bug mallocing GRIDMAP_HOSTLIB_WGT.FUNVAL;
@@ -4217,7 +4217,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, NROW, ibin, istat ;
-  int  NGAL, igal, isparse, IVAL ;
+  int  NGAL, igal, igal_unsort, isparse, IVAL ;
   short int I2MAG;
   bool LDMPWGT ;
 
@@ -4282,7 +4282,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       { getVal_SNVAR_HOSTLIB_WGTMAP(ibin,VAL_SNVAR); }
 
     WGTSUM_LAST = 0.0 ;
-    for ( igal=IGAL_START ; igal <= IGAL_END ; igal++ ) {
+    for ( igal=IGAL_START ; igal <= IGAL_END ; igal++ ) {  // loop over z-sorted igal
 	
       GALID  = get_GALID_HOSTLIB(igal);
       ZTRUE  = get_ZTRUE_HOSTLIB(igal);
@@ -4368,15 +4368,15 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       WGTSUM = WGTSUM_LAST + WGT;
       
       // print first 3 weights and last wgt
-      if ( VBOSE && ibin==0 && (igal <= 1 || igal == NGAL-1) ) {
-	printf("\t   WGT(igal=%d,GALID=%lld) = %le -> WGTSUM = %le \n", 
+      if ( VBOSE && ibin==0 && (igal < 2 || igal == NGAL-1) ) {
+	printf("\t   WGT(igal_zsort=%d,GALID=%lld) = %le -> WGTSUM = %le \n", 
 	       igal, GALID, WGT, WGTSUM ); 
 	fflush(stdout);
       }
 	
       // load global array for each sum            
       if ( N_SNVAR > 0 ) {
-	HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin][igal]     = WGTSUM ;
+	HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin][igal]       = WGTSUM ;
 	HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin][igal] = I2MAG ;
       }
       else {
@@ -10880,15 +10880,21 @@ void get_LINE_APPEND_HOSTLIB_plusNbr(int igal_unsort, char *LINE_APPEND) {
   }
 
   if ( (igal_unsort % 10000) == 0 ) {
-    NNBR  = HOSTLIB_NBR_WRITE.NNBR_MAX ; 
-    GALID = HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX;
+    NNBR      = HOSTLIB_NBR_WRITE.NNBR_MAX ; 
+    GALID_NBR = HOSTLIB_NBR_WRITE.GALID_atNNBR_MAX;
     printf("\t Processing igal %8d of %8d  (NNBR_MAX=%2d for GALID=%lld)\n", 
-	   igal_unsort, NGAL, NNBR, GALID );
+	   igal_unsort, NGAL, NNBR, GALID_NBR );
     fflush(stdout);
   }
 
   if ( NNBR < 100 ) { HOSTLIB_NBR_WRITE.NGAL_PER_NNBR[NNBR]++ ; }
   if ( TRUNCATE   ) { HOSTLIB_NBR_WRITE.NGAL_TRUNCATE++ ; }
+
+  int DUMTEST = 0 ;
+  if ( DUMTEST ) {
+    char cGALID[40]; sprintf(cGALID,"  %lld", GALID);
+    strcat(LINE_APPEND, cGALID);
+  }
 
   return ;
 
@@ -11099,10 +11105,11 @@ void rewrite_HOSTLIB_select(char *append_file) {
   //   - NGAL_SELECT here does not match NLINE_WRITE in rewrite_HOSTLIB function ??
 
   int NGAL_ORIG     = HOSTLIB.NGAL_STORE;
+  int IVAR_GALID    = HOSTLIB.IVAR_GALID ;
   double WGTMAX_GAL = HOSTLIB_WGTMAP.WGTMAX_GAL;
 
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND ;
-  int  NGAL_SELECT, igal_unsort;
+  int  NGAL_SELECT, igal_unsort, igal_zsort;
   double WGT, ran1;
   bool ACCEPT;
   long long int GALID;
@@ -11114,6 +11121,10 @@ void rewrite_HOSTLIB_select(char *append_file) {
   print_banner(fnam);
   // - - - - -
   
+  printf("\t WGTMAX(FILE,HOSTLIB) = %le  %le \n", 
+	 HOSTLIB_WGTMAP.WGTMAX, HOSTLIB_WGTMAP.WGTMAX_GAL);
+  fflush(stdout);
+
   // - - - -
   malloc_HOSTLIB_APPEND(NGAL_ORIG, &HOSTLIB_APPEND);
   sprintf(HOSTLIB_APPEND.VARNAMES_APPEND, "WGT_SELECT");
@@ -11121,7 +11132,7 @@ void rewrite_HOSTLIB_select(char *append_file) {
 
   
   INPUTS.ISEED = 477791;
-  init_random_seed(INPUTS.ISEED, INPUTS.NSTREAM_RAN);
+  srand(INPUTS.ISEED);
 
   // - - - - 
   // loop over all galaxies and prepare string to append.
@@ -11130,22 +11141,23 @@ void rewrite_HOSTLIB_select(char *append_file) {
   for(igal_unsort=0; igal_unsort < NGAL_ORIG; igal_unsort++ ) {
 
     // get GALID for diagnostics (not needed for selection)
-    GALID  = get_GALID_HOSTLIB(igal_unsort);
+    igal_zsort   = HOSTLIB.LIBINDEX_ZSORT[igal_unsort];
+    GALID        = (long long)HOSTLIB.VALUE_ZSORTED[IVAR_GALID][igal_zsort] ;
 
     // get weight for selection
-    WGT = HOSTLIB_WGTMAP.WGT[igal_unsort];
+    WGT = HOSTLIB_WGTMAP.WGT[igal_zsort];
     WGT /= WGTMAX_GAL;
 
     // random between 0 and 1
-    ran1 = getRan_Flat1(1) ; 
+    ran1  = (double)rand()/(double)RAND_MAX ;
 
-    if ( igal_unsort < 3 ) {  // diagnostic print
-      printf("\t Diagnostic: WGT(igal=%d,GALID=%lld)  = %le   (randome=%.4f)\n", 
-	     igal_unsort, GALID, WGT, ran1);      fflush(stdout);
+    if ( igal_zsort < 2 || igal_zsort == NGAL_ORIG-1 ) {  // diagnostic print
+      printf("\t Diagnostic: WGT(igal_zsort=%d,GALID=%lld)  = %le   (random=%.4f)\n", 
+	     igal_zsort, GALID, WGT*WGTMAX_GAL, ran1);      fflush(stdout);
     }
 
     ACCEPT = (ran1 < WGT &&  NGAL_SELECT < MAX_HOSTLIB_SELECT);
-
+    
     if ( ACCEPT ) { 
       sprintf(LINE_APPEND,"%.3f", WGT);
       NGAL_SELECT++ ; 
@@ -11159,7 +11171,10 @@ void rewrite_HOSTLIB_select(char *append_file) {
 
 
   // - - - - - -
-  sprintf(MSG,"Select %d of %d galaxies", NGAL_SELECT, NGAL_ORIG);
+  sprintf(MSG,"Use WGTMAP to select %d of %d galaxies", NGAL_SELECT, NGAL_ORIG);
+  addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
+
+  sprintf(MSG,"BEWARE: for image sims only. NOT to generate sims for cosmology analysis");
   addComment_HOSTLIB_APPEND(MSG, &HOSTLIB_APPEND);
 
 

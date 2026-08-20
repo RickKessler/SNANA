@@ -24090,5 +24090,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
       Add new +HOSTSELECT command line option; see manual
 
+   SALT2mu.c
+     fix override to work with zHD, and abort on zHDERR because
+     the contributions from zHELERR and VPECERR cannot be determined.
+
 END:
  

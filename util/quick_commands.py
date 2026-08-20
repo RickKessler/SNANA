@@ -22,6 +22,7 @@
 # Feb 21 2025: add option --table_file_dupl
 # Jun 17 2025: add option --idsurvey to work with --diff
 # Apr 19 2026: optional 2nd arg to --table_file_dupl is column to check for duplicates
+# Aug 19 2026: add MUMODEL to optional list for -d option
 # ==================================================================
 
 import os, sys, argparse, subprocess, yaml, tarfile, fnmatch, glob
@@ -865,7 +866,7 @@ def analyze_diff_fitres(args):
         os.remove(combine_fitres_file)
 
     var_list_require  = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
-    var_list_optional = [ 'FITPROB', 'MU', 'MUERR', 'HOST_LOGMASS', 'HOST_LOGSFR' ]
+    var_list_optional = [ 'FITPROB', 'MU', 'MUERR', 'MUMODEL', 'HOST_LOGMASS', 'HOST_LOGSFR' ]
 
     util_analyze_diff_EXEC(diff_fitres_expand, var_list_require, var_list_optional, args)
 

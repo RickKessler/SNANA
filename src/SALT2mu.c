@@ -6718,6 +6718,9 @@ void read_data_override(void) {
   //   + avoid double-counting zHD override if zHEL and VPEC are both
   //      on override list. Same for zHDERR with ZHELERR and VPECERR.
   //
+  // Aug 19 2026:
+  //   + abort on zHDERR since we don't know how to decompose into vpec and zhel errors
+  //   + fix bugs so that zHD override works
 
   int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
   int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
@@ -6727,7 +6730,7 @@ void read_data_override(void) {
   int nfile_over     = INPUTS.nfile_data_override;
   int ICUTWIN_GAMMA  = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
   int debug_malloc   = INPUTS.debug_malloc ;
-  int ifile_data, ifile_over, NROW;
+  int ifile_data, ifile_over, NROW, n_print=0;
   int ivar_data, NVAR_DATA, ivar_over, NVAR_OVER, OPTMASK, ntmp;
   char *ptrFile, *varName, *VARNAMES_STRING_DATA, *VARNAMES_STRING_OVER ;
   char fnam[] = "read_data_override" ;
@@ -6790,6 +6793,9 @@ void read_data_override(void) {
       if ( strcmp(varName,VARNAME_zCMB) == 0     ) 
 	{ IVAR_OVER_zCMB = NVAR_OVER ; }
 
+      if ( strcmp(varName,VARNAME_zHD) == 0  ) 
+	{ IVAR_OVER_zHD = NVAR_OVER ; }      // Aug 19 2026
+
       if ( strcmp(varName,VARNAME_LOGMASS) == 0     ) 
 	{ IVAR_OVER_LOGMASS = NVAR_OVER ; }
 
@@ -6835,9 +6841,11 @@ void read_data_override(void) {
   // - - - - - - 
   // if VPEC or zHEL is on override list, add recalc zHD to override list.
 
-  if ( IVAR_OVER_VPEC >= 0 || IVAR_OVER_zHEL >= 0 ) {     
-    IVAR_OVER_zHD = NVAR_OVER ;
-    NVAR_OVER++; catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHD); 
+  if ( IVAR_OVER_VPEC >= 0 || IVAR_OVER_zHEL >= 0 ) {   
+    if ( IVAR_OVER_zHD < 0 ) {
+      IVAR_OVER_zHD = NVAR_OVER ;
+      NVAR_OVER++; catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHD); 
+    }
   }
 
   // if zHELERR or VPEC_ERR is on override list, add recalculated zHDERR
@@ -6889,8 +6897,13 @@ void read_data_override(void) {
 
     else if ( strcmp(varName,"zHD") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhd ;  }
-    else if ( strcmp(varName,"zHDERR") == 0 ) 
-      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhderr ;  }
+
+    else if ( strcmp(varName,"zHDERR") == 0 )  { 
+      INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhderr ; 
+      sprintf(c1err,"Cannot override zHDERR because VPECERR/zHELERR are not known.");
+      sprintf(c2err,"Suggest providing VPEC_ERR and/or zHELERR");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	  
+    }
 
     else if ( strcmp(varName,"zCMB") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmb ;  }
@@ -6927,8 +6940,10 @@ void read_data_override(void) {
 
     for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
 
+      /* xxxx mark delete Aug 19 2026 xxxxxxxxx
       if ( ivar_over == IVAR_OVER_zHD    ) { continue ; }
       if ( ivar_over == IVAR_OVER_zHDERR ) { continue ; }
+      xxxxxx end mark xxxxxx */
 
       name    = INFO_DATA.TABLEVAR.name[isn];
       varName = INFO_DATA.VARNAMES_OVERRIDE[ivar_over];
@@ -6970,12 +6985,15 @@ void read_data_override(void) {
 	  zhd_over     = dval;
 	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
 	  override_zhd = true ;  
-	  // .xyz need to test this ??
-	}
-	else if ( ivar_over == IVAR_OVER_zHDERR ) {  // Aug 17 2026 (git issue 1760)
-	  sprintf(c1err,"Cannot override zHDERR because VPECERR/zHELERR are not known.");
-	  sprintf(c2err,"Suggest providing VPEC_ERR and/or zHELERR");
-	  errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	  
+
+	  /* xxxxxxx mark delete Aug 19 2026 xxxxxxx
+	  if ( zhd_orig != zhd_over && n_print < 6 ) {
+	    n_print++ ;
+	    printf(" xxx %s: cid=%s  zhd[orig -> override] = %f ->  %f \n", 
+		   fnam, name, zhd_orig, zhd_over); fflush(stdout);
+	  }
+	  xxxxxxx end mark xxxxxxxxx */
+
 	}
 
 	else if ( ivar_over == IVAR_OVER_LOGMASS && ICUTWIN_GAMMA >= 0 ) {

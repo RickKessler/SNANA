@@ -6849,6 +6849,7 @@ void read_data_override(void) {
   }
 
   // if zHELERR or VPEC_ERR is on override list, add recalculated zHDERR
+  // Note that explicit zHDERR on override list results in abort.
   if ( IVAR_OVER_VPECERR >= 0 || IVAR_OVER_zHELERR >= 0 )  {
     IVAR_OVER_zHDERR = NVAR_OVER ; 
     NVAR_OVER++;   catVarList_with_comma(VARNAMES_STRING_OVER,VARNAME_zHDERR); 
@@ -6958,7 +6959,7 @@ void read_data_override(void) {
      
       if ( istat == 0 ) {
 
-	// check computed zhd changes based on changes to vpec[err]
+	// check computed zhd changes based on changes to vpec[err] and/or zhel
 	if ( ivar_over == IVAR_OVER_VPEC ) {
 	  double vpec_over = dval;
 	  zhd_over = zhd_data_override(isn,vpec_over); 
@@ -6981,19 +6982,10 @@ void read_data_override(void) {
 	  if(!override_zhd) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
 	  override_zhd = true ;
 	}
-	else if ( ivar_over == IVAR_OVER_zHD ) {  // Aug 17 2026 (git issue 1760)
+	else if ( ivar_over == IVAR_OVER_zHD ) {       // Aug 17 2026 (git issue 1760)
 	  zhd_over     = dval;
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
-	  override_zhd = true ;  
-
-	  /* xxxxxxx mark delete Aug 19 2026 xxxxxxx
-	  if ( zhd_orig != zhd_over && n_print < 6 ) {
-	    n_print++ ;
-	    printf(" xxx %s: cid=%s  zhd[orig -> override] = %f ->  %f \n", 
-		   fnam, name, zhd_orig, zhd_over); fflush(stdout);
-	  }
-	  xxxxxxx end mark xxxxxxxxx */
-
+	  // xxx mark INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
+	  override_zhd = true ;   // nother else to override 
 	}
 
 	else if ( ivar_over == IVAR_OVER_LOGMASS && ICUTWIN_GAMMA >= 0 ) {
@@ -7001,7 +6993,7 @@ void read_data_override(void) {
 	  INFO_DATA.TABLEVAR.CUTVAL[ICUTWIN_GAMMA][isn] = logmass ;
 	}
 
-	// apply override AFTER checking zhd[err] overrides
+	// apply override on current ivar_over variable AFTER checking zhd[err] overrides
 	INFO_DATA.PTRVAL_OVERRIDE[ivar_over][isn] = dval;
 	NSN_CHANGE[ivar_over]++ ;
 
@@ -22236,7 +22228,6 @@ void check_initval(int ipar, double valmin, double valmax, char *callFun) {
     sprintf(c2err,"Require initval range: %f to %f ", valmin, valmax);
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err);
   }
-  //.xyz
 
   return;
 

@@ -6730,7 +6730,7 @@ void read_data_override(void) {
   int nfile_over     = INPUTS.nfile_data_override;
   int ICUTWIN_GAMMA  = INFO_DATA.TABLEVAR.ICUTWIN_GAMMA ;
   int debug_malloc   = INPUTS.debug_malloc ;
-  int ifile_data, ifile_over, NROW, n_print=0;
+  int ifile_data, ifile_over, NROW;
   int ivar_data, NVAR_DATA, ivar_over, NVAR_OVER, OPTMASK, ntmp;
   char *ptrFile, *varName, *VARNAMES_STRING_DATA, *VARNAMES_STRING_OVER ;
   char fnam[] = "read_data_override" ;

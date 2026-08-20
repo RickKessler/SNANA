@@ -208,7 +208,8 @@ TABLE_VARNAME_IZBIN    = "IZBIN"
 TABLE_VARNAME_UCID     = "UCID"      # unique CID__SURVEY__FIELD
 
 # keep these variables if they exist in some FITRES files but not others
-VARNAME_APPEND = 'PROB*,zPRIOR*,SNRSUM,SIM_c,SIM_x1'  
+# xxx mark VARNAME_APPEND = 'PROB*,zPRIOR*,SNRSUM,SIM_c,SIM_x1'  
+VARNAME_APPEND = 'PROB*,zPRIOR*,COV*,SNRSUM,SIM_c,SIM_x1'  
 
 # - - - - - - - - - - - - - - - - - - -  -
 class BBC(Program):

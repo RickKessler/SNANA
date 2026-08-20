@@ -2458,7 +2458,9 @@ void SALT2mu_DRIVER_EXEC(void) {
       bool DO_REFIT = iterate_chi2max(ipass_fit, ipass_fit == NPASS_FIT);
       if ( !DO_REFIT ) { break; }
     }
-    else if ( ipass_fit < NPASS_FIT ) { rescore_chi2max(); }
+    else if ( ipass_fit < NPASS_FIT ) { 
+      rescore_chi2max(); 
+    }
 
   }  // end ipass_fit loop over fit passes
 
@@ -3549,7 +3551,7 @@ bool use_opt_chi2max(void) {
   // SALT2mu_DRIVER_EXEC.  Limited to the FIRST driver call so that driver
   // re-entry (crazy-M0, NSPLITRAN, SUBPROCESS) cannot iterate unbounded.
 
-  if ( INPUTS.opt_chi2max   <= 1 ) { return false; }
+  if ( INPUTS.opt_chi2max   <= 1 )     { return false; }
   if ( NCALL_SALT2mu_DRIVER_EXEC > 1 ) { return false; }
 
   // same conditions under which applyCut_chi2max does nothing

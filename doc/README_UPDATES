@@ -24094,5 +24094,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      fix override to work with zHD, and abort on zHDERR because
      the contributions from zHELERR and VPECERR cannot be determined.
 
+     Merge PR with Claude-generated code to include option to rescore chi2max
+     cut after first fit, and then iterate fit.
+
+   submit_prob_bbc.py
+     + include COV* in list of wildcard variables to always include in call
+       to sntable_cat.py
+
 END:
  

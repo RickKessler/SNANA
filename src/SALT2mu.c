@@ -361,6 +361,8 @@ For help, run code with no arguments
    + opt_chi2max=3: iterate membership to a fixed point with the scoring
      denominator anchored at a full-sample fit; see iterate_chi2max().
 
+  Aug 21 2026 RK - set default restore_sn_unite=0 to implement the subtle fix
+                   in issue https://github.com/RickKessler/SNANA/issues/1699
  ******************************************************/
 
 #include "sntools.h" 
@@ -6712,7 +6714,7 @@ void set_defaults(void) {
   
   INPUTS.restore_sigz      = 0 ; // 0->new, 1->old(legacy)
   INPUTS.restore_des5yr         = 0 ; // Sep 12 2025: disable restore flag -> implement CC prior bug fix
-  INPUTS.restore_sn_unite       = 1 ; // enable Jun 8 2026; disable after SN_UNITE publication
+  INPUTS.restore_sn_unite       = 0 ; // enable Jun 8 2026; disable after SN_UNITE publication
   INPUTS.restore_bug_sigint0    = 0 ;
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
@@ -22566,22 +22568,6 @@ void prep_debug_flag(void) {
     printf("\n debug flag set to %d\n", INPUTS.debug_flag );
     fflush(FP_STDOUT);
   }
-
-  /* xxxxxx mark delete Jun 8 2026; see restore_sn_unite flag
-  if ( INPUTS.debug_flag == 600 ) {
-    INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR = 1;
-    printf("\n debug flag = %d -> use REFAC makeMap_sigmu_biascor with legacy STD\n",
-	   INPUTS.debug_flag);
-    fflush(FP_STDOUT);
-  }
-
-  if ( INPUTS.debug_flag == 604 ) {
-    INPUTS.REFAC_MAKEMAP_SIGMU_BIASCOR = 4;
-    printf("\n debug flag = %d -> use REFAC makeMap_sigmu_biascor with  MAD \n≈",
-	   INPUTS.debug_flag);
-    fflush(FP_STDOUT);
-  }
-  xxxxxxxxx end mark xxxxx*/
 
   // - - - - - -  
 

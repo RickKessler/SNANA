@@ -24094,12 +24094,41 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      fix override to work with zHD, and abort on zHDERR because
      the contributions from zHELERR and VPECERR cannot be determined.
 
-     Merge PR with Claude-generated code to include option to rescore chi2max
+     Merge PR with TZ+Claude-generated code to include option to rescore chi2max
      cut after first fit, and then iterate fit.
 
    submit_prob_bbc.py
      + include COV* in list of wildcard variables to always include in call
        to sntable_cat.py
+
+# =============================================================
+         v12_02c (Aug 21 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_02c) *****
+
+    SALT2mu.c
+      + finally set default restore_sn_unite=0 so that MAD fix is implemented.
+        (SN-UNITE draft has been internally circulated)
+      
+
+         *****  USEFUL(v12_02c) *****
+
+         *****  MISCELLANEOUS(v12_02c) *****
+
+   Here are the small-but-expected regressoin test failures from 
+   restore_sn_unite=1 -> 0:
+       TASK113_SALT2mu_DES3YR_COVADD :  mis-match (REF != TEST)
+              ==> REF:  fit-Beta = 3.1122e+00 +/- 1.4968e-01
+	      ==> TEST: fit-Beta = 3.1064e+00 +/- 1.4987e-01
+       TASK114_SALT2mu_ZTFSIM_BROKEN_ALPHA :  mis-match (REF != TEST)
+              ==> REF:  fit-alpha1 = 2.0643e-01 +/- 5.3841e-03
+              ==> TEST: fit-alpha1 = 2.0736e-01 +/- 5.1565e-03
+       TASK115_SALT2mu_BROKEN_ALPHA_CHI2MAX2 :  mis-match (REF != TEST)
+              ==> REF:  fit-alpha1 = 2.0686e-01 +/- 5.3128e-03
+              ==> TEST: fit-alpha1 = 2.0776e-01 +/- 5.1306e-03
+       TASK116_SALT2mu_BROKEN_ALPHA_CHI2MAX3 :  mis-match (REF != TEST)
+              ==> REF:  fit-alpha1 = 2.0686e-01 +/- 5.3128e-03
+              ==> TEST: fit-alpha1 = 2.0769e-01 +/- 5.1543e-03
 
 END:
  

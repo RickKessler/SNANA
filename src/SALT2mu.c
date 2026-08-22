@@ -3493,7 +3493,7 @@ void applyCut_chi2max(void) {
 
       // print one-line fail summary, EXCEPT for subprocess/Dust2dust
       if ( !SUBPROCESS.USE ) {
-	fprintf(FP_STDOUT, "%s:\t %s \n", KEY_GREP_CHI2MAX_UPDATE, msg_fail); 
+	fprintf(FP_STDOUT, "\t %s \n", msg_fail);  // no KEY_GREP here to avoid overdose
       }
     } // end FAILCUT
     

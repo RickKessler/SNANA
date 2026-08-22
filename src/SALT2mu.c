@@ -418,6 +418,7 @@ int     NREJ_CHI2MAX_PASS2  = 0 ;
 
 // Aug 2026: opt_chi2max=3 state (fixed-point iteration on membership,
 // with the SCORING error model anchored to the full-sample fit).
+#define KEY_GREP_CHI2MAX_UPDATE   "chi2max_update"  // key to grep for updates
 #define MXITER_CHI2MAX_RESCORE 10  // max membership iterations
 int     NITER_CHI2MAX_RESCORE = 0 ;   // number of scoring iterations performed
 int     NREJ_CHI2MAX_ITER[MXITER_CHI2MAX_RESCORE+2] ; // reject count per iter
@@ -3394,7 +3395,7 @@ void applyCut_chi2max(void) {
   if ( NCALL_SALT2mu_DRIVER_EXEC > 1 )  { return; }  // skip on 2nd fit (e.g., do over for crazy M0)
   if ( INPUTS.SELECT_CUTWIN.L_DISABLE)  { return; }  // Jun 2025: CUTWIN NONE
 
-  fprintf(FP_STDOUT, "\n Begin %s\n", fnam); fflush(FP_STDOUT);
+  fprintf(FP_STDOUT, "\n%s: Begin %s\n", KEY_GREP_CHI2MAX_UPDATE, fnam); fflush(FP_STDOUT);
 
   DO_H0marg   = true ;
 
@@ -3424,9 +3425,11 @@ void applyCut_chi2max(void) {
       sum_mures += (mures*wgt);
     }
     
+    
     muoff        = sum_mures / sum_wgt;
     M0_DEFAULT  += muoff;  // adjust M0 to account for unknown H0
-    fprintf(FP_STDOUT, "\t M0-shift = %.4f for approx H0 marg. \n", muoff); 
+    fprintf(FP_STDOUT, "%s:\t M0-shift = %.4f for approx H0 marg. \n", 
+	    KEY_GREP_CHI2MAX_UPDATE, muoff); 
     fflush(FP_STDOUT);
 
     // call chi2 fun 2nd time, here with updated M0_DEFAULT
@@ -3490,7 +3493,7 @@ void applyCut_chi2max(void) {
 
       // print one-line fail summary, EXCEPT for subprocess/Dust2dust
       if ( !SUBPROCESS.USE ) {
-	fprintf(FP_STDOUT, "\t %s \n", msg_fail); 
+	fprintf(FP_STDOUT, "%s:\t %s \n", KEY_GREP_CHI2MAX_UPDATE, msg_fail); 
       }
     } // end FAILCUT
     
@@ -3498,17 +3501,20 @@ void applyCut_chi2max(void) {
 
 
   if ( SCORE_ONLY ) {
-    fprintf(FP_STDOUT, "   chi2max ANCHOR pass (opt_chi2max=3): "
-	    "%d events above threshold, NONE rejected;\n"
-	    "      the anchor fit uses the FULL sample and defines the frozen "
-	    "scoring denominator.\n", NSCORE_FAIL );
+    fprintf(FP_STDOUT, "%s: ANCHOR pass (opt_chi2max=3): "
+	    "%d events above threshold, NONE rejected;\n", KEY_GREP_CHI2MAX_UPDATE, NSCORE_FAIL);
+
+    fprintf(FP_STDOUT,"%s: the anchor fit uses the FULL sample and defines the frozen "
+	    "scoring denominator.\n", KEY_GREP_CHI2MAX_UPDATE );
     fflush(FP_STDOUT);
-    fprintf(FP_STDOUT, " Finished %s\n", fnam); fflush(FP_STDOUT);
+    fprintf(FP_STDOUT, "%s: Finished %s\n", KEY_GREP_CHI2MAX_UPDATE, fnam); 
+    fflush(FP_STDOUT);
     DO_H0marg = false ;
     return ;
   }
 
-  fprintf(FP_STDOUT, "   chi2max rejects TOTAL: %d events \n", NREJ);
+ 
+  fprintf(FP_STDOUT, "%s: rejects TOTAL: %d events \n", KEY_GREP_CHI2MAX_UPDATE, NREJ);
 
   // Dec 2025: write chi2max reject by IDSAMPLE
   int n_f;
@@ -3516,8 +3522,8 @@ void applyCut_chi2max(void) {
     n_f = n_fail[idsample];
     name = SAMPLE_BIASCOR[idsample].NAME;
     if ( n_f > 0 ) {
-      fprintf(FP_STDOUT, "   chi2max rejects for IDSAMPLE=%d(%s): %d events \n",
-	      idsample, name, n_f);
+      fprintf(FP_STDOUT, "%s: rejects for IDSAMPLE=%d(%s): %d events \n",
+	      KEY_GREP_CHI2MAX_UPDATE, idsample, name, n_f);
     }
   }
   fflush(FP_STDOUT);
@@ -3526,16 +3532,17 @@ void applyCut_chi2max(void) {
     int n_unset = 0;
     for ( n=0; n < NSN_DATA; n++ ) 
       { n_unset += unsetbit_CUTMASK(n, CUTBIT_BIASCOR, &INFO_DATA.TABLEVAR ) ; }
-    fprintf(FP_STDOUT,"\t For cutwin_only: restore %d events that failed valid BiasCor", n_unset);
+    fprintf(FP_STDOUT,"%s:\t For cutwin_only: restore %d events that failed valid BiasCor", 
+	    KEY_GREP_CHI2MAX_UPDATE, n_unset);
   }
 
 
   if ( NREJ > 0 && !INPUTS.cutwin_only) { 
-    fprintf(FP_STDOUT, "\n Setup z-bins again after chi2max cut: \n");
+    fprintf(FP_STDOUT, "\n%s: Setup z-bins again after chi2max cut: \n", KEY_GREP_CHI2MAX_UPDATE);
     setup_zbins_fit(); 
   }  
  
-  fprintf(FP_STDOUT, " Finished %s\n", fnam); fflush(FP_STDOUT);
+  fprintf(FP_STDOUT, "%s: Finished %s\n", KEY_GREP_CHI2MAX_UPDATE, fnam); fflush(FP_STDOUT);
   fflush(FP_STDOUT);
 
   DO_H0marg   = false ;
@@ -3606,8 +3613,9 @@ void rescore_chi2max(void) {
 
   // ----------- BEGIN ------------
 
-  fprintf(FP_STDOUT, "\n Begin %s "
-	  "(re-score chi2max vs. converged fit, then refit once)\n", fnam);
+  fprintf(FP_STDOUT, "\n%s: Begin %s "
+	  "(re-score chi2max vs. converged fit, then refit once)\n", 
+	  KEY_GREP_CHI2MAX_UPDATE, fnam);
   fflush(FP_STDOUT);
 
   REJ1 = (bool*) malloc( (NSN_DATA+1) * sizeof(bool) );
@@ -3638,7 +3646,7 @@ void rescore_chi2max(void) {
 
   // re-derive the z-bin float flags on the full (pre-chi2-cut) sample;
   // this reproduces the state MINUIT's FIX commands were issued for
-  fprintf(FP_STDOUT, "\n Setup z-bins again before chi2max re-score: \n");
+  fprintf(FP_STDOUT, "\n%s: Setup z-bins again before chi2max re-score: \n", KEY_GREP_CHI2MAX_UPDATE);
   setup_zbins_fit();
 
   for (n=0; n < NSN_DATA; ++n)  {
@@ -3647,8 +3655,8 @@ void rescore_chi2max(void) {
   }
 
   // - - - 4. converged error model for the full sample - - -
-  fprintf(FP_STDOUT, "\t re-score error model: %s = %.5f (converged)\n",
-	  FITRESULT.PARNAME[IPAR_COVINT_PARAM], FITINP.COVINT_PARAM_FIX );
+  fprintf(FP_STDOUT, "%s:\t re-score error model: %s = %.5f (converged)\n",
+	  KEY_GREP_CHI2MAX_UPDATE, FITRESULT.PARNAME[IPAR_COVINT_PARAM], FITINP.COVINT_PARAM_FIX );
   recalc_dataCov();
 
   // - - - 5. repopulate chi2 for every event at the converged params - - -
@@ -3695,10 +3703,10 @@ void rescore_chi2max(void) {
   }
   NCHANGE = NBACK + NNEW ;
 
-  fprintf(FP_STDOUT, "   chi2max re-score: "
+  fprintf(FP_STDOUT, "%s re-score: "
 	  "%d rejected in pass 1 -> %d rejected in pass 2 "
 	  "(%d returned, %d newly rejected)\n",
-	  NREJ1, NREJ2, NBACK, NNEW );
+	  KEY_GREP_CHI2MAX_UPDATE, NREJ1, NREJ2, NBACK, NNEW );
 
   if ( NCHANGE > 0 && NCHANGE <= 20 ) {
     for (n=0; n < NSN_DATA; ++n)  {
@@ -3710,23 +3718,23 @@ void rescore_chi2max(void) {
       idsurvey = INFO_DATA.TABLEVAR.IDSURVEY[n];
       survey   = SURVEY_INFO.SURVEYDEF_LIST[idsurvey] ;
       field    = INFO_DATA.TABLEVAR.field[n];
-      fprintf(FP_STDOUT, "\t %-8s chi2=%8.2f -> %s   (%s/%s)\n",
-	      name, INFO_DATA.chi2[n],
+      fprintf(FP_STDOUT, "%s:\t %-8s chi2=%8.2f -> %s   (%s/%s)\n",
+	      KEY_GREP_CHI2MAX_UPDATE, name, INFO_DATA.chi2[n],
 	      rej2 ? "reject" : "restore", survey, field );
     }
   }
 
   // z-bin accounting: how many events pass 1 had pushed below min_per_zbin
   if ( NMINBIN_BEFORE != NMINBIN_AFTER ) {
-    fprintf(FP_STDOUT, "   min_per_zbin: %d event(s) restored that pass-1 "
+    fprintf(FP_STDOUT, "%s:   min_per_zbin: %d event(s) restored that pass-1 "
 	    "chi2max removals had pushed below the threshold.\n",
-	    NMINBIN_BEFORE - NMINBIN_AFTER );
+	    KEY_GREP_CHI2MAX_UPDATE, NMINBIN_BEFORE - NMINBIN_AFTER );
   }
   if ( NMINBIN_AFTER > 0 ) {
-    fprintf(FP_STDOUT, "   min_per_zbin: %d event(s) are below the threshold "
+    fprintf(FP_STDOUT, "%s:   min_per_zbin: %d event(s) are below the threshold "
 	    "on the full sample and are not re-scored\n"
-	    "         (a fresh fit excludes the same events).\n",
-	    NMINBIN_AFTER );
+	    "%s:         (a fresh fit excludes the same events).\n",
+	    KEY_GREP_CHI2MAX_UPDATE, NMINBIN_AFTER, KEY_GREP_CHI2MAX_UPDATE );
   }
 
   // clear CUTBIT_MINBIN once more so that the pass-2 setup_zbins_fit derives
@@ -3742,7 +3750,7 @@ void rescore_chi2max(void) {
   NREJ_CHI2MAX_PASS1   = NREJ1 ;
   NREJ_CHI2MAX_PASS2   = NREJ2 ;
 
-  fprintf(FP_STDOUT, " Finished %s\n", fnam);
+  fprintf(FP_STDOUT, "%s: Finished %s\n", KEY_GREP_CHI2MAX_UPDATE, fnam);
   fflush(FP_STDOUT);
 
   free(REJ1);
@@ -3809,8 +3817,8 @@ bool iterate_chi2max(int iter, bool LAST) {
 
   // ----------- BEGIN ------------
 
-  fprintf(FP_STDOUT, "\n Begin %s: chi2max re-score iteration %d "
-	  "(anchored fixed point)\n", fnam, iter );
+  fprintf(FP_STDOUT, "\n%s: Begin %s: chi2max re-score iteration %d "
+	  "(anchored fixed point)\n", KEY_GREP_CHI2MAX_UPDATE, fnam, iter );
   fflush(FP_STDOUT);
 
   if ( ANCHOR ) {
@@ -3953,42 +3961,47 @@ bool iterate_chi2max(int iter, bool LAST) {
 
   if ( CONVERGED ) {
     CONVERGED_CHI2MAX_RESCORE = true ;
-    fprintf(FP_STDOUT, "   chi2max re-score CONVERGED after %d iteration(s); "
-	    "final rejected = %d\n", iter, NREJ_CURR );
+    fprintf(FP_STDOUT, "%s: re-score CONVERGED after %d iteration(s); "
+	    "final rejected = %d\n", KEY_GREP_CHI2MAX_UPDATE, iter, NREJ_CURR );
   }
   else if ( TWOCYCLE ) {
     TWOCYCLE_CHI2MAX_RESCORE = true ;
     fprintf(FP_STDOUT,
-	    "\n *** WARNING: chi2max re-score TWO-CYCLE at iteration %d ***\n"
-	    "   The membership oscillates between two sets; there is no fixed "
-	    "point.\n", iter );
+	    "\n *** %s WARNING: re-score TWO-CYCLE at iteration %d ***\n"
+	    "%s:   The membership oscillates between two sets; there is no fixed "
+	    "point.\n", KEY_GREP_CHI2MAX_UPDATE, iter,
+	    KEY_GREP_CHI2MAX_UPDATE);
     fprintf(FP_STDOUT, "   set A (KEPT; the membership of the reported fit):");
     for (n=0; n < NSN_DATA; ++n)  {
       if ( REJ_CHI2MAX_PREV1[n] )
 	{ fprintf(FP_STDOUT, " %s", INFO_DATA.TABLEVAR.name[n] ); }
     }
-    fprintf(FP_STDOUT, "\n   set B (discarded; scored at iteration %d):", iter);
+    fprintf(FP_STDOUT, "\n%s:   set B (discarded; scored at iteration %d):", 
+	    KEY_GREP_CHI2MAX_UPDATE, iter);
     for (n=0; n < NSN_DATA; ++n)  {
       if ( REJ_CHI2MAX_CURR[n] )
 	{ fprintf(FP_STDOUT, " %s", INFO_DATA.TABLEVAR.name[n] ); }
     }
-    fprintf(FP_STDOUT, "\n   Keeping set A so that the reported fit and the "
-	    "written sample agree.\n\n");
+    fprintf(FP_STDOUT, "\n%s: Keeping set A so that the reported fit and the "
+	    "written sample agree.\n\n", KEY_GREP_CHI2MAX_UPDATE);
   }
   else if ( LAST ) {
     fprintf(FP_STDOUT,
-	    "\n *** WARNING: chi2max re-score did NOT converge in %d "
+	    "\n *** %s WARNING: chi2max re-score did NOT converge in %d "
 	    "iterations ***\n"
-	    "   Keeping the membership of the reported fit "
+	    "%s:   Keeping the membership of the reported fit "
 	    "(%d rejected); the last scoring pass wanted %d.\n\n",
-	    MXITER_CHI2MAX_RESCORE, NREJ_CHI2MAX_ITER[iter-1], NREJ_CURR );
+	    KEY_GREP_CHI2MAX_UPDATE, MXITER_CHI2MAX_RESCORE, 
+	    KEY_GREP_CHI2MAX_UPDATE, NREJ_CHI2MAX_ITER[iter-1], NREJ_CURR );
   }
 
   // trajectory line, printed every iteration so a truncated log still has it
-  fprintf(FP_STDOUT, "   NREJ trajectory (iter 1..%d): 0", iter);
+  fprintf(FP_STDOUT, "%s:   NREJ trajectory (iter 1..%d): 0", KEY_GREP_CHI2MAX_UPDATE, iter);
   { int k; for(k=1; k <= iter; k++ )
       { fprintf(FP_STDOUT, " -> %d", NREJ_CHI2MAX_ITER[k]); } }
   fprintf(FP_STDOUT, "\n");
+
+  fflush(FP_STDOUT);
 
   // - - - 7. commit a membership - - -
   if ( DO_REFIT ) {
@@ -4012,7 +4025,8 @@ bool iterate_chi2max(int iter, bool LAST) {
 
     DOFIT_FLAG = DOFIT_FLAG_ORIG ;
     free(MUERRSQ_LAST_SAVE);
-    fprintf(FP_STDOUT, " Finished %s -> refit on the new membership\n", fnam);
+    fprintf(FP_STDOUT, "%s: Finished %s -> refit on the new membership\n", 
+	    KEY_GREP_CHI2MAX_UPDATE, fnam);
     fflush(FP_STDOUT);
     return true ;
   }
@@ -4065,7 +4079,7 @@ bool iterate_chi2max(int iter, bool LAST) {
     free(shown);
   }
 
-  fprintf(FP_STDOUT, "\n Setup z-bins on the final membership: \n");
+  fprintf(FP_STDOUT, "\n%s: Setup z-bins on the final membership: \n", KEY_GREP_CHI2MAX_UPDATE);
   setup_zbins_fit();
 
   // Refresh FITRESULT and the per-event output arrays at the converged
@@ -4100,7 +4114,7 @@ bool iterate_chi2max(int iter, bool LAST) {
   free(REJ_CHI2MAX_CURR);       REJ_CHI2MAX_CURR      = NULL ;
   free(REJ_CHI2MAX_PREV1);      REJ_CHI2MAX_PREV1     = NULL ;
 
-  fprintf(FP_STDOUT, " Finished %s -> no more passes\n", fnam);
+  fprintf(FP_STDOUT, "%s: Finished %s -> no more passes\n", KEY_GREP_CHI2MAX_UPDATE, fnam);
   fflush(FP_STDOUT);
 
   return false ;
@@ -6256,7 +6270,6 @@ double fcn_muerrz(int OPT, double z, double zerr) {
   // Created July 1 2017
   // Compute muerr from redshift (z) and its error (zerr)
   // 
-  //
   // OPT=1 --> low-z approx for empty universe
   // OPT=2 --> exact calc.
 
@@ -6271,20 +6284,21 @@ double fcn_muerrz(int OPT, double z, double zerr) {
 
   // --------------- BEGIN --------------
 
+  //if(ISMODEL_LCFIT_BAYESN ) { return(0.0) ; } // ??? enable if/when this is added into LCFIT_MUERR
+
+  
   if ( OPT == 1 ) {
     zerrtot = zerr ;
     muerr    = FAC*(zerrtot/z) * (1.0+z)/(1.0+z/2.0);
   }
   else if ( OPT == 2 )  {
 
-    double dl, mu1, mu2 ;
+    double dl1, dl2, mu1, mu2 ;
     zlo    = z-zerr;  zhi = z+zerr;
-
-    dl     = cosmodl(zlo,zlo,cosPar); // zhel not needed here
-    mu1    = 5.0*log10(dl) + 25.0 ;
-
-    dl     = cosmodl(zhi,zhi,cosPar); // zhel not needed here
-    mu2    = 5.0*log10(dl) + 25.0 ;
+    dl1    = cosmodl(zlo,zlo,cosPar); // zhel not needed here
+    dl2    = cosmodl(zhi,zhi,cosPar); // zhel not needed here
+    mu1    = 5.0*log10(dl1) + 25.0 ;
+    mu2    = 5.0*log10(dl2) + 25.0 ;
     muerr  = (mu2-mu1)/2.0 ;
   }
 

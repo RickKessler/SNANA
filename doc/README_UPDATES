@@ -24113,6 +24113,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v12_02c) *****
 
+    snana.F90
+      + begin refactor to allow MAGCOR and/or WAVESHIFT corrections.
+        The latter is applied to model in light curve fitting.
+
          *****  MISCELLANEOUS(v12_02c) *****
 
    Here are the small-but-expected regressoin test failures from 

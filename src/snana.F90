@@ -222,6 +222,10 @@
 
     INTEGER, PARAMETER :: I8 = selected_int_kind(18)
 
+    CHARACTER, PARAMETER ::  &
+         VARNAME_MAGCOR*6     = 'MAGCOR'   &
+         ,VARNAME_WAVESHIFT*9 = 'WAVESHIFT'
+
 ! - - - - - - - - - - - - - - 
 ! physical constants
 
@@ -285,7 +289,9 @@
         ,NPASSCUT_INCREMENT(-1:MXTYPE,100)   &  ! 100 > NCUTBIT_SNLC
         ,NPASSCUT_FIT(-1:MXTYPE)  & 
         ,NSTORE_MAGCOR          &  ! number of stored MAGCOR values
-        ,NUSE_MAGCOR            &  ! number of used MAGCOR values
+        ,NSTORE_WAVESHIFT       &  ! number of stored WAVESHIFT values
+        ,NUSE_MAGCOR            &  ! number of used MAGCOR    values
+        ,NUSE_WAVESHIFT         &  ! number of used WAVESHIFT values
         ,SIGN_MAGCOR            &  ! add or subtract
         ,FORCEMASK_FLUXCOR    &  ! mask to force fluxCor, even if already applied
         ,EXIT_ERRCODE        ! used for abort
@@ -2724,7 +2730,7 @@
 
     NSTORE = 0
     ! first loop over string list
-    DO i = 1, NCCID_LIST   ! .xyz
+    DO i = 1, NCCID_LIST  
        CCID    = SNCCID_LIST(i)
        LENC    = INDEX(CCID,' ') - 1
        call PREP_CCID_SAVELIST_SNFITSIO(CCID(1:LENC)//char(0), LENC)
@@ -2732,7 +2738,7 @@
     END DO
 
     ! 2nd loop over integer list
-    DO i = 1, NCID_LIST   ! .xyz
+    DO i = 1, NCID_LIST   
        write(CCID,20)  SNCID_LIST(i)
 20     format(I12)
        CCID    = adjustl(CCID)  ! left-adjust
@@ -15821,7 +15827,7 @@
 
     LPHOTMASK  = ( OVPMASK > 0) .AND.  ( NPHOTMASK_START_EARLYLC > 0)
 
-    SAMENIGHT  = ( (MJD-MJDLAST_EARLYLC) < DT_SAMENIGHT ) ! .xyz
+    SAMENIGHT  = ( (MJD-MJDLAST_EARLYLC) < DT_SAMENIGHT ) 
 
     LCUTS = (LFILT .and. LSNR .and. LPHOTPROB .and. LPHOTMASK )
 
@@ -16388,34 +16394,55 @@
 ! Additional columns are allowed, but will be ignored.
 ! 
 ! Nov 13 2018: pass MAGCOR_INFILE as input argument.
-! 
+! Aug 24 2026: refactor to allow 'MAGCOR' and/or 'WAVESHIFT' column
+
 ! ----------------------
-
-
     USE SNDATCOM
     USE SNLCINP_NML
-
     IMPLICIT NONE
 
     CHARACTER MAGCOR_INFILE*(MXCHAR_FILENAME)  ! (I)
 
-    INTEGER LEN1, LEN2, LEN3, OPTMASK_STORE, ISTAT
-    CHARACTER  & 
-           cFILE*(MXCHAR_FILENAME)  & 
-          ,cTABLE*20, cVARLIST*20, FNAM*12
+! local var    
+    INTEGER LEN1, LEN2, LEN3, LENV, OPTMASK_STORE, ISTAT, i
+    INTEGER NVAR_FOUND, NSTORE
+    CHARACTER  cFILE*(MXCHAR_FILENAME), cTABLE*20, cVARLIST*40, cVARNAME*20, FNAM*12
+
+    INTEGER, PARAMETER :: NVAR_MAGCOR_CHECK = 2
+    INTEGER, PARAMETER :: IVAR_MAGCOR       = 1
+    INTEGER, PARAMETER :: IVAR_WAVESHIFT    = 2
+    CHARACTER  VARNAME_MAGCOR_CHECK(NVAR_MAGCOR_CHECK)*20
+    CHARACTER  VARLIST_MAGCOR_CHECK*40
 
 ! functions
     INTEGER  SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
     EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-    INTEGER ISTAT_MAGCOR_ADD
+    INTEGER ISTAT_MAGCOR_ADD,  IGNOREFILE
 
 ! ------------ BEGIN -------------
 
-    NSTORE_MAGCOR = 0
-    NUSE_MAGCOR   = 0
-    IF ( MAGCOR_INFILE .EQ. ' '    ) RETURN
-    IF ( MAGCOR_INFILE .EQ. 'NULL' ) RETURN
-    IF ( MAGCOR_INFILE .EQ. 'NONE' ) RETURN
+    NSTORE_MAGCOR    = 0
+    NSTORE_WAVESHIFT = 0
+    NUSE_MAGCOR      = 0
+    NUSE_WAVESHIFT   = 0
+
+    NVAR_FOUND = 0
+    CALL ENVreplace(MAGCOR_INFILE)
+    LEN1   = INDEX(MAGCOR_INFILE,' ') - 1
+    cFILE  = MAGCOR_INFILE(1:LEN1) // char(0)
+
+    if ( IGNOREFILE(cFILE,LEN1) > 0 ) RETURN
+
+    VARNAME_MAGCOR_CHECK(IVAR_MAGCOR)    = VARNAME_MAGCOR
+    VARNAME_MAGCOR_CHECK(IVAR_WAVESHIFT) = VARNAME_WAVESHIFT
+    VARLIST_MAGCOR_CHECK    = VARNAME_MAGCOR // ',' // VARNAME_WAVESHIFT
+
+    ! xxxxxx mark delete
+    !IF ( MAGCOR_INFILE .EQ. ' '    ) RETURN
+    !IF ( MAGCOR_INFILE .EQ. 'NULL' ) RETURN
+    !IF ( MAGCOR_INFILE .EQ. 'NONE' ) RETURN
+    ! xxxxxx end mark 
+
 
     SIGN_MAGCOR = +1  ! default is to add
     IF ( MAGCOR_INFILE(1:1) .EQ. '-' ) THEN
@@ -16426,9 +16453,6 @@
     FNAM = 'INIT_MAGCOR'
     CALL PRBANNER('INIT_MAGCOR: read mag-correction vs. epoch')
 
-    CALL ENVreplace(MAGCOR_INFILE)
-    LEN1   = INDEX(MAGCOR_INFILE,' ') - 1
-    cFILE  = MAGCOR_INFILE(1:LEN1) // char(0)
 
 ! check header to see if if MAGCOR has been added in version
 ! ISTAT=1 if MAGCOR alread added ; ISTAT=0 if not already added.
@@ -16449,18 +16473,46 @@
     cTABLE = 'MAGCOR' // char(0)  ! any table name will work for ASCII
     LEN2   = INDEX(cTABLE,' ') - 1
 
-    cVARLIST = 'MAGCOR' // char(0)
-    LEN3     = INDEX(cVARLIST,' ') - 1
+    LEN3     = INDEX(VARLIST_MAGCOR_CHECK,' ') - 1
+    cVARLIST = VARLIST_MAGCOR_CHECK(1:LEN3) // char(0)
 
     OPTMASK_STORE = 5  ! 1->5 on May 11 2017
-    NSTORE_MAGCOR =  & 
-             SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST,  & 
-                     OPTMASK_STORE,  LEN1, LEN2, LEN3 )
+    NSTORE = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST,  & 
+         OPTMASK_STORE,  LEN1, LEN2, LEN3 )
 
-    write(6,20) NSTORE_MAGCOR
- 20   format(/, T4,'Stored ', I6, ' epochs of MAG corrections. ')
+    ! .xyz
+    print*,' '
+    DO i = 1, NVAR_MAGCOR_CHECK
+       LENV     = INDEX(VARNAME_MAGCOR_CHECK(i),' ') - 1
+       cVARNAME = VARNAME_MAGCOR_CHECK(i)(1:LENV) // char(0)
+       if ( EXIST_VARNAME_AUTOSTORE(cVARNAME, LENV) > 0 ) then
+          write(6,20) NSTORE, VARNAME_MAGCOR_CHECK(i)
+20        format(T4,'Stored ', I6, ' epochs of ', A10, ' corrections. ')
+          NVAR_FOUND = NVAR_FOUND + 1
+
+          if ( i == IVAR_MAGCOR    ) NSTORE_MAGCOR    = NSTORE
+          if ( i == IVAR_WAVESHIFT ) NSTORE_WAVESHIFT = NSTORE
+       else
+          write(6,26)  VARNAME_MAGCOR_CHECK(i)
+26        format(T4,'Did not find ', A, ' corrections')
+       endif
+       
+    ENDDO
+
     print*,'    Sign of MAGCOR : ', SIGN_MAGCOR
     print*,' '  ;  CALL FLUSH(6)
+
+    if ( NVAR_FOUND <= 0 ) then
+       C1ERR = 'Could not find either of ' // VARLIST_MAGCOR_CHECK
+       C2ERR = 'Check table columns'
+       CALL MADABORT(FNAM,C1ERR,C2ERR)
+    endif
+
+    ! xxxxxxxxxxxxxx
+    !print*,' '
+    !print*,' xxx DEBUG STOP xxx '
+    !STOP
+    ! xxxxxxxxxxxxxx
 
     RETURN
   END SUBROUTINE INIT_MAGCOR
@@ -16557,16 +16609,16 @@
   END FUNCTION ISTAT_MAGCOR_ADD
 
 ! ========================================================
-    SUBROUTINE EXEC_MAGCOR(ep)
+    SUBROUTINE EXEC_MAGCOR(ep, VARNAME)
 
 ! Dec 2016
-! Apply MAGCOR read in INIT_MAGCOR. The corrections are
-! applied to the FLUXCAL.
+! Apply MAGCOR/WAVESHIFT values that were read in INIT_MAGCOR. 
+! The corrections are applied to the FLUXCAL.
 ! Modify SNLC_FLUXCAL(ep) and SNLC_MAG(ep)
 ! 
 ! May 1 2017: abort on crazy MAGCOR
+! Aug 24 2026: refactor to accomodate VARNAME = 'MAGCOR' or 'WAVESHIFT'
 ! ---------------------------------
-
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -16574,24 +16626,39 @@
 
     IMPLICIT NONE
 
-    INTEGER ep ! epoch index
+    INTEGER ep               ! (I) epoch index
+    CHARACTER VARNAME*(*)    ! (I) which magcor variable to process (Aug 2026)
 
 ! local variables
 
-    INTEGER IFILT_OBS, ISTAT, L, L2, NROW_MATCH
-    REAL*8 MJD, DVAL
-    REAL*4 MAGCOR, FCOR
+    INTEGER IFILT_OBS, ISTAT, L, L2, NROW_MATCH, NSTORE
+    REAL*8  MJD, DVAL
+    REAL*4  VAL, FCOR, CRAZY_VAL
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
-    CHARACTER STR_EPID1*60, STR_EPID2*60
-
-    REAL, PARAMETER :: MAGCOR_CRAZY = 0.2
+    CHARACTER STR_EPID1*60, STR_EPID2*60, FNAM*12
+    LOGICAL IS_MAGCOR, IS_WAVESHIFT
 
 ! function
     INTEGER  SNTABLE_AUTOSTORE_READ
     EXTERNAL SNTABLE_AUTOSTORE_READ
 ! --------------- BEGIN -----------------
 
-    IF ( NSTORE_MAGCOR <= 0 ) RETURN
+    IS_MAGCOR    = .FALSE.
+    IS_WAVESHIFT = .FALSE.
+    FNAM         = 'EXEC_MGACOR'
+
+    if ( VARNAME == VARNAME_MAGCOR ) then
+       NSTORE    = NSTORE_MAGCOR
+       IS_MAGCOR = .TRUE.
+       CRAZY_VAL = 0.2   ! mag
+    else if ( VARNAME == VARNAME_WAVESHIFT ) then
+       NSTORE = NSTORE_WAVESHIFT
+       IS_WAVESHIFT = .TRUE.
+       CRAZY_VAL = 200.0  ! Angstrom
+    endif
+
+    ! - - - - - 
+    IF ( NSTORE <= 0 ) RETURN
 
     IFILT_OBS = ISNLC_IFILT_OBS(ep)
     BAND      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
@@ -16602,14 +16669,14 @@
 
     L  = INDEX(SNLC_CCID,' ') - 1
     WRITE(STR_EPID1,40) SNLC_CCID(1:L), MJD, BAND, char(0)
-40    FORMAT(A,'-',F9.3,'-', A1, A )
+40  FORMAT(A,'-',F9.3,'-', A1, A )
 
-    cVARNAME = 'MAGCOR' // char(0)
+    cVARNAME = VARNAME // char(0)
 
     NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID1, cVARNAME, ISTAT,  & 
-         DVAL,cDUM, 60,10,10 )
+         DVAL, cDUM, 60,10,10 )
 
-! if no MAGCOR, then try again with IAUC name
+! if no match using CID, then try again with IAUC name
     IF ( ISTAT .NE. 0 ) THEN
       L2  = INDEX(SNLC_NAME_IAUC,' ') - 1
       WRITE(STR_EPID2,40) SNLC_NAME_IAUC(1:L2), MJD, BAND, char(0)
@@ -16618,28 +16685,34 @@
     ENDIF
 
     IF ( ISTAT .EQ. 0 ) then
-      NUSE_MAGCOR  = NUSE_MAGCOR + 1
-      MAGCOR = sngl(DVAL) * SIGN_MAGCOR
+      VAL = sngl(DVAL) * SIGN_MAGCOR
 
-! trap crazy MAGCOR
-      if ( abs(MAGCOR) > MAGCOR_CRAZY ) then
-         write(C1ERR,61) MAGCOR
-61         format('Crazy MAGCOR = ', G12.4 )
+! trap crazy val
+      if ( abs(VAL) > CRAZY_VAL ) then
+         write(C1ERR,61) VARNAME, VAL
+61       format('Crazy ', A,' = ', G12.4 )
          C2ERR = 'Check ' // STR_EPID1(1:L+12)
-         CALL MADABORT("EXEC_MAGCOR",C1ERR,C2ERR)
+         CALL MADABORT(FNAM, C1ERR, C2ERR)
       endif
 
-      FCOR   = 10**(-0.4*MAGCOR)
-
-      SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * FCOR
-      SNLC_MAG(ep)     = SNLC_MAG(ep) + MAGCOR
+      if ( IS_MAGCOR ) then
+         NUSE_MAGCOR     = NUSE_MAGCOR    + 1
+         FCOR   = 10**(-0.4*VAL)
+         SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * FCOR
+         SNLC_MAG(ep)     = SNLC_MAG(ep) + VAL
+      else if ( IS_WAVESHIFT ) then
+         NUSE_WAVESHIFT  = NUSE_WAVESHIFT + 1
+         ! .xyz continue here ... do something
+      else
+         ! abort ??
+      endif
 
 !        write(6,66) DVAL, STR_EPID1, ISTAT
 ! 6      format(' xxx MAGCOR=',F6.3,' for ', A20,'  ISTAT=',I3)
 !        call flush(6)
     ENDIF
 
-    CALL SETMASK_FLUXCOR_SNANA(MASK_FLUXCOR_SNANA)
+    if ( IS_MAGCOR ) CALL SETMASK_FLUXCOR_SNANA(MASK_FLUXCOR_SNANA)
 
     RETURN
   END SUBROUTINE EXEC_MAGCOR
@@ -16649,18 +16722,19 @@
 
     USE SNDATCOM
     USE SNLCINP_NML
-
     IMPLICIT NONE
 
 ! --------------- BEGIN --------------
 
-    IF ( NSTORE_MAGCOR == 0 ) RETURN
+    if ( NSTORE_MAGCOR > 0 ) then
+       write(6,20) VARNAME_MAGCOR, NUSE_MAGCOR, NSTORE_MAGCOR
+    endif
 
-    print*,' '
-    print*,' MAGCOR SUMMARY:'
-    write(6,20) NUSE_MAGCOR, NSTORE_MAGCOR
-20    format(T8,'Used ',I6,' MAGCOR epochs from ',  & 
-                I6,' read from file.' )
+    if ( NSTORE_WAVESHIFT > 0 ) then
+       write(6,20) VARNAME_WAVESHIFT, NUSE_WAVESHIFT, NSTORE_WAVESHIFT
+    endif
+
+20  format(T8,'Used ',I6,2x, A10, ' epochs from ',  I6,' read from file.' )
 
     RETURN
   END SUBROUTINE END_MAGCOR
@@ -18610,7 +18684,8 @@
 
 ! ---------------------
 ! mag-corrections; e.g.. chromatic corrections from FGCM
-    CALL EXEC_MAGCOR(ep)
+    CALL EXEC_MAGCOR(ep, VARNAME_MAGCOR   )
+    CALL EXEC_MAGCOR(ep, VARNAME_WAVESHIFT)
 
     RETURN
   END SUBROUTINE EXEC_FUDGE_FLUXCAL

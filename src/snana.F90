@@ -689,6 +689,9 @@
         ,SNLC_TREST(MXEPOCH)       &  !  MJD-SET_PEAKMJD)/(1+z)
         ,SNLC_GAIN(MXEPOCH)       &  ! e/AUD
         ,SNLC_RDNOISE(MXEPOCH)    &  ! read noise per pix, e-
+        ,SNLC_WAVESHIFT(MXEPOCH)  &  ! waveshift per epoch read from MAGCOR_FILE
+        ,SNLC_WAVESHIFT_MIN        &
+        ,SNLC_WAVESHIFT_MAX        &
         ,SNLC_PIXSIZE             &  ! pixel size
         ,SNLC_NXPIX               &  ! total number of X-pixels (Aug 7 2014)
         ,SNLC_NYPIX               &  ! total number of Y-pixels
@@ -1727,7 +1730,7 @@
          REFORMAT_KEYS*(MXCHAR_FILENAME)   &  !   global reformat info
         ,NONSURVEY_FILTERS*(MXFILT_ALL)    &  ! I: non-survey filters to add
         ,SNRMAX_FILTERS*(MXFILT_ALL)       &  ! I: list of filters for SNRMAX cuts
-        ,FILTER_REPLACE*(MXFILT_ALL)       &  ! I: e.g., 'UGRIZ -> ugriz'
+        ,FILTER_REPLACE*(2*MXFILT_ALL)       &  ! I: e.g., 'UGRIZ -> ugriz'
         ,FILTLIST_LAMSHIFT*(MXFILT_ALL)    &  ! I: list of lam-shifted filters
         ,PRIVATE_CUTWIN_STRING(MXCUT_PRIVATE)*(MXCHAR_CUTNAME)  &  ! I: cut on privat variables
         ,PRIVATE_VARNAME_READLIST*(MXCHAR_FILENAME)    &  ! I: list of private vars to read (default=ALL)
@@ -2927,6 +2930,8 @@
 ! Wrapper subroutine to check if kcor/calib file is defined,
 ! and to call read-kcor function with appropriate args.
 ! [uses refactored C code]
+!
+! Aug 24 2026: check optional NSTORE_WAVESHIFT to call util for mag_primary on wave grid
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -3063,6 +3068,12 @@
 ! check if BX filter is defined for OBS and REST fram
     CALL EXIST_CALIB_BXFILT(EXIST_BXFILT_REST,EXIST_BXFILT_OBS)
 !       print*,' xxx EXIST(BX) = ', EXIST_BXFILT_REST,EXIST_BXFILT_OBS
+
+
+    
+    if ( NSTORE_WAVESHIFT > 0 ) then
+       CALL PREP_PRIMARY_MAG_WAVESHIFT_GRID(SNLC_WAVESHIFT_MIN,SNLC_WAVESHIFT_MAX)
+    endif
 
     RETURN
   END SUBROUTINE READ_CALIB_WRAPPER
@@ -7393,7 +7404,7 @@
 
        else if ( MATCH_NMLKEY('FILTER_REPLACE',  & 
                    1, iArg, ARGLIST) ) then
-         FILTER_REPLACE = ARGLIST(1)(1:MXFILT_ALL)
+         FILTER_REPLACE = ARGLIST(1)(1:2*MXFILT_ALL)
 
        else if ( MATCH_NMLKEY('FILTLIST_LAMSHIFT',  & 
                    1, iArg, ARGLIST) ) then
@@ -11941,7 +11952,8 @@
 ! ------------- BEGIN -----------
     iwd_C = iwd-1
     CALL GET_PARSE_WORD(ONE, iwd_C, WORD_C,  & 
-              "get_PARSE_WORD_fortran"//char(0), LEN, 20)
+              "get_PARSE_WORD_fortran"//char(0), LEN, 40)
+
     LEN  = INDEX(WORD_C, ' ' ) - 1
     WORD = WORD_C(1:LEN)
     RETURN
@@ -12397,6 +12409,7 @@
 ! all of the epochs. This is intended for cases in
 ! which UGRIZ and ugriz bands are very similar.
 ! 
+! Aug 25 2026: increase array size for NAME_forC to handle very large filter lists (Roman x 18 SCA)
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -12412,7 +12425,7 @@
          ARROW*60  & 
         ,FILTLIST1*(MXFILT_ALL)  & 
         ,FILTLIST2*(MXFILT_ALL)  & 
-        ,NAME_forC*(MXFILT_ALL)  & 
+        ,NAME_forC*(2*MXFILT_ALL)  & 
         ,FNAM*20  & 
         ,CFILT_ORIG*2  & 
         ,CFILT_REPLACE*2
@@ -12435,6 +12448,7 @@
 
       LF        = INDEX(FILTER_REPLACE,' ', BACK=.TRUE.) - 1
       NAME_forC = FILTER_REPLACE(1:LF) // char(0)
+
       NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,NAME_forC,  & 
                    FNAM//char(0), LF, 20)
 
@@ -12445,10 +12459,14 @@
 ! idiot checks
 
       if ( NF1 .NE. NF2 ) THEN
+         CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
+         print*,'  FILTER_REPLACE   = ', FILTER_REPLACE
+         print*, ' FILTLIST1(l.h.s) = ', FILTLIST1(1:NF1)
+         print*, ' FILTLIST2(r.h.s) = ', FILTLIST2(1:NF2)
          c1err = 'Cannot use FILTER_REPLACE with ' //  & 
                     'different size lists.'
-         c2err = 'N(' // FILTLIST1(1:NF1) // ')' //  & 
-               ' != N(' // FILTLIST2(1:NF2) // ')'
+         write(c2err,655) NF1, NF2
+655      format('NF1=', I4, 3x,'NF2=', I4)
          CALL MADABORT(FNAM, c1err, c2err )
       ENDIF
       IF ( ARROW(1:2) .NE. '->' ) THEN
@@ -16496,8 +16514,14 @@
 20        format(T4,'Stored ', I6,2x,A10, ' epochs : min/max = ', F9.3,'/', F9.3 )
           NVAR_FOUND = NVAR_FOUND + 1
 
-          if ( i == IVAR_MAGCOR    ) NSTORE_MAGCOR    = NSTORE
-          if ( i == IVAR_WAVESHIFT ) NSTORE_WAVESHIFT = NSTORE
+          if ( i == IVAR_MAGCOR    ) then
+             NSTORE_MAGCOR    = NSTORE
+          endif
+          if ( i == IVAR_WAVESHIFT ) then
+             NSTORE_WAVESHIFT  = NSTORE
+             SNLC_WAVESHIFT_MIN = SNGL(DMIN)
+             SNLC_WAVESHIFT_MAX = SNGL(DMAX)
+          endif
        else
           write(6,26)  VARNAME_MAGCOR_CHECK(i)
 26        format(T4,'Did not find ', A, ' corrections')
@@ -16505,7 +16529,7 @@
        
     ENDDO
 
-    print*,'    Sign of MAGCOR : ', SIGN_MAGCOR
+    if ( NSTORE_MAGCOR > 0 )  print*,'    Sign of MAGCOR : ', SIGN_MAGCOR
     print*,' '  ;  CALL FLUSH(6)
 
     if ( NVAR_FOUND <= 0 ) then
@@ -16515,7 +16539,7 @@
     endif
 
     ! - - - - - - - - -  - -
-    LDEBUG = 1
+    LDEBUG = 0
     if ( LDEBUG > 0 ) then
        print*,' '
        print*,' xxx DEBUG STOP xxx '
@@ -16662,10 +16686,12 @@
     else if ( VARNAME == VARNAME_WAVESHIFT ) then
        NSTORE = NSTORE_WAVESHIFT
        IS_WAVESHIFT = .TRUE.
-       CRAZY_VAL = 200.0  ! Angstrom
+       CRAZY_VAL    = 200.0  ! Angstrom
     endif
 
     ! - - - - - 
+    SNLC_WAVESHIFT(ep) = 0.0
+
     IF ( NSTORE <= 0 ) RETURN
 
     IFILT_OBS = ISNLC_IFILT_OBS(ep)
@@ -16711,6 +16737,7 @@
       else if ( IS_WAVESHIFT ) then
          NUSE_WAVESHIFT  = NUSE_WAVESHIFT + 1
          ! .xyz continue here ... do something
+         SNLC_WAVESHIFT(ep) = VAL  ! store for later use
       else
          ! abort ??
       endif

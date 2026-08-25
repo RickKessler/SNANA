@@ -1429,7 +1429,7 @@ void read_calib_filters(void) {
 
     /* 
     printf(" xxx C: %s -> IFILT[REST,OBS] = %d, %d \n",
-	   FILTER_NAME, IFILT_REST, IFILT_OBS ); fflush(stdout); // xxx .xyz
+	   FILTER_NAME, IFILT_REST, IFILT_OBS ); fflush(stdout); //
     */
 
     if ( IFILT_REST > 0 ) {
@@ -2112,6 +2112,7 @@ void get_calib_primary_sed(char *primary_name, int *nblam,
     flux[ilam] = FILTERCAL_OBS->PRIMARY_FLUX[ilam];
   } // end ilam loop
 
+
   return;
 } // end get_calib_primary_sed
 
@@ -2124,7 +2125,7 @@ void get_calib_primary_sed__(char *primary_name, int *NBLAM,
 // ======================================================
 double get_calib_primary_mag(int OPT, int ifiltdef) {
 
-  // Return primary mag for inputs:
+  // Return already-stored primary mag for inputs:
   //  OPT = OPT_FRAME_REST or OPT_FRAME_OBS
   //  ifiltdef = absolute filter index
 
@@ -2151,6 +2152,150 @@ double get_calib_primary_mag(int OPT, int ifiltdef) {
 
 double get_calib_primary_mag__(int *OPT, int *ifiltdef)
 { return get_calib_primary_mag(*OPT,*ifiltdef); }
+
+
+void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
+
+  // Created Aug 2026 
+  // if WAVESHIFT column exists in MAGCOR table, this function is called
+  // to prepare primary mag vs. waveshift in small (~ 1 A) bins,
+  // and for each passband. 
+  // Initial motivation: Roman correction for 18 SCAs (with R.Purhit)
+
+  int  NFILTDEF = CALIB_INFO.FILTERCAL_OBS.NFILTDEF ;
+
+  int  IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN=2.0 ;  // integer wave shift ranges and bins
+  int  NGRID, ifilt ;
+  float FMEMTOT = 0.0 ;
+  char fnam[] = "PREP_PRIMARY_MAG_WAVESHIFT_GRID" ;  (void)fnam;
+
+  // ------------- BEGIN ------------
+
+  print_banner(fnam);
+
+  IWAVESHIFT_MIN = (int)WAVESHIFT_MIN - 2 ;
+  IWAVESHIFT_MAX = (int)WAVESHIFT_MAX + 2 ;
+  NGRID          = IWAVESHIFT_MAX - IWAVESHIFT_MIN + IWAVESHIFT_BIN; 
+  NGRID /= IWAVESHIFT_BIN ;
+
+  printf(" Original WAVESHIFT range: %.1f to %.1f A \n", WAVESHIFT_MIN, WAVESHIFT_MAX);
+  printf(" WAVESHIFT grid: %d to %d A with %d A  binsize\n",
+	IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN );
+  printf(" NFILTDEF = %d    NGRID(WAVESHIFT)=%d \n", NFILTDEF, NGRID);
+  
+  // load the goodies into global struct (kind'of like a python namespace)
+  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MIN = IWAVESHIFT_MIN;
+  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MAX = IWAVESHIFT_MAX;
+  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_BIN = IWAVESHIFT_BIN; 
+  
+  // allocate memory
+  int MEMD = NGRID * sizeof(double);
+  PRIMARY_MAG_WAVESHIFT_GRID.WAVESHIFT_GRID = (double*)malloc(MEMD);
+  FMEMTOT += (float)MEMD;
+
+  // allocate MAG_GRID[ifilt][igrid]
+  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &PRIMARY_MAG_WAVESHIFT_GRID.MAG_GRID );
+
+  int i, iwaveshift, IBIN_DUMP=12 ;
+  double waveshift, mag ;
+  int    IBIN_ZERO = -9;
+  for(i = 0; i < NGRID; i++ ) {
+    iwaveshift = IWAVESHIFT_MIN + i*IWAVESHIFT_BIN;
+    waveshift   = (double)iwaveshift;
+    PRIMARY_MAG_WAVESHIFT_GRID.WAVESHIFT_GRID[iwaveshift] = waveshift;
+
+    if ( waveshift == 0.0 ) { IBIN_ZERO = i; }
+
+    for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+
+      mag = compute_primary_mag(ifilt, waveshift);
+      PRIMARY_MAG_WAVESHIFT_GRID.MAG_GRID[ifilt][i] = mag;
+
+      if ( i == IBIN_DUMP ) {
+	if ( ifilt==0 ) {
+	  printf(" xxx %s:  i=%3d  iwaveshift=%4d  waveshift=%.2f \n", 
+		 fnam, i, iwaveshift, waveshift);  fflush(stdout);
+	}
+
+	char *NAME = CALIB_INFO.FILTER_NAME[ifilt];
+	printf(" xxx %s: \t ifilt=%d(%s)  mag=%.3f\n", 
+	       fnam, ifilt, NAME, mag);  fflush(stdout);
+      }
+    } // end ifilt    
+  }   // end i loop over NGRID(WAVESHIFT)
+
+
+  // - - - - - -  -
+  if ( IBIN_ZERO < 0 ) {
+    sprintf(c1err,"WAVESHIFT grid does not include 0;");
+    sprintf(c2err,"Cannot verify PRIMARY_MAG recalc. ");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+
+
+  // .xyz
+  /*
+  struct PRIMARY_MAG_WAVESHIFT_GRID {
+    int IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN;
+    int NGRID;
+    double *WAVESHIFT_GRID;
+    double **MAG_GRID;  // MAG[ifilt][igrid]                                                            
+  } PRIMARY_MAG_WAVESHIFT_GRID ;
+  */
+  fflush(stdout);
+
+  debugexit(fnam);
+ 
+
+  return ;
+
+} // end PREP_PRIMARY_MAG_WAVESHIFT_GRID
+
+void prep_primary_mag_waveshift_grid__(float *WAVESHIFT_MIN, float *WAVESHIFT_MAX) 
+{ PREP_PRIMARY_MAG_WAVESHIFT_GRID(*WAVESHIFT_MIN,*WAVESHIFT_MAX); }
+
+
+double compute_primary_mag(int ifilt, double WAVESHIFT) {
+
+  // Aug 2026
+  // Compute and store primargy mag for input IFILT and WAVESHIFT.
+
+  FILTERCAL_DEF *FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ;
+  int NBLAM_FILT           = FILTERCAL->NBIN_LAM[ifilt] ;
+
+  int NBLAM_PRIMARY    = FILTERCAL->NBIN_LAM_PRIMARY ;
+  double *PRIMARY_LAM  = FILTERCAL->PRIMARY_LAM ;
+  double *PRIMARY_FLUX = FILTERCAL->PRIMARY_FLUX ;
+
+  double mag, lam_filt, trans, primary_flux, primary_flux_sum = 0.0 ;
+  int ilam;
+  
+  int OPT_INTERP = 2;
+  char fnam[] = "compute_primary_mag" ;  (void)fnam;
+
+  // ---------- BEGIN ----------
+
+  for(ilam=0; ilam < NBLAM_FILT; ilam++ ) {
+    lam_filt    = FILTERCAL->LAM[ifilt][ilam] + WAVESHIFT;
+    trans       = FILTERCAL->TRANS[ifilt][ilam];
+
+    primary_flux = interp_1DFUN(OPT_INTERP, lam_filt, 
+				NBLAM_PRIMARY, PRIMARY_LAM, PRIMARY_FLUX, fnam);
+
+    
+  }
+
+  /*
+  int  NBIN_LAM = FILTERCAL_OBS->NBIN_LAM_PRIMARY ;
+    lam[ilam]  = FILTERCAL_OBS->PRIMARY_LAM[ilam];
+    flux[ilam] = FILTERCAL_OBS->PRIMARY_FLUX[ilam];
+  */
+
+  mag = 19.0 + (double)ifilt + WAVESHIFT/100.0;
+
+  return mag;
+} // end compute_primary_mag
 
 
 // =============================
@@ -2227,7 +2372,6 @@ void get_calib_filterTrans(int OPT_FRAME, int ifiltdef, char *surveyName,
   }
 
   // TO-DO: check filter-update for SNLS that has filterTrans per SN
-  //.xyz
 
   return;
 

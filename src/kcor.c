@@ -117,8 +117,6 @@
 
 #include "kcor.h"       // kcor-specific definitions 
 #include "MWgaldust.h"
-//#include "sntools_cosmology.h"
-//#include "genmag_SEDtools.h"
 #include "sntools_spectrograph.h"
 
 
@@ -3976,8 +3974,8 @@ double primaryflux( int iprim, double lambda ) {
    a_fnorm[2] = a_flux[2]/renorm ;
    a_fnorm[3] = a_flux[3]/renorm ;
 
-/* idiot check: make sure that a_lam[2] is within 
-               "LBIN" of requested lambda */
+   /* idiot check: make sure that a_lam[2] is within 
+      "LBIN" of requested lambda */
 
    dum = fabs(a_lam[2] - lambda);
    if ( dum > LBIN ) {

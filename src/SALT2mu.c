@@ -7421,7 +7421,9 @@ void read_data_override(void) {
   // Aug 19 2026:
   //   + abort on zHDERR since we don't know how to decompose into vpec and zhel errors
   //   + fix bugs so that zHD override works
-
+  //
+  // Aug 25 2026: re-allow zCMB, but abort on zHD and zHDERR
+  //
   int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
   int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
   int IVAR_OVER_zHD  = -9, IVAR_OVER_zHDERR  = -9 ;
@@ -7526,6 +7528,7 @@ void read_data_override(void) {
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
 
+  /* xxxx mark delete Aug 25 2026 xxxxxxxx
   if ( IVAR_OVER_zCMB >= 0 ) {
     sprintf(c1err,"Cannot override zCMB.");
     sprintf(c2err,"Try overrid for zHEL or zHD");
@@ -7537,6 +7540,7 @@ void read_data_override(void) {
     sprintf(c2err,"Please post Github issue if this is important.");
     errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
   }
+  xxxxxx end mark xxxxx */
 
   // - - - - - - 
   // if VPEC or zHEL is on override list, add recalc zHD to override list.
@@ -7596,15 +7600,18 @@ void read_data_override(void) {
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = 
 	  INFO_DATA.TABLEVAR.host_logmass ;  }
 
-    else if ( strcmp(varName,"zHD") == 0 ) 
-      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhd ;  }
-
+    // - - - - - 
+    else if ( strcmp(varName,"zHD") == 0 ) {
+      sprintf(c1err,"Won't override zHD because VPEC & zHEL are ambiguous.");
+      sprintf(c2err,"Suggest providing VPEC and/or zHEL");
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	  
+    }
     else if ( strcmp(varName,"zHDERR") == 0 )  { 
-      INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhderr ; 
-      sprintf(c1err,"Cannot override zHDERR because VPECERR/zHELERR are not known.");
+      sprintf(c1err,"Won't override zHDERR because VPECERR & zHELERR are ambiguous.");
       sprintf(c2err,"Suggest providing VPEC_ERR and/or zHELERR");
       errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	  
     }
+    // - - - - - - 
 
     else if ( strcmp(varName,"zCMB") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmb ;  }
@@ -7630,13 +7637,18 @@ void read_data_override(void) {
   int NSN_DATA = INFO_DATA.TABLEVAR.NSN_ALL ;
   int istat, isn, NROW_MATCH;
   bool  override_zhd, override_zhderr;
-  double dval;    char *name, cval[MXCHAR_CCID] ;
-  double zhd_over, zhderr_over, dl, zhel_over, zhd_orig, zhel_orig ;
+  char *name, cval[MXCHAR_CCID] ;
+  double dval, dl, dz ;    
+  double zhd_orig,  zhd_over,  zhderr_over ;   (void)zhderr_over ;
+  double zhel_orig, zhel_over, zhelerr_over ;  (void)zhelerr_over ;
+  double zcmb_orig, zcmb_over, zcmberr_over ;  (void)zcmberr_over ;
 
   for(isn=0; isn < NSN_DATA; isn++ ) { 
 
     zhd_orig   = (double)INFO_DATA.TABLEVAR.zhd[isn];
     zhel_orig  = (double)INFO_DATA.TABLEVAR.zhel[isn];
+    zcmb_orig  = (double)INFO_DATA.TABLEVAR.zcmb[isn];
+
     override_zhd = override_zhderr = false;
 
     for(ivar_over=0; ivar_over < NVAR_OVER; ivar_over++ ) {
@@ -7675,16 +7687,30 @@ void read_data_override(void) {
 	  NSN_CHANGE[IVAR_OVER_zHDERR]++ ; 
           override_zhderr = true ;
 	}
-	else if ( ivar_over == IVAR_OVER_zHEL ) {
-	  zhel_over = dval ;
-	  zhd_over  = zhd_orig + (zhel_over-zhel_orig); 
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
-	  if(!override_zhd) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
+	else if ( ivar_over == IVAR_OVER_zHEL || ivar_over == IVAR_OVER_zCMB ) {
+
+	  if ( ivar_over == IVAR_OVER_zHEL ) {
+	    // override zHEL
+	    zhel_over = dval ;  dz = (zhel_over-zhel_orig);
+	    zcmb_over = zcmb_orig + dz ;
+	    zhd_over  = zhd_orig  + dz ; 
+	  }
+	  else {
+	    // override zCMB (enabled Aug 25 2026, unclear why it was forbidden?)
+	    zcmb_over = dval ;  dz = (zcmb_over-zcmb_orig);
+	    zhel_over = zhel_orig + dz ;
+	    zhd_over  = zhd_orig  + dz ; 
+	  }
+
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHEL][isn] = zhel_over ; // Aug 25 2026
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMB][isn] = zcmb_over ; // Aug 25 2026
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn]  = zhd_over;
+	  if( !override_zhd ) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
 	  override_zhd = true ;
 	}
+
 	else if ( ivar_over == IVAR_OVER_zHD ) {       // Aug 17 2026 (git issue 1760)
 	  zhd_over     = dval;
-	  // xxx mark INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHD][isn] = zhd_over;
 	  override_zhd = true ;   // nother else to override 
 	}
 

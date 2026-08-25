@@ -2213,7 +2213,7 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
       mag = compute_primary_mag(ifilt, waveshift);
       PRIMARY_MAG_WAVESHIFT_GRID.MAG_GRID[ifilt][i] = mag;
 
-      if ( i == IBIN_DUMP ) {
+      if ( i == IBIN_ZERO ) {
 	if ( ifilt==0 ) {
 	  printf(" xxx %s:  i=%3d  iwaveshift=%4d  waveshift=%.2f \n", 
 		 fnam, i, iwaveshift, waveshift);  fflush(stdout);
@@ -2270,7 +2270,7 @@ double compute_primary_mag(int ifilt, double WAVESHIFT) {
   double *PRIMARY_LAM  = FILTERCAL->PRIMARY_LAM ;
   double *PRIMARY_FLUX = FILTERCAL->PRIMARY_FLUX ;
 
-  double mag, lam_filt, trans, primary_flux, primary_flux_sum = 0.0 ;
+  double mag, lam_filt, trans, primary_flux, primary_flux_sum = 0.0, filter_sum = 0.0 ;
   int ilam;
   
   int OPT_INTERP = 2;
@@ -2281,20 +2281,26 @@ double compute_primary_mag(int ifilt, double WAVESHIFT) {
   for(ilam=0; ilam < NBLAM_FILT; ilam++ ) {
     lam_filt    = FILTERCAL->LAM[ifilt][ilam] + WAVESHIFT;
     trans       = FILTERCAL->TRANS[ifilt][ilam];
-
+   
     primary_flux = interp_1DFUN(OPT_INTERP, lam_filt, 
 				NBLAM_PRIMARY, PRIMARY_LAM, PRIMARY_FLUX, fnam);
 
-    
+    primary_flux_sum += (primary_flux * trans / lam_filt);
+    filter_sum += (trans / lam_filt) ; 
+
+    if(WAVESHIFT == 0.0 && ifilt == 0.0){
+      printf("xxx %s: ilam = %d lam = %.1f  flux = %le \n", fnam, ilam, lam_filt, primary_flux);
+
+    }
   }
+
+  mag = -2.5 * log10(primary_flux_sum / filter_sum);
 
   /*
   int  NBIN_LAM = FILTERCAL_OBS->NBIN_LAM_PRIMARY ;
     lam[ilam]  = FILTERCAL_OBS->PRIMARY_LAM[ilam];
     flux[ilam] = FILTERCAL_OBS->PRIMARY_FLUX[ilam];
   */
-
-  mag = 19.0 + (double)ifilt + WAVESHIFT/100.0;
 
   return mag;
 } // end compute_primary_mag

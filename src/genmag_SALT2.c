@@ -2676,15 +2676,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     parList_genSmear[2] = c;
     parList_genSmear[3] = m_host ; 
 
-    /* xxxxx mark delet 5.2025 xxxxx
-    LDMP = 0; // ( fabs(Trest_model) < 1.0 && ifilt_obs == 4) ;
-    if ( LDMP ) 
-      { printf(" xxx %s: z=%.3f  Trest=%6.2f  x1=%.2f  c=%.3f  ifilt_obs=%d \n", 
-	       fnam, z, Trest_model, x1, c, ifilt_obs); }
-    xxxxxxx end mark */
-
-
-
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
       get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);

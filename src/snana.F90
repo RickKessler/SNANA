@@ -3000,14 +3000,13 @@
                  D_MAGOBS_SHIFT_PRIM )  ! <== returned
 
 
-! @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
+! ---------------------------------------------------------------
 ! read kcor file and store information (C code)
 
     CALL READ_CALIB_DRIVER(cCALIB_FILE, cFILTERS, USE_CALIB,  & 
                  D_MAGREST_SHIFT_PRIM, D_MAGOBS_SHIFT_PRIM)
 
-! @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+! ---------------------------------------------------------------
 
 ! check for option to update filter trans for each SN
     CALL FILTER_UPDATE_INIT(IERR)
@@ -25735,6 +25734,9 @@
 ! 
 ! July 2024: clarify stdout comment that ZP offsets are from ZPOFF.DAT file
 !            and from user MAGOBS_SHIFT_ZP ... not from kcor-input file.
+!
+! Aug 25 2026: only write non-zero ZPOFF and give summary for how many
+!
 ! -------------------------
 
     USE SNPAR
@@ -25746,7 +25748,7 @@
     IMPLICIT NONE
 
     REAL      ZPOFF_TOT
-    INTEGER   ifilt_obs, ifilt_rest, ifilt
+    INTEGER   ifilt_obs, ifilt_rest, ifilt, NZPOFF_OBS, NZPOFF_REST
     character CFILT*2
 
 ! ------------------ BEGIN ------------
@@ -25755,24 +25757,40 @@
     print*,'    Extra ZP offsets from ZPOFF.DAT + ' //  & 
                   ' SNLCINP MAGOBS_SHIFT_ZP:'
 
+    NZPOFF_OBS = 0
+    NZPOFF_REST = 0
+
     DO 100 ifilt = 1, NFILTDEF_SURVEY
        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
        if ( ifilt_obs .EQ. IFILT_BESS_BX ) goto 100
        cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
        ZPOFF_TOT = MAGOBS_SHIFT_ZP_FILT(ifilt_obs)
-       write(6,801) 'MAGOBS', cfilt(1:1), ZPOFF_TOT
+       if ( ZPOFF_TOT .NE. 0.0 ) then
+          NZPOFF_OBS = NZPOFF_OBS + 1
+          cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
+          write(6,801) 'MAGOBS', cfilt(1:1), ZPOFF_TOT
+       endif
 100   CONTINUE
+
+    write(6,820) NZPOFF_OBS, 'MAGOBS'
 
     DO 200 ifilt = 1, NFILTDEF_REST
        ifilt_rest = IFILTDEF_MAP_REST(ifilt)
        if ( ifilt_rest .EQ. IFILT_BESS_BX ) goto 200
-       cfilt     = filtdef_string(ifilt_rest:ifilt_rest)
        ZPOFF_TOT = MAGREST_SHIFT_ZP_FILT(ifilt_rest)
-       write(6,801) 'MAGREST', cfilt(1:1), ZPOFF_TOT
-200   CONTINUE
+       if ( ZPOFF_TOT .NE. 0.0 ) then
+          NZPOFF_REST = NZPOFF_REST + 1
+          cfilt     = filtdef_string(ifilt_rest:ifilt_rest)
+          write(6,801) 'MAGREST', cfilt(1:1), ZPOFF_TOT
+       endif
+200  CONTINUE
 
-801     format(T10,'Will apply extra ',  & 
-           A,'_SHIFT_ZP(',A,') = ', F7.4 )
+     if ( NFILTDEF_REST > 0 ) then
+        write(6,820) NZPOFF_REST, 'MAGREST'
+     endif
+
+801  format(T10,'Will apply extra ',  A,'_SHIFT_ZP(',A,') = ', F7.4 )
+820  format(T6,'Applied ',I3,'  non-zero  ',  A,'_SHIFT_ZP ' )
 
     CALL FLUSH(6)
 

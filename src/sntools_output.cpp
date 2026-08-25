@@ -2195,10 +2195,10 @@ int EXIST_VARNAME_AUTOSTORE(char *varName) {
   // Oct 27 2020: if varName == LIST, list all varNames and return 0
   // Dec 13 2021: refactor to use IVAR_VARNAME_AUTOSTORE
   //
-  int ivar, icast ;
+  int ivar, icast, ifile ;
   // ------- BEGIN ---------
 
-  ivar = IVAR_VARNAME_AUTOSTORE(varName, &icast);
+  ivar = IVAR_VARNAME_AUTOSTORE(varName, &icast, &ifile);
 
   if ( ivar >=  0 ) 
     { return 1; }  // true
@@ -2212,17 +2212,64 @@ int exist_varname_autostore__(char *varName) {
 }
 
 
+void GET_MINMAX_VARNAME_AUTOSTORE(char *VARNAME, double *VALMIN, double *VALMAX) {
+
+  // Created Aug 2026
+  // Return VALMIN and VALMAX for this VARNAME
+
+  int irow, NROW=0, IVAR_READ=-9, ICAST_READ=-9, IFILE_READ = -9;
+  double dval;
+  char fnam[] = "GET_MINMAX_VARNAME_AUTOSTORE";  (void)fnam;
+  // ------------ BEGIN -------------
+
+  *VALMIN =  1.0E12 ;
+  *VALMAX = -1.0E20 ;
+
+  IVAR_READ = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST_READ, &IFILE_READ);
+  NROW      = SNTABLE_AUTOSTORE[IFILE_READ].NROW ; // total number of rows read
+
+  if ( IVAR_READ < 0  ) {
+    sprintf(MSGERR1,"Cannot find min/max for %s", VARNAME);
+    sprintf(MSGERR2,"because %s does not exist in AUTOSTORE table.", VARNAME ); 
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
+  }
+
+  if ( ICAST_READ == ICAST_C  ) {
+    sprintf(MSGERR1,"Cannot find min/max for %s", VARNAME);
+    sprintf(MSGERR2,"because %s is a character string", VARNAME ); 
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
+  }
+
+
+  for (irow=0; irow < NROW; irow++ ) {
+    dval = (double)SNTABLE_AUTOSTORE[IFILE_READ].DVAL[IVAR_READ][irow];
+    if ( dval < *VALMIN ) { *VALMIN = dval; }
+    if ( dval > *VALMAX ) { *VALMAX = dval; }
+  }
+  
+
+  //.xyz
+  return;
+
+} // end GET_MINMAX_VARNAME_AUTOSTORE
+
+void get_minmax_varname_autostore__(char *VARNAME, double *VALMIN, double *VALMAX)
+{ GET_MINMAX_VARNAME_AUTOSTORE(VARNAME, VALMIN, VALMAX); }
+
 // ============================================
-int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST) {
+int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST, int *IFILE) {
 
   // Created Dec 13 2021
   // Returns ivar [0:NVAR-1] if varName exists; else return -9
   // Jan 2025: return *ICAST to allow for double and chars
+  // Aug 2026: return *IFILE
 
   int ivar, ifile, ivar_tot, NVAR_USR ;
   char *varName_autostore, *CCAST ;
   bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
   // ------- BEGIN ---------
+
+  *ICAST = *IFILE = -9;
 
   ifile = ivar_tot = 0;
   for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
@@ -2230,6 +2277,7 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST) {
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
       varName_autostore = SNTABLE_AUTOSTORE[ifile].VARNAME[ivar];
       *ICAST            = SNTABLE_AUTOSTORE[ifile].ICAST_READ[ivar];
+      *IFILE            = ifile;
       CCAST             = &CCAST_TABLEVAR[*ICAST]; 
       if ( PRINT_LIST ) {
 	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s  (CAST=%s) \n", 
@@ -2296,7 +2344,7 @@ int IVAR_READTABLE_POINTER(char *varName) {
 
   int ivar, IVAR = - 9;
   char *tmp_varName;
-  //  char fnam[] = "IVAR_READTABLE_POINTER";
+  char fnam[] = "IVAR_READTABLE_POINTER"; (void)fnam;
 
   // ------------- BEGIN ------------
 

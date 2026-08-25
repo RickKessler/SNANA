@@ -20217,7 +20217,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
   //              (previously, FIELD was not present)
   //
 
-  int  ncid, IVAR_IZBIN, ICAST ;
+  int  ncid, IVAR_IZBIN, ICAST, IFILE ;
 
   int  OPTMASK_MATCH = 7;  //match CID_IDSURVEY_FIELD
   char id_name[28], VARLIST_STORE[60]="" ;
@@ -20237,7 +20237,7 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // set logical if IZBIN was found.
   if ( use_izbin ) {
-    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN, &ICAST);
+    IVAR_IZBIN = IVAR_VARNAME_AUTOSTORE(VARNAME_IZBIN, &ICAST, &IFILE);
     if ( IVAR_IZBIN >=0 ) { INFO_DATA.USE_IZBIN_from_CIDFILE = true; }
   }
 

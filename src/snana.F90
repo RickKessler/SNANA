@@ -16414,9 +16414,13 @@
     CHARACTER  VARNAME_MAGCOR_CHECK(NVAR_MAGCOR_CHECK)*20
     CHARACTER  VARLIST_MAGCOR_CHECK*40
 
+    REAL*8  DMIN, DMAX
+
+    INTEGER LDEBUG
+
 ! functions
     INTEGER  SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
-    EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE
+    EXTERNAL SNTABLE_AUTOSTORE_INIT, EXIST_VARNAME_AUTOSTORE, GET_MINMAX_VARNAME_AUTOSTORE
     INTEGER ISTAT_MAGCOR_ADD,  IGNOREFILE
 
 ! ------------ BEGIN -------------
@@ -16486,8 +16490,10 @@
        LENV     = INDEX(VARNAME_MAGCOR_CHECK(i),' ') - 1
        cVARNAME = VARNAME_MAGCOR_CHECK(i)(1:LENV) // char(0)
        if ( EXIST_VARNAME_AUTOSTORE(cVARNAME, LENV) > 0 ) then
-          write(6,20) NSTORE, VARNAME_MAGCOR_CHECK(i)
-20        format(T4,'Stored ', I6, ' epochs of ', A10, ' corrections. ')
+          CALL GET_MINMAX_VARNAME_AUTOSTORE(cVARNAME,DMIN,DMAX,LENV) ! return DMIN, DMAX
+
+          write(6,20) NSTORE, VARNAME_MAGCOR_CHECK(i), DMIN, DMAX
+20        format(T4,'Stored ', I6,2x,A10, ' epochs : min/max = ', F9.3,'/', F9.3 )
           NVAR_FOUND = NVAR_FOUND + 1
 
           if ( i == IVAR_MAGCOR    ) NSTORE_MAGCOR    = NSTORE
@@ -16508,11 +16514,13 @@
        CALL MADABORT(FNAM,C1ERR,C2ERR)
     endif
 
-    ! xxxxxxxxxxxxxx
-    !print*,' '
-    !print*,' xxx DEBUG STOP xxx '
-    !STOP
-    ! xxxxxxxxxxxxxx
+    ! - - - - - - - - -  - -
+    LDEBUG = 1
+    if ( LDEBUG > 0 ) then
+       print*,' '
+       print*,' xxx DEBUG STOP xxx '
+       STOP
+    endif
 
     RETURN
   END SUBROUTINE INIT_MAGCOR

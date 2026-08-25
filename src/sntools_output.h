@@ -511,13 +511,13 @@ extern"C" {
 
   void   SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR);
   
-
-  int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST);
+  int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST, int *IFILE);
   int EXIST_VARNAME_AUTOSTORE(char *varName);
   int exist_varname_autostore__(char *varName);
   int NVAR_MATCH_AUTOSTORE(char *varString, char *varList);
-
   int  UNIQUE_AUTOSTORE_VARNAME(int IFILE, char *VARNAME);
+  void GET_MINMAX_VARNAME_AUTOSTORE(char *VARNAME, double *VALMIN, double *VALMAX);
+  void get_minmax_varname_autostore__(char *VARNAME, double *VALMIN, double *VALMAX);
 
   // histogram wrappers
   void SNHIST_INIT(int NDIM, int ID, char *TITLE, 

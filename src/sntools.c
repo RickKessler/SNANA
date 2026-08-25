@@ -443,7 +443,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     }
 
     int ifile, IVAR_IDSURVEY=-9, IVAR_FIELD=-9, ISNOFF = 0;
-    int ivar, NVAR=0, IVAR_TABLE, ICAST;
+    int ivar, NVAR=0, IVAR_TABLE, ICAST, IFILE_IDSURVEY, IFILE_FIELD, IFILE_TABLE;
     char *ptr_varname;
 
     // get isn offset to allow for multiple cid_select files
@@ -455,10 +455,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
     // get column index for IDSURVEY & FIELD
     if ( USE_IDSURVEY ) 
-      { IVAR_IDSURVEY = IVAR_VARNAME_AUTOSTORE(VARNAME_IDSURVEY, &ICAST); }
+      { IVAR_IDSURVEY = IVAR_VARNAME_AUTOSTORE(VARNAME_IDSURVEY, &ICAST, &IFILE_IDSURVEY); }
 
     if ( USE_FIELD ) 
-      { IVAR_FIELD = IVAR_VARNAME_AUTOSTORE(VARNAME_FIELD, &ICAST); }
+      { IVAR_FIELD = IVAR_VARNAME_AUTOSTORE(VARNAME_FIELD, &ICAST, &IFILE_FIELD ); }
 
     // check for additional columns to store (Apr 29 2022)
     if ( !IGNOREFILE(varList_store) ) {
@@ -470,7 +470,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	
 	for(ivar=0; ivar < NVAR; ivar++ ) {
 	  ptr_varname = HASH_STORAGE.VARNAME_LIST[ivar] ;
-	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST);
+	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST, &IFILE_TABLE);
 	  HASH_STORAGE.IVAR_TABLE[ivar] = IVAR_TABLE ;
 	  if ( IVAR_TABLE >= 0 ) {
 	    malloc_HASH_STORAGE2(ivar, ptr_varname, ICAST, NCID, 0);
@@ -488,7 +488,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 	// beware: realloc is not tested ...
         for(ivar=0; ivar < NVAR; ivar++ ) {
 	  ptr_varname = HASH_STORAGE.VARNAME_LIST[ivar] ;  // bug fix May 8 2025
-	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST);
+	  IVAR_TABLE  = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST, &IFILE_TABLE);
 	  if ( IVAR_TABLE >= 0 ) {
 	    malloc_HASH_STORAGE2(ivar, ptr_varname, ICAST, NCID, ISNOFF);
 	  }

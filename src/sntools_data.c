@@ -1335,7 +1335,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   // Feb 24 2026: abort if there is a mix of override files keyed by CID and GALID
   // Mar 20 2026: refactor to allow either file list or directory to be passed.
 
-  int NROW, ivar, igal, ifile, ICAST, IVAR, NFILE = 0;
+  int NROW, ivar, igal, ifile, ICAST, IFILE, IVAR, NFILE = 0;
   int OPTMASK_SNTABLE = 4;           // append next file
   char **file_list, *ptrFile, *VARNAME_MATCH, *ptr_varname;
   char VARNAME[60], PREFIX[40], PREFIXz[40] ;
@@ -1450,13 +1450,13 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     
   // - - - - - - - -
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_FINAL") ) 
-    { RD_OVERRIDE.IVAR_zCMB = IVAR_VARNAME_AUTOSTORE("REDSHIFT_FINAL", &ICAST ); }
+    { RD_OVERRIDE.IVAR_zCMB = IVAR_VARNAME_AUTOSTORE("REDSHIFT_FINAL", &ICAST, &IFILE ); }
 
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_CMB") ) 
-    { RD_OVERRIDE.IVAR_zCMB = IVAR_VARNAME_AUTOSTORE("REDSHIFT_CMB", &ICAST ); }
+    { RD_OVERRIDE.IVAR_zCMB = IVAR_VARNAME_AUTOSTORE("REDSHIFT_CMB", &ICAST, &IFILE  ); }
 
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_HELIO") ) 
-    { RD_OVERRIDE.IVAR_zHEL = IVAR_VARNAME_AUTOSTORE("REDSHIFT_HELIO", &ICAST ); }
+    { RD_OVERRIDE.IVAR_zHEL = IVAR_VARNAME_AUTOSTORE("REDSHIFT_HELIO", &ICAST, &IFILE  ); }
 
 
   //check ZPHOT & host quantiles for all hosts
@@ -1466,26 +1466,26 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
 
     sprintf(VARNAME,"%s_PHOTOZ", PREFIX);
     if ( EXIST_VARNAME_AUTOSTORE(VARNAME) )  { 
-      IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
+      IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST, &IFILE  );
       RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal]  = IVAR;
     }
 
     sprintf(VARNAME,"%s_PHOTOZ_ERR", PREFIX);
     if ( EXIST_VARNAME_AUTOSTORE(VARNAME) ) {
-      IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
+      IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST, &IFILE  );
       RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT_ERR[igal] = IVAR;
     }
 
     // read one row per "GALID z percent"
     ptr_varname = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].VARNAME_Z ; 
     if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
-      IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
+      IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST, &IFILE  ) ;
       RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[igal] = IVAR;
     }
 
     ptr_varname = SNDATA.HOSTGALz_LOGMASS[igal].VARNAME_Z ; 
     if ( EXIST_VARNAME_AUTOSTORE(ptr_varname) ) { 
-      IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST ) ;
+      IVAR = IVAR_VARNAME_AUTOSTORE(ptr_varname, &ICAST, &IFILE  ) ;
       RD_OVERRIDE.IVAR_HOSTGALz_LOGMASS[igal] = IVAR;
     }
 
@@ -1493,7 +1493,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   
   // check alternate override column name for quantile zphot
   if ( EXIST_VARNAME_AUTOSTORE(VARNAME_QZPHOT00) ) { 
-    IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME_QZPHOT00, &ICAST ) ;
+    IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME_QZPHOT00, &ICAST, &IFILE  ) ;
     RD_OVERRIDE.IVAR_HOSTGALz_QUANTILE_ZPHOT[0] = IVAR;
   }
 
@@ -1501,10 +1501,10 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   rd_override_qzphot_implicit(1, -9);
 
   if ( EXIST_VARNAME_AUTOSTORE("NAME_IAUC") ) 
-    { RD_OVERRIDE.IVAR_NAME_IAUC = IVAR_VARNAME_AUTOSTORE("NAME_IAUC", &ICAST ); }
+    { RD_OVERRIDE.IVAR_NAME_IAUC = IVAR_VARNAME_AUTOSTORE("NAME_IAUC", &ICAST, &IFILE  ); }
 
   if ( EXIST_VARNAME_AUTOSTORE("NAME_TRANSIENT") ) 
-    { RD_OVERRIDE.IVAR_NAME_TRANSIENT = IVAR_VARNAME_AUTOSTORE("NAME_TRANSIENT", &ICAST ); }
+    { RD_OVERRIDE.IVAR_NAME_TRANSIENT = IVAR_VARNAME_AUTOSTORE("NAME_TRANSIENT", &ICAST, &IFILE  ); }
 
   
   // check for varname mistakes
@@ -1685,9 +1685,9 @@ bool match_override_missing_event(char *VARNAME) {
 // ==============================================
 bool ISRD_OVERRIDE_VARNAME(char *VARNAME) {
   bool ISOV = false;
-  int  IVAR = -9, ICAST;
+  int  IVAR = -9, ICAST, IFILE;
   // Return True of this VARNAME is on override list
-  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST ) ;
+  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST, &IFILE  ) ;
   ISOV = (IVAR>=0 );
   return ISOV;
 } // end ISRD_OVERRIDE_VARNAME
@@ -1832,7 +1832,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
   // Apr  11 2026: return DVAL array and return array length
 
   bool NEW_ID, NEW_CID, FOUND_VARNAME ;
-  int  ISTAT, NRD, IVAR, ICAST, NTOT_PER_VAR, ivar ;
+  int  ISTAT, NRD, IVAR, ICAST, IFILE, NTOT_PER_VAR, ivar ;
   char ID_LOCAL[40], CID_LOCAL[40];
 
   int LDMP = 0 ;
@@ -1852,7 +1852,7 @@ int RD_OVERRIDE_FETCH(char *CID, long long int GALID, char *VARNAME, double *DVA
 
   if ( strlen(ID_LOCAL) == 0 ) { return 0; } // 9.29.2025: wait for VARNAME_MATCH to be read 
 
-  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST );
+  IVAR = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST, &IFILE );
   FOUND_VARNAME = ( IVAR >= 0 ) ;
 
   if ( IVAR >= IVARMAX_OVERRIDE ) {

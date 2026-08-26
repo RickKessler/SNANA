@@ -1237,6 +1237,7 @@ int sntable_readprep_vardef1(char *varName_withCast, void *ptr,
   NVAR_TOT  = READTABLE_POINTERS.NVAR_TOT ;
   NVAR_READ = READTABLE_POINTERS.NVAR_READ ;
 
+  // xxx  printf("\t xxx %s: varName_withCast = '%s' \n", fnam, varName_withCast);
 
   if ( NVAR_TOT <= 0 ) {
     sprintf(MSGERR1,"Cannot find ' %s' because NVAR_TOT=%d",
@@ -1924,13 +1925,17 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   // Oct 14 2020: 
   //   + fix ABORT feature if no variable name matches
   //   + use catVarList_with_comma util
+  //
+  // Aug 26 2026: construct varName_withCast using global VARNAME_TABLE_IDLIST,
+  //              that has ROW as first element to take priority over CID, CCID, etc ...
+  //              ROW priority is needed for, e.g. MAGCOR_FILE
 
   bool APPEND_FLAG, ABORT_FLAG;
   int  IFILETYPE, NF, ICAST, UNIQUE ;
-  int  NVAR_USR, ivar, NROW, indx ;
+  int  NVAR_USR, ivar, NROW, indx, j ;
   char *ptrtok, *tmpVar, varName_withCast[MXCHAR_VARNAME+20];
   char *varList_table, *varList_table_ptrtok;
-  char varName[MXCHAR_VARNAME] ;
+  char varName[MXCHAR_VARNAME], ctmp[40] ;
   char readOpt[] = "read";
   char blankFile[] = "" ;
   void *ptrStore;
@@ -2036,9 +2041,21 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // init each variable with auto-generated memory
   // Tack on CID since user will fetch values based on CID (or GALID)
-  sprintf(varName_withCast,"CID:C  CCID:C  ROW:C  SNID:C  GALID:C HOSTGAL_OBJID:C");
+  const char *TABLE_IDLIST[] = VARNAME_TABLE_IDLIST ;
+  varName_withCast[0] = 0 ;
+  for(j=0; j < N_VARNAME_TABLE_IDLIST; j++ ) {
+    sprintf(ctmp,"%s:C ", TABLE_IDLIST[j] );
+    strcat(varName_withCast,ctmp);
+  }
+
+  // xxx mark  sprintf(varName_withCast,"ROW:C  CID:C  CCID:C  SNID:C  GALID:C HOSTGAL_OBJID:C");
   ivar = SNTABLE_READPREP_VARDEF(varName_withCast, 
 				 SNTABLE_AUTOSTORE[NF].CCID, NROW, 1);
+
+  /* xxxxxx mark delete xxxx
+  printf(" xxx %s: ivar=%d  for '%s'\n", fnam, ivar, varName_withCast);
+  debugexit(fnam); // xxx REMOVE
+  xxxxx  */
 
   if ( ivar < 0 ) {
     sprintf(MSGERR1,"Could not find required '%s'", varName_withCast);
@@ -2127,12 +2144,13 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
   // IVAR used only to free memory for undefined variable.
   //
 
-  int MEMC, MEMD, NROW, NVAR_USR, i ;
+  float FMEMTOT = 0.0 ;
+  int MEMC, MEMD, NROW, NVAR_USR ;
   char fnam[] = "SNTABLE_AUTOSTORE_malloc" ;
 
   // -------------- BEGIN -------------
 
-  MEMC = sizeof(char);
+  MEMC = sizeof(char);  (void)MEMC;
   MEMD = sizeof(double);
   NROW = SNTABLE_AUTOSTORE[IFILE].NROW ;
   NVAR_USR =  SNTABLE_AUTOSTORE[IFILE].NVAR ;
@@ -2140,36 +2158,46 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
   if ( OPT == 0 ) {
 
     // setup CCID for each row
-    SNTABLE_AUTOSTORE[IFILE].CCID = (char**)malloc( NROW*sizeof(char*) );
+    FMEMTOT += malloc_strlist(+1, NROW, MXCHAR_CCID, &SNTABLE_AUTOSTORE[IFILE].CCID );
+
+    /* xxx mark del Aug 26 2026 xxxxx
+    SNTABLE_AUTOSTORE[IFILE].CCID    = (char**)malloc( NROW*sizeof(char*) );
     for(i=0; i < NROW; i++ ) { 
       SNTABLE_AUTOSTORE[IFILE].CCID[i] =  (char*)malloc(MEMC*MXCHAR_CCID);  
     }
+    xxxxxxxxx end mark xxxxxx */
 
     // set up char pointer for each variable (but not over rows)
     SNTABLE_AUTOSTORE[IFILE].CVAL  = (char***)malloc( NVAR_USR*sizeof(char**));
 
     // set up double pointer for each variable
-    SNTABLE_AUTOSTORE[IFILE].DVAL = 
-      (double**) malloc( NVAR_USR*sizeof(double*));
+    SNTABLE_AUTOSTORE[IFILE].DVAL = (double**) malloc( NVAR_USR*sizeof(double*));
 
   }
 
   else if ( OPT == ICAST_C) {
 
+    FMEMTOT += malloc_strlist(+1, NROW, MXCHAR_CCID, &SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR] );
+
+    /* xxx mark del Aug 26 2026 xxxxxx
     SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR] = (char**)malloc(NROW*sizeof(char*)); 
     for(i=0; i < NROW; i++ )  { 
-      SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR][i] = 
-	(char*)malloc(MEMC*MXCHAR_CCID);
+      SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR][i] = (char*)malloc(MEMC*MXCHAR_CCID);
     }
+    xxxxxxxxx end mark xxxxxxx */
     
   }
   else if ( OPT == ICAST_D ) {
     SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR] = (double*)malloc(NROW*MEMD); 
 
   }
-  else if ( OPT == -ICAST_C ) {	  
+  else if ( OPT == -ICAST_C ) {
+
+    FMEMTOT = malloc_strlist(-11, NROW, MXCHAR_CCID, &SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR] );
+    /* xxx mark del Aug 26 2026 xxxxx
     for(i=0; i<NROW; i++ ) { free(SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR][i]); }
     free(SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR]);
+    xxxxxxx */
   }
   else if ( OPT == -ICAST_D ) {
     free( SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR] );
@@ -2419,7 +2447,7 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   int IVAR_READ, IFILE_READ, ivar, i, irow ;
   int NVAR_USR, NROW_TOT, ICAST, IROW[2] ;
   char *tmpCCID, *tmpVar;
-  int  LDMP = 0; // ( strstr(VARNAME,"ZPHOT") != NULL  && strcmp(CCID,"2200713027")==0 )  ;
+  int  LDMP = 0; // ( strstr(VARNAME,"MAGCOR") != NULL  && strcmp(CCID,"1341390-62472.348-Z")==0 );
   char fnam[] = "SNTABLE_AUTOSTORE_READ" ;
 
   // ------------- BEGIN --------------
@@ -2443,7 +2471,7 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 
 
   if ( LDMP ) {
-    printf(" 0.  xxx ---------------------------------------------- \n");
+    printf(" 0. xxx ---------------------------------------------- \n");
     printf(" 1. xxx %s: IVAR_READ=%d  IFILE_READ=%d \n", fnam, IVAR_READ, IFILE_READ);    
     fflush(stdout);
   }
@@ -2451,6 +2479,13 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   if ( IVAR_READ < 0  || IFILE_READ < 0 ) { *ISTAT = -2; return 0 ; }
 
  FIND_CCID:
+
+  if ( LDMP ) {
+    printf(" 0.  xxx ---------------------------------------------- \n");
+    printf(" 1.  xxx %s: IVAR_READ=%d  IFILE_READ=%d \n", fnam, IVAR_READ, IFILE_READ);    
+    fflush(stdout);
+  }
+
 
   ICAST    = SNTABLE_AUTOSTORE[IFILE_READ].ICAST_READ[IVAR_READ] ;    
   NROW_TOT = SNTABLE_AUTOSTORE[IFILE_READ].NROW ; // total number of rows read
@@ -2463,7 +2498,7 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   bool IS_SAME_CCID = ( strcmp(CCID,LASTREAD_AUTOSTORE.CCID)==0);
 
   if ( LDMP ) {
-    printf(" 2a. xxx %s: CCID=%s   VARNAME = %s  \n", fnam, CCID, VARNAME); 
+    printf(" 2a. xxx %s: CCID = '%s'   VARNAME = '%s'  \n", fnam, CCID, VARNAME); 
     printf(" 2b. xxx %s: IS_SAME_[FILE,CCID]=%d,%d LAST IROWS=%d to %d \n", 
 	   fnam, IS_SAME_FILE, IS_SAME_CCID, LASTREAD_AUTOSTORE.IROW[0], LASTREAD_AUTOSTORE.IROW[1]);
     fflush(stdout);
@@ -2475,12 +2510,17 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
     goto SET_OUTVAL; 
   }
 
-  if (LDMP ) { printf(" 3. xxx %s search for IROW ... \n", fnam); fflush(stdout); }
+  if (LDMP ) { printf(" 3.  xxx %s search for IROW ... \n", fnam); fflush(stdout); }
 
   // do slow loop over each row and do CCID string match each row.
   for(irow=0; irow < NROW_TOT; irow++ ) {
     tmpCCID = SNTABLE_AUTOSTORE[IFILE_READ].CCID[irow] ;
-    if ( tmpCCID[0] != CCID[0] ) { continue ; } // quick check first char
+
+    if ( tmpCCID[0]      != CCID[0]      ) { continue ; } // quick check first char
+    if ( strlen(tmpCCID) != strlen(CCID) ) { continue ; }
+
+    //    if ( LDMP ) { printf(" 3.  xxx %s: irow=%2d  tmpCCID='%s'\n", fnam, irow, tmpCCID); }
+
     if ( strcmp(tmpCCID,CCID) == 0 )  {
       if ( IROW[0] < 0 ) { IROW[0] = irow; } // firsr row
       IROW[1] = irow ;                       // last row
@@ -2490,7 +2530,6 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
       break; // if IROW is set and no CID match, then stop looking
     }
   }
-
 
   if ( IROW[0] < 0 ) { return 0; } // could not find CCID
 

@@ -24117,6 +24117,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + begin refactor to allow MAGCOR and/or WAVESHIFT corrections.
         The latter is applied to model in light curve fitting.
 
+      + update FILTER_REPLACE feature to work if the original filters
+        are not defined in kcor/calib file.
+        
          *****  MISCELLANEOUS(v12_02c) *****
 
    Here are the small-but-expected regressoin test failures from 
@@ -24145,6 +24148,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     sntools_cosmology.c[h]
       + add new functions zhd_compute and zhderr_compute
+
+   sntools_output.cpp[h]
+      + define global TABLE_VARNAMES_IDLIST[6]
+      + specify ROW with higher priority over CID,CCID, etc ... so that
+        MAGCOR_FILE uses ROW (not CID) to match with AUTOSTORE.
 
 END:
  

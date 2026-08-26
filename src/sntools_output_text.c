@@ -1433,7 +1433,7 @@ int ICAST_for_textVar(char *varName) {
 
   int ivar;
   char *varname_tmp;
-  //  char fnam[] = "ICAST_for_textVar";
+  char fnam[] = "ICAST_for_textVar"; (void)fnam;
 
   // ----------- BEGIN -------------
 

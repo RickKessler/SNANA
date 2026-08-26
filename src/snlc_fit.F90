@@ -2786,12 +2786,12 @@
 
     DO 100 iwd  = 1, NWD, 3
 
-      CALL get_PARSE_WORD_fortran(iwd+0, CWD, LEN)
+      CALL get_PARSE_WORD_fortran(iwd+0, CWD, LEN, FNAM)
       CFILT = CWD
 
-      CALL get_PARSE_WORD_fortran(iwd+1, CWD, LEN)
+      CALL get_PARSE_WORD_fortran(iwd+1, CWD, LEN, FNAM)
       read(CWD,*) TMIN
-      CALL get_PARSE_WORD_fortran(iwd+2, CWD, LEN)
+      CALL get_PARSE_WORD_fortran(iwd+2, CWD, LEN, FNAM)
       read(CWD,*) TMAX
 
       NFILT = INDEX(CFILT,' ') - 1

@@ -73,11 +73,8 @@
 #define TABLEID_MARZ       8100
 
 char STRING_TABLEFILE_TYPE[MXTABLEFILETYPE][12] ;
-  // =  { "NULL", "HBOOK", "ROOT", "TEXT", "MARZ" } ;
-
 char STRING_TABLEFILE_OPENFLAG[MXOPENFLAG][12] ;
- //  = { "NULL", "NEW", "READ" } ;
-
+ 
 char STRING_IDTABLE_SNANA[MXTABLEFILETYPE][12] ;
 char STRING_IDTABLE_FITRES[MXTABLEFILETYPE][12] ;
 char STRING_IDTABLE_OUTLIER[MXTABLEFILETYPE][12] ; // Mar 2021
@@ -98,6 +95,9 @@ int  FIRSTCALL_TABLEFILE_OPEN[MXTABLEFILETYPE];
 int  NLINE_TABLECOMMENT ;
 char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
 
+// Aug 26 2026 define possible column identifiers in table; ROW has first priority, etc...
+#define VARNAME_TABLE_IDLIST { "ROW", "CID", "CCID", "SNID", "GALID", "HOSTGAL_OBJID" }
+#define N_VARNAME_TABLE_IDLIST 6
 
 // -------------------------------------
 // define a few things from sntools.h so that we don't have to
@@ -510,7 +510,8 @@ extern"C" {
   void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid);
 
   void   SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR);
-  
+  float  malloc_strlist(int opt, int LEN1, int LEN2, char ***strlist );
+
   int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST, int *IFILE);
   int EXIST_VARNAME_AUTOSTORE(char *varName);
   int exist_varname_autostore__(char *varName);

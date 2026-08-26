@@ -15045,11 +15045,11 @@ $\Trest$ where mag is computed, mag, $\zmax$, volume.
 % --------------------------------------
 
 For filters that are very similar, such as multiple filters
-overlapping a patch of sky, it is sometimes convenient
+overlapping a patch of sky or variation with CCD, it is sometimes convenient
 to replace filter names. As an example, consider the SDSS filters
 $ugrizUGRIZ$, where the $UGRIZ$ filters are defined for the 
 small fraction of SN that land on overlapping CCD regions. 
-To fit with the usual ``{\tt FILTLIST\_FIT = 'ugriz'}'' input,
+To fit with the usual ``\verb|FILTLIST_FIT = 'ugriz'|'' input,
 we can replace the upper-case filters with the
 following {\tt \&SNLCINP} namelist variable,
 %
@@ -15061,19 +15061,21 @@ following {\tt \&SNLCINP} namelist variable,
 This replacement is equivalent to modifying the data
 files with {\tt U->u}, {\tt G->g}, etc.
 
-
-\bigskip
-WARNING(v10\_28l): 
-When there are no $UGRIZ$ bands, we expect that fitting $ugrizUGRIZ$ 
-should give the same result as fitting $ugriz$ with the 
-{\tt FILTER\_REPLACE} command above. This test works perfectly 
-except when  {\tt OPT\_COVAR}$>0$; 
-hence something about using a model-error covariance matrix 
-with off-diagonal elements introduces a very small 
-(few millimag) discrepancy. It is not yet clear
-if this discrepancy is due to a bug, or if it is expected
-when using {\tt OPT\_COVAR}.
-
+Another example for combined low-z samples is
+\begin{verbatim} 
+   &SNLCINP
+      FILTER_REPLACE = 'abcdefghijkl -> BBBVVVRRRIII'
+           ! or
+      FILTER_REPLACE = 'abc def ghi jkl -> BBB VVV RRR III'  ! more human readable
+          ! or 
+      FILTER_REPLACE = 'abc def ghi jkl->BBB VVV RRR III'  ! arrow without pad spaces
+\end{verbatim}
+% 
+where 'a,b,c' bands in the data are remapped to a common B band,
+'d,e,f' bands are remapped to V, etc.
+Only B,V,R,I need to be defined in the kcor/calib file. Pad spaces are 
+optional for human readability. The arrow string (\verb|->|)
+cannot have a pad space (i.e., \verb|- >| is not recognized).
 
 % --------------------------------------
   \subsubsection{SNTABLE\_FILTER\_REMAP}

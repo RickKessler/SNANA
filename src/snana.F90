@@ -5310,14 +5310,14 @@
        MSKOPT = MSKOPT_PARSE_WORDS_STRING
        NWD = STORE_PARSE_WORDS(MSKOPT,STR//' '//char(0),  & 
               FNAM//char(0), 60, 30)
-       call get_PARSE_WORD_fortran(1,CWD1,LWD1)
+       call get_PARSE_WORD_fortran(1,CWD1,LWD1, FNAM)
 
        if ( VARNAME .EQ. CWD1 ) then
           NCUT_PRIVATE = NCUT_PRIVATE + 1
           LCUTWIN = .TRUE.
 
-          call get_PARSE_WORD_fortran(2,CWD2,LWD2)
-          call get_PARSE_WORD_fortran(3,CWD3,LWD3)
+          call get_PARSE_WORD_fortran(2,CWD2,LWD2, FNAM)
+          call get_PARSE_WORD_fortran(3,CWD3,LWD3, FNAM)
 
           if ( CWD2(1:2) .EQ. '!=' ) then
              read(CWD3,*) CUTWIN(1)
@@ -6803,7 +6803,7 @@
 
     DO 100 iwd = 1, NWD
 
-       CALL get_PARSE_WORD_fortran(iwd, USERSTRING, LENS);
+       CALL get_PARSE_WORD_fortran(iwd, USERSTRING, LENS, FNAM);
 
 ! convert everything to lower case for parsing so that
 ! the input is case-insensitive
@@ -8804,7 +8804,7 @@
     LENCID = MXCHAR_CCID  !  bug fix by Claude INDEX(CCID,' ')-1
 
 ! check if 1st word is DOCANA key
-    CALL get_PARSE_WORD_fortran(1, WD1, LENCID)
+    CALL get_PARSE_WORD_fortran(1, WD1, LENCID, FNAM)
     FOUND_DOCANA     = ( WD1 .EQ. 'DOCUMENTATION:' )
     FOUND_DOCANA_END = (.FALSE.)
     LREQUIRE_DOCANA  = (REQUIRE_DOCANA > 0 )
@@ -8818,7 +8818,7 @@
 
 ! - - - - - -
     DO 200 i = 1, NWD
-       CALL get_PARSE_WORD_fortran(i, CCID, LENCID)
+       CALL get_PARSE_WORD_fortran(i, CCID, LENCID, FNAM)
 
        IF ( FOUND_DOCANA .and. .NOT. FOUND_DOCANA_END) THEN
           FLAG_DOCANA = ISTAT_FILE_DOCANA(i,CCID)
@@ -8940,6 +8940,8 @@
 
     global_banner = 'Job Summary '
     CALL PRBANNER ( GLOBAL_BANNER )
+
+    CALL END_MAGCOR()  ! check for warnings
 
 ! ----------------------------------------------
 ! Start with Npasscut vs. ICUT, and for each type.
@@ -9800,7 +9802,7 @@
 
     CALL WARN_OLDINPUTS("list"//char(0), 0);
 
-    CALL END_MAGCOR()  ! check for warnings
+    ! xxx mark CALL END_MAGCOR()  ! check for warnings
 
 ! - - - - - -
     CALL PRINT_SNSTATS()
@@ -11702,8 +11704,8 @@
 
     DO 100 iwd = 1, NWD-1, 2
 
-       CALL get_PARSE_WORD_fortran(iwd+0, CTMP0, LL0 )
-       CALL get_PARSE_WORD_fortran(iwd+1, CTMP1, LL1 )
+       CALL get_PARSE_WORD_fortran(iwd+0, CTMP0, LL0, FNAM )
+       CALL get_PARSE_WORD_fortran(iwd+1, CTMP1, LL1, FNAM )
 
        READ ( CTMP0, *) CCID
        READ ( CTMP1, *) MJD8
@@ -11923,7 +11925,7 @@
   END FUNCTION VALIDFILENAME
 
 ! =======================================
-    SUBROUTINE get_PARSE_WORD_fortran(iwd,WORD,LEN)
+    SUBROUTINE get_PARSE_WORD_fortran(iwd,WORD,LEN_WORD, callFUN)
 ! 
 ! Jan 2018
 ! Wrapper to call C-function get_PARSE_WORD to retrieve
@@ -11931,7 +11933,7 @@
 ! 
 ! Jan 2019: use MXCHAR_FILEWORD for char array abound.
 ! Jul 2020: extend WORD_C size to 4*MXCHAR_FILENAME
-! 
+! Aug 26 2026: pass callfun arg to isolate abort message
 
     USE SNPAR
 
@@ -11940,20 +11942,25 @@
 ! subroutine args
     INTEGER   IWD           ! (I) word index to fetch
     CHARACTER WORD*(*)      ! (O) stored word
-    INTEGER   LEN           ! (O) length of word
+    INTEGER   LEN_WORD      ! (O) length of word
+    CHARACTER callFUN*(*)   ! (I) call function for error message
 
 ! local args
-    INTEGER  iwd_C
-    CHARACTER WORD_C*(4*MXCHAR_FILENAME)
+    INTEGER  iwd_C, LENF
+    CHARACTER WORD_C*(4*MXCHAR_FILENAME), cSUB*60
     EXTERNAL GET_PARSE_WORD
 
 ! ------------- BEGIN -----------
     iwd_C = iwd-1
-    CALL GET_PARSE_WORD(ONE, iwd_C, WORD_C,  & 
-              "get_PARSE_WORD_fortran"//char(0), LEN, 40)
 
-    LEN  = INDEX(WORD_C, ' ' ) - 1
-    WORD = WORD_C(1:LEN)
+    LENF = INDEX(callfun,' ') - 1
+    cSUB = callfun(1:LENF) // '->' // "get_PARSE_WORD_fortran" //  char(0)
+    
+    CALL GET_PARSE_WORD(ONE, iwd_C, WORD_C,  cSUB, LEN_WORD, 60)
+    ! xxx mark "get_PARSE_WORD_fortran"//char(0), LEN, 40)
+
+    LEN_WORD  = INDEX(WORD_C, ' ' ) - 1
+    WORD = WORD_C(1:LEN_WORD)
     RETURN
   END SUBROUTINE get_PARSE_WORD_fortran
 
@@ -12259,10 +12266,10 @@
 
     DO 110 iwd = 1, NWD-3
 
-       CALL get_PARSE_WORD_fortran(iwd+0, cwd,       LWD0 )
-       CALL get_PARSE_WORD_fortran(iwd+1, cwd_next,  LWD1 )
-       CALL get_PARSE_WORD_fortran(iwd+2, cwd_next2, LWD2 )
-       CALL get_PARSE_WORD_fortran(iwd+3, cwd_next3, LWD3 )
+       CALL get_PARSE_WORD_fortran(iwd+0, cwd,       LWD0, FNAM )
+       CALL get_PARSE_WORD_fortran(iwd+1, cwd_next,  LWD1, FNAM )
+       CALL get_PARSE_WORD_fortran(iwd+2, cwd_next2, LWD2, FNAM )
+       CALL get_PARSE_WORD_fortran(iwd+3, cwd_next3, LWD3, FNAM )
        if ( cwd .EQ. ' ' ) goto 110
 
        if ( cwd(1:7) .EQ. 'SURVEY:' ) then
@@ -12350,7 +12357,7 @@
       CALL MADABORT(FNAM, c1err, c2err )
     endif
 
-    if ( DO_GETINFO ) return ! Apr 2021
+    if ( DO_GETINFO ) return 
 
     write(6,201) SURVEY_NAME(1:LNAM), IDSURVEY
 201   format(T5,'Found SURVEY  = ',A, 3x, '(IDSURVEY=',I3,')' )
@@ -12407,7 +12414,8 @@
 ! all of the epochs. This is intended for cases in
 ! which UGRIZ and ugriz bands are very similar.
 ! 
-! Aug 25 2026: increase array size for NAME_forC to handle very large filter lists (Roman x 18 SCA)
+! Aug 25 2026: increase array size for NAME_forC to handle large filter lists 
+!              e.g. 18 SCA x 6 bands for Roman, mapping into 6 bands.
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -12415,23 +12423,24 @@
 
     IMPLICIT NONE
 
-    INTEGER  & 
-        IFILTOBS, NF1, NF2, NFARROW, IFILT, NWD, LF  & 
-       ,IFILTOBS_ORIG
+    INTEGER  IFILTOBS_ORIG, IFILTOBS, NF1, NF2, NFARROW, NWD, LF_ORIG, LF_FINAL, LF
+    INTEGER  NFILTOBS_ORIG, NFILTOBS_REPLACE, IFILT, INDTMP, i
+
+    INTEGER  IFILTDEF_MAP_REPLACE(MXFILT_OBS), IFILTDEF_INVMAP_REPLACE(MXFILT_OBS)
 
     CHARACTER  & 
-         ARROW*60  & 
-        ,FILTLIST1*(MXFILT_ALL)  & 
-        ,FILTLIST2*(MXFILT_ALL)  & 
+         FNAM*20, ARROW*60, c1*1  & 
+        ,FILTLIST1*(MXFILT_ALL), FILTLIST2*(MXFILT_ALL)  & 
         ,NAME_forC*(2*MXFILT_ALL)  & 
-        ,FNAM*20  & 
-        ,CFILT_ORIG*2  & 
-        ,CFILT_REPLACE*2
+        ,CFILT_ORIG*2, CFILT_REPLACE*2 &
+        ,SURVEY_FILTERS_ORIG*(MXFILT_ALL) &
+        ,SURVEY_FILTERS_REPLACE*(MXFILT_ALL)
 
-! function
-    INTEGER FILTINDX
-    INTEGER  STORE_PARSE_WORDS
-    EXTERNAL STORE_PARSE_WORDS
+    LOGICAL ISBLANK, ISCHAR
+    ! functions
+    INTEGER  FILTINDX
+    INTEGER  STORE_PARSE_WORDS, IGNOREFILE
+    EXTERNAL STORE_PARSE_WORDS, IGNOREFILE
 
 ! ------------- BEGIN ------------
 
@@ -12440,62 +12449,147 @@
       IFILTOBS_REPLACE(IFILTOBS) = IFILTOBS  ! default is 1-to-1 map
     ENDDO
 
+    if ( FILTER_REPLACE .EQ. '' ) RETURN
+
+    LF = INDEX(FILTER_REPLACE,' ')-1
+    if ( IGNOREFILE(FILTER_REPLACE(1:LF)//char(0),LF) .NE. 0 ) RETURN
+
+    ! - - - - -
     FNAM = 'INIT_FILTER_REPLACE'
 
-    IF ( FILTER_REPLACE .NE. ' ' ) THEN
+    LF_ORIG        = INDEX(FILTER_REPLACE,' ', BACK=.TRUE.) - 1
+    LF_FINAL       = 0
 
-      LF        = INDEX(FILTER_REPLACE,' ', BACK=.TRUE.) - 1
-      NAME_forC = FILTER_REPLACE(1:LF) // char(0)
+    ! FILTER_REPLACE string can have pad spaces for human readability in nml file,
+    ! but here those pad spaces are removed before parsing that splits string by
+    ! blank spaces. Enforce a pad space before/after arrow
+    ! This fortran logic is ugly.
+    DO i = 1, LF_ORIG
+       c1      = FILTER_REPLACE(i:i) 
+       ISBLANK = c1 .EQ. ' '
+       ISCHAR  = .NOT. ISBLANK
 
-      NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,NAME_forC,  & 
-                   FNAM//char(0), LF, 20)
+       ! force pad space before arrow
+       if ( c1 .EQ. '-' ) then
+          LF_FINAL = LF_FINAL + 1
+          NAME_forC(LF_FINAL:LF_FINAL) = ' '
+       endif
+       
+       if ( ISCHAR ) then
+          LF_FINAL = LF_FINAL + 1
+          NAME_forC(LF_FINAL:LF_FINAL) = c1
+       endif
 
-      CALL get_PARSE_WORD_fortran(1, FILTLIST1, NF1)
-      CALL get_PARSE_WORD_fortran(2, ARROW,     NFARROW)
-      CALL get_PARSE_WORD_fortran(3, FILTLIST2, NF2)
+       ! force pad space after arrow
+       if ( c1 .EQ. '>' ) then
+          LF_FINAL = LF_FINAL + 1
+          NAME_forC(LF_FINAL:LF_FINAL) = ' '
+       endif
 
+    ENDDO
+    LF = LF_FINAL
+    NAME_forC = NAME_forC(1:LF) // char(0)
+
+    !print*,' xxx NAME_forC = ', NAME_forC
+    !STOP ! xxx REMOVE
+
+    ! parse FILTER_REPLACE string
+    NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, NAME_forC,  & 
+         FNAM//char(0), LF, 20)
+
+    CALL get_PARSE_WORD_fortran(1, FILTLIST1, NF1,     FNAM)
+    CALL get_PARSE_WORD_fortran(2, ARROW,     NFARROW, FNAM)
+    CALL get_PARSE_WORD_fortran(3, FILTLIST2, NF2,     FNAM)
+    
 ! idiot checks
 
-      if ( NF1 .NE. NF2 ) THEN
-         CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
-         print*,'  FILTER_REPLACE   = ', FILTER_REPLACE
-         print*, ' FILTLIST1(l.h.s) = ', FILTLIST1(1:NF1)
-         print*, ' FILTLIST2(r.h.s) = ', FILTLIST2(1:NF2)
-         c1err = 'Cannot use FILTER_REPLACE with ' //  & 
-                    'different size lists.'
-         write(c2err,655) NF1, NF2
-655      format('NF1=', I4, 3x,'NF2=', I4)
-         CALL MADABORT(FNAM, c1err, c2err )
-      ENDIF
-      IF ( ARROW(1:2) .NE. '->' ) THEN
-         c1err = 'Second string of FILTER_REPLACE must by  ->'
-         c2err = 'Check &SNLCINP namelist.'
-         CALL MADABORT(FNAM, c1err, c2err )
-      ENDIF
+    if ( NF1 .NE. NF2 ) THEN
+       CALL PRINT_PREABORT_BANNER(FNAM//char(0),40)
+       print*,'  FILTER_REPLACE(orig )   = ', FILTER_REPLACE
+       print*,'  FILTER_REPLACE(parse)   = ', NAME_forC(1:LF)
+       print*, ' FILTLIST1(l.h.s) = ', FILTLIST1(1:NF1)
+       print*, ' FILTLIST2(r.h.s) = ', FILTLIST2(1:NF2)
+       c1err = 'Cannot use FILTER_REPLACE with ' //  & 
+            'different size lists.'
+       write(c2err,655) NF1, NF2
+655    format('NF1=', I4, 3x,'NF2=', I4)
+       CALL MADABORT(FNAM, c1err, c2err )
+    ENDIF
+    IF ( ARROW(1:2) .NE. '->' ) THEN
+       c1err = 'Second string of FILTER_REPLACE must by  ->'
+       c2err = 'Check &SNLCINP namelist.'
+       CALL MADABORT(FNAM, c1err, c2err )
+    ENDIF
 
-      NFILT_REPLACE = NF1
-      DO IFILT = 1, NFILT_REPLACE
-         CFILT_ORIG    = FILTLIST1(IFILT:IFILT)
-         CFILT_REPLACE = FILTLIST2(IFILT:IFILT)
-
-         IFILTOBS_ORIG                 = FILTINDX(CFILT_ORIG)
-         IFILTOBS_REPLACE(IFILTOBS_ORIG) = FILTINDX(CFILT_REPLACE)
-
-         write(6,20) CFILT_ORIG, CFILT_REPLACE, IFILTOBS_ORIG,  & 
-                          IFILTOBS_REPLACE(IFILTOBS_ORIG)
- 20        format(T10,'FILTER_REPLACE:  ', A, ' -> ', A, 3x,  & 
-              '(',I3,' -> ', I3, ')' )
-         CALL FLUSH(6)
-      ENDDO
-      print*,' '
+    NFILT_REPLACE = NF1
+    DO IFILT = 1, NFILT_REPLACE
+       CFILT_ORIG    = FILTLIST1(IFILT:IFILT)
+       CFILT_REPLACE = FILTLIST2(IFILT:IFILT)
+       
+       IFILTOBS_ORIG                   = FILTINDX(CFILT_ORIG)
+       IFILTOBS_REPLACE(IFILTOBS_ORIG) = FILTINDX(CFILT_REPLACE)
+       
+       write(6,20) CFILT_ORIG, CFILT_REPLACE, IFILTOBS_ORIG,  & 
+            IFILTOBS_REPLACE(IFILTOBS_ORIG)
+20     format(T10,'FILTER_REPLACE:  ', A, ' -> ', A, 3x,  & 
+            '(',I3,' -> ', I3, ')' )
+       CALL FLUSH(6)
+    ENDDO
+    print*,' '
 
 !        print*,' xxx FILTLIST1 = ', FILTLIST1(1:12), NF1
 !        print*,' xxx FILTLIST2 = ', FILTLIST2(1:12), NF2
 !        print*,' xxx ARROW = ', ARROW
 !        print*,' xxx REPLACE ', NFILT_REPLACE,'  filters '
 
+    ! - - - - - -- 
+    ! Aug 26 2026: update filter arrays as if the data had the
+    !    FILTER_REPLACE values
+    !    Beware that a subset if filters might be replaced, instead of all filters.
+    !.xyz
 
-    ENDIF
+    NFILTOBS_ORIG          = NFILTDEF_SURVEY
+    SURVEY_FILTERS_ORIG    = SURVEY_FILTERS
+    NFILTOBS_REPLACE       = 0
+    SURVEY_FILTERS_REPLACE = ''
+
+    DO IFILT = 1, MXFILT_OBS
+       IFILTDEF_MAP_REPLACE(IFILT)    = -9
+       IFILTDEF_INVMAP_REPLACE(IFILT) = -9
+    ENDDO
+
+    DO 100 ifilt = 1, NFILTOBS_ORIG
+       ifiltobs_orig  =  IFILTDEF_MAP_SURVEY(ifilt) 
+       ifiltobs       =  IFILTOBS_REPLACE(IFILTOBS_ORIG) 
+       CFILT_REPLACE  =  FILTDEF_STRING(ifiltobs:ifiltobs)
+       
+       INDTMP = INDEX(SURVEY_FILTERS_REPLACE,CFILT_REPLACE) 
+       if ( INDTMP <= 0 ) then
+          SURVEY_FILTERS_REPLACE = SURVEY_FILTERS_REPLACE(1:NFILTOBS_REPLACE) // CFILT_REPLACE(1:1)
+          NFILTOBS_REPLACE       = NFILTOBS_REPLACE + 1
+          IFILTDEF_MAP_REPLACE(NFILTOBS_REPLACE) = ifiltobs  ! replace
+          IFILTDEF_INVMAP_REPLACE(ifiltobs)      = NFILTOBS_REPLACE
+       endif
+100 CONTINUE
+    
+    ! update global filter arrays
+    NFILTDEF_SURVEY = NFILTOBS_REPLACE
+    SURVEY_FILTERS  = SURVEY_FILTERS_REPLACE
+    DO IFILT  = 1, MXFILT_OBS
+       IFILTDEF_MAP_SURVEY(IFILT)    = IFILTDEF_MAP_REPLACE(IFILT)    
+       IFILTDEF_INVMAP_SURVEY(IFILT) = IFILTDEF_INVMAP_REPLACE(IFILT)
+    ENDDO
+    
+    write(6,401) NFILTOBS_ORIG, NFILTDEF_SURVEY
+401 format(T5,'Replace NFILTDEF = ', I3, ' -> ', I3 )
+    write(6,405) SURVEY_FILTERS(1:NFILTDEF_SURVEY)
+405 format(T5,'Replace FILTERS -> ', A)
+
+    call flush(6)
+
+    !print*,' '
+    !print*,' xxx DEBUG STOP '
+    !STOP
 
     RETURN
   END SUBROUTINE INIT_FILTER_REPLACE
@@ -12753,12 +12847,12 @@
 
     DO 200 iwd = 1, NWD
 
-       CALL get_PARSE_WORD_fortran(iwd,cwd,LL)
+       CALL get_PARSE_WORD_fortran(iwd,cwd,LL, FNAM)
 
        if ( cwd .EQ. 'IGNORE:' ) then
 
          NREAD_IGNORE = NREAD_IGNORE + 1
-         CALL get_PARSE_WORD_fortran(iwd+1,CCID,LL1)
+         CALL get_PARSE_WORD_fortran(iwd+1,CCID,LL1, FNAM)
          if ( IVERS .GT. 1 .and. ccid .EQ. CCID_LAST ) then
            print*,'   IGNORE file already read -> SKIP re-reading. '
            return
@@ -12774,10 +12868,10 @@
             CALL MADABORT("READ_EPIGNORE", c1err, c2err )
          endif
 
-         CALL get_PARSE_WORD_fortran(iwd+2,CWD_TMP,LL2)
+         CALL get_PARSE_WORD_fortran(iwd+2,CWD_TMP,LL2, FNAM)
          read(cwd_tmp,*) MJD8
 
-         CALL get_PARSE_WORD_fortran(iwd+3,CWD_TMP,LL3)
+         CALL get_PARSE_WORD_fortran(iwd+3,CWD_TMP,LL3, FNAM)
          cflt =  CWD_TMP(1:4)
          EPOCH_IGNORE_CCID(N)  = CCID
          EPOCH_IGNORE_FILT(N)  = cflt
@@ -12795,12 +12889,12 @@
 ! May 2021: check for PHOTFLAGs to reject epochs
        NOTSET = (PHOTFLAG_MSKREJ(1) < 0)
        if ( cwd .EQ. 'PHOTFLAG_MSKREJ:' .and. NOTSET ) then
-          CALL get_PARSE_WORD_fortran(iwd+1,cwd_tmp,LL1)
+          CALL get_PARSE_WORD_fortran(iwd+1,cwd_tmp,LL1, FNAM)
           read(cwd_tmp,*) PHOTFLAG_MSKREJ(1)
        endif
 
        if ( cwd .EQ. 'PHOTFLAG_BITLIST_REJECT:' ) then
-          CALL get_PARSE_WORD_fortran(iwd+1,STRING_BITLIST,LL1)
+          CALL get_PARSE_WORD_fortran(iwd+1,STRING_BITLIST,LL1, FNAM )
        endif
 
 200   ENDDO
@@ -12819,7 +12913,7 @@
        NWD = STORE_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING,  & 
                   STRING_BITLIST(1:LL)//char(0), FNAM//char(0), LL, 30)
        do iwd = 1, NWD
-          CALL get_PARSE_WORD_fortran(iwd,cwd_tmp,LL1)
+          CALL get_PARSE_WORD_fortran(iwd,cwd_tmp,LL1, FNAM)
           read(cwd_tmp,*) BIT
           PHOTFLAG_BITLIST_REJECT(iwd) = BIT
           PHOTFLAG_MSKREJ(1) = IBSET(PHOTFLAG_MSKREJ(1),BIT)
@@ -13429,7 +13523,7 @@
 
     DO 100 iwd = 1, NWD
 
-       CALL get_PARSE_WORD_fortran(iwd,CWD,LWD)
+       CALL get_PARSE_WORD_fortran(iwd,CWD,LWD, FNAM)
 
        if ( LVAR_FLT ) then
           ISNLC_IFILT_OBS(iwd) = FILTINDX_REPLACE(CWD)
@@ -13442,6 +13536,8 @@
 
     RETURN
   END SUBROUTINE UNPACK_SNFITSIO_STR
+
+
 ! ========================================
     SUBROUTINE CHECK_FITSABORT(IVERS,NRD,KEY)
 
@@ -14076,7 +14172,7 @@
 ! Feb 2020: check 'all' option to set same mag error for all filters
     IF ( STRING(1:3) .EQ. 'ALL' .or. STRING(1:3).EQ. 'all' ) then
        iwd = 2
-       CALL get_PARSE_WORD_fortran(iwd,cwd,LEN) ! read mag_err
+       CALL get_PARSE_WORD_fortran(iwd,cwd,LEN, FNAM) ! read mag_err
        read(cwd,*) VAL
        do ifilt_tmp = 1, NFILTDEF_SURVEY
          IFILTDEF(ifilt_tmp) = IFILTDEF_MAP_SURVEY(ifilt_tmp)
@@ -14091,7 +14187,7 @@
     NFILT_LAST = 0
     DO 200 iwd = 1, NWD
 
-       CALL get_PARSE_WORD_fortran(iwd,cwd,LEN)
+       CALL get_PARSE_WORD_fortran(iwd,cwd,LEN, FNAM)
 
        if ( IFILT_TMP == 0 ) then
           NFILT_LAST = NFILT
@@ -14174,7 +14270,7 @@
     ENDIF
 
     DO 200 iwd = 1, NWD
-       CALL get_PARSE_WORD_fortran(iwd,cwd,LEN)
+       CALL get_PARSE_WORD_fortran(iwd,cwd,LEN, FNAM)
        READ(cwd,*) OUTLIST(iwd)
 ! c         print*,' xxx ', iwd, OUTLIST(iwd)
  200  CONTINUE
@@ -14221,20 +14317,20 @@
     DO iwd = 1, NWD
 
        if ( KEY .EQ. 'SNCCID_LIST' ) then
-          CALL get_PARSE_WORD_fortran(iwd, SNCCID_LIST(iwd), LL)
+          CALL get_PARSE_WORD_fortran(iwd, SNCCID_LIST(iwd), LL, FNAM)
 
        else if ( KEY .EQ. 'SNCCID_IGNORE' ) then
-          CALL get_PARSE_WORD_fortran(iwd, SNCCID_IGNORE(iwd), LL)
+          CALL get_PARSE_WORD_fortran(iwd, SNCCID_IGNORE(iwd), LL, FNAM)
 
        else if ( KEY .EQ. 'VERSION_PHOTOMETRY' ) then
-          CALL get_PARSE_WORD_fortran(iwd, VERSION_PHOTOMETRY(iwd), LL)
+          CALL get_PARSE_WORD_fortran(iwd, VERSION_PHOTOMETRY(iwd), LL, FNAM)
 
        else if ( KEY .EQ. 'PHOTFLAG_BITLIST' ) then
-          CALL get_PARSE_WORD_fortran(iwd, WDTMP, LL)
+          CALL get_PARSE_WORD_fortran(iwd, WDTMP, LL, FNAM)
           read(WDTMP,*) PHOTFLAG_BITLIST_REJECT(iwd)
 
        else if ( KEY .EQ. 'VARLIST_PDF' ) then
-          CALL get_PARSE_WORD_fortran(iwd, VARLIST_PDF_STORE(iwd), LL)
+          CALL get_PARSE_WORD_fortran(iwd, VARLIST_PDF_STORE(iwd), LL, FNAM)
 
        endif
 
@@ -14312,7 +14408,7 @@
 
        DO iwd = 1, NWD
           NLIST = NLIST + 1
-          CALL get_PARSE_WORD_fortran(iwd,STRLIST(NLIST),LL)
+          CALL get_PARSE_WORD_fortran(iwd,STRLIST(NLIST),LL, FNAM)
        ENDDO
 
        i = i + 1
@@ -15431,7 +15527,7 @@
      endif
 
 
-    DO ifilt = 1, NFILTDEF_SURVEY
+    DO ifilt      = 1, NFILTDEF_SURVEY
         ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
         LAM8      = DBLE ( FILTOBS_LAMAVG(ifilt_obs) )
         CFILT     = FILTDEF_STRING(ifilt_obs:ifilt_obs)
@@ -15563,7 +15659,7 @@
 
     DO 100 iwd = 1, NWD-1
 
-       CALL get_PARSE_WORD_fortran(iwd+0,CWD,LEN)
+       CALL get_PARSE_WORD_fortran(iwd+0,CWD,LEN, FNAM)
        CKEY = CWD(1:MXCHAR_CCID)
 
        if ( CKEY .EQ. 'SN:' ) then
@@ -15578,10 +15674,10 @@
            CALL MADABORT("RDFILE_USERTAGS", c1err, c2err )
          endif
 
-         CALL get_PARSE_WORD_fortran(iwd+1,CWD,LEN)
+         CALL get_PARSE_WORD_fortran(iwd+1,CWD,LEN, FNAM)
          READ ( CWD, *) CCID
 
-         CALL get_PARSE_WORD_fortran(iwd+2,CWD,LEN)
+         CALL get_PARSE_WORD_fortran(iwd+2,CWD,LEN, FNAM)
          READ ( CWD, *) ITAG
 
          USERTAG_CCIDLIST(N)  = CCID
@@ -15985,9 +16081,9 @@
 
         cwd0 = '' ; cwd1 = ''
 
-        CALL get_PARSE_WORD_fortran(iwd+0, cwd0, L0)
+        CALL get_PARSE_WORD_fortran(iwd+0, cwd0, L0, FNAM)
         if ( iwd < NWD ) then
-           CALL get_PARSE_WORD_fortran(iwd+1, cwd1, L1)
+           CALL get_PARSE_WORD_fortran(iwd+1, cwd1, L1, FNAM)
         endif
 
         if ( cwd0(1:6) .EQ. 'MAXOBS' ) then
@@ -16069,7 +16165,7 @@
     DO 66 iwd = 1, NWD
       if ( .NOT. USEWD(iwd) ) then
           NOTUSED = NOTUSED + 1
-          CALL get_PARSE_WORD_fortran(iwd, cwd0, L0)
+          CALL get_PARSE_WORD_fortran(iwd, cwd0, L0, FNAM)
           write(6,666) cwd0
 666         format('ERROR: EARLYLC_STRING contains invalid ', A20)
       endif
@@ -16309,16 +16405,16 @@
 
     IF ( LEGACY ) THEN
       ISFRAME_OBS_REQEP = .TRUE.
-      call get_PARSE_WORD_fortran(1, cwd0, L0)
+      call get_PARSE_WORD_fortran(1, cwd0, L0, FNAM)
       read( CWD0,* ) FILTLIST_REQEP
 
-      call get_PARSE_WORD_fortran(2, cwd0, L0)
+      call get_PARSE_WORD_fortran(2, cwd0, L0, FNAM)
       read( CWD0,* ) TRANGE_REQEP(1)
 
-      call get_PARSE_WORD_fortran(3, cwd0, L0)
+      call get_PARSE_WORD_fortran(3, cwd0, L0, FNAM)
       read( CWD0,* ) TRANGE_REQEP(2)
 
-      call get_PARSE_WORD_fortran(4, cwd0, L0)
+      call get_PARSE_WORD_fortran(4, cwd0, L0, FNAM)
       read( CWD0,* ) TRANGE_REQEP(3)
 
       SNRMIN_REQEP = CUTWIN_SNRMAX(1)
@@ -16329,8 +16425,8 @@
 
        DO 44 iwd = 1, NWD-1
 
-         call get_PARSE_WORD_fortran(iwd+0, cwd0, L0)
-         call get_PARSE_WORD_fortran(iwd+1, cwd1, L1)
+         call get_PARSE_WORD_fortran(iwd+0, cwd0, L0, FNAM)
+         call get_PARSE_WORD_fortran(iwd+1, cwd1, L1, FNAM)
 
          if ( cwd0(1:7) .EQ. 'FILTERS' ) then
             read(cwd1,* ) FILTLIST_REQEP
@@ -16342,14 +16438,14 @@
             USEWD(iwd) = .TRUE.;
             ISFRAME_OBS_REQEP = .TRUE.
             do i = 1, 3
-              call get_PARSE_WORD_fortran(iwd+i, cwd1, L1)
+              call get_PARSE_WORD_fortran(iwd+i, cwd1, L1, FNAM)
               read(cwd1,* ) TRANGE_REQEP(i); USEWD(iwd+i)=.TRUE.
             enddo
          else if ( cwd0(1:12) .EQ. 'TREST_RANGES' ) then
             USEWD(iwd) = .TRUE.;
             ISFRAME_REST_REQEP = .TRUE.
             do i = 1, 3
-              call get_PARSE_WORD_fortran(iwd+i, cwd1, L1)
+              call get_PARSE_WORD_fortran(iwd+i, cwd1, L1, FNAM)
               read(cwd1,* ) TRANGE_REQEP(i); USEWD(iwd+i)=.TRUE.
             enddo
          endif
@@ -16616,13 +16712,13 @@
 
        if ( NWD < 2 ) goto 200
 
-       CALL get_PARSE_WORD_fortran(1,cwd,LEN)
+       CALL get_PARSE_WORD_fortran(1,cwd,LEN, FNAM)
 
        IF ( cwd(1:4) .EQ. 'ROW:' ) goto 500
 
        KEYMATCH = cwd(1:16) .EQ. 'VERSION_ADD:'
        IF ( KEYMATCH ) THEN
-          CALL get_PARSE_WORD_fortran(2,VERSION_ADD,LEN)
+          CALL get_PARSE_WORD_fortran(2,VERSION_ADD,LEN, FNAM)
           SAME_LEN = ( LEN .EQ. LENVER )
           SAME_VER = ( VERSION(1:LEN) .EQ. VERSION_ADD(1:LEN) )
           IF ( SAME_LEN .and. SAME_VER ) THEN
@@ -16666,17 +16762,18 @@
     REAL*4  VAL, FCOR, CRAZY_VAL
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
     CHARACTER STR_EPID1*60, STR_EPID2*60, FNAM*12
-    LOGICAL IS_MAGCOR, IS_WAVESHIFT
+    LOGICAL IS_MAGCOR, IS_WAVESHIFT, LDMP
 
 ! function
     INTEGER  SNTABLE_AUTOSTORE_READ
     EXTERNAL SNTABLE_AUTOSTORE_READ
 ! --------------- BEGIN -----------------
 
+    LDMP         = ( ep < -20 ) 
     IS_MAGCOR    = .FALSE.
     IS_WAVESHIFT = .FALSE.
     FNAM         = 'EXEC_MGACOR'
-
+    
     if ( VARNAME == VARNAME_MAGCOR ) then
        NSTORE    = NSTORE_MAGCOR
        IS_MAGCOR = .TRUE.
@@ -16708,6 +16805,12 @@
     NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID1, cVARNAME, ISTAT,  & 
          DVAL, cDUM, 60,10,10 )
 
+    if ( LDMP ) then
+       write(6,660) ep, VARNAME, STR_EPID1, ISTAT, sngl(DVAL)
+660    format(' xxx: ep=',I3, 2x,A10,2x, A20,2x, 'ISTAT=',I3, 3x,'DVAL=', E9.3)
+       call flush(6)
+    endif
+
 ! if no match using CID, then try again with IAUC name
     IF ( ISTAT .NE. 0 ) THEN
       L2  = INDEX(SNLC_NAME_IAUC,' ') - 1
@@ -16716,7 +16819,7 @@
            DVAL,cDUM, 60,10,10 )
     ENDIF
 
-    IF ( ISTAT .EQ. 0 ) then
+    IF ( ISTAT == 0 ) then
       VAL = sngl(DVAL) * SIGN_MAGCOR
 
 ! trap crazy val
@@ -16734,7 +16837,6 @@
          SNLC_MAG(ep)     = SNLC_MAG(ep) + VAL
       else if ( IS_WAVESHIFT ) then
          NUSE_WAVESHIFT  = NUSE_WAVESHIFT + 1
-         ! .xyz continue here ... do something
          SNLC_WAVESHIFT(ep) = VAL  ! store for later use
       else
          ! abort ??
@@ -16757,17 +16859,25 @@
     USE SNLCINP_NML
     IMPLICIT NONE
 
+    LOGICAL USE
 ! --------------- BEGIN --------------
 
+    USE = .FALSE.
+
     if ( NSTORE_MAGCOR > 0 ) then
-       write(6,20) VARNAME_MAGCOR, NUSE_MAGCOR, NSTORE_MAGCOR
+       write(6,20) NUSE_MAGCOR, VARNAME_MAGCOR,  NSTORE_MAGCOR
+       USE = .TRUE.
     endif
 
     if ( NSTORE_WAVESHIFT > 0 ) then
-       write(6,20) VARNAME_WAVESHIFT, NUSE_WAVESHIFT, NSTORE_WAVESHIFT
+       write(6,20) NUSE_WAVESHIFT, VARNAME_WAVESHIFT, NSTORE_WAVESHIFT
+       USE = .TRUE.
     endif
 
-20  format(T8,'Used ',I6,2x, A10, ' epochs from ',  I6,' read from file.' )
+20  format(T8,'Used ',I6,2x, A10, ' epochs from ',  I6,' total read from file.' )
+
+    if ( USE ) print*,' ' 
+    call flush(6)
 
     RETURN
   END SUBROUTINE END_MAGCOR
@@ -18096,9 +18206,9 @@
 
     DO i = 1, NWD, 3
        NTMP = NTMP + 1
-       CALL get_PARSE_WORD_fortran(i+0, ctmp1, LWD)
-       CALL get_PARSE_WORD_fortran(i+1, ctmp2, LWD)
-       CALL get_PARSE_WORD_fortran(i+2, ctmp3, LWD)
+       CALL get_PARSE_WORD_fortran(i+0, ctmp1, LWD, FNAM)
+       CALL get_PARSE_WORD_fortran(i+1, ctmp2, LWD, FNAM)
+       CALL get_PARSE_WORD_fortran(i+2, ctmp3, LWD, FNAM)
        SIMVAR_CUTWIN_LIST(NTMP) = CTMP1(1:40)
        READ(CTMP2,*)  SIMVAR_CUTWIN(1,NTMP)
        READ(CTMP3,*)  SIMVAR_CUTWIN(2,NTMP)
@@ -18763,7 +18873,7 @@
 ! with more than 1 word, check for FORCE key
 
     DO 10 iwd = 1, NWD
-       CALL get_PARSE_WORD_fortran(iwd,cwd,LENFILE)
+       CALL get_PARSE_WORD_fortran(iwd,cwd,LENFILE, FNAM)
 
        if ( iwd==1 ) then
           INFILE = cwd
@@ -26011,8 +26121,7 @@
 
     CALL ENVreplace(FILTER_UPDATE_PATH)
 
-    msg =  & 
-         "FILTER_UPDATE_INIT: Prepare SN-dependent Filter response"
+    msg = "FILTER_UPDATE_INIT: Prepare SN-dependent Filter response"
     CALL PRBANNER(msg(1:60))
 
 ! -------------------------------------------------------
@@ -26057,8 +26166,8 @@
 
     DO 10 iwd = 1, min(1000,NWD)
 
-        CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LWD0 )
-        CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LWD1 )
+        CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LWD0, FNAM )
+        CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LWD1, FNAM )
 
         if ( cwd .EQ. ' ' ) goto 10
 
@@ -26107,16 +26216,17 @@
         ,cwd*(MXCHAR_FILEWORD)  & 
         ,cwd_next*(MXCHAR_FILEWORD)  & 
         ,copt*(MXCHAR_FILEWORD)  & 
-        ,c1err*80, c2err*80
+        ,c1err*80, c2err*80, FNAM*20
 
     LOGICAL LDUMP
 
 ! ----------- BEGIN ----------
 
+    FNAM = 'PARSE1_FILTER_INFO'
     DO 10 iwd = 1, NWD-1
 
-        CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LEN)
-        CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LEN)
+        CALL get_PARSE_WORD_fortran(iwd+0, cwd,      LEN, FNAM)
+        CALL get_PARSE_WORD_fortran(iwd+1, cwd_next, LEN, FNAM)
 
         if ( cwd .EQ. ' ' ) goto 10
 
@@ -26177,7 +26287,6 @@
 
 
     USE SNPAR
-! CDE,PARSECOM.
     USE FILTCOM
     USE FILTUPDCM
 
@@ -26194,10 +26303,11 @@
         ,cwd1*(MXCHAR_FILEWORD)  & 
         ,cwd2*(MXCHAR_FILEWORD)  & 
         ,ccid*(MXCHAR_CCID)  & 
-        ,c1err*80, c2err*80
+        ,c1err*80, c2err*80, FNAM*20
 
 ! ---------------- BEGIN -------------
 
+    FNAM = 'PARSE2_FILTER_INFO'
     NMAP1_FILTER_UPDATE = 0
     NMAP2_FILTER_UPDATE = 0
 
@@ -26206,9 +26316,9 @@
 
     DO 10 iwd = 1, NWD-2
 
-        call get_PARSE_WORD_fortran(iwd+0, cwd0, LEN)
-        call get_PARSE_WORD_fortran(iwd+1, cwd1, LEN)
-        call get_PARSE_WORD_fortran(iwd+2, cwd2, LEN)
+        call get_PARSE_WORD_fortran(iwd+0, cwd0, LEN, FNAM)
+        call get_PARSE_WORD_fortran(iwd+1, cwd1, LEN, FNAM)
+        call get_PARSE_WORD_fortran(iwd+2, cwd2, LEN, FNAM)
 
         if ( cwd0 .EQ. ' ' ) goto 10
 

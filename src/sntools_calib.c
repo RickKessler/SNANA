@@ -2279,7 +2279,7 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
   // .xyz
 
   fflush(stdout);
-  debugexit(fnam);
+  //  debugexit(fnam);
  
   return ;
 

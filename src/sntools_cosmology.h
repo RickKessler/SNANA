@@ -84,4 +84,7 @@ double zhelio_zcmb_translator__(double *z_input, double *RA, double *DECL,
 
 double q_dipole_V04(double zHEL, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO);
 
+double zhd_compute(double zcmb, double vpec);
+double zhderr_compute(double zcmb, double zcmberr, double vpecerr);
+
 // ============== END OF FILE =============

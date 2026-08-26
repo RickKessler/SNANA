@@ -8,6 +8,8 @@
 #   - Binaries land in $(top_builddir)/bin       (mirrors original ../bin)
 #   - Rules are explicit 1:1 translations of the original Makefile
 #   - Single-executable builds supported: make snlc_sim, make wfit, etc.
+#
+# Aug 25 2026 RK - add sntools_cosmology dependence for SALT2mu
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -538,6 +540,7 @@ $(OBJ)/kcor.o: $(SRC)/kcor.c $(SRC)/kcor.h $(SRC)/sntools_spectrograph.c
 
 $(OBJ)/SALT2mu.o: $(SRC)/SALT2mu.c $(SRC)/sntools.c \
 	$(SRC)/sntools_output.cpp $(SRC)/sntools_genPDF.c \
+	$(SRC)/sntools_cosmology.c \
 	$(SRC)/sntools_genGauss_asym.c $(SRC)/minuit.F
 	$(MKDIR_P) $(OBJ)
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(IGSL) $(ICFITSIO) $(SRC)/SALT2mu.c)
@@ -654,6 +657,7 @@ $(BIN)/SALT2mu.exe: $(OBJ)/SALT2mu.o $(OBJ)/sntools.o \
 		$(OBJ)/sntools_gridmap.o \
 		$(OBJ)/sntools_genGauss_asym.o \
 		$(OBJ)/sntools_genExpHalfGauss.o \
+		$(OBJ)/sntools_cosmology.o \
 		$(OBJ)/minuit.o \
 		$(LROOT) -lm $(LGSL) $(LCFITSIO) $(CPPLIB) -lpthread
 	cd $(OBJ); rm -f SALT2mu.o

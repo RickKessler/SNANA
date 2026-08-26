@@ -24138,5 +24138,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + for every print related to the new chi2max rescore, start line with 
         greppable "chi2max_update:" key.
 
+      + major refactor of override logic to properly handle all combinations
+        of overrding zhel/zcmb/vpec and their uncertainties. Unfortunately
+        there are no OVERRIDE regression tests, so more testing is needed
+        as more examples become available.
+
+    sntools_cosmology.c[h]
+      + add new functions zhd_compute and zhderr_compute
+
 END:
  

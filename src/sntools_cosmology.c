@@ -792,5 +792,32 @@ double zhelio_zcmb_translator__ (double *z_input, double *RA, double *DEC,
 }
 
 
+
+// Aug 2026: add functions to compute zhd and zhderr. Initial use is for SALT2mu overrides
+double zhd_compute(double zcmb, double vpec) {
+  double zpec, zhd;
+  char fnam[] = "zhd_compute";   (void)fnam;
+  // --------- BEGIN ------------
+  zpec = vpec / LIGHT_km;
+  zhd = (1.0 + zcmb) / ( 1.0 + zpec) - 1.0 ;
+  return zhd;
+} // end zhd_compute
+
+double zhderr_compute(double zcmb, double zcmberr, double vpecerr) {
+  
+  // Aug 25 2026
+  // Compute hubble-diagram redshift error from zcmberr and vpecerr
+
+  double zpecerr, ZERR1, ZERR2, zhderrsq, zhderr ;
+  char fnam[]    = "zhderr_compute" ;   (void)fnam;
+  // -------- BEGIN -----------
+  zpecerr  = vpecerr / LIGHT_km ;
+  ZERR1    = zcmberr;
+  ZERR2    = zpecerr * ( 1.0 + zcmb );
+  zhderrsq = ZERR1*ZERR1 + ZERR2*ZERR2 ;
+  zhderr   = sqrt(zhderrsq);
+  return zhderr ;
+} // end zhderr_compute
+
 // end:
 

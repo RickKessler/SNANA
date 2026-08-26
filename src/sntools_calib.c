@@ -200,6 +200,12 @@ void read_calib_init(void) {
 
   IFILTDEF_BESS_BX = INTFILTER("X");
  
+  // Aug 25 2026: init struct for optional WAVESHIFT in MAGCOR_FILE
+  PRIMARY_MAG_WAVESHIFT_GRID.NGRID = 0 ;
+  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MIN = 0;
+  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MAX = 0; 
+  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_BIN = 0;
+
   return ;
 
 } // end read_calib_init
@@ -2185,9 +2191,9 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
   NGRID /= IWAVESHIFT_BIN ;
 
   printf("\t Original WAVESHIFT range: %.1f to %.1f A \n", WAVESHIFT_MIN, WAVESHIFT_MAX);
-  printf("\t WAVESHIFT grid: %d to %d A with %d A  binsize\n",
-	IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN );
-  printf("\t NFILTDEF = %d    NGRID(WAVESHIFT)=%d \n", NFILTDEF, NGRID);
+  printf("\t WAVESHIFT grid: %d to %d A with %d A  binsize -> NGRID=%d\n",
+	 IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN, NGRID );
+  printf("\t NFILTDEF=%d \n", NFILTDEF);
   
   // load the goodies into global struct (kind'of like a python namespace)
   PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MIN = IWAVESHIFT_MIN;

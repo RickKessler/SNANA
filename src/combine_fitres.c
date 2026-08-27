@@ -1009,9 +1009,12 @@ void ADD_FITRES_VARLIST(int ifile, int isn, int isn2) {
     if ( ICAST != ICAST_C )  {   // not a string
       
       if (  isnan(FITRES_VALUES.FLT_TMP[ivar][isn2]) !=0 ) {
-	sprintf(c1err,"isnan for FLT_TMP[ivar=%d][isn=%d] = %f", 
+	print_preAbort_banner(fnam);
+	printf(" ifile=%d -> FF = %s \n", ifile, INPUTS.FFILE[ifile]);
+	sprintf(c1err,"isnan for FLT_TMP[ivar=%d][isn2=%d] = %f", 
 		ivar, isn2, FITRES_VALUES.FLT_TMP[ivar][isn2]  );
-	sprintf(c2err,"varname = %.*s", MXCHAR_VARNAME, VARNAME_COMBINE[ivar] );
+	sprintf(c2err,"varname = %.*s ", 
+		MXCHAR_VARNAME, VARNAME_COMBINE[ivar] );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       

@@ -811,7 +811,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
 
 
 // = = = = = = = = = = = = = = = = = = = = = = = = 
-int select_MJD_SNDATA(double *CUTWIN_MJD) {
+int select_MJD_SNDATA(int OPTMASK, double *CUTWIN_MJD, char *CID) {
 
   // Created Feb 11 2021
   // Use input CUTWIN_MJD to select a subset of observations
@@ -820,17 +820,37 @@ int select_MJD_SNDATA(double *CUTWIN_MJD) {
   // Note that copy_SNDATA_OBS will abort if this function is not 
   // called for each event.
   //
-  // Function returns SNDATA.NOBS_STORE
-  //
   // Example: for a 10-year survey, a typical MJD window contains
   // 1 of the 10 seasons, and thus copy_SNDATA_OBS returns just 1 
   // season of data instead of all 10 seasons.
+  //
+  // Inputs:
+  //   OPTMASK: options for what to store
+  //        1 -> udpate SNDATA.NOBS_STORE
+  //        2 -> udpate SNDATA.NOBS and SNDATA.NEPOCH
+  //        3 -> update both
+  //   CUTWIN_MJD:  MJD_RANGE to apply selection for NOBS
+  //   CID:         for diagnostic dump 
+  //
+  // Output:
+  //     Function returns SNDATA.NOBS_STORE
+  //
+  // -----------------------------
+  //    HISTORY
+  //
+  // Aug 2026: pass OPTMASK and CID
+  //
+
+  int  UPDATE_NOBS_STORE = (OPTMASK & 1);
+  int  UPDATE_NOBS       = (OPTMASK & 2);
 
   int  o, NOBS_STORE  = 0;
   int  NOBS = SNDATA.NOBS ;
-  bool LDMP = false ;
+  int  LDMP = 0;
   double MJD;
+
   char fnam[] = "select_MJD_SNDATA" ; (void)fnam;
+
   // ---------- BEGIN -------
 
   for(o=1; o <= NOBS; o++ ) {  // note fortran-like index
@@ -842,16 +862,23 @@ int select_MJD_SNDATA(double *CUTWIN_MJD) {
   }
 
   if ( LDMP ) {
-    printf(" xxx %s: CUTWIN_MJD = %.1f to %.1f  NOBS_STORE=%d\n", 
-	   fnam, CUTWIN_MJD[0], CUTWIN_MJD[1], NOBS_STORE);
+    printf(" xxx %s: CID=%s  CUTWIN_MJD = %.1f to %.1f  NOBS_STORE=%d -> %d\n", 
+	   fnam, CID, CUTWIN_MJD[0], CUTWIN_MJD[1], NOBS, NOBS_STORE);
+    fflush(stdout);
   }
 
-  SNDATA.NOBS_STORE = NOBS_STORE ;
+  if ( UPDATE_NOBS_STORE ) 
+    { SNDATA.NOBS_STORE = NOBS_STORE ; }  // should always do this for analysis
+
+  if ( UPDATE_NOBS )
+    { SNDATA.NOBS  = SNDATA.NEPOCH = NOBS_STORE ;  } // do this for modifying NOBS in reformat
+
   return(NOBS_STORE) ;
+
 } // end select_MJD_SNDATA
 
-int select_mjd_sndata__(double *MJD_WINDOW) 
-  {  return select_MJD_SNDATA(MJD_WINDOW); }
+int select_mjd_sndata__(int *OPTMASK, double *MJD_WINDOW, char *CID) 
+{  return select_MJD_SNDATA(*OPTMASK, MJD_WINDOW, CID); }
 
 // = = = = = = = = = = = = = = = = = = = = = = = =
 void host_property_list_sndata(char *HOST_PROPERTY_LIST) {

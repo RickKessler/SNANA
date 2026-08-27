@@ -77,7 +77,7 @@ void copy_SNDATA_HEAD(int copyFlag, char *key,
                       int NVAL, char *stringVal, double *parVal);
 void copy_SNDATA_OBS(int copyFlag, char *key,
                      int NVAL,char *stringVal, double *parVal);
-int  select_MJD_SNDATA(double *CUTWIN_MJD);
+int  select_MJD_SNDATA(int OPTMASK, double *CUTWIN_MJD, char *CID);
 void host_property_list_sndata(char *HOST_PROPERTY_LIST);
 void LOAD_VARNAME_ZPHOT_Q_LEGACY(char *PREFIX, int PCT, char *VARNAME) ; 
 
@@ -128,24 +128,12 @@ void copy_sndata_head__(int *copyFlag, char *key,
                         int *NVAL, char *stringVal, double *parVal);
 void copy_sndata_obs__(int *copyFlag, char *key,
                        int *NVAL,char *stringVal, double *parVal);
-int  select_mjd_sndata__(double *MJD_WINDOW);
+int  select_mjd_sndata__(int *OPTMASK, double *MJD_WINDOW, char *CID);
 void host_property_list_sndata__(char *HOST_PROPERTY_LIST);
 
 void copy_genspec__(int *copyFlag, char *key, int *ispec, double *parVal ) ;
 
 void rd_override_init__(char *OVERRIDE_FILE, int *REQUIRE_DOCANA);
 
-
-/* xxxxxxxxxx mark delete xxxxxx
-
-// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-// @@@@@@@  LEGACY_QUANTILE_FUNCTIONS @@@@@@@@@@@@
-// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-void rd_override_zphot_legacy(void);
-void rd_override_zphot_q_legacy(int OPT);
-void LOAD_VARNAME_ZPHOT_Q_LEGACY(char *PREFIX, int PCT, char *VARNAME) ; 
-
-xxxxxxx end mark xxxxxxxxx */
 
 // end:

@@ -545,12 +545,13 @@
 
     REAL, PARAMETER :: DT_SAMENIGHT = 0.400 ! same night within 0.4 day
 
+    LOGICAL USE_EARLYLC
+
 ! variables for selecting the early part of a light curve
     INTEGER    NOBS_EARLYLC, NNIGHT_EARLYLC
     INTEGER    NPHOTMASK_START_EARLYLC
     REAL       NSNR_START_EARLYLC
-    REAL       MJDLAST_EARLYLC, MJDLAST_SELECT
-
+    REAL*8     MJDLAST_EARLYLC, MJDLAST_SELECT
 
 ! variables parsed from EARLYLC_STRING:
     INTEGER  MAXOBS_EARLYLC, MAXNIGHT_EARLYLC, PHOTMASK_EARLYLC,  & 
@@ -4823,8 +4824,10 @@
 ! Read event (FITS or TEXT format) and transfer epoch-dependent
 ! information from SNDATA C-struct to fortran variables.
 ! 
-! Jun 7 2021: abort on undefined filter
-
+! Jun  7 2021: abort on undefined filter
+! Aug 26 2026: if REFORMAT option and EARLYC are both set, call select_MJD_SNDATA
+!              a second time to keep only EARLYLC in SNDATA struct.
+!
 
 ! local var
 
@@ -4832,15 +4835,17 @@
     USE SNLCINP_NML
     USE FITSCOM
     USE FILTCOM
+    USE EARLYCOM
 
     IMPLICIT NONE
-
+    
     REAL*8, PARAMETER :: MJD_SAFETEY = 10.0  ! extra margin for MJD window
 
-    INTEGER OPT, NOBS_STORE, o, LENTMP, IFILT, IFILT_OBS
+    INTEGER OPT, NOBS_STORE, NOBS_TMP, o, IFILT, IFILT_OBS, OPTMASK
+    INTEGER LENCCID, LENTMP
     REAL*8 DARRAY(MXEPOCH), MJD_WINDOW(2), MJD
     REAL   z, z1, TOBS_MIN, TOBS_MAX
-    CHARACTER STRING*12, FNAM*14, CFILT*2
+    CHARACTER STRING*12, FNAM*14, CFILT*2, CCID_forC*(MXCHAR_CCID)
 
     INTEGER  SELECT_MJD_SNDATA
     EXTERNAL SELECT_MJD_SNDATA
@@ -4848,9 +4853,11 @@
 ! ---------- BEGIN --------
 
     FNAM = 'RDOBS_DRIVER'
-
 ! set MJD window for copy SNDATA obs
     MJD_WINDOW(1) = 0.0;   MJD_WINDOW(2) = 1.0E6  ! default
+
+    LENCCID = ISNLC_LENCCID
+    CCID_forC = SNLC_CCID(1:LENCCID) // char(0)
 
 ! check to refine window around approx peakmjd
     if ( SNLC_SEARCH_PEAKMJD > 40000.0 ) then
@@ -4861,9 +4868,13 @@
        TOBS_MAX = CUTWIN_TREST(2)*z1  ! usually positive
        MJD_WINDOW(1) = SNLC_SEARCH_PEAKMJD + TOBS_MIN - MJD_SAFETEY
        MJD_WINDOW(2) = SNLC_SEARCH_PEAKMJD + TOBS_MAX + MJD_SAFETEY
+
+       if ( MJD_WINDOW(1) <     0.0 ) MJD_WINDOW(1) =     0.0
+       if ( MJD_WINDOW(2) > 90000.0 ) MJD_WINDOW(2) = 90000.0
     endif
 
-    NOBS_STORE = SELECT_MJD_SNDATA(MJD_WINDOW)  ! C function
+    OPTMASK = 1  ! update SNDATA.NOBS_STORE
+    NOBS_STORE = SELECT_MJD_SNDATA(OPTMASK, MJD_WINDOW, CCID_forC, LENCCID)  ! C function
 
     if ( NOBS_STORE > MXEPOCH ) then
        write(C1ERR,660) NOBS_STORE, MXEPOCH
@@ -5059,6 +5070,24 @@
 ! apply all epoch cuts EXCEPT for Trest.
 
     CALL SELECT_EPOCH_DRIVER(1) ! 1 -> all obs/epoch cuts EXCEPT for Trest
+
+    ! - - - - - - - - - - - - - - - - - - - 
+    ! Aug 2026: if re-writing data and EARLYLC options is set, 
+    ! update SNDATA.NOBS accordingly
+    IF ( REFORMAT_SNANA .and. USE_EARLYLC ) then
+       MJD_WINDOW(2) = MJDLAST_SELECT + 0.0001
+       NOBS_TMP   = NOBS_STORE
+
+       OPTMASK = 1+2  ! update SNDATA.NOBS_STORE and SNDATA.NOBS
+       NOBS_STORE = SELECT_MJD_SNDATA(OPTMASK, MJD_WINDOW, CCID_forC, LENCCID)  ! C function
+       ISNLC_NEWMJD_STORE = NOBS_STORE  ! store in global
+       ISNLC_NEPOCH_STORE = NOBS_STORE
+
+!       write(6,65) SNLC_CCID, MJD_WINDOW(2), NOBS_TMP, NOBS_STORE
+!65     format(' xxx CID=',A12,'  MAXMJD=',F10.4,'  NOBS_STORE=', I4,' -> ', I4)
+       
+    ENDIF
+
 
     RETURN
   END SUBROUTINE RDOBS_DRIVER
@@ -10529,7 +10558,7 @@
 ! -------------- BEGIN ----------
 
     NARG     =  1
-    NOBS     =  ISNLC_NEWMJD_FOUND
+    NOBS     =  ISNLC_NEWMJD_FOUND  
     COPYFLAG = +1
     LEN_KEY  = 40
     LEN_STR  = 20
@@ -10616,6 +10645,8 @@
        CALL copy_SNDATA_GLOBAL(COPYFLAG, cKEY, NARG, cSTRING, DVAL, LEN_KEY, LEN_STR)
     endif
 
+! - - - - - - - - - - - - - - - - - - - -
+
     IF ( DO_OBS ) THEN
        IF ( DOFUDGE_FLUXERRMODEL .or. FUDGE_MAG_ERROR.NE.'') THEN
           cKEY  = "FLUXCALERR" // char(0)
@@ -10660,6 +10691,9 @@
           CALL copy_SNDATA_OBS(copyFlag, cKEY, NOBS,  & 
                STRFITS(1:LEN_STR)//char(0), DVAL, LEN_KEY, LEN_STR)
           LEN_STR = 20
+
+          ! Aug 26 2026: check writing only early LC obs (for sim)
+
        ENDIF
 
     ENDIF ! end DO_OBS
@@ -12547,7 +12581,6 @@
     ! Aug 26 2026: update filter arrays as if the data had the
     !    FILTER_REPLACE values
     !    Beware that a subset if filters might be replaced, instead of all filters.
-    !.xyz
 
     NFILTOBS_ORIG          = NFILTDEF_SURVEY
     SURVEY_FILTERS_ORIG    = SURVEY_FILTERS
@@ -13198,6 +13231,9 @@
     LOGICAL PASS_EPIGNORE_FILE, SELECT_EARLYLC
 
 ! ----------- BEGIN ------------
+
+    !print*,' xxx call PASS_EPOCH_CUTS for ep = ', ep
+    !print*,' xxx call SELECT_EARLYLC for ep = ', ep
 
     PASS_EPOCH_CUTS = .TRUE.  ! init return arg
     REJECT          = .FALSE.
@@ -15884,7 +15920,8 @@
 
 ! local var
 
-    REAL SNR, PROB, MJD
+    REAL SNR, PROB
+    REAL*8  MJD
     INTEGER IFILT_OBS, MASK, OVPMASK, OVPMASK_START, NMJD_DIF
     LOGICAL LCUTS, LSNR, LPHOTPROB, LPHOTMASK, LFILT
     LOGICAL LDMP, SAMENIGHT, LNOSEL
@@ -15893,16 +15930,16 @@
 ! --------------- BEGIN --------------
 
     SELECT_EARLYLC = .TRUE.
-    IF ( EARLYLC_STRING .EQ. '' ) RETURN
+    IF ( .NOT. USE_EARLYLC  ) RETURN
 
-!       print*,' xxx HELOO from SELECT_EARLYLC: ep = ', ep
+!    print*,' xxx HELOO from SELECT_EARLYLC: ep = ', ep
 
 ! strip off info for this epoch.
     IFILT_OBS = ISNLC_IFILT_OBS(ep)
     CFILT     = FILTDEF_STRING(ifilt_obs:ifilt_obs)
     PROB      = SNLC_PHOTPROB(ep)
     MASK      = ISNLC_PHOTFLAG(ep)
-    MJD       = SNGL( SNLC8_MJD(ep) )
+    MJD       = SNLC8_MJD(ep)
 
     if ( SNLC_FLUXCAL_ERRTOT(ep) > 0 ) then
        SNR  = SNLC_FLUXCAL(ep) / SNLC_FLUXCAL_ERRTOT(ep)
@@ -16031,9 +16068,7 @@
 ! 
 ! 9/15/2017: check for PHOTMASK_START
 ! 
-
 ! -------------------
-
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -16057,6 +16092,7 @@
 
 ! set defaults
 
+    USE_EARLYLC            = .FALSE.
     NDAYADD_EARLYLC        =  0
     MAXOBS_EARLYLC         =  999
     MAXNIGHT_EARLYLC       =  999
@@ -16071,6 +16107,8 @@
 
     IF ( EARLYLC_STRING .EQ. '' ) RETURN
 
+    ! - - - - - - - - 
+    USE_EARLYLC  = .TRUE.
     NWD = STORE_PARSE_WORDS(MSKOPT, EARLYLC_STRING//char(0),  & 
                FNAM//char(0), 100, 30)
 
@@ -16597,7 +16635,7 @@
     NSTORE = SNTABLE_AUTOSTORE_INIT(cFILE, cTABLE, cVARLIST,  & 
          OPTMASK_STORE,  LEN1, LEN2, LEN3 )
 
-    ! .xyz
+
     print*,' '
     DO i = 1, NVAR_MAGCOR_CHECK
        LENV     = INDEX(VARNAME_MAGCOR_CHECK(i),' ') - 1

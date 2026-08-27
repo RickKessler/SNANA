@@ -671,7 +671,7 @@ def util_analyze_diff_EXEC(diff_list, var_list_require, var_list_optional, args)
                           shell=True, capture_output=True, text=True )
 
     if not os.path.exists(combine_fitres_file):
-        msgerr = f"Could not find combined fitres file: {combine_fitres_file}"
+        msgerr = f"Could not find combined fitres file: {combine_fitres_file}\ncmd = {cmd}"
         assert False, msgerr
 
     df  = pd.read_csv(combine_fitres_file, comment="#", sep=r'\s+')
@@ -865,8 +865,12 @@ def analyze_diff_fitres(args):
     if os.path.exists(combine_fitres_file):
         os.remove(combine_fitres_file)
 
-    var_list_require  = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
-    var_list_optional = [ 'FITPROB', 'MU', 'MUERR', 'MUMODEL', 'HOST_LOGMASS', 'HOST_LOGSFR' ]
+    #var_list_require  = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
+    var_list_require  = [ 'zHD' ]  
+    var_list_optional = [ 'PKMJD', 'mB', 'x1', 'c',
+                          'FITPROB', 'MU', 'MUERR', 'MUMODEL', 'HOST_LOGMASS', 'HOST_LOGSFR',
+                          'PBAYES_Ia', 'PBAYES_Ibc', 'PBAYES_II'
+                      ]
 
     util_analyze_diff_EXEC(diff_fitres_expand, var_list_require, var_list_optional, args)
 

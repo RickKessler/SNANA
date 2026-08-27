@@ -1423,13 +1423,16 @@ int ICAST_for_textVar(char *varName) {
   //   + refactor to define list of strings to allow.
   //
   // Jan 2025: add BANDLIST
-  
-#define NVARNAME_STRING_TABLE 17
+  // Aug 2026: add SIM_TYPE (from PSNID)
+
+#define NVARNAME_STRING_TABLE  18
   char ALLOWED_STRING_COLUMN_LIST[NVARNAME_STRING_TABLE][20] =
     { "CID",            "SNID",         "CCID",        "GALID",
       "ROW",            "STARID",      "FIELD",        "BAND",  "BANDLIST", 
       "NAME_TRANSIENT", "NAME_IAUC",   "IAUC",         "CATALOG",
-      "VERSION",        "PARNAME",     "OBJID",  "snid" } ;
+      "VERSION",        "PARNAME",     "OBJID",         "snid",
+      "SIM_TYPE" 
+    } ;
 
   int ivar;
   char *varname_tmp;

@@ -70,6 +70,10 @@
 #define FAKEFLAG_LCSIM   2   //                  = 2 for lcsim
 #define FAKEFLAG_LCSIM_BLINDTEST 3  // blind-test sim
 
+#define DATASOURCE_FITS 1  // data read from FITS format 
+#define DATASOURCE_TEXT 2  // data read form TEXT format
+#define DATASOURCE_SIM  3  // data passed by SNANA sim
+
 // strings for DATATYPE key in FITS header (Feb 2021)
 #define DATATYPE_DATA        "DATA"       // real data
 #define DATATYPE_SIM_SNANA   "SIM_SNANA"  // SNANA sim
@@ -153,7 +157,7 @@ struct SNDATA_FILTER {
 } SNDATA_FILTER ;  // observer filters
 
 
-char FLUXUNIT[8] ; // default flux unit is raw ADU
+// xxx mark delete char FLUXUNIT[8] ; // default flux unit is raw ADU
 
 // define structure with info about SN photometry version
 
@@ -198,6 +202,8 @@ typedef struct {
 // define main SNDATA data structure
 
 struct SNDATA {
+
+  int SOURCE;  // indicates if data is read from disk, or passed via sim
 
   // global stuff
   char SNANA_VERSION[40] ; // Feb 2021

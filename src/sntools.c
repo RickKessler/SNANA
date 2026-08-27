@@ -9011,6 +9011,8 @@ int init_SNDATA_GLOBAL(void) {
 
   printf("\n  %s: \n", fnam); fflush(stdout);
 
+  SNDATA.SOURCE = 0;
+
   // Aug 17 2026: copy WRFLAG_xxx from init_SNDATA_EVENT to here
   SNDATA.WRFLAG_BLINDTEST     = false ; 
   SNDATA.WRFLAG_PHOTPROB      = false ;
@@ -9096,7 +9098,7 @@ int init_SNDATA_EVENT(void) {
 
   // --------- BEGIN -----------------
 
-  sprintf(FLUXUNIT, "ADU");
+  // xxx mark delete  sprintf(FLUXUNIT, "ADU");
 
   sprintf(SNDATA.NAME_IAUC,      "UNKNOWN" );
   sprintf(SNDATA.NAME_TRANSIENT, "UNKNOWN" );

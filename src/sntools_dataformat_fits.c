@@ -80,6 +80,9 @@
               only SIM_FLAM to save disk space. This compact write feature
               was developed for OpenUniverse2024.
 
+ Aug 26 2026: if there are multiple sim classes, skip writing model params to avoid confusion
+              See SNFITSIO_SIMFLAG_MULTIMODEL
+
 **************************************************/
 
 #include "fitsio.h"
@@ -132,7 +135,6 @@ void WR_SNFITSIO_INIT(char *path, char *version, char *prefix, int writeFlag,
   print_banner(fnam);  
 
   FORMAT_SNDATA_WRITE = FORMAT_SNDATA_FITS ;
-
 
   SNFITSIO_DATAFLAG             = false ;
   SNFITSIO_ATMOS                = false ;
@@ -448,6 +450,15 @@ void wr_snfitsio_init_head(void) {
     wr_snfitsio_addCol( "1E", "SIM_AV"          , itype );
     wr_snfitsio_addCol( "1E", "SIM_RV"          , itype );
 
+  } // end SNFITSIO_SIMFLAG_SNANA
+
+
+  // Aug 2026: if there are multiple sim-class models, skip model-specific params
+  //    to avoid confusion with different model class params
+  //    I.e., continue if there is only one model class.
+
+  if ( SNFITSIO_SIMFLAG_SNANA && !SNFITSIO_SIMFLAG_MULTIMODEL ) {
+
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_SALT2 ) {
       wr_snfitsio_addCol( "1E", "SIM_SALT2x0"       , itype );
       wr_snfitsio_addCol( "1E", "SIM_SALT2x1"       , itype );
@@ -467,10 +478,9 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E", "SIM_THETA"       , itype );
     }
 
-    
     if ( SNDATA.SIM_MODEL_INDEX  == MODEL_NON1ASED ||
 	 SNDATA.SIM_MODEL_INDEX  == MODEL_NON1AGRID ) {
-
+      // do nothing
     }
 
     if ( SNDATA.SIM_MODEL_INDEX == MODEL_SIMSED && 
@@ -523,14 +533,18 @@ void wr_snfitsio_init_head(void) {
       wr_snfitsio_addCol( "1E",  "SIM_STRONGLENS_LOGMASS_ERR", itype );
     }
 
-  } // SNFITSIO_SIMFLAG_SNANA
+    sprintf(parName,"%s", "SIM_SUBSAMPLE_INDEX" );
+    wr_snfitsio_addCol( "1I", parName, itype );
 
+  } // end SNFITSIO_SIMFLAG_SNANA
 
-  // June 2017
+  // - - - - - - - - - - - - 
+  /* xxxxxxxx mark delete Aug 26 2026 xxxxxxxxx
   if ( SNFITSIO_SIMFLAG_SNANA ) {
     sprintf(parName,"%s", "SIM_SUBSAMPLE_INDEX" );
     wr_snfitsio_addCol( "1I", parName, itype );
   }
+  xxxxxxxxx end mark xxxxxxxxx */
 
   // ----------------------
   // create header table. 
@@ -2144,6 +2158,7 @@ void wr_snfitsio_update_head(void) {
   WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SIM_RV ;
   wr_snfitsio_fillTable ( ptrColnum, "SIM_RV", itype );
 
+  if ( SNFITSIO_SIMFLAG_MULTIMODEL ) { return ; } // Aug 26 2026
 
   if ( SNDATA.SIM_MODEL_INDEX == MODEL_SALT2 ) {
     LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -2948,7 +2963,8 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype, char *callFun) {
   bool FLAG_ABORT_ON_NOPAR = (OPT & OPTMASK_ABORT_SNFITSIO) > 0;
   int   ipar, NPAR ;
   char *ptrTmp;
-  bool LDMP   = 0; // ( strcmp(SNDATA.CCID,"2118533") == 0 );
+  //  bool LDMP   =  strcmp(SNDATA.CCID,"2118533") == 0 );
+  bool LDMP   = 0; // ( strstr(parName,"SALT2") != NULL );
 
   char fnam0[] = "IPAR_SNFITSIO" ;
   char fnam[200];
@@ -2963,7 +2979,7 @@ int IPAR_SNFITSIO(int OPT, char *parName, int itype, char *callFun) {
   
   if ( LDMP ) {
     printf(" xxx ------------------------------------------- \n");
-    printf(" xxx %s: set dump for parName='%s'  NPAR=%d \n",
+    printf(" xxx %s: set dump for parName='%s'  NPAR=%d  \n",
 	   fnam, parName, NPAR ); fflush(stdout);
   }
 
@@ -3203,6 +3219,8 @@ void RD_SNFITSIO_INIT(int init_num) {
   RD_OVERRIDE.USE     = false ;
   NCCID_SAVELIST_SNFITSIO = 0;
 
+  SNDATA.SOURCE = DATASOURCE_FITS;
+
 } // end RD_SNFITSIO_INIT
 
 // =========================================
@@ -3300,24 +3318,32 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   // loop over all header files to get total number of SN.
   // Close each file after reading the NAXIS2 key.
 
-  int photflag_open=0,  vbose=0;
+  int photflag_open=0,  vbose=0, i;
   int NFILE_RD = NFILE_RD_SNFITSIO;
-  bool LRD1 = ( (MSKOPT & 64) > 0 ); 
+  bool LRD1 = ( (MSKOPT & 64) > 0 );  // read only first file 
+  bool USE_SIM_MODEL_INDEX[MXMODEL_INDEX]; 
+  for(i=0; i < MXMODEL_INDEX; i++) { USE_SIM_MODEL_INDEX[i]=0;}
+
   if ( LRD1 ) { NFILE_RD=1; }
 
   for (ifile = 1; ifile <= NFILE_RD; ifile++ ) {
 
-    rd_snfitsio_open(ifile, photflag_open, vbose); // open and read 
+    rd_snfitsio_open(ifile, photflag_open, vbose, fnam); // open and read 
 
     NSNLC_RD_SNFITSIO_TOT       += NSNLC_RD_SNFITSIO[ifile] ; // increment total
     NSNLC_RD_SNFITSIO_SUM[ifile] = NSNLC_RD_SNFITSIO_TOT ;
+
+    if ( SNDATA.SIM_MODEL_INDEX > 0 ) { USE_SIM_MODEL_INDEX[SNDATA.SIM_MODEL_INDEX] = true; }
+
+    //printf(" xxx %s: ifile=%2d  SIM_MODEL[INDEX/NAME] = %d / %s \n",
+    //	   fnam, ifile, SNDATA.SIM_MODEL_INDEX, SNDATA.SIM_MODEL_NAME);
 
     rd_snfitsFile_close(ifile, ITYPE_SNFITSIO_HEAD );
   }
 
   if ( LRD1 ) { return 0; }
 
-  // open and read the first HEADER file ; do not open PHOT file
+  // for NEVT, open and read the first HEADER file ; do not open PHOT file
   if ( (MSKOPT & 2) == 0 ) {  
     IFILE_RD_SNFITSIO    = 1 ;
     ISNFIRST_SNFITSIO    = 1 ;               // first ISN in file
@@ -3326,12 +3352,20 @@ int RD_SNFITSIO_PREP(int MSKOPT, char *PATH, char *version) {
   }
 
   // Feb 2021: init lookup indices for faster read
-  int i;
   for(i=0; i < MXPAR_SNFITSIO; i++ ) { 
     SNFITSIO_READINDX_HEAD[i] = -9 ;
     SNFITSIO_READINDX_PHOT[i] = -9 ;
     SNFITSIO_READINDX_SPEC[i] = -9 ;
   }
+
+  
+  // - - - -
+  int N_SIM_MNODEL_INDEX = 0 ;
+  for(i=0; i < MXMODEL_INDEX; i++) { 
+    if ( USE_SIM_MODEL_INDEX[i] ) { N_SIM_MNODEL_INDEX++ ; }
+  }
+  SNFITSIO_SIMFLAG_MULTIMODEL = ( N_SIM_MNODEL_INDEX > 1 ) ; // impacts reformat options
+  // xxxx  printf(" xxx %s: SNFITSIO_SIMFLAG_MULTIMODEL = %d \n", fnam, SNFITSIO_SIMFLAG_MULTIMODEL);
 
   return(NSNLC_RD_SNFITSIO_TOT) ;
 
@@ -4386,7 +4420,7 @@ int is_fits(char *file) {
 }
 
 // ================================
-void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
+void rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun) {
 
   // Open snfits files (HEAD, PHOT, and optional SPEC) for reading.
   // First open the HEADER file.
@@ -4406,11 +4440,14 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
   // Jun 24, 2022: call rd_snfitsio_check_gzip() to abort if both
   //                unzip and gzip files exist.
   // July 23 2025: read ZP_FLUXCAL
+  // Aug 26 2026: pass calFun for messages
 
   fitsfile *fp ;
   int istat, itype, istat_spec, hdutype, nrow, nmove = 1, FLAG  ;
   char keyname[60], comment[200], *ptrFile ;
-  char fnam[] = "rd_snfitsio_open" ;
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "rd_snfitsio_open", fnam);
 
   // ------------- BEGIN -------------
 
@@ -4603,7 +4640,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     fits_read_key(fp, TINT, keyname, 
 		  &SNDATA.SIM_MODEL_INDEX, comment, &istat );
     sprintf(c1err, "read %s key", keyname);
-    //     snfitsio_errorCheck(c1err, istat);    
 
     // read global info for Galactic extinction
     istat = 0 ;
@@ -4639,8 +4675,6 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose) {
     rd_snfitsio_simkeys();
 
   } // end read sim keys
-
-
 
   // ---------------------------
   // Now open the PHOT file.  
@@ -4906,7 +4940,7 @@ void rd_snfitsio_file(int ifile) {
   MXOBS_SNFITSIO     =  0 ;
 
   // open header fits-file and the phot fits-file
-  rd_snfitsio_open(ifile, photflag_open, vbose);    
+  rd_snfitsio_open(ifile, photflag_open, vbose, fnam);    
 
   // read table parNames and forms
   rd_snfitsio_tblpar( ifile, ITYPE_SNFITSIO_HEAD );  

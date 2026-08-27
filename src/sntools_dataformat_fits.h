@@ -95,13 +95,14 @@ int MALLOC_LEN_SNFITSIO[MXTYPE_SNFITSIO] ; // malloc length per file type
 
 bool  SNFITSIO_DATAFLAG ;       // true -> real data (not sim, not fakes)
 bool  SNFITSIO_ATMOS ;          // write atmos/DCR per obs for data [and sim]
-bool  SNFITSIO_DETINFO    ; // write detector info: IMGNUM, DETNUM, XPIX, YPIX [data or sim]
+bool  SNFITSIO_DETINFO    ;     // write detector info: IMGNUM, DETNUM, XPIX, YPIX [data or sim]
 bool  SNFITSIO_SIMFLAG_SNANA ;  // SNANA sim
 bool  SNFITSIO_SIMFLAG_MAGOBS ; // data-like with SIM_MAGOBS
 bool  SNFITSIO_SIMFLAG_SPECTROGRAPH ;  // simulated spectra (Aug 2016)
 bool  SNFITSIO_SIMFLAG_SNRMON      ;   // SNR(MAGMONITOR)
 bool  SNFITSIO_SIMFLAG_MODELPAR    ;   // model params for SIMSED, LCLIB
 bool  SNFITSIO_SIMFLAG_TEMPLATEMAG; // write template mags (LCLIB,AGN ..)
+bool  SNFITSIO_SIMFLAG_MULTIMODEL ; // read multiple SIM_MODEL_INDEX values (Aug 26 2026)
 
 bool  SNFITSIO_HOSTGAL2_FLAG    ;   // include HOSTGAL2 info 
 bool  SNFITSIO_COMPACT_FLAG ;            // Jan 2018
@@ -294,7 +295,7 @@ void  GET_SNFITSIO_INFO(char *VERSION, char *FILENAME_HEAD,
 			char *FILENAME_PHOT, int *IFILE );
 
 int   rd_snfitsio_list(void);
-void  rd_snfitsio_open(int ifile, int photflag_open, int vbose ); 
+void  rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun ); 
 void  rd_snfitsio_check_gzip(char *fileName);
 
 void  rd_snfitsio_file(int ifile);          // open and read everything

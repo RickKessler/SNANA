@@ -9542,6 +9542,7 @@
               , SNLC_CCID  & 
               , ISNLC_NEWMJD_STORE  & 
               , ISNLC_NEWMJD_CUTS
+      call flush(6)
     ENDIF
 
     CALL EXEC_REFORMAT(IVERS)

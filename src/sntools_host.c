@@ -4217,7 +4217,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, NROW, ibin, istat ;
-  int  NGAL, igal, igal_unsort, isparse, IVAL ;
+  int  NGAL, igal, isparse, IVAL ;
   short int I2MAG;
   bool LDMPWGT ;
 

@@ -25083,7 +25083,7 @@ void snlc_to_SNDATA(int FLAG) {
 
   // always start with header info
 
-  
+  SNDATA.SOURCE = DATASOURCE_SIM;
   sprintf(SNDATA.SNANA_VERSION,  "%s", SNANA_VERSION_CURRENT);
   sprintf(SNDATA.SURVEY_NAME,    "%s", SIMLIB_GLOBAL_HEADER.SURVEY_NAME );
   sprintf(SNDATA.SUBSURVEY_NAME, "%s", SIMLIB_HEADER.SUBSURVEY_NAME );  

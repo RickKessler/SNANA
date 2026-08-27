@@ -1381,6 +1381,8 @@ void RD_SNTEXTIO_INIT(int init_num) {
   DEBUG_FLAG_SNTEXTIO = false ;
   RD_OVERRIDE.USE     = false ;
 
+  SNDATA.SOURCE = DATASOURCE_TEXT ;
+
   return ;
 } // end RD_SNTEXTIO_INIT
 

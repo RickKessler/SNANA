@@ -866,7 +866,7 @@ def analyze_diff_fitres(args):
         os.remove(combine_fitres_file)
 
     #var_list_require  = [ 'zHD', 'PKMJD', 'mB', 'x1', 'c' ]  
-    var_list_require  = [ 'zHD' ]  
+    var_list_require  = [ 'zHD', 'zHDERR' ]  
     var_list_optional = [ 'PKMJD', 'mB', 'x1', 'c',
                           'FITPROB', 'MU', 'MUERR', 'MUMODEL', 'HOST_LOGMASS', 'HOST_LOGSFR',
                           'PBAYES_Ia', 'PBAYES_Ibc', 'PBAYES_II'

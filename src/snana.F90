@@ -3093,6 +3093,7 @@
 
     USE SNDATCOM
     USE SNLCINP_NML
+    USE EARLYCOM
 
     IMPLICIT NONE
 
@@ -3125,8 +3126,11 @@
     WR_SIMLIB_OUTFILE = (.not. IGNOREFILE_fortran(SIMLIB_OUTFILE) )
 
     LRDFLAG_SPEC   = (REFORMAT_LOCAL .or. USE_TABLEFILE_MARZ .or.  & 
-                        WR_SIMLIB_OUTFILE)  & 
-                       .and. (DEBUG_FLAG .NE. -333)  ! -333 suppresses reading SPEC
+                        WR_SIMLIB_OUTFILE) 
+
+    ! check reasons to suppress reading SPEC
+    if ( DEBUG_FLAG == -333 ) LRDFLAG_SPEC = .FALSE.  
+    if ( USE_EARLYLC        ) LRDFLAG_SPEC = .FALSE. 
 
     ISNLC_VERSION    = IVERS
 

@@ -3319,6 +3319,8 @@ void check_redshift_HOSTLIB(void) {
   // skip check if any +HOST[XXX] option is used to append hostlib
   if ( INPUTS.HOSTLIB_USE == HOSTLIB_FLAG_REWRITE ) { return; }
 
+  // skip check if using HOSTLIB redshift
+  if ( INPUTS.USE_SIMLIB_REDSHIFT ) { return; } 
 
   if ( HOSTLIB.ZMIN > ZMIN_GEN || HOSTLIB.ZMAX < ZMAX_GEN ) {
 
@@ -6105,6 +6107,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   //
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
+  // Aug 28 2026: check USE_SIMLIB_GALID
 
   bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
 
@@ -6137,7 +6140,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
   if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
   
   IGAL_SELECT = -9 ; 
-  
+
+
   // compute zSN-zGAL tolerance for this ZGEN = zSN
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
     
@@ -6278,7 +6282,11 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   NSKIP_WGT   = NSKIP_USED = NGAL_CHECK = 0 ;
 
-  if ( ISMODEL_SIMLIB  &&  SIMLIB_HEADER.GALID > 0 ) { 
+  // - - - - -- 
+  // check option to force GALID. Below it does a brute-force search
+  // in restricted range defined by known redshift
+  bool FORCE_GALID = INPUTS.USE_SIMLIB_GALID || ISMODEL_SIMLIB ;
+  if ( FORCE_GALID  &&  SIMLIB_HEADER.GALID > 0 ) { 
     INPUTS.HOSTLIB_GALID_PRIORITY[0] = SIMLIB_HEADER.GALID;
     INPUTS.HOSTLIB_GALID_PRIORITY[1] = SIMLIB_HEADER.GALID;
   }
@@ -6497,7 +6505,6 @@ void GEN_SNHOST_GALID(double ZGEN) {
     sprintf(c2err,"CID=%d", GENLC.CID );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
-
 
 
   return ;

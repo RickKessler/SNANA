@@ -572,6 +572,7 @@ struct INPUTS {
   int  USE_SIMLIB_SALT2 ;     // use SALT2c and SALT2x1 from SIMLIB header
   int  USE_SIMLIB_GROUPID;    // use GROUPID from SIMLIB header
   int  USE_SIMLIB_IDEXPT;     // write this value to PHOT file column IMGNUM
+  int  USE_SIMLIB_GALID;      // GALID [ROWNUM] in SIMLIB header is used to select from HOSTLIB
   int  SIMLIB_MSKOPT ;        // special SIMLIB options (see manaul)
 
 

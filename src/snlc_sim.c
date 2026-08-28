@@ -1141,6 +1141,7 @@ void set_user_defaults(void) {
   INPUTS.USE_SIMLIB_SALT2    = 0;
   INPUTS.USE_SIMLIB_GROUPID  = 0;
   INPUTS.USE_SIMLIB_IDEXPT   = 0;
+  INPUTS.USE_SIMLIB_GALID    = 0;
   
   INPUTS.SIMLIB_MSKOPT = 0 ;
   GENLC.SIMLIB_IDLOCK  = -9;
@@ -3850,6 +3851,10 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "USE_SIMLIB_IDEXPT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_IDEXPT );
+    INPUTS.USE_SIMLIB_GENOPT=1;
+  }
+  else if ( keyMatchSim(1, "USE_SIMLIB_GALID",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_GALID );
     INPUTS.USE_SIMLIB_GENOPT=1;
   }
   else if ( keyMatchSim(1, "SIMLIB_MSKOPT",  WORDS[0],keySource) ) {
@@ -19620,6 +19625,9 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       // read optional header keys for FAKEID option
       else if ( strcmp(wd0,"GALID:") == 0 )  
 	{ sscanf(wd1, "%lld", &SIMLIB_HEADER.GALID ); iwd++ ; continue; }
+      else if ( strcmp(wd0,"HOSTLIB_GALID:") == 0 )   // Aug 28 2026 
+	{ sscanf(wd1, "%lld", &SIMLIB_HEADER.GALID ); iwd++ ; continue; }
+
       else if ( strcmp(wd0,"FAKEID:") == 0 )  
 	{ sscanf(wd1, "%d", &SIMLIB_HEADER.FAKEID ); iwd++ ; continue; }
 

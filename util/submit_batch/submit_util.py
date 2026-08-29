@@ -42,13 +42,22 @@ def grep(path_list, key_list, key_veto_list, verbose):
     # Created Sep 5 2025 
     # loop over all files in path_list;
     # grep each key in key_list;
-    # Return number of keys found per file and total in all files.
+    # Return 
+    #   + total number of number of grep matches found in all path_list files, 
+    #   + list of n_match found per path_list file
     # If element of key_veto_list is on file, do NOT count this.
     #
-    # oct 78 2025: fix to avoid re-grepping grep message by checking for unique_symbol
+    # Example:
+    #    path_list = [ 'a1.txt', 'a2.txt', a3.txt' ]
+    #    and they contain 2, 0, 3 elements of key_list, respectively.
+    #    The output is   5, [2,0,3]
+    #
+    # Oct 78 2025: fix to avoid re-grepping grep message by checking for unique_symbol
+    # Aug 29 2026: fix to return both dict of path and dict of keys to avoid confusion
 
-    n_tot = 0
-    n_list = [0] * len(key_list)
+    n_tot         = 0
+    out_path_dict = my_dict = dict.fromkeys(path_list, 0)
+    out_key_dict  = my_dict = dict.fromkeys(key_list,  0)
 
     unique_symbol = '_@_'  # write this symbol in grep message to avoid grepping it later
 
@@ -73,8 +82,9 @@ def grep(path_list, key_list, key_veto_list, verbose):
             for k, key in enumerate(key_list):
                 if re.search(key, line):
                     n_tot += 1
-                    n_list[k] += 1      # returned 
-                    n_list_tmp[k] += 1  # local for verbose print
+                    out_key_dict[key] += 1
+                    n_list_tmp[k]     += 1  # local for verbose print
+                    out_path_dict[fil] += 1
 
         for key, n in zip(key_list, n_list_tmp):
             if n > 0 and verbose:
@@ -82,7 +92,8 @@ def grep(path_list, key_list, key_veto_list, verbose):
                 logging.info(f"  {unique_symbol}  grep found {n} instances of '{key}' in {base} ")
 
     # - - - - - -
-    return n_tot, n_list
+    return n_tot, out_path_dict, out_key_dict
+
     # end grep
 
 def print_elapse_time(t0,comment):

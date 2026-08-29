@@ -1024,14 +1024,8 @@ class LightCurveFit(Program):
         # The goal is to run each data version on only a few cores to ensure
         # that they finish if cluster does not run all NCORE core simultaneously.
 
-        devel_flag       = self.config_yaml['args'].devel_flag
         opt_sncid_list   = self.config_prep['opt_sncid_list']
         if opt_sncid_list <= 0 : return
-
-        # do this only with explicit devel flag ... for now
-        # xxx mark delete REFAC = (devel_flag == 327)
-        LEGACY = (devel_flag == -327)
-        if LEGACY: return
 
         n_core           = self.config_prep['n_core']
         n_version        = self.config_prep['n_version']

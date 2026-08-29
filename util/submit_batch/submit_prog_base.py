@@ -1469,7 +1469,7 @@ class Program:
                 self.nomerge_last()
                 exit(0)
 
-        # set busy lock file to prevent a simultaneous  merge task
+        # set busy lock file to prevent a simultaneous merge task
         self.set_merge_busy_lock(+1,t_merge_start)
 
         # Sep 5 2025: kill everything if any of the CPUs have died 
@@ -1634,24 +1634,31 @@ class Program:
         # For each CPU*LOG that is not done (i.e., CPU[nnn].DONE does not exist),
         # check for fatal error keywords from slurm (see KEY_FATAL_LIST) that
         # have nothing to do with the underlying code from SNANA/SALT3train/etc ...
-        # Slurm error detection results in all terminating all pids.
+        # Slurm error detection results in terminating all pids.
         # Be careful NOT to print these words for normal operation;
         # i.e., don't print things like "Do error check", otherwise 'error'
         # will trigger all jobs to be killed.
+        #
+        # Aug 29 2026: write message to each cpu*log file that is ok to indicate it was auto-killed.
 
         submit_info_yaml = self.config_prep['submit_info_yaml'] 
         script_dir       = submit_info_yaml['SCRIPT_DIR'] 
 
+        args             = self.config_yaml['args']
+        debug_mode = (args.devel_flag == 829)
+
         KEY_FATAL_LIST = [ 'FAIL', 'KILL', 'ERROR', 'CANCEL', 
-                           'fail', 'kill', 'error' ]      # leave out cancel to avoid conflict with scancel
+                           'fail', 'kill', 'error' ]      # leave out 'cancel' to avoid conflict with scancel
 
         KEY_VETO_FATAL_LIST = [ 'TMPDIR' ]  # wacky hack, Jan 26 2026
 
 
         # add this TEST0 key for debugging on regression test with
         #   cd $SNANA_TESTS/inputs_submit_batch
-        #   ~/SNANA/util/submit_batch_jobs.sh LCFIT_LOWZ_DATA+SIM.NML
-        #KEY_FATAL_LIST +=  [ 'TEST0_SUBMIT_BATCH_REPEAT_LOWZ_FITOPT003_SPLIT002' ]
+        #   ~/SNANA/util/submit_batch_jobs.sh LCFIT_LOWZ_DATA+SIM.NML --devel_flag 829
+        if debug_mode:
+            #KEY_FATAL_LIST +=  [ 'DES-SN5YR_LOWZ_FITOPT000_SPLIT001' ]
+            KEY_FATAL_LIST +=  [ 'TEST0_SUBMIT_BATCH_REPEAT_LOWZ_FITOPT003_SPLIT002' ]
 
         # get list of CPU*.LOG files that do NOT have associated CPU*.DONE
         cpu_log_list  = self.fetch_cpu_logfiles_notdone()
@@ -1660,19 +1667,50 @@ class Program:
         # n_tot is the total number of matches (scalar);
         # n_list = number of matches for each KEY_FATAL_LIST (vector).
         verbose = True
-        n_tot, n_list = util.grep(cpu_log_list, KEY_FATAL_LIST, KEY_VETO_FATAL_LIST, verbose )
+        n_tot, grep_path_dict, grep_key_dict = \
+                util.grep(cpu_log_list, KEY_FATAL_LIST, KEY_VETO_FATAL_LIST, verbose )
+
+        if debug_mode:
+            pass
+            #logging.info(f" xxx ")
+            #logging.info(f" xxx debug dump for check_for_slurm_failure:  n_tot = {n_tot}")
+            #logging.info(f" xxx   grep_key_dict  = {grep_key_dict}")
+            #logging.info(f" xxx   grep_path_dict = {grep_path_dict}")
+            #logging.info(f" xxx ")
 
         if n_tot > 0:            
             # Terminate all pids.
             # In this message, be careful not to use any words from KEY_FATAL_LIST
             logging.info(f"Found FATAL key from slurm --> stop all jobs.")
             self.config_yaml['args'].kill = True
+
             # construct error message for kill_jobs arg; to be appended to MERGE.LOG file
-            msgerr = ''
-            for n, cpu_log in zip(n_list, cpu_log_list):
+            msgerr_merge_log = ''
+            cpu_fail_list = []
+            for cpu_log, n in grep_path_dict.items():
                 if n > 0:
-                    msgerr += f'slurm failure identified in {os.path.basename(cpu_log)}\n'
-            self.kill_jobs(msgerr)  # msgerr will appear in MERGE.LOG
+                    cpu_base_log      = os.path.basename(cpu_log)
+                    cpu_fail_list.append(cpu_base_log)
+                    msgerr_merge_log += f'slurm failure identified in {cpu_base_log}\n'
+                    
+            # Aug 29 2026: to assist in locating the real culprit, loop again and write message 
+            # to each cpu*log that does NOT have a failure;
+            for cpu_log, n in grep_path_dict.items():
+                if n == 0:
+                    msgerr_cpu_log = \
+                        f"\n# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" \
+                        f"  This slurm job will be auto-killed by submit_batch_jobs because \n" \
+                        f"  slurm failuer(s) were detected in \n" \
+                        f"  {cpu_fail_list}\n" \
+                        f"# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n\n"
+                    cmd = f'echo -e "{msgerr_cpu_log}" >> {cpu_log}'
+                    os.system(cmd)      # .xyz
+                    #with open(cpu_log,"at") as f:
+                    #    f.write(f"{msgerr_cpu_log}")
+
+            # sleep 2 minutes before kill_jobs so that original CPU*log has earlier time stamp
+            time.sleep(3)
+            self.kill_jobs(msgerr_merge_log)  # msgerr will appear in MERGE.LOG
 
         return  # end check_for_slurm_failure
 

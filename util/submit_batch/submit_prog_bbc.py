@@ -324,7 +324,6 @@ class BBC(Program):
         CONFIG          = self.config_yaml['CONFIG']
         input_file      = self.config_yaml['args'].input_file 
         ignore_fitopt   = self.config_yaml['args'].ignore_fitopt
-        devel_flag      = self.config_yaml['args'].devel_flag
         IS_FITOPT_MAP   = BLOCKNAME_FITOPT_MAP in self.config_yaml
         msgerr = []
         
@@ -699,7 +698,6 @@ class BBC(Program):
         n_inpdir         = self.config_prep['n_inpdir']
 
         args             = self.config_yaml['args']  
-        devel_flag       = True
 
         logging.info(f"  {key} = IGNORE -> " \
                      f"Attempt auto-match version(s) in each INPDIR")
@@ -777,8 +775,6 @@ class BBC(Program):
 
                 if not match: 
                     all_one_splitsim = False
-
-        #if devel_flag : sys.exit(f"\n xxx BYE xxx ")
 
         if all_one_splitsim :
             logging.info(f"  Auto-match success: one split-sim version " \
@@ -2617,11 +2613,8 @@ class BBC(Program):
         import pandas as pd
 
         args             = self.config_yaml['args']  
-        devel_flag       = args.devel_flag
 
-        LEGACY_IZBIN     = devel_flag == -626
-        REFAC_IZBIN      = not LEGACY_IZBIN  # REFAC is default
-        # xxx REFAC_IZBIN      = devel_flag == 626  
+        #REFAC_IZBIN      = not LEGACY_IZBIN  # REFAC is default
 
         sep_ucid         = '__'
             
@@ -2653,42 +2646,28 @@ class BBC(Program):
         # get list of unique CIDs, and how many times each CID appears
         cid_unique, n_count = np.unique(ucid_list_all, return_counts=True)
 
-        if REFAC_IZBIN :
-            # the mask of event that are in cid_unique are in a different order
-            # after using df0[mask] to select using isin(cid_unique).
-            # Thus we explicitly define izbin_unique to correspond to cid_unique
-            t0 = time.time()
-            mask           = df0[TABLE_VARNAME_UCID].isin(list(cid_unique))
-            ucid_tmp_list  = list(df0[mask][TABLE_VARNAME_UCID])
-            izbin_tmp_list = list(df0[mask][TABLE_VARNAME_IZBIN])    # wrong order
-
-            izbin_unique   = [ izbin_tmp_list[ucid_tmp_list.index(c)] if c in ucid_tmp_list  \
-                               else -9 for c in cid_unique ] # correct order
-
-            ncid           = len(cid_unique)
-            dt = time.time() - t0
-            logging.info(f"\t time to create IZBIN list for {ncid} CIDs: {dt:.1f} sec")
-
+        # the mask of event that are in cid_unique are in a different order
+        # after using df0[mask] to select using isin(cid_unique).
+        # Thus we explicitly define izbin_unique to correspond to cid_unique
+        t0 = time.time()
+        mask           = df0[TABLE_VARNAME_UCID].isin(list(cid_unique))
+        ucid_tmp_list  = list(df0[mask][TABLE_VARNAME_UCID])
+        izbin_tmp_list = list(df0[mask][TABLE_VARNAME_IZBIN])    # wrong order
+        
+        izbin_unique   = [ izbin_tmp_list[ucid_tmp_list.index(c)] if c in ucid_tmp_list  \
+                           else -9 for c in cid_unique ] # correct order
+        
+        ncid           = len(cid_unique)
+        dt = time.time() - t0
+        logging.info(f"\t time to create IZBIN list for {ncid} CIDs: {dt:.1f} sec")
+        
         for i, ucid in enumerate(cid_unique):
             unique_dict[ucid] = {}
             ucid_split = ucid.split(sep_ucid)
             cid      = str(ucid_split[0])
             idsurvey = int(ucid_split[1])
             field    = str(ucid_split[2])  
-
-            if REFAC_IZBIN:
-                izbin    = izbin_unique[i]
-            else:
-                # legacy method that can be super slow for 100k samples
-                #izbin_list = df0.loc[(df0[TABLE_VARNAME_CID]==cid) & \
-                #                     (df0[TABLE_VARNAME_IDSURVEY]==idsurvey) & \
-                #                     (df0[TABLE_VARNAME_FIELD]==field) ][TABLE_VARNAME_IZBIN].values
-                izbin_list = df0.loc[ (df0[TABLE_VARNAME_UCID]==ucid) ][TABLE_VARNAME_IZBIN].values
-                if len(izbin_list) > 0 :
-                    izbin = int(izbin_list[0])
-                else:
-                    izbin = -9
- 
+            izbin    = izbin_unique[i]
             unique_dict[ucid][TABLE_VARNAME_CID]      = cid
             unique_dict[ucid][TABLE_VARNAME_IDSURVEY] = idsurvey
             unique_dict[ucid][TABLE_VARNAME_FIELD]    = field

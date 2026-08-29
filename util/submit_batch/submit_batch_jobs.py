@@ -30,8 +30,7 @@
 #                (e.g., cigale in hostfit does not have numpy)
 # - - - - - - - - - -
 
-import os
-import sys, yaml, argparse, subprocess, logging
+import os, sys, yaml, argparse, subprocess, logging, glob
 import submit_util      as util
 
 from   argparse import Namespace
@@ -486,12 +485,31 @@ def run_merge_driver(program,args):
     
     # end run_merge_driver
 
+def dumtest():
+    
+    log_list = sorted(glob.glob("CPU*.LOG"))
+    print(f"\n xxx log_list = \n{log_list}")
+
+    key_list = [ 'KEY_FATAL_LIST' ]
+    n_tot, grep_path_dict, grep_key_dict = util.grep(log_list, key_list, [], True)
+
+    print(f" xxx n_tot = {n_tot}")
+
+    for log, n_grep in grep_path_dict.items():
+        if n_grep > 0:
+            print(f" xxx found {n_grep} matches in {log}")
+    print(f" xxx grep_key_dict = \n\t{grep_key_dict}")
+
+    sys.exit(f"\n xxx Done with dumtest")
+
 # =============================================
 if __name__ == "__main__":
     
     args  = get_args()
     store = util.setup_logging(args)
     
+    #dumtest()
+
     # check option for long HELP menus
     if args.HELP : 
         print_HELP()

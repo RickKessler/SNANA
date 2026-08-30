@@ -266,8 +266,8 @@
         ,JEP_SIM_FLUXREST  = 48   & 
         ,JEP_SIM_FLUXCAL   = 49   &  ! for LSIM_MAGOBS = T
         ,JEP_SIM_DELCHI2   = 50   &  ! chi2 from data-sim flux diff
-        ,JEP_FUDGE_MAXFRAC = 51 
-
+        ,JEP_FUDGE_MAXFRAC = 51   & 
+        ,JEP_WAVESHIFT     = 52
 
 ! EP_XXX refers to "IMJD" variables stored at end of fit.
 ! These arrays are defined to be passed for plotting.
@@ -3995,7 +3995,7 @@
 
     DOUBLE PRECISION  & 
          ZSN, ZZ, CHI2INI, SHAPEPAR(2), DISTPAR, COLORPAR  & 
-        ,RVHOST, PEAKMJD, Trest, Tobs  & 
+        ,RVHOST, PEAKMJD, Trest, Tobs, waveshift  & 
         ,AVRV, MWAV, MWEBV, XTAV, XTMW, MJD, MJDFIT  & 
         ,flux_data, flux_data_errtot, flux_data_sqerrtot  & 
         ,signoise_data, signoise_model  & 
@@ -4172,6 +4172,7 @@
       flux_data        = dble ( R4EP_ALL(epoch,JEP_DATAFLUX) )
       flux_data_errtot = dble ( R4EP_ALL(epoch,JEP_DATAFLUX_ERR) )
       flux_fudge_err   = dble ( R4EP_ALL(epoch,JEP_FUDGEFLUX_ERR) )
+      waveshift        = dble ( R4EP_ALL(epoch,JEP_WAVESHIFT) )
 
       flux_fudge_sqerr   = flux_fudge_err   * flux_fudge_err
       flux_data_sqerrtot = flux_data_errtot * flux_data_errtot
@@ -4258,19 +4259,21 @@
 ! Note that info on all five filters is passed.
 
       flux_model =  & 
-             USRFUN ( ITER, IFILT_OBS, ZSN, Tobs   &  ! (I)
-                ,SHAPEPAR            &  ! (I) delta, stretch, x1 ...
-                ,DISTPAR             &  ! (I) MU or x0
-                ,COLORPAR            &  ! (I) AV or c
-                ,RVHOST              &  ! (I) color law
-                ,MWEBV               &  ! (I) MW extinct
-                ,LDMPFUN_LOC         &  ! (I)
-                ,AVwarp              &  ! (O) AV warp for SEC
-                ,MAG_KCOR            &  ! (O) K-correction   error
-                ,XTAV                &  ! (O) host-gal extinct in rest-filter
-                ,XTMW                &  ! (O) MW extinct in obs-filter (mag)
-                ,MAG_ERR             &  ! (O) mag error from model
-                      )
+           USRFUN ( ITER, IFILT_OBS  &  ! (I) iteration and absolute filter index
+           ,ZSN, Tobs                &  ! (I) redshift and MJD-PEAKMJD
+           ,WAVESHIFT                &  ! (I) filter waveshift (Aug 30 2026)
+           ,SHAPEPAR                 &  ! (I) delta, stretch, x1 ...
+           ,DISTPAR                  &  ! (I) MU or x0
+           ,COLORPAR                 &  ! (I) AV or c
+           ,RVHOST                   &  ! (I) color law
+           ,MWEBV                    &  ! (I) MW extinct
+           ,LDMPFUN_LOC              &  ! (I)
+           ,AVwarp              &  ! (O) AV warp for SEC
+           ,MAG_KCOR            &  ! (O) K-correction   error
+           ,XTAV                &  ! (O) host-gal extinct in rest-filter
+           ,XTMW                &  ! (O) MW extinct in obs-filter (mag)
+           ,MAG_ERR             &  ! (O) mag error from model
+           )
 
 ! convert MAG_ERR into flux-error
 
@@ -4428,6 +4431,7 @@
          R4EP_ALL(epoch,JEP_MAGDIF)      = SNGL(magdif)
          R4EP_ALL(epoch,JEP_TREST)       = SNGL(Trest)
          R4EP_ALL(epoch,JEP_TOBS)        = SNGL(Tobs)
+         R4EP_ALL(epoch,JEP_WAVESHIFT)   = SNGL(waveshift)
          R4EP_ALL(epoch,JEP_MJD)         = SNGL(MJDFIT)
          R4EP_ALL(epoch,JEP_DELCHI2)     = SNGL(DELCHI2)
          FCN_FITCHI2(0)          = SNGL(chi2tot - CHI2INI)
@@ -5091,6 +5095,7 @@
         ,IFILT_OBS    &  ! (I) index of observer -filter
         ,ZSN          &  ! (I) redshift
         ,Tobs         &  ! (I) T - Tpeak, observer frame
+        ,WAVESHIFT    &  ! (I) waveshift (A) applied to model mag
         ,SHAPE        &  ! (I) shape-par (DELTA, STRETCH, ETC ... )
         ,DIST         &  ! (I) MU=5*LOG10(10pc/DL) or x0
         ,AVHOST       &  ! (I) extinction in SN host galaxy (not used)
@@ -5119,6 +5124,7 @@
 ! Mar 19 2018: call SALT2zz to get redshift used in error calc.
 !              Goal is to remove photo-z pathologies.
 ! 
+! Aug 20 2026: pass waveshift for model passband
 ! ----------------------------------------------------
 
     USE SNDATCOM
@@ -5136,9 +5142,9 @@
     INTEGER ITER, IFILT_OBS  ! (I)
 
     DOUBLE PRECISION  & 
-         ZSN, Tobs, SHAPE(2), DIST         &  ! (I)
-        ,AVHOST, RVHOST, MWEBV             &  ! (I)
-        ,AVWARP, MAG_KCOR(2)               &  ! (O)
+         ZSN, Tobs, WAVESHIFT, SHAPE(2), DIST    &  ! (I)
+        ,AVHOST, RVHOST, MWEBV                   &  ! (I)
+        ,AVWARP, MAG_KCOR(2)                     &  ! (O)
         ,MAG_XTAV, MAG_XTMW, MAG_ERR      ! (O)
 
 ! local args
@@ -5519,10 +5525,10 @@
            mag_obs_tmp(ifilt2_obs) = 0.0
            LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
            if ( LTMP ) then
-             CALL genmag_salt2( MSKSALT2, ifilt2_obs  & 
+             CALL genmag_salt2( MSKSALT2, ifilt2_obs     & 
                 , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL  & 
-                , ZSN, ZZ, Nepoch, Tobs  & 
-                , MAG_OBS_TMP(ifilt2_obs)        &  ! return arg
+                , ZSN, ZZ, Nepoch, Tobs                  &  ! .xyz pass waveshift here
+                , MAG_OBS_TMP(ifilt2_obs)                &  ! return arg
                 , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg
 
            endif
@@ -6288,7 +6294,7 @@
 
 ! ========================================================
     DOUBLE PRECISION FUNCTION GET_FLUX_FITFUN  & 
-                          ( ifilt_obs, T8obs, opt )
+                          ( ifilt_obs, Tobs, waveshift, opt )
 ! 
 ! Wrapper to call USRFUN with final "FITVAL" arguments.
 ! Call this after fit to get function value; do NOT use
@@ -6310,19 +6316,8 @@
 ! 
 !     HISTORY
 !  ~~~~~~~~~~~~
-! Jan 25, 2007: add AVMW arg to USRFUN
-! 
-! Apr 26, 2007: use LCVAL_STORE instead of FITVAL in order
-!               to use marginalized values.
-! 
-! Mar 24, 2008: add OPT=2 to return rest-flux based on cosmology
-!               and ignoring MLCS model.
-! 
-! Feb 13, 2012: For REST option
-!     - set MWEBV=0
-!     - set DISTPAR8 = GET_DIST8(Zat10pc ...)
-! 
-! May 21, 2012: remove ISN arg.
+!
+! Aug 20 2026: pass waveshift arg
 ! --------------------------------------
 
 
@@ -6334,48 +6329,50 @@
     IMPLICIT NONE
 
 ! define function input
-    INTEGER IFILT_OBS    ! (I) SN and obs filter index
-    REAL*8  T8obs             ! (I) MJD - MJDatPk1
-    INTEGER opt               ! (I) option
+    INTEGER IFILT_OBS        ! (I) SN and obs filter index
+    REAL*8  Tobs             ! (I) MJD - MJDatPk1
+    REAL*8  Waveshift        ! (I) waveshift (A) for model mag
+    INTEGER opt              ! (I) option
 
 ! local args
 
     REAL*8  & 
-         Flux8, Z8, DISTPAR8, COLORPAR8  & 
-        ,RVHOST8, DLMAG, SHAPEPAR8(2)  & 
-        ,AVwarp8, KCOR8(2), MAGERR8, MWEBV8  & 
-        ,ERRFRAC8, XTAV, XTMW  & 
-        ,FITPARLOC8(IPAR_MAX)  & 
-        ,SIMPARLOC8(IPAR_MAX)  & 
-        ,MAGTMP8, ARG8  
+         Flux, Z, DISTPAR, COLORPAR  & 
+        ,RVHOST, DLMAG, SHAPEPAR(2)  & 
+        ,AVwarp, KCOR(2), MAGERR, MWEBV  & 
+        ,ERRFRAC, XTAV, XTMW   & 
+        ,FITPARLOC(IPAR_MAX)  & 
+        ,SIMPARLOC(IPAR_MAX)  & 
+        ,MAGTMP, ARG  
 
     INTEGER ipar
     LOGICAL LDMP, LREST_COSMO, LMUFIX
 
-
+    CHARACTER FNAM*16
 ! function
     REAL*8  USRFUN, DLMAG_REF, GET_RV8, GET_DIST8
 
 ! -------------- BEGIN ----------------
 
+    FNAM = 'GET_FLUX_FITFUN'
     GET_FLUX_FITFUN = -9.0
 
     DO ipar = 1, IPAR_MAX
-      FITPARLOC8(ipar) = LCVAL_STORE(ipar)
-      SIMPARLOC8(ipar) = SIMVAL_STORE(ipar)
+      FITPARLOC(ipar) = LCVAL_STORE(ipar)
+      SIMPARLOC(ipar) = SIMVAL_STORE(ipar)
     ENDDO
-    MWEBV8 = DBLE ( SNLC_MWEBV )
+    MWEBV = DBLE ( SNLC_MWEBV )
 
     LREST_COSMO = OPT.EQ.2 .or. OPT.EQ. 3
 
     IF ( OPT.EQ.1 .or.  OPT.EQ.6 ) then  ! fit-model flux, rest-frame
-        Z8           = Zat10pc
-        COLORPAR8    = FITPARLOC8(IPAR_AV)
-        RVHOST8      = GET_RV8(FITPARLOC8)
-        SHAPEPAR8(1) = FITPARLOC8(IPAR_SHAPE)
-        SHAPEPAR8(2) = FITPARLOC8(IPAR_SHAPE2)
-        DISTPAR8     = GET_DIST8(Zat10pc,SHAPEPAR8(1),COLORPAR8,ONE8)
-        MWEBV8       = 0.0
+        Z           = Zat10pc
+        COLORPAR    = FITPARLOC(IPAR_AV)
+        RVHOST      = GET_RV8(FITPARLOC)
+        SHAPEPAR(1) = FITPARLOC(IPAR_SHAPE)
+        SHAPEPAR(2) = FITPARLOC(IPAR_SHAPE2)
+        DISTPAR     = GET_DIST8(Zat10pc,SHAPEPAR(1),COLORPAR,ONE8)
+        MWEBV       = 0.0
 
     ELSE IF ( OPT .EQ.  0 .or.  & 
                 OPT .EQ. 60 .or.  & 
@@ -6384,26 +6381,26 @@
                   ) THEN
 
 !  fit-model flux, observer
-        Z8           = FITPARLOC8(IPAR_zPHOT)
-        DISTPAR8     = FITPARLOC8(IPAR_DLMAG)
-        COLORPAR8    = FITPARLOC8(IPAR_AV)
-        RVHOST8      = GET_RV8(FITPARLOC8)
-        SHAPEPAR8(1) = FITPARLOC8(IPAR_SHAPE)
-        SHAPEPAR8(2) = FITPARLOC8(IPAR_SHAPE2)
+        Z            = FITPARLOC(IPAR_zPHOT)
+        DISTPAR      = FITPARLOC(IPAR_DLMAG)
+        COLORPAR     = FITPARLOC(IPAR_AV)
+        RVHOST       = GET_RV8(FITPARLOC)
+        SHAPEPAR(1)  = FITPARLOC(IPAR_SHAPE)
+        SHAPEPAR(2)  = FITPARLOC(IPAR_SHAPE2)
 
         LMUFIX = DOFIT_PHOTOZ .and. (INISTP_DLMAG .EQ. 0.0)
         if ( LMUFIX ) THEN
-           DLMAG   = DLMAG_REF(Z8)
-           DISTPAR8 = GET_DIST8(Z8,SHAPEPAR8(1),COLORPAR8,ONE8)
+           DLMAG   = DLMAG_REF(Z)
+           DISTPAR = GET_DIST8(Z,SHAPEPAR(1),COLORPAR,ONE8)
         endif  ! LMMUFIX
 
     ELSE IF ( OPT .EQ. 99 ) THEN
-        Z8           = SIMPARLOC8(IPAR_zPHOT)
-        COLORPAR8    = SIMPARLOC8(IPAR_AV)
-        RVHOST8      = GET_RV8(SIMPARLOC8)
-        DISTPAR8     = SIMPARLOC8(IPAR_DLMAG)
-        SHAPEPAR8(1) = SIMPARLOC8(IPAR_SHAPE)
-        SHAPEPAR8(2) = SIMPARLOC8(IPAR_SHAPE2)
+        Z            = SIMPARLOC(IPAR_zPHOT)
+        COLORPAR     = SIMPARLOC(IPAR_AV)
+        RVHOST       = GET_RV8(SIMPARLOC)
+        DISTPAR      = SIMPARLOC(IPAR_DLMAG)
+        SHAPEPAR(1)  = SIMPARLOC(IPAR_SHAPE)
+        SHAPEPAR(2)  = SIMPARLOC(IPAR_SHAPE2)
     ELSE
        write(c1err,660) OPT
 660      format('Invalid OPT=',I4 )
@@ -6413,37 +6410,33 @@
 
     LDMP = LDMPFUN(IFILT_OBS)
 
-    FLUX8 =  & 
-             USRFUN ( NFIT_ITERATION  & 
-                      ,ifilt_obs           &  ! (I) obs-frame filter
-                      ,Z8, T8obs           &  ! (I) redshift and epoch
-                      ,SHAPEPAR8           &  ! (I) Delta, stretch, x1 ...
-                      ,DISTPAR8            &  ! (I) MU or x0
-                      ,COLORPAR8           &  ! (I) AV or c
-                      ,RVHOST8             &  ! (I) RV
-                      ,MWEBV8              &  ! (I) MW extinction
-                      ,LDMP                &  ! (I) dump flag
-                      ,AVwarp8, KCOR8      &  ! (O)
-                      ,XTAV, XTMW          &  ! (O)
-                      ,MAGERR8             &  ! (O) return args
-                    )
-
+    FLUX =  & 
+         USRFUN ( NFIT_ITERATION  & 
+         ,ifilt_obs           &  ! (I) obs-frame filter
+         ,Z, Tobs             &  ! (I) redshift and MJD-PEAKMJD
+         ,WAVESHIFT           &  ! (I) waveshift (A) for model mag
+         ,SHAPEPAR            &  ! (I) Delta, stretch, x1 ...
+         ,DISTPAR             &  ! (I) MU or x0
+         ,COLORPAR            &  ! (I) AV or c
+         ,RVHOST              &  ! (I) RV
+         ,MWEBV               &  ! (I) MW extinction
+         ,LDMP                &  ! (I) dump flag
+         ,AVwarp, KCOR        &  ! (O)
+         ,XTAV, XTMW          &  ! (O)
+         ,MAGERR              &  ! (O) return args
+         )
+    
     IF ( OPT .EQ. 6 ) then
-      GET_FLUX_FITFUN = MAGERR8
+      GET_FLUX_FITFUN = MAGERR
 
     ELSE IF ( LREST_COSMO ) THEN
 
-      magtmp8 = -2.5*DLOG10(FLUX8) + ZP_FLUXCAL  & 
-                  -(XTMW + KCOR8(1) + DLMAG_REF(Z8) )
+      magtmp = -2.5*DLOG10(FLUX) + ZP_FLUXCAL  -(XTMW + KCOR(1) + DLMAG_REF(Z) )
 
-      if ( OPT .EQ. 3 ) magtmp8 = magtmp8 - XTAV
+      if ( OPT .EQ. 3 ) magtmp = magtmp - XTAV
 
-      ARG8 = -0.4 * ( MAGTMP8 - ZP_FLUXCAL)
-      GET_FLUX_FITFUN = TEN8**ARG8
-
-!   xxxxxxx
-!         GET_FLUX_FITFUN = ADUSCALE * TEN8**(-0.4*MAGTMP8)
-!  xxxxxxxxx
+      ARG = -0.4 * ( MAGTMP - ZP_FLUXCAL)
+      GET_FLUX_FITFUN = TEN8**ARG
 
 ! -------------
 !        print*,' XXXXX ------------------------------------- '
@@ -6454,12 +6447,12 @@
 ! -------------
 
     ELSE IF ( OPT .EQ. 60 ) then
-      errfrac8        = 1.0 - TEN8**(-0.4*MAGERR8)
-      GET_FLUX_FITFUN = FLUX8 * errfrac8
+      errfrac        = 1.0 - TEN8**(-0.4*MAGERR)
+      GET_FLUX_FITFUN = FLUX * errfrac
     ELSE IF ( OPT .EQ. 10 ) then
-      GET_FLUX_FITFUN = KCOR8(1)
+      GET_FLUX_FITFUN = KCOR(1)
     ELSE
-      GET_FLUX_FITFUN = FLUX8
+      GET_FLUX_FITFUN = FLUX
     ENDIF
 
     RETURN
@@ -10788,7 +10781,7 @@
          Z, Z1, TREST, MAXFRAC, LAMDIF_MIN, LAMREST  & 
         ,FLUX_DATA, FLUXERR_STAT, FLUXERR_DATA, FLUX_SIM  & 
         ,FLUX_MODEL, FLUXERR_MODEL, FLUXERR_TOT  & 
-        ,ERR_TRUE, ERR_CALC, ARG, TOBS, ERR_TMP, ZP  & 
+        ,ERR_TRUE, ERR_CALC, ARG, TOBS, WAVESHIFT, ERR_TMP, ZP  & 
         ,SQDIF, SQERR
 
     REAL*8 FTMP8, MAGERR8, MJD8
@@ -10851,6 +10844,7 @@
        ENDIF
        TREST   = TOBS/z1
 
+       WAVESHIFT = SNLC_WAVESHIFT(ep)
        IFILT_OBS = ISNLC_IFILT_OBS(ep)
        cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
 
@@ -10984,6 +10978,7 @@
       R4EP_ALL(ep,JEP_FLUX_ERRTOT)    = FLUXERR_TOT
       R4EP_ALL(ep,JEP_TOBS)           = TOBS
       R4EP_ALL(ep,JEP_TREST)          = TREST
+      R4EP_ALL(ep,JEP_WAVESHIFT)      = WAVESHIFT
 
 ! check for epochs to add fudged errors so that these
 ! points are ignored in the fit, but are included in
@@ -14510,7 +14505,7 @@
 
 ! local var
 
-    REAL*8  TREF, MAGOFF, TOBS, MAGOFF_REST, SQSIG_FLUX, PKMJD
+    REAL*8  TREF, WAVESHIFT, MAGOFF, TOBS, MAGOFF_REST, SQSIG_FLUX, PKMJD
     INTEGER OPT, OPT_KCOR
     LOGICAL LOBS, LREST, LDMP
 
@@ -14528,7 +14523,7 @@
     FLUXERR = -9.0
 
     cfilt1     = filtdef_string(ifilt:ifilt)
-
+    WAVESHIFT  = 0.0 ! .xyz
     CFRAME_LOC = CFRAME
 
     LOBS  = .FALSE.
@@ -14571,7 +14566,7 @@
 ! ---------------------
 ! get the flux
 
-    Flux  =  GET_FLUX_FITFUN ( ifilt, TREF, OPT )
+    Flux  =  GET_FLUX_FITFUN ( ifilt, TREF, WAVESHIFT, OPT )
 
     SQSIG_FLUX =  & 
          COVFLUXFUN(OPT, ifilt, ifilt, TREF, TREF, LDMP )
@@ -14605,7 +14600,7 @@
 ! get the K-correction
     if ( LOBS .and. LKCOR_AVWARP ) THEN
       OPT_KCOR = 10
-      KCOR  = GET_FLUX_FITFUN (  ifilt, TREF, OPT_KCOR )
+      KCOR  = GET_FLUX_FITFUN (  ifilt, TREF, WAVESHIFT, OPT_KCOR )
     else
       KCOR = 0.0
     endif
@@ -14722,7 +14717,7 @@
         ,SAVEVAL_k, SAVEVAL_l  & 
         ,ERRPAR_k,  ERRPAR_l  & 
         ,dF1dVAL_k, dF2dVAL_l, FF  & 
-        ,V_kl, U12
+        ,V_kl, U12, WAVESHIFT1, WAVESHIFT2
 
 ! functions
     REAL*8  GET_FLUX_FITFUN
@@ -14734,8 +14729,10 @@
 
 ! get reference fluxes to computer deriviates below.
 
-    Flux1   =  GET_FLUX_FITFUN ( ifilt1, T1, OPT )
-    Flux2   =  GET_FLUX_FITFUN ( ifilt2, T2, OPT )
+    WAVESHIFT1 = 0.0  ! .xyz ??
+    WAVESHIFT2 = 0.0 
+    Flux1   =  GET_FLUX_FITFUN ( ifilt1, T1, WAVESHIFT1, OPT )
+    Flux2   =  GET_FLUX_FITFUN ( ifilt2, T2, WAVESHIFT2, OPT )
 
     DO 301 ipar_k = 1, NFITPAR_MN
        if ( .NOT. FLOATPAR(ipar_k) ) goto 301
@@ -14752,13 +14749,13 @@
 
        LCVAL_STORE(ipar_k) =  & 
          LCVAL_STORE(ipar_k) + SNGL(ERRPAR_k)
-       Ftmp1   =  GET_FLUX_FITFUN ( ifilt1, T1, OPT )
+       Ftmp1   =  GET_FLUX_FITFUN ( ifilt1, T1, WAVESHIFT1, OPT )
        LCVAL_STORE(ipar_k) = SNGL(SAVEVAL_k)
 
 ! repeat for 2nd fitpar ...
        LCVAL_STORE(ipar_l) =  & 
          LCVAL_STORE(ipar_l) + SNGL(ERRPAR_l)
-       Ftmp2   =  GET_FLUX_FITFUN ( ifilt2, T2, OPT )
+       Ftmp2   =  GET_FLUX_FITFUN ( ifilt2, T2, WAVESHIFT2, OPT )
        LCVAL_STORE(ipar_l) = SNGL(SAVEVAL_l)
 
 ! make sure that errors are non-zero before dividing.
@@ -18154,7 +18151,7 @@
         ,OPT
 
     REAL*8  & 
-         T8, Z8, FLux8, MAG8  & 
+         T8, Z8, FLux8, MAG8, WAVESHIFT  & 
         ,DELTA8(2), AV8, MWEBV8, DLMAG8  & 
         ,AVwarp8, KCOR8(2), XTAV, XTMW,MAGERR8, RVMW8
 
@@ -18177,7 +18174,7 @@
     MWEBV8    = ZERO8
     RVMW8     = DBLE(RV_MWCOLORLAW)
     DLMAG8    = ZERO8
-
+    WAVESHIFT = ZERO8
 
     print*,' Z=',Z4,'  Trest=',sngl(T8),'   AV=',sngl(AV8)
     print*,' MWE(B-V)=', sngl(MWEBV8), '   DLMAG=',sngl(DLMAG8)
@@ -18198,7 +18195,7 @@
                             2, Z4, LMIN4 )
 
        FLUX8 =  & 
-           USRFUN ( NFIT_ITERATION, ifilt_obs, Z8, T8  & 
+           USRFUN ( NFIT_ITERATION, ifilt_obs, Z8, T8, WAVESHIFT  & 
                    ,DELTA8, DLMAG8, AV8, RVMW8, MWEBV8, LDMP  & 
                    ,AVwarp8, KCOR8, XTAV, XTMW, MAGERR8 )    ! (O)
 
@@ -18270,7 +18267,7 @@
         ,VBAND_PKMJD_ERR(MXFILT_OBS)  & 
 ! 
         ,COR, FPEAK, FPERR, PKMJD  & 
-        ,TMIN, TMAX, TBIN, xi, TOBS
+        ,TMIN, TMAX, TBIN, xi, TOBS, WAVESHIFT
 
     INTEGER  & 
          LENCCID, NOBS, i, ifilt, ifilt_obs, NFILT, NBT  & 
@@ -18474,11 +18471,12 @@
 
       xi      = float(i) - 0.5
       TOBS    = TMIN + TBIN * xi
+      WAVESHIFT = 0.0  ! .xyz ??
       VFILTOBS(NOBS)      = IFILT_OBS
       VMJD(NOBS)          = TOBS + PKMJD + MJDOFF
       VTOBS(NOBS)         = TOBS
-      VFLUXOBS(NOBS)      = GET_FLUX_FITFUN(ifilt_obs, Tobs,  0)
-      VFLUXOBS_ERR(NOBS)  = GET_FLUX_FITFUN(ifilt_obs, Tobs, 60)
+      VFLUXOBS(NOBS)      = GET_FLUX_FITFUN(ifilt_obs, Tobs,  WAVESHIFT,  0)
+      VFLUXOBS_ERR(NOBS)  = GET_FLUX_FITFUN(ifilt_obs, Tobs,  WAVESHIFT, 60)
 
 ! Dec 10 2017: check for filter-remap option
       IF ( NFILT_REMAP_TABLE > 0 ) THEN

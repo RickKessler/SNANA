@@ -1644,8 +1644,6 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
   if ( ilam_min > 0     ) { ilam_min-- ; }
   if ( ilam_max < NBL-1 ) { ilam_max++ ; }
 
-  // .xyz Aug 25 2026: if waveshift option, shift ilam_min/max accordingly
-
   // - - - - - 
   int NBL_STORE = 0 ;
   for(ilam=ilam_min; ilam <= ilam_max; ilam++ ) { // SED lam bins

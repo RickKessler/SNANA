@@ -2059,7 +2059,7 @@ void genmag_SALT2(
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
 
-  /****
+  /*********************************************************************
   Return observer frame mag in absolute filter index "ifilt_obs" 
   for input SALT2 parameters.
 

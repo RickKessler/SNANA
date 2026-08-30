@@ -5135,8 +5135,6 @@
 
     IMPLICIT NONE
 
-!       DOUBLE PRECISION USRFUN
-
 ! function args
 
     INTEGER ITER, IFILT_OBS  ! (I)
@@ -5525,9 +5523,11 @@
            mag_obs_tmp(ifilt2_obs) = 0.0
            LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
            if ( LTMP ) then
-             CALL genmag_salt2( MSKSALT2, ifilt2_obs     & 
-                , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL  & 
-                , ZSN, ZZ, Nepoch, Tobs                  &  ! .xyz pass waveshift here
+              ! print*,' xxx Tobs, ifilt_obs, waveshift = ', sngl(Tobs), ifilt_obs, sngl(waveshift)
+              CALL genmag_salt2( MSKSALT2, ifilt2_obs     & 
+                , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL   & 
+                , ZSN, ZZ, Nepoch, Tobs                   &  !
+                !, WAVESHIFT                              &  ! Aug 30 2026 .xyz
                 , MAG_OBS_TMP(ifilt2_obs)                &  ! return arg
                 , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg
 

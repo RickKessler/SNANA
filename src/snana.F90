@@ -292,6 +292,8 @@
         ,NSTORE_WAVESHIFT       &  ! number of stored WAVESHIFT values
         ,NUSE_MAGCOR            &  ! number of used MAGCOR    values
         ,NUSE_WAVESHIFT         &  ! number of used WAVESHIFT values
+        ,NMISSING_MAGCOR        &  ! number of missing MAGCOR values
+        ,NMISSING_WAVESHIFT     &  ! number of missing waveshift values
         ,SIGN_MAGCOR            &  ! add or subtract
         ,FORCEMASK_FLUXCOR    &  ! mask to force fluxCor, even if already applied
         ,EXIT_ERRCODE        ! used for abort
@@ -16585,6 +16587,9 @@
     NUSE_MAGCOR      = 0
     NUSE_WAVESHIFT   = 0
 
+    NMISSING_MAGCOR    = 0
+    NMISSING_WAVESHIFT = 0 
+
     NVAR_FOUND = 0
     CALL ENVreplace(MAGCOR_INFILE)
     LEN1   = INDEX(MAGCOR_INFILE,' ') - 1
@@ -16800,7 +16805,7 @@
 
 ! local variables
 
-    INTEGER IFILT_OBS, ISTAT, L, L2, NROW_MATCH, NSTORE
+    INTEGER IFILT_OBS, ISTAT, L, L2, NROW_MATCH, NSTORE, NMISS
     REAL*8  MJD, DVAL
     REAL*4  VAL, FCOR, CRAZY_VAL
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
@@ -16856,14 +16861,14 @@
 
 ! if no match using CID, then try again with IAUC name
     IF ( ISTAT .NE. 0 ) THEN
-      L2  = INDEX(SNLC_NAME_IAUC,' ') - 1
-      WRITE(STR_EPID2,40) SNLC_NAME_IAUC(1:L2), MJD, BAND, char(0)
-      NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID2, cVARNAME, ISTAT,  & 
-           DVAL,cDUM, 60,10,10 )
+       L2  = INDEX(SNLC_NAME_IAUC,' ') - 1
+       WRITE(STR_EPID2,40) SNLC_NAME_IAUC(1:L2), MJD, BAND, char(0)
+       NROW_MATCH = SNTABLE_AUTOSTORE_READ(STR_EPID2, cVARNAME, ISTAT,  & 
+            DVAL,cDUM, 60,10,10 )
     ENDIF
 
     IF ( ISTAT == 0 ) then
-      VAL = sngl(DVAL) * SIGN_MAGCOR
+       VAL = sngl(DVAL) * SIGN_MAGCOR
 
 ! trap crazy val
       if ( abs(VAL) > CRAZY_VAL ) then
@@ -16884,11 +16889,21 @@
       else
          ! abort ??
       endif
+  
+   ELSE
+      ! write warning to stdout about missing correction
+      L = INDEX(STR_EPID1,' ') - 1
+      if ( IS_MAGCOR ) then
+         NMISSING_MAGCOR    = NMISSING_MAGCOR + 1;  NMISS = NMISSING_MAGCOR
+      else
+         NMISSING_WAVESHIFT = NMISSING_WAVESHIFT + 1 ; NMISS = NMISSING_WAVESHIFT
+      endif
 
-!        write(6,66) DVAL, STR_EPID1, ISTAT
-! 6      format(' xxx MAGCOR=',F6.3,' for ', A20,'  ISTAT=',I3)
-!        call flush(6)
-    ENDIF
+      if ( NMISS < 50 ) write(6,670) VARNAME, STR_EPID1(1:L)
+      call flush(6)
+670   format(T5,'WARNING: missing ',A,' value for ', A)
+      ! .xyz
+   ENDIF
 
     if ( IS_MAGCOR ) CALL SETMASK_FLUXCOR_SNANA(MASK_FLUXCOR_SNANA)
 

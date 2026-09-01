@@ -267,7 +267,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     printf("\t Re-init %s -> skip reading files. \n", version);
     fflush(stdout);
     init_SALT2interp_SEDFLUX();
-    // xxx mark delete May 8 2025    init_SALT2interp_ERRMAP();
     SKIPREAD = 1;  // set logical in case we need it later
     return retval ;
   }
@@ -350,7 +349,6 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // init interp (for splines only)
   init_SALT2interp_SEDFLUX();
-  // xxx mark delete May 8 2025  init_SALT2interp_ERRMAP();
 
   NCALL_DBUG_SALT2 = 0;
 

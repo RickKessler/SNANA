@@ -1644,14 +1644,15 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
 
 
 
+  // add extra edge bin with zero transmission
+  if ( ilam_min > 0     ) { ilam_min-- ; }
+  if ( ilam_max < NBL-1 ) { ilam_max++ ; }
+
+
   /* xxxx mark delete or move it into PREP_PRIMARY_MAG_WAVESHIFT_GRID xxxxxxx
 
   printf(" xxx %s: hello for ifilt=%d NGRID=%d \n", 
 	 fnam , ifilt, PRIMARY_MAG_WAVESHIFT_GRID.NGRID);  fflush(stdout);
-
-  // add extra edge bin with zero transmission
-  if ( ilam_min > 0     ) { ilam_min-- ; }
-  if ( ilam_max < NBL-1 ) { ilam_max++ ; }
 
   // Sep 1 2026 R.Kessler - if WAVESHIFT grid is defined, extend bins with zero transmission
   // sincec these bins may have T>0 with waveshift

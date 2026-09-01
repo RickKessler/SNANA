@@ -793,7 +793,7 @@
     INTEGER    TBLSPEC_DETNUM, TBLSPEC_IMGNUM  ! Oct 2021
     CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
     REAL  & 
-         TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_LAMREST  & 
+         TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_WAVESHIFT, TBLSPEC_LAMREST  & 
         ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR  & 
         ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR  & 
         ,TBLSPEC_MAG_MODEL(MXFILT_OBS)  & 
@@ -5527,7 +5527,7 @@
               CALL genmag_salt2( MSKSALT2, ifilt2_obs     & 
                 , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL   & 
                 , ZSN, ZZ, Nepoch, Tobs                   &  !
-                !, WAVESHIFT                              &  ! Aug 30 2026 .xyz
+                , WAVESHIFT                              &  ! Aug 30 2026 .xyz
                 , MAG_OBS_TMP(ifilt2_obs)                &  ! return arg
                 , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg
 
@@ -16734,7 +16734,7 @@
 ! subroutine args
     INTEGER IFILTREST      ! (I) absolute value of rest-frame filter
     REAL*8  SHAPE, COLOR   ! (I)
-
+    
 ! local args
 
     INTEGER  & 
@@ -16744,7 +16744,7 @@
     REAL*8  & 
          z1, ZSN, LAMREST, LAMDIF1, LAMDIF2, LAMDIF  & 
         ,x0, x1, xx1, c, x2, MWEBV, PKMJD  & 
-        ,TOBS, Trest, MAGOBS_MODEL, MAGREST_MODEL, MAGERR  & 
+        ,TOBS, Trest, MAGOBS_MODEL, MAGREST_MODEL, MAGERR, WAVESHIFT  & 
         ,KCOR, MAGOBS, MAGREST, FLUX_REST, ARG  & 
         ,RV, AV,  PARLIST_SN(10), PARLIST_HOST(10)
 
@@ -16812,14 +16812,18 @@
        Trest   = TOBS/z1
 
        ZSN     = REDSHIFT_FIT
+       WAVESHIFT = 0.0 
+
        CALL genmag_salt2( MSKSALT2, IFILTOBS,  & 
               PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN,  NEP, Tobs,  & 
+              WAVESHIFT,               &  ! dummy arg, Sep 1 2026
               MAGOBS_MODEL, MAGERR )     ! return arg
 
 ! now the rest-frame
        ZSN     = 1.0E-6
        CALL genmag_salt2( MSKSALT2, IFILTREST,  & 
               PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN, NEP, Trest,  & 
+              WAVESHIFT,             &     ! dummy arg, Sep 1 2026
               MAGREST_MODEL, MAGERR )     ! return arg
 
        KCOR    = MAGREST_MODEL - MAGOBS_MODEL
@@ -19635,7 +19639,8 @@
 ! Prepare table for SALT2 spectra computed from LC fit params.
 ! 
 ! Mar 21 2022: compute TBLSPEC_MAG_MODEL[_ERR] for each band and MJD
-! 
+! Sep 01 2206: RK: pass WAVESHIFT arg to getSpec_band_SALT2()
+!
 ! -------------------------------
 
     USE SNDATCOM
@@ -19698,6 +19703,7 @@
         TBLSPEC8_MJD              = R8EP_MJD(i)  ! note different index
         TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST)
         TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS)
+        TBLSPEC_WAVESHIFT         = R4EP_ALL(ep,JEP_WAVESHIFT)
         TBLSPEC_LAMREST           = R4EP_ALL(ep,JEP_LAMREST)
         TBLSPEC_IFILTOBS          = IFILTOBS
         TBLSPEC_DETNUM            = I4EP_ALL(ep,IEP_DETNUM)
@@ -19728,6 +19734,7 @@
 
         NBLAM_TBLSPEC =  & 
             getSpec_band_SALT2(IFILTOBS, Tobs,     &  ! (I)
+            TBLSPEC_WAVESHIFT,                     &  ! (I)
             z, x0, x1, c, MWEBV,                   &  ! (I)
             TBLSPEC_LAMLIST, TBLSPEC_FLUXLIST )   ! (O)
 

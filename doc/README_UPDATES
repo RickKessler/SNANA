@@ -24154,5 +24154,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + specify ROW with higher priority over CID,CCID, etc ... so that
         MAGCOR_FILE uses ROW (not CID) to match with AUTOSTORE.
 
+   genamg_SALT2.c[h]:
+     + pass waveshift to genmag_SALT2 (structural change, not yet implemented)
+
 END:
  

@@ -212,6 +212,7 @@ int  init_genmag_SALT2(char *model_version, char *model_extrap_latetime,
 void genmag_SALT2(int OPTMASK, int ifilt, 
 		  double *parList_SN, double *parList_HOST, double mwebv,
 		  double z, double z_forErr, int nobs, double *Tobs_list, 
+		  double *waveshift_list,
 		  double *magobs_list, double *magerr_list );
 
 int  NSURFACE_SALT2(void);
@@ -266,6 +267,7 @@ int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans,
 
 // obs-frame integration (filter-lambda bins)
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
+		      double waveshift,
 		      double *parList_SN, double *parList_HOST,
 		      double *Finteg, double *Finteg_errPar, 
 		      double *Fspec );
@@ -287,7 +289,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
 // function called by analysis program to return spectrum over band.
 // Note that all I/O is float instead of double.
-int getSpec_band_SALT2(int ifilt_obs, float Tobs, float z,
+int getSpec_band_SALT2(int ifilt_obs, float Tobs, float waveshift, float z,
 		       float x0, float x1, float c, float mwebv,
 		       float *LAMLIST, float *FLUXLIST);
 

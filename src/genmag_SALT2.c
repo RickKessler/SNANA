@@ -63,13 +63,14 @@ int init_genmag_salt2__(char *model_version, char *model_extrap,
 } 
 
 
-void genmag_salt2__(int *OPTMASK, int *ifilt, 
+void genmag_salt2__(int *OPTMASK, int *ifilt,
 		    double *parList_SN, double *parList_HOST, double *mwebv,
-		    double *z, double *z_forErr, int *nobs, double *Tobs_list, 
+		    double *z, double *z_forErr, int *nobs, double *Tobs_list,
+		    double *waveshift_list,
 		    double *magobs_list, double *magerr_list ) {
 
   genmag_SALT2(*OPTMASK, *ifilt, parList_SN, parList_HOST, *mwebv,
-	       *z, *z_forErr, *nobs, Tobs_list, 
+	       *z, *z_forErr, *nobs, Tobs_list, waveshift_list,
 	       magobs_list, magerr_list );
 }
 
@@ -267,6 +268,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
     printf("\t Re-init %s -> skip reading files. \n", version);
     fflush(stdout);
     init_SALT2interp_SEDFLUX();
+    // xxx mark delete May 8 2025    init_SALT2interp_ERRMAP();
     SKIPREAD = 1;  // set logical in case we need it later
     return retval ;
   }
@@ -349,6 +351,7 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
 
   // init interp (for splines only)
   init_SALT2interp_SEDFLUX();
+  // xxx mark delete May 8 2025  init_SALT2interp_ERRMAP();
 
   NCALL_DBUG_SALT2 = 0;
 
@@ -2052,7 +2055,8 @@ void genmag_SALT2(
 		  ,double z       // (I) Supernova redshift
 		  ,double z_forErr// (I) z used for error calc (Mar 2018)
 		  ,int    Nobs         // (I) number of epochs
-		  ,double *Tobs_list   // (I) list of Tobs (w.r.t peakMJD) 
+		  ,double *Tobs_list   // (I) list of Tobs (w.r.t peakMJD)
+		  ,double *waveshift_list    // (I) filter waveshift, A (Aug 2026)
 		  ,double *magobs_list  // (O) observed mag values
 		  ,double *magerr_list  // (O) model mag errors
 		  ) {
@@ -2090,6 +2094,7 @@ void genmag_SALT2(
 
  Dec 28 2023: pass x2 = parlist_SN[4] if SALT3 model includes M2 component.
 
+ Sep 1 2026: R.Purohit pass waveshift_list 
   ***/
 
   double x0        = parList_SN[0];
@@ -2106,7 +2111,7 @@ void genmag_SALT2(
     meanlam_obs,  meanlam_rest, ZP, z1
     ,Tobs, Tobs_interp, Trest, Trest_interp, flux, flux_interp
     ,arg, magerr, Finteg, Finteg_errPar, FspecDum[10]
-    ,lamrest_forErr, Trest_forErr, z1_forErr, magobs_tmp, magobs
+    ,lamrest_forErr, Trest_forErr, z1_forErr, magobs_tmp, magobs, waveshift
     ;
 
   double
@@ -2158,9 +2163,11 @@ void genmag_SALT2(
   fill_TABLE_HOSTXT_SEDMODEL(RV_host, AV_host, z);   // July 2016
 
   //determine integer times which sandwich the times in Tobs
+    
 
   for ( epobs=0; epobs < Nobs; epobs++ ) {
-
+    
+    waveshift = waveshift_list[epobs];
     Tobs = Tobs_list[epobs];
     Trest = Tobs / z1 ;
 
@@ -2188,7 +2195,8 @@ void genmag_SALT2(
 
     // brute force integration
     Tobs_interp = Trest_interp * z1 ;
-    INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_interp, parList_SN, parList_HOST,
+    INTEG_zSED_SALT2(0, ifilt_obs, z, Tobs_interp, waveshift,
+		     parList_SN, parList_HOST,
 		     &Finteg, &Finteg_errPar, FspecDum); // returned
     flux_interp = Finteg ;
 
@@ -2210,7 +2218,8 @@ void genmag_SALT2(
       Trest_tmp  = Trest_edge - nday_slope ;
       flux_edge  = flux_interp ;
       Tobs_tmp   = Trest_tmp * z1 ;
-      INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_tmp, parList_SN, parList_HOST,
+      INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_tmp, waveshift,
+		       parList_SN, parList_HOST,
 		       &Finteg, &Finteg_errPar, FspecDum); // return
       flux_tmp = Finteg;
       
@@ -2511,9 +2520,10 @@ double magerrFudge_SALT2(double magerr_model,
 
 
 // **********************************************
-void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
+void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
+		      double waveshift,
 		      double *parList_SN, double *parList_HOST,
-		      double *Finteg, double *Finteg_errPar, 
+		      double *Finteg, double *Finteg_errPar,
 		      double *Fspec ) {
 
   // May 2011
@@ -2554,6 +2564,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // May 31 2021: refactor to pass parList_SN and parList_HOST
   // Aug 31 2023: use zero_NEGFLAM_SEDMODEL() util
   // Dec 28 2023: implement x2 component
+  //
+  // Sep 1 2026: R.Purohit apply optional epoch-dependent obs-frame filter waveshift.
+
 
   int NSED = SEDMODEL.NSURFACE;
 
@@ -2677,10 +2690,9 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
       get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
-      LAMSED       = LAMOBS/z1;   // rest-frame wavelength
-
+      LAMSED       = (LAMOBS)/z1;  
       // protect undefined red end for low-z (July 2016)
-      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }  
+      if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }
 
       lam[ilamobs] = LAMSED ; 
       NLAMTMP++ ;
@@ -2711,8 +2723,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     else 
       { HOSTXT_FRAC = 1.0 ; } // standard SALT2 model has no host extinction
 
-    LAMSED     = LAMOBS / z1 ;  // rest-frame lambda
-    LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins 
+    LAMSED     = LAMOBS / z1 ;  // rest-frame lambda 
+    LAMSED_MIN = LAMSED_MAX = LAMSED ;  // default is no sub-bins
 
     // Jan 2021: bail if outside model range 
     if ( LAMSED <= SALT2_TABLE.LAMMIN ) { continue ; }
@@ -3122,6 +3134,8 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   double z1    = 1.0 + z;
   double invZ1 = 1.0/z1;
 
+  double waveshift = 0.0 ; // .xyz Sep 2026 - maybe we need to pass this as function arg ??
+
   double 
     COV_TMP,  COV_DIAG, meanlam_obs, meanlam_rest
     ,cDisp[MXFILT_SEDMODEL], cDispsq[MXFILT_SEDMODEL]
@@ -3199,7 +3213,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	Trest = Trest_tmp ;
 	Tobs  = Trest * z1 ;
 
-	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, parList_SN, parList_HOST, // (I)
+	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, waveshift, parList_SN, parList_HOST, // (I)
 			 &Finteg, &Finteg_errPar, FspecDum); // returned
 
 	magerr = SALT2magerr(Trest, meanlam_rest, z, xx1, x2, 
@@ -3519,6 +3533,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   bool VALID_ZP;
   
   double Tobs_SED = Tobs; // Tobs to fetch SED
+  double waveshift = 0.0 ; // dummy waveshift arg Sep 2026
 
   double Trest, Finteg, Finteg_errPar, MWXT_FRAC ;
   double FTMP, GENFLUX, ZP, MAG, LAM, LAMREST, FSCALE_ZP;
@@ -3550,7 +3565,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   
   // - - - - -  
       
-  INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs_SED, 
+  INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs_SED, waveshift,
 		   parList_SN, parList_HOST,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;
 
@@ -3612,7 +3627,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
 
 // ======================================================
-int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
+int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float waveshift_f, float z_f,
                        float x0_f, float x1_f, float c_f, float mwebv_f,
 		       float *LAMLIST_f, float *FLUXLIST_f) {
 
@@ -3622,6 +3637,8 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   // Spectrum is returned as LAMLIST_f and FLUXLIST_f.
   // Note that all function args are float, but local 
   // variables are double.
+  //
+  // Sep 1 2026: RK and R.Purohit: pass waveshift
 
   int ifilt      = IFILTMAP_SEDMODEL[ifilt_obs] ;
   int NBLAM      = FILTER_SEDMODEL[ifilt].NLAM ;
@@ -3630,11 +3647,12 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   double LAMOBS, LAMREST, z1, Finteg, Finteg_errPar, Finteg_check, TRANS ;
   double RV_host=-9.0, AV_host=0.0, m_host = -9.0  ;
 
-  double Tobs  = (double)Tobs_f ;
-  double z     = (double)z_f ;
-  double x0    = (double)x0_f ;
-  double x1    = (double)x1_f ;
-  double c     = (double)c_f ;
+  double Tobs      = (double)Tobs_f ;
+  double waveshift = (double)waveshift_f;
+  double z         = (double)z_f ;
+  double x0        = (double)x0_f ;
+  double x1        = (double)x1_f ;
+  double c         = (double)c_f ;
   double *FLUXLIST = (double*) malloc ( MEMD );
   double Trest = Tobs/(1.0 + z) ;
 
@@ -3648,8 +3666,8 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
   if ( Trest <= SALT2_TABLE.DAYMIN ) { return(0); }
   if ( Trest >= SALT2_TABLE.DAYMAX ) { return(0); }
 
-  INTEG_zSED_SALT2(1, ifilt_obs, z, Tobs,         // (I)
-		   parList_SN, parList_HOST,      // (I)
+  INTEG_zSED_SALT2(1, ifilt_obs, z, Tobs, waveshift,    // (I)
+		   parList_SN, parList_HOST,            // (I)
 		   &Finteg, &Finteg_errPar, FLUXLIST ) ; // (O)
   
   Finteg_check = 0.0 ;  z1=1.0+z ;
@@ -3677,11 +3695,11 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float z_f,
 
 } // end getSpec_band_SALT2
 
-int getspec_band_salt2__(int *ifilt_obs, float *Tobs, float *z,
+int getspec_band_salt2__(int *ifilt_obs, float *Tobs, float *waveshift, float *z,
 			 float *x0, float *x1, float *c, float *mwebv,
 			 float *LAMLIST, float *FLUXLIST) {
   int NBLAM;
-  NBLAM = getSpec_band_SALT2(*ifilt_obs, *Tobs, *z, 
+  NBLAM = getSpec_band_SALT2(*ifilt_obs, *Tobs, *waveshift, *z, 
 			     *x0, *x1, *c, *mwebv, LAMLIST, FLUXLIST ) ;
   return(NBLAM);
 } 

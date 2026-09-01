@@ -90,6 +90,7 @@ typedef struct {
   double *LAM[MXFILT_CALIB], *TRANS[MXFILT_CALIB];
   int   *ILAM_SED[MXFILT_CALIB];
   double LAMRANGE[MXFILT_CALIB][2]; // range of TRANS > 0
+  double LAMBIN[MXFILT_CALIB];  // filter trans bin size : Sep 2026, R.Kessler
 
   // define rest-frame LAMRANGE for kcor lookup
   double LAMRANGE_KCOR[MXFILT_CALIB][2]; 

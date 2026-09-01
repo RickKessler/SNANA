@@ -1629,7 +1629,7 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
 
   FILTERCAL->LAM[ifilt]      = (double*)malloc(MEMD);
   FILTERCAL->TRANS[ifilt]    = (double*)malloc(MEMD);
-  FILTERCAL->ILAM_SED[ifilt] = (int  *)malloc(MEMI);
+  FILTERCAL->ILAM_SED[ifilt] = (int   *)malloc(MEMI);
 
   // determine min and max ilam that contains Trans>0 
   ilam_min = 9999999;  ilam_max = -9;
@@ -1640,9 +1640,46 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
       ilam_max = ilam;
     }
   }
+
+
+
+
+  /* xxxx mark delete or move it into PREP_PRIMARY_MAG_WAVESHIFT_GRID xxxxxxx
+
+  printf(" xxx %s: hello for ifilt=%d NGRID=%d \n", 
+	 fnam , ifilt, PRIMARY_MAG_WAVESHIFT_GRID.NGRID);  fflush(stdout);
+
   // add extra edge bin with zero transmission
   if ( ilam_min > 0     ) { ilam_min-- ; }
   if ( ilam_max < NBL-1 ) { ilam_max++ ; }
+
+  // Sep 1 2026 R.Kessler - if WAVESHIFT grid is defined, extend bins with zero transmission
+  // sincec these bins may have T>0 with waveshift
+  if ( PRIMARY_MAG_WAVESHIFT_GRID.NGRID > 0 ) {
+    double waveshift_min  = (double)PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MIN ; //  negatgive -> bluer
+    double waveshift_max  = (double)PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MAX ; //  positive -> redder
+    double LAMBIN         = FILTERCAL->LAMBIN[ifilt]; // filter trans bin size (not waveshift bin)
+    int    ilamshift_neg  = (int)(waveshift_min / LAMBIN ) - 2 ;
+    int    ilamshift_pos  = (int)(waveshift_max / LAMBIN ) + 2 ;
+
+    // shift ilam_min only if waveshift_min < 0
+    if ( ilamshift_neg < 0 && ilam_min + ilamshift_neg  >= 0  ) { 
+      ilam_min += ilamshift_neg; 
+      printf(" %s: extend blue edge of %s-band by %d bins (%.1f A) \n",
+	     fnam, FILTERCAL->BAND_NAME[ifilt], ilamshift_neg, waveshift_min ); fflush(stdout);
+    }
+
+    // shift ilam_max only if waveshift_max > 0
+    if ( ilamshift_pos > 0 && ilam_max + ilamshift_pos < NBL  ) { 
+      ilam_max += ilamshift_pos; 
+      printf(" %s: extend red  edge of %s-band by %d bins (%.1f A) \n",
+	     fnam, FILTERCAL->BAND_NAME[ifilt], ilamshift_pos, waveshift_max ); fflush(stdout);
+    }
+     
+  }
+  xxxxxxxxxxxx end mark xxxxxx */
+
+
 
   // - - - - - 
   int NBL_STORE = 0 ;
@@ -1671,7 +1708,7 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
   FILTERCAL->LAMRMS[ifilt]    = sqrt(SQRMS) ; // RMS wavelength
   FILTERCAL->LAMRANGE[ifilt][0] = FILTERCAL->LAM[ifilt][0] ;
   FILTERCAL->LAMRANGE[ifilt][1] = FILTERCAL->LAM[ifilt][NBL_STORE-1] ;
-
+  FILTERCAL->LAMBIN[ifilt]      = FILTERCAL->LAM[ifilt][1]  - FILTERCAL->LAM[ifilt][0];  // Sep 2026
   FILTERCAL->LAMRANGE_KCOR[ifilt][0] = -9.0 ; // compute later for rest-frame
   FILTERCAL->LAMRANGE_KCOR[ifilt][1] = -9.0 ;
   
@@ -2274,7 +2311,6 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     
   }
-  // .xyz
 
   fflush(stdout);
   //  debugexit(fnam);

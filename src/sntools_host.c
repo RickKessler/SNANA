@@ -392,8 +392,6 @@ void initvar_HOSTLIB(void) {
   HOSTLIB.IVAR_a_DLR  = -9 ;
   HOSTLIB.IVAR_b_DLR  = -9 ;
   
-
-
   HOSTLIB_WGTMAP.GRIDMAP.NDIM = 0;
   HOSTLIB_WGTMAP.GRIDMAP.NFUN = 0;
   HOSTLIB_WGTMAP.GRIDMAP.NROW = 0;
@@ -6108,6 +6106,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Nov 23 2019: for MODEL_SIMLIB, force GALID to value in SIMLIB header.
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
   // Aug 28 2026: check USE_SIMLIB_GALID
+  // Aug 31 2206: fix minor bug using INPUTS.HOSTLIB_GALID_PRIORITY
 
   bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
 
@@ -6127,7 +6126,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   int  igal0, igal1, igal_middle;
   int  igal_start_init, igal_end_init ;
   int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, ibin_SNVAR=-9, USEHOST; 
-  long long GALID ;
+  long long int GALID = -9 ;
   double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
   double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
   double ztol, dztol, z, z_start, z_end ;
@@ -6297,9 +6296,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Here just pick the first available GALID in range.
   // If there are no more GALID in range, then the nominal loop
   // below will pick from the full GALID range.
-  long long GALID_MIN = INPUTS.HOSTLIB_GALID_PRIORITY[0] ;
-  long long GALID_MAX = INPUTS.HOSTLIB_GALID_PRIORITY[1] ;
-  if ( GALID_MIN < GALID_MAX  ) {
+  long long int GALID_MIN = INPUTS.HOSTLIB_GALID_PRIORITY[0] ;
+  long long int GALID_MAX = INPUTS.HOSTLIB_GALID_PRIORITY[1] ;
+  if ( GALID_MIN <= GALID_MAX  && GALID_MIN > 0) {
     for ( igal = igal_start; igal <= igal_end; igal++ ) {
       GALID = get_GALID_HOSTLIB(igal) ;
       if ( GALID < GALID_MIN ) { continue ; }
@@ -6307,6 +6306,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
       if ( USEHOST_GALID(igal) == 0 ) { continue ; }
       IGAL_SELECT = igal; 
     }
+
     if ( IGAL_SELECT >= 0 ) { goto DONE_SELECT_GALID ; }
   } 
 
@@ -6451,6 +6451,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
     printf("\t WGT_select      = %f \n", WGT_select);
     printf("\t SIMLIB LIBID    = %d \n", GENLC.SIMLIB_ID);
 
+    printf("\t INPUTS.HOSTLIB_GALID_PRIORITY = %lld to %lld \n",
+	   INPUTS.HOSTLIB_GALID_PRIORITY[0], INPUTS.HOSTLIB_GALID_PRIORITY[1] );
+
     DUMP_SNHOST();
 
     if ( NGROUPID > 0 ) { DUMP_GROUPID(igal_start, igal_end );  } 
@@ -6561,9 +6564,19 @@ void init_event_SNHOSTGAL(void) {
   }
 
   for ( i=0; i < MXNBR_LIST ; i++ ) {
-    SNHOSTGAL.IGAL_NBR_LIST[i]  = HOSTLIB_IGAL_UNDEFINED ; //
+    SNHOSTGAL.IGAL_NBR_LIST[i]  = HOSTLIB_IGAL_UNDEFINED ; 
     SNHOSTGAL.DDLR_NBR_LIST[i]  = HOSTLIB_SNPAR_UNDEFINED ;
     SNHOSTGAL.SNSEP_NBR_LIST[i] = HOSTLIB_SNPAR_UNDEFINED ;
+  }
+
+  // Aug 31 2026: init Sersic profiles
+  for(i=0; i < MXSERSIC_HOSTLIB; i++ ) {
+    SNHOSTGAL.SERSIC.a[i] = -9.0;
+    SNHOSTGAL.SERSIC.b[i] = -9.0;
+    SNHOSTGAL.SERSIC.n[i] = -9.0;
+    SNHOSTGAL.SERSIC.w[i] = -9.0;
+    SNHOSTGAL.SERSIC.wsum[i] =  0.0;
+    SNHOSTGAL.SERSIC.bn[i] = -9.0;
   }
 
   return ;
@@ -9844,8 +9857,8 @@ void DUMP_SNHOST(void) {
 
   printf("# -------------------------------------------------------- \n");
   printf(" %s for CID = %d \n", fnam, GENLC.CID );
-  printf("    SN-GENERATED z=%.5f, RA=%.6f, DEC=%.6f deg (FIELD=%s).\n",
-	 SNHOSTGAL.ZGEN, GENLC.RA, GENLC.DEC, SIMLIB_HEADER.FIELD );
+  printf("    SN-GENERATED z=%.5f, RA=%.6f, DEC=%.6f  (LIBID=%d, FIELD=%s).\n",
+	 SNHOSTGAL.ZGEN, GENLC.RA, GENLC.DEC, SIMLIB_HEADER.LIBID, SIMLIB_HEADER.FIELD );
 
   printf("\t => IGAL-range=%d-%d  IGAL=%d  ran(GALID)=%4.3f \n"
 	 , SNHOSTGAL.IGAL_SELECT_RANGE[0]

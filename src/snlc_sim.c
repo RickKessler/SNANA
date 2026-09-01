@@ -3849,7 +3849,8 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_GROUPID );
     INPUTS.USE_SIMLIB_GENOPT=1;
   }
-  else if ( keyMatchSim(1, "USE_SIMLIB_IDEXPT",  WORDS[0],keySource) ) {
+  else if ( keyMatchSim(1, "USE_SIMLIB_IDEXPT",  WORDS[0],keySource) ||
+	    keyMatchSim(1, "USE_SIMLIB_IMGNUM",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &INPUTS.USE_SIMLIB_IDEXPT );
     INPUTS.USE_SIMLIB_GENOPT=1;
   }

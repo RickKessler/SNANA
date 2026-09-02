@@ -224,7 +224,7 @@
 
     CHARACTER, PARAMETER ::  &
          VARNAME_MAGCOR*6     = 'MAGCOR'   &
-         ,VARNAME_WAVESHIFT*9 = 'WAVESHIFT'
+         ,VARNAME_WAVECOR*7   = 'WAVECOR'
 
 ! - - - - - - - - - - - - - - 
 ! physical constants
@@ -289,11 +289,11 @@
         ,NPASSCUT_INCREMENT(-1:MXTYPE,100)   &  ! 100 > NCUTBIT_SNLC
         ,NPASSCUT_FIT(-1:MXTYPE)  & 
         ,NSTORE_MAGCOR          &  ! number of stored MAGCOR values
-        ,NSTORE_WAVESHIFT       &  ! number of stored WAVESHIFT values
+        ,NSTORE_WAVECOR         &  ! number of stored WAVESHIFT values
         ,NUSE_MAGCOR            &  ! number of used MAGCOR    values
-        ,NUSE_WAVESHIFT         &  ! number of used WAVESHIFT values
+        ,NUSE_WAVECOR           &  ! number of used WAVESHIFT values
         ,NMISSING_MAGCOR        &  ! number of missing MAGCOR values
-        ,NMISSING_WAVESHIFT     &  ! number of missing waveshift values
+        ,NMISSING_WAVECOR       &  ! number of missing waveshift values
         ,SIGN_MAGCOR            &  ! add or subtract
         ,FORCEMASK_FLUXCOR    &  ! mask to force fluxCor, even if already applied
         ,EXIT_ERRCODE        ! used for abort
@@ -692,9 +692,9 @@
         ,SNLC_TREST(MXEPOCH)       &  !  MJD-SET_PEAKMJD)/(1+z)
         ,SNLC_GAIN(MXEPOCH)       &  ! e/AUD
         ,SNLC_RDNOISE(MXEPOCH)    &  ! read noise per pix, e-
-        ,SNLC_WAVESHIFT(MXEPOCH)  &  ! waveshift per epoch read from MAGCOR_FILE
-        ,SNLC_WAVESHIFT_MIN        &
-        ,SNLC_WAVESHIFT_MAX        &
+        ,SNLC_WAVECOR(MXEPOCH)    &  ! waveshift per epoch read from MAGCOR_FILE
+        ,SNLC_WAVECOR_MIN         &
+        ,SNLC_WAVECOR_MAX         &
         ,SNLC_PIXSIZE             &  ! pixel size
         ,SNLC_NXPIX               &  ! total number of X-pixels (Aug 7 2014)
         ,SNLC_NYPIX               &  ! total number of Y-pixels
@@ -1766,6 +1766,7 @@
         ,OPT_SNCID_LIST       &  ! I: 1=force all and ignore cuts; to sync events for common event cut
                                  ! I: 2=set INIVAL=FITPAR
                                  ! I: 4=use each FITPAR and ERROR as prior
+        ,FLAG_USE_SAME_EVENTS  & ! I: same as legacy OPT_SNCID_LIST
         ,OPT_VPEC_COR          &    ! I: 1=apply vpec cor (default)
         ,REFAC_DATA_FLAG            ! I: flag to refactor data structure
 
@@ -1889,7 +1890,7 @@
           , VPEC_FILE, HEADER_OVERRIDE_FILE, HEADER_OVERRIDE_DIR  &
           , SIM_HEADER_OVERRIDE_FILE, SIM_HEADER_OVERRIDE_DIR     & 
           , EPOCH_IGNORE_FILE, OUT_EPOCH_IGNORE_FILE, NONLINEARITY_FILE  & 
-          , SNCID_LIST_FILE, OPT_SNCID_LIST, OPT_VPEC_COR  & 
+          , SNCID_LIST_FILE, OPT_SNCID_LIST, FLAG_USE_SAME_EVENTS, OPT_VPEC_COR  & 
           , SIMLIB_OUT, SIMLIB_OUTFILE, SIMLIB_ZPERR_LIST  & 
           , OPT_SIMLIB_OUT, SIMLIB_OUT_TMINFIX  & 
           , NFIT_ITERATION, MINUIT_PRINT_LEVEL, INTERP_OPT, USE_MIGRAD, USE_MINOS, USE_SIMPLEX  & 
@@ -2934,7 +2935,7 @@
 ! and to call read-kcor function with appropriate args.
 ! [uses refactored C code]
 !
-! Aug 24 2026: check optional NSTORE_WAVESHIFT to call util for mag_primary on wave grid
+! Aug 24 2026: check optional NSTORE_WAVECOR to call util for mag_primary on wave grid
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -3072,8 +3073,8 @@
 !       print*,' xxx EXIST(BX) = ', EXIST_BXFILT_REST,EXIST_BXFILT_OBS
 
 
-    if ( NSTORE_WAVESHIFT > 0 ) then
-       CALL PREP_PRIMARY_MAG_WAVESHIFT_GRID(SNLC_WAVESHIFT_MIN,SNLC_WAVESHIFT_MAX)
+    if ( NSTORE_WAVECOR > 0 ) then
+       CALL PREP_PRIMARY_MAG_WAVECOR_GRID(SNLC_WAVECOR_MIN,SNLC_WAVECOR_MAX)
     endif
 
     RETURN
@@ -5853,7 +5854,8 @@
     MARZFILE_OUT      = ' '  ! May 2020
 
     SNCID_LIST_FILE   = ' '
-    OPT_SNCID_LIST    = 0  ! default 0 => AND with other cuts
+    OPT_SNCID_LIST       = 0  ! default 0 => AND with other cuts
+    FLAG_USE_SAME_EVENTS = 0
     OPT_VPEC_COR      = 1  ! default is to correct zHD with vpec
 
     MXEVT_PROCESS      = 999888777
@@ -7745,6 +7747,7 @@
             NARG = PARSE_COMMASEP_LIST('SNCCID_IGNORE', ARGLIST(1))
          endif
 
+         ! - - - - -
        else if ( MATCH_NMLKEY('SNCID_LIST_FILE',  & 
                    1, iArg, ARGLIST) ) then
          SNCID_LIST_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
@@ -7753,6 +7756,11 @@
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) OPT_SNCID_LIST
 
+       else if ( MATCH_NMLKEY('FLAG_USE_SAME_EVENTS',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) FLAG_USE_SAME_EVENTS  ! alternate key for OPT_SNCID_LIST
+
+         ! - - - - - 
 
        else if ( MATCH_NMLKEY('MXEVT_PROCESS',  & 
                    1, iArg, ARGLIST) ) then
@@ -11619,6 +11627,8 @@
 
 ! check CIDs from separate file (table format, or unformatted)
     IF ( IS_FILE ) THEN
+       if ( FLAG_USE_SAME_EVENTS > 0 ) OPT_SNCID_LIST = FLAG_USE_SAME_EVENTS  ! Sep 2026
+
        if ( NFIT_ITERATION > 0 .and. OPT_SNCID_LIST>1 ) then
            ! store SALT2 fit pars for INIVAL in snlc_fit evt sync
           cVARLIST_STORE = 'BANDLIST,zHD,PKMJD,x0,x1,c' // ',' //  & 
@@ -16551,7 +16561,7 @@
 ! Additional columns are allowed, but will be ignored.
 ! 
 ! Nov 13 2018: pass MAGCOR_INFILE as input argument.
-! Aug 24 2026: refactor to allow 'MAGCOR' and/or 'WAVESHIFT' column
+! Aug 24 2026: refactor to allow 'MAGCOR' and/or 'WAVECOR' column
 
 ! ----------------------
     USE SNDATCOM
@@ -16567,7 +16577,7 @@
 
     INTEGER, PARAMETER :: NVAR_MAGCOR_CHECK = 2
     INTEGER, PARAMETER :: IVAR_MAGCOR       = 1
-    INTEGER, PARAMETER :: IVAR_WAVESHIFT    = 2
+    INTEGER, PARAMETER :: IVAR_WAVECOR      = 2
     CHARACTER  VARNAME_MAGCOR_CHECK(NVAR_MAGCOR_CHECK)*20
     CHARACTER  VARLIST_MAGCOR_CHECK*40
 
@@ -16583,12 +16593,12 @@
 ! ------------ BEGIN -------------
 
     NSTORE_MAGCOR    = 0
-    NSTORE_WAVESHIFT = 0
+    NSTORE_WAVECOR   = 0
     NUSE_MAGCOR      = 0
-    NUSE_WAVESHIFT   = 0
+    NUSE_WAVECOR     = 0
 
     NMISSING_MAGCOR    = 0
-    NMISSING_WAVESHIFT = 0 
+    NMISSING_WAVECOR   = 0 
 
     NVAR_FOUND = 0
     CALL ENVreplace(MAGCOR_INFILE)
@@ -16598,8 +16608,8 @@
     if ( IGNOREFILE(cFILE,LEN1) > 0 ) RETURN
 
     VARNAME_MAGCOR_CHECK(IVAR_MAGCOR)    = VARNAME_MAGCOR
-    VARNAME_MAGCOR_CHECK(IVAR_WAVESHIFT) = VARNAME_WAVESHIFT
-    VARLIST_MAGCOR_CHECK    = VARNAME_MAGCOR // ',' // VARNAME_WAVESHIFT
+    VARNAME_MAGCOR_CHECK(IVAR_WAVECOR)   = VARNAME_WAVECOR
+    VARLIST_MAGCOR_CHECK    = VARNAME_MAGCOR // ',' // VARNAME_WAVECOR
 
     ! xxxxxx mark delete
     !IF ( MAGCOR_INFILE .EQ. ' '    ) RETURN
@@ -16659,10 +16669,10 @@
           if ( i == IVAR_MAGCOR    ) then
              NSTORE_MAGCOR    = NSTORE
           endif
-          if ( i == IVAR_WAVESHIFT ) then
-             NSTORE_WAVESHIFT  = NSTORE
-             SNLC_WAVESHIFT_MIN = SNGL(DMIN)
-             SNLC_WAVESHIFT_MAX = SNGL(DMAX)
+          if ( i == IVAR_WAVECOR ) then
+             NSTORE_WAVECOR   = NSTORE
+             SNLC_WAVECOR_MIN = SNGL(DMIN)
+             SNLC_WAVECOR_MAX = SNGL(DMAX)
           endif
        else
           write(6,26)  VARNAME_MAGCOR_CHECK(i)
@@ -16786,12 +16796,12 @@
     SUBROUTINE EXEC_MAGCOR(ep, VARNAME)
 
 ! Dec 2016
-! Apply MAGCOR/WAVESHIFT values that were read in INIT_MAGCOR. 
+! Apply MAGCOR/WAVECOR values that were read in INIT_MAGCOR. 
 ! The corrections are applied to the FLUXCAL.
 ! Modify SNLC_FLUXCAL(ep) and SNLC_MAG(ep)
 ! 
 ! May 1 2017: abort on crazy MAGCOR
-! Aug 24 2026: refactor to accomodate VARNAME = 'MAGCOR' or 'WAVESHIFT'
+! Aug 24 2026: refactor to accomodate VARNAME = 'MAGCOR' or 'WAVECOR'
 ! ---------------------------------
 
     USE SNDATCOM
@@ -16810,7 +16820,7 @@
     REAL*4  VAL, FCOR, CRAZY_VAL
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
     CHARACTER STR_EPID1*60, STR_EPID2*60, FNAM*12
-    LOGICAL IS_MAGCOR, IS_WAVESHIFT, LDMP
+    LOGICAL IS_MAGCOR, IS_WAVECOR, LDMP
 
 ! function
     INTEGER  SNTABLE_AUTOSTORE_READ
@@ -16819,21 +16829,21 @@
 
     LDMP         = ( ep < -20 ) 
     IS_MAGCOR    = .FALSE.
-    IS_WAVESHIFT = .FALSE.
+    IS_WAVECOR   = .FALSE.
     FNAM         = 'EXEC_MGACOR'
     
     if ( VARNAME == VARNAME_MAGCOR ) then
        NSTORE    = NSTORE_MAGCOR
        IS_MAGCOR = .TRUE.
        CRAZY_VAL = 0.2   ! mag
-    else if ( VARNAME == VARNAME_WAVESHIFT ) then
-       NSTORE = NSTORE_WAVESHIFT
-       IS_WAVESHIFT = .TRUE.
+    else if ( VARNAME == VARNAME_WAVECOR ) then
+       NSTORE = NSTORE_WAVECOR
+       IS_WAVECOR = .TRUE.
        CRAZY_VAL    = 200.0  ! Angstrom
     endif
 
     ! - - - - - 
-    SNLC_WAVESHIFT(ep) = 0.0
+    SNLC_WAVECOR(ep) = 0.0
 
     IF ( NSTORE <= 0 ) RETURN
 
@@ -16883,9 +16893,9 @@
          FCOR   = 10**(-0.4*VAL)
          SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * FCOR
          SNLC_MAG(ep)     = SNLC_MAG(ep) + VAL
-      else if ( IS_WAVESHIFT ) then
-         NUSE_WAVESHIFT  = NUSE_WAVESHIFT + 1
-         SNLC_WAVESHIFT(ep) = VAL  ! store for later use
+      else if ( IS_WAVECOR ) then
+         NUSE_WAVECOR  = NUSE_WAVECOR + 1
+         SNLC_WAVECOR(ep) = VAL  ! store for later use
       else
          ! abort ??
       endif
@@ -16896,7 +16906,7 @@
       if ( IS_MAGCOR ) then
          NMISSING_MAGCOR    = NMISSING_MAGCOR + 1;  NMISS = NMISSING_MAGCOR
       else
-         NMISSING_WAVESHIFT = NMISSING_WAVESHIFT + 1 ; NMISS = NMISSING_WAVESHIFT
+         NMISSING_WAVECOR = NMISSING_WAVECOR + 1 ; NMISS = NMISSING_WAVECOR
       endif
 
       if ( NMISS < 50 ) write(6,670) VARNAME, STR_EPID1(1:L)
@@ -16927,8 +16937,8 @@
        USE = .TRUE.
     endif
 
-    if ( NSTORE_WAVESHIFT > 0 ) then
-       write(6,20) NUSE_WAVESHIFT, VARNAME_WAVESHIFT, NSTORE_WAVESHIFT
+    if ( NSTORE_WAVECOR > 0 ) then
+       write(6,20) NUSE_WAVECOR, VARNAME_WAVECOR, NSTORE_WAVECOR
        USE = .TRUE.
     endif
 
@@ -18886,7 +18896,7 @@
 ! ---------------------
 ! mag-corrections; e.g.. chromatic corrections from FGCM
     CALL EXEC_MAGCOR(ep, VARNAME_MAGCOR   )
-    CALL EXEC_MAGCOR(ep, VARNAME_WAVESHIFT)
+    CALL EXEC_MAGCOR(ep, VARNAME_WAVECOR)
 
     RETURN
   END SUBROUTINE EXEC_FUDGE_FLUXCAL

@@ -267,7 +267,7 @@
         ,JEP_SIM_FLUXCAL   = 49   &  ! for LSIM_MAGOBS = T
         ,JEP_SIM_DELCHI2   = 50   &  ! chi2 from data-sim flux diff
         ,JEP_FUDGE_MAXFRAC = 51   & 
-        ,JEP_WAVESHIFT     = 52
+        ,JEP_WAVECOR       = 52
 
 ! EP_XXX refers to "IMJD" variables stored at end of fit.
 ! These arrays are defined to be passed for plotting.
@@ -446,8 +446,8 @@
          ,LKCOR_STRETCH      &  ! I: T=> get Kcor from stretched template
          ,LKCOR_AVWARP       &  ! I: T=> get Kcor from color-warped template
          ,USE_MODEL_MAGERR   &  ! I: T=> use mag error from model
-         ,ENABLE_MAGSHIFT_SALT2   &  ! I: T=> enable mag shifts from training
-         ,ENABLE_WAVESHIFT_SALT2  &  ! I: T=> enable wave shifts from training
+         ,ENABLE_MAGSHIFT_SALT2   &  ! I: T=> enable syst mag shifts from training (not MAGCOR)
+         ,ENABLE_WAVESHIFT_SALT2  &  ! I: T=> enable syst wave shifts from training (not WAVECOR)
          ,ALLOW_NEGFLUX_SALT2     &  ! I: T=> alow Flam < 0; otherwise force Flam=0
          ,ADD_SALT2ERR_FROMz      &  ! I: T=> add SALT2 param errors from zerr
          ,USESIM_COLOR       &  ! I: T=> use simulated color (AV,c ...)
@@ -457,7 +457,6 @@
          ,USESIM_SHAPE       &  ! I: T => use sim shape value in fit
          ,USESIM_PEAKMJD     &  ! I: T => use sim peakMJD
          ,USESIM_DLMAG       &  ! I: T => use sim DLMAG
-!     &   ,USESIM_REDSHIFT   ! I: T => use sim redshift in fit
          ,USESIM_INIVAL      &  ! I: T => use sim params as initial values
          ,MINOS_ERR_DLMAG    &  ! I: T=> require valid MINOS error for DLMAG
          ,MINOS_ERR_REQALL0  &  ! I: T=> require all MINOS errors to be valid
@@ -793,7 +792,7 @@
     INTEGER    TBLSPEC_DETNUM, TBLSPEC_IMGNUM  ! Oct 2021
     CHARACTER  TBLSPEC_CFILT*4, TBLSPEC_FIELD*(MXCHAR_FIELDNAME)
     REAL  & 
-         TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_WAVESHIFT, TBLSPEC_LAMREST  & 
+         TBLSPEC_MJD, TBLSPEC_TREST, TBLSPEC_TOBS, TBLSPEC_WAVECOR, TBLSPEC_LAMREST  & 
         ,TBLSPEC_FLUXCAL_DATA,  TBLSPEC_FLUXCAL_DATA_ERR  & 
         ,TBLSPEC_FLUXCAL_MODEL, TBLSPEC_FLUXCAL_MODEL_ERR  & 
         ,TBLSPEC_MAG_MODEL(MXFILT_OBS)  & 
@@ -2070,7 +2069,7 @@
 !  = -1 => decrement ITER and try again (e.g., for photoZ spike)
 ! 
 ! 
-! 
+!       HISTORY
 ! 
 ! Feb 28 2020:
 !   set ERRFLAG = -1 (repeat iter) if both ITER1_MAXFRAC and
@@ -3995,7 +3994,7 @@
 
     DOUBLE PRECISION  & 
          ZSN, ZZ, CHI2INI, SHAPEPAR(2), DISTPAR, COLORPAR  & 
-        ,RVHOST, PEAKMJD, Trest, Tobs, waveshift  & 
+        ,RVHOST, PEAKMJD, Trest, Tobs, wavecor  & 
         ,AVRV, MWAV, MWEBV, XTAV, XTMW, MJD, MJDFIT  & 
         ,flux_data, flux_data_errtot, flux_data_sqerrtot  & 
         ,signoise_data, signoise_model  & 
@@ -4172,7 +4171,7 @@
       flux_data        = dble ( R4EP_ALL(epoch,JEP_DATAFLUX) )
       flux_data_errtot = dble ( R4EP_ALL(epoch,JEP_DATAFLUX_ERR) )
       flux_fudge_err   = dble ( R4EP_ALL(epoch,JEP_FUDGEFLUX_ERR) )
-      waveshift        = dble ( R4EP_ALL(epoch,JEP_WAVESHIFT) )
+      wavecor          = dble ( R4EP_ALL(epoch,JEP_WAVECOR) )
 
       flux_fudge_sqerr   = flux_fudge_err   * flux_fudge_err
       flux_data_sqerrtot = flux_data_errtot * flux_data_errtot
@@ -4261,7 +4260,7 @@
       flux_model =  & 
            USRFUN ( ITER, IFILT_OBS  &  ! (I) iteration and absolute filter index
            ,ZSN, Tobs                &  ! (I) redshift and MJD-PEAKMJD
-           ,WAVESHIFT                &  ! (I) filter waveshift (Aug 30 2026)
+           ,WAVECOR                  &  ! (I) filter wavecor (Aug 30 2026)
            ,SHAPEPAR                 &  ! (I) delta, stretch, x1 ...
            ,DISTPAR                  &  ! (I) MU or x0
            ,COLORPAR                 &  ! (I) AV or c
@@ -4431,7 +4430,7 @@
          R4EP_ALL(epoch,JEP_MAGDIF)      = SNGL(magdif)
          R4EP_ALL(epoch,JEP_TREST)       = SNGL(Trest)
          R4EP_ALL(epoch,JEP_TOBS)        = SNGL(Tobs)
-         R4EP_ALL(epoch,JEP_WAVESHIFT)   = SNGL(waveshift)
+         R4EP_ALL(epoch,JEP_WAVECOR)     = SNGL(wavecor)
          R4EP_ALL(epoch,JEP_MJD)         = SNGL(MJDFIT)
          R4EP_ALL(epoch,JEP_DELCHI2)     = SNGL(DELCHI2)
          FCN_FITCHI2(0)          = SNGL(chi2tot - CHI2INI)
@@ -5095,7 +5094,7 @@
         ,IFILT_OBS    &  ! (I) index of observer -filter
         ,ZSN          &  ! (I) redshift
         ,Tobs         &  ! (I) T - Tpeak, observer frame
-        ,WAVESHIFT    &  ! (I) waveshift (A) applied to model mag
+        ,WAVECOR      &  ! (I) wavecor (A) applied to filters for model mag
         ,SHAPE        &  ! (I) shape-par (DELTA, STRETCH, ETC ... )
         ,DIST         &  ! (I) MU=5*LOG10(10pc/DL) or x0
         ,AVHOST       &  ! (I) extinction in SN host galaxy (not used)
@@ -5124,7 +5123,7 @@
 ! Mar 19 2018: call SALT2zz to get redshift used in error calc.
 !              Goal is to remove photo-z pathologies.
 ! 
-! Aug 20 2026: pass waveshift for model passband
+! Aug 20 2026: pass wavecor for model passband
 ! ----------------------------------------------------
 
     USE SNDATCOM
@@ -5140,7 +5139,7 @@
     INTEGER ITER, IFILT_OBS  ! (I)
 
     DOUBLE PRECISION  & 
-         ZSN, Tobs, WAVESHIFT, SHAPE(2), DIST    &  ! (I)
+         ZSN, Tobs, WAVECOR, SHAPE(2), DIST      &  ! (I)
         ,AVHOST, RVHOST, MWEBV                   &  ! (I)
         ,AVWARP, MAG_KCOR(2)                     &  ! (O)
         ,MAG_XTAV, MAG_XTMW, MAG_ERR      ! (O)
@@ -5523,11 +5522,11 @@
            mag_obs_tmp(ifilt2_obs) = 0.0
            LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
            if ( LTMP ) then
-              ! print*,' xxx Tobs, ifilt_obs, waveshift = ', sngl(Tobs), ifilt_obs, sngl(waveshift)
+              ! print*,' xxx Tobs, ifilt_obs, wavecor = ', sngl(Tobs), ifilt_obs, sngl(wavecor)
               CALL genmag_salt2( MSKSALT2, ifilt2_obs     & 
                 , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL   & 
                 , ZSN, ZZ, Nepoch, Tobs                   &  !
-                , WAVESHIFT                              &  ! Aug 30 2026 .xyz
+                , WAVECOR                                &  ! Aug 30 2026 .xyz
                 , MAG_OBS_TMP(ifilt2_obs)                &  ! return arg
                 , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg
 
@@ -6294,7 +6293,7 @@
 
 ! ========================================================
     DOUBLE PRECISION FUNCTION GET_FLUX_FITFUN  & 
-                          ( ifilt_obs, Tobs, waveshift, opt )
+                          ( ifilt_obs, Tobs, wavecor, opt )
 ! 
 ! Wrapper to call USRFUN with final "FITVAL" arguments.
 ! Call this after fit to get function value; do NOT use
@@ -6317,7 +6316,7 @@
 !     HISTORY
 !  ~~~~~~~~~~~~
 !
-! Aug 20 2026: pass waveshift arg
+! Aug 20 2026: pass wavecor arg
 ! --------------------------------------
 
 
@@ -6331,7 +6330,7 @@
 ! define function input
     INTEGER IFILT_OBS        ! (I) SN and obs filter index
     REAL*8  Tobs             ! (I) MJD - MJDatPk1
-    REAL*8  Waveshift        ! (I) waveshift (A) for model mag
+    REAL*8  Wavecor          ! (I) waveshift (A) for model mag
     INTEGER opt              ! (I) option
 
 ! local args
@@ -6414,7 +6413,7 @@
          USRFUN ( NFIT_ITERATION  & 
          ,ifilt_obs           &  ! (I) obs-frame filter
          ,Z, Tobs             &  ! (I) redshift and MJD-PEAKMJD
-         ,WAVESHIFT           &  ! (I) waveshift (A) for model mag
+         ,WAVECOR             &  ! (I) waveshift (A) for model mag
          ,SHAPEPAR            &  ! (I) Delta, stretch, x1 ...
          ,DISTPAR             &  ! (I) MU or x0
          ,COLORPAR            &  ! (I) AV or c
@@ -10781,7 +10780,7 @@
          Z, Z1, TREST, MAXFRAC, LAMDIF_MIN, LAMREST  & 
         ,FLUX_DATA, FLUXERR_STAT, FLUXERR_DATA, FLUX_SIM  & 
         ,FLUX_MODEL, FLUXERR_MODEL, FLUXERR_TOT  & 
-        ,ERR_TRUE, ERR_CALC, ARG, TOBS, WAVESHIFT, ERR_TMP, ZP  & 
+        ,ERR_TRUE, ERR_CALC, ARG, TOBS, WAVECOR, ERR_TMP, ZP  & 
         ,SQDIF, SQERR
 
     REAL*8 FTMP8, MAGERR8, MJD8
@@ -10844,7 +10843,7 @@
        ENDIF
        TREST   = TOBS/z1
 
-       WAVESHIFT = SNLC_WAVESHIFT(ep)
+       WAVECOR   = SNLC_WAVECOR(ep)
        IFILT_OBS = ISNLC_IFILT_OBS(ep)
        cfilt     = filtdef_string(ifilt_obs:ifilt_obs)
 
@@ -10978,7 +10977,7 @@
       R4EP_ALL(ep,JEP_FLUX_ERRTOT)    = FLUXERR_TOT
       R4EP_ALL(ep,JEP_TOBS)           = TOBS
       R4EP_ALL(ep,JEP_TREST)          = TREST
-      R4EP_ALL(ep,JEP_WAVESHIFT)      = WAVESHIFT
+      R4EP_ALL(ep,JEP_WAVECOR)        = WAVECOR
 
 ! check for epochs to add fudged errors so that these
 ! points are ignored in the fit, but are included in
@@ -14505,7 +14504,7 @@
 
 ! local var
 
-    REAL*8  TREF, WAVESHIFT, MAGOFF, TOBS, MAGOFF_REST, SQSIG_FLUX, PKMJD
+    REAL*8  TREF, WAVECOR, MAGOFF, TOBS, MAGOFF_REST, SQSIG_FLUX, PKMJD
     INTEGER OPT, OPT_KCOR
     LOGICAL LOBS, LREST, LDMP
 
@@ -14523,7 +14522,7 @@
     FLUXERR = -9.0
 
     cfilt1     = filtdef_string(ifilt:ifilt)
-    WAVESHIFT  = 0.0 ! .xyz
+    WAVECOR    = 0.0 ! .xyz
     CFRAME_LOC = CFRAME
 
     LOBS  = .FALSE.
@@ -14566,7 +14565,7 @@
 ! ---------------------
 ! get the flux
 
-    Flux  =  GET_FLUX_FITFUN ( ifilt, TREF, WAVESHIFT, OPT )
+    Flux  =  GET_FLUX_FITFUN ( ifilt, TREF, WAVECOR, OPT )
 
     SQSIG_FLUX =  & 
          COVFLUXFUN(OPT, ifilt, ifilt, TREF, TREF, LDMP )
@@ -14600,7 +14599,7 @@
 ! get the K-correction
     if ( LOBS .and. LKCOR_AVWARP ) THEN
       OPT_KCOR = 10
-      KCOR  = GET_FLUX_FITFUN (  ifilt, TREF, WAVESHIFT, OPT_KCOR )
+      KCOR  = GET_FLUX_FITFUN (  ifilt, TREF, WAVECOR, OPT_KCOR )
     else
       KCOR = 0.0
     endif
@@ -14717,7 +14716,7 @@
         ,SAVEVAL_k, SAVEVAL_l  & 
         ,ERRPAR_k,  ERRPAR_l  & 
         ,dF1dVAL_k, dF2dVAL_l, FF  & 
-        ,V_kl, U12, WAVESHIFT1, WAVESHIFT2
+        ,V_kl, U12, WAVECOR1, WAVECOR2
 
 ! functions
     REAL*8  GET_FLUX_FITFUN
@@ -14729,10 +14728,10 @@
 
 ! get reference fluxes to computer deriviates below.
 
-    WAVESHIFT1 = 0.0  ! .xyz ??
-    WAVESHIFT2 = 0.0 
-    Flux1   =  GET_FLUX_FITFUN ( ifilt1, T1, WAVESHIFT1, OPT )
-    Flux2   =  GET_FLUX_FITFUN ( ifilt2, T2, WAVESHIFT2, OPT )
+    WAVECOR1 = 0.0  ! .xyz ??
+    WAVECOR2 = 0.0 
+    Flux1   =  GET_FLUX_FITFUN ( ifilt1, T1, WAVECOR1, OPT )
+    Flux2   =  GET_FLUX_FITFUN ( ifilt2, T2, WAVECOR2, OPT )
 
     DO 301 ipar_k = 1, NFITPAR_MN
        if ( .NOT. FLOATPAR(ipar_k) ) goto 301
@@ -14749,13 +14748,13 @@
 
        LCVAL_STORE(ipar_k) =  & 
          LCVAL_STORE(ipar_k) + SNGL(ERRPAR_k)
-       Ftmp1   =  GET_FLUX_FITFUN ( ifilt1, T1, WAVESHIFT1, OPT )
+       Ftmp1   =  GET_FLUX_FITFUN ( ifilt1, T1, WAVECOR1, OPT )
        LCVAL_STORE(ipar_k) = SNGL(SAVEVAL_k)
 
 ! repeat for 2nd fitpar ...
        LCVAL_STORE(ipar_l) =  & 
          LCVAL_STORE(ipar_l) + SNGL(ERRPAR_l)
-       Ftmp2   =  GET_FLUX_FITFUN ( ifilt2, T2, WAVESHIFT2, OPT )
+       Ftmp2   =  GET_FLUX_FITFUN ( ifilt2, T2, WAVECOR2, OPT )
        LCVAL_STORE(ipar_l) = SNGL(SAVEVAL_l)
 
 ! make sure that errors are non-zero before dividing.
@@ -16744,7 +16743,7 @@
     REAL*8  & 
          z1, ZSN, LAMREST, LAMDIF1, LAMDIF2, LAMDIF  & 
         ,x0, x1, xx1, c, x2, MWEBV, PKMJD  & 
-        ,TOBS, Trest, MAGOBS_MODEL, MAGREST_MODEL, MAGERR, WAVESHIFT  & 
+        ,TOBS, Trest, MAGOBS_MODEL, MAGREST_MODEL, MAGERR, WAVECOR  & 
         ,KCOR, MAGOBS, MAGREST, FLUX_REST, ARG  & 
         ,RV, AV,  PARLIST_SN(10), PARLIST_HOST(10)
 
@@ -16812,18 +16811,18 @@
        Trest   = TOBS/z1
 
        ZSN     = REDSHIFT_FIT
-       WAVESHIFT = 0.0 
+       WAVECOR = 0.0 
 
        CALL genmag_salt2( MSKSALT2, IFILTOBS,  & 
               PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN,  NEP, Tobs,  & 
-              WAVESHIFT,               &  ! dummy arg, Sep 1 2026
+              WAVECOR,               &  ! dummy arg, Sep 1 2026
               MAGOBS_MODEL, MAGERR )     ! return arg
 
 ! now the rest-frame
        ZSN     = 1.0E-6
        CALL genmag_salt2( MSKSALT2, IFILTREST,  & 
               PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN, NEP, Trest,  & 
-              WAVESHIFT,             &     ! dummy arg, Sep 1 2026
+              WAVECOR,             &     ! dummy arg, Sep 1 2026
               MAGREST_MODEL, MAGERR )     ! return arg
 
        KCOR    = MAGREST_MODEL - MAGOBS_MODEL
@@ -18155,7 +18154,7 @@
         ,OPT
 
     REAL*8  & 
-         T8, Z8, FLux8, MAG8, WAVESHIFT  & 
+         T8, Z8, FLux8, MAG8, WAVECOR  & 
         ,DELTA8(2), AV8, MWEBV8, DLMAG8  & 
         ,AVwarp8, KCOR8(2), XTAV, XTMW,MAGERR8, RVMW8
 
@@ -18178,7 +18177,7 @@
     MWEBV8    = ZERO8
     RVMW8     = DBLE(RV_MWCOLORLAW)
     DLMAG8    = ZERO8
-    WAVESHIFT = ZERO8
+    WAVECOR   = ZERO8
 
     print*,' Z=',Z4,'  Trest=',sngl(T8),'   AV=',sngl(AV8)
     print*,' MWE(B-V)=', sngl(MWEBV8), '   DLMAG=',sngl(DLMAG8)
@@ -18199,7 +18198,7 @@
                             2, Z4, LMIN4 )
 
        FLUX8 =  & 
-           USRFUN ( NFIT_ITERATION, ifilt_obs, Z8, T8, WAVESHIFT  & 
+           USRFUN ( NFIT_ITERATION, ifilt_obs, Z8, T8, WAVECOR  & 
                    ,DELTA8, DLMAG8, AV8, RVMW8, MWEBV8, LDMP  & 
                    ,AVwarp8, KCOR8, XTAV, XTMW, MAGERR8 )    ! (O)
 
@@ -18271,7 +18270,7 @@
         ,VBAND_PKMJD_ERR(MXFILT_OBS)  & 
 ! 
         ,COR, FPEAK, FPERR, PKMJD  & 
-        ,TMIN, TMAX, TBIN, xi, TOBS, WAVESHIFT
+        ,TMIN, TMAX, TBIN, xi, TOBS, WAVECOR
 
     INTEGER  & 
          LENCCID, NOBS, i, ifilt, ifilt_obs, NFILT, NBT  & 
@@ -18475,12 +18474,12 @@
 
       xi      = float(i) - 0.5
       TOBS    = TMIN + TBIN * xi
-      WAVESHIFT = 0.0  ! .xyz ??
+      WAVECOR = 0.0  ! .xyz ??
       VFILTOBS(NOBS)      = IFILT_OBS
       VMJD(NOBS)          = TOBS + PKMJD + MJDOFF
       VTOBS(NOBS)         = TOBS
-      VFLUXOBS(NOBS)      = GET_FLUX_FITFUN(ifilt_obs, Tobs,  WAVESHIFT,  0)
-      VFLUXOBS_ERR(NOBS)  = GET_FLUX_FITFUN(ifilt_obs, Tobs,  WAVESHIFT, 60)
+      VFLUXOBS(NOBS)      = GET_FLUX_FITFUN(ifilt_obs, Tobs,  WAVECOR,  0)
+      VFLUXOBS_ERR(NOBS)  = GET_FLUX_FITFUN(ifilt_obs, Tobs,  WAVECOR, 60)
 
 ! Dec 10 2017: check for filter-remap option
       IF ( NFILT_REMAP_TABLE > 0 ) THEN
@@ -19639,7 +19638,7 @@
 ! Prepare table for SALT2 spectra computed from LC fit params.
 ! 
 ! Mar 21 2022: compute TBLSPEC_MAG_MODEL[_ERR] for each band and MJD
-! Sep 01 2206: RK: pass WAVESHIFT arg to getSpec_band_SALT2()
+! Sep 01 2206: RK: pass WAVECOR arg to getSpec_band_SALT2()
 !
 ! -------------------------------
 
@@ -19703,7 +19702,7 @@
         TBLSPEC8_MJD              = R8EP_MJD(i)  ! note different index
         TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST)
         TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS)
-        TBLSPEC_WAVESHIFT         = R4EP_ALL(ep,JEP_WAVESHIFT)
+        TBLSPEC_WAVECOR           = R4EP_ALL(ep,JEP_WAVECOR)
         TBLSPEC_LAMREST           = R4EP_ALL(ep,JEP_LAMREST)
         TBLSPEC_IFILTOBS          = IFILTOBS
         TBLSPEC_DETNUM            = I4EP_ALL(ep,IEP_DETNUM)
@@ -19734,7 +19733,7 @@
 
         NBLAM_TBLSPEC =  & 
             getSpec_band_SALT2(IFILTOBS, Tobs,     &  ! (I)
-            TBLSPEC_WAVESHIFT,                     &  ! (I)
+            TBLSPEC_WAVECOR,                     &  ! (I)
             z, x0, x1, c, MWEBV,                   &  ! (I)
             TBLSPEC_LAMLIST, TBLSPEC_FLUXLIST )   ! (O)
 

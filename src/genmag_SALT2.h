@@ -34,8 +34,8 @@
 // user OPTMASK passed via sim-input 
 //  GENMODEL_MSKOPT: <MSKOPT>
 #define GENMODEL_MSKOPT_SALT2_REQUIRE_DOCANA      OPENMASK_REQUIRE_DOCANA  // =2
-#define GENMODEL_MSKOPT_SALT2_DISABLE_MAGSHIFT    4  // disable MAGSHIFT keys
-#define GENMODEL_MSKOPT_SALT2_DISABLE_WAVESHIFT   8  // disable WAVESHIFT keys
+#define GENMODEL_MSKOPT_SALT2_DISABLE_MAGSHIFT    4  // disable syst MAGSHIFT keys
+#define GENMODEL_MSKOPT_SALT2_DISABLE_WAVESHIFT   8  // disable syst WAVESHIFT keys
 #define GENMODEL_MSKOPT_SALT2_ABORT_LAMRANGE   64  // abort on bad model-LAMRANGE
 #define GENMODEL_MSKOPT_SALT2_DEBUG   1024    // Refactor for developer only
 
@@ -109,7 +109,7 @@ typedef struct {
   char   BAND[2];            // e.g.  'r'
   char   FILTER_STRING[60];  //e.g. 'SDSS-r'
   double SHIFT ;  
-} SHIFT_CALIB_SALT2_DEF ;
+} SHIFT_CALIB_SALT2_DEF ;  // for calib systematics 
 
 
 struct INPUT_SALT2_INFO {
@@ -212,7 +212,7 @@ int  init_genmag_SALT2(char *model_version, char *model_extrap_latetime,
 void genmag_SALT2(int OPTMASK, int ifilt, 
 		  double *parList_SN, double *parList_HOST, double mwebv,
 		  double z, double z_forErr, int nobs, double *Tobs_list, 
-		  double *waveshift_list,
+		  double *wavecor_list,
 		  double *magobs_list, double *magerr_list );
 
 int  NSURFACE_SALT2(void);
@@ -267,7 +267,7 @@ int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans,
 
 // obs-frame integration (filter-lambda bins)
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
-		      double waveshift,
+		      double wavecor,
 		      double *parList_SN, double *parList_HOST,
 		      double *Finteg, double *Finteg_errPar, 
 		      double *Fspec );
@@ -289,7 +289,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
 
 // function called by analysis program to return spectrum over band.
 // Note that all I/O is float instead of double.
-int getSpec_band_SALT2(int ifilt_obs, float Tobs, float waveshift, float z,
+int getSpec_band_SALT2(int ifilt_obs, float Tobs, float wavecor, float z,
 		       float x0, float x1, float c, float mwebv,
 		       float *LAMLIST, float *FLUXLIST);
 

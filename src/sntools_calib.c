@@ -201,10 +201,10 @@ void read_calib_init(void) {
   IFILTDEF_BESS_BX = INTFILTER("X");
  
   // Aug 25 2026: init struct for optional WAVESHIFT in MAGCOR_FILE
-  PRIMARY_MAG_WAVESHIFT_GRID.NGRID = 0 ;
-  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MIN = 0;
-  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MAX = 0; 
-  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_BIN = 0;
+  PRIMARY_MAG_WAVECOR_GRID.NGRID = 0 ;
+  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MIN = 0;
+  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MAX = 0; 
+  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_BIN = 0;
 
   return ;
 
@@ -2199,11 +2199,11 @@ double get_calib_primary_mag__(int *OPT, int *ifiltdef)
 { return get_calib_primary_mag(*OPT,*ifiltdef); }
 
 
-void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
+void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   // Created Aug 2026 
-  // if WAVESHIFT column exists in MAGCOR table, this function is called
-  // to prepare primary mag vs. waveshift in small (~ 1 A) bins,
+  // if WAVECOR column exists in MAGCOR table, this function is called
+  // to prepare primary mag vs. wavecor in small (~ 1 A) bins,
   // and for each passband. 
   // Initial motivation: Roman correction for 18 SCAs (with R.Purhit)
 
@@ -2212,80 +2212,80 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
   int    NFILTDEF            = FILTERCAL->NFILTDEF ;
   double *PRIMARY_MAG_RDKCOR = FILTERCAL->PRIMARY_MAG;
 
-  int  IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN=2.0 ;  // integer wave shift ranges and bins
+  int  IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN=2.0 ;  // integer wavecor ranges and bins
   int  NGRID, ifilt ;
   float FMEMTOT = 0.0 ;
-  char fnam[] = "PREP_PRIMARY_MAG_WAVESHIFT_GRID" ;  (void)fnam;
+  char fnam[] = "PREP_PRIMARY_MAG_WAVECOR_GRID" ;  (void)fnam;
 
   // ------------- BEGIN ------------
 
   print_banner(fnam);
 
-  IWAVESHIFT_MIN = (int)WAVESHIFT_MIN - 2 ;
-  IWAVESHIFT_MAX = (int)WAVESHIFT_MAX + 2 ;
-  NGRID          = IWAVESHIFT_MAX - IWAVESHIFT_MIN + IWAVESHIFT_BIN; 
-  NGRID /= IWAVESHIFT_BIN ;
+  IWAVECOR_MIN = (int)WAVECOR_MIN - 2 ;
+  IWAVECOR_MAX = (int)WAVECOR_MAX + 2 ;
+  NGRID          = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN; 
+  NGRID /= IWAVECOR_BIN ;
 
-  printf("\t Original WAVESHIFT range: %.1f to %.1f A \n", WAVESHIFT_MIN, WAVESHIFT_MAX);
-  printf("\t WAVESHIFT grid: %d to %d A with %d A  binsize -> NGRID=%d\n",
-	 IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN, NGRID );
+  printf("\t Original WAVECOR range: %.1f to %.1f A \n", WAVECOR_MIN, WAVECOR_MAX);
+  printf("\t WAVECOR grid: %d to %d A with %d A  binsize -> NGRID=%d\n",
+	 IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN, NGRID );
   printf("\t NFILTDEF=%d \n", NFILTDEF);
   
   // load the goodies into global struct (kind'of like a python namespace)
-  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MIN = IWAVESHIFT_MIN;
-  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MAX = IWAVESHIFT_MAX;
-  PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_BIN = IWAVESHIFT_BIN; 
+  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MIN = IWAVECOR_MIN;
+  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MAX = IWAVECOR_MAX;
+  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_BIN = IWAVECOR_BIN; 
   
   // allocate memory
   int MEMD = NGRID * sizeof(double);
-  PRIMARY_MAG_WAVESHIFT_GRID.WAVESHIFT_GRID = (double*)malloc(MEMD);
+  PRIMARY_MAG_WAVECOR_GRID.WAVECOR_GRID = (double*)malloc(MEMD);
   FMEMTOT += (float)MEMD;
 
   // allocate MAG_GRID[ifilt][igrid]
-  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &PRIMARY_MAG_WAVESHIFT_GRID.MAG_GRID );
+  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &PRIMARY_MAG_WAVECOR_GRID.MAG_GRID );
 
   printf("\t Allocated %.2f kB memory to store MAG_GRID \n", FMEMTOT/1.0e3);
 
-  int i, iwaveshift, IBIN_DUMP = -12 ;
-  double waveshift, mag ;
+  int i, iwavecor, IBIN_DUMP = -12 ;
+  double wavecor, mag ;
   int    IBIN_ZERO = -9;
   char  *NAME ;
 
-  // start double loop to compute mag[ifilt][i] where i is sparse waveshift index
+  // start double loop to compute mag[ifilt][i] where i is sparse wavecor index
   for(i = 0; i < NGRID; i++ ) {  
-    iwaveshift = IWAVESHIFT_MIN + i*IWAVESHIFT_BIN;  // Angstroms
-    waveshift   = (double)iwaveshift;
-    PRIMARY_MAG_WAVESHIFT_GRID.WAVESHIFT_GRID[i] = waveshift;
+    iwavecor = IWAVECOR_MIN + i*IWAVECOR_BIN;  // Angstroms
+    wavecor   = (double)iwavecor;
+    PRIMARY_MAG_WAVECOR_GRID.WAVECOR_GRID[i] = wavecor ;
 
-    if ( waveshift == 0.0 ) { IBIN_ZERO = i; }
+    if ( wavecor == 0.0 ) { IBIN_ZERO = i; }
 
     for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
 
       NAME = CALIB_INFO.FILTER_NAME[ifilt];
-      mag  = compute_primary_mag(ifilt, waveshift);
-      PRIMARY_MAG_WAVESHIFT_GRID.MAG_GRID[ifilt][i] = mag;
+      mag  = compute_primary_mag(ifilt, wavecor);
+      PRIMARY_MAG_WAVECOR_GRID.MAG_GRID[ifilt][i] = mag;
 
       if ( i == IBIN_DUMP ) {
 	if ( ifilt==0 ) {
-	  printf(" xxx %s:  i=%3d  iwaveshift=%4d  waveshift=%.2f \n", 
-		 fnam, i, iwaveshift, waveshift);  fflush(stdout);
+	  printf(" xxx %s:  i=%3d  iwavecor=%4d  wavecor=%.2f \n", 
+		 fnam, i, iwavecor, wavecor);  fflush(stdout);
 	}
 	printf(" xxx %s: \t ifilt=%d(%s)  mag=%.3f\n", 
 	       fnam, ifilt, NAME, mag);  fflush(stdout);
       }
     } // end ifilt    
-  }   // end i loop over NGRID(WAVESHIFT)
+  }   // end i loop over NGRID(WAVECOR)
 
   
   // - - - - - -  -
   if ( IBIN_ZERO < 0 ) {
-    sprintf(c1err,"WAVESHIFT grid does not include 0;");
+    sprintf(c1err,"WAVECOR grid does not include 0;");
     sprintf(c2err,"Cannot verify PRIMARY_MAG recalc. ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
 
-  // check that re-computed primary mag at waveshift=0 matches
+  // check that re-computed primary mag at wavecor=0 matches
   // stored CALIB values from kcor.c program
 
   double mag_rdkcor, mag_compute, dm;
@@ -2295,11 +2295,11 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
 
     NAME = CALIB_INFO.FILTER_NAME[ifilt];
     mag_rdkcor  = PRIMARY_MAG_RDKCOR[ifilt];
-    mag_compute = PRIMARY_MAG_WAVESHIFT_GRID.MAG_GRID[ifilt][IBIN_ZERO];
+    mag_compute = PRIMARY_MAG_WAVECOR_GRID.MAG_GRID[ifilt][IBIN_ZERO];
     dm          = mag_rdkcor - mag_compute;
     
     if ( fabs(dm) > dm_tol ) {
-      printf("\t WARNING: mag(COMPUTE) - mag(RDCAL) = %.2le  for waveshift=0 and band = %s\n",
+      printf("\t WARNING: mag(COMPUTE) - mag(RDCAL) = %.2le  for wavecor=0 and band = %s\n",
 	     dm, NAME) ;
       fflush(stdout);
       ntol_fail++ ;
@@ -2307,7 +2307,7 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
   }
     
   if ( ntol_fail > 0 ) {
-    sprintf(c1err,"%d bands fail magDif tolerance for WAVESHIFT=0", ntol_fail);
+    sprintf(c1err,"%d bands fail magDif tolerance for WAVECOR=0", ntol_fail);
     sprintf(c2err,"See magDif = mag(COMPUTE) - mag(RDKCOR) values printed avove");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     
@@ -2318,17 +2318,17 @@ void PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) {
  
   return ;
 
-} // end PREP_PRIMARY_MAG_WAVESHIFT_GRID
+} // end PREP_PRIMARY_MAG_WAVECOR_GRID
 
-void prep_primary_mag_waveshift_grid__(float *WAVESHIFT_MIN, float *WAVESHIFT_MAX) 
-{ PREP_PRIMARY_MAG_WAVESHIFT_GRID(*WAVESHIFT_MIN,*WAVESHIFT_MAX); }
+void prep_primary_mag_wavecor_grid__(float *WAVECOR_MIN, float *WAVECOR_MAX) 
+{ PREP_PRIMARY_MAG_WAVECOR_GRID(*WAVECOR_MIN,*WAVECOR_MAX); }
 
 
-double compute_primary_mag(int ifilt, double WAVESHIFT) {
+double compute_primary_mag(int ifilt, double WAVECOR) {
 
   // Created Aug 2026
-  // Compute and store primargy mag for input IFILT and WAVESHIFT.
-  // Used with WAVESHIFT column in MAGCOR_FILE 
+  // Compute and store primargy mag for input IFILT and WAVECOR.
+  // Used with WAVECOR column in MAGCOR_FILE 
 
   FILTERCAL_DEF *FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ;
   int NBLAM_FILT           = FILTERCAL->NBIN_LAM[ifilt] ;
@@ -2348,7 +2348,7 @@ double compute_primary_mag(int ifilt, double WAVESHIFT) {
   // ---------- BEGIN ----------
 
   for(ilam=0; ilam < NBLAM_FILT; ilam++ ) {
-    lam_filt     = FILTERCAL->LAM[ifilt][ilam] + WAVESHIFT;
+    lam_filt     = FILTERCAL->LAM[ifilt][ilam] + WAVECOR ;
     trans        = FILTERCAL->TRANS[ifilt][ilam];
     wgt_flux     = lam_filt; 
     wgt_filt     = 1.0/lam_filt; 
@@ -2360,7 +2360,7 @@ double compute_primary_mag(int ifilt, double WAVESHIFT) {
     primary_flux_sum += (trans * wgt_flux * primary_flux);
     filter_sum       += (trans * wgt_filt) ; 
 
-    if ( WAVESHIFT == 0.0 && ifilt == -9 ) {
+    if ( WAVECOR == 0.0 && ifilt == -9 ) {
       printf("xxx %s: ilam = %d lam = %.1f  tr=%.4f  flux = %.3le \n", 
 	     fnam, ilam, lam_filt, trans, primary_flux);
     }

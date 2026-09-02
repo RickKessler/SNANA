@@ -67,6 +67,10 @@
 #   
 # Feb 18 2026: add 'PDF' to list of table extensions (for marginalized PDF)
 # Jun 05 2026: rename COLNUM_FIT_MERGE_XXX to COLNUM_LCFIT_MERGE_XXX
+# Sep 02 2026: if FLAG_USE_SAME_EVENTS is used intead of OPT_SNCID_LIST, then
+#              pass FLAG_USE_SAME_EVENTS key to snlc_fit (instead of legacy OPT_SNCID_LIST).
+#              Note that snana.F90 was modified to accept FLAG_USE_SAME_EVENTS or OPT_SNCID_LIST.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -210,7 +214,8 @@ FITOPT_STRING_NOREJECT = "NOREJECT"
 
 # key to use FITOPT000 sample for all other FITOPTs; for CONFIG and snlc_fit
 #                        pippin/submit key       snlc_fit key name
-KEY_OPT_SNCID_LIST  = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
+# xxx mark delete KEY_OPT_SNCID_LIST        = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
+KEYLIST_FLAG_USE_SAME_EVENTS  = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
 
 # ====================================================
 #    BEGIN FUNCTIONS
@@ -276,7 +281,7 @@ class LightCurveFit(Program):
         # copy supplemental input files that don't have a path
         self.fit_prep_copy_files()
 
-        # check OPT_SNCID_LIST option to use same SNe as in FITOPT000
+        # check SAME-EVENT (SYNC) option to use same SNe as in FITOPT000
         self.fit_prep_same_sncid()
 
 
@@ -331,18 +336,20 @@ class LightCurveFit(Program):
         # is part of FITOPT label, ignore OPT_SNCID_LIST.
 
         CONFIG         = self.config_yaml['CONFIG']
-        opt_sncid_list = self.config_prep['opt_sncid_list']  
+        # xxx mark del opt_sncid_list = self.config_prep['opt_sncid_list']  
+        opt_same_events = self.config_prep['opt_same_events']  
+        key_same_events = self.config_prep['key_same_events']  
 
-        KEY_OPT  = KEY_OPT_SNCID_LIST[1]   # key for snlc_fit
+        # xxx mark delete KEY_OPT  = KEYLIST_FLAG_USE_SAME_EVENTS[1]   # key for snlc_fit
         KEY_FILE = 'SNCID_LIST_FILE'       # key for snlc_fit
         argdict_same_sncid = {}
 
-        if opt_sncid_list > 0 :         
+        if opt_same_events > 0 :         
             # make list of reference FITOPT000.FITRES file for each 
             # data version
-            print(f"\n  PREPARE {KEY_OPT} to USE SAME EVENTS " \
+            print(f"\n  PREPARE {key_same_events} to USE SAME EVENTS " \
                   f"FOR ALL FITOPTs\n")
-            arg_opt       = f"{KEY_OPT} {opt_sncid_list}"
+            arg_opt       = f"{key_same_events} {opt_same_events}"
             arg_file_list = []
             output_dir    = self.config_prep['output_dir']
             version_list  = self.config_prep['version_list']   
@@ -725,14 +732,17 @@ class LightCurveFit(Program):
 
         # check for OPT_SNCID_LIST ... just store it here for later
         # Check multiple key-options
-        opt_sncid_list = 0
-        for key in KEY_OPT_SNCID_LIST:
+        # xxx mark opt_sncid_list = 0
+        opt_same_events = 0
+        key_same_events = None
+        for key in KEYLIST_FLAG_USE_SAME_EVENTS:
             if key in CONFIG :  
-                opt_sncid_list = CONFIG[key]
-                if opt_sncid_list>0 and args.nomerge:
+                opt_same_events = CONFIG[key]
+                key_same_events = key
+                if opt_same_events > 0 and args.nomerge:
                     msgerr = []
                     msgerr.append(f"nomerge option does not work " \
-                                  f" with OPT_SNCID_LIST")
+                                  f" with {key}")
                     self.log_assert(False,msgerr)
             
         # - - - - - -
@@ -760,7 +770,8 @@ class LightCurveFit(Program):
         self.config_prep['fitopt_label_list']   = fitopt_label_list
         self.config_prep['link_FITOPT000_list'] = link_FITOPT000_list
         self.config_prep['n_fitopt_link']       = len(link_FITOPT000_list)
-        self.config_prep['opt_sncid_list']      = opt_sncid_list
+        self.config_prep['opt_same_events']     = opt_same_events
+        self.config_prep['key_same_events']     = key_same_events
 
         # end fit_prep_FITOPT
 
@@ -785,7 +796,8 @@ class LightCurveFit(Program):
         version_list     = self.config_prep['version_list']
         fitopt_arg_list  = self.config_prep['fitopt_arg_list']
         n_core           = self.config_prep['n_core']
-        opt_sncid_list   = self.config_prep['opt_sncid_list']
+        # xxx mark delete opt_sncid_list   = self.config_prep['opt_sncid_list']
+        opt_same_events  = self.config_prep['opt_same_events']
         do_dump = True
 
         # first figure out how many split jobs
@@ -805,7 +817,7 @@ class LightCurveFit(Program):
 
         # if waiting for FITOPT000, distribute over all cores to avoid
         # long wait for FITOPT000. But no more than 100 splits
-        if opt_sncid_list > 0 :
+        if opt_same_events > 0 :
             n_job_split = n_core
             if n_job_split > 100: n_job_split = 100
 
@@ -967,7 +979,8 @@ class LightCurveFit(Program):
         iver_list        = self.config_prep['iver_list']
         iopt_list        = self.config_prep['iopt_list']
         isplit_list      = self.config_prep['isplit_list']
-        opt_sncid_list   = self.config_prep['opt_sncid_list']
+        # xxx mark del opt_sncid_list   = self.config_prep['opt_sncid_list']
+        opt_same_events  = self.config_prep['opt_same_events']
 
         n_version        = self.config_prep['n_version']
         n_fitopt         = self.config_prep['n_fitopt']
@@ -987,7 +1000,7 @@ class LightCurveFit(Program):
             n_job_local += 1
 
             # xxx mark delete Mar 28 2025  if self.is_sym_link(fitopt_arg_list[iopt]) : 
-            if opt_sncid_list==0 and self.is_sym_link(fitopt_arg_list[iopt]) : 
+            if opt_same_events == 0 and self.is_sym_link(fitopt_arg_list[iopt]) : 
                 continue
 
             n_job_real += 1  # use this to skip links
@@ -1024,8 +1037,9 @@ class LightCurveFit(Program):
         # The goal is to run each data version on only a few cores to ensure
         # that they finish if cluster does not run all NCORE core simultaneously.
 
-        opt_sncid_list   = self.config_prep['opt_sncid_list']
-        if opt_sncid_list <= 0 : return
+        # xxx mark del opt_sncid_list   = self.config_prep['opt_sncid_list']
+        opt_same_events   = self.config_prep['opt_same_events']
+        if opt_same_events <= 0 : return
 
         n_core           = self.config_prep['n_core']
         n_version        = self.config_prep['n_version']
@@ -1183,11 +1197,12 @@ class LightCurveFit(Program):
         arg_list.append(f"{fitopt_arg}")
 
         # Jan 8, 2021: option to use CID list from FITOPT000
-        opt_sncid_list = self.config_prep['opt_sncid_list']
+        # xxx mark del opt_sncid_list  = self.config_prep['opt_sncid_list']
+        opt_same_events = self.config_prep['opt_same_events']
 
         if args.check_abort: 
             arg_list.append("MXEVT_CUTS 1")
-            opt_sncid_list = 0  # disable event-sync feature
+            opt_same_events = 0  # disable event-sync feature
 
         if fitopt_label is None:
             NOREJECT = None
@@ -1196,7 +1211,7 @@ class LightCurveFit(Program):
 
         # for sync-event feature, each FITOPT must wait for FITOPT000
         # to get its cid list.
-        if iopt > 0 and opt_sncid_list > 0  and NOREJECT is False :
+        if iopt > 0 and opt_same_events > 0  and NOREJECT is False :
             argdict_same_sncid = self.config_prep['argdict_same_sncid']
             arg_opt   = argdict_same_sncid['arg_opt']             # KEY OPT
             arg_file  = argdict_same_sncid['arg_file_list'][iver] # KEY FILE
@@ -1301,7 +1316,9 @@ class LightCurveFit(Program):
         use_table_format  = self.config_prep['use_table_format']
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         private_data_path = self.config_prep['private_data_path']
-        opt_sncid_list    = self.config_prep['opt_sncid_list']
+        # xxx mark del opt_sncid_list    = self.config_prep['opt_sncid_list']
+        opt_same_events   = self.config_prep['opt_same_events']
+        key_same_events   = self.config_prep['key_same_events']
 
         f.write(f"\n# Fit info\n")
         f.write(f"N_JOB_LINK:          {n_job_link}   " \
@@ -1311,7 +1328,7 @@ class LightCurveFit(Program):
         f.write(f"USE_TABLE_FORMAT:    {use_table_format} \n")
         f.write(f"IGNORE_FITOPT:       {ignore_fitopt}\n")
         f.write(f"PRIVATE_DATA_PATH:   {private_data_path} \n")
-        f.write(f"{KEY_OPT_SNCID_LIST[0]}:   {opt_sncid_list}   " \
+        f.write(f"{key_same_events}:   {opt_same_events}   " \
                 "# >0 -> FITOPT>0 uses events from FITOPT000\n")
 
         key_misc_list = [ KEY_APPEND_TABLE_VARLIST, KEY_APPEND_TABLE_TEXTFILE]
@@ -2441,10 +2458,11 @@ class LightCurveFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
-        opt_sncid_list = 0 
-        for key in KEY_OPT_SNCID_LIST :
+        # xxx mark delete opt_sncid_list = 0 
+        opt_same_events = 0 
+        for key in KEYLIST_FLAG_USE_SAME_EVENTS :
             if key in submit_info_yaml :
-                opt_sncid_list = submit_info_yaml[key]
+                opt_same_events = submit_info_yaml[key]
 
         survey,idsurvey  = util.get_survey_info(script_dir,"*SPLIT*.YAML")
 
@@ -2454,7 +2472,7 @@ class LightCurveFit(Program):
 
         # May 19 2021: count number of common events for option to 
         # use FITOPT000 events in all FITOPTs
-        if opt_sncid_list > 0 :
+        if opt_same_events > 0 :
             version = submit_info_yaml['VERSION_LIST'][0]
             nevt_common = self.get_nevt_common(version)
             info_lines.append(f"NEVT_COMMON:    {nevt_common}     " \

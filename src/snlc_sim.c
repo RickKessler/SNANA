@@ -29271,7 +29271,7 @@ void genmodel(
 
     double parList_SN[4]   = { S2x0, S2x1, S2c, S2x1 } ;
     double parList_HOST[3] = { RV, AV, logMass } ;
-    double waveshift_list[2] = { 0.0, 0.0 } ;
+    double wavecor_list[2] = { 0.0, 0.0 } ;
 
     genmag_SALT2 (
 		  OPTMASK         // (I) bit-mask options
@@ -29282,7 +29282,7 @@ void genmodel(
 		  ,z,z            // (I) redshift, and z used for error
 		  ,NEPFILT        // (I) number of epochs
 		  ,ptr_epoch         // (I) obs-frame time (days)
-		  ,waveshift_list    // (I) dummy arg not used for sim (Sep 1 2026)
+		  ,wavecor_list      // (I) dummy arg not used for sim (Sep 1 2026)
 		  ,ptr_genmag        // (O) mag vs. Tobs
 		  ,ptr_generr        // (O) mag-errs
 		  ) ;    

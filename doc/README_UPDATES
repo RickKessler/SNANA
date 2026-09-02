@@ -24119,7 +24119,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
       + update FILTER_REPLACE feature to work if the original filters
         are not defined in kcor/calib file.
-        
+    
+      + allow either FLAG_USE_SAME_EVENTS or  OPT_SNCID_LIST to match
+        key options in submit_batch_jobs
+
          *****  MISCELLANEOUS(v12_02c) *****
 
    Here are the small-but-expected regressoin test failures from 
@@ -24157,5 +24160,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    genamg_SALT2.c[h]:
      + pass waveshift to genmag_SALT2 (structural change, not yet implemented)
 
+   all:
+     + change WAVESHIFT to WAVECOR everywhere to indicate "correction" that is
+       analogous to MAGCOR correction. "SHIFT" is reserved for systematic shift,
+       not corrections.
 END:
  

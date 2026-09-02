@@ -173,13 +173,13 @@ struct CALIB_INFO {
 } CALIB_INFO ;
 
 
-struct PRIMARY_MAG_WAVESHIFT_GRID {
-  int IWAVESHIFT_MIN, IWAVESHIFT_MAX, IWAVESHIFT_BIN;
+struct PRIMARY_MAG_WAVECOR_GRID {
+  int IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN;
   int NGRID;
-  double *WAVESHIFT_GRID; 
+  double *WAVECOR_GRID; 
   double **MAG_GRID;  // MAG[ifilt][igrid]
 
-} PRIMARY_MAG_WAVESHIFT_GRID ;
+} PRIMARY_MAG_WAVECOR_GRID ;
 
 double **TEMP_KCOR_ARRAY;
 
@@ -251,9 +251,9 @@ void get_calib_primary_sed__(char *primary_name, int *NBLAM,
 double get_calib_primary_mag(int OPT, int ifiltdef);
 double get_calib_primary_mag__(int *OPT, int *ifiltdef);
 
-void   PREP_PRIMARY_MAG_WAVESHIFT_GRID(float WAVESHIFT_MIN, float WAVESHIFT_MAX) ;
-void   prep_primary_mag_waveshift_grid__(float *WAVESHIFT_MIN, float *WAVESHIFT_MAX);
-double compute_primary_mag(int IFILT, double WAVESHIFT) ;
+void   PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) ;
+void   prep_primary_mag_wavecor_grid__(float *WAVECOR_MIN, float *WAVECOR_MAX);
+double compute_primary_mag(int IFILT, double WAVECOR) ;
 
 void get_calib_filterTrans(int OPT_FRAME, int ifiltdef_obs, char *surveyName, 
 			  char *filterName, double *magprim, 

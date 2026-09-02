@@ -287,6 +287,8 @@ double get_calib_zpoff_file__(int *OPT_FRAME, int *ifiltdef);
 
 void abort_calib_frame(int OPT_FRAME, char *callFun) ;
 
+void malloc_calib_filter(int OPT, FILTERCAL_DEF *FILTERCAL, int NBL, int ifilt);
+
 // K-cor functions for MLCS, snoopy ...
 
 void PREPARE_KCOR_TABLES(void);

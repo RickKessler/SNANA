@@ -1597,10 +1597,9 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
   //   ARRAY_TRANS  : transmmission array to store
   //
   //
+  // Sep 02 2026: use malloc_calib_filter() util to malloc and free wave-dependent arrays
 
   FILTERCAL_DEF *FILTERCAL = NULL ;
-  int MEMD  = NBL * sizeof(double);
-  int MEMI  = NBL * sizeof(int);
   
   bool IS_MALLOC ;
   int ilam, ifilt, ilam_min, ilam_max ;
@@ -1621,15 +1620,24 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
 
   // if arrays already malloc'ed, free them for another use.
   IS_MALLOC = (FILTERCAL->NBIN_LAM[ifilt] > 0 );
+  if ( IS_MALLOC ) { malloc_calib_filter(-1, FILTERCAL, NBL, ifilt); }
+
+  /* xxx mark del Sep 2026 xxxxxx
+
+  int MEMD  = NBL * sizeof(double);
+  int MEMI  = NBL * sizeof(int);
   if ( IS_MALLOC ) {
     free(FILTERCAL->LAM[ifilt]);
     free(FILTERCAL->TRANS[ifilt]);
     free(FILTERCAL->ILAM_SED[ifilt]);
   }
-
   FILTERCAL->LAM[ifilt]      = (double*)malloc(MEMD);
   FILTERCAL->TRANS[ifilt]    = (double*)malloc(MEMD);
   FILTERCAL->ILAM_SED[ifilt] = (int   *)malloc(MEMI);
+  xxxxxx end mark */
+
+
+  malloc_calib_filter(+1, FILTERCAL, NBL, ifilt);
 
   // determine min and max ilam that contains Trans>0 
   ilam_min = 9999999;  ilam_max = -9;
@@ -1641,45 +1649,9 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
     }
   }
 
-
-
-
   // add extra edge bin with zero transmission
   if ( ilam_min > 0     ) { ilam_min-- ; }
   if ( ilam_max < NBL-1 ) { ilam_max++ ; }
-
-
-  /* xxxx mark delete or move it into PREP_PRIMARY_MAG_WAVESHIFT_GRID xxxxxxx
-
-  printf(" xxx %s: hello for ifilt=%d NGRID=%d \n", 
-	 fnam , ifilt, PRIMARY_MAG_WAVESHIFT_GRID.NGRID);  fflush(stdout);
-
-  // Sep 1 2026 R.Kessler - if WAVESHIFT grid is defined, extend bins with zero transmission
-  // sincec these bins may have T>0 with waveshift
-  if ( PRIMARY_MAG_WAVESHIFT_GRID.NGRID > 0 ) {
-    double waveshift_min  = (double)PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MIN ; //  negatgive -> bluer
-    double waveshift_max  = (double)PRIMARY_MAG_WAVESHIFT_GRID.IWAVESHIFT_MAX ; //  positive -> redder
-    double LAMBIN         = FILTERCAL->LAMBIN[ifilt]; // filter trans bin size (not waveshift bin)
-    int    ilamshift_neg  = (int)(waveshift_min / LAMBIN ) - 2 ;
-    int    ilamshift_pos  = (int)(waveshift_max / LAMBIN ) + 2 ;
-
-    // shift ilam_min only if waveshift_min < 0
-    if ( ilamshift_neg < 0 && ilam_min + ilamshift_neg  >= 0  ) { 
-      ilam_min += ilamshift_neg; 
-      printf(" %s: extend blue edge of %s-band by %d bins (%.1f A) \n",
-	     fnam, FILTERCAL->BAND_NAME[ifilt], ilamshift_neg, waveshift_min ); fflush(stdout);
-    }
-
-    // shift ilam_max only if waveshift_max > 0
-    if ( ilamshift_pos > 0 && ilam_max + ilamshift_pos < NBL  ) { 
-      ilam_max += ilamshift_pos; 
-      printf(" %s: extend red  edge of %s-band by %d bins (%.1f A) \n",
-	     fnam, FILTERCAL->BAND_NAME[ifilt], ilamshift_pos, waveshift_max ); fflush(stdout);
-    }
-     
-  }
-  xxxxxxxxxxxx end mark xxxxxx */
-
 
 
   // - - - - - 
@@ -1724,6 +1696,28 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
   return ;
 
 } // end load_filterTrans_calib
+
+void malloc_calib_filter(int OPT, FILTERCAL_DEF *FILTERCAL, int NBL, int ifilt) {
+
+  int MEMD  = NBL * sizeof(double);
+  int MEMI  = NBL * sizeof(int);
+  char fnam[] = "malloc_calib_filter" ;  (void)fnam;
+
+  // ---------- BEGIN ----------
+  if ( OPT > 0 ) {
+    FILTERCAL->LAM[ifilt]      = (double*)malloc(MEMD);
+    FILTERCAL->TRANS[ifilt]    = (double*)malloc(MEMD);
+    FILTERCAL->ILAM_SED[ifilt] = (int   *)malloc(MEMI);
+  }
+  else {
+    free(FILTERCAL->LAM[ifilt]);  
+    free(FILTERCAL->TRANS[ifilt]);
+    free(FILTERCAL->ILAM_SED[ifilt]);
+  }
+
+  return ;
+
+} // end malloc_calib_filter
 
 void load_filtertrans_calib__(int *OPT_FRAME, int *IFILTDEF, int *NBL,
                               double *ARRAY_LAM, double *ARRAY_TRANS) {
@@ -2314,7 +2308,65 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
   }
 
   fflush(stdout);
-  //  debugexit(fnam);
+
+
+  // Extend wave bins for each filter to accomodate min and max waveshift;
+  // this is needed later in INTEG_zSED (genmag_SALT2), and perhaps other models.
+  double wavecor_min, wavecor_max, LAMBIN;
+  int    NBLAM_ORIG, NBLAM_NEW, ilamshift_neg, ilamshift_pos, ilam_orig, ilam_new, ilamshift ;
+  FILTERCAL_DEF FILTERCAL_ORIG ;
+
+  bool  NEW_BIN;
+  wavecor_min  = (double)IWAVECOR_MIN ; //  negatgive -> bluer 
+  wavecor_max  = (double)IWAVECOR_MAX ; //  positive -> redder 
+
+
+  for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+    LAMBIN         = FILTERCAL->LAMBIN[ifilt];     // filter trans bin size (not waveshift bin)
+    ilamshift_neg  = (int)(wavecor_min / LAMBIN ) - 2 ;  
+    ilamshift_pos  = (int)(wavecor_max / LAMBIN ) + 2 ; 
+
+
+    NBLAM_ORIG           = FILTERCAL->NBIN_LAM[ifilt] ;	
+    NBLAM_NEW            = NBLAM_ORIG ;
+    ilamshift = 0;
+    if ( ilamshift_neg < 0 ) { NBLAM_NEW -= ilamshift_neg; ilamshift = ilamshift_neg; }
+    if ( ilamshift_pos > 0 ) { NBLAM_NEW += ilamshift_pos; }
+
+    // copy original wave-dependent info into local array to avoid clobbering during array update
+    malloc_calib_filter(+1, &FILTERCAL_ORIG, NBLAM_ORIG, ifilt);
+    for(ilam_orig=0; ilam_orig < NBLAM_ORIG; ilam_orig++ ) {
+      //      printf(" xxx %s: \t ilam_orig = %d of %d \n", fnam, ilam_orig, NBLAM_ORIG );
+
+      FILTERCAL_ORIG.LAM[ifilt][ilam_orig]       = FILTERCAL->LAM[ifilt][ilam_orig];
+      FILTERCAL_ORIG.TRANS[ifilt][ilam_orig]     = FILTERCAL->TRANS[ifilt][ilam_orig] ;
+      FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig]  = FILTERCAL->ILAM_SED[ifilt][ilam_orig] ;
+    }
+   
+
+    for(ilam_new=0; ilam_new < NBLAM_NEW; ilam_new++ ) {
+
+      ilam_orig = ilam_new + ilamshift ;
+      NEW_BIN = ( ilam_orig < 0 || ilam_orig >= NBLAM_ORIG );
+      if ( NEW_BIN ) {
+	// add pad bin with zero transmission, but correct wavelength and ILAM_SED
+	FILTERCAL->LAM[ifilt][ilam_new]       = 0.0 ; // to be fixed !!!
+	FILTERCAL->TRANS[ifilt][ilam_new]     = 0.0 ; // trans=0 on pad bins
+	FILTERCAL->ILAM_SED[ifilt][ilam_new]  = 0;    // to be fixed !!!
+      }
+      else {
+	FILTERCAL->LAM[ifilt][ilam_new]       = FILTERCAL_ORIG.LAM[ifilt][ilam_orig];
+	FILTERCAL->TRANS[ifilt][ilam_new]     = FILTERCAL_ORIG.TRANS[ifilt][ilam_orig] ;
+	FILTERCAL->ILAM_SED[ifilt][ilam_new]  = FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig] ;
+      }
+    }
+
+    FILTERCAL->NBIN_LAM[ifilt] = NBLAM_NEW;
+    malloc_calib_filter(-1, &FILTERCAL_ORIG, NBLAM_ORIG, ifilt);
+
+  } // end ifilt loop
+
+  debugexit(fnam);
  
   return ;
 
@@ -2329,6 +2381,7 @@ double compute_primary_mag(int ifilt, double WAVECOR) {
   // Created Aug 2026
   // Compute and store primargy mag for input IFILT and WAVECOR.
   // Used with WAVECOR column in MAGCOR_FILE 
+  //
 
   FILTERCAL_DEF *FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ;
   int NBLAM_FILT           = FILTERCAL->NBIN_LAM[ifilt] ;

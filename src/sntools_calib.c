@@ -2312,11 +2312,13 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   // Extend wave bins for each filter to accomodate min and max waveshift;
   // this is needed later in INTEG_zSED (genmag_SALT2), and perhaps other models.
-  double wavecor_min, wavecor_max, LAMBIN;
-  int    NBLAM_ORIG, NBLAM_NEW, ilamshift_neg, ilamshift_pos, ilam_orig, ilam_new, ilamshift ;
+  double wavecor_min, wavecor_max, LAMBIN, LAM, TRANS ;
+  int    NBLAM_ORIG, NBLAM_NEW, ilamshift_neg, ilamshift_pos, ilam_orig, ilam_new, ilamshift, ILAM_SED  ;
   FILTERCAL_DEF FILTERCAL_ORIG ;
-
   bool  NEW_BIN;
+  char  *BAND_NAME;
+  int LDMP = 0, NLAM_DUMP=15;
+
   wavecor_min  = (double)IWAVECOR_MIN ; //  negatgive -> bluer 
   wavecor_max  = (double)IWAVECOR_MAX ; //  positive -> redder 
 
@@ -2326,7 +2328,7 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
     ilamshift_neg  = (int)(wavecor_min / LAMBIN ) - 2 ;  
     ilamshift_pos  = (int)(wavecor_max / LAMBIN ) + 2 ; 
 
-
+    BAND_NAME            = FILTERCAL->BAND_NAME[ifilt] ;	
     NBLAM_ORIG           = FILTERCAL->NBIN_LAM[ifilt] ;	
     NBLAM_NEW            = NBLAM_ORIG ;
     ilamshift = 0;
@@ -2337,36 +2339,100 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
     malloc_calib_filter(+1, &FILTERCAL_ORIG, NBLAM_ORIG, ifilt);
     for(ilam_orig=0; ilam_orig < NBLAM_ORIG; ilam_orig++ ) {
       //      printf(" xxx %s: \t ilam_orig = %d of %d \n", fnam, ilam_orig, NBLAM_ORIG );
-
       FILTERCAL_ORIG.LAM[ifilt][ilam_orig]       = FILTERCAL->LAM[ifilt][ilam_orig];
       FILTERCAL_ORIG.TRANS[ifilt][ilam_orig]     = FILTERCAL->TRANS[ifilt][ilam_orig] ;
       FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig]  = FILTERCAL->ILAM_SED[ifilt][ilam_orig] ;
     }
    
+    if ( LDMP ) {
+      printf(" xxx \n");
+      printf(" xxx %s DUMP for ifilt=%d(%s) ----------------------------- \n", fnam, ifilt, BAND_NAME);
+      printf(" xxx %s: NBLAM[ORIG->NEW] = %d -> %d \n", fnam, NBLAM_ORIG, NBLAM_NEW);
+      printf(" xxx %s: ilamshift[neg/pos] = %d / %d \n", fnam, ilamshift_neg, ilamshift_pos);
+      fflush(stdout);
+    }
+
+    int ilam_diff_new = 0;
 
     for(ilam_new=0; ilam_new < NBLAM_NEW; ilam_new++ ) {
 
       ilam_orig = ilam_new + ilamshift ;
-      NEW_BIN = ( ilam_orig < 0 || ilam_orig >= NBLAM_ORIG );
+      if ( ilam_orig >= NBLAM_ORIG ) { ilam_orig = 77777; }
+      NEW_BIN = ( ilam_orig < 0 || ilam_orig >= NBLAM_ORIG) ;
+
+      LAM       = -9.0 ; 
+      TRANS     = -9.0 ; 
+      ILAM_SED  = -9 ;
+
       if ( NEW_BIN ) {
 	// add pad bin with zero transmission, but correct wavelength and ILAM_SED
-	FILTERCAL->LAM[ifilt][ilam_new]       = 0.0 ; // to be fixed !!!
-	FILTERCAL->TRANS[ifilt][ilam_new]     = 0.0 ; // trans=0 on pad bins
-	FILTERCAL->ILAM_SED[ifilt][ilam_new]  = 0;    // to be fixed !!!
+	TRANS     = 0.0 ;
+	if ( ilam_orig < 0 ) { 
+	  LAM       =  FILTERCAL_ORIG.LAM[ifilt][0]      + (double)(ilam_orig) * LAMBIN ;
+	  ILAM_SED  =  FILTERCAL_ORIG.ILAM_SED[ifilt][0] + ilam_orig  ; 
+	}
+	else {
+	  ilam_diff_new++ ;
+	  double LAM_LAST_ORIG   = FILTERCAL_ORIG.LAM[ifilt][NBLAM_ORIG-1]  ;
+	  int ILAM_SED_LAST_ORIG = FILTERCAL_ORIG.ILAM_SED[ifilt][NBLAM_ORIG-1]  ;
+	  LAM      = LAM_LAST_ORIG      + (double)(ilam_diff_new) * LAMBIN ;
+	  ILAM_SED = ILAM_SED_LAST_ORIG + (ilam_diff_new) ;
+
+	}
       }
       else {
-	FILTERCAL->LAM[ifilt][ilam_new]       = FILTERCAL_ORIG.LAM[ifilt][ilam_orig];
-	FILTERCAL->TRANS[ifilt][ilam_new]     = FILTERCAL_ORIG.TRANS[ifilt][ilam_orig] ;
-	FILTERCAL->ILAM_SED[ifilt][ilam_new]  = FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig] ;
+	LAM       = FILTERCAL_ORIG.LAM[ifilt][ilam_orig];
+	TRANS     = FILTERCAL_ORIG.TRANS[ifilt][ilam_orig] ;
+	ILAM_SED  = FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig] ;
       }
+
+      if ( LDMP && (ilam_new<NLAM_DUMP || ilam_new > NBLAM_NEW-NLAM_DUMP ) )  {
+	printf(" xxx \t ilam[orig/new] =%4d / %4d  LAM=%7.1f  TRANS=%.3f  ILAM_SED=%5d \n",
+	       ilam_orig, ilam_new, LAM, TRANS, ILAM_SED); fflush(stdout);
+      }
+
+      FILTERCAL->LAM[ifilt][ilam_new]       = LAM;
+      FILTERCAL->TRANS[ifilt][ilam_new]     = TRANS ;
+      FILTERCAL->ILAM_SED[ifilt][ilam_new]  = ILAM_SED ;
     }
+
+    printf("\t Extend %s band wave grid: [%7.1f %7.1f] -> [%7.1f %7.1f]   NBLAM=%4d -> %4d \n",
+	   BAND_NAME, 
+	   FILTERCAL_ORIG.LAM[ifilt][0], FILTERCAL_ORIG.LAM[ifilt][NBLAM_ORIG-1],
+	   FILTERCAL->LAM[ifilt][0], FILTERCAL->LAM[ifilt][NBLAM_NEW-1],
+	   NBLAM_ORIG, NBLAM_NEW );
+    fflush(stdout);
+
+    // final sanity check that LAM and ILAM_SED increment properly;
+    // loop starts at 1, not 0
+    double LAMDIF;   int ILAM_SED_DIFF ;
+    for(ilam_new=1; ilam_new < NBLAM_NEW; ilam_new++ ) {
+      LAMDIF        = FILTERCAL->LAM[ifilt][ilam_new] - FILTERCAL->LAM[ifilt][ilam_new-1];
+      ILAM_SED_DIFF = FILTERCAL->ILAM_SED[ifilt][ilam_new] - FILTERCAL->ILAM_SED[ifilt][ilam_new-1];
+      if ( abs(LAMDIF - LAMBIN) > .00001 ) {
+	sprintf(c1err,"Detected bad LAM array: LAMDIF=%f but expected LAMDIF=%.1f",
+		LAMDIF, LAMBIN);
+	sprintf(c2err,"ilam_new=%d  LAM=%f  ifilt=%d(%s)",
+		ilam_new, FILTERCAL->LAM[ifilt][ilam_new], ifilt, BAND_NAME);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+      if ( ILAM_SED_DIFF != 1 ) {
+	sprintf(c1err,"Detected bad ILAM_SED array: ILAM_SED_DIFF=%d but expected 1",
+		ILAM_SED_DIFF);
+	sprintf(c2err,"ilam_new=%d  LAM=%f ILAM_SED=%d ifilt=%d(%s)",
+		ilam_new, FILTERCAL->LAM[ifilt][ilam_new], FILTERCAL->ILAM_SED[ifilt][ilam_new], ifilt, BAND_NAME);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+    }     // end sanity check
 
     FILTERCAL->NBIN_LAM[ifilt] = NBLAM_NEW;
     malloc_calib_filter(-1, &FILTERCAL_ORIG, NBLAM_ORIG, ifilt);
 
   } // end ifilt loop
 
-  debugexit(fnam);
+  //debugexit(fnam);
  
   return ;
 

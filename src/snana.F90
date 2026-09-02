@@ -1710,8 +1710,9 @@
         ,FLUXERRMODEL_FILE      &  ! I: DATA ONLY: err-fudge maps
         ,SIM_FLUXERRMODEL_FILE  &  ! I: idem, SIM only
         ,MAGCOR_FILE            &  ! I: DATA ONLY: mag-cor for each CID-MJD-band
-        ,SIM_MAGCOR_FILE       ! I: idem, SIM only
+        ,SIM_MAGCOR_FILE           ! I: idem, SIM only
 
+    
     CHARACTER*(MXFILE_LIST*MXCHAR_FILENAME)  &
           HEADER_OVERRIDE_FILE        &  ! I: comma-sep list of files with CID VAR
          ,HEADER_OVERRIDE_DIR         &  ! I: folder containing header_override files
@@ -1768,7 +1769,9 @@
                                  ! I: 4=use each FITPAR and ERROR as prior
         ,FLAG_USE_SAME_EVENTS  & ! I: same as legacy OPT_SNCID_LIST
         ,OPT_VPEC_COR          &    ! I: 1=apply vpec cor (default)
-        ,REFAC_DATA_FLAG            ! I: flag to refactor data structure
+        ,REFAC_DATA_FLAG       &     ! I: flag to refactor data structure
+        ,FORCE_MAGCOR_ZERO     &  ! I: use magcor infrastructure with magcor=0 (for testing only)
+        ,FORCE_WAVECOR_ZERO        ! I: use wavecor infrastructure with wavecor=0 (for testing only)
 
     LOGICAL  & 
          LSIM_SEARCH_SPEC    &  ! I: T => require simulated SPEC-tag
@@ -1961,7 +1964,8 @@
          ,FUDGE_FLUXERR_SCALE  & 
          ,FUDGE_MAG_ERROR, FUDGE_MAG_COVERR, SIM_FUDGE_MAG_ERROR  & 
          ,FLUXERRMODEL_FILE,SIM_FLUXERRMODEL_FILE,FLUXERRMODEL_OPTMASK  & 
-         ,MAGCOR_FILE, SIM_MAGCOR_FILE, FUDGE_HOSTNOISE_FILE  & 
+         ,MAGCOR_FILE, SIM_MAGCOR_FILE, FORCE_MAGCOR_ZERO, FORCE_WAVECOR_ZERO &
+         ,FUDGE_HOSTNOISE_FILE  & 
          ,RV_MWCOLORLAW, OPT_MWCOLORLAW, PARLIST_MWCOLORLAW, OPT_MWEBV  & 
          ,MWEBV_SCALE, MWEBV_SHIFT, MWEBV_FORCE  & 
          ,HOSTGAL_ZPHOT_SHIFT, HOSTGAL_ZSPEC_SHIFT  & 
@@ -5936,6 +5940,8 @@
     FLUXERRMODEL_OPTMASK = 0
     MAGCOR_FILE          = ''
     SIM_MAGCOR_FILE      = ''
+    FORCE_MAGCOR_ZERO    = 0
+    FORCE_WAVECOR_ZERO   = 0
 
     MWEBV_SCALE    = 1.0
     MWEBV_SHIFT    = 0.0
@@ -8189,6 +8195,14 @@
        else if ( MATCH_NMLKEY('SIM_MAGCOR_FILE',  & 
                    1, iArg, ARGLIST) ) then
          SIM_MAGCOR_FILE = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+       else if ( MATCH_NMLKEY('FORCE_MAGCOR_ZERO',  & 
+                   1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*)  FORCE_MAGCOR_ZERO 
+
+       else if ( MATCH_NMLKEY('FORCE_WAVECOR_ZERO',  & 
+                   1, iArg, ARGLIST) ) then
+          READ(ARGLIST(1),*)  FORCE_WAVECOR_ZERO 
 
 ! - - - - - - -
       else if ( MATCH_NMLKEY('RV_MWCOLORLAW',  & 
@@ -16889,15 +16903,19 @@
       endif
 
       if ( IS_MAGCOR ) then
+         IF ( FORCE_MAGCOR_ZERO > 0 ) VAL = 0.0   ! for testing only
          NUSE_MAGCOR     = NUSE_MAGCOR    + 1
          FCOR   = 10**(-0.4*VAL)
          SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * FCOR
          SNLC_MAG(ep)     = SNLC_MAG(ep) + VAL
       else if ( IS_WAVECOR ) then
+         IF ( FORCE_WAVECOR_ZERO > 0 ) VAL = 0.0   ! for testing only
          NUSE_WAVECOR  = NUSE_WAVECOR + 1
          SNLC_WAVECOR(ep) = VAL  ! store for later use
       else
-         ! abort ??
+         C1ERR = 'Not MAGCOR nor WAVEOR ???'
+         C2ERR = 'Something is really messed up'
+         CALL MADABORT(FNAM,C1ERR,C2ERR)   ! Jun 8 2020
       endif
   
    ELSE

@@ -26,7 +26,7 @@ struct {
   char VARNAME_MATCH[60];  // e.g., CID, SNID, GALID ...
 
   // logicals to decide if zCMB or zHEL needs to be recomputed.
-  int  IVAR_zCMB, IVAR_zHEL;
+  int  IVAR_zCMB, IVAR_zHEL, IVAR_zCMBERR, IVAR_zHELERR;
   int  IVAR_HOSTGAL_ZPHOT[MXHOSTGAL], IVAR_HOSTGAL_ZPHOT_ERR[MXHOSTGAL];
   int  IVAR_HOSTGALz_QUANTILE_ZPHOT[MXHOSTGAL] ;
   int  IVAR_HOSTGALz_LOGMASS[MXHOSTGAL] ;

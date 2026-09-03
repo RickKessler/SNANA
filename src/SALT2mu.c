@@ -7743,7 +7743,7 @@ void read_data_override(void) {
 	}
 	else if ( ivar_over == IVAR_OVER_zHELERR || ivar_over == IVAR_OVER_zCMBERR ) {
 	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHELERR][isn] = dval;
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMBERR][isn] = dval;
+	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMBERR][isn] = dval;  // .xyz ??? check git issue 1771
 	  if ( !override_zhderr ) { NSN_CHANGE[IVAR_OVER_zHDERR]++ ; }
           override_zhderr = true ;
 	}

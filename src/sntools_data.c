@@ -1361,6 +1361,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   // Oct 3 2023: add input REQUIRE_DOCANA
   // Feb 24 2026: abort if there is a mix of override files keyed by CID and GALID
   // Mar 20 2026: refactor to allow either file list or directory to be passed.
+  // Sep 02 2026: check zHELERR and zCMBERR
 
   int NROW, ivar, igal, ifile, ICAST, IFILE, IVAR, NFILE = 0;
   int OPTMASK_SNTABLE = 4;           // append next file
@@ -1462,8 +1463,8 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
 
   // - - - - - - - 
   // set z logicals in case zHEL <-> zCMB needs to be recomputed
-  RD_OVERRIDE.IVAR_zCMB = -9 ;
-  RD_OVERRIDE.IVAR_zHEL = -9 ; 
+  RD_OVERRIDE.IVAR_zCMB = RD_OVERRIDE.IVAR_zCMBERR = -9 ;
+  RD_OVERRIDE.IVAR_zHEL = RD_OVERRIDE.IVAR_zHELERR = -9 ; 
 
   for(igal=0; igal < MXHOSTGAL; igal++ ) {
     RD_OVERRIDE.IVAR_HOSTGAL_ZPHOT[igal]           = -9 ;
@@ -1482,8 +1483,14 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_CMB") ) 
     { RD_OVERRIDE.IVAR_zCMB = IVAR_VARNAME_AUTOSTORE("REDSHIFT_CMB", &ICAST, &IFILE  ); }
 
+  if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_CMB_ERR") ) 
+    { RD_OVERRIDE.IVAR_zCMBERR = IVAR_VARNAME_AUTOSTORE("REDSHIFT_CMB_ERR", &ICAST, &IFILE  ); }
+
   if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_HELIO") ) 
     { RD_OVERRIDE.IVAR_zHEL = IVAR_VARNAME_AUTOSTORE("REDSHIFT_HELIO", &ICAST, &IFILE  ); }
+
+  if ( EXIST_VARNAME_AUTOSTORE("REDSHIFT_HELIO_ERR") ) 
+    { RD_OVERRIDE.IVAR_zHELERR = IVAR_VARNAME_AUTOSTORE("REDSHIFT_HELIO_ERR", &ICAST, &IFILE  ); }
 
 
   //check ZPHOT & host quantiles for all hosts
@@ -2074,17 +2081,26 @@ void rd_override_append(void) {
 void rd_override_zspec(void) {
 
   // If either zCMB or zHEL is on override list; recompute the other.
+  // Sep 02 2026: check zHELERR and zCMBERR
 
   double RA  = SNDATA.RA_AVG ;
   double DEC = SNDATA.DEC_AVG ;
-  bool FOUND_zspec = ( RD_OVERRIDE.IVAR_zCMB>=0 || RD_OVERRIDE.IVAR_zHEL>=0 );
+  bool FOUND_z     = ( RD_OVERRIDE.IVAR_zCMB    >=0 || RD_OVERRIDE.IVAR_zHEL    >= 0 );
+  bool FOUND_zerr  = ( RD_OVERRIDE.IVAR_zCMBERR >=0 || RD_OVERRIDE.IVAR_zHELERR >= 0 );
 
-  double zCMB, zHEL;
+  double zCMB, zHEL, zERR;
   char fnam[] = "rd_override_zspec" ;  (void)fnam;
 
   // ---------- BEGIN -------------
 
-  if ( !FOUND_zspec ) { return; }
+  if ( !(FOUND_z || FOUND_zerr) ) { return; }
+
+  /* xxx
+  printf(" xxx %s:  IVAR[zCMB,zHEL,zCMBERR,zHELERR] = %d  %d  %d  %d \n", 
+	 fnam, 
+	 RD_OVERRIDE.IVAR_zCMB, RD_OVERRIDE.IVAR_zHEL,
+	 RD_OVERRIDE.IVAR_zCMBERR, RD_OVERRIDE.IVAR_zHELERR ); fflush(stdout);
+  xxxxx */
 
   if ( RD_OVERRIDE.IVAR_zCMB >=0 ) {
     zCMB = (double)SNDATA.REDSHIFT_FINAL;
@@ -2095,6 +2111,18 @@ void rd_override_zspec(void) {
     zHEL = (double)SNDATA.REDSHIFT_HELIO ;
     zCMB = zhelio_zcmb_translator(zHEL,RA,DEC,COORDSYS_EQ,+1);
     SNDATA.REDSHIFT_FINAL = (float)zCMB ;
+  }
+
+  // - - - - - - - - - - -
+
+
+  if ( RD_OVERRIDE.IVAR_zHELERR >= 0 ) {
+    zERR = (double)SNDATA.REDSHIFT_HELIO_ERR ;
+    SNDATA.REDSHIFT_FINAL_ERR = (float)zERR ;
+  }
+  else if ( RD_OVERRIDE.IVAR_zCMBERR >= 0 ) {
+    zERR = (double)SNDATA.REDSHIFT_FINAL_ERR ;
+    SNDATA.REDSHIFT_HELIO_ERR = (float)zERR ;
   }
 
 

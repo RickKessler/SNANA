@@ -24160,6 +24160,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    genamg_SALT2.c[h]:
      + pass waveshift to genmag_SALT2 (structural change, not yet implemented)
 
+   sntools_data.c[h]
+     + REDSHIFT_HELIO_ERR is on header override, then update REDSHIFT_CMB_ERR ...
+       and vice-versa. Impacts snana/snlc_fit/psnid.exe
+
    all:
      + change WAVESHIFT to WAVECOR everywhere to indicate "correction" that is
        analogous to MAGCOR correction. "SHIFT" is reserved for systematic shift,

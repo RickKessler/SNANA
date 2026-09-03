@@ -36,10 +36,13 @@
 #define GENMODEL_MSKOPT_SALT2_REQUIRE_DOCANA      OPENMASK_REQUIRE_DOCANA  // =2
 #define GENMODEL_MSKOPT_SALT2_DISABLE_MAGSHIFT    4  // disable syst MAGSHIFT keys
 #define GENMODEL_MSKOPT_SALT2_DISABLE_WAVESHIFT   8  // disable syst WAVESHIFT keys
-#define GENMODEL_MSKOPT_SALT2_ABORT_LAMRANGE   64  // abort on bad model-LAMRANGE
+#define GENMODEL_MSKOPT_SALT2_FORCE_POSFLUX      16  // force SED flux > 0 everywhere
+#define GENMODEL_MSKOPT_SALT2_WAVECOR            32  // check wavecor for filter bandpasses
+#define GENMODEL_MSKOPT_SALT2_ABORT_LAMRANGE     64  // abort on bad model-LAMRANGE
 #define GENMODEL_MSKOPT_SALT2_DEBUG   1024    // Refactor for developer only
 
 
+int  DO_WAVECOR_SALT2 ;
 int  DEBUG_SALT2;
 int  NCALL_DBUG_SALT2 ; 
 int  RELAX_IDIOT_CHECK_SALT2;

@@ -272,8 +272,9 @@ int copy_filter_trans_SALT2(int ifilt, double **lam, double **trans,
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs, 
 		      double wavecor,
 		      double *parList_SN, double *parList_HOST,
+		      int DUMPFLAG,
 		      double *Finteg, double *Finteg_errPar, 
-		      double *Fspec );
+		      double *Fspec);
 
 int gencovar_SALT2(int MATSIZE, int *ifilt_obs, double *epobs, 
 		   double z, double *parList_SN, double *parList_HOST, 

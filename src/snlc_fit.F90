@@ -5497,10 +5497,13 @@
            endif
         endif
 
-        LDEBUG = .FALSE.
+        LDEBUG = .TRUE.
         if ( LDEBUG ) then
-        ! .xyz MJD  = R8EP_MJD(IFITDATA_USRFUN),  IFILT_OBS
-           OPTMASK = OPTMASK + 8
+        ! .xyz
+           MJD  = R8EP_MJD(IFITDATA_USRFUN)          ! ,  IFILT_OBS 
+           if ( abs(MJD - 62453.3946) < 0.001 .and. SNLC_CID == 1793194) then 
+              OPTMASK = OPTMASK + 8
+           endif 
         ENDIF
 
         MSKFILT8(1) = IFILT_OBS_EVAL_MASK(1,ifilt_obs)

@@ -2141,7 +2141,7 @@ void genmag_SALT2(
   if ( (OPTMASK & 1)  ) { OPT_RETURN_FLUX = 1; }
   if ( (OPTMASK & 2)  ) { OPT_PRINT_BADFLUX = 1 ; }
   if ( (OPTMASK & 4)  ) { OPT_DOERR         = 0 ; } // Jul 2013
-  if ( (OPTMASK & 8)  ) { LDMP_DEBUG        = 1 ; }
+  if ( (OPTMASK & 8)  ) { LDMP_DEBUG        = (NCALL_DBUG_SALT2 == 0) ; }
 
   // translate absolute filter index into sparse index
   ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
@@ -2199,7 +2199,7 @@ void genmag_SALT2(
     // brute force integration
     Tobs_interp = Trest_interp * z1 ;
     INTEG_zSED_SALT2(0, ifilt_obs, z, Tobs_interp, wavecor,
-		     parList_SN, parList_HOST,
+		     parList_SN, parList_HOST, LDMP_DEBUG,
 		     &Finteg, &Finteg_errPar, FspecDum); // returned
     flux_interp = Finteg ;
 
@@ -2222,7 +2222,7 @@ void genmag_SALT2(
       flux_edge  = flux_interp ;
       Tobs_tmp   = Trest_tmp * z1 ;
       INTEG_zSED_SALT2(0,ifilt_obs, z, Tobs_tmp, wavecor,
-		       parList_SN, parList_HOST,
+		       parList_SN, parList_HOST,LDMP_DEBUG,
 		       &Finteg, &Finteg_errPar, FspecDum); // return
       flux_tmp = Finteg;
       
@@ -2280,7 +2280,7 @@ void genmag_SALT2(
     // ------------- DEBUG DUMP ONLY ------------------
     //    LDMP_DEBUG = ( ifilt_obs == 1 && magobs > 90.0 ) ;
 
-    if ( LDMP_DEBUG ) {
+    if ( LDMP_DEBUG  &&  NCALL_DBUG_SALT2 == 0) {
       printf("\n xxxx ================================================= \n");
       printf(" xxxx genmag_SALT2 dump \n" ) ;
       printf(" xxxx Trest(%s) = %6.2f   LAMrest = %6.0f  z=%6.4f\n", 
@@ -2291,6 +2291,8 @@ void genmag_SALT2(
 	     x1, c, Finteg ) ;
       printf(" xxxx ZP=%f  mwebv=%f \n", ZP, mwebv);
       printf(" xxxx colorCor = %f\n",  SALT2colorCor(meanlam_rest,c) ) ;
+      printf(" xxxx NCALL_DBUG_SALT2 = %d\n", NCALL_DBUG_SALT2) ;
+      NCALL_DBUG_SALT2 += 1 ;
       fflush(stdout);
     }
     // -------- END OF DEBUG DUMP  ------------
@@ -2525,7 +2527,7 @@ double magerrFudge_SALT2(double magerr_model,
 // **********************************************
 void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 		      double wavecor,
-		      double *parList_SN, double *parList_HOST,
+		      double *parList_SN, double *parList_HOST, int DUMPFLAG,
 		      double *Finteg, double *Finteg_errPar,
 		      double *Fspec ) {
 
@@ -3147,10 +3149,11 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
     ,Tobs, Trest, Trest_tmp, Trest_row, Trest_col
     ,FAC = 1.17882   //  [ 2.5/ln(10) ]^2
     ;
-
-    char *cfilt, cdum0[40], cdum1[40];
-
-    char fnam[] = "gencovar_SALT2" ;
+  
+  int DUMPFLAG = 0 ; 
+  
+  char *cfilt, cdum0[40], cdum1[40];
+  char fnam[] = "gencovar_SALT2" ;
 
   // -------------- BEGIN -----------------
   
@@ -3217,7 +3220,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
 	Trest = Trest_tmp ;
 	Tobs  = Trest * z1 ;
 
-	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, wavecor, parList_SN, parList_HOST, // (I)
+	INTEG_zSED_SALT2(0,ifilt_row,z,Tobs, wavecor, parList_SN, parList_HOST, DUMPFLAG, // (I)
 			 &Finteg, &Finteg_errPar, FspecDum); // returned
 
 	magerr = SALT2magerr(Trest, meanlam_rest, z, xx1, x2, 
@@ -3544,6 +3547,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   double FTMP_DAYMAX, MAG_DAYMAX ;
   double hc8 = (double)hc ;
   int    LDMP;
+  int DUMPFLAG = 0 ;
   char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
@@ -3571,7 +3575,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
       
 
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs_SED, wavecor,
-		   parList_SN, parList_HOST,
+		   parList_SN, parList_HOST, DUMPFLAG,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;
 
   FSCALE_ZP = pow(TEN,-0.4*MAG_OFFSET);
@@ -3663,7 +3667,8 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float wavecor_f, float z_f,
 
   double parList_SN[3]   = { x0, x1, c };
   double parList_HOST[3] = { RV_host, AV_host, m_host } ;
-
+  
+  int DUMPFLAG = 0 ;
   char fnam[] = "getSpec_band_SALT2" ;  (void)fnam;
 
   // ------------- BEGIN ---------------
@@ -3672,7 +3677,7 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float wavecor_f, float z_f,
   if ( Trest >= SALT2_TABLE.DAYMAX ) { return(0); }
 
   INTEG_zSED_SALT2(1, ifilt_obs, z, Tobs, wavecor,    // (I)
-		   parList_SN, parList_HOST,            // (I)
+		   parList_SN, parList_HOST, DUMPFLAG,           // (I)
 		   &Finteg, &Finteg_errPar, FLUXLIST ) ; // (O)
   
   Finteg_check = 0.0 ;  z1=1.0+z ;

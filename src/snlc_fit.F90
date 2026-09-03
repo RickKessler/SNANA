@@ -4268,11 +4268,11 @@
            ,RVHOST                   &  ! (I) color law
            ,MWEBV                    &  ! (I) MW extinct
            ,LDMPFUN_LOC              &  ! (I)
-           ,AVwarp              &  ! (O) AV warp for SEC
-           ,MAG_KCOR            &  ! (O) K-correction   error
-           ,XTAV                &  ! (O) host-gal extinct in rest-filter
-           ,XTMW                &  ! (O) MW extinct in obs-filter (mag)
-           ,MAG_ERR             &  ! (O) mag error from model
+           ,AVwarp                   &  ! (O) AV warp for SEC
+           ,MAG_KCOR                 &  ! (O) K-correction   error
+           ,XTAV                     &  ! (O) host-gal extinct in rest-filter
+           ,XTMW                     &  ! (O) MW extinct in obs-filter (mag)
+           ,MAG_ERR                  &  ! (O) mag error from model
            )
 
 ! convert MAG_ERR into flux-error
@@ -5193,7 +5193,7 @@
         ,NFILT_FITMAP_REST  & 
         ,IFILT_FITMAP_REST(MXFILT_OBS)  & 
         ,MSKTMP, NFTMP  & 
-        ,MSKSALT2, MSKBAYESN
+        ,OPTMASK, MSKBAYESN
 
     INTEGER*8 MSKFILT8(2), MSKTMP8(2)
 
@@ -5211,7 +5211,7 @@
           LTMP  & 
          ,LBESS_OBS, LSNXTAV, LSNXTMW, ISREST, ISOBS  & 
          ,LDMP, NEEDU,  DOKCOR13, LCRAZYMAG  & 
-         ,ABORT_ON_DMP
+         ,ABORT_ON_DMP, LDEBUG
 
 ! functions
     INTEGER  & 
@@ -5473,7 +5473,7 @@
 
     ELSE IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
 
-        MSKSALT2  = 0   ! bit0 => nominal, return flux
+        OPTMASK  = 0   ! bit0 => nominal, return flux
         SALT2x1 = SHAPE(1)
         SALT2x2 = SHAPE(2)    ! Dec 2023
         SALT2c  = AVHOST
@@ -5484,21 +5484,24 @@
 
         if ( OPT_SALT2FIT .EQ. 0  ) then  ! default
            SALT2x0 = DIST
-
         else if ( OPT_SALT2FIT .EQ. 1  ) then
            SALT2x0 = TEN8**DIST    ! MU
-
         else if ( OPT_SALT2FIT .EQ. 2  ) then
            MUTMP = (DIST + DLMAG_REF(ZSN))   ! DIST is really MUDIF
            SALT2x0 = SALT2x0calc(ZERO8,ZERO8, ZERO8, ZERO8, MUTMP )
-
         else if ( OPT_SALT2FIT .EQ. 4  ) then  ! emulate Julien/snfit
            SALT2x0 = DIST      ! same as for default
            if ( ITER .LE. 2 ) then
-              MSKSALT2 = 4     ! set errors to zero
+              OPTMASK  = 4     ! set errors to zero
               xx1      = 0.0   ! redundant
            endif
         endif
+
+        LDEBUG = .FALSE.
+        if ( LDEBUG ) then
+        ! .xyz MJD  = R8EP_MJD(IFITDATA_USRFUN),  IFILT_OBS
+           OPTMASK = OPTMASK + 8
+        ENDIF
 
         MSKFILT8(1) = IFILT_OBS_EVAL_MASK(1,ifilt_obs)
         MSKFILT8(2) = IFILT_OBS_EVAL_MASK(2,ifilt_obs)
@@ -5524,7 +5527,7 @@
            LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
            if ( LTMP ) then
               ! print*,' xxx Tobs, ifilt_obs, wavecor = ', sngl(Tobs), ifilt_obs, sngl(wavecor)
-              CALL genmag_salt2( MSKSALT2, ifilt2_obs     & 
+              CALL genmag_salt2( OPTMASK, ifilt2_obs     & 
                 , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL   & 
                 , ZSN, ZZ, Nepoch, Tobs                   &  !
                 , WAVECOR                                &  ! Aug 30 2026 .xyz
@@ -16737,9 +16740,8 @@
     
 ! local args
 
-    INTEGER  & 
-         IF1, IF2, IFILTOBS, IFILT, IMJD  & 
-         ,MSKSALT2, NEP, EP, EPMIN, EPMAX
+    INTEGER IF1, IF2, IFILTOBS, IFILT, IMJD 
+    INTEGER OPTMASK, NEP, EP, EPMIN, EPMAX
 
     REAL*8  & 
          z1, ZSN, LAMREST, LAMDIF1, LAMDIF2, LAMDIF  & 
@@ -16777,7 +16779,7 @@
                 'LAMDIF=',F5.0 )
     ENDIF
 
-    MSKSALT2 = 0   ! -> return mag
+    OPTMASK   = 0   ! -> return mag
     x0       = 1.0
     x1       = SHAPE
     xx1      = SHAPE
@@ -16814,14 +16816,14 @@
        ZSN     = REDSHIFT_FIT
        WAVECOR = 0.0 
 
-       CALL genmag_salt2( MSKSALT2, IFILTOBS,  & 
+       CALL genmag_salt2( OPTMASK, IFILTOBS,  & 
               PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN,  NEP, Tobs,  & 
               WAVECOR,               &  ! dummy arg, Sep 1 2026
               MAGOBS_MODEL, MAGERR )     ! return arg
 
 ! now the rest-frame
        ZSN     = 1.0E-6
-       CALL genmag_salt2( MSKSALT2, IFILTREST,  & 
+       CALL genmag_salt2( OPTMASK, IFILTREST,  & 
               PARLIST_SN, PARLIST_HOST, MWEBV, ZSN,ZSN, NEP, Trest,  & 
               WAVECOR,             &     ! dummy arg, Sep 1 2026
               MAGREST_MODEL, MAGERR )     ! return arg

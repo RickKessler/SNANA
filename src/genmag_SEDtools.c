@@ -1904,22 +1904,54 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) {
 }  // end  of IFILTSTAT_SEDMODEL
 
 
-void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS) {
+void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, double *TRANS) {
 
   // Created Mar 23 2021
   // For input ifilt and ilam, return LAM and TRANS.
   // Use different array for SPECTROGRAPH to hold more wave bins.
+  //
+  // Sep 3 2026: pass wavecor arg to return TRANS at shifted wavelenth
+
+  double LAM_LOCAL, TRANS_LOCAL;
+  char fnam[] = "get_LAMTRANS_SEDMODEL";
+
+  // ------------ BEGIN --------------
 
   if ( ifilt == JFILT_SPECTROGRAPH ) {
-    *LAM   = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
-    *TRANS = 1.0 ;
+    LAM_LOCAL   = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
+    TRANS_LOCAL = 1.0 ;
   }
   else {
-    *LAM   = FILTER_SEDMODEL[ifilt].lam[ilam];
-    *TRANS = FILTER_SEDMODEL[ifilt].transSN[ilam];
+    double *lam_array    = FILTER_SEDMODEL[ifilt].lam ;
+    double *trans_array  = FILTER_SEDMODEL[ifilt].transSN ;
+    LAM_LOCAL   = lam_array[ilam];
+    TRANS_LOCAL = trans_array[ilam];
+
+    if ( fabs(wavecor) > 0.01 ) {
+      int     NLAM        = FILTER_SEDMODEL[ifilt].NLAM ;
+      double  lam_temp    = LAM_LOCAL - wavecor ;       
+      bool    valid_lam   = lam_temp >= lam_array[0] && lam_temp <= lam_array[NLAM-1] ;   
+      if ( valid_lam ) {
+	// .xyz warning this interp is very inefficient; later should comput bin instead of searching for it
+	TRANS_LOCAL = interp_1DFUN(OPT_INTERP_LINEAR, lam_temp, NLAM,  
+				   lam_array, trans_array, fnam); 
+      }   
+      else {
+	// outside the original grid the shifted filter has no throughput 
+	TRANS_LOCAL = 0.0 ; 
+      }  // end valid_lam block   
+    } // end wavecor block
+
   }
 
-}// end get_LAMTRANS_SEDMODEL
+
+  // set output args
+  *LAM = LAM_LOCAL;
+  *TRANS = TRANS_LOCAL;
+    
+  return ;
+
+} // end get_LAMTRANS_SEDMODEL
 
 // ==============================================
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax) {

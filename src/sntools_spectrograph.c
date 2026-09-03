@@ -1218,9 +1218,11 @@ void compute_spectrograph_filter_overlap(void) {
 
   // Created Mar 21 2024
   // For each band, compute transmission-wgted overlap with spectrograph.
+  // This is just a diagnostic for SIMGEN*SPEC dump file, and not used for anything.
 
   int    ifilt, ifilt_obs, NLAM, ilam ;
   double LAMOBS, TRANS, SUMTRANS, SUMTRANS_SPEC, MAXTRANS,  OVERLAP ;  
+  double wavecor = 0.0 ;
   char fnam[] = "compute_spectrograph_filter_overlap";  (void)fnam;
 
   // ---------- BEGIN ---------
@@ -1243,7 +1245,7 @@ void compute_spectrograph_filter_overlap(void) {
     SUMTRANS = SUMTRANS_SPEC = MAXTRANS = 0.0 ;
     NLAM = FILTER_SEDMODEL[ifilt].NLAM;
     for ( ilam=0; ilam < NLAM; ilam++ ) {
-      get_LAMTRANS_SEDMODEL(ifilt, ilam,
+      get_LAMTRANS_SEDMODEL(ifilt, ilam, wavecor, 
 			    &LAMOBS, &TRANS );  // <== returned
       SUMTRANS += TRANS ;
       if ( TRANS > MAXTRANS ) { MAXTRANS = TRANS ; }

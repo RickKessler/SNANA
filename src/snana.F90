@@ -4427,7 +4427,7 @@
 ! Created Feb 2021
 ! Check keys KEY_PREFIX_[band] and return float FARRAY(ifilt).
 ! Mar 23 2021: fix bug using LENPRE
-
+! Sep 03 2026: set abort trap for ifilt_obs < 0     
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -4449,14 +4449,18 @@
 
     DO ifilt     = 1, NFILTDEF_READ
        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+
+       if ( ifilt_obs < 0 ) then
+          write(C1ERR,66) ifilt_obs, ifilt,  KEY_PREFIX(1:LENPRE)
+66        format('Invalid ifilt_obs=',I3,'  for ifilt=',I3, 2x,'KEY_PREFIX=',A)
+          C2ERR = 'Something is really messed up, perhaps FILTER_REPLACE?'
+          CALL MADABORT("RDHEAD_FILTERLOOP", C1ERR, C2ERR)       
+       endif  ! .xyz
+
        band      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
        KEY       = KEY_PREFIX(1:LENPRE) // '_' // band
        CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
        FARRAY(ifilt) = SNGL(DARRAY(1))
-
-!         write(6,66) KEY, FARRAY(ifilt)     ! xxx
-! 6       format(' xxx ', A20,' = ', F12.5 ) ! xxx
-
     ENDDO
     RETURN
   END SUBROUTINE RDHEAD_FILTERLOOP
@@ -11652,7 +11656,7 @@
        endif
        OPTMASK = 1+8 ! send reset for AUTOSTORE
        NCCID_FILE =  & 
-            MATCH_CIDLIST_INIT(cFILE,OPTMASK,cVARLIST_STORE, LENF, 60)
+            MATCH_CIDLIST_INIT(cFILE, OPTMASK, cVARLIST_STORE, LENF, 60)
     ENDIF
 
     write(6,31) NCID_LIST,  'integer SNCID_LIST'
@@ -12638,6 +12642,7 @@
     
     ! update global filter arrays
     NFILTDEF_SURVEY = NFILTOBS_REPLACE
+    NFILTDEF_READ   = NFILTOBS_REPLACE
     SURVEY_FILTERS  = SURVEY_FILTERS_REPLACE
     DO IFILT  = 1, MXFILT_OBS
        IFILTDEF_MAP_SURVEY(IFILT)    = IFILTDEF_MAP_REPLACE(IFILT)    

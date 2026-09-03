@@ -11319,6 +11319,7 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
   double LAMOBS, TRANS, flam, flamerr ;
   double flux_sum=0.0, varflux_sum=0.0, T_max=0.0, T_sum=0.0 ;
   double lamstep, ZP, LT, frac_err ; 
+  double wavecor = 0.0 ; // never do wavecor for sim;
   int  ifilt, NLAMFILT, ilam ; 
   int  OPT_INTERP = 1;     // linear
   char fnam[] = "GENSPEC_SYNMAG" ;
@@ -11341,12 +11342,12 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
   ZP          = FILTER_SEDMODEL[ifilt].ZP ;
 
 
-  // loop over filter-wave bins. Interpolate SED Flam at each filetr-wave bin.
+  // loop over filter-wave bins. Interpolate SED Flam at each filter-wave bin.
   flux_sum = 0.0 ;
   for ( ilam=0; ilam < NLAMFILT; ilam++ ) {
     
-    get_LAMTRANS_SEDMODEL(ifilt, ilam, 
-			  &LAMOBS, &TRANS );  // <== returned
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, wavecor,       // for synthetic mag
+			  &LAMOBS, &TRANS );          // <== returned
     if ( TRANS < 1.0E-12 ) { continue; }
     
     if ( LAMOBS < LAMAVG_LIST[0]          ) { continue; } // Mar 2024

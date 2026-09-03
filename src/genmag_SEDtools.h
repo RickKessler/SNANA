@@ -315,7 +315,7 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 
 void get_DAYRANGE_SEDMODEL(int ISED, double *DAYMIN, double *DAYMAX);
 
-void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double *LAM, double *TRANS);
+void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, double *TRANS);
 
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
 

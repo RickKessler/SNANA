@@ -2250,7 +2250,7 @@ void GET_MINMAX_VARNAME_AUTOSTORE(char *VARNAME, double *VALMIN, double *VALMAX)
   char fnam[] = "GET_MINMAX_VARNAME_AUTOSTORE";  (void)fnam;
   // ------------ BEGIN -------------
 
-  *VALMIN =  1.0E12 ;
+  *VALMIN =  1.0E20 ;
   *VALMAX = -1.0E20 ;
 
   IVAR_READ = IVAR_VARNAME_AUTOSTORE(VARNAME, &ICAST_READ, &IFILE_READ);
@@ -2291,11 +2291,15 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST, int *IFILE) {
   // Returns ivar [0:NVAR-1] if varName exists; else return -9
   // Jan 2025: return *ICAST to allow for double and chars
   // Aug 2026: return *IFILE
+  // Sep 3 2026: return ivar instead of ivar_tot (to work with multiple autostore files)
 
   int ivar, ifile, ivar_tot, NVAR_USR ;
-  char *varName_autostore, *CCAST ;
+  char *varName_autostore, CCAST[2] ;
+  bool EXIST ;
   bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
   // ------- BEGIN ---------
+
+  // xxx mark PRINT_LIST = true; // xxx REMOVE
 
   *ICAST = *IFILE = -9;
 
@@ -2303,17 +2307,19 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST, int *IFILE) {
   for(ifile=0; ifile < NFILE_AUTOSTORE; ifile++ ) {
     NVAR_USR = SNTABLE_AUTOSTORE[ifile].NVAR ;
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
+      EXIST             = SNTABLE_AUTOSTORE[ifile].EXIST[ivar];
       varName_autostore = SNTABLE_AUTOSTORE[ifile].VARNAME[ivar];
       *ICAST            = SNTABLE_AUTOSTORE[ifile].ICAST_READ[ivar];
       *IFILE            = ifile;
-      CCAST             = &CCAST_TABLEVAR[*ICAST]; 
+      sprintf(CCAST, "%c", CCAST_TABLEVAR[*ICAST]);
       if ( PRINT_LIST ) {
-	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s  (CAST=%s) \n", 
-	       ifile, ivar, varName_autostore, CCAST);
+	printf("\t VARNAME[ifile=%d,ivar=%2.2d] = %s  (ICAST=%d / CAST=%s) \n", 
+	       ifile, ivar, varName_autostore, *ICAST, CCAST);
 	fflush(stdout);
       }
       if ( strcmp(varName_autostore,varName)==0 ) {
-	if ( SNTABLE_AUTOSTORE[ifile].EXIST[ivar] ) { return(ivar_tot) ; }
+	if ( EXIST ) { return(ivar) ; }
+	// xxx mark delete Sep 3 2026  if ( EXIST ) { return(ivar_tot) ; }
       }
       ivar_tot++ ;
     }

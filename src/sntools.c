@@ -248,7 +248,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   //    OPTMASK=3 -> CID_IDSURVEY    (handles duplicate CIDs in different surveys)
   //    OPTMASK=5 -> CID_FIELD           
   //    OPTMASK=7 -> CID_IDSURVEY_FIELD    <<<=== recommended
-
+  //
   // OPTMASK += 8 -> this is first file, so reset AUTOSTORE
   //
   // varList_store : optional comma-sep list of variables to store,
@@ -501,7 +501,6 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     for(isn=0; isn < NCID; isn++ ) {
 
       // construct matching STRINGID based on match options
-
       sprintf(CCID,"%s", SNTABLE_AUTOSTORE[IFILE].CCID[isn]);
       sprintf(STRINGID,"%s", CCID); 
 
@@ -514,19 +513,10 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
       if ( USE_FIELD ) {
 	CVAL     = SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR_FIELD][isn];
-	// xxx mark if ( strstr(CVAL,"PRISM") != NULL ) { sprintf(CVAL,"DEEP+DEEP-PRISM"); }
 	sprintf(ctmp, "_%s", CVAL);
 	strcat(STRINGID, ctmp);
       }
       
-      // xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      if ( strstr(STRINGID,"100026") != NULL ) {
-	printf(" xxx %s: isn=%d   STRINGID = '%s' \n",
-	       fnam, isn, STRINGID); 
-	//debugexit(fnam);		
-      }
-      // xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
       match_cid_hash(STRINGID, ILIST, ISNOFF+isn);
       
       // check option to store extra columns of info
@@ -559,6 +549,9 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     printf(" xxx ------------------------------------------------------ \n");
     fflush(stdout);
   }
+
+  // - - - - -
+  SNTABLE_AUTOSTORE_RESET(); // Sep 2026
 
   return NCID ;
 

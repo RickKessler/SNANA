@@ -2166,7 +2166,11 @@ void genmag_SALT2(
 
   for ( epobs=0; epobs < Nobs; epobs++ ) {
     
-    wavecor = wavecor_list[epobs];
+    if ( DO_WAVECOR_SALT2 ) 
+      { wavecor = wavecor_list[epobs]; }
+    else
+      { wavecor = 0.0; }
+
     Tobs    = Tobs_list[epobs];
     Trest   = Tobs / z1 ;
 
@@ -2565,7 +2569,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Dec 28 2023: implement x2 component
   //
   // Sep 1 2026: R.Purohit apply optional epoch-dependent obs-frame filter wavecor.
-
+  // Sep 3 2026: pass wavecor arg to get_LAMTRANS_SEDMODEL
 
   int NSED = SEDMODEL.NSURFACE;
 
@@ -2599,8 +2603,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,Flam_filter[4], Flam_err[4], Flam_spec[4], parList_genSmear[10]
     ,hc8 = (double)hc ;
 
-  double *lam_array, *trans_array;
-
   bool zero_FLAM;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
@@ -2627,8 +2629,6 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
   NLAMFILT    = FILTER_SEDMODEL[ifilt].NLAM ;
   cfilt       = FILTER_SEDMODEL[ifilt].name ;
-  lam_array   = FILTER_SEDMODEL[ifilt].lam ; 
-  trans_array = FILTER_SEDMODEL[ifilt].transSN ; 
 
   z1        = 1. + z ;
   Trest     = Tobs/z1 ;
@@ -2693,7 +2693,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
 
     for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
-      get_LAMTRANS_SEDMODEL(ifilt,ilamobs, &LAMOBS, &TRANS);
+      get_LAMTRANS_SEDMODEL(ifilt,ilamobs, wavecor, &LAMOBS, &TRANS); // use LAMOBS only; ignore TRANS
       LAMSED       = (LAMOBS)/z1;  
       // protect undefined red end for low-z (July 2016)
       if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; }
@@ -2714,21 +2714,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   for ( ilamobs=0; ilamobs < NLAMFILT; ilamobs++ ) {
 
     // fetch LAM and TRANS with utility to account for spectrograph
-    get_LAMTRANS_SEDMODEL(ifilt, ilamobs, &LAMOBS, &TRANS);    
+    get_LAMTRANS_SEDMODEL(ifilt, ilamobs, wavecor, &LAMOBS, &TRANS);     // INTEG_zSED
 
-    if ( DO_WAVECOR_SALT2) { 
-      double  lam_temp    = LAMOBS - wavecor ; 
-      bool    valid_lam   = lam_temp >= lam_array[0] && lam_temp <= lam_array[NLAMFILT-1] ;
-      if ( valid_lam ) {
-	TRANS = interp_1DFUN(OPT_INTERP_LINEAR, lam_temp, NLAMFILT, 
-			     lam_array, trans_array, fnam); 
-      } 
-      else { 
-	// outside the original grid the shifted filter has no throughput 
-	TRANS = 0.0 ; 
-      }
-    } 
-    
     if ( TRANS < 1.0E-12 && OPT_SPEC==0) 
       { continue ; } // Jul 2013 - skip zeros for leakage
 
@@ -3691,7 +3678,9 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float wavecor_f, float z_f,
   Finteg_check = 0.0 ;  z1=1.0+z ;
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     
-    get_LAMTRANS_SEDMODEL(ifilt, ilam, &LAMOBS, &TRANS);
+    get_LAMTRANS_SEDMODEL(ifilt, ilam, wavecor, &LAMOBS, &TRANS); // getSpec_band_SALT2
+
+    // .xyz need to adjust TRANS for wavecor ??
 
     LAMLIST_f[ilam]  = (float)LAMOBS ;
     FLUXLIST_f[ilam] = (float)FLUXLIST[ilam];

@@ -1390,6 +1390,7 @@ int validRowKey_TEXT(char *string) {
   //  text-formatted table file.
   //  Return 0 otherwise.
 
+  char fnam[] = "validRowKey_TEXT";  (void)fnam;
   if ( strlen(string) < 2 ) { return 0 ; }
   if ( strcmp(string,"SN:")    == 0 ) { return 1; }
   if ( strcmp(string,"ROW:")   == 0 ) { return 1; }

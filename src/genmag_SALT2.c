@@ -2613,7 +2613,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     ,Finteg_filter[4], Finteg_forErr[4], Finteg_spec[4]
     ,Fbin_forFlux, Fbin_forSpec, Fnorm_SALT3, Fcheck, Ftmp
     ,Flam_filter[4], Flam_err[4], Flam_spec[4], parList_genSmear[10]
-    ,hc8 = (double)hc ;
+    ;
 
   bool zero_FLAM;
 
@@ -2668,7 +2668,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   // Note that the 1+z factor is missing because the integration 
   // is over observer-lambda instead of lambda-rest.
   MODELNORM_Fspec  = LAMFILT_STEP * SEDMODEL.FLUXSCALE ;
-  MODELNORM_Finteg = LAMFILT_STEP * SEDMODEL.FLUXSCALE / hc8 ;
+  MODELNORM_Finteg = LAMFILT_STEP * SEDMODEL.FLUXSCALE / hc ;
 
   // for SED find rest-frame 'iday' and DAYFRAC used to 
   // interpolate SED in TREST-space.
@@ -3572,7 +3572,6 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   double Trest, Finteg, Finteg_errPar, MWXT_FRAC ;
   double FTMP, GENFLUX, ZP, MAG, LAM, LAMREST, FSCALE_ZP;
   double FTMP_DAYMAX, MAG_DAYMAX ;
-  double hc8 = (double)hc ;
   int    LDMP;
   int DUMPFLAG = 0 ;
   char fnam[] = "genSpec_SALT2" ;
@@ -3615,7 +3614,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP    = (LAM/hc8) * GENFLUX * MWXT_FRAC;
+    FTMP    = (LAM/hc) * GENFLUX * MWXT_FRAC;
     
     /*xxxx
     printf(" xxx %s: ilam=%d LAM=%.1f ZP=%.3f  GENFLUX=%le\n",

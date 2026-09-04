@@ -66,12 +66,12 @@
 #define LIGHT_km  2.99792458e5      // speed of light (km/s)
 #define LIGHT_A   2.99792458e18     // speed of light (A/s)
 #define PLANCK    6.6260755e-27     // Planck constant (erg s)
-#define hc        LIGHT_A * PLANCK
+static const double hc = (LIGHT_A * PLANCK);
 #define PC_km     3.085678e13       // parsec (km)
 #define FNU_AB    3.631E-20         // flat Fnu for AB, erg/cm^2*s*Hz
 
 #define TWOPI     2.0*3.141592653589793238462643383279
-#define RADIAN    TWOPI / 360.0     // added Oct 2010
+static const double RADIAN  = (TWOPI / 360.0) ; 
 #define ZAT10PC    2.335e-9         // redshift at 10pc (H0=70)
 #define ZMAX_SNANA   10.0        // max snana redshift, Sept 9, 2022
 #define PSFMAX_SNANA 5.0         // max allowed PSF, FWHM, arcsec (Mar 2021)

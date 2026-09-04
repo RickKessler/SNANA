@@ -382,7 +382,6 @@ void gen_airmass(int epoch) {
   double geoLAT   = SURVEY_INFO.geoLAT[IDSURVEY] ;
   double geoLON   = SURVEY_INFO.geoLON[IDSURVEY] ;
 
-  double RAD = RADIAN ;
   double airmass  = 0.01 ;
   double alt_rad, sin_alt, ang_zenith_rad, ang_zenith_deg;
   double h_hr, h_deg, cos_h, sin_h ;
@@ -411,13 +410,13 @@ void gen_airmass(int epoch) {
     RA  = GENLC.RA  = test_RA;
     DEC = GENLC.DEC = test_DEC ;
     slaEqgal(RA, DEC, &GLON, &GLAT ); // return GLON, GLAT in degrees
-    GENLC.sin_GLON = sin(GLON*RAD);
-    GENLC.cos_GLON = cos(GLON*RAD);
-    GENLC.sin_DEC  = sin(DEC*RAD);
-    GENLC.cos_DEC  = cos(DEC*RAD);
+    GENLC.sin_GLON = sin(GLON*RADIAN); 
+    GENLC.cos_GLON = cos(GLON*RADIAN);
+    GENLC.sin_DEC  = sin(DEC*RADIAN);
+    GENLC.cos_DEC  = cos(DEC*RADIAN);
 
-    SURVEY_INFO.sin_geoLAT[IDSURVEY] = sin(geoLAT*RAD) ;
-    SURVEY_INFO.cos_geoLAT[IDSURVEY] = cos(geoLAT*RAD) ;
+    SURVEY_INFO.sin_geoLAT[IDSURVEY] = sin(geoLAT*RADIAN) ;
+    SURVEY_INFO.cos_geoLAT[IDSURVEY] = cos(geoLAT*RADIAN) ;
 
     printf("\n xxx %s: prep comparison with ESO calculator: \n", fnam);
     printf("\t xxx geo(LAT,LON) = %f , %f \n", geoLAT, geoLON);
@@ -439,8 +438,8 @@ void gen_airmass(int epoch) {
   double LST_deg  = (geoLON + GMST_deg);
   h_deg           = LST_deg - GENLC.RA ;
   h_hr            = h_deg * 24.0/360.0 ;
-  cos_h           = cos(h_deg*RAD) ;
-  sin_h           = sin(h_deg*RAD) ;
+  cos_h           = cos(h_deg*RADIAN) ;
+  sin_h           = sin(h_deg*RADIAN) ;
 
   // compute airmass ...
   double sin_geoLAT = SURVEY_INFO.sin_geoLAT[IDSURVEY];
@@ -457,12 +456,12 @@ void gen_airmass(int epoch) {
   alt_rad = asin(sin_alt);
 
   ang_zenith_rad = 0.25*TWOPI - alt_rad ; // zenight angle, radians
-  ang_zenith_deg = ang_zenith_rad / RAD ;
+  ang_zenith_deg = ang_zenith_rad / RADIAN ;
 
   airmass = 1.0/cos(ang_zenith_rad) ;
 
   // store lots of useful info to avoid repeat compuations later
-  GENLC.ALTITUDE[epoch]   = alt_rad/RAD; // store altitude in degrees
+  GENLC.ALTITUDE[epoch]   = alt_rad/RADIAN; // store altitude in degrees
   GENLC.sin_ALT[epoch]    = sin_alt;
   GENLC.cos_ALT[epoch]    = cos(alt_rad);
   GENLC.AIRMASS[epoch]    = airmass;
@@ -477,7 +476,7 @@ void gen_airmass(int epoch) {
     printf("\t xxx GMST, LST = %f , %f deg \n", GMST_deg, LST_deg);
     printf("\t xxx hour angle h = %f deg = %f hr\n", h_deg, h_hr);
     printf("\t xxx ang_zenith = %f deg / %f rad  (RADIAN=%f)\n", 
-	   ang_zenith_deg, ang_zenith_rad, RAD );
+	   ang_zenith_deg, ang_zenith_rad, RADIAN );
     printf("\t xxx airmass = %f \n", airmass);
 
     printf("\n xxx ESO calculator results:\n");

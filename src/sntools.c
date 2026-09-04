@@ -4316,7 +4316,6 @@ double angSep( double RA1,double DEC1,
   // * scale = 60   -> output is in arcmin
   // * scale = 3600 -> output is in arcsec
 
-  double RAD = RADIAN ;
   double sep;
   bool REFAC = false ;
   // char fnam[] = "angSep";
@@ -4326,14 +4325,13 @@ double angSep( double RA1,double DEC1,
   if ( REFAC ) {
 
     double top, bot, arg, tmp ;
-    double cosD1 = cos(RAD*DEC1) ;
-    double cosD2 = cos(RAD*DEC2) ;
-    double sinD1 = sin(RAD*DEC1) ;
-    double sinD2 = sin(RAD*DEC2) ;
-    // double sinR1 = sin(RAD*RA1);
-    // double sinR2 = sin(RAD*RA2);
-    double cosRDIF = cos(RAD*(RA2-RA1));
-    double sinRDIF = sin(RAD*(RA2-RA1));
+    double cosD1 = cos(RADIAN*DEC1) ;
+    double cosD2 = cos(RADIAN*DEC2) ;
+    double sinD1 = sin(RADIAN*DEC1) ;
+    double sinD2 = sin(RADIAN*DEC2) ;
+
+    double cosRDIF = cos(RADIAN*(RA2-RA1));
+    double sinRDIF = sin(RADIAN*(RA2-RA1));
     // double cos2RDIF = cosRDIF * cosRDIF;
     double sin2RDIF = sinRDIF * sinRDIF;
 
@@ -4341,7 +4339,7 @@ double angSep( double RA1,double DEC1,
     top = cosD2*cosD2 * sin2RDIF + tmp*tmp ;
     bot = sinD1*sinD2 + cosD1*cosD2*cosRDIF ;
     arg = sqrt(top)/bot ;
-    sep = atan(arg)/RAD ;
+    sep = atan(arg)/RADIAN ;
 
     /*
     double sep_legacy = angSep_legacy(RA1,DEC1,  RA2,DEC2);
@@ -4371,26 +4369,25 @@ double angSep_dotprod( double RA1,double DEC1, double RA2,double DEC2) {
   // Jun 30 2023: need more robust logic to prevent |DOTPROD| < 1
 
   double X1,Y1,Z1, X2, Y2, Z2, DOTPROD, sep ;
-  double RAD = RADIAN ;
   double tiny = 1.0E-35;
-  //  char fnam[] = "angSep_dotprod" ;
+  char fnam[] = "angSep_dotprod" ;  (void)fnam; 
 
   // ------------- BEGIN ------------------
 
-  X1 = cos(RA1*RAD) * cos(DEC1*RAD);
-  Y1 = sin(RA1*RAD) * cos(DEC1*RAD);
-  Z1 = sin(DEC1*RAD);
+  X1 = cos(RA1*RADIAN) * cos(DEC1*RADIAN);
+  Y1 = sin(RA1*RADIAN) * cos(DEC1*RADIAN);
+  Z1 = sin(DEC1*RADIAN);
   
-  X2 = cos(RA2*RAD) * cos(DEC2*RAD);
-  Y2 = sin(RA2*RAD) * cos(DEC2*RAD);
-  Z2 = sin(DEC2*RAD);
+  X2 = cos(RA2*RADIAN) * cos(DEC2*RADIAN);
+  Y2 = sin(RA2*RADIAN) * cos(DEC2*RADIAN);
+  Z2 = sin(DEC2*RADIAN);
  
 
   DOTPROD = (X1*X2 + Y1*Y2 + Z1*Z2);
   if ( DOTPROD > +1.0 ) { DOTPROD = +1.0 - tiny; }
   if ( DOTPROD < -1.0 ) { DOTPROD = -1.0 + tiny; }
 
-  sep = acos(DOTPROD)/RAD ; // angular sep, degrees
+  sep = acos(DOTPROD)/RADIAN ; // angular sep, degrees
 
   return (sep) ;
 

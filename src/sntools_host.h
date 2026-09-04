@@ -60,7 +60,7 @@
 #define MXCHAR_LINE_APPEND  500  // max number of appended chars per line
 #define MXVAR_HOSTLIB       400  // max number of variables (NVAR:) in HOSTLIB
 #define MXVAR_WGTMAP_HOSTLIB 10  // max no. weight-map variables
-//xxx #define MXROW_WGTMAP      25000000  // 20 million, Alex Gagliano 09/2021
+
 #define MXROW_HOSTLIB     80000000  // max number or rows in HOSTLIB
 #define MXCHECK_WGTMAP     1000  // max no. galaxies to check wgt map
 #define MALLOCSIZE_HOSTLIB 40000 // incremental size of internal HOSTLIB array
@@ -71,7 +71,6 @@
 
 #define NSERSIC_TABLE        50    // number of integral tables
 #define SERSIC_INDEX_MIN   0.15
-//#define SERSIC_INDEX_MAX   8.00    // increase from 5 (6/24/2015)
 #define SERSIC_INDEX_MAX  11.00    // increase from 8 (Mar 2 2022)
 #define MXSERSIC_HOSTLIB      9    // max number of summed profiles per host
 #define NBIN_RADIUS_SERSIC  200    // Number of R/Re bins to store integrals
@@ -86,7 +85,6 @@
 #define DZPTR_HOSTLIB      0.01   // logz-binning for Z-pointers
 #define MINLOGZ_HOSTLIB   -3.00    // zmin = 0.001
 #define MAXLOGZ_HOSTLIB    log10(ZMAX_SNANA)     // Feb 21 2023
-// xxx mark delete #define MAXLOGZ_HOSTLIB    0.61    // zmax = 4.07
 
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
 #define ZMIN_HOSTLIB       pow(10.0,MINLOGZ_HOSTLIB)
@@ -94,7 +92,7 @@
 #define ZMAX_STAR          0.001   // give warnings for ZTRUE < ZMAX_STAR
 
 #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
-#define DEG_ARCSEC    1./3600.  // 1 arcsec in deg.
+#define DEG_ARCSEC    (1./3600.)  // 1 arcsec in deg.
 #define DEBUG_WGTFLUX2    0.0    // fix 2nd WGTFLUX if non-zero
 
 #define MXUSE_SAMEGAL 50     // max number of times to re-use hostGal

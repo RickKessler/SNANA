@@ -607,10 +607,9 @@ double q_dipole_V04(double zHEL, ANISOTROPY_INFO_DEF *ANISOTROPY_INFO){
   double GLAT    = ANISOTROPY_INFO->GLAT ; // deg
   double CMB_LON = CMBapex_l ;  // deg
   double CMB_LAT = CMBapex_b ;  // deg
-  double RAD     = RADIAN ;     // TWOPI/360
 
   // get angle sep w.r.t. CMB, in radians
-  double sep    = angSep(CMB_LON, CMB_LAT,  GLON, GLAT, RAD);
+  double sep    = angSep(CMB_LON, CMB_LAT,  GLON, GLAT, RADIAN);
   double F_dip  = exp(-zHEL/S_dip);
   q             = qm + qd * F_dip * cos(sep);
 

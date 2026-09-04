@@ -11313,7 +11313,6 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 
   int     NLAMSPEC    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
   double *LAMAVG_LIST = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST ;
-  double hc8          = (double)hc ;
   bool   DO_MAGERR    =  FLAMERR_LIST[0] >= 0.0 ;
 
   double LAMOBS, TRANS, flam, flamerr ;
@@ -11378,7 +11377,7 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
       if ( *SYNMAG_ERR > MAGERR_UNDEFINED ) { *SYNMAG_ERR = MAGERR_UNDEFINED ; }
     }
 
-    flux_sum *= (lamstep/hc8) ;
+    flux_sum *= (lamstep/hc) ;
     *SYNMAG   = ZP_MODEL - 2.5*log10(flux_sum);
   }
 
@@ -13072,11 +13071,10 @@ void gen_random_coord_shift(void) {
   double MXRADIUS = (double)INPUTS.MXRADIUS_RANDOM_SHIFT;
   if ( MXRADIUS < 1.0E-12 ) { return ; }
 
-  double RAD       = RADIAN ;
   double ran_r, ran_phi, r, phi, ANGSEP ;
   double shift_RA=0.0, shift_DEC=0.0;
   double RA = GENLC.RA, DEC=GENLC.DEC;
-  double COSDEC = cos(DEC*RAD);
+  double COSDEC = cos(DEC*RADIAN);
   int    m;
   bool CHECK_ANGSEP = true;
   //  int  LDMP = 0 ;
@@ -13189,7 +13187,6 @@ void gen_event_stronglens(int ilc, int istage) {
   double TRESTMAX  = INPUTS.GENRANGE_TREST[1];
   //xxx  int    MEMD      = MXIMG_STRONGLENS * sizeof(double);
   //xxx  int    MEMI      = MXIMG_STRONGLENS * sizeof(int);
-  double RAD       = RADIAN;
   int    LDMP      = 0; // (ilc < 4) ; 
 
   double zSN=-9.0, z1, hostpar[10];
@@ -13235,7 +13232,7 @@ void gen_event_stronglens(int ilc, int istage) {
       GENSL.RA_noSL    = GENLC.RA;
       GENSL.DEC_noSL   = GENLC.DEC ;
 
-      cosDEC        = cos(RAD*GENSL.DEC_noSL) ;
+      cosDEC        = cos(RADIAN*GENSL.DEC_noSL) ;
       GENSL.cosDEC  = cosDEC ;
       GENSL.NGENLC_LENS_TOT++ ;
 
@@ -20368,7 +20365,6 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   int NEW_CADENCE = (REPEAT_CADENCE == 0 ) ;
   int USE_IDEAL_GRID  = INPUTS.SIMLIB_MSKOPT & SIMLIB_MSKOPT_IDEAL_GRID;
   int ISTORE,  OPTLINE, OBSRAW ;
-  double RAD = RADIAN;
   double PIXSIZE, FUDGE_ZPTERR, NEA, PSF[3], PSF_FWHM, TREST ;
   double z1       = 1.0 + GENLC.REDSHIFT_CMB ;
   bool IS_SPECTRO, BAD_MJD;
@@ -20388,7 +20384,7 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
   // transfer some SIMLIB_HEADER info to GENLC struct
   GENLC.RA         = SIMLIB_HEADER.RA ;
   GENLC.DEC        = SIMLIB_HEADER.DEC ;
-  GENLC.cosDEC     = cos(RAD*GENLC.DEC);
+  GENLC.cosDEC     = cos(RADIAN*GENLC.DEC);
 
   // default "measured" RA,DEC = exact RA,DEC ...
   // See genSmear_coords() to add noise for atmoshpere effects.

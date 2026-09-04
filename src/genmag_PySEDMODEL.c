@@ -1001,8 +1001,7 @@ void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int ifilt_obs, double Tobs,
   double lamstep_filt   = FILTER_SEDMODEL[ifilt].lamstep ;
   double minlam_SED     = LAM[0];
   double maxlam_SED     = LAM[NLAM-1];
-  double hc8            = (double)hc ;
-  double MODELNORM_Finteg  = lamstep_filt / hc8 ;
+  double MODELNORM_Finteg  = lamstep_filt / hc ;
   double MODELNORM_Fspec   = lamstep_filt ;
   double FLUXSUM_MIN       = 1.0E-30 ;
 
@@ -1158,7 +1157,6 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   //
   // Aug 26 2021: remove buggy 1/z1 factor
 
-  double hc8   = (double)hc ;
   double z1    = 1.0 + zHEL ;
   double x0    = pow(TEN,-0.4*MU);
   int NBLAM    = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -1196,7 +1194,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     LAM  = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP   = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP = ( LAM/ hc8 ) * GENFLUX_LIST[ilam] ;
+    FTMP = ( LAM/ hc ) * GENFLUX_LIST[ilam] ;
     if ( ZP > ZPMIN_SPECTROGRAPH && FTMP > 0.0 )   {
       MAG = -2.5*log10(FTMP) + ZP ;
     }

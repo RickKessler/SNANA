@@ -565,9 +565,8 @@ double  INTEG_SEDFLUX_S11DM15(int ifilt_obs, double z, double Tobs ) {
   if ( LDMP ) { fflush(stdout); debugexit(fnam); }
 
   // apply final normalization:
-  double FNORM, hc8;
-  hc8   = (double)hc ;
-  FNORM = LAMSTEP  / hc8 ;
+  double FNORM;
+  FNORM = LAMSTEP  / hc ;
   FLUX_INTEG *= FNORM ;
 
   return FLUX_INTEG ;

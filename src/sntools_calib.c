@@ -2501,8 +2501,7 @@ void compute_primary_mag(int ifilt, double WAVECOR, double *PRIMARY_MAG, double 
   *PRIMARY_MAG = zp - 2.5 * log10(primary_flux_sum / filter_sum);
 
   // compute zp_model the same way as in  init_filter_SEDMODEL()
-  double hc8 = (double)hc ;
-  primary_flux_sum *= (LAMBIN/hc8)  ; // same units as function init_filter_SEDMODEL()
+  primary_flux_sum *= (LAMBIN/hc)  ; // same units as function init_filter_SEDMODEL()
   *ZP_MODEL    = 2.5*log10(primary_flux_sum) + FILTERCAL->PRIMARY_MAG[ifilt];
 
   return ;

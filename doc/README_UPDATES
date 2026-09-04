@@ -24116,6 +24116,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snana.F90
       + begin refactor to allow MAGCOR and/or WAVESHIFT corrections.
         The latter is applied to model in light curve fitting.
+        See call to PREP_PRIMARY_MAG_WAVECOR_GRID in sntools_calib.c
 
       + update FILTER_REPLACE feature to work if the original filters
         are not defined in kcor/calib file.
@@ -24163,6 +24164,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    sntools_data.c[h]
      + REDSHIFT_HELIO_ERR is on header override, then update REDSHIFT_CMB_ERR ...
        and vice-versa. Impacts snana/snlc_fit/psnid.exe
+
+   sntools.h
+     + fix declaration of hc and RADIAN to be static const double instead
+       of macro that may not do the right thing. No more need for 
+        double hc8 = (double)hc, or  double RAD = (double)RADIAN
 
    all:
      + change WAVESHIFT to WAVECOR everywhere to indicate "correction" that is

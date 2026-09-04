@@ -2189,7 +2189,6 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
   double z1        = 1.0 + zhel;
   if ( DO_ABMAG_FORCE ) { z1 = 1.0 ; }
   double znorm     = pow(z1,FLAM_SCALE_POWZ1) ;
-  double hc8       = (double)hc;
 
   long long GALID;
   int  ilam, ilam_basis, ilam_last=-9, i, ivar_HOSTLIB, ivar ;
@@ -2390,7 +2389,7 @@ void genSpec_HOSTLIB(double zhel, double MWEBV, int DUMPFLAG,
     
     // convert to mag
     ZP    = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP  = (LAMOBS/(hc8*z1)) * FLUX_TMP;
+    FTMP  = (LAMOBS/(hc*z1)) * FLUX_TMP;
     if ( ZP > ZPMIN_SPECTROGRAPH && FTMP > 0.0 ) 
       { MAG = -2.5*log10(FTMP) + ZP; }
     else
@@ -7586,7 +7585,6 @@ void GEN_SNHOST_POS(int IGAL) {
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
   int IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
-  double RAD       = RADIAN ;
 
   int  j, JPROF, k_table, NBIN ;
 
@@ -7641,8 +7639,8 @@ void GEN_SNHOST_POS(int IGAL) {
   get_Sersic_info(IGAL, &SNHOSTGAL.SERSIC) ;    
 
   a_rot  = SNHOSTGAL.SERSIC.a_rot ;
-  crot   = cos(a_rot*RAD);
-  srot   = sin(a_rot*RAD); 
+  crot   = cos(a_rot*RADIAN);
+  srot   = sin(a_rot*RADIAN); 
 
   // for SIMLIB model, use already defined RA,DEC in SIMLIB header
   if ( INDEX_GENMODEL == MODEL_SIMLIB && !DEBUG_MODE_SIMLIB ) {
@@ -7685,7 +7683,7 @@ void GEN_SNHOST_POS(int IGAL) {
   b_half   = SNHOSTGAL.SERSIC.b[JPROF]; // half-light radius, minor axis
   n        = SNHOSTGAL.SERSIC.n[JPROF]; 
   a_rot    = SNHOSTGAL.SERSIC.a_rot ;   // w.r.t RA, degrees
-  crot = cos(a_rot*RAD);  srot = sin(a_rot*RAD); 
+  crot = cos(a_rot*RADIAN);  srot = sin(a_rot*RADIAN); 
 
 
   GEN_SNHOST_ANGLE(a_half, b_half, &phi); // return phi angle
@@ -7784,7 +7782,7 @@ void GEN_SNHOST_POS(int IGAL) {
     DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ; // degrees
     
     // compute absolute SN position relative to center of host
-    COSDEC               = cos(DEC_GAL*RAD) ;
+    COSDEC               = cos(DEC_GAL*RADIAN) ;
     DTMP                 = DEG_ARCSEC * SNHOSTGAL.RA_SNGALSEP_ASEC/COSDEC;
     SNHOSTGAL.RA_SN_DEG  = RA_GAL + DTMP ;
     
@@ -7915,7 +7913,6 @@ void   GEN_SNHOST_ANGLE(double a, double b, double *ANGLE) {
   double bsq    = b*b;
   int    ilist  = 1 ;
   int    LDMP   = (GENLC.CID == -9) ;
-  //  double RAD    = RADIAN ;
   double fixran, phi, FlatRan_x, FlatRan_y, x, y, SUM ;
   char fnam[] = "GEN_SNHOST_ANGLE";  (void)fnam;
 
@@ -8476,8 +8473,6 @@ void GEN_SNHOST_DDLR(int i_nbr) {
 
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
-  //  int IVAR_ANGLE  = HOSTLIB.IVAR_ANGLE ;
-  double RAD      = RADIAN ;
   double ASEC_PER_DEG = 3600.0 ;
   double RA_SN    = SNHOSTGAL.RA_SN_DEG;  // deg
   double DEC_SN   = SNHOSTGAL.DEC_SN_DEG;
@@ -8583,8 +8578,8 @@ void GEN_SNHOST_DDLR(int i_nbr) {
   double VEC_aHALF[2], VEC_SN[2], DOTPROD, LEN_SN ;  
   double cosTH, sqcos, sqsin;
 
-  VEC_aHALF[0] = +a_half * cos(RAD*a_rot) ;
-  VEC_aHALF[1] = -a_half * sin(RAD*a_rot) ;
+  VEC_aHALF[0] = +a_half * cos(RADIAN*a_rot) ;
+  VEC_aHALF[1] = -a_half * sin(RADIAN*a_rot) ;
   VEC_SN[0]    = RA_SN  - RA_GAL  ;
   VEC_SN[1]    = DEC_SN - DEC_GAL ; // i.e., DEC=0 for galaxy center
   LEN_SN       = sqrt( VEC_SN[0]*VEC_SN[0] + VEC_SN[1]*VEC_SN[1] ) ;
@@ -8687,10 +8682,9 @@ void SIMLIB_SNHOST_POS(int IGAL, SERSIC_DEF *SERSIC, int DEBUG_MODE) {
 
   int IVAR_RA     = HOSTLIB.IVAR_RA ;
   int IVAR_DEC    = HOSTLIB.IVAR_DEC ;
-  double RAD      = RADIAN ;
   double a_rot    = SERSIC->a_rot;
-  double crot     = cos(RAD*a_rot);
-  double srot     = sin(RAD*a_rot);
+  double crot     = cos(RADIAN * a_rot);
+  double srot     = sin(RADIAN * a_rot);
   double RA_GAL, DEC_GAL, RA_SN, DEC_SN, RA_SEP, DEC_SEP, COSDEC;
   double a_sep, b_sep;
   char fnam[] = "SIMLIB_SNHOST_POS";  (void)fnam;
@@ -8699,7 +8693,7 @@ void SIMLIB_SNHOST_POS(int IGAL, SERSIC_DEF *SERSIC, int DEBUG_MODE) {
 
   RA_GAL   = HOSTLIB.VALUE_ZSORTED[IVAR_RA][IGAL] ; 
   DEC_GAL  = HOSTLIB.VALUE_ZSORTED[IVAR_DEC][IGAL] ;
-  COSDEC   = cos(DEC_GAL*RAD);
+  COSDEC   = cos(DEC_GAL*RADIAN);
 
   RA_SN    = SIMLIB_HEADER.RA;
   DEC_SN   = SIMLIB_HEADER.DEC;
@@ -8777,7 +8771,6 @@ void SORT_SNHOST_byDDLR(void) {
   int  ORDER_SORT       = +1 ;     // increasing order
 
   bool DOSHIFT_GALCOORDS = ( IVAR_RA>0 && IVAR_DEC>0 &&  !LSN2GAL_RADEC );
-  double RAD = RADIAN;
   int  LDMP = 0; // (GENLC.CID == 11 || GENLC.CID == 35 ) ;
 
   int  INDEX_UNSORT[MXNBR_LIST];
@@ -8876,7 +8869,7 @@ void SORT_SNHOST_byDDLR(void) {
       // rotation matrix.
       RA_GAL_HOSTLIB  = get_VALUE_HOSTLIB(IVAR_RA,IGAL);
       DEC_GAL_HOSTLIB = get_VALUE_HOSTLIB(IVAR_DEC,IGAL); 
-      cosDEC_GAL      = cos(RAD*DEC_GAL_HOSTLIB);
+      cosDEC_GAL      = cos(RADIAN*DEC_GAL_HOSTLIB);
       RA_SHIFT        = (RA_GAL_HOSTLIB  - SNHOSTGAL.RA_SN_DEG);
       RA_SHIFT       *= (cosDEC_GAL/cosDEC_SN);
       DEC_SHIFT       = (DEC_GAL_HOSTLIB - SNHOSTGAL.DEC_SN_DEG) ;
@@ -10503,7 +10496,6 @@ double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG) {
   double LAMSTEP_FILT  = FILTER_SEDMODEL[IFILT].lamstep ; 
   double ZP_FILT       = FILTER_SEDMODEL[IFILT].ZP_MODEL ;
   char  *cfilt         = FILTER_SEDMODEL[IFILT].name ;
-  double hc8           = (double)hc;
   double z1            = 1.0 + z;
 
   double TRANS, LAMOBS, LAMREST, FLAM, FSUM=0.0, mag=0.0 ;
@@ -10541,7 +10533,7 @@ double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG) {
 
   // - - - - - - - - - - - - - - - -
   // apply normalization factors
-  FSUM /= hc8 ;
+  FSUM /= hc ;
 
   // - - - - - - - - - - - - - - 
   double FRAC_UNDEFINED = SUMTRANS_UNDEFINED/SUMTRANS_TOT ;
@@ -10595,7 +10587,6 @@ void rewrite_HOSTLIB_plusNbr(void) {
 
   HOSTLIB_APPEND_DEF HOSTLIB_APPEND;
   char  *LINE_APPEND, MSG[2*MXPATHLEN] ;
-  double RAD = RADIAN;
   // internal debug
   int  NGAL_DEBUG  = INPUTS.HOSTLIB_MAXREAD ;
 
@@ -10656,7 +10647,7 @@ void rewrite_HOSTLIB_plusNbr(void) {
     RA  = ptrRA[igal_zsort] ;
     HOSTLIB_NBR_WRITE.SKY_SORTED_DEC[igal_DECsort]      = DEC ;
     HOSTLIB_NBR_WRITE.SKY_SORTED_RA[igal_DECsort]       = RA ;
-    HOSTLIB_NBR_WRITE.SKY_SORTED_COSDEC[igal_DECsort]   = cos(DEC*RAD);
+    HOSTLIB_NBR_WRITE.SKY_SORTED_COSDEC[igal_DECsort]   = cos(DEC*RADIAN);
     HOSTLIB_NBR_WRITE.SKY_SORTED_IGAL_zsort[igal_zsort] = igal_DECsort ;
 
     if ( igal_zsort == -3 ) {

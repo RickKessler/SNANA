@@ -245,7 +245,7 @@ int init_filter_SEDMODEL(
 
   double lam, lamstep, transSN, transREF, transSN_MAX, transREF_MAX;
   double fluxREF, fluxREF_sum, fluxSN_sum, transSN_sum, transREF_sum;
-  double hc8, ZP_MODEL = 0.0 , mean_lam = 0.0;
+  double ZP_MODEL = 0.0 , mean_lam = 0.0;
   double lamtransSN_sum, lamtransREF_sum ;
 
   // to debug filter-trans
@@ -335,21 +335,12 @@ int init_filter_SEDMODEL(
   // ZP_MODEL is used to compute synthetic model mags more quickly by avoiding
   // redundant integrals.
 
-  hc8 = (double)hc ;
-  fluxREF_sum *= (lamstep/hc8) ;  
+  fluxREF_sum *= (lamstep/hc) ;  
   if ( fluxREF_sum != 0.0 )  { ZP_MODEL = 2.5*log10(fluxREF_sum) + magprimary ; }
 
 
   // compute transmission-weighted <LAMAVG>
   if ( transSN_sum  > 0.0 )  { mean_lam = lamtransSN_sum/transSN_sum; }
-
-  /* xxxxx mark delete
-  invlamtransREF_sum *= (lamstep/hc8);
-  double ZP_check = 2.5*log10(invlamtransREF_sum) ;
-  printf(" xxx %s: ifilt=%2d ifilt_obs=%2d  ZP=%.5f  ZP_check=%.5f  dif=%f\n",
-	 fnam, ifilt, ifilt_obs, ZP, ZP_check, ZP-ZP_check);
-  fflush(stdout);
-  xxxxxxxx end mark */
 
   // load FILTER_SEDMODEL structure
   IFILTMAP_SEDMODEL[ifilt_obs]         = ifilt ;
@@ -987,7 +978,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
     ,LOGZMIN, LOGZMAX, LOGZBIN, FLUX, tmp, mag, mutmp, x0tmp
     ,LAMOBS_MIN, LAMOBS_MAX, LAMOBS_STEP, SEDMODELNORM
     ,LAMTPOW[MXLAMPOW_SEDMODEL+1]
-    ,hc8, TDUM=-99.9
+    ,TDUM=-99.9
     ;
 
 
@@ -1152,8 +1143,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
   LAMOBS_MIN  = FILTER_SEDMODEL[ifilt].lammin ;
   LAMOBS_MAX  = FILTER_SEDMODEL[ifilt].lammax ;
 
-  hc8 = (double)hc;
-  SEDMODELNORM = SEDMODEL.FLUXSCALE * LAMOBS_STEP / hc8 ;
+  SEDMODELNORM = SEDMODEL.FLUXSCALE * LAMOBS_STEP / hc ;
 
   // =========================================
   // start  main loop with SED lambda in rest-frame
@@ -3543,7 +3533,6 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
   //
 
   double ZP, lam0, lamCen, lamStep, fluxSum, flux, magPrimary ;
-  double hc8     = (double)hc ;
   double LAMSTEP = 10.0 ; // SEDMODEL.LAMSTEP[0] ;
   int    LDMP    = DUMPFLAG ;
   int    NLOOP   = 0;
@@ -3591,7 +3580,7 @@ double getZP_SPECTROGRAPH_SEDMODEL(double LAMMIN, double LAMMAX,
 
     lamCen   = lam0 + lamStep/2.0 ;
     flux     = interp_primaryFlux_SEDMODEL(lamCen) ; 
-    fluxSum += (flux * lamCen * lamStep/hc8); 
+    fluxSum += (flux * lamCen * lamStep/hc); 
 
     if ( LDMP ) {
       printf(" xxx lam0=%.2f  lamStep=%4.2f  lamCen=%.2f flux=%10.3le\n",
@@ -3652,7 +3641,6 @@ void genSpec_SEDMODEL(int ised,
   //
 
   double x0     = pow(TEN,-0.4*MU);
-  double hc8    = (double)hc;
   double LAMBIN = 10.0 ;  // Angstromgs, integration binsize
   int    IFILT  = JFILT_SPECTROGRAPH ;
   int    NBSPEC = FILTER_SEDMODEL[IFILT].NLAM ;
@@ -3680,8 +3668,7 @@ void genSpec_SEDMODEL(int ised,
   }
 
 
-  SEDNORM_forMAG  = SEDMODEL.FLUXSCALE / hc8 ;
-  // xxx mark delete SEDNORM_forSPEC = SEDMODEL.FLUXSCALE ;
+  SEDNORM_forMAG  = SEDMODEL.FLUXSCALE / hc ;
   SEDNORM_forSPEC = SEDMODEL.FLUXSCALE / z1 ; // to fix SYNMAG to match mag
 
 

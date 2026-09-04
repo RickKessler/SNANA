@@ -2219,6 +2219,7 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
   IWAVECOR_MAX = (int)WAVECOR_MAX + 2 ;
   NGRID          = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN; 
   NGRID /= IWAVECOR_BIN ;
+  PRIMARY_MAG_WAVECOR_GRID.NGRID = NGRID;
 
   printf("\t Original WAVECOR range: %.1f to %.1f A \n", WAVECOR_MIN, WAVECOR_MAX);
   printf("\t WAVECOR grid: %d to %d A with %d A  binsize -> NGRID=%d\n",

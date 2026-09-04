@@ -2498,7 +2498,7 @@ double compute_primary_mag(int ifilt, double WAVECOR) {
   }
 
   zp  = 2.5*log10(FNU_AB * LIGHT_A);
-  mag = zp -2.5 * log10(primary_flux_sum / filter_sum);
+  mag = zp - 2.5 * log10(primary_flux_sum / filter_sum);
 
   return mag;
 } // end compute_primary_mag

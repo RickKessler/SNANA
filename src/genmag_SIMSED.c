@@ -1506,7 +1506,7 @@ void genmag_SIMSED(
 
   ***/
 
-  double  meanlam_obs, meanlam_rest, ZP, z1, Tobs, Trest, flux, arg, Sinterp  ;
+  double  meanlam_obs, meanlam_rest, ZP_MODEL, z1, Tobs, Trest, flux, arg, Sinterp  ;
   int ifilt, epobs, OPT_COLORLAW    ;
   int  LDMP_BADFLUX, LDMP_DEBUG, LRETURN_FLUX, LSED_SELECT ;
   double AV, XT_MW, XT_HOST, *PARLIST_COLORLAW, PARDUM=0.0 ;
@@ -1548,7 +1548,7 @@ void genmag_SIMSED(
   // filter info for this "ifilt"
   meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda  
   meanlam_rest = meanlam_obs/z1;
-  ZP           = FILTER_SEDMODEL[ifilt].ZP ;
+  ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
 
   // get approx Galactic extinction using central wavelength of filter
@@ -1619,7 +1619,7 @@ void genmag_SIMSED(
       magerr = MAGERR_UNDEFINED ;
     }
     else{
-      magobs = (ZP + XT_MW + XT_HOST) - 2.5*log10(flux);
+      magobs = (ZP_MODEL + XT_MW + XT_HOST) - 2.5*log10(flux);
       if ( magobs > MAG_ZEROFLUX ) { magobs = MAG_ZEROFLUX; }
       magerr = SEDMODEL.MAGERR_FIX ;
     }

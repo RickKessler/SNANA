@@ -51,12 +51,18 @@
       extinction table is no longer created for every iteration.
       Fits now go almost x10 faster ... same speed as in March 2020
 
+  Sep 4 2026: 
+    + include  sntools_calib.h to react to WAVECOR options
+
 ********************************************/
 
 #include "sntools.h"           // community tools
 #include "sntools_spectrograph.h"
 #include "genmag_SEDtools.h"   // SED tools
 #include "MWgaldust.h"         // GALextinct is here
+
+#include "fitsio.h"            // needed only to include sntools_calib
+#include "sntools_calib.h"     // need WAVECOR inf o
 
 // ******************************
 int reset_SEDMODEL(void) {
@@ -237,11 +243,10 @@ int init_filter_SEDMODEL(
 
   int ilam, ifilt ;
 
-  double
-    lam, lamstep, transSN, transREF, transSN_MAX, transREF_MAX
-    ,fluxREF, fluxREF_sum, fluxSN_sum, transSN_sum, transREF_sum
-    ,lamtransSN_sum, lamtransREF_sum, hc8
-    ;
+  double lam, lamstep, transSN, transREF, transSN_MAX, transREF_MAX;
+  double fluxREF, fluxREF_sum, fluxSN_sum, transSN_sum, transREF_sum;
+  double hc8, ZP_MODEL = 0.0 , mean_lam = 0.0;
+  double lamtransSN_sum, lamtransREF_sum ;
 
   // to debug filter-trans
   int LDMP_FILT = 0 ; 
@@ -249,6 +254,7 @@ int init_filter_SEDMODEL(
   char filtFile[80], cfilt1[2];
 
   char fnam[] = "init_filter_SEDMODEL" ;  (void)fnam;
+
   // ----- BEGIN -----
 
   /*  
@@ -265,88 +271,109 @@ int init_filter_SEDMODEL(
     ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
   }
 
+  sprintf(c1err,"survey_name=%s  magprim=%f", survey_name, magprimary);
   if ( ifilt >= MXFILT_SEDMODEL ) {
     filtdump_SEDMODEL();
     sprintf(c1err, "NFILT_SEDMODEL = %d exceeds bound.", NFILT_SEDMODEL);
-    errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   if ( NLAM >= MXBIN_LAMFILT_SEDMODEL ) {    
     sprintf(c1err,"NLAM(%s) = %d  exceeds array bound of %d", 
 	    filter_name, NLAM, MXBIN_LAMFILT_SEDMODEL );
-    errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
   lamstep     = LAMLIST[1] - LAMLIST[0] ;
   fluxREF_sum = transREF_sum = lamtransREF_sum = 0.0 ;
   fluxSN_sum  = transSN_sum  = lamtransSN_sum  = 0.0 ; (void)fluxSN_sum;
+  // xxx mark   invlamtransSN_sum = invlamtransREF_sum = 0.0 ;
   transSN_MAX = transREF_MAX = 0.0 ;
+
 
   for ( ilam=0; ilam < NLAM; ilam++ ) {
     lam       = LAMLIST[ilam]  + LAMSHIFT ;
     transSN   = TRANSSNLIST[ilam] ;
     transREF  = TRANSREFLIST[ilam] ;
-    FILTER_SEDMODEL[ifilt].lam[ilam]   = lam ;
-    FILTER_SEDMODEL[ifilt].transSN[ilam] = transSN ; 
+
+    FILTER_SEDMODEL[ifilt].lam[ilam]      = lam ;
+    FILTER_SEDMODEL[ifilt].transSN[ilam]  = transSN ; 
     FILTER_SEDMODEL[ifilt].transREF[ilam] = transREF ; 
 
     if ( transSN  > transSN_MAX  ) { transSN_MAX  = transSN  ; }
     if ( transREF > transREF_MAX ) { transREF_MAX = transREF ; }
 
     // interpolate primary reference at this lambda.
-    fluxREF = interp_primaryFlux_SEDMODEL(lam) ;
+    fluxREF       = interp_primaryFlux_SEDMODEL(lam) ;
     fluxREF_sum  += transREF * fluxREF * lam ;
 
     // sums used to define mean filter wavelength
     // Could have used SN or REF trans, we choose to pick SN
-    lamtransSN_sum += lam * transSN;
-    transSN_sum    += transSN ;      
+    lamtransSN_sum     += lam * transSN;
+    transSN_sum        += transSN ;     
+
+    //    invlamtransREF_sum += (1.0/lam) * transREF; // Sep 2026 
 
   } // ilam
 
+  // - - - - - - -
   if ( transSN_sum < 0.  ) {
-    sprintf(c1err,"transSN_sum = %f for ifilt_obs=%d (%s) \n",
+    sprintf(c1err,"Invalid transSN_sum = %f for ifilt_obs=%d (%s) \n",
 	    transSN_sum, ifilt_obs, filter_name );
-    errmsg(SEV_FATAL, 0, fnam, c1err, ""); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  // - - - - - - 
+  // Sep 4 2026: add explanation (no code changes):
+  // compute ZP_MODEL = [ magprim_user - magprim_syn + ZPlam ]
+  // where 
+  //    magprim_user = primary mag from kcor/calib input file (e.g., ABmag=0)
+  //    magprim_syn  = synthetic prim mag
+  //    ZPlam  is inferred value of -2.5*log10[ integral TransRef * (1/lam) dlam ]
+  //          since ZPlam is left out of 2.5*log10(fluxREF_sum)
+  // 
+  // ZP_MODEL is used to compute synthetic model mags more quickly by avoiding
+  // redundant integrals.
 
-  // load FILTER structure
-  IFILTMAP_SEDMODEL[ifilt_obs]      = ifilt ;
-  FILTER_SEDMODEL[ifilt].ifilt_obs  = ifilt_obs ;
-  FILTER_SEDMODEL[ifilt].magprimary = magprimary ;
-  FILTER_SEDMODEL[ifilt].lamshift   = LAMSHIFT ;
+  hc8 = (double)hc ;
+  fluxREF_sum *= (lamstep/hc8) ;  
+  if ( fluxREF_sum != 0.0 )  { ZP_MODEL = 2.5*log10(fluxREF_sum) + magprimary ; }
 
 
-  if ( transSN_sum > 0.0 ) 
-    {   FILTER_SEDMODEL[ifilt].mean  = lamtransSN_sum/transSN_sum; }
-  else
-    {   FILTER_SEDMODEL[ifilt].mean  = 0.0 ; }
+  // compute transmission-weighted <LAMAVG>
+  if ( transSN_sum  > 0.0 )  { mean_lam = lamtransSN_sum/transSN_sum; }
 
+  /* xxxxx mark delete
+  invlamtransREF_sum *= (lamstep/hc8);
+  double ZP_check = 2.5*log10(invlamtransREF_sum) ;
+  printf(" xxx %s: ifilt=%2d ifilt_obs=%2d  ZP=%.5f  ZP_check=%.5f  dif=%f\n",
+	 fnam, ifilt, ifilt_obs, ZP, ZP_check, ZP-ZP_check);
+  fflush(stdout);
+  xxxxxxxx end mark */
 
-  FILTER_SEDMODEL[ifilt].lamstep   =   lamstep ;
-  FILTER_SEDMODEL[ifilt].NLAM      =   NLAM ;
-  FILTER_SEDMODEL[ifilt].lammin    =   FILTER_SEDMODEL[ifilt].lam[0];
-  FILTER_SEDMODEL[ifilt].lammax    =   FILTER_SEDMODEL[ifilt].lam[NLAM-1];
-  sprintf(FILTER_SEDMODEL[ifilt].name,   "%s", filter_name);
-  sprintf(FILTER_SEDMODEL[ifilt].survey, "%s", survey_name);
+  // load FILTER_SEDMODEL structure
+  IFILTMAP_SEDMODEL[ifilt_obs]         = ifilt ;
+  FILTER_SEDMODEL[ifilt].ifilt_obs     = ifilt_obs ;
+  FILTER_SEDMODEL[ifilt].magprimary    = magprimary ;
+  FILTER_SEDMODEL[ifilt].lamshift      = LAMSHIFT ;
+  FILTER_SEDMODEL[ifilt].mean          = mean_lam ;
+  FILTER_SEDMODEL[ifilt].lamstep       = lamstep ;
+  FILTER_SEDMODEL[ifilt].NLAM          = NLAM ;
+  FILTER_SEDMODEL[ifilt].lammin        = FILTER_SEDMODEL[ifilt].lam[0];
+  FILTER_SEDMODEL[ifilt].lammax        = FILTER_SEDMODEL[ifilt].lam[NLAM-1];
   FILTER_SEDMODEL[ifilt].transSN_MAX   = transSN_MAX ;
   FILTER_SEDMODEL[ifilt].transREF_MAX  = transREF_MAX ;
+  FILTER_SEDMODEL[ifilt].ZP_MODEL      = ZP_MODEL ;
 
+  sprintf(FILTER_SEDMODEL[ifilt].name,   "%s", filter_name);
+  sprintf(FILTER_SEDMODEL[ifilt].survey, "%s", survey_name);
+
+  // - - -  -
   // strip off last char of filtername to make filter-string list
   int len = strlen(filter_name);
   sprintf(cfilt1, "%c", filter_name[len-1] ) ;
 
   strcat(FILTLIST_SEDMODEL,cfilt1);
-
-  hc8 = (double)hc ;
-  fluxREF_sum *= (lamstep/hc8) ;  // Jan 2010: divide by hc 
-
-  if( fluxREF_sum != 0.0 ) 
-    { FILTER_SEDMODEL[ifilt].ZP = 2.5*log10(fluxREF_sum) + magprimary ; }
-  else
-    { FILTER_SEDMODEL[ifilt].ZP = 0.0 ; }
-
 
   // dump filter response to text file (DEBUG only)
   if ( LDMP_FILT == 1 ) {
@@ -366,8 +393,6 @@ int init_filter_SEDMODEL(
     fclose(fp_filt);
     
   }  // end of LDMP_FILT 
-
-
 
   return 0;
 
@@ -396,7 +421,7 @@ void filtdump_SEDMODEL(void) {
 	 name, name );
   printf(
 	 "   Filter                  <LAMBDA>        Range(step)      "
-	 "mag    ZP \n" );
+	 "mag  ZP_MODEL \n" );
   printf( "   %s\n", dashLine);
 
   for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++) {
@@ -411,7 +436,7 @@ void filtdump_SEDMODEL(void) {
 	   ,FILTER_SEDMODEL[ifilt].lammax
 	   ,FILTER_SEDMODEL[ifilt].lamstep
 	   ,FILTER_SEDMODEL[ifilt].magprimary
-	   ,FILTER_SEDMODEL[ifilt].ZP
+	   ,FILTER_SEDMODEL[ifilt].ZP_MODEL
 	   );
 
     fflush(stdout);
@@ -1188,7 +1213,7 @@ void init_flux_SEDMODEL(int ifilt_obs, int ised) {
     index = INDEX_SEDMODEL_FLUXTABLE(ifilt,iz,0,iep,ised);
     FLUX  = x0tmp * PTR_SEDMODEL_FLUXTABLE[index] ;
     
-    mag   = FILTER_SEDMODEL[ifilt].ZP - 2.5*log10(FLUX) ;
+    mag   = FILTER_SEDMODEL[ifilt].ZP_MODEL - 2.5*log10(FLUX) ;
     printf(" xxx peak SNmag(%s) = %f  (day=%f,z=%le) \n", 
 	   cfilt, mag, day, z ) ;
   }
@@ -1586,16 +1611,6 @@ double interp_flux_SEDMODEL(
   // Return interpolated flux-integral 'S' 
   // from pre-tabulated tables
   //
-  // Aug 17 2015: fix long-standing bug; replace TEMP_SEDMODEL.DAY with
-  //              DAYLIST from this SED. Previously was using last read
-  //              DAYLIST.
-  //
-  // Jan 19 2017: 
-  //   + add NEPBIN_SPLINE and ONEDAY check for single-epoch spectrum
-  //
-  // July 19 2018: 
-  //   + replace quadInterp with linear interp to avoid pathological
-  //     parabolic interp that can result in negative flux
   //    
   // Nov 14 2023:
   //   for interpolating SZTMP vs. logz, replace quad interp with linear;
@@ -1924,6 +1939,9 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
   else {
     double *lam_array    = FILTER_SEDMODEL[ifilt].lam ;
     double *trans_array  = FILTER_SEDMODEL[ifilt].transSN ;
+    double *trans_array2[2] = { FILTER_SEDMODEL[ifilt].transSN, 
+				FILTER_SEDMODEL[ifilt].transREF } ;
+
     LAM_LOCAL   = lam_array[ilam];
     TRANS_LOCAL = trans_array[ilam];
 
@@ -1932,9 +1950,10 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
       double  lam_temp    = LAM_LOCAL - wavecor ;       
       bool    valid_lam   = lam_temp >= lam_array[0] && lam_temp <= lam_array[NLAM-1] ;   
       if ( valid_lam ) {
-	// .xyz warning this interp is very inefficient; later should comput bin instead of searching for it
+	// .xyz warning this interp is very inefficient; 
+	// later should comput bin instead of searching for it
 	TRANS_LOCAL = interp_1DFUN(OPT_INTERP_LINEAR, lam_temp, NLAM,  
-				   lam_array, trans_array, fnam); 
+				   lam_array, trans_array2[0], fnam); 
       }   
       else {
 	// outside the original grid the shifted filter has no throughput 
@@ -1946,7 +1965,7 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
 
 
   // set output args
-  *LAM = LAM_LOCAL;
+  *LAM   = LAM_LOCAL;
   *TRANS = TRANS_LOCAL;
     
   return ;
@@ -3452,8 +3471,6 @@ void INIT_SPECTROGRAPH_SEDMODEL(char *MODEL_NAME, int NBLAM,
   // --------------------------------------------
   // sort primary mags vs. increasing wavelength, to interpolate
   // primary mag at arbitrary wavelength.
-
-
   int ifilt, isort, INDEX_SORT[MXFILTINDX] ;
   int ORDER = +1 ;
   int NFILT = NFILT_SEDMODEL ;

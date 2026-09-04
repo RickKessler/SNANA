@@ -549,7 +549,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
   bool DO_TEMPLATE = Event_PySEDMODEL.Tobs_template > -1.0E7 ;
 
   int  ifilt  = IFILTMAP_SEDMODEL[IFILT_OBS] ; // sparse filter index
-  double  ZP  = FILTER_SEDMODEL[ifilt].ZP ;    // ZP for flux->mag
+  double  ZP_MODEL  = FILTER_SEDMODEL[ifilt].ZP_MODEL ;    // ZP for flux->mag
   double x0   = pow(10.0,-0.4*MU);             // dimming from dist. mod.
   int    NEWEVT_FLAG = 0 ;
   int    NEWEVT_FLAG_TMP ;
@@ -632,7 +632,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 
     // convert calibrated flux into true magnitude
     if ( FLAG_Finteg == 0 )
-      { magobs = ZP - 2.5*log10(FLUXSUM_OBS); }
+      { magobs = ZP_MODEL - 2.5*log10(FLUXSUM_OBS); }
     else if ( FLAG_Finteg == (int)MAG_ZEROFLUX )
       { magobs = MAG_ZEROFLUX ; }
     else if ( FLAG_Finteg == (int)MAG_UNDEFINED )

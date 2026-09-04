@@ -181,7 +181,7 @@ void genmag_NON1ASED (
   // Oct 23 2018: replace x0 argument with mu
 
   int  ifilt, epobs, ILAMPOW = 0 ;
-  double  z1, ZP, meanlam_obs, meanlam_rest, Tobs, Trest ;
+  double  z1, ZP_MODEL, meanlam_obs, meanlam_rest, Tobs, Trest ;
   double  AV_MW, XT_MW, XT_HOST, flux, FLUX, magerr, magobs;
   double  PARDUM = 0.0;
   char *cfilt;
@@ -195,7 +195,7 @@ void genmag_NON1ASED (
   // filter info for this "ifilt"
   meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
   meanlam_rest = meanlam_obs/z1 ;
-  ZP           = FILTER_SEDMODEL[ifilt].ZP ;
+  ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
   
   // get approx Galactic extinction using central wavelength of filter
@@ -236,7 +236,7 @@ void genmag_NON1ASED (
       magerr_list[epobs] = MAGERR_UNDEFINED ;
     }
     else if ( FLUX > 1.0E-30 ) {
-      magobs =  (ZP + XT_MW + XT_HOST) - 2.5*log10(FLUX);
+      magobs =  (ZP_MODEL + XT_MW + XT_HOST) - 2.5*log10(FLUX);
       magobs_list[epobs] = magobs ; 
       magerr_list[epobs] = magerr ;
     }

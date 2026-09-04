@@ -11318,7 +11318,7 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
 
   double LAMOBS, TRANS, flam, flamerr ;
   double flux_sum=0.0, varflux_sum=0.0, T_max=0.0, T_sum=0.0 ;
-  double lamstep, ZP, LT, frac_err ; 
+  double lamstep, ZP_MODEL, LT, frac_err ; 
   double wavecor = 0.0 ; // never do wavecor for sim;
   int  ifilt, NLAMFILT, ilam ; 
   int  OPT_INTERP = 1;     // linear
@@ -11339,7 +11339,7 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
   lamstep     = FILTER_SEDMODEL[ifilt].lamstep ;
   //  lammin      = FILTER_SEDMODEL[ifilt].lammin ;
   //  lammax      = FILTER_SEDMODEL[ifilt].lammax ;
-  ZP          = FILTER_SEDMODEL[ifilt].ZP ;
+  ZP_MODEL    = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
 
 
   // loop over filter-wave bins. Interpolate SED Flam at each filter-wave bin.
@@ -11379,7 +11379,7 @@ void GENSPEC_SYNMAG(int ifilt_obs,  double *FLAM_LIST, double *FLAMERR_LIST,
     }
 
     flux_sum *= (lamstep/hc8) ;
-    *SYNMAG = ZP - 2.5*log10(flux_sum);
+    *SYNMAG   = ZP_MODEL - 2.5*log10(flux_sum);
   }
 
   return ;

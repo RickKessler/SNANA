@@ -2109,7 +2109,7 @@ void genmag_SALT2(
   //  double logMass_host = parList_HOST[2];
 
   double 
-    meanlam_obs,  meanlam_rest, ZP, z1
+    meanlam_obs,  meanlam_rest, ZP_MODEL, z1
     ,Tobs, Tobs_interp, Trest, Trest_interp, flux, flux_interp
     ,arg, magerr, Finteg, Finteg_errPar, FspecDum[10]
     ,lamrest_forErr, Trest_forErr, z1_forErr, magobs_tmp, magobs, wavecor
@@ -2159,7 +2159,7 @@ void genmag_SALT2(
 
   // filter info for this "ifilt"
   meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
-  ZP           = FILTER_SEDMODEL[ifilt].ZP ;
+  ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
   meanlam_rest = meanlam_obs/z1 ;
 
@@ -2269,7 +2269,7 @@ void genmag_SALT2(
       }
     }
     else{
-      magobs = ZP - 2.5*log10(flux) + INPUT_SALT2_INFO.MAG_OFFSET ;
+      magobs = ZP_MODEL - 2.5*log10(flux) + INPUT_SALT2_INFO.MAG_OFFSET ;
 
       if ( DO_EXTRAP_LOCAL && EXTRAP_METHOD_MAG && Trest > 0.0 ) { 
 	// legacy method from original PLASTICC 2018
@@ -2299,7 +2299,7 @@ void genmag_SALT2(
 	     flux, magobs_list[epobs], OPT_RETURN_FLUX );
       printf(" xxxx x1=%6.3f  c=%6.3f  Finteg=%9.3le   \n", 
 	     x1, c, Finteg ) ;
-      printf(" xxxx ZP=%f  mwebv=%f \n", ZP, mwebv);
+      printf(" xxxx ZP_MODEL=%f  mwebv=%f \n", ZP_MODEL, mwebv);
       printf(" xxxx colorCor = %f\n",  SALT2colorCor(meanlam_rest,c) ) ;
       NCALL_DBUG_SALT2 += 1 ;
       fflush(stdout);

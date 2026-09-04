@@ -317,7 +317,7 @@ void genmag_S11DM15( int ifilt_obs  // (I) absolute filter index
 
   z1    = 1.0 + z ;
   ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
-  ZP    = FILTER_SEDMODEL[ifilt].ZP ;
+  ZP    = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
 
   // make sure lambda range is OK for this filter
   checkLamRange_SEDMODEL(ifilt,z,fnam) ;

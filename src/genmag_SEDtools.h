@@ -21,6 +21,8 @@
 
  May 31 2024: use global MXLAMBIN_SNANA (from sntools.h) to specify max number of wave bins
 
+ Sep 04 2026: rename ZP to ZP_MODEL
+
 ********************************************/
 
 // define bounds for filter and SED arrays
@@ -38,6 +40,8 @@
 #define LAMMIN_SEDMODEL 100     // global min Lambda for reading SED model
 #define LAMMAX_SEDMODEL 30000   // global max Lambda (what about JWST??)
 
+#define OPT_TRANSSN_SEDMODEL  0   // Sep 2026: used as index to select SN or
+#define OPT_TRANSREF_SEDMODEL 1   //       REF transmission
 
 // define redshift bins for SEDMODEL_TABLE
 #define NZBIN_SEDMODEL_DEFAULT   270
@@ -85,8 +89,8 @@ struct FILTER_SEDMODEL {
   double  lamstep;           // step, A
   double  lammin, lammax ;   // min/max wavelength
   double  mean;              // mean wavelength of filter
-  double  ZP;                // reference zeropoint
-  char    name[MXCHAR_FILTNAME];     // full name of filter
+  double  ZP_MODEL;               // ZP for model; m_prim - m_prim,syn + ZPlam
+  char    name[MXCHAR_FILTNAME];  // full name of filter
   char    survey[40];        // name of survey (Nov 2020)
 } FILTER_SEDMODEL[MXFILT_SEDMODEL] ;
 

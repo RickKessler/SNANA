@@ -701,7 +701,7 @@ void genmag_BAYESN(
 
   int      OPT_COLORLAW     = MWXT_SEDMODEL.OPT_COLORLAW;
   double * PARLIST_COLORLAW = MWXT_SEDMODEL.PARLIST_COLORLAW;
-  double   z1, meanlam_obs, meanlam_rest, ZP; 
+  double   z1, meanlam_obs, meanlam_rest, ZP_MODEL; 
   double   t0, t1, f0, f1, flux ;
 
   int      MEMD        = sizeof(double)*Nobs;
@@ -759,7 +759,7 @@ void genmag_BAYESN(
   
   // filter info for this "ifilt"
   meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
-  ZP           = FILTER_SEDMODEL[ifilt].ZP ;
+  ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
   meanlam_rest = meanlam_obs/z1 ;
   
@@ -918,7 +918,7 @@ void genmag_BAYESN(
   if (VERBOSE_BAYESN > 0) {
     printf("DEBUG: BAYESN_MODEL_INFO.M0: %.2f   DLMAG: %.2f   ZP: %.2f  "
 	   " THETA: %.2f   AV: %.2f\n",
-	   BAYESN_MODEL_INFO.M0, DLMAG, ZP, THETA, AV);
+	   BAYESN_MODEL_INFO.M0, DLMAG, ZP_MODEL, THETA, AV);
   }
 
   double hc_local = hc ; // ST - why do we do this? not having it breaks everything
@@ -941,7 +941,7 @@ void genmag_BAYESN(
       // otherwise fill out the magobs list
     } else {
       magobs_list[o] = BAYESN_MODEL_INFO.M0 + BAYESN_MODEL_INFO.DELTAM
-	+ DLMAG - 2.5*log10(flux_list[o]/hc_local) + ZP; 
+	+ DLMAG - 2.5*log10(flux_list[o]/hc_local) + ZP_MODEL; 
 
       // xxx mark delete Aug 20 2025: magerr_list[o] = 0.01; // RK 0.1 is too big for LCfit
       magerr_list[o] = get_magerr_BAYESN(Trest_list[o],meanlam_rest, parList_SN, parList_HOST);

@@ -10501,7 +10501,7 @@ double integmag_hostSpec(int IFILT_OBS, double z, int DUMPFLAG) {
   int    IFILT         = IFILTMAP_SEDMODEL[IFILT_OBS];
   int    NBLAM_FILT    = FILTER_SEDMODEL[IFILT].NLAM ;
   double LAMSTEP_FILT  = FILTER_SEDMODEL[IFILT].lamstep ; 
-  double ZP_FILT       = FILTER_SEDMODEL[IFILT].ZP ;
+  double ZP_FILT       = FILTER_SEDMODEL[IFILT].ZP_MODEL ;
   char  *cfilt         = FILTER_SEDMODEL[IFILT].name ;
   double hc8           = (double)hc;
   double z1            = 1.0 + z;

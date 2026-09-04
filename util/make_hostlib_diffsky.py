@@ -706,6 +706,10 @@ def add_col_magerr(df_cat, config):
         df_cat = add_col_magerr_snr(df_cat,config)
         add_magerr = True
 
+    #if jonah_method:
+    #    df_cat = add_col_magerr_jonah(df_cat,config)
+    #    add_magerr = True
+        
     # add auto-computed columns for min and 2nd min error among bands
     if add_magerr:
         add_col_magerr_min(df_cat, config)

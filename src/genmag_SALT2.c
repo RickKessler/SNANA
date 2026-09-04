@@ -214,6 +214,8 @@ int init_genmag_SALT2(char *MODEL_VERSION, char *MODEL_EXTRAP_LATETIME,
   DO_WAVECOR_SALT2  = ( OPTMASK & GENMODEL_MSKOPT_SALT2_WAVECOR); // Sep 2026
   DEBUG_SALT2       = ( OPTMASK & GENMODEL_MSKOPT_SALT2_DEBUG );
 
+  printf("\t DO_WAVECOR_SALT2 = %d \n", DO_WAVECOR_SALT2 ) ; fflush(stdout);
+
   // summarize filter info
   filtdump_SEDMODEL();
 
@@ -2138,10 +2140,18 @@ void genmag_SALT2(
   OPT_DOERR = 1 ;       // default flags on
   LDMP_DEBUG=0;
 
-  if ( (OPTMASK & 1)  ) { OPT_RETURN_FLUX = 1; }
+  if ( (OPTMASK & 1)  ) { OPT_RETURN_FLUX   = 1; }
   if ( (OPTMASK & 2)  ) { OPT_PRINT_BADFLUX = 1 ; }
   if ( (OPTMASK & 4)  ) { OPT_DOERR         = 0 ; } // Jul 2013
   if ( (OPTMASK & 8)  ) { LDMP_DEBUG        = (NCALL_DBUG_SALT2 == 0) ; }
+
+  if ( LDMP_DEBUG ) {
+    printf(" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \n");
+    printf(" xxx %s DUMP \n", fnam);
+    printf(" xxx   NCALL_DBUG_SALT2=%d  DO_WAVECOR_SALT2=%d \n",
+	   NCALL_DBUG_SALT2, DO_WAVECOR_SALT2);
+    printf(" xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \n");
+  }
 
   // translate absolute filter index into sparse index
   ifilt = IFILTMAP_SEDMODEL[ifilt_obs] ;
@@ -2280,9 +2290,9 @@ void genmag_SALT2(
     // ------------- DEBUG DUMP ONLY ------------------
     //    LDMP_DEBUG = ( ifilt_obs == 1 && magobs > 90.0 ) ;
 
-    if ( LDMP_DEBUG  &&  NCALL_DBUG_SALT2 == 0) {
-      printf("\n xxxx ================================================= \n");
-      printf(" xxxx genmag_SALT2 dump \n" ) ;
+    if ( LDMP_DEBUG ) {
+      printf(" xxxx \n") ;
+      printf(" xxxx \t genmag_SALT2 dump \n" ) ;
       printf(" xxxx Trest(%s) = %6.2f   LAMrest = %6.0f  z=%6.4f\n", 
 	     cfilt, Trest, meanlam_rest, z );
       printf(" xxxx flux=%f   mag=%f   OPT_RETURN_FLUX=%d \n", 
@@ -2291,7 +2301,6 @@ void genmag_SALT2(
 	     x1, c, Finteg ) ;
       printf(" xxxx ZP=%f  mwebv=%f \n", ZP, mwebv);
       printf(" xxxx colorCor = %f\n",  SALT2colorCor(meanlam_rest,c) ) ;
-      printf(" xxxx NCALL_DBUG_SALT2 = %d\n", NCALL_DBUG_SALT2) ;
       NCALL_DBUG_SALT2 += 1 ;
       fflush(stdout);
     }
@@ -2444,7 +2453,7 @@ double SALT2magerr(double Trest, double lamRest, double z,
     relsig1 = sqrt(var[1]);
     rho = covar[0][1] / (relsig0*relsig1) ;
 
-    // printf("\n xxxx ================================================= \n");
+    printf(" xxxx \n") ;
     printf(" xxxx \t SALT2magerr dump \n" );
 
     printf(" xxxx Trest=%6.2f  lamRest = %6.0f   z=%6.4f\n", 
@@ -2572,6 +2581,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   //
   // Sep 1 2026: R.Purohit apply optional epoch-dependent obs-frame filter wavecor.
   // Sep 3 2026: pass wavecor arg to get_LAMTRANS_SEDMODEL
+  // Sep 4 2026: pass DUMPFLAG to dump lam-dependent info
 
   int NSED = SEDMODEL.NSURFACE;
 
@@ -2608,7 +2618,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
   bool zero_FLAM;
 
   int  DO_SPECTROGRAPH = ( ifilt_obs == JFILT_SPECTROGRAPH ) ;
-  int  LDMP = 0 ;
+  int    DUMPFLAG_LAM = 0, LDMP = 0 ;
   bool   DO_EXTRAP_LOCAL       = false;
   bool   EXTRAP_METHOD_FLAM    = (EXTRAP_PHASE_METHOD == EXTRAP_PHASE_FLAM);
   double DAYMIN_EXTRAP         = INPUT_EXTRAP_LATETIME_Ia.DAYMIN ;
@@ -2626,6 +2636,7 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     Flam_filter[ised] = Flam_spec[ised] =  Flam_err[ised] = 0.0 ;
   }
 
+
   Fnorm_SALT3 = 0.0 ; // for SALT3
 
   ifilt       = IFILTMAP_SEDMODEL[ifilt_obs] ;
@@ -2641,6 +2652,14 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
       { DO_EXTRAP_LOCAL = true ; Trest_model = DAYMIN_EXTRAP ; }
   }
 
+
+  if ( DUMPFLAG ) {
+    printf(" xxx \n");
+    printf(" xxx \t %s DUMP \n", fnam);
+    printf(" xxx inputs: OPT_SPEC=%d  ifilt_obs=%d(%s)  z=%.3f  Tobs=%.2f wavecor=%.1f \n",
+	   OPT_SPEC, ifilt_obs, cfilt, z, Tobs, wavecor); fflush(stdout);
+    //.xyz
+  }
 
   LAMFILT_STEP = FILTER_SEDMODEL[ifilt].lamstep; 
   LAMSED_STEP  = SALT2_TABLE.LAMSTEP ;    // step size of SALT2 model
@@ -2736,7 +2755,8 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     if ( LAMSED <= SALT2_TABLE.LAMMIN ) { continue ; }
     if ( LAMSED >= SALT2_TABLE.LAMMAX ) { continue ; } 
 
-    LDMP = 0; // (OPT_SPEC>0 && ifilt_obs==2 );
+    LDMP = 0 ; // internal dump flag
+    DUMPFLAG_LAM = DUMPFLAG && (ilamobs<20 || ilamobs > NLAMFILT-20) ;  // passed flag
 
     // check spectrum options
     if ( OPT_SPEC > 0 ) {
@@ -2904,6 +2924,13 @@ void INTEG_zSED_SALT2(int OPT_SPEC, int ifilt_obs, double z, double Tobs,
     }
    
     Fnorm_SALT3  += (TRANS * LAMOBS ); 
+
+    if ( DUMPFLAG_LAM ) {
+      printf(" xxx    ilamobs=%3d LAMOBS=%7.1f MWXT_FRAC=%.3f  TRANS=%.3le  "
+	     "FLAM[0,1]=%.3le/%.3le \n", 
+	     ilamobs, LAMOBS,  MWXT_FRAC, TRANS, Flam_filter[0], Flam_filter[1] ); 
+      fflush(stdout);
+    }
 
   } // end ilamobs loop over obs filter
 
@@ -3140,7 +3167,7 @@ int gencovar_SALT2(int MATSIZE, int *ifiltobsList, double *epobsList,
   double z1    = 1.0 + z;
   double invZ1 = 1.0/z1;
 
-  double wavecor = 0.0 ; // .xyz Sep 2026 - maybe we need to pass this as function arg ??
+  double wavecor = 0.0 ; // Sep 2026 - maybe we need to pass this as function arg ??
 
   double 
     COV_TMP,  COV_DIAG, meanlam_obs, meanlam_rest
@@ -3684,8 +3711,6 @@ int getSpec_band_SALT2(int ifilt_obs, float Tobs_f, float wavecor_f, float z_f,
   for(ilam=0; ilam < NBLAM; ilam++ ) {
     
     get_LAMTRANS_SEDMODEL(ifilt, ilam, wavecor, &LAMOBS, &TRANS); // getSpec_band_SALT2
-
-    // .xyz need to adjust TRANS for wavecor ??
 
     LAMLIST_f[ilam]  = (float)LAMOBS ;
     FLUXLIST_f[ilam] = (float)FLUXLIST[ilam];

@@ -2900,7 +2900,7 @@
         ,GET_CALIB_PRIMARY_SED    &  ! refac
         ,GET_CALIB_FILTERTRANS   ! refac
 
-! ------------------- BEGIN ---------------
+! ------------------- BEGIN SEDMODEL_INI ---------------
 
     IERR = 0
     LEN_NAME   = INDEX(FITMODEL_NAME,' ') - 1
@@ -2997,9 +2997,9 @@
       IF ( .NOT. ENABLE_MAGSHIFT_SALT2  ) OPTMASK = OPTMASK + 4
       IF ( .NOT. ENABLE_WAVESHIFT_SALT2 ) OPTMASK = OPTMASK + 8
       IF ( .NOT. ALLOW_NEGFLUX_SALT2    ) OPTMASK = OPTMASK + 16   ! Mar 2021
-      if ( NUSE_WAVECOR > 0             ) OPTMASK = OPTMASK + 32   ! Sep 2026
+      if ( NSTORE_WAVECOR > 0           ) OPTMASK = OPTMASK + 32   ! Sep 2026
       IF ( DEBUG_FLAG == 1024           ) OPTMASK = OPTMASK + 1024 ! SALT2 debug flag
-      
+
       ISTAT = INIT_GENMAG_SALT2( TMP_FITMODEL, BLANK, OPTMASK,  & 
                   LEN_NAME, 40 )
 
@@ -5107,7 +5107,7 @@
         ,mag_xtav     &  ! (O) host-gal extinction in rest-frame filter
         ,mag_xtmw     &  ! (O) MW extinction on obs-frame filter
         ,mag_err      &  ! (O) mag-error from model
-          )
+        )
 
 ! ----------------------------------------------------
 !  Returns predicted Flux based on input parameters.
@@ -5235,7 +5235,7 @@
         ,SALT2x0calc, SALT2xx1, SALT2zz, SALT2x2  & 
         ,PARLIST_SN(10), PARLIST_HOST(10)
 
-! ------------- BEGIN ------------
+! ------------- BEGIN USRFUN ------------
 
     FNAM = 'USRFUN'
 
@@ -5530,11 +5530,11 @@
            LTMP = FILTBTEST(MSKFILT8,ifilt2_obs)
            if ( LTMP ) then
               ! print*,' xxx Tobs, ifilt_obs, wavecor = ', sngl(Tobs), ifilt_obs, sngl(wavecor)
-              CALL genmag_salt2( OPTMASK, ifilt2_obs     & 
+              CALL genmag_salt2( OPTMASK, ifilt2_obs      & 
                 , PARLIST_SN, PARLIST_HOST, MWEBV_MODEL   & 
                 , ZSN, ZZ, Nepoch, Tobs                   &  !
-                , WAVECOR                                &  ! Aug 30 2026 .xyz
-                , MAG_OBS_TMP(ifilt2_obs)                &  ! return arg
+                , WAVECOR                                 &  ! Aug 30 2026 
+                , MAG_OBS_TMP(ifilt2_obs)                 &  ! return arg
                 , MAGERR_OBS_TMP(ifilt2_obs)  ) ! return arg
 
            endif
@@ -9517,7 +9517,7 @@
 ! to set EP_XXX arrays with initial conditions.
 ! This is needed to check initial data/model normalization.
 
-    CALL FCNSNLC(NFITPAR_MN,GRAD,CHI8INI,INIVAL,IFLAG,USRFUN)
+    CALL FCNSNLC(NFITPAR_MN, GRAD, CHI8INI, INIVAL, IFLAG, USRFUN)
     CHI2RED        = SNGL(CHI8INI/DBLE(NEPOCH_ALL(0)))
     FITCHI2RED_INI = CHI2RED  ! store for SNANA table
     if ( CHI2RED < FITWIN_CHI2RED_INI(1) .or.  & 
@@ -10801,7 +10801,7 @@
     LOGICAL MJDSELECT
     REAL*4 GET_FUDGE_FITERR_MAXFRAC
 
-! ----------------- BEGIN ----------------
+! ----------------- BEGIN LOAD_EPALL----------------
 
     N = 0
     NFITDATA        = 0
@@ -10974,13 +10974,11 @@
 
       R8EP_MJD(N)           = MJD8
 
-      R4EP_ALL(ep,JEP_MJD)           = SNGL(MJD8)
-      R4EP_ALL(ep,JEP_DATAFLUX)      = FLUX_DATA
-      R4EP_ALL(ep,JEP_DATAFLUX_ERR)  =  & 
-                 FLUXERR_DATA * FUDGE_DATAERR_SCALE
+      R4EP_ALL(ep,JEP_MJD)            = SNGL(MJD8)
+      R4EP_ALL(ep,JEP_DATAFLUX)       = FLUX_DATA
+      R4EP_ALL(ep,JEP_DATAFLUX_ERR)   = FLUXERR_DATA * FUDGE_DATAERR_SCALE
       R4EP_ALL(ep,JEP_MODELFLUX)      = FLUX_MODEL
-      R4EP_ALL(ep,JEP_MODELFLUX_ERR)  =  & 
-                 FLUXERR_MODEL * FUDGE_MODELERR_SCALE
+      R4EP_ALL(ep,JEP_MODELFLUX_ERR)  = FLUXERR_MODEL * FUDGE_MODELERR_SCALE
       R4EP_ALL(ep,JEP_FLUX_ERRTOT)    = FLUXERR_TOT
       R4EP_ALL(ep,JEP_TOBS)           = TOBS
       R4EP_ALL(ep,JEP_TREST)          = TREST

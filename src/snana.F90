@@ -16917,6 +16917,14 @@
          IF ( FORCE_WAVECOR_ZERO > 0 ) VAL = 0.0   ! for testing only
          NUSE_WAVECOR  = NUSE_WAVECOR + 1
          SNLC_WAVECOR(ep) = VAL  ! store for later use
+
+         ! xxxxxxxxxxx
+         if ( SNLC_CID == -1793194 ) then
+            print*,' xxx ep=', ep, '  WAVECOR=', VAL
+            call flush(6)
+         endif
+         ! xxxxxxxxxxx
+
       else
          C1ERR = 'Not MAGCOR nor WAVEOR ???'
          C2ERR = 'Something is really messed up'

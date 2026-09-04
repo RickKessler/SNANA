@@ -2246,6 +2246,7 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
   char  *NAME ;
 
   // start double loop to compute mag[ifilt][i] where i is sparse wavecor index
+  int i_last = -9;
   for(i = 0; i < NGRID; i++ ) {  
     iwavecor = IWAVECOR_MIN + i*IWAVECOR_BIN;  // Angstroms
     wavecor   = (double)iwavecor;
@@ -2259,6 +2260,13 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
       mag  = compute_primary_mag(ifilt, wavecor);
       PRIMARY_MAG_WAVECOR_GRID.MAG_GRID[ifilt][i] = mag;
 
+      // print diagnostics for first, last and wavecor=0 bin
+      if ( i == 0 || i == IBIN_ZERO || i == NGRID-1 ) {
+	if ( i > i_last && ifilt==0 && i > 0 ) { printf("\t   ... \n"); } // for human readability
+	printf("\t    wavecor = %5.1f -> mag_prim(%s) = %8.4f \n",
+	       wavecor, NAME, mag); fflush(stdout);
+      }
+
       if ( i == IBIN_DUMP ) {
 	if ( ifilt==0 ) {
 	  printf(" xxx %s:  i=%3d  iwavecor=%4d  wavecor=%.2f \n", 
@@ -2267,7 +2275,9 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
 	printf(" xxx %s: \t ifilt=%d(%s)  mag=%.3f\n", 
 	       fnam, ifilt, NAME, mag);  fflush(stdout);
       }
-    } // end ifilt    
+    } // end ifilt
+
+    i_last = i;
   }   // end i loop over NGRID(WAVECOR)
 
   

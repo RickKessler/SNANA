@@ -427,7 +427,7 @@ void filtdump_SEDMODEL(void) {
   for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++) {
 
     printf("   id=%2.2d (%12s)   (%7.1f +%2.0f)  %5.0f-%5.0f(%3.0f)  "
-	   "%6.3f  %6.3f  \n"
+	   "%7.4f  %7.4f  \n"
 	   ,FILTER_SEDMODEL[ifilt].ifilt_obs
 	   ,FILTER_SEDMODEL[ifilt].name 
 	   ,FILTER_SEDMODEL[ifilt].mean - FILTER_SEDMODEL[ifilt].lamshift

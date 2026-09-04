@@ -2238,11 +2238,13 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   // allocate MAG_GRID[ifilt][igrid]
   FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &PRIMARY_MAG_WAVECOR_GRID.MAG_GRID );
+  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &PRIMARY_MAG_WAVECOR_GRID.ZP_MODEL_GRID );
 
-  printf("\t Allocated %.2f kB memory to store MAG_GRID \n", FMEMTOT/1.0e3);
+  printf("\t Allocated %.2f kB memory to store MAG_GRID  and ZP_MODEL_GRID\n", 
+	 FMEMTOT/1.0e3);
 
   int i, iwavecor, IBIN_DUMP = -12 ;
-  double wavecor, mag ;
+  double wavecor, primary_mag, zp_model ;
   int    IBIN_ZERO = -9;
   char  *NAME ;
 
@@ -2258,24 +2260,18 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
     for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
 
       NAME = CALIB_INFO.FILTER_NAME[ifilt];
-      mag  = compute_primary_mag(ifilt, wavecor);
-      PRIMARY_MAG_WAVECOR_GRID.MAG_GRID[ifilt][i] = mag;
+
+      compute_primary_mag(ifilt, wavecor, &primary_mag, &zp_model);
+      PRIMARY_MAG_WAVECOR_GRID.MAG_GRID[ifilt][i]      = primary_mag;
+      PRIMARY_MAG_WAVECOR_GRID.ZP_MODEL_GRID[ifilt][i] = zp_model;
 
       // print diagnostics for first, last and wavecor=0 bin
-      if ( i == 0 || i == IBIN_ZERO || i == NGRID-1 ) {
+      if ( i == 0 || i == IBIN_ZERO || i == NGRID-1  || i == IBIN_DUMP ) {
 	if ( i > i_last && ifilt==0 && i > 0 ) { printf("\t   ... \n"); } // for human readability
-	printf("\t    wavecor = %5.1f -> mag_prim(%s) = %8.4f \n",
-	       wavecor, NAME, mag); fflush(stdout);
+	printf("\t    %s wavecor = %5.1f -> mag_prim = %8.4f  zp_model = %8.4f \n",
+	       NAME, wavecor, primary_mag, zp_model); fflush(stdout);
       }
-
-      if ( i == IBIN_DUMP ) {
-	if ( ifilt==0 ) {
-	  printf(" xxx %s:  i=%3d  iwavecor=%4d  wavecor=%.2f \n", 
-		 fnam, i, iwavecor, wavecor);  fflush(stdout);
-	}
-	printf(" xxx %s: \t ifilt=%d(%s)  mag=%.3f\n", 
-	       fnam, ifilt, NAME, mag);  fflush(stdout);
-      }
+     
     } // end ifilt
 
     i_last = i;
@@ -2432,7 +2428,8 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
 	sprintf(c1err,"Detected bad ILAM_SED array: ILAM_SED_DIFF=%d but expected 1",
 		ILAM_SED_DIFF);
 	sprintf(c2err,"ilam_new=%d  LAM=%f ILAM_SED=%d ifilt=%d(%s)",
-		ilam_new, FILTERCAL->LAM[ifilt][ilam_new], FILTERCAL->ILAM_SED[ifilt][ilam_new], ifilt, BAND_NAME);
+		ilam_new, FILTERCAL->LAM[ifilt][ilam_new], 
+		FILTERCAL->ILAM_SED[ifilt][ilam_new], ifilt, BAND_NAME);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
 
@@ -2443,7 +2440,7 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   } // end ifilt loop
 
-  //debugexit(fnam);
+  //  debugexit(fnam);
  
   return ;
 
@@ -2453,10 +2450,10 @@ void prep_primary_mag_wavecor_grid__(float *WAVECOR_MIN, float *WAVECOR_MAX)
 { PREP_PRIMARY_MAG_WAVECOR_GRID(*WAVECOR_MIN,*WAVECOR_MAX); }
 
 
-double compute_primary_mag(int ifilt, double WAVECOR) {
+void compute_primary_mag(int ifilt, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL) {
 
   // Created Aug 2026
-  // Compute and store primargy mag for input IFILT and WAVECOR.
+  // Compute and return primargy mag and zp_model for input IFILT and WAVECOR.
   // Used with WAVECOR column in MAGCOR_FILE 
   //
 
@@ -2466,9 +2463,9 @@ double compute_primary_mag(int ifilt, double WAVECOR) {
   int NBLAM_PRIMARY    = FILTERCAL->NBIN_LAM_PRIMARY ;
   double *PRIMARY_LAM  = FILTERCAL->PRIMARY_LAM ;
   double *PRIMARY_FLUX = FILTERCAL->PRIMARY_FLUX ;
-  //  double LAMBIN        = PRIMARY_FLUX[1] - PRIMARY_FLUX[0];
+  double LAMBIN        = FILTERCAL->LAMBIN[ifilt];  
 
-  double mag, zp, wgt_flux, wgt_filt, lam_filt, trans, primary_flux;
+  double zp, wgt_flux, wgt_filt, lam_filt, trans, primary_flux;
   double primary_flux_sum = 0.0, filter_sum = 0.0 ;
   int ilam;
   
@@ -2495,12 +2492,21 @@ double compute_primary_mag(int ifilt, double WAVECOR) {
 	     fnam, ilam, lam_filt, trans, primary_flux);
     }
 
-  }
+  } // end ilam loop
+
 
   zp  = 2.5*log10(FNU_AB * LIGHT_A);
-  mag = zp - 2.5 * log10(primary_flux_sum / filter_sum);
 
-  return mag;
+  // compute final primary mag
+  *PRIMARY_MAG = zp - 2.5 * log10(primary_flux_sum / filter_sum);
+
+  // compute zp_model the same way as in  init_filter_SEDMODEL()
+  double hc8 = (double)hc ;
+  primary_flux_sum *= (LAMBIN/hc8)  ; // same units as function init_filter_SEDMODEL()
+  *ZP_MODEL    = 2.5*log10(primary_flux_sum) + FILTERCAL->PRIMARY_MAG[ifilt];
+
+  return ;
+
 } // end compute_primary_mag
 
 

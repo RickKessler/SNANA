@@ -177,8 +177,8 @@ struct PRIMARY_MAG_WAVECOR_GRID {
   int IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN;
   int NGRID;
   double *WAVECOR_GRID; 
-  double **MAG_GRID;  // MAG[ifilt][igrid]
-
+  double **MAG_GRID;        // MAG[ifilt][igrid]
+  double **ZP_MODEL_GRID;   // to speed up model mag computations
 } PRIMARY_MAG_WAVECOR_GRID ;
 
 double **TEMP_KCOR_ARRAY;
@@ -253,7 +253,7 @@ double get_calib_primary_mag__(int *OPT, int *ifiltdef);
 
 void   PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) ;
 void   prep_primary_mag_wavecor_grid__(float *WAVECOR_MIN, float *WAVECOR_MAX);
-double compute_primary_mag(int IFILT, double WAVECOR) ;
+void   compute_primary_mag(int IFILT, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL) ;
 
 void get_calib_filterTrans(int OPT_FRAME, int ifiltdef_obs, char *surveyName, 
 			  char *filterName, double *magprim, 

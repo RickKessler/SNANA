@@ -96,8 +96,8 @@ struct FILTER_SEDMODEL {
 
 
 struct CALIB_WAVECOR_GRID {
-  int IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN;
   int     NGRID;
+  int     IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN;
   double *WAVECOR_GRID; 
   double **MAG_GRID;        // MAG[ifilt][igrid]
   double **ZP_MODEL_GRID;   // to speed up model mag computations

@@ -3378,7 +3378,8 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
   // and for each passband.                                         
   // Initial motivation: Roman correction for 18 SCAs (with R.Purhit)
 
-  int  IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN=2.0 ;  // integer wavecor ranges and bins              
+  int  IWAVECOR_BIN = 2;  // Angstrings
+  int  IWAVECOR_MIN, IWAVECOR_MAX;  // integer wavecor ranges and bins              
   int  NGRID, ifilt ;
   float FMEMTOT = 0.0 ;
   char fnam[] = "PREP_WAVECOR_SEDMODEL" ;  (void)fnam;
@@ -3387,30 +3388,33 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   print_banner(fnam);
 
-  IWAVECOR_MIN = (int)WAVECOR_MIN - 2 ;
-  IWAVECOR_MAX = (int)WAVECOR_MAX + 2 ;
-  NGRID          = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN;
-  NGRID /= IWAVECOR_BIN ;
+  // convert float wavecor min/max to nearest integer min/max to have
+  // an integer wave grid
 
+  IWAVECOR_MIN = (int)WAVECOR_MIN - 1 ;
+  IWAVECOR_MAX = (int)WAVECOR_MAX + 1 ;
+  NGRID        = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN ;
+  NGRID /= IWAVECOR_BIN ;
 
   printf("\t Original WAVECOR range: %.1f to %.1f A \n", WAVECOR_MIN, WAVECOR_MAX);
   printf("\t WAVECOR grid: %d to %d A with %d A  binsize -> NGRID=%d\n",
          IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN, NGRID );
   printf("\t NFILT=%d \n", NFILT_SEDMODEL);
 
-  // load the goodies into global struct (kind'of like a python namespace) 
+  // load the goodies into global struct 
   WAVECOR_SEDMODEL.NGRID = NGRID;
   WAVECOR_SEDMODEL.IWAVECOR_MIN = IWAVECOR_MIN;
   WAVECOR_SEDMODEL.IWAVECOR_MAX = IWAVECOR_MAX;
   WAVECOR_SEDMODEL.IWAVECOR_BIN = IWAVECOR_BIN;
   WAVECOR_SEDMODEL.IBIN_ZERO    = -9;
 
+  
   // allocate memory               
   int MEMD = NGRID * sizeof(double);
 
   WAVECOR_SEDMODEL.WAVECOR_GRID = (double*)malloc(MEMD);    FMEMTOT += (float)MEMD;
-  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL, NGRID, &WAVECOR_SEDMODEL.MAG_GRID );
-  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL, NGRID, &WAVECOR_SEDMODEL.ZP_MODEL_GRID );
+  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL+1, NGRID, &WAVECOR_SEDMODEL.MAG_GRID );
+  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL+1, NGRID, &WAVECOR_SEDMODEL.ZP_MODEL_GRID );
   
   printf("\t Allocated %.2f kB memory to store MAG_GRID  and ZP_MODEL_GRID\n",
          FMEMTOT/1.0e3);
@@ -3427,19 +3431,19 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
     wavecor   = (double)iwavecor;
     WAVECOR_SEDMODEL.WAVECOR_GRID[i] = wavecor ;
 
-    if ( wavecor == 0.0 ) { IBIN_ZERO = WAVECOR_SEDMODEL.IBIN_ZERO = i; }
+    if ( wavecor == 0.0 ) { IBIN_ZERO = i; WAVECOR_SEDMODEL.IBIN_ZERO = i; }
 
-    for(ifilt=0; ifilt < NFILT_SEDMODEL; ifilt++ ) {
+    for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) { // skip ifilt=0 for spectrograph
 
       NAME = FILTER_SEDMODEL[ifilt].name ;
-
+      
       compute_wavecor_info_SEDMODEL(ifilt, wavecor, &primary_mag, &zp_model);
       WAVECOR_SEDMODEL.MAG_GRID[ifilt][i]      = primary_mag;
       WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][i] = zp_model;
 
       // print diagnostics for first, last and wavecor=0 bin 
       if ( i == 0 || i == IBIN_ZERO || i == NGRID-1  || i == IBIN_DUMP ) {
-        if ( i > i_last && ifilt==0 && i > 0 ) { printf("\t   ... \n"); } // for human readability
+        if ( i > i_last && ifilt==1 && i > 0 ) { printf("\t   ... \n"); } // for human readability
         printf("\t    %s wavecor = %5.1f -> mag_prim = %8.4f  zp_model = %8.4f \n",
                NAME, wavecor, primary_mag, zp_model); fflush(stdout);
       }
@@ -3448,6 +3452,7 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
     i_last = i;
   }   // end i loop over NGRID(WAVECOR)  
   
+  //  debugexit(fnam);
   //.xyz
 
   return;
@@ -3520,14 +3525,23 @@ void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model ) {
   // Interpolate ZP_MODEL-vs.-wavecor to determine *zp_model.
 
   int    ibin;
-  double zp_model_local=-999.0 ;
+  double zp_model_local = -999.0 ;
+
+  //  int NGRID        = WAVECOR_SEDMODEL.NGRID;
+  //  int IWAVECOR_MIN = WAVECOR_SEDMODEL.IWAVECOR_MIN;
+  //  int IWAVECOR_MAX = WAVECOR_SEDMODEL.IWAVECOR_MAX ;
+  //  int IWAVECOR_BIN = WAVECOR_SEDMODEL.IWAVECOR_BIN;
+
   char fnam[] = "get_ZP_MODEL_SEDMODEL" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
+  //  zp_model_local     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
+
   ibin = WAVECOR_SEDMODEL.IBIN_ZERO; // hack test; need to interpolate
   zp_model_local =  WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][ibin];
-  
+
+
   *zp_model = zp_model_local;
   return ;
 

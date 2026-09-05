@@ -42,11 +42,15 @@
       of ZP vs. Texpose. Works much better with sparse Texpose grid.
       [issue found by comparing SNR against D.Rubin]
 
+  Sep 5 2026: 
+    + move compute_spectrograph_filter_overlap out of here and into snlc_sim
+      so that #include "genmag_SEDtools.h"  is no longer needed. 
+      
 *********************************************************/
 
 #include "fitsio.h"
 #include "sntools.h"
-#include "genmag_SEDtools.h"
+// xxx mark del 9.05.2026   #include "genmag_SEDtools.h"
 #include "sntools_spectrograph.h"
 #include "sntools_dataformat_fits.h"
 
@@ -1213,6 +1217,9 @@ void read_spectrograph_fits(char *inFile) {
 } // end read_spectrograph_fits
 
 
+
+/* xxxxxxxx mark delete 9.05.2026 xxxxxxxxxxx
+
 // ====================================================
 void compute_spectrograph_filter_overlap(void) {
 
@@ -1270,6 +1277,9 @@ void compute_spectrograph_filter_overlap(void) {
   return;
 
 } // end compute_spectrograph_filter_overlap
+
+xxxxxxx end mark xxxxxxxxxx*/
+
 
 // ====================================================
 void extend_spectrograph_lambins(void) {

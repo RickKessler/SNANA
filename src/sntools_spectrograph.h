@@ -159,7 +159,7 @@ int  read_TEXPOSE_LIST(FILE *fp);
 int  read_SPECBIN_spectrograph(FILE *fp);
 void reset_VALUES_SPECBIN(void) ;
 
-void compute_spectrograph_filter_overlap(void);
+// xxx mark delete void compute_spectrograph_filter_overlap(void);
 
 void malloc_spectrograph(int OPT, int NBIN_LAM, int NBIN_TEXPOSE) ;
 void solve_spectrograph(void) ;

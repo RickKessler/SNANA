@@ -1656,7 +1656,6 @@
 ! 
 ! ----------------------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -1688,7 +1687,7 @@
     LOGICAL LFITFUN_FILT, FIRST_ITERATION, IS_ZSPEC
     INTEGER NEAREST_IFILTDEF_WRAPPER
 
-! ---------- BEGIN -------------
+! ---------- BEGIN FITPAR_PREP -------------
 
     IERR = 0  ! init to OK
     LPRINT = STDOUT_UPDATE
@@ -2953,7 +2952,7 @@
     DO 44 ifilt  = 1, NFILTDEF_SURVEY
        ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
        cfilt1    = filtdef_string(ifilt_obs:ifilt_obs)
-
+       
        LAMSHIFT = FILTER_LAMSHIFT_FILT(ifilt_obs) ! Apr 12 2025 fix
 
 ! pass ifilt_obs; everything else is returned.
@@ -2972,11 +2971,18 @@
                     MAGPRIM, NLAM, LAM, VALa, VALb, LAMSHIFT,  & 
                     LEN1, LEN2 )
 
-    CALL FLUSH(6)
+       CALL FLUSH(6)
+       
+44  CONTINUE  ! end of IFILT loop
 
-44    CONTINUE  ! end of IFILT loop
+! --------------------------------------------------------
+! Sep 2026: prep option to apply wavecor shift to each observation
+    if ( NSTORE_WAVECOR > 0 ) then
+       CALL PREP_WAVECOR_SEDMODEL(SNLC_WAVECOR_MIN,SNLC_WAVECOR_MAX)
+    endif
 
 
+! --------
     IF ( IFLAG .EQ. 0 ) THEN
        OPT_FILTER_UPDATE  = OPT_FILTER_UPDATE_SAVE
     ENDIF

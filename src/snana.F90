@@ -2969,8 +2969,9 @@
          ,GET_CALIB_FILTLAM_STATS  & 
          ,GET_CALIB_ZPOFF_FILE  & 
          ,GET_CALIB_PRIMARY_MAG  & 
-         ,GET_CALIB_NFILTDEF  & 
-         ,EXIST_CALIB_BXFILT  & 
+         ,GET_CALIB_NFILTDEF     & 
+         ,EXTEND_CALIB_FILTERS   &
+         ,EXIST_CALIB_BXFILT     & 
          ,GET_KCOR_ZRANGE
 
 ! ---------- BEGIN ---------
@@ -3078,7 +3079,7 @@
 
 
     if ( NSTORE_WAVECOR > 0 ) then
-       CALL PREP_PRIMARY_MAG_WAVECOR_GRID(SNLC_WAVECOR_MIN,SNLC_WAVECOR_MAX)
+       CALL EXTEND_CALIB_FILTERS(SNLC_WAVECOR_MIN,SNLC_WAVECOR_MAX)
     endif
 
     RETURN

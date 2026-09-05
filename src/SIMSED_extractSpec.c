@@ -188,6 +188,9 @@ Nov 21, 2011 JLM:
 
 #include "genmag_SIMSED.c"
 
+// Sep 2026: add these includes because genmag_SEDtools calls something in sntools_calib
+#include "fitsio.h"
+#include "sntools_calib.h"
 
 // =========== DECLARE FUNCTIONS ==================
 

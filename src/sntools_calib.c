@@ -200,11 +200,13 @@ void read_calib_init(void) {
 
   IFILTDEF_BESS_BX = INTFILTER("X");
  
+  /* xxxxxxxx mark delete 9.05.2026 xxxxxxxx
   // Aug 25 2026: init struct for optional WAVESHIFT in MAGCOR_FILE
-  PRIMARY_MAG_WAVECOR_GRID.NGRID = 0 ;
-  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MIN = 0;
-  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MAX = 0; 
-  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_BIN = 0;
+  CALIB_WAVECOR_GRID.NGRID = 0 ;
+  CALIB_WAVECOR_GRID.IWAVECOR_MIN = 0;
+  CALIB_WAVECOR_GRID.IWAVECOR_MAX = 0; 
+  CALIB_WAVECOR_GRID.IWAVECOR_BIN = 0;
+  xxxxxxxxx end mark */
 
   return ;
 
@@ -1622,21 +1624,6 @@ void load_filterTrans_calib(int OPT_FRAME, int IFILTDEF, int NBL,
   IS_MALLOC = (FILTERCAL->NBIN_LAM[ifilt] > 0 );
   if ( IS_MALLOC ) { malloc_calib_filter(-1, FILTERCAL, NBL, ifilt); }
 
-  /* xxx mark del Sep 2026 xxxxxx
-
-  int MEMD  = NBL * sizeof(double);
-  int MEMI  = NBL * sizeof(int);
-  if ( IS_MALLOC ) {
-    free(FILTERCAL->LAM[ifilt]);
-    free(FILTERCAL->TRANS[ifilt]);
-    free(FILTERCAL->ILAM_SED[ifilt]);
-  }
-  FILTERCAL->LAM[ifilt]      = (double*)malloc(MEMD);
-  FILTERCAL->TRANS[ifilt]    = (double*)malloc(MEMD);
-  FILTERCAL->ILAM_SED[ifilt] = (int   *)malloc(MEMI);
-  xxxxxx end mark */
-
-
   malloc_calib_filter(+1, FILTERCAL, NBL, ifilt);
 
   // determine min and max ilam that contains Trans>0 
@@ -2187,13 +2174,176 @@ double get_calib_primary_mag(int OPT, int ifiltdef) {
 
   return mag;
 
+
 } // end get_calib_primary_mag
 
 double get_calib_primary_mag__(int *OPT, int *ifiltdef)
 { return get_calib_primary_mag(*OPT,*ifiltdef); }
 
 
-void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
+
+void EXTEND_CALIB_FILTERS(float EXTEND_WAVE_BLUE, float EXTEND_WAVE_RED) {
+
+  // Created Aug 2026 
+  // Extend each filter transmission (T) with bins that have T=0.
+  // Intended to shift filter-transmissoin curves in genmag_SEDtools.
+  //
+  // If EXTEND_WAVE_BLUE < 0, then extend filter grid on blue side; else do nothing.
+  // if EXTEND_WAVE_RED  > 0, then extend filter grid on red  side; else do nothing.
+  //
+  // TO-DO: only add pad-bins with T=0 if there aren't any bins already existing;
+  //        i.e. ,do not duplicate already existing T=0 bins
+  //
+  FILTERCAL_DEF *FILTERCAL = &CALIB_INFO.FILTERCAL_OBS;
+  int  NFILTDEF            = FILTERCAL->NFILTDEF ;
+  double LAMBIN, LAM, TRANS ;
+  int    NBLAM_ORIG, NBLAM_NEW, ilamshift_blue, ilamshift_red, ilam_orig;
+  int   ifilt, ilam_new, ilamshift, ILAM_SED  ;
+  FILTERCAL_DEF FILTERCAL_ORIG ;
+  bool  NEW_BIN;
+  char  *BAND_NAME, *FULL_NAME;
+  int LDMP = 0, NLAM_DUMP=15;
+
+  char fnam[] = "EXTEND_CALIB_FILTERS" ;  (void)fnam;
+
+  // ------------- BEGIN ------------
+
+  print_banner(fnam);
+
+  printf("    Extend each FILTER transmission curve by %.1f(blue) and %.1f(red) A \n",
+	 EXTEND_WAVE_BLUE, EXTEND_WAVE_RED );
+
+  // .xyz
+  for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
+    LAMBIN         = FILTERCAL->LAMBIN[ifilt];     // filter trans bin size (not waveshift bin)
+    BAND_NAME      = FILTERCAL->BAND_NAME[ifilt] ;	
+    FULL_NAME      = FILTERCAL->FILTER_NAME[ifilt] ;	
+    NBLAM_ORIG     = FILTERCAL->NBIN_LAM[ifilt] ;	
+
+    // copy original wave-dependent info into local array to avoid clobbering during array update
+    malloc_calib_filter(+1, &FILTERCAL_ORIG, NBLAM_ORIG, ifilt);
+    for(ilam_orig=0; ilam_orig < NBLAM_ORIG; ilam_orig++ ) {
+      FILTERCAL_ORIG.LAM[ifilt][ilam_orig]       = FILTERCAL->LAM[ifilt][ilam_orig];
+      FILTERCAL_ORIG.TRANS[ifilt][ilam_orig]     = FILTERCAL->TRANS[ifilt][ilam_orig] ;
+      FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig]  = FILTERCAL->ILAM_SED[ifilt][ilam_orig] ;
+    }
+    
+    ilamshift_blue  = (int)(EXTEND_WAVE_BLUE / LAMBIN ) - 1 ;  
+    ilamshift_red   = (int)(EXTEND_WAVE_RED  / LAMBIN ) + 1 ; 
+
+    NBLAM_NEW            = NBLAM_ORIG ;
+    ilamshift = 0;
+    if ( ilamshift_blue < 0 ) { NBLAM_NEW -= ilamshift_blue; ilamshift = ilamshift_blue; }
+    if ( ilamshift_red  > 0 ) { NBLAM_NEW += ilamshift_red; }
+
+    if ( LDMP ) {
+      printf(" xxx \n");
+      printf(" xxx %s DUMP for ifilt=%d(%s) ----------------------------- \n", 
+	     fnam, ifilt, FULL_NAME);
+      printf(" xxx %s: NBLAM[ORIG->NEW] = %d -> %d \n", 
+	     fnam, NBLAM_ORIG, NBLAM_NEW);
+      printf(" xxx %s: ilamshift[blue/red] = %d / %d \n", 
+	     fnam, ilamshift_blue, ilamshift_red);
+      fflush(stdout);
+    }
+
+    int ilam_diff_new = 0;
+
+    for(ilam_new=0; ilam_new < NBLAM_NEW; ilam_new++ ) {
+
+      ilam_orig = ilam_new + ilamshift ;
+      if ( ilam_orig >= NBLAM_ORIG ) { ilam_orig = 77777; }
+      NEW_BIN = ( ilam_orig < 0 || ilam_orig >= NBLAM_ORIG) ;
+
+      LAM       = -9.0 ; 
+      TRANS     = -9.0 ; 
+      ILAM_SED  = -9 ;
+
+      if ( NEW_BIN ) {
+	// add pad bin with zero transmission, but correct wavelength and ILAM_SED
+	TRANS     = 0.0 ;
+	if ( ilam_orig < 0 ) { 
+	  // blue side of original filter
+	  LAM       =  FILTERCAL_ORIG.LAM[ifilt][0]      + (double)(ilam_orig) * LAMBIN ;
+	  ILAM_SED  =  FILTERCAL_ORIG.ILAM_SED[ifilt][0] + ilam_orig  ; 
+	}
+	else {
+	  // red side of original filter
+	  ilam_diff_new++ ;
+	  double LAM_LAST_ORIG   = FILTERCAL_ORIG.LAM[ifilt][NBLAM_ORIG-1]  ;
+	  int ILAM_SED_LAST_ORIG = FILTERCAL_ORIG.ILAM_SED[ifilt][NBLAM_ORIG-1]  ;
+	  LAM      = LAM_LAST_ORIG      + (double)(ilam_diff_new) * LAMBIN ;
+	  ILAM_SED = ILAM_SED_LAST_ORIG + (ilam_diff_new) ;
+
+	}
+      }
+      else {
+	// original portion of filter transmission
+	LAM       = FILTERCAL_ORIG.LAM[ifilt][ilam_orig];
+	TRANS     = FILTERCAL_ORIG.TRANS[ifilt][ilam_orig] ;
+	ILAM_SED  = FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig] ;
+      }
+
+      if ( LDMP && (ilam_new<NLAM_DUMP || ilam_new > NBLAM_NEW-NLAM_DUMP ) )  {
+	printf(" xxx \t ilam[orig/new] =%4d / %4d  LAM=%7.1f  TRANS=%.3f  ILAM_SED=%5d \n",
+	       ilam_orig, ilam_new, LAM, TRANS, ILAM_SED); fflush(stdout);
+      }
+
+      FILTERCAL->LAM[ifilt][ilam_new]       = LAM;
+      FILTERCAL->TRANS[ifilt][ilam_new]     = TRANS ;
+      FILTERCAL->ILAM_SED[ifilt][ilam_new]  = ILAM_SED ;
+    }
+
+    printf("\t %s filter-grid: [%7.1f %7.1f] -> [%7.1f %7.1f]   NBLAM=%4d -> %4d \n",
+	   FULL_NAME, 
+	   FILTERCAL_ORIG.LAM[ifilt][0], FILTERCAL_ORIG.LAM[ifilt][NBLAM_ORIG-1],
+	   FILTERCAL->LAM[ifilt][0], FILTERCAL->LAM[ifilt][NBLAM_NEW-1],
+	   NBLAM_ORIG, NBLAM_NEW );
+    fflush(stdout);
+
+    // final sanity check that LAM and ILAM_SED increment properly;
+    // loop starts at 1, not 0
+    double LAMDIF;   int ILAM_SED_DIFF ;
+    for(ilam_new=1; ilam_new < NBLAM_NEW; ilam_new++ ) {
+      LAMDIF        = FILTERCAL->LAM[ifilt][ilam_new] - FILTERCAL->LAM[ifilt][ilam_new-1];
+      ILAM_SED_DIFF = FILTERCAL->ILAM_SED[ifilt][ilam_new] - FILTERCAL->ILAM_SED[ifilt][ilam_new-1];
+      if ( abs(LAMDIF - LAMBIN) > .00001 ) {
+	sprintf(c1err,"Detected bad LAM array: LAMDIF=%f but expected LAMDIF=%.1f",
+		LAMDIF, LAMBIN);
+	sprintf(c2err,"ilam_new=%d  LAM=%f  ifilt=%d(%s)",
+		ilam_new, FILTERCAL->LAM[ifilt][ilam_new], ifilt, BAND_NAME);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+      if ( ILAM_SED_DIFF != 1 ) {
+	sprintf(c1err,"Detected bad ILAM_SED array: ILAM_SED_DIFF=%d but expected 1",
+		ILAM_SED_DIFF);
+	sprintf(c2err,"ilam_new=%d  LAM=%f ILAM_SED=%d ifilt=%d(%s)",
+		ilam_new, FILTERCAL->LAM[ifilt][ilam_new], 
+		FILTERCAL->ILAM_SED[ifilt][ilam_new], ifilt, BAND_NAME);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+
+    }     // end sanity check
+
+    FILTERCAL->NBIN_LAM[ifilt] = NBLAM_NEW;
+    malloc_calib_filter(-1, &FILTERCAL_ORIG, NBLAM_ORIG, ifilt);
+
+  } // end ifilt loop
+
+  //  debugexit(fnam);
+ 
+  return ;
+
+} // end EXTEND_CALIB_FILTERS
+
+void extend_calib_filters__(float *WAVECOR_MIN, float *WAVECOR_MAX) 
+{ EXTEND_CALIB_FILTERS( *WAVECOR_MIN, *WAVECOR_MAX); }
+
+
+/* xxxxxxxxxxxxx mark delete 9.05.2026 xxxxxxxxxx
+
+void PREP_CALIB_WAVECOR(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   // Created Aug 2026 
   // if WAVECOR column exists in MAGCOR table, this function is called
@@ -2209,7 +2359,7 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
   int  IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN=2.0 ;  // integer wavecor ranges and bins
   int  NGRID, ifilt ;
   float FMEMTOT = 0.0 ;
-  char fnam[] = "PREP_PRIMARY_MAG_WAVECOR_GRID" ;  (void)fnam;
+  char fnam[] = "PREP_CALIB_WAVECOR" ;  (void)fnam;
 
   // ------------- BEGIN ------------
 
@@ -2219,7 +2369,6 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
   IWAVECOR_MAX = (int)WAVECOR_MAX + 2 ;
   NGRID          = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN; 
   NGRID /= IWAVECOR_BIN ;
-  PRIMARY_MAG_WAVECOR_GRID.NGRID = NGRID;
 
   printf("\t Original WAVECOR range: %.1f to %.1f A \n", WAVECOR_MIN, WAVECOR_MAX);
   printf("\t WAVECOR grid: %d to %d A with %d A  binsize -> NGRID=%d\n",
@@ -2227,18 +2376,16 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
   printf("\t NFILTDEF=%d \n", NFILTDEF);
   
   // load the goodies into global struct (kind'of like a python namespace)
-  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MIN = IWAVECOR_MIN;
-  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_MAX = IWAVECOR_MAX;
-  PRIMARY_MAG_WAVECOR_GRID.IWAVECOR_BIN = IWAVECOR_BIN; 
+  CALIB_WAVECOR_GRID.NGRID = NGRID;
+  CALIB_WAVECOR_GRID.IWAVECOR_MIN = IWAVECOR_MIN;
+  CALIB_WAVECOR_GRID.IWAVECOR_MAX = IWAVECOR_MAX;
+  CALIB_WAVECOR_GRID.IWAVECOR_BIN = IWAVECOR_BIN; 
   
   // allocate memory
   int MEMD = NGRID * sizeof(double);
-  PRIMARY_MAG_WAVECOR_GRID.WAVECOR_GRID = (double*)malloc(MEMD);
-  FMEMTOT += (float)MEMD;
-
-  // allocate MAG_GRID[ifilt][igrid]
-  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &PRIMARY_MAG_WAVECOR_GRID.MAG_GRID );
-  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &PRIMARY_MAG_WAVECOR_GRID.ZP_MODEL_GRID );
+  CALIB_WAVECOR_GRID.WAVECOR_GRID = (double*)malloc(MEMD);  FMEMTOT += (float)MEMD;
+  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &CALIB_WAVECOR_GRID.MAG_GRID );
+  FMEMTOT += malloc_double2D(+1, NFILTDEF, NGRID, &CALIB_WAVECOR_GRID.ZP_MODEL_GRID );
 
   printf("\t Allocated %.2f kB memory to store MAG_GRID  and ZP_MODEL_GRID\n", 
 	 FMEMTOT/1.0e3);
@@ -2253,17 +2400,16 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
   for(i = 0; i < NGRID; i++ ) {  
     iwavecor = IWAVECOR_MIN + i*IWAVECOR_BIN;  // Angstroms
     wavecor   = (double)iwavecor;
-    PRIMARY_MAG_WAVECOR_GRID.WAVECOR_GRID[i] = wavecor ;
+    CALIB_WAVECOR_GRID.WAVECOR_GRID[i] = wavecor ;
 
     if ( wavecor == 0.0 ) { IBIN_ZERO = i; }
 
     for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
 
       NAME = CALIB_INFO.FILTER_NAME[ifilt];
-
-      compute_primary_mag(ifilt, wavecor, &primary_mag, &zp_model);
-      PRIMARY_MAG_WAVECOR_GRID.MAG_GRID[ifilt][i]      = primary_mag;
-      PRIMARY_MAG_WAVECOR_GRID.ZP_MODEL_GRID[ifilt][i] = zp_model;
+      compute_calib_wavecor_info(ifilt, wavecor, &primary_mag, &zp_model);
+      CALIB_WAVECOR_GRID.MAG_GRID[ifilt][i]      = primary_mag;
+      CALIB_WAVECOR_GRID.ZP_MODEL_GRID[ifilt][i] = zp_model;
 
       // print diagnostics for first, last and wavecor=0 bin
       if ( i == 0 || i == IBIN_ZERO || i == NGRID-1  || i == IBIN_DUMP ) {
@@ -2296,7 +2442,7 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
 
     NAME = CALIB_INFO.FILTER_NAME[ifilt];
     mag_rdkcor  = PRIMARY_MAG_RDKCOR[ifilt];
-    mag_compute = PRIMARY_MAG_WAVECOR_GRID.MAG_GRID[ifilt][IBIN_ZERO];
+    mag_compute = CALIB_WAVECOR_GRID.MAG_GRID[ifilt][IBIN_ZERO];
     dm          = mag_rdkcor - mag_compute;
     
     if ( fabs(dm) > dm_tol ) {
@@ -2444,20 +2590,20 @@ void PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) {
  
   return ;
 
-} // end PREP_PRIMARY_MAG_WAVECOR_GRID
+} // end PREP_CALIB_WAVECOR
 
-void prep_primary_mag_wavecor_grid__(float *WAVECOR_MIN, float *WAVECOR_MAX) 
-{ PREP_PRIMARY_MAG_WAVECOR_GRID(*WAVECOR_MIN,*WAVECOR_MAX); }
+void prep_calib_wavecor__(float *WAVECOR_MIN, float *WAVECOR_MAX) 
+{ PREP_CALIB_WAVECOR(*WAVECOR_MIN,*WAVECOR_MAX); }
 
 
-void compute_primary_mag(int ifilt, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL) {
+void compute_calib_wavecor_info(int ifilt, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL) {
 
   // Created Aug 2026
   // Compute and return primargy mag and zp_model for input IFILT and WAVECOR.
   // Used with WAVECOR column in MAGCOR_FILE 
   //
 
-  FILTERCAL_DEF *FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ;
+  FILTERCAL_DEF FILTERCAL = &CALIB_INFO.FILTERCAL_OBS ;
   int NBLAM_FILT           = FILTERCAL->NBIN_LAM[ifilt] ;
 
   int NBLAM_PRIMARY    = FILTERCAL->NBIN_LAM_PRIMARY ;
@@ -2470,7 +2616,7 @@ void compute_primary_mag(int ifilt, double WAVECOR, double *PRIMARY_MAG, double 
   int ilam;
   
   int OPT_INTERP = 2;
-  char fnam[] = "compute_primary_mag" ;  (void)fnam;
+  char fnam[] = "compute_calib_wavecor_info" ;  (void)fnam;
 
   // ---------- BEGIN ----------
 
@@ -2506,8 +2652,36 @@ void compute_primary_mag(int ifilt, double WAVECOR, double *PRIMARY_MAG, double 
 
   return ;
 
-} // end compute_primary_mag
+} // end compute_calib_wavecor_info
 
+
+void fetch_calib_wavecor(int IFILT_OBS, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL) {
+
+  // Created Sep 2026
+  // for input IFILT_LOBS and WAVECOR, return
+  // *PRIMARY_MAG and ZP_MODEL.
+  
+  int ifilt = CALIB_INFO.FILTERCAL_OBS.IFILTDEF_INV[IFILT_OBS]; // sparse index
+  int iwavecor;
+  double m_local, zp_local;
+  char fnam[] = "fetch_calib_wavecor" ;  (void)fnam ;
+
+  // .xyz
+  // ------------- BEGIN -----------
+  m_local = zp_local = -999.0;
+
+  iwavecor = 44;
+  m_local     = CALIB_WAVECOR_GRID.MAG_GRID[ifilt][iwavecor] ;
+  zp_local    = CALIB_WAVECOR_GRID.ZP_MODEL_GRID[ifilt][iwavecor] ; 
+
+  // load return args
+  *PRIMARY_MAG  = m_local ;
+  *ZP_MODEL     = zp_local ;
+
+  return ;
+} // end fetch_calib_wavecor
+
+xxxxxxxxx end mark xxxxxxxxx */
 
 // =============================
 void get_KCOR_FILTERCAL(int OPT_FRAME, char *fnam, FILTERCAL_DEF *MAP) {

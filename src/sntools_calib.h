@@ -173,13 +173,16 @@ struct CALIB_INFO {
 } CALIB_INFO ;
 
 
-struct PRIMARY_MAG_WAVECOR_GRID {
+/* xxxxxxxx mark delete 9.05.2026 xxxxxxxxx
+struct CALIB_WAVECOR_GRID {
   int IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN;
   int NGRID;
   double *WAVECOR_GRID; 
   double **MAG_GRID;        // MAG[ifilt][igrid]
   double **ZP_MODEL_GRID;   // to speed up model mag computations
-} PRIMARY_MAG_WAVECOR_GRID ;
+} CALIB_WAVECOR_GRID ;
+xxxxxxxxx end mark xxxxxxxxx */
+
 
 double **TEMP_KCOR_ARRAY;
 
@@ -201,6 +204,9 @@ void READ_CALIB_DRIVER(char *kcorFile, char *FILTERS_SURVEY, bool USE_KCOR,
 void read_calib_driver__(char *kcorFile, char *FILTERS_SURVEY, bool *USE_KCOR,
 			double *MAGREST_SHIFT_PRIMARY,
 			double *MAGOBS_SHIFT_PRIMARY );
+
+void EXTEND_CALIB_FILTERS(float WAVE_EXTEND_MIN, float WAVE_EXTEND_MAX) ;
+void extend_calib_filters__(float *WAVE_EXTEND_MIN, float *WAVE_EXTEND_MAX);
 
 void init_calib_options(void);
 
@@ -251,9 +257,15 @@ void get_calib_primary_sed__(char *primary_name, int *NBLAM,
 double get_calib_primary_mag(int OPT, int ifiltdef);
 double get_calib_primary_mag__(int *OPT, int *ifiltdef);
 
-void   PREP_PRIMARY_MAG_WAVECOR_GRID(float WAVECOR_MIN, float WAVECOR_MAX) ;
-void   prep_primary_mag_wavecor_grid__(float *WAVECOR_MIN, float *WAVECOR_MAX);
-void   compute_primary_mag(int IFILT, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL) ;
+
+
+/* xxxxxxxxxxx mark delete 9.05.2026 xxxxxxxxxxxxxxxxx
+void   PREP_CALIB_WAVECOR(float WAVECOR_MIN, float WAVECOR_MAX) ;
+void   prep_calib_wavecor__(float *WAVECOR_MIN, float *WAVECOR_MAX);
+void   compute_calib_wavecor_info(int IFILT, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL) ;
+void   fetch_calib_wavecor(int IFILT_OBS, double WAVECOR, double *PRIMARY_MAG, double *ZP_MODEL);
+xxxxxxxxx end mark xxxxxxxxx */
+
 
 void get_calib_filterTrans(int OPT_FRAME, int ifiltdef_obs, char *surveyName, 
 			  char *filterName, double *magprim, 

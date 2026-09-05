@@ -2187,6 +2187,7 @@ double genmodel_Tshift(double T, double z);
 void   init_simvar(void);        // one-time init of counters, etc ..
 void   init_genmodel(void);      // init above
 void   init_genSpec(void);        // one-time init for SPECTROGRAPH
+void   compute_spectrograph_filter_overlap(void);  
 bool   REQUEST_USER_SPECTRA(void); // return TRUE if there is a request for spectra
 
 void   init_genSEDMODEL(void); // generic init for SEDMODEL

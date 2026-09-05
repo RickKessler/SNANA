@@ -2112,13 +2112,12 @@ void genmag_SALT2(
     meanlam_obs,  meanlam_rest, ZP_MODEL, z1
     ,Tobs, Tobs_interp, Trest, Trest_interp, flux, flux_interp
     ,arg, magerr, Finteg, Finteg_errPar, FspecDum[10]
-    ,lamrest_forErr, Trest_forErr, z1_forErr, magobs_tmp, magobs, wavecor
+    ,lamrest_forErr, Trest_forErr, z1_forErr, magobs_tmp, magobs
     ;
+    
 
-  double
-     fluxmin = 1.0E-30
-    ,epsT    = 1.0E-5
-    ;
+  double fluxmin = 1.0E-30,  epsT = 1.0E-5, wavecor=0.0 ;
+
 
   char *cfilt;
   int  ifilt, epobs, EXTRAPFLAG_DMP = 0;
@@ -2159,9 +2158,12 @@ void genmag_SALT2(
 
   // filter info for this "ifilt"
   meanlam_obs  = FILTER_SEDMODEL[ifilt].mean ;  // mean lambda
-  ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
+  ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   meanlam_rest = meanlam_obs/z1 ;
+
+  if ( DO_WAVECOR_SALT2 ) 
+    { get_ZP_MODEL_SEDMODEL(ifilt, wavecor, &ZP_MODEL ); }  // return ZP_MODEL
 
 
   // make sure filter-lambda range is valid
@@ -2171,15 +2173,11 @@ void genmag_SALT2(
   fill_TABLE_MWXT_SEDMODEL(MWXT_SEDMODEL.RV, mwebv);
   fill_TABLE_HOSTXT_SEDMODEL(RV_host, AV_host, z);   // July 2016
 
-  //determine integer times which sandwich the times in Tobs
-    
-
+  // - - - - - - - - - - -
+   
   for ( epobs=0; epobs < Nobs; epobs++ ) {
     
-    if ( DO_WAVECOR_SALT2 ) 
-      { wavecor = wavecor_list[epobs]; }
-    else
-      { wavecor = 0.0; }
+    if ( DO_WAVECOR_SALT2 )  { wavecor = wavecor_list[epobs]; }
 
     Tobs    = Tobs_list[epobs];
     Trest   = Tobs / z1 ;

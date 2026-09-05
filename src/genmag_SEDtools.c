@@ -51,8 +51,8 @@
       extinction table is no longer created for every iteration.
       Fits now go almost x10 faster ... same speed as in March 2020
 
-  Sep 4 2026: 
-    + include  sntools_calib.h to react to WAVECOR options
+
+  Sep 5 2026: add  PREP_WAVECOR_SEDMODEL
 
 ********************************************/
 
@@ -61,8 +61,6 @@
 #include "genmag_SEDtools.h"   // SED tools
 #include "MWgaldust.h"         // GALextinct is here
 
-#include "fitsio.h"            // needed only to include sntools_calib
-#include "sntools_calib.h"     // need WAVECOR inf o
 
 // ******************************
 int reset_SEDMODEL(void) {
@@ -92,6 +90,8 @@ int reset_SEDMODEL(void) {
   // set default redshift range and NZBIN
   init_redshift_SEDMODEL(NZBIN_SEDMODEL_DEFAULT, 
 			 ZMIN_SEDMODEL_DEFAULT, ZMAX_SEDMODEL_DEFAULT);
+
+  WAVECOR_SEDMODEL.NGRID = 0 ;  // Sep 2026
 
   return SUCCESS;
 
@@ -287,7 +287,6 @@ int init_filter_SEDMODEL(
   lamstep     = LAMLIST[1] - LAMLIST[0] ;
   fluxREF_sum = transREF_sum = lamtransREF_sum = 0.0 ;
   fluxSN_sum  = transSN_sum  = lamtransSN_sum  = 0.0 ; (void)fluxSN_sum;
-  // xxx mark   invlamtransSN_sum = invlamtransREF_sum = 0.0 ;
   transSN_MAX = transREF_MAX = 0.0 ;
 
 
@@ -384,6 +383,7 @@ int init_filter_SEDMODEL(
     fclose(fp_filt);
     
   }  // end of LDMP_FILT 
+
 
   return 0;
 
@@ -1909,6 +1909,8 @@ int IFILTSTAT_SEDMODEL(int ifilt_obs, double z) {
 }  // end  of IFILTSTAT_SEDMODEL
 
 
+
+
 void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, double *TRANS) {
 
   // Created Mar 23 2021
@@ -1929,8 +1931,8 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
   else {
     double *lam_array    = FILTER_SEDMODEL[ifilt].lam ;
     double *trans_array  = FILTER_SEDMODEL[ifilt].transSN ;
-    double *trans_array2[2] = { FILTER_SEDMODEL[ifilt].transSN, 
-				FILTER_SEDMODEL[ifilt].transREF } ;
+    //    double *trans_array2[2] = { FILTER_SEDMODEL[ifilt].transSN, 
+    //				FILTER_SEDMODEL[ifilt].transREF } ;
 
     LAM_LOCAL   = lam_array[ilam];
     TRANS_LOCAL = trans_array[ilam];
@@ -1943,7 +1945,7 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
 	// .xyz warning this interp is very inefficient; 
 	// later should comput bin instead of searching for it
 	TRANS_LOCAL = interp_1DFUN(OPT_INTERP_LINEAR, lam_temp, NLAM,  
-				   lam_array, trans_array2[0], fnam); 
+				   lam_array, trans_array, fnam); 
       }   
       else {
 	// outside the original grid the shifted filter has no throughput 
@@ -3356,6 +3358,183 @@ void set_UVLAM_EXTRAPFLUX_SEDMODEL(float UVLAM_MIN) {
 
 void set_uvlam_extrapflux_sedmodel__(float *UVLAM_MIN)
   {  set_UVLAM_EXTRAPFLUX_SEDMODEL(*UVLAM_MIN); }
+
+
+
+
+
+
+// =========================================================
+// ===================  WAVECOR FUNCTIONS ==================
+// =========================================================
+
+// Sep 2026
+
+void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
+
+  // Created Aug 2026                                                                                  
+  // if WAVECOR column exists in MAGCOR table, this function is called 
+  // to prepare primary mag and zp_model vs. wavecor in small (~ 1 A) bins, 
+  // and for each passband.                                         
+  // Initial motivation: Roman correction for 18 SCAs (with R.Purhit)
+
+  int  IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN=2.0 ;  // integer wavecor ranges and bins              
+  int  NGRID, ifilt ;
+  float FMEMTOT = 0.0 ;
+  char fnam[] = "PREP_WAVECOR_SEDMODEL" ;  (void)fnam;
+
+  // ------------- BEGIN ------------                                                                  
+
+  print_banner(fnam);
+
+  IWAVECOR_MIN = (int)WAVECOR_MIN - 2 ;
+  IWAVECOR_MAX = (int)WAVECOR_MAX + 2 ;
+  NGRID          = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN;
+  NGRID /= IWAVECOR_BIN ;
+
+
+  printf("\t Original WAVECOR range: %.1f to %.1f A \n", WAVECOR_MIN, WAVECOR_MAX);
+  printf("\t WAVECOR grid: %d to %d A with %d A  binsize -> NGRID=%d\n",
+         IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN, NGRID );
+  printf("\t NFILT=%d \n", NFILT_SEDMODEL);
+
+  // load the goodies into global struct (kind'of like a python namespace) 
+  WAVECOR_SEDMODEL.NGRID = NGRID;
+  WAVECOR_SEDMODEL.IWAVECOR_MIN = IWAVECOR_MIN;
+  WAVECOR_SEDMODEL.IWAVECOR_MAX = IWAVECOR_MAX;
+  WAVECOR_SEDMODEL.IWAVECOR_BIN = IWAVECOR_BIN;
+  WAVECOR_SEDMODEL.IBIN_ZERO    = -9;
+
+  // allocate memory               
+  int MEMD = NGRID * sizeof(double);
+
+  WAVECOR_SEDMODEL.WAVECOR_GRID = (double*)malloc(MEMD);    FMEMTOT += (float)MEMD;
+  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL, NGRID, &WAVECOR_SEDMODEL.MAG_GRID );
+  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL, NGRID, &WAVECOR_SEDMODEL.ZP_MODEL_GRID );
+  
+  printf("\t Allocated %.2f kB memory to store MAG_GRID  and ZP_MODEL_GRID\n",
+         FMEMTOT/1.0e3);
+
+  int i, iwavecor, IBIN_DUMP = -12 ;
+  double wavecor, primary_mag, zp_model ;
+  int    IBIN_ZERO = -9;
+  char  *NAME ;
+
+  // start double loop to compute mag[ifilt][i] where i is sparse wavecor index                        
+  int i_last = -9;
+  for(i = 0; i < NGRID; i++ ) {
+    iwavecor = IWAVECOR_MIN + i*IWAVECOR_BIN;  // Angstroms                                            
+    wavecor   = (double)iwavecor;
+    WAVECOR_SEDMODEL.WAVECOR_GRID[i] = wavecor ;
+
+    if ( wavecor == 0.0 ) { IBIN_ZERO = WAVECOR_SEDMODEL.IBIN_ZERO = i; }
+
+    for(ifilt=0; ifilt < NFILT_SEDMODEL; ifilt++ ) {
+
+      NAME = FILTER_SEDMODEL[ifilt].name ;
+
+      compute_wavecor_info_SEDMODEL(ifilt, wavecor, &primary_mag, &zp_model);
+      WAVECOR_SEDMODEL.MAG_GRID[ifilt][i]      = primary_mag;
+      WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][i] = zp_model;
+
+      // print diagnostics for first, last and wavecor=0 bin 
+      if ( i == 0 || i == IBIN_ZERO || i == NGRID-1  || i == IBIN_DUMP ) {
+        if ( i > i_last && ifilt==0 && i > 0 ) { printf("\t   ... \n"); } // for human readability
+        printf("\t    %s wavecor = %5.1f -> mag_prim = %8.4f  zp_model = %8.4f \n",
+               NAME, wavecor, primary_mag, zp_model); fflush(stdout);
+      }
+    } // end ifilt 
+
+    i_last = i;
+  }   // end i loop over NGRID(WAVECOR)  
+  
+  //.xyz
+
+  return;
+
+} // end PREP_WAVECOR_SEDMODEL
+
+void  prep_wavecor_sedmodel__(float *WAVECOR_MIN, float *WAVECOR_MAX) {
+  PREP_WAVECOR_SEDMODEL( *WAVECOR_MIN, *WAVECOR_MAX);
+}
+
+
+void  compute_wavecor_info_SEDMODEL(int ifilt, double WAVECOR, 
+				    double *PRIMARY_MAG, double *ZP_MODEL) {
+
+  int    NLAM_FILT     = FILTER_SEDMODEL[ifilt].NLAM;
+  double *LAM_FILT     = FILTER_SEDMODEL[ifilt].lam;
+  double *TRANS_FILT   = FILTER_SEDMODEL[ifilt].transSN ;
+  double LAMSTEP       = FILTER_SEDMODEL[ifilt].lamstep ;
+
+  int    NLAM_PRIM   = PRIMARY_SEDMODEL.NLAM;
+  double *LAM_PRIM   = PRIMARY_SEDMODEL.lam;
+  double *FLUX_PRIM  = PRIMARY_SEDMODEL.flux;
+
+  int ilam;
+  int OPT_INTERP = 2; 
+  double zp, wgt_flux, wgt_filt, lam_filt, trans, primary_flux; 
+  double primary_flux_sum = 0.0, filter_sum = 0.0 ;
+  char fnam[] = "compute_wavecor_info_SEDMODEL";
+
+  // ------------ BEGIN -----------
+
+  for(ilam=0; ilam < NLAM_FILT; ilam++ ) {
+    lam_filt     = LAM_FILT[ilam] + WAVECOR ;
+    trans        = TRANS_FILT[ilam];
+    wgt_flux     = lam_filt; 
+    wgt_filt     = 1.0/lam_filt; 
+    if ( trans < 1.0e-12 ) { continue ; }
+
+    primary_flux = interp_1DFUN(OPT_INTERP, lam_filt,
+                                NLAM_PRIM, LAM_PRIM, FLUX_PRIM, fnam);
+
+    primary_flux_sum += (trans * wgt_flux * primary_flux);
+    filter_sum       += (trans * wgt_filt) ;
+
+    if ( WAVECOR == 0.0 && ifilt == -9 ) { 
+      printf("xxx %s: ilam = %d lam = %.1f  tr=%.4f  flux = %.3le \n",
+             fnam, ilam, lam_filt, trans, primary_flux);
+      fflush(stdout);
+    }
+  } // end ilam loop 
+
+
+  // compute final primary mag
+  zp           = 2.5*log10(FNU_AB * LIGHT_A);
+  *PRIMARY_MAG = zp - 2.5 * log10(primary_flux_sum / filter_sum);
+
+  // compute zp_model the same way as in  init_filter_SEDMODEL()
+  primary_flux_sum *= (LAMSTEP/hc)  ; // same units as function init_filter_SEDMODEL()
+  *ZP_MODEL    = 2.5*log10(primary_flux_sum) + PRIMARY_SEDMODEL.MAG[ifilt];
+ 
+  return;
+
+} // end compute_wavecor_info_SEDMODEL
+
+
+
+void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model ) {
+
+  // Created Sep 5 2026
+  // Interpolate ZP_MODEL-vs.-wavecor to determine *zp_model.
+
+  int    ibin;
+  double zp_model_local=-999.0 ;
+  char fnam[] = "get_ZP_MODEL_SEDMODEL" ;  (void)fnam;
+
+  // ------------- BEGIN -------------
+
+  ibin = WAVECOR_SEDMODEL.IBIN_ZERO; // hack test; need to interpolate
+  zp_model_local =  WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][ibin];
+  
+  *zp_model = zp_model_local;
+  return ;
+
+} // end get_ZP_MODEL_SEDMODEL
+
+
+
 
 
 // =========================================================

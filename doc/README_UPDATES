@@ -24170,9 +24170,19 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        of macro that may not do the right thing. No more need for 
         double hc8 = (double)hc, or  double RAD = (double)RADIAN
 
+   snlc_sim.c
+     + move compute_spectrograph_filter_overlap out of sntools_spectrograph.c
+       and into snlc_sim.c so that sntools_spectrograph.c does not need
+       to include genmag_SEDtools.h
+
    all:
      + change WAVESHIFT to WAVECOR everywhere to indicate "correction" that is
        analogous to MAGCOR correction. "SHIFT" is reserved for systematic shift,
        not corrections.
+
+   Makefile.am
+     + since genmag_SEDtools calls a function in sntools_calib, had to
+       modify a few make commands for SIMSED_xxx.exe codes, and also kcor.exe.
+
 END:
  

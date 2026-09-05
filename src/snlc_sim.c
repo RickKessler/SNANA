@@ -10421,6 +10421,67 @@ void  init_genSpec(void) {
 } // end init_genSpec
 
 
+// ====================================================                                                                        
+void compute_spectrograph_filter_overlap(void) {
+
+  // Created Mar 21 2024
+  // For each band, compute transmission-wgted overlap with spectrograph.         
+  // This is just a diagnostic for SIMGEN*SPEC dump file, and not used for anything. 
+  //
+  // Sep 5 2026: move code out of sntools_spectrograph.c to here so that
+  //             sntools_spectrograph.c does not need genmag_SEDtools in scope.
+
+  int    ifilt, ifilt_obs, NLAM, ilam ;
+  double LAMOBS, TRANS, SUMTRANS, SUMTRANS_SPEC, MAXTRANS,  OVERLAP ;
+  double wavecor = 0.0 ;
+  char fnam[] = "compute_spectrograph_filter_overlap";  (void)fnam;
+
+  // ---------- BEGIN ---------
+  // define hard-wired cut to compute synthetic mags when
+  // a small fraction of filter-transmission lies outside
+  // spectrograph wavelength range.
+                          
+  GENSPEC.OVERLAP_MIN = 0.99;
+
+  for(ifilt=0; ifilt < MXFILTINDX; ifilt++ )  {
+    GENSPEC.LAMWIDTH_SYNFILT[ifilt] = 0.0 ;
+    GENSPEC.OVERLAP_SYNFILT[ifilt]  = 0.0 ;
+    GENSPEC.DO_SYNFILT[ifilt]       = false ;
+  }
+
+  // skip ifilt=0 --> spectrograph                                                                                             
+  for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+    ifilt_obs = FILTER_SEDMODEL[ifilt].ifilt_obs;
+
+    SUMTRANS = SUMTRANS_SPEC = MAXTRANS = 0.0 ;
+    NLAM = FILTER_SEDMODEL[ifilt].NLAM;
+    for ( ilam=0; ilam < NLAM; ilam++ ) {
+      get_LAMTRANS_SEDMODEL(ifilt, ilam, wavecor,
+                            &LAMOBS, &TRANS );  // <== returned                                                                
+      SUMTRANS += TRANS ;
+      if ( TRANS > MAXTRANS ) { MAXTRANS = TRANS ; }
+      if ( LAMOBS > INPUTS_SPECTRO.LAM_MIN && LAMOBS < INPUTS_SPECTRO.LAM_MAX)
+        { SUMTRANS_SPEC += TRANS; }
+    } // end ilam                                                                                                              
+
+    OVERLAP = SUMTRANS_SPEC / SUMTRANS ;
+    GENSPEC.OVERLAP_SYNFILT[ifilt_obs] = OVERLAP ;
+    GENSPEC.DO_SYNFILT[ifilt_obs]      = ( OVERLAP > GENSPEC.OVERLAP_MIN );
+
+    GENSPEC.LAMWIDTH_SYNFILT[ifilt_obs] =
+      (SUMTRANS/MAXTRANS) * FILTER_SEDMODEL[ifilt].lamstep ;
+
+    printf("\t %-12s overlap with spectrograph: %.5f \n",
+           FILTER_SEDMODEL[ifilt].name, OVERLAP );
+    fflush(stdout);
+
+  } // end ifilt
+
+  return;
+
+} // end compute_spectrograph_filter_overlap  
+
+
 // *****************************************************
 void rewrite_HOSTLIB_DRIVER(void) {
 

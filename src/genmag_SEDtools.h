@@ -95,6 +95,17 @@ struct FILTER_SEDMODEL {
 } FILTER_SEDMODEL[MXFILT_SEDMODEL] ;
 
 
+struct CALIB_WAVECOR_GRID {
+  int IWAVECOR_MIN, IWAVECOR_MAX, IWAVECOR_BIN;
+  int     NGRID;
+  double *WAVECOR_GRID; 
+  double **MAG_GRID;        // MAG[ifilt][igrid]
+  double **ZP_MODEL_GRID;   // to speed up model mag computations
+
+  int IBIN_ZERO; // bin index with wavecor=0
+} WAVECOR_SEDMODEL ;
+
+
 struct MWXT_SEDMODEL {
   int    OPT_COLORLAW ; // 89, 94, 99 ...
   double PARLIST_COLORLAW[10];
@@ -320,10 +331,9 @@ double getFluxLam_SEDMODEL(int ISED, int IEP, double TOBS, double LAMOBS,
 void get_DAYRANGE_SEDMODEL(int ISED, double *DAYMIN, double *DAYMAX);
 
 void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, double *TRANS);
-
 void get_LAMRANGE_SEDMODEL(int opt, double *lammin, double *lammax);
-
 void get_LAMRANGE_SED_TRUE(double *lamrange_user, double *lammin, double *lammax);
+void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model );
 
 int get_NSURFACE_SEDMODEL(void);
 
@@ -374,6 +384,15 @@ void print_ranges_SEDMODEL(char *NAME, SEDMODEL_FLUX_DEF *SEDFLUX);
 void FLUX_SCALE_SEDMODEL(double SCALE, SEDMODEL_FLUX_DEF *SEDFLUX);
 
 bool found_fluxerr_SEDMODEL(char *sedFile);
+
+
+
+void   PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) ;
+void   prep_wavecor_sedmodel__(float *WAVECOR_MIN, float *WAVECOR_MAX);
+void   compute_wavecor_info_SEDMODEL(int IFILT, double WAVECOR, 
+				     double *PRIMARY_MAG, double *ZP_MODEL) ;
+void   fetch_wavecor_SEDMODEL(double wavecor, double *primary_mag, double *zp_model );
+
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // SPECTROGRAPH functions

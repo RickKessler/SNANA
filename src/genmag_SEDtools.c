@@ -3527,10 +3527,15 @@ void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model ) {
   int    ibin;
   double zp_model_local = -999.0 ;
 
-  //  int NGRID        = WAVECOR_SEDMODEL.NGRID;
+  int NGRID        = WAVECOR_SEDMODEL.NGRID;
   //  int IWAVECOR_MIN = WAVECOR_SEDMODEL.IWAVECOR_MIN;
   //  int IWAVECOR_MAX = WAVECOR_SEDMODEL.IWAVECOR_MAX ;
   //  int IWAVECOR_BIN = WAVECOR_SEDMODEL.IWAVECOR_BIN;
+
+  double  wbin   = (double)WAVECOR_SEDMODEL.IWAVECOR_BIN;
+  double *WGRID  = WAVECOR_SEDMODEL.WAVECOR_GRID;
+  double *ZPGRID = WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt];
+  double  frac ;
 
   char fnam[] = "get_ZP_MODEL_SEDMODEL" ;  (void)fnam;
 
@@ -3538,12 +3543,29 @@ void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model ) {
 
   //  zp_model_local     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
 
-  ibin = WAVECOR_SEDMODEL.IBIN_ZERO; // hack test; need to interpolate
-  zp_model_local =  WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][ibin];
+  // ibin = WAVECOR_SEDMODEL.IBIN_ZERO; // hack test; need to interpolate
+  // zp_model_local =  WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][ibin];
 
+  // Sep 5 2026 R.Purohit: linear interpolation over wavecor grid to get zp_model_local
+  if ( wavecor <= WGRID[0] ) {
+    zp_model_local = ZPGRID[0];
+  }
 
-  *zp_model = zp_model_local;
-  return ;
+  else if ( wavecor >= WGRID[NGRID-1] ) {
+    zp_model_local = ZPGRID[NGRID-1]; 
+  }
+
+  else {
+    ibin = (int)( (wavecor - WGRID[0]) / wbin ) ;
+    if ( ibin < 0       ) { ibin = 0 ; }
+    if ( ibin > NGRID-2 ) { ibin = NGRID-2 ; }
+    frac = (wavecor - WGRID[ibin]) / wbin ;
+    zp_model_local = ZPGRID[ibin] + frac*( ZPGRID[ibin+1] - ZPGRID[ibin] );
+  }
+
+   *zp_model = zp_model_local;                                                                                    
+   return ; 
+
 
 } // end get_ZP_MODEL_SEDMODEL
 

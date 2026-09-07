@@ -4300,8 +4300,7 @@
       ENDIF
 
 ! always evaluate simple chi2 ignoring covariance
-      sqsig   = flux_data_sqerrtot + flux_model_sqerr  & 
-                + flux_fudge_sqerr
+      sqsig         = flux_data_sqerrtot + flux_model_sqerr  + flux_fudge_sqerr
       sqsig_nofudge = flux_data_sqerrtot + flux_model_sqerr
       inv_sqsig     = 1.0/sqsig
 
@@ -4334,8 +4333,7 @@
         DEL_FLUX(ifitdata)  = dif
         chi2filt(ifilt) = chi2filt(ifilt) + delchi2
 
-        chi2filt_sigma(ifilt) =  & 
-          chi2filt_sigma(ifilt) + delchi2_sigma
+        chi2filt_sigma(ifilt) = chi2filt_sigma(ifilt) + delchi2_sigma
 
 ! sum chi2_sigma over all epochs ... sum used only for OPT_COVAR_FLUX > 0
         chi2sum_sigma = chi2sum_sigma   + delchi2_sigma
@@ -4365,7 +4363,7 @@
 
 666         format(2x,A,  2x, 'Trest=',F6.2, 2x,'dchi2=',F9.5, 2x,  & 
               'Fmodel=',E9.3,'+-',E8.3, 2x,  & 
-              'Fdata=', E9.3,'+-',E8.3  )
+              'Fdata=', E10.4,'+-',E10.4  )
 
           NDMPFCN(0)     = NDMPFCN(0) + 1
           NDMPFCN(ifilt) = NDMPFCN(ifilt) + 1
@@ -5503,7 +5501,7 @@
            endif
         endif
 
-        LDEBUG = .TRUE.
+        LDEBUG = .FALSE.
         if ( LDEBUG ) then
         ! .xyz
            MJD  = R8EP_MJD(IFITDATA_USRFUN)          ! ,  IFILT_OBS 
@@ -5921,13 +5919,13 @@
           MJD, ZSN
 
 701     format(T2,'USRFUN: ',A,'=',F7.3, 2x,A,'=',F7.4,2x,  & 
-                    A,'=',F7.4, 2x, 'MJD=',F9.3, 2x,'Z=',F7.5 )
+                    A,'=',F7.4, 2x, 'MJD=',F10.4, 2x,'Z=',F7.5 )
 
       cfilt = filtdef_string(ifilt_obs:ifilt_obs)
       ctmp2 = filtdef_string(ifilt_rest1:ifilt_rest1)
       write(6,702) cfilt, Tobs, ctmp2, Trest
-702     format(T10, 'Tobs(',A1,')=',F8.3,2x,  & 
-              'Trest(',A1,')=',F8.3  )
+702   format(T10, 'Tobs(',A1,')=',F8.3,2x,  & 
+           'Trest(',A1,')=',F8.3  )
 
       CALL FLUSH(6)
 
@@ -6042,35 +6040,27 @@
                     A,'=',F6.3, 2x, 'MJD=',F9.3 )
 
       write(6,752) Tobs, Trest, Zsn
-752     format(T10, 'Tobs=',F7.2,2x, 'Trest=',F7.2, 2x,'Z=',F6.4 )
+752   format(T10, 'Tobs=',F7.2,2x, 'Trest=',F7.2, 2x,'Z=',F6.4 )
 
       cfilt = filtdef_string(ifilt_obs:ifilt_obs)
       write(6,754) cfilt, Flux, MAG_ERR
-754     format(T5,'model Flux_OBS(',A1,') = ',  & 
-                   G14.5, 3x,'MAG_ERR=', F8.5 )
+754   format(T5,'model Flux_OBS(',A1,') = ',  & 
+           G14.5, 3x,'MAG_ERR=', F8.5 )
 
       CALL FLUSH(6)
 
       IF ( USE_LANDOLT_OBS .and. LBESS_OBS ) then
 
-         write(6,766) 'BESSELL',  & 
-              (MAG_BESSELL_OBS(ifilt_tmp),  & 
-                ifilt_tmp=IFILT_BESS_U, IFILT_BESS_BX)
-
-         write(6,766) 'LANDOLT',  & 
-              (MAG_OBS_TMP(ifilt_tmp),  & 
-                ifilt_tmp=IFILT_BESS_U, IFILT_BESS_BX)
-
-766        format(T5,'model MAG_',A,'(UBVRIX)=', 6F9.4 )
+         write(6,766) 'BESSELL', (MAG_BESSELL_OBS(ifilt_tmp), ifilt_tmp=IFILT_BESS_U, IFILT_BESS_BX)
+         write(6,766) 'LANDOLT', (MAG_OBS_TMP(ifilt_tmp),  ifilt_tmp=IFILT_BESS_U, IFILT_BESS_BX)
+766      format(T5,'model MAG_',A,'(UBVRIX)=', 6F9.4 )
 
          print*, '      MAG_BESSELL(',cfilt,') = ',  & 
-           MAG_BESSELL_OBS(ifilt_obs),' -> ', MAG_OBS_TMP(ifilt_obs),  & 
-           ' (Landolt)'
-
+           MAG_BESSELL_OBS(ifilt_obs),' -> ', MAG_OBS_TMP(ifilt_obs),  ' (Landolt)'
+         
       ELSE
           write(6,812) cfilt(1:1), MAG_OBS, Trest, ITER
-812         format(T5,'model MAG_OBS(', A, ')=', F9.4,  & 
-                 ' at Trest=',F7.2, 2x, 'ITER=',I1)
+812       format(T5,'model MAG_OBS(', A, ')=', F9.4,  ' at Trest=',F7.2, 2x, 'ITER=',I1)
       ENDIF
       call FLUSH(6)
 
@@ -9741,8 +9731,8 @@
       write(6,56) 'AFTER ', chi8end,  NEPOCH_ALL(0)
     endif
 
-56    format(T4,'FCNSNLC(',A,' FITINI_ADJUST)    returns   CHI2=',  & 
-            F10.2,'/',I3)
+56  format(T4,'FCNSNLC(',A,' FITINI_ADJUST)    returns   CHI2=',  & 
+         F10.2,'/',I3)
 
 ! -----------------------------------------------
 ! if final chi2 is worse, then switch back to initial parameters
@@ -10706,7 +10696,7 @@
 ! Now add diagonal error from data and user fudges.
        if ( LDIAG ) then
           COV_DATA  = R4EP_ALL(ep_row,JEP_DATAFLUX_ERR)**2  & 
-                      + R4EP_ALL(ep_row,JEP_FUDGEFLUX_ERR)**2
+               + R4EP_ALL(ep_row,JEP_FUDGEFLUX_ERR)**2
        endif
 
 ! add cov fudge-error for data (Feb 2015)
@@ -10994,8 +10984,7 @@
 ! points are ignored in the fit, but are included in
 ! all plots.
 
-      MAXFRAC =  & 
-           GET_FUDGE_FITERR_MAXFRAC(ITER,ifilt_obs,TREST,LAMREST)
+      MAXFRAC = GET_FUDGE_FITERR_MAXFRAC(ITER, ifilt_obs, TREST, LAMREST)
 
       ERR_TMP = MAXFRAC * SNLC_FLUXCALMAX(ifilt)
       R4EP_ALL(ep,JEP_FUDGEFLUX_ERR)  = ERR_TMP
@@ -11177,18 +11166,13 @@
     LFILT = DOFUDGE_FITERR(ifilt_obs)
     LITER = ITER .LE. FUDGE_FITERR_MAXITER
 
-    LT1 =   TREST .GE. FUDGE_FITERR_TREST(1)  & 
-        .and. TREST .LE. FUDGE_FITERR_TREST(2)
-    LT2 =   TREST .GE. FUDGE_FITERR_TREST(3)  & 
-        .and. TREST .LE. FUDGE_FITERR_TREST(4)
+    LT1 =   TREST .GE. FUDGE_FITERR_TREST(1)  .and. TREST .LE. FUDGE_FITERR_TREST(2)
+    LT2 =   TREST .GE. FUDGE_FITERR_TREST(3)  .and. TREST .LE. FUDGE_FITERR_TREST(4)
     LT  = LT1  .or. LT2
 
-    LAM1 =   LAMREST .GE. FUDGE_FITERR_RESTLAM(1)  & 
-         .and. LAMREST .LE. FUDGE_FITERR_RESTLAM(2)
-    LAM2 =   LAMREST .GE. FUDGE_FITERR_RESTLAM(3)  & 
-         .and. LAMREST .LE. FUDGE_FITERR_RESTLAM(4)
+    LAM1 =   LAMREST .GE. FUDGE_FITERR_RESTLAM(1)  .and. LAMREST .LE. FUDGE_FITERR_RESTLAM(2)
+    LAM2 =   LAMREST .GE. FUDGE_FITERR_RESTLAM(3)  .and. LAMREST .LE. FUDGE_FITERR_RESTLAM(4)
     LAM = LAM1 .or. LAM2
-
 
     LFINAL = (LT .and. LAM  .and. LITER .and. LFILT)
     IF( LFINAL ) THEN
@@ -18259,8 +18243,8 @@
     CHARACTER  CCID*(MXCHAR_CCID)
 
     REAL*8  & 
-         VMJD(MXEP_SNLCPAK)  & 
-        ,VTOBS(MXEP_SNLCPAK)  & 
+         VMJD(MXEP_SNLCPAK)      & 
+        ,VTOBS(MXEP_SNLCPAK)     & 
         ,VFLUXOBS(MXEP_SNLCPAK)  & 
         ,VFLUXOBS_ERR(MXEP_SNLCPAK)  & 
         ,VFLUXREST(MXEP_SNLCPAK)   &  ! K-corrected rest-frame flux

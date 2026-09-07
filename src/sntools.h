@@ -659,14 +659,14 @@ void  warn_oldInputs(char *varName_old, char *varName_new);
 void  warn_oldinputs__(char *varName_old, char* varName_new) ;
 
 void  checkval_I(char *varname, int nval,
-		 int *iptr, int imin, int imax );
+		 int *iptr, int imin, int imax, char *callFun );
 void  checkval_F(char *varname, int nval,
-		 float *fptr, float fmin, float fmax );
+		 float *fptr, float fmin, float fmax, char *callFun  );
 void  checkval_D(char *varname, int nval,
-		 double *dptr, double dmin, double dmax );
+		 double *dptr, double dmin, double dmax, char *callFun  );
 
 void  checkval_i__(char *varname, int *nval,
-		   int *iptr, int *imin, int *imax );
+		   int *iptr, int *imin, int *imax, char *callFun  );
 
 
 void  checkArrayBound(int i, int MIN, int MAX,

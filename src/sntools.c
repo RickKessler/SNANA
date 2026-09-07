@@ -9899,7 +9899,7 @@ int PARSE_FILTLIST (char *filtlist_string, int *filtlist_array ) {
 
 // ************************************************
 void checkArrayBound(int i, int MIN, int MAX, 
-		     char *varName, char *comment, char *funName) {
+		     char *varName, char *comment, char *callFun) {
 
   // One-line call to check array bound.
   // Abort if index 'i' is outside index range MIN to MAX.
@@ -9907,18 +9907,15 @@ void checkArrayBound(int i, int MIN, int MAX,
   // error message. Note that *fun is the name of the calling function.
   //
 
-  char fnam[] = "checkArrayBound" ;
-
+  char fnam[200] ;
+  concat_callfun_plus_fnam(callFun, "checkArrayBound", fnam);
   // ------------------ BEGIN ---------------
-
   if ( (i >= MIN) && (i <= MAX) ) { return ; }
-
-  sprintf(c1err,"%s = %d is outside valid range %d - %d (fun=%s) \n", 
-	  varName ,i, MIN, MAX, funName);
+  sprintf(c1err,"%s = %d is outside valid range %d - %d \n", varName ,i, MIN, MAX);
   sprintf(c2err,"%s", comment);
   errmsg(SEV_FATAL, 0, fnam, c1err, c2err ); 
   
-
+  return;
 } // end of checkArrayBound
 
 void  checkArrayBound_(int *i, int *MIN, int *MAX, 
@@ -10163,7 +10160,7 @@ void  check_magUndefined(double mag, char *varName, char *callFun) {
 
 
 // ******************************************************
-void checkval_I(char *varname, int nval, int *iptr, int imin, int imax){
+void checkval_I(char *varname, int nval, int *iptr, int imin, int imax, char *callFun ) {
 
   // check that all iptr values are between imin and imax;
   // if not then abort. 
@@ -10171,12 +10168,14 @@ void checkval_I(char *varname, int nval, int *iptr, int imin, int imax){
 
   int i;
   int  ival ;
-  char fnam[] = "checkval_I" ;
+
+  char fnam[200] ;
+  concat_callfun_plus_fnam(callFun, "checkval_I", fnam);
 
   // ----------------- BEGIN -----------------
 
   for ( i = 0; i < nval;  i++ ) {
-    ival = *(iptr+i);
+    ival = iptr[i];
     
     if ( isnan( (float)ival ) ) {
       sprintf(c1err,"%s(item %d) = nan", varname, i );
@@ -10191,16 +10190,17 @@ void checkval_I(char *varname, int nval, int *iptr, int imin, int imax){
     }
   }
 
+  return;
 }  // end of checkval_I
 
 
-void checkval_i__(char *varname, int *nval, int *iptr, int *imin, int *imax){
-  checkval_I(varname, *nval, iptr, *imin, *imax) ;
+void checkval_i__(char *varname, int *nval, int *iptr, int *imin, int *imax, char *callFun ) {
+  checkval_I(varname, *nval, iptr, *imin, *imax, callFun) ;
 }
 
 
 // ******************************************************
-void checkval_F(char *varname, int nval, float *fptr, float fmin, float fmax){
+void checkval_F(char *varname, int nval, float *fptr, float fmin, float fmax, char *callFun) {
 
   // check that all fptr values are between fmin and fmax;
   // if not then abort. 
@@ -10209,12 +10209,14 @@ void checkval_F(char *varname, int nval, float *fptr, float fmin, float fmax){
 
   int i;
   float val ;
-  char fnam[] = "checkval_F" ;
+
+  char fnam[200] ;
+  concat_callfun_plus_fnam(callFun, "checkval_F", fnam);
 
   // ----------------- BEGIN -----------------
 
   for ( i = 0; i < nval;  i++ ) {
-    val = *(fptr+i);
+    val = fptr[i] ;
     
     if ( isnan(val) ) {
       sprintf(c1err,"%s(item %d) = nan", varname, i );
@@ -10229,11 +10231,13 @@ void checkval_F(char *varname, int nval, float *fptr, float fmin, float fmax){
     }
   }
 
+  return;
+
 }  // end of checkval_F
 
 // ******************************************************
 void checkval_D(char *varname, int nval, 
-		double *dptr, double dmin, double dmax){
+		double *dptr, double dmin, double dmax, char *callFun ) {
 
   // check that all fptr values are between fmin and fmax;
   // if not then abort. 
@@ -10241,12 +10245,14 @@ void checkval_D(char *varname, int nval,
 
   int i;
   double val ;
-  char fnam[] = "checkval_D" ;
+
+  char fnam[200] ;
+  concat_callfun_plus_fnam(callFun, "checkval_D", fnam);
 
   // ----------------- BEGIN -----------------
 
   for ( i = 0; i < nval;  i++ ) {
-    val = *(dptr+i);
+    val = dptr[i];
     
     if ( isnan(val) ) {
       sprintf(c1err,"%s(item %d) = nan", varname, i );
@@ -10261,6 +10267,7 @@ void checkval_D(char *varname, int nval,
     }
   }
 
+  return;
 }  // end of checkval_D
 
 // ********************************

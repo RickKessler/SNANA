@@ -3380,6 +3380,7 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   int  IWAVECOR_BIN = 2;  // Angstrings
   int  IWAVECOR_MIN, IWAVECOR_MAX;  // integer wavecor ranges and bins              
+  int  IWAVECOR_REMAIN;
   int  NGRID, ifilt ;
   float FMEMTOT = 0.0 ;
   char fnam[] = "PREP_WAVECOR_SEDMODEL" ;  (void)fnam;
@@ -3396,10 +3397,13 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   // make sure that grid passes thru zero, starting at IWAVECOR_MIN and increasing
   // in bins of IWAVECOR_BIN
-  int IWAVECOR_REMAIN = IWAVECOR_MIN % IWAVECOR_BIN ;
-  if ( IWAVECOR_REMAIN != 0 ) { IWAVECOR_MIN -= IWAVECOR_REMAIN; }
+  IWAVECOR_REMAIN = IWAVECOR_MIN % IWAVECOR_BIN ;  // note can be pos or negative
+  if ( IWAVECOR_REMAIN != 0 ) { IWAVECOR_MIN -= abs(IWAVECOR_REMAIN); }
 
-  NGRID        = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN ;
+  IWAVECOR_REMAIN = IWAVECOR_MAX % IWAVECOR_BIN ;  // note can be pos or negative
+  if ( IWAVECOR_REMAIN != 0 ) { IWAVECOR_MAX += abs(IWAVECOR_REMAIN); }
+
+  NGRID  = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN ;
   NGRID /= IWAVECOR_BIN ;
 
   printf("\t Original WAVECOR range: %.1f to %.1f A \n", WAVECOR_MIN, WAVECOR_MAX);
@@ -3561,49 +3565,52 @@ void  compute_wavecor_info_SEDMODEL(int ifilt, double WAVECOR,
 
 
 
+void check_wavecor_SEDMODEL(double *wavecor) {
+
+}
+
 void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model ) {
 
-  // Created Sep 5 2026
+  // Created Sep 5 2026 by P.Rupirit and R.Kessler
   // Interpolate ZP_MODEL-vs.-wavecor to determine *zp_model.
 
   int    ibin;
   double zp_model_local = -999.0 ;
 
-  int NGRID        = WAVECOR_SEDMODEL.NGRID;
-  //  int IWAVECOR_MIN = WAVECOR_SEDMODEL.IWAVECOR_MIN;
-  //  int IWAVECOR_MAX = WAVECOR_SEDMODEL.IWAVECOR_MAX ;
-  //  int IWAVECOR_BIN = WAVECOR_SEDMODEL.IWAVECOR_BIN;
-
+  int NGRID      = WAVECOR_SEDMODEL.NGRID;
   double  wbin   = (double)WAVECOR_SEDMODEL.IWAVECOR_BIN;
   double *WGRID  = WAVECOR_SEDMODEL.WAVECOR_GRID;
+  double  WMIN   = WGRID[0];
+  double  WMAX   = WGRID[NGRID-1];
   double *ZPGRID = WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt];
   double  frac ;
-
   char fnam[] = "get_ZP_MODEL_SEDMODEL" ;  (void)fnam;
 
   // ------------- BEGIN -------------
 
-  //  zp_model_local     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
+  int nval=1;
+  checkval_D("WAVECOR", nval, &wavecor, WMIN, WMAX, fnam) ;
 
-  // ibin = WAVECOR_SEDMODEL.IBIN_ZERO; // hack test; need to interpolate
-  // zp_model_local =  WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][ibin];
-
+  /*
   // Sep 5 2026 R.Purohit: linear interpolation over wavecor grid to get zp_model_local
-  if ( wavecor <= WGRID[0] ) {
-    zp_model_local = ZPGRID[0];
+  if ( wavecor <= WGRID[0] || wavecor >= WGRID[NGRID-1] ) {
+    sprintf(c1err,"Invalid  wavecor = %f", wavecor);
+    sprintf(c2err,"Valid range is %f to %f \n", WGRID[0] ,  WGRID[NGRID-1]);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err );     
   }
+  */
 
-  else if ( wavecor >= WGRID[NGRID-1] ) {
-    zp_model_local = ZPGRID[NGRID-1]; 
-  }
+  ibin = (int)( (wavecor - WMIN) / wbin ) ;
+  checkArrayBound(ibin, 0, NGRID-2,  "IBIN_WAVECOR", "Bad index for wavecor", fnam);
 
-  else {
-    ibin = (int)( (wavecor - WGRID[0]) / wbin ) ;
-    if ( ibin < 0       ) { ibin = 0 ; }
-    if ( ibin > NGRID-2 ) { ibin = NGRID-2 ; }
-    frac = (wavecor - WGRID[ibin]) / wbin ;
-    zp_model_local = ZPGRID[ibin] + frac*( ZPGRID[ibin+1] - ZPGRID[ibin] );
-  }
+  /* xxxxxxxxxx mark delete xxxxxx
+  if ( ibin < 0       ) { ibin = 0 ; }
+  if ( ibin > NGRID-2 ) { ibin = NGRID-2 ; }
+  xxxxxx */
+
+  frac = (wavecor - WGRID[ibin]) / wbin ;
+  zp_model_local = ZPGRID[ibin] + frac*( ZPGRID[ibin+1] - ZPGRID[ibin] );
+
 
    *zp_model = zp_model_local;                                                                                    
    return ; 

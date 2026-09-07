@@ -8179,7 +8179,7 @@ void  prep_RANSYSTPAR(void) {
 
   // Galactic extinction
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_MWEBV ;
-  checkval_F("SIGSCALE_MWEBV", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
+  checkval_F("SIGSCALE_MWEBV", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX, fnam);
   if ( tmpSigma != 0.0 ) {   
     NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.MWEBV_SCALE = tmp;
@@ -8282,7 +8282,7 @@ void  prep_RANSYSTPAR(void) {
 
   // start with fluxerr fudging; SIGSCALE is sigma on fractional change
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR  ;
-  checkval_F("SIGSCALE_FLUXERR", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
+  checkval_F("SIGSCALE_FLUXERR", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX, fnam);
   if ( tmpSigma != 0.0 ) {   
     NSET++; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR = tmp;
@@ -8292,7 +8292,7 @@ void  prep_RANSYSTPAR(void) {
   }
 
   tmpSigma = INPUTS.RANSYSTPAR.SIGSCALE_FLUXERR2 ;
-  checkval_F("SIGSCALE_FLUXERR2", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX);
+  checkval_F("SIGSCALE_FLUXERR2", 1, &tmpSigma, SIGSCALE_MIN, SIGSCALE_MAX, fnam );
   if ( tmpSigma != 0.0 ) {   
     NSET=1; tmp = 1.0 + tmpSigma * getRan_GaussClip(ILIST_RAN,gmin,gmax);
     INPUTS.FUDGESCALE_FLUXERR2 = tmp;
@@ -19311,7 +19311,7 @@ int SIMLIB_read_templateNoise(char *FIELD, char *whatNoise, char **wdlist) {
 
     sprintf(varName,"TEMPLATE_%s(%c-%d)", 
 	    whatNoise, FILTERSTRING[ifilt_obs], ifilt );
-    checkval_D(varName, 1, &noise, validNoise_min, validNoise_max );
+    checkval_D(varName, 1, &noise, validNoise_min, validNoise_max, fnam );
 
     /*    
     printf("\t xxx %s(ifilt,ifiltobs=%2d,%2d) = %f \n",
@@ -19792,11 +19792,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	    // if NEA is here, but user forgets "PSF_UNIT: NEA_PIXEL" in header,
 	    // this trap will hopefully abort.
 	    checkval_D("PSF1(readNextCadence)", 1, 
-		       &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
+		       &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0, fnam ) ;
 	  }
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE] ); 
 	  checkval_D("ZPT(readNextCadence)", 1, 
-		     &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0 ) ;
+		     &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0, fnam ) ;
 	  
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE] );  
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]   );
@@ -20501,14 +20501,14 @@ void  SIMLIB_prepCadence(int REPEAT_CADENCE) {
       if ( OPTLINE != OPTLINE_SIMLIB_S ) { continue ; }
 
       // 2. sanity checks to catch crazy [nan] values. Second arg is NVAL=1
-      checkval_D("ZPTAVG", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE],  6.0, 50.0) ;
-      checkval_D("ZPTERR", 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE],  0.0,  5.0 ) ;
+      checkval_D("ZPTAVG", 1, &SIMLIB_OBS_RAW.ZPTADU[ISTORE],  6.0, 50.0, fnam) ;
+      checkval_D("ZPTERR", 1, &SIMLIB_OBS_RAW.ZPTERR[ISTORE],  0.0,  5.0, fnam ) ;
       if ( !SIMLIB_GLOBAL_HEADER.NEA_PSF_UNIT ) {
-	checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0 ) ;
-	checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 30.0 ) ;
-	checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0,  1.0 ) ;
+	checkval_D("PSF1",   1, &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0, fnam ) ;
+	checkval_D("PSF2",   1, &SIMLIB_OBS_RAW.PSFSIG2[ISTORE], 0.0, 30.0, fnam ) ;
+	checkval_D("PSFrat", 1, &SIMLIB_OBS_RAW.PSFRATIO[ISTORE],0.0,  1.0, fnam  ) ;
       }
-      checkval_D("SKYSIG", 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE],  0.0,  1.0E5);
+      checkval_D("SKYSIG", 1, &SIMLIB_OBS_RAW.SKYSIG[ISTORE],  0.0,  1.0E5, fnam );
 
       PIXSIZE = SIMLIB_OBS_RAW.PIXSIZE[ISTORE] ; 
 

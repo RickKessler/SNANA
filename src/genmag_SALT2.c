@@ -2161,6 +2161,8 @@ void genmag_SALT2(
   cfilt        = FILTER_SEDMODEL[ifilt].name ;
   ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   meanlam_rest = meanlam_obs/z1 ;
+  wavecor      = 0.0;
+  
 
   // mark delete xyz
   // Sep 5 2026: R.Purohit  moved just below together with wavecor
@@ -2182,11 +2184,6 @@ void genmag_SALT2(
       wavecor = wavecor_list[epobs]; 
       get_ZP_MODEL_SEDMODEL(ifilt, wavecor, &ZP_MODEL); // per-epoch ZP_MODEL
     }
-
-    else
-      { wavecor  = 0.0;
-        ZP_MODEL = FILTER_SEDMODEL[ifilt].ZP_MODEL;   // wavecor is 0 so just normal ZP_MODEL here
-      }
 
     Tobs    = Tobs_list[epobs];
     Trest   = Tobs / z1 ;
@@ -3868,10 +3865,10 @@ double SALT2colorlaw1(double lambda, double c, double *colorPar ) {
   // --------------------------------------
   // make a few sanity checks on passed parameters
 
-  checkval_D("CL1-LAM_B",   1, &LAM_B,   4000.0,  4500.0 );
-  checkval_D("CL1-LAM_V",   1, &LAM_V,   5000.0,  6000.0 );
-  checkval_D("CL1-LAM_MIN", 1, &LAM_MIN, 1000.0,  6000.0 );
-  checkval_D("CL1-LAM_MAX", 1, &LAM_MAX, 6000.0, 25000.0 );
+  checkval_D("CL1-LAM_B",   1, &LAM_B,   4000.0,  4500.0, fnam  );
+  checkval_D("CL1-LAM_V",   1, &LAM_V,   5000.0,  6000.0, fnam  );
+  checkval_D("CL1-LAM_MIN", 1, &LAM_MIN, 1000.0,  6000.0, fnam  );
+  checkval_D("CL1-LAM_MAX", 1, &LAM_MAX, 6000.0, 25000.0, fnam  );
 
   // ------------------------------
 

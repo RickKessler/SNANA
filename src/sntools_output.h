@@ -380,10 +380,9 @@ extern"C" {
   void  debugexit(char *string);
   void catVarList_with_comma(char *varList, char *addVarName);
 
-  void  checkval_I(char *varname,int nval,int   *iptr, int imin, int imax );
-  void  checkval_F(char *varname,int nval,float *fptr,float fmin,float fmax);
-  void  checkval_D(char *varname, int nval, 
-		   double *dptr, double dmin, double dmax);
+  void  checkval_I(char *varname,int nval,int   *iptr,  int imin, int imax, char *callFun );
+  void  checkval_F(char *varname,int nval,float *fptr,  float fmin,float fmax, char *callFun );
+  void  checkval_D(char *varname,int nval,double *dptr, double dmin, double dmax, char *callFun );
 
   int  IGNOREFILE(char *fileName);
 

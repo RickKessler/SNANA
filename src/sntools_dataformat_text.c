@@ -1895,13 +1895,13 @@ void rd_sntextio_varlist_obs(int *iwd_file) {
   int IVAR_MAX  = MXVAROBS_TEXT-1 ;
   int NVAL=1;
   checkval_I("IVAROBS_MJD", NVAL, &IVAROBS_SNTEXTIO.MJD, 
-	     IVAR_MIN, IVAR_MAX);
+	     IVAR_MIN, IVAR_MAX, fnam );
   checkval_I("IVAROBS_BAND", NVAL, &IVAROBS_SNTEXTIO.BAND, 
-	     IVAR_MIN, IVAR_MAX);
+	     IVAR_MIN, IVAR_MAX, fnam );
   checkval_I("IVAROBS_FLUXCAL", NVAL, &IVAROBS_SNTEXTIO.FLUXCAL, 
-	     IVAR_MIN, IVAR_MAX);
+	     IVAR_MIN, IVAR_MAX, fnam );
   checkval_I("IVAROBS_FLUXCALERR", NVAL, &IVAROBS_SNTEXTIO.FLUXCALERR, 
-	     IVAR_MIN, IVAR_MAX);
+	     IVAR_MIN, IVAR_MAX, fnam );
 
   *iwd_file = iwd;
 
@@ -2039,9 +2039,9 @@ void rd_sntextio_varlist_spec(int *iwd_file) {
   int IVAR_MAX  = MXVAROBS_TEXT-1 ;
   int NVAL=1;
   checkval_I("IVAROBS_FLAM", NVAL, &IVAROBS_SNTEXTIO.MJD, 
-	     IVAR_MIN, IVAR_MAX);
+	     IVAR_MIN, IVAR_MAX, fnam );
   checkval_I("IVAROBS_FLAMERR", NVAL, &IVAROBS_SNTEXTIO.BAND, 
-	     IVAR_MIN, IVAR_MAX);
+	     IVAR_MIN, IVAR_MAX, fnam );
 
   *iwd_file = iwd;
 

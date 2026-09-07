@@ -90,11 +90,11 @@ void init_HzFUN_INFO(int VBOSE, double *cosPar, char *fileName,
       printf("\t OM, OL, Ok = %7.5f, %7.5f, %7.5f \n", OM, OL, Ok );
       printf("\t w0, wa     = %6.3f, %6.3f \n", w0, wa);
 
-      checkval_D("H0", 1, &H0,  30.0, 100.0 );
-      checkval_D("OM", 1, &OM,   0.0,  1.0 );
-      checkval_D("OL", 1, &OM,   0.0,  1.0 );
-      checkval_D("w0", 1, &w0,  -4.0,  2.0 ); 
-      checkval_D("wa", 1, &wa, -10.0, 10.0 );
+      checkval_D("H0", 1, &H0,  30.0, 100.0, fnam );
+      checkval_D("OM", 1, &OM,   0.0,  1.0, fnam  );
+      checkval_D("OL", 1, &OM,   0.0,  1.0, fnam  );
+      checkval_D("w0", 1, &w0,  -4.0,  2.0, fnam  ); 
+      checkval_D("wa", 1, &wa, -10.0, 10.0, fnam  );
 
       fflush(stdout) ;
     }

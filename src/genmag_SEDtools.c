@@ -3393,6 +3393,12 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
 
   IWAVECOR_MIN = (int)WAVECOR_MIN - 1 ;
   IWAVECOR_MAX = (int)WAVECOR_MAX + 1 ;
+
+  // make sure that grid passes thru zero, starting at IWAVECOR_MIN and increasing
+  // in bins of IWAVECOR_BIN
+  int IWAVECOR_REMAIN = IWAVECOR_MIN % IWAVECOR_BIN ;
+  if ( IWAVECOR_REMAIN != 0 ) { IWAVECOR_MIN -= IWAVECOR_REMAIN; }
+
   NGRID        = IWAVECOR_MAX - IWAVECOR_MIN + IWAVECOR_BIN ;
   NGRID /= IWAVECOR_BIN ;
 
@@ -3436,7 +3442,6 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
     for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) { // skip ifilt=0 for spectrograph
 
       NAME = FILTER_SEDMODEL[ifilt].name ;
-      
       compute_wavecor_info_SEDMODEL(ifilt, wavecor, &primary_mag, &zp_model);
       WAVECOR_SEDMODEL.MAG_GRID[ifilt][i]      = primary_mag;
       WAVECOR_SEDMODEL.ZP_MODEL_GRID[ifilt][i] = zp_model;
@@ -3452,9 +3457,46 @@ void PREP_WAVECOR_SEDMODEL(float WAVECOR_MIN, float WAVECOR_MAX) {
     i_last = i;
   }   // end i loop over NGRID(WAVECOR)  
   
-  //  debugexit(fnam);
   //.xyz
 
+  // - - - - - -  -                                                                                              
+  if ( IBIN_ZERO < 0 ) {
+    sprintf(c1err,"WAVECOR grid does not include wavecor = 0;");
+    sprintf(c2err,"Cannot verify PRIMARY_MAG recalc. "); 
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // check that re-computed primary mag at wavecor=0 matches 
+  // stored CALIB values from kcor.c program 
+  // BEWARE that this check works only for AB .... it will fail for other systems
+
+  double mag_rdkcor, mag_compute, dm; 
+  double dm_tol = 2.0e-5 ;  // abort if any magdiff exceeds this 
+  int    ntol_fail = 0 ;
+
+  for(ifilt=1; ifilt < NFILT_SEDMODEL; ifilt++ ) { 
+
+    NAME        = FILTER_SEDMODEL[ifilt].name ;
+    mag_rdkcor  = FILTER_SEDMODEL[ifilt].magprimary ;
+    mag_compute = WAVECOR_SEDMODEL.MAG_GRID[ifilt][IBIN_ZERO]; 
+    dm          = mag_rdkcor - mag_compute; 
+
+    if ( fabs(dm) > dm_tol ) { 
+      printf("\t WARNING: mag(COMPUTE) - mag(RDCAL) = %.2le  for wavecor=0 and band = %s\n", 
+             dm, NAME) ; 
+      fflush(stdout); 
+      ntol_fail++ ; 
+    }
+  }
+
+  if ( ntol_fail > 0 ) { 
+    sprintf(c1err,"%d bands fail magDif tolerance for WAVECOR=0", ntol_fail); 
+    sprintf(c2err,"See magDif = mag(COMPUTE) - mag(RDKCOR) values printed avove");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  fflush(stdout);
+  //  debugexit(fnam);
   return;
 
 } // end PREP_WAVECOR_SEDMODEL

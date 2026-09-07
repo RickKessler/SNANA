@@ -2186,13 +2186,14 @@ void EXTEND_CALIB_FILTERS(float EXTEND_WAVE_BLUE, float EXTEND_WAVE_RED) {
 
   // Created Aug 2026 
   // Extend each filter transmission (T) with bins that have T=0.
-  // Intended to shift filter-transmissoin curves in genmag_SEDtools.
+  // Intended to shift filter-transmission curves in genmag_SEDtools.
   //
   // If EXTEND_WAVE_BLUE < 0, then extend filter grid on blue side; else do nothing.
   // if EXTEND_WAVE_RED  > 0, then extend filter grid on red  side; else do nothing.
   //
-  // TO-DO: only add pad-bins with T=0 if there aren't any bins already existing;
-  //        i.e. ,do not duplicate already existing T=0 bins
+  // Note that extra pad bins (with T=0) in the kcor/calib file have been trimmed
+  // in load_filterTrans_calib() to only keep wave bins with T>1E-6; hence there 
+  // is no risk of duplicating pad bins with T=0.
   //
   FILTERCAL_DEF *FILTERCAL = &CALIB_INFO.FILTERCAL_OBS;
   int  NFILTDEF            = FILTERCAL->NFILTDEF ;
@@ -2214,6 +2215,7 @@ void EXTEND_CALIB_FILTERS(float EXTEND_WAVE_BLUE, float EXTEND_WAVE_RED) {
 	 EXTEND_WAVE_BLUE, EXTEND_WAVE_RED );
 
   // .xyz
+
   for(ifilt=0; ifilt < NFILTDEF; ifilt++ ) {
     LAMBIN         = FILTERCAL->LAMBIN[ifilt];     // filter trans bin size (not waveshift bin)
     BAND_NAME      = FILTERCAL->BAND_NAME[ifilt] ;	
@@ -2274,7 +2276,6 @@ void EXTEND_CALIB_FILTERS(float EXTEND_WAVE_BLUE, float EXTEND_WAVE_RED) {
 	  int ILAM_SED_LAST_ORIG = FILTERCAL_ORIG.ILAM_SED[ifilt][NBLAM_ORIG-1]  ;
 	  LAM      = LAM_LAST_ORIG      + (double)(ilam_diff_new) * LAMBIN ;
 	  ILAM_SED = ILAM_SED_LAST_ORIG + (ilam_diff_new) ;
-
 	}
       }
       else {
@@ -2284,8 +2285,8 @@ void EXTEND_CALIB_FILTERS(float EXTEND_WAVE_BLUE, float EXTEND_WAVE_RED) {
 	ILAM_SED  = FILTERCAL_ORIG.ILAM_SED[ifilt][ilam_orig] ;
       }
 
-      if ( LDMP && (ilam_new<NLAM_DUMP || ilam_new > NBLAM_NEW-NLAM_DUMP ) )  {
-	printf(" xxx \t ilam[orig/new] =%4d / %4d  LAM=%7.1f  TRANS=%.3f  ILAM_SED=%5d \n",
+      if ( LDMP && ifilt==1 && (ilam_new<NLAM_DUMP || ilam_new > NBLAM_NEW-NLAM_DUMP ) )  {
+	printf(" xxx \t ilam[orig/new] =%4d / %4d  LAM=%7.1f  TRANS=%.3le  ILAM_SED=%5d \n",
 	       ilam_orig, ilam_new, LAM, TRANS, ILAM_SED); fflush(stdout);
       }
 

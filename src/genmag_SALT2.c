@@ -2162,9 +2162,10 @@ void genmag_SALT2(
   ZP_MODEL     = FILTER_SEDMODEL[ifilt].ZP_MODEL ;
   meanlam_rest = meanlam_obs/z1 ;
 
-  if ( DO_WAVECOR_SALT2 ) 
-    { get_ZP_MODEL_SEDMODEL(ifilt, wavecor, &ZP_MODEL ); }  // return ZP_MODEL
-
+  // mark delete xyz
+  // Sep 5 2026: R.Purohit  moved just below together with wavecor
+  //  if ( DO_WAVECOR_SALT2 ) 
+  //  { get_ZP_MODEL_SEDMODEL(ifilt, wavecor, &ZP_MODEL ); }  // return ZP_MODEL
 
   // make sure filter-lambda range is valid
   checkLamRange_SEDMODEL(ifilt,z,fnam);
@@ -2177,7 +2178,15 @@ void genmag_SALT2(
    
   for ( epobs=0; epobs < Nobs; epobs++ ) {
     
-    if ( DO_WAVECOR_SALT2 )  { wavecor = wavecor_list[epobs]; }
+    if ( DO_WAVECOR_SALT2 )  { 
+      wavecor = wavecor_list[epobs]; 
+      get_ZP_MODEL_SEDMODEL(ifilt, wavecor, &ZP_MODEL); // per-epoch ZP_MODEL
+    }
+
+    else
+      { wavecor  = 0.0;
+        ZP_MODEL = FILTER_SEDMODEL[ifilt].ZP_MODEL;   // wavecor is 0 so just normal ZP_MODEL here
+      }
 
     Tobs    = Tobs_list[epobs];
     Trest   = Tobs / z1 ;

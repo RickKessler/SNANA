@@ -24223,8 +24223,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
            ==> REF:  ZPHOT-72 = 0.65797 +/- 0.4714E-02(P)
            ==> TEST: ZPHOT-72 = 0.65796 +/- 0.4530E-02(P)
 
-xxx
-
 # =============================================================
          v12_02d (Sep 08 2026) <--- start date of git tag
 

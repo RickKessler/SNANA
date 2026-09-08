@@ -1919,6 +1919,7 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
   //
   // Sep 3 2026: pass wavecor arg to return TRANS at shifted wavelenth
 
+  int LDMP = 0 ;
   double LAM_LOCAL, TRANS_LOCAL;
   char fnam[] = "get_LAMTRANS_SEDMODEL";
 
@@ -1931,28 +1932,30 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
   else {
     double *lam_array    = FILTER_SEDMODEL[ifilt].lam ;
     double *trans_array  = FILTER_SEDMODEL[ifilt].transSN ;
-    //    double *trans_array2[2] = { FILTER_SEDMODEL[ifilt].transSN, 
-    //				FILTER_SEDMODEL[ifilt].transREF } ;
 
     LAM_LOCAL   = lam_array[ilam];
     TRANS_LOCAL = trans_array[ilam];
 
     if ( fabs(wavecor) > 0.01 ) {
+      // apply wavecor passed from &SNLCINP input MAGCOR_FILE
       int     NLAM        = FILTER_SEDMODEL[ifilt].NLAM ;
       double  lam_temp    = LAM_LOCAL - wavecor ;
       bool    valid_lam   = lam_temp >= lam_array[0] && lam_temp <= lam_array[NLAM-1] ;
       if ( valid_lam ) {
 	// Sep 8 2026 R.Purohit speed up interpolation
-        // Uniform lambda grid so compute the bin directly instead of                                          
-        // searching it with interp_1DFUN, then linearly interpolate transSN.                                         
-        double  lamstep   = FILTER_SEDMODEL[ifilt].lamstep ;
-        double  xbin      = (lam_temp - lam_array[0]) / lamstep ;
-        int     ibin      = (int)xbin ;      // floor (xbin >= 0 in valid branch)                                     
-        if ( ibin >= NLAM-1 ) { ibin = NLAM-2; }  // edge protect for lam_temp at max                                 
-        double  frac      = xbin - (double)ibin ;
+        // Uniform lambda grid so compute the bin directly instead of
+        // searching it with interp_1DFUN, then linearly interpolate transSN.
+
+	double  lamstep, xbin, frac;
+	int ibin;
+	lamstep   = FILTER_SEDMODEL[ifilt].lamstep ;
+	xbin      = (lam_temp - lam_array[0]) / lamstep ;
+	ibin      = (int)xbin ;      // floor (xbin >= 0 in valid branch)
+        if ( ibin >= NLAM-1 ) { ibin = NLAM-2; }  // edge protect for lam_temp at max
+	frac      = xbin - (double)ibin ;
         TRANS_LOCAL = trans_array[ibin]*(1.0-frac) + trans_array[ibin+1]*frac ;
 
-	// Add debug dump                                                                                               
+	// Add debug dump           
 	if ( LDMP ) {
 	  printf(" xxx %s: ifilt=%d ilam=%d wavecor=%.3f lam_temp=%.3f "
 		 "ibin=%d frac=%.4f trans=%.5f \n",

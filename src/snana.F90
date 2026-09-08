@@ -681,8 +681,9 @@
         ,SNLC_SNRMAX_FILT(0:MXFILT_OBS)    &  ! max S/N per filter/SN
         ,SNLC_SNRMAX_SORT(MXFILT_OBS)      &  ! 1st, 2nd ... SNRMAX by filt
         ,SNLC_SNRSUM                       &  ! quadrature sum of SNR 
-        ,SNLC_FLUXCALMAX(MXFILT_OBS)       &  ! max flux per filter/SN
-        ,SNLC_FLUXCALMAX_ERR(MXFILT_OBS)   &  ! uncertainty on above
+        ,SNLC_FLUXCALMAX_FILT(MXFILT_OBS)       &  ! max flux per filter/SN
+        ,SNLC_FLUXCALMAX_FILT_ERR(MXFILT_OBS)   &  ! uncertainty on above
+        ,SNLC_FLUXCALMAX                        &  ! max flux among all bands
         ,SNLC_SNANAFIT_PEAKMJD             &  ! SNANA-estimate of PEAKKMJD
         ,SNLC_SNANAFIT_PEAKMJD_FITPAR(MXFILT_OBS,NPAR_ANYLC)  & 
         ,SNLC_SNANAFIT_PEAKMJD_FITERR(MXFILT_OBS,NPAR_ANYLC)  & 
@@ -15097,8 +15098,9 @@
     DO ifilt = 1, MXFILT_OBS
        ISNLC_NEPOCH_FILT(ifilt)    =   0
        EXIST_FILT(ifilt)          = .FALSE.
-       SNLC_FLUXCALMAX(ifilt)     = -9.
-       SNLC_FLUXCALMAX_ERR(ifilt) = -9.
+       SNLC_FLUXCALMAX_FILT(ifilt)     = -9.
+       SNLC_FLUXCALMAX_FILT_ERR(ifilt) = -9.
+       SNLC_FLUXCALMAX                 = -9.
        SNLC_MWXT_MAG(ifilt)       = 0.0
        SNLC_MWXT_MAGERR(ifilt)    = 0.0
        SNLC_MWXT_FLUXFRAC(ifilt)  = 0.0
@@ -17085,9 +17087,9 @@
 !  * SNLC_SNRMAX_FILT(ifilt)
 !  * SNLC_SNRMAX_SORT(rank)
 !  * SNLC_SNRMAX_IFILTDEF(ifilt)
-!  * SNLC_FLUXCALMAX(ifilt)
-!  * SNLC_FLUXCALMAX_ERR(ifilt)  ! Nov 2022
-! 
+!  * SNLC_FLUXCALMAX_FILT(ifilt)
+!  * SNLC_FLUXCALMAX_FILT_ERR(ifilt)  ! Nov 2022
+!  * SNLC_FLUXCALMAX                  ! Sep 2026
 !  * correct SNLC_MAG and FLUXCAL for AB mag-offsets
 ! 
 !  * erase filter-epochs with bad photometry flag
@@ -17447,10 +17449,12 @@
                   MAX ( SNLC_SNRMAX_FILT(ifilt), Xnsig )
         endif
 
-        if ( Fluxcal > SNLC_FLUXCALMAX(ifilt) ) then
-           SNLC_FLUXCALMAX(ifilt)     = Fluxcal
-           SNLC_FLUXCALMAX_ERR(ifilt) = Fluxcal_err
+        if ( Fluxcal > SNLC_FLUXCALMAX_FILT(ifilt) ) then
+           SNLC_FLUXCALMAX_FILT(ifilt)     = Fluxcal
+           SNLC_FLUXCALMAX_FILT_ERR(ifilt) = Fluxcal_err
         endif
+
+        if ( Fluxcal > SNLC_FLUXCALMAX ) SNLC_FLUXCALMAX = Fluxcal  ! Sep 2026
 
         EXIST_FILT(ifilt) = .TRUE.
         ISNLC_NEPOCH_USE  = ISNLC_NEPOCH_USE + 1
@@ -19327,9 +19331,9 @@
           SNLC_SNRMAX_FILT(0)       = -9.
           SNLC_SNRMAX_FILT(ifilt)   = -9.
           SNLC_SNRMAX_SORT(ifilt)   = -9.
-          SNLC_FLUXCALMAX(ifilt)    = -9.
-          SNLC_FLUXCALMAX_ERR(ifilt)  = -9.
-
+          SNLC_FLUXCALMAX_FILT(ifilt)      = -9.
+          SNLC_FLUXCALMAX_FILT_ERR(ifilt)  = -9.
+          
         ENDIF
 
       ENDDO
@@ -24871,8 +24875,8 @@
        IF ( DO_NOMINAL ) then
          ADDCOL_SNRMAX(ifilt)           = SNLC_SNRMAX_FILT(ifilt)
          ADDCOL_XTMW(ifilt)             = SNLC_MWXT_FLUXFRAC(ifilt)
-         ADDCOL_FLUXCALMAX(ifilt)       = SNLC_FLUXCALMAX(ifilt)
-         ADDCOL_FLUXCALMAX_ERR(ifilt)   = SNLC_FLUXCALMAX_ERR(ifilt)
+         ADDCOL_FLUXCALMAX(ifilt)       = SNLC_FLUXCALMAX_FILT(ifilt)
+         ADDCOL_FLUXCALMAX_ERR(ifilt)   = SNLC_FLUXCALMAX_FILT_ERR(ifilt)
          ADDCOL_PROB_TRUEFLUX(ifilt)    = PROB_TRUEFLUX(ifilt)
          ADDCOL_NDOF_TRUEFLUX(ifilt)    = NDOF_TRUEFLUX(ifilt)
          ADDCOL_CHI2_FITPKMJD(ifilt)    = CHI2_FITPKMJD(ifilt)
@@ -24914,7 +24918,7 @@
          ADDCOL_NDOF_TRUEFLUX(IFILT_REMAP) = NDOF_TRUEFLUX(ifilt)
 
          VAL_OLD = ADDCOL_FLUXCALMAX(IFILT_REMAP)
-         VAL_NEW = SNLC_FLUXCALMAX(ifilt)
+         VAL_NEW = SNLC_FLUXCALMAX_FILT(ifilt)
          ADDCOL_FLUXCALMAX(IFILT_REMAP) = MAX(VAL_OLD,VAL_NEW)
 
          VAL_OLD = ADDCOL_CHI2_FITPKMJD(IFILT_REMAP)

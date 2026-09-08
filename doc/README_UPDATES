@@ -24110,13 +24110,22 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + finally set default restore_sn_unite=0 so that MAD fix is implemented.
         (SN-UNITE draft has been internally circulated)
       
+    snlc_fit.F90
+      + FUDGEALL_ITER1_MAXFRAC was being applied separately for each band;
+        now it is applied based on global FLUXMAX instead of individual 
+        FLUXMAX by band.  See very small regression test failures below,
+        and https://github.com/RickKessler/SNANA/issues/1778
 
          *****  USEFUL(v12_02c) *****
 
     snana.F90
-      + begin refactor to allow MAGCOR and/or WAVESHIFT corrections.
+      + refactor to allow MAGCOR and/or WAVESHIFT corrections.
         The latter is applied to model in light curve fitting.
-        See call to PREP_PRIMARY_MAG_WAVECOR_GRID in sntools_calib.c
+        See new calls to 
+            EXTEND_CALIB_FILTERS in sntools_calib.c
+            PREP_WAVECOR_SEDMODEL in genmag_SEDtools.c
+            get_ZP_MODEL_SEDMODEL in genmag_SEDtools.c
+            get_LAMTRANS_SEDMODEL in genmag_SEDtools.c
 
       + update FILTER_REPLACE feature to work if the original filters
         are not defined in kcor/calib file.
@@ -24126,7 +24135,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_02c) *****
 
-   Here are the small-but-expected regressoin test failures from 
+   Here are the small-but-expected regression test failures from 
    restore_sn_unite=1 -> 0:
        TASK113_SALT2mu_DES3YR_COVADD :  mis-match (REF != TEST)
               ==> REF:  fit-Beta = 3.1122e+00 +/- 1.4968e-01
@@ -24175,14 +24184,59 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        and into snlc_sim.c so that sntools_spectrograph.c does not need
        to include genmag_SEDtools.h
 
-   all:
-     + change WAVESHIFT to WAVECOR everywhere to indicate "correction" that is
-       analogous to MAGCOR correction. "SHIFT" is reserved for systematic shift,
-       not corrections.
+    snlc_fit.c
+      Regression test failures from change to FUDGEALL_ITER1_MAXFRAC:
 
-   Makefile.am
-     + since genmag_SEDtools calls a function in sntools_calib, had to
-       modify a few make commands for SIMSED_xxx.exe codes, and also kcor.exe.
+       TASK023_SIMFIT_ROMAN_ZPHOT   
+            ==> REF:  zPHOT-4 = 1.2712 +/- 0.7678E-02(P)
+            ==> TEST: zPHOT-4 = 1.2708 +/- 0.1508E-01(P)
+
+       TASK046_SIMFIT_BYOSED_P21          
+           ==> REF:  x0-44 = 0.10907E-05 +/- 0.6978E-07(P)
+           ==> TEST: x0-44 = 0.10907E-05 +/- 0.7009E-07(P)
+
+       TASK071_LCFIT_SALT2_SDSS   
+           ==> REF:  x0-1032 = 0.16746E-03 +/- 0.9761E-05(P)
+           ==> TEST: x0-1032 = 0.16746E-03 +/- 0.9762E-05(P)
+
+       TASK074_LCFIT_SALT2_CSPDR2    
+           ==> REF:  FITPROB-2007ca = 0.346
+           ==> TEST: FITPROB-2007ca = 0.285
+
+       TASK077_LCFIT_DES-SN5YR_SALTSYST 
+           ==> REF:  x0-1366482 = 0.34331E-04 +/- 0.5041E-06(P)
+           ==> TEST: x0-1366482 = 0.34332E-04 +/- 0.5039E-06(P)
+
+       TASK078_LCFIT_DES-SN5YR_LAMSHIFT 
+           ==> REF:  x0-1366482 = 0.34440E-04 +/- 0.4971E-06(P)
+           ==> TEST: x0-1366482 = 0.34441E-04 +/- 0.4971E-06(P)
+
+       TASK079_LCFIT_DES-SN5YR_MAGSHIFT   
+           ==> REF:  x0-1366482 = 0.34360E-04 +/- 0.4943E-06(P)
+           ==> TEST: x0-1366482 = 0.34361E-04 +/- 0.4944E-06(P)
+
+       TASK087_SIMFIT_DES5YR_QZPHOT5   
+           ==> REF:  ZPHOT-72 = 0.66767 +/- 0.4408E-02(P)
+           ==> TEST: ZPHOT-72 = 0.66767 +/- 0.1321E-01(P)
+
+       TASK088_SIMFIT_DES5YR_QZPHOT5+MUPRI 
+           ==> REF:  ZPHOT-72 = 0.65797 +/- 0.4714E-02(P)
+           ==> TEST: ZPHOT-72 = 0.65796 +/- 0.4530E-02(P)
+
+xxx
+
+# =============================================================
+         v12_02d (Sep 08 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_0dc) *****
+
+         *****  USEFUL(v12_02d) *****
+
+         *****  MISCELLANEOUS(v12_02d) *****
+
+
 
 END:
+
+
  

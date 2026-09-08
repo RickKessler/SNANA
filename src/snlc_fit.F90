@@ -4897,7 +4897,7 @@
       endif
 
 
-      if ( DEBUG_FLAG == 908 ) then
+      if ( DEBUG_FLAG == 9088 ) then
          CALL DUMP_ZPHOT_PRIOR(ZSN,PROBZ)
       endif
 
@@ -10980,13 +10980,17 @@
       R4EP_ALL(ep,JEP_TREST)          = TREST
       R4EP_ALL(ep,JEP_WAVECOR)        = WAVECOR
 
-! check for epochs to add fudged errors so that these
-! points are ignored in the fit, but are included in
-! all plots.
+! check for epochs to add fudged errors so that these points are ignored in the fit, 
+! but are included in all plots.
+
 
       MAXFRAC = GET_FUDGE_FITERR_MAXFRAC(ITER, ifilt_obs, TREST, LAMREST)
+      ERR_TMP = MAXFRAC * SNLC_FLUXCALMAX    ! udpated 9.08.2026
 
-      ERR_TMP = MAXFRAC * SNLC_FLUXCALMAX(ifilt)
+      if ( DEBUG_FLAG ==  -908 ) then
+         ERR_TMP = MAXFRAC * SNLC_FLUXCALMAX_FILT(ifilt) ! legacy
+      endif
+
       R4EP_ALL(ep,JEP_FUDGEFLUX_ERR)  = ERR_TMP
       R4EP_ALL(ep,JEP_FUDGE_MAXFRAC)  = MAXFRAC
 
@@ -11138,7 +11142,7 @@
 
 ! functions
     LOGICAL FIRST_ITERATION
-! ------------------ BEGIN ----------------
+! ------------------ BEGIN GET_FUDGE_FITERR_MAXFRAC ----------------
 
     GET_FUDGE_FITERR_MAXFRAC = 0.0
     IF ( .NOT. USE_FUDGE_FITERR ) RETURN

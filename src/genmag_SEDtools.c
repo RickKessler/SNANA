@@ -1939,14 +1939,27 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
 
     if ( fabs(wavecor) > 0.01 ) {
       int     NLAM        = FILTER_SEDMODEL[ifilt].NLAM ;
-      double  lam_temp    = LAM_LOCAL - wavecor ;       
-      bool    valid_lam   = lam_temp >= lam_array[0] && lam_temp <= lam_array[NLAM-1] ;   
+      double  lam_temp    = LAM_LOCAL - wavecor ;
+      bool    valid_lam   = lam_temp >= lam_array[0] && lam_temp <= lam_array[NLAM-1] ;
       if ( valid_lam ) {
-	// .xyz warning this interp is very inefficient; 
-	// later should comput bin instead of searching for it
-	TRANS_LOCAL = interp_1DFUN(OPT_INTERP_LINEAR, lam_temp, NLAM,  
-				   lam_array, trans_array, fnam); 
-      }   
+	// Sep 8 2026 R.Purohit speed up interpolation
+        // Uniform lambda grid so compute the bin directly instead of                                          
+        // searching it with interp_1DFUN, then linearly interpolate transSN.                                         
+        double  lamstep   = FILTER_SEDMODEL[ifilt].lamstep ;
+        double  xbin      = (lam_temp - lam_array[0]) / lamstep ;
+        int     ibin      = (int)xbin ;      // floor (xbin >= 0 in valid branch)                                     
+        if ( ibin >= NLAM-1 ) { ibin = NLAM-2; }  // edge protect for lam_temp at max                                 
+        double  frac      = xbin - (double)ibin ;
+        TRANS_LOCAL = trans_array[ibin]*(1.0-frac) + trans_array[ibin+1]*frac ;
+
+	// Add debug dump                                                                                               
+	if ( LDMP ) {
+	  printf(" xxx %s: ifilt=%d ilam=%d wavecor=%.3f lam_temp=%.3f "
+		 "ibin=%d frac=%.4f trans=%.5f \n",
+		 fnam, ifilt, ilam, wavecor, lam_temp, ibin, frac, TRANS_LOCAL );
+	  fflush(stdout);
+	}
+      }
       else {
 	// outside the original grid the shifted filter has no throughput 
 	TRANS_LOCAL = 0.0 ; 
@@ -1954,7 +1967,6 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
     } // end wavecor block
 
   }
-
 
   // set output args
   *LAM   = LAM_LOCAL;

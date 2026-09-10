@@ -742,11 +742,11 @@ void match_cidlist_parval__(int *isn_match, char *varName, int *abort_flag,
 // ******************************************
 #include "uthash.h"
 // Jun 2021: define stuff for hash table; used to match CID lists.
-struct hash_table_def {
+typedef struct hash_table_def {
   int id;                    // key 
   char name[2*MXCHAR_CCID];    // array size is max length of CID
   UT_hash_handle hh;         // makes this structure hashable 
-} ;
+} hash_table_def ;
 struct hash_table_def *hash_table_users = NULL; 
 
 
@@ -755,7 +755,7 @@ int match_cid_hash(char *ccid, int ilist, int isn) {
   // Created Jun 2021
   // Use hash table to speed cid matching.             
   // Inputs:           
-  //   ilist = 0 for original list, 1,2,3 for additional lists to match
+  //   ilist = 0 for original list;   1,2,3 for additional lists to match
   //   isn   = current SN index                 
   //                                                      
   // Function returns isn index for ilist=0

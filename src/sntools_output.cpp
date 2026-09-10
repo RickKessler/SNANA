@@ -2514,6 +2514,8 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
     goto SET_OUTVAL; 
   }
 
+  // .xyz something similar to abive is needed for WAVECOR lookup in magcor file.
+
   if (LDMP ) { printf(" 3.  xxx %s search for IROW ... \n", fnam); fflush(stdout); }
 
   // do slow loop over each row and do CCID string match each row.
@@ -2526,7 +2528,7 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
     //    if ( LDMP ) { printf(" 3.  xxx %s: irow=%2d  tmpCCID='%s'\n", fnam, irow, tmpCCID); }
 
     if ( strcmp(tmpCCID,CCID) == 0 )  {
-      if ( IROW[0] < 0 ) { IROW[0] = irow; } // firsr row
+      if ( IROW[0] < 0 ) { IROW[0] = irow; } // first row
       IROW[1] = irow ;                       // last row
       //goto SET_OUTVAL ; 
     }

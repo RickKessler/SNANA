@@ -21761,7 +21761,6 @@
 ! Jun 26 2026: pass NAME_TRANSIENT to check (motivated by Rubin OBJID)
 ! ---------------------------
 
-
     USE SNPAR
     USE SNCUTS
     USE SNLCINP_NML

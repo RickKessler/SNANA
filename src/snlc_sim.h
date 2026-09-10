@@ -75,6 +75,7 @@
 #define  ISOURCE_PEAKMJD_RANDOM 1 // PEAKMJD is randomly generated
 #define  ISOURCE_PEAKMJD_SIMLIB 2 // PEAKMJD is read from SIMLIB header
 
+#define  KEY_BEGIN         "BEGIN"  // for SIMLIB
 #define  OPTLINE_SIMLIB_S             1   // is a SIMLIB line with 'S:'
 #define  OPTLINE_SIMLIB_T             2   // obsolete
 #define  OPTLINE_SIMLIB_SPECTROGRAPH  3
@@ -1905,6 +1906,7 @@ void   SIMLIB_INIT_DRIVER(void);
 void   SIMLIB_initGlobalHeader(void);
 void   SIMLIB_readGlobalHeader_TEXT(void);
 void   SIMLIB_prepGlobalHeader(void);
+void   SIMLIB_skipGlobalHeader(void); 
 void   SIMLIB_prep_fluxerrScale(void);
 void   SIMLIB_findStart(void);
 void   SIMLIB_INIT_IDEAL_GRID(void);

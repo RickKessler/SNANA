@@ -678,9 +678,7 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
   //Mar 28 2016: add protection against too many variables
   NVAR_ADDCOL_TOT += ADDCOL_VARDEF.NVAR;
   if ( NVAR_ADDCOL_TOT >= MXVAR_TABLE ) {
-
     // print_preAbort_banner(fnam);
-
     sprintf(MSGERR1,"NVAR_ADDCOL_TOT=%d exceeds MXVAR_TABLE=%d",
 	    NVAR_ADDCOL_TOT, MXVAR_TABLE );
     sprintf(MSGERR2,"IDTABLE=%d", IDTABLE);
@@ -778,7 +776,7 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
 
   // ------------ BEGIN -------------
 
-  LDMP = 0 ; // ( strlen(VARLIST) > 100) ;
+  LDMP = 1 ; // ( strlen(VARLIST) > 100) ;
 
   // store original [unparsed] VARLiST
   sprintf(ADDCOL_VARDEF->VARLIST_ORIG,"%s", VARLIST);

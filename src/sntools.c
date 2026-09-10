@@ -6903,11 +6903,13 @@ void splitString2(char *string, char *sep, int MXsplit,
   //
   // Dec 27 2017: avoid <CR> in case of fgets scooping up extra
   //              blank spaces.
+  //
+  // Sep 10 2026: add abort if N > MXsplit
   // ---------------                                             
 
   int   N;
   char *localString, *token ;
-  //  char fnam[] = "splitString2" ;
+  char fnam[] = "splitString2" ; (void)fnam;
 
   // ------------ BEGIN ---------------
 
@@ -6921,10 +6923,17 @@ void splitString2(char *string, char *sep, int MXsplit,
     fnam, token, strlen(token));  */
 
     if ( token[0] != '\0'  && token[0] != '\n' ) {
-      if ( N < MXsplit ) { sprintf(ptrSplit[N],"%s", token ); }
+      if ( N < MXsplit ) {  sprintf(ptrSplit[N],"%s", token );  }
       N++ ;
     }
   }
+
+  if ( N > MXsplit ) {
+    sprintf(c1err, "Nsplit = %d  exceeds bound MXsplit=%d", N, MXsplit );
+    sprintf(c2err, "string to split begins with '%s'  ; split separator= '%s' ", string, sep);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
+  }
+
   *Nsplit = N ; // load output arg       
 
   return ;
@@ -7353,7 +7362,7 @@ void remove_comment(char *string) {
 
   char *e = strchr(string, '#');
   int index;
-  //  char fnam[] = "remove_comment" ;
+  char fnam[] = "remove_comment" ;  (void)fnam ;
 
   // -------- BEGIN ----------
   if ( e != NULL ) {

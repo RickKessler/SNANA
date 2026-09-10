@@ -18524,7 +18524,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
       SIMLIB_GLOBAL_HEADER.NGENSKIP_PEAKMJD++ ;
     }
 
-    else if ( strcmp(c_get,"BEGIN") == 0 ) 
+    else if ( strcmp(c_get,KEY_BEGIN) == 0 ) 
       { return ; }  // DONE READING GLOBAL HEADER ==> BAIL
 
     else if ( strcmp(c_get,"LIBID:")   == 0 ) {
@@ -18722,6 +18722,41 @@ void SIMLIB_prepGlobalHeader(void) {
 
 } // end SIMLIB_prepGlobalHeader
 
+void SIMLIB_skipGlobalHeader(void) {
+
+  // Created Sep 10 2026
+  // called after rewind, read lines until BEGIN key is found
+
+  int  NLINE_HEAD_ABORT = 500; // abort after reading this many header lines
+  int  NLINE_HEAD       = 0;
+  int  LENKEY = strlen(KEY_BEGIN);
+  bool FOUND_BEGIN = false ;
+  char cline[1000], *fg; (void)fg;
+  char fnam[] = "SIMLIB_skipGlobalHeader" ;  (void)fnam;
+
+  // ----------- BEGIN ----------
+
+  while ( !FOUND_BEGIN ) {
+    fg = fgets(cline, 1000, fp_SIMLIB);  // read enough chars to find BEGIN
+    NLINE_HEAD++ ;
+
+    if ( NLINE_HEAD > NLINE_HEAD_ABORT ) {
+      sprintf(c1err,"Could not find %s key after reading %d GLOBAL HEADER lines", 
+	      KEY_BEGIN, NLINE_HEAD);
+      sprintf(c2err,"rewind failed. \n");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 	      	  
+    }
+
+    // printf(" xxx %s: cline(%3d) = '%s' \n", fnam, NLINE_HEAD, cline);
+
+    if ( strncmp(cline, KEY_BEGIN, LENKEY) == 0 ) { 
+      FOUND_BEGIN = true; 
+      printf("\t skip %d global header lines at top of SIMLIB_FILE\n", NLINE_HEAD); fflush(stdout); 
+    }
+  }
+  
+  return;
+} // end SIMLIB_skipGlobalHeader
 
 // =======================================
 void SIMLIB_INIT_IDEAL_GRID(void) {
@@ -19076,6 +19111,8 @@ void SIMLIB_findStart(void) {
     }
 
     NSKIP_LIBID = (JOBID_SHIFT-1) * (int)XTMP  + NSKIP_EXTRA;
+
+    if ( INPUTS.DEBUG_FLAG == 910 ) { NSKIP_LIBID = 162200; }
 
     DOSKIP = 1;
     printf("\t SIMLIB BATCH-MODE START at %d of %d LIBIDs ", 
@@ -19525,13 +19562,20 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //
   // Jun 26 2026; fix to count SPECTROGRAPH lines with SIMLIB_DUMP 
   //    (and no KCOR file to define a SPECTROGRAPH)
-
+  //
+  // Sep 10 2026:  [changes following crash on large Sundial simlib]
+  //   +  fix a few potential backtrace bugs identified by Claude.
+  //   +  add remove_comment(cline) to remove end-of-line comments
+  //   +  abort of NWD != NWD_LAST for S: key (check corrupt SIMLIB)
+  //   +  print message to stdout indicate rewind.
+  //   +  call new SIMLIB_skipGlobalHeader() after rewind
+  //
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 #define MXCHAR_LINE_SIMLIB 400
 
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0 ;
-  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, NWD, iwd, IWD ;
+  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, NWD, NWD_LAST = -9, iwd, IWD ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NTMP, NFIELD=0 ;
   int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   int OPTMASK, noTEMPLATE ;
@@ -19585,7 +19629,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     NLINE++ ;
     cline[0] = 0 ;   FOUND_EOF = false ;
 
-    if ( fgets(cline, 380, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
+    if ( fgets(cline, MXCHAR_LINE_SIMLIB, fp_SIMLIB) == NULL ) { FOUND_EOF = true; }
 
     
     if ( !FOUND_EOF ) {
@@ -19594,10 +19638,11 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       
       // skip comment character (after removing newline)
       if ( commentchar(cline) ) { continue; }
-      
+      remove_comment(cline);    // Sep 2026 remove end-of-line comments to track wd count
+
       // note that splitString2 is fast, but destroys cline
       splitString2(cline, sepKey, MXWDLIST_SIMLIB, &NWD, ptrWDLIST);
-      if (NWD==0) { WDLIST[0][0]=0 ; } // avoid stupid valgrind error if cline is blank
+      if (NWD==0) { WDLIST[0][0] = 0 ; } // avoid stupid valgrind error if cline is blank
       
       // check end of file, or end of simlib keywork -> rewind
       FOUND_ENDKEY = ( strcmp(WDLIST[0],"END_OF_SIMLIB:") == 0 );
@@ -19614,6 +19659,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	NOBS_FOUND = NOBS_FOUND_ALL = USEFLAG_LIBID = USEFLAG_MJD = 0 ;
 	FOUND_ENDKEY = FOUND_EOF = false;
 	ISTORE = 0;
+	printf("\t rewind SIMLIB : NWRAP=%d\n", SIMLIB_HEADER.NWRAP); fflush(stdout);
+
+	// skip global header to avoid reading lines below with too many words
+	SIMLIB_skipGlobalHeader(); 
       }
       continue ;
     }  // end REWIND
@@ -19625,8 +19674,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
       wd0[0] = wd1[0] = 0;
       sprintf(wd0,"%s", WDLIST[iwd] );
-      if ( NWD > iwd+1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); }
-
+      if ( NWD > iwd+1 ) { sprintf(wd1,"%s", WDLIST[iwd+1] ); } 
 
       if ( strcmp(wd0,"LIBID:") == 0 ) {
 	sscanf(wd1, "%d", &ID ); 
@@ -19754,6 +19802,18 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       else if ( OPTLINE == OPTLINE_SIMLIB_S )  { 
 	NOBS_FOUND++ ; 	IWD = iwd;  
 	
+	// xxxxxx ??
+	if ( NWD_LAST >= 0 && NWD != NWD_LAST ) {
+	  print_preAbort_banner(fnam);
+	  for(iwd=0; iwd < NWD; iwd++ ) 
+	    { printf("\t cline WD[%d] = '%s' \n", iwd, WDLIST[iwd] ); }
+	  sprintf(c1err,"NWD=%d after 'S:' key but NWD_LAST=%d", NWD, NWD_LAST);
+	  sprintf(c2err,"LIBID=%d  \n", SIMLIB_HEADER.LIBID);
+	  errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 	      	  
+	}
+	NWD_LAST = NWD;
+	// xxxxxxxx 
+
 	//read MJD into scalar to see if it is within GENRANGE_MJD
 	IWD++; sscanf(WDLIST[IWD], "%le", &MJD  ); 
 	MJD += INPUTS.SIMLIB_MJD_SHIFT;  // Feb 20 2026
@@ -19863,7 +19923,14 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  NTMP = SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH ;
 	  SIMLIB_OBS_RAW.OBSLIST_SPECTROGRAPH[NTMP] = ISTORE;
 	  SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH++ ;
-	
+	  
+	  if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH >= MXOBS_SPECTROGRAPH ) { // 9.09.2026	   
+	    sprintf(c1err,"NOBS_SPECTROGRAPH = %d exceeds MXOBS_SPECTROGRAPH bound",
+		    SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH );
+	    sprintf(c2err,"Check SPECTROGRAPH options");
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+	  }
+
 	  // store few things at this ISTORE location
 	  SIMLIB_OBS_RAW.OPTLINE[ISTORE]    = OPTLINE ;
 	  SIMLIB_OBS_RAW.MJD[ISTORE]        = MJD ;

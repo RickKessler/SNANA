@@ -1154,7 +1154,7 @@ void wr_snfitsio_create(int itype ) {
 
   fits_update_key(fp, TINT, "DETINFO_FLAG",  // July 2023
 		  &SNFITSIO_DETINFO,
-		  "1 -> PHOT table incoudes IMGNUM,DETNUM,XPIX,YPIX", &istat );
+		  "1 -> PHOT table includes IMGNUM,DETNUM,XPIX,YPIX", &istat );
 
   fits_update_key(fp, TINT, "ATMOS_FLAG",  // July 2023
 		  &SNFITSIO_ATMOS,

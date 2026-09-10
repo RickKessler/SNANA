@@ -24228,11 +24228,19 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v12_0dc) *****
 
+    snlc_sim: 
+      + fix subtle SIMLIB-rewind bug:  https://github.com/RickKessler/SNANA/issues/1783
+
+
          *****  USEFUL(v12_02d) *****
+
+    snlc_fit:
+      + wrap up WAVECOR to correct filter transmissions per epoch in LCFIT
+
 
          *****  MISCELLANEOUS(v12_02d) *****
 
-
+   
 
 END:
 

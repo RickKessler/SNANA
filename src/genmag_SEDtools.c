@@ -1952,8 +1952,9 @@ void get_LAMTRANS_SEDMODEL(int ifilt, int ilam, double wavecor, double *LAM, dou
 	xbin      = (lam_temp - lam_array[0]) / lamstep ;
 	ibin      = (int)xbin ;      // floor (xbin >= 0 in valid branch)
         if ( ibin >= NLAM-1 ) { ibin = NLAM-2; }  // edge protect for lam_temp at max
-	frac      = xbin - (double)ibin ;
-        TRANS_LOCAL = trans_array[ibin]*(1.0-frac) + trans_array[ibin+1]*frac ;
+
+	frac        = xbin - (double)ibin ;  // [0 to 1]
+	TRANS_LOCAL = trans_array[ibin]*(1.0-frac) + trans_array[ibin+1]*frac ;
 
 	// Add debug dump           
 	if ( LDMP ) {

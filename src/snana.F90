@@ -6287,6 +6287,7 @@
     ENDIF
 
 ! Jan 2025; set global flags for reading SNIDs from separate file
+    if ( FLAG_USE_SAME_EVENTS > 0 ) OPT_SNCID_LIST = FLAG_USE_SAME_EVENTS  ! Sep 2026
     USE_SNCID_FILE        = BTEST(OPT_SNCID_LIST,0) ! use CIDs from file
     USE_INIVAL_SNCID_FILE = BTEST(OPT_SNCID_LIST,1) ! set each INIVAL = FITPAR from file
     USE_PRIOR_SNCID_FILE  = BTEST(OPT_SNCID_LIST,2) ! use each FITPAR & ERR as prior
@@ -11646,8 +11647,9 @@
     ENDIF
 
 ! check CIDs from separate file (table format, or unformatted)
+
     IF ( IS_FILE ) THEN
-       if ( FLAG_USE_SAME_EVENTS > 0 ) OPT_SNCID_LIST = FLAG_USE_SAME_EVENTS  ! Sep 2026
+       ! xxx mark delete if ( FLAG_USE_SAME_EVENTS > 0 ) OPT_SNCID_LIST = FLAG_USE_SAME_EVENTS  ! Sep 2026
 
        if ( NFIT_ITERATION > 0 .and. OPT_SNCID_LIST>1 ) then
            ! store SALT2 fit pars for INIVAL in snlc_fit evt sync
@@ -16633,13 +16635,6 @@
     VARNAME_MAGCOR_CHECK(IVAR_WAVECOR)   = VARNAME_WAVECOR
     VARLIST_MAGCOR_CHECK    = VARNAME_MAGCOR // ',' // VARNAME_WAVECOR
 
-    ! xxxxxx mark delete
-    !IF ( MAGCOR_INFILE .EQ. ' '    ) RETURN
-    !IF ( MAGCOR_INFILE .EQ. 'NULL' ) RETURN
-    !IF ( MAGCOR_INFILE .EQ. 'NONE' ) RETURN
-    ! xxxxxx end mark 
-
-
     SIGN_MAGCOR = +1  ! default is to add
     IF ( MAGCOR_INFILE(1:1) .EQ. '-' ) THEN
        SIGN_MAGCOR = -1  ! subtract instead
@@ -16842,8 +16837,8 @@
     REAL*4  VAL, FCOR, CRAZY_VAL
     CHARACTER cVARNAME*20, BAND*2, cDUM*20
     CHARACTER STR_EPID1*60, STR_EPID2*60, FNAM*12
-    LOGICAL IS_MAGCOR, IS_WAVECOR, LDMP
-
+    LOGICAL IS_MAGCOR, IS_WAVECOR, LDMP, ABORT_ON_MISSING
+    
 ! function
     INTEGER  SNTABLE_AUTOSTORE_READ
     EXTERNAL SNTABLE_AUTOSTORE_READ
@@ -16854,6 +16849,8 @@
     IS_WAVECOR   = .FALSE.
     FNAM         = 'EXEC_MGACOR'
     
+    ABORT_ON_MISSING = .TRUE.
+
     if ( VARNAME == VARNAME_MAGCOR ) then
        NSTORE    = NSTORE_MAGCOR
        IS_MAGCOR = .TRUE.
@@ -16903,51 +16900,49 @@
        VAL = sngl(DVAL) * SIGN_MAGCOR
 
 ! trap crazy val
-      if ( abs(VAL) > CRAZY_VAL ) then
-         write(C1ERR,61) VARNAME, VAL
-61       format('Crazy ', A,' = ', G12.4 )
-         C2ERR = 'Check ' // STR_EPID1(1:L+12)
-         CALL MADABORT(FNAM, C1ERR, C2ERR)
-      endif
+       if ( abs(VAL) > CRAZY_VAL ) then
+          write(C1ERR,61) VARNAME, VAL
+61        format('Crazy ', A,' = ', G12.4 )
+          C2ERR = 'Check ' // STR_EPID1(1:L+12)
+          CALL MADABORT(FNAM, C1ERR, C2ERR)
+       endif
 
-      if ( IS_MAGCOR ) then
-         IF ( FORCE_MAGCOR_ZERO > 0 ) VAL = 0.0   ! for testing only
-         NUSE_MAGCOR     = NUSE_MAGCOR    + 1
-         FCOR   = 10**(-0.4*VAL)
-         SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * FCOR
-         SNLC_MAG(ep)     = SNLC_MAG(ep) + VAL
-      else if ( IS_WAVECOR ) then
-         IF ( FORCE_WAVECOR_ZERO > 0 ) VAL = 0.0   ! for testing only
-         NUSE_WAVECOR  = NUSE_WAVECOR + 1
-         SNLC_WAVECOR(ep) = VAL  ! store for later use
+       if ( IS_MAGCOR ) then
+          IF ( FORCE_MAGCOR_ZERO > 0 ) VAL = 0.0   ! for testing only
+          NUSE_MAGCOR     = NUSE_MAGCOR    + 1
+          FCOR   = 10**(-0.4*VAL)
+          SNLC_FLUXCAL(ep) = SNLC_FLUXCAL(ep) * FCOR
+          SNLC_MAG(ep)     = SNLC_MAG(ep) + VAL
+       else if ( IS_WAVECOR ) then
+          IF ( FORCE_WAVECOR_ZERO > 0 ) VAL = 0.0   ! for testing only
+          NUSE_WAVECOR  = NUSE_WAVECOR + 1
+          SNLC_WAVECOR(ep) = VAL  ! store for later use
+       else
+          C1ERR = 'Not MAGCOR nor WAVEOR ???'
+          C2ERR = 'Something is really messed up'
+          CALL MADABORT(FNAM,C1ERR,C2ERR)   ! Jun 8 2020
+       endif
+       
+    ELSE
+       if ( ABORT_ON_MISSING ) then
+          C1ERR = 'MIssing ' // varname // ' for ' // STR_EPID1
+          C2ERR = VARNAME // ' must exist for every CID-MJD'
+          CALL MADABORT(FNAM,C1ERR,C2ERR)   ! Jun 8 2020
+       else
+          ! write warning to stdout about missing correction
+          L = INDEX(STR_EPID1,' ') - 1
+          if ( IS_MAGCOR ) then
+             NMISSING_MAGCOR    = NMISSING_MAGCOR + 1;  NMISS = NMISSING_MAGCOR
+          else
+             NMISSING_WAVECOR = NMISSING_WAVECOR + 1 ; NMISS = NMISSING_WAVECOR
+          endif
+          
+          if ( NMISS < 50 ) write(6,670) VARNAME, STR_EPID1(1:L)
+          call flush(6)
+670       format(T5,'WARNING: missing ',A,' value for ', A)
+       endif
 
-         ! xxxxxxxxxxx
-         if ( SNLC_CID == -1793194 ) then
-            print*,' xxx ep=', ep, '  WAVECOR=', VAL
-            call flush(6)
-         endif
-         ! xxxxxxxxxxx
-
-      else
-         C1ERR = 'Not MAGCOR nor WAVEOR ???'
-         C2ERR = 'Something is really messed up'
-         CALL MADABORT(FNAM,C1ERR,C2ERR)   ! Jun 8 2020
-      endif
-  
-   ELSE
-      ! write warning to stdout about missing correction
-      L = INDEX(STR_EPID1,' ') - 1
-      if ( IS_MAGCOR ) then
-         NMISSING_MAGCOR    = NMISSING_MAGCOR + 1;  NMISS = NMISSING_MAGCOR
-      else
-         NMISSING_WAVECOR = NMISSING_WAVECOR + 1 ; NMISS = NMISSING_WAVECOR
-      endif
-
-      if ( NMISS < 50 ) write(6,670) VARNAME, STR_EPID1(1:L)
-      call flush(6)
-670   format(T5,'WARNING: missing ',A,' value for ', A)
-      ! .xyz
-   ENDIF
+    ENDIF
 
     if ( IS_MAGCOR ) CALL SETMASK_FLUXCOR_SNANA(MASK_FLUXCOR_SNANA)
 

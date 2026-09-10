@@ -1057,7 +1057,7 @@
 
     INTEGER FILTINDX
 
-! ------------------- BEGIN ---------------------
+! ------------------- BEGIN FITPAR_INI ---------------------
 
     IERR = 0
 
@@ -1170,11 +1170,16 @@
 ! print WARNING if fitting subset of filters.
     Len1 = INDEX(SURVEY_FILTERS,' ') - 1
     Len2 = INDEX(FILTLIST_FIT,  ' ') - 1
+
+    if ( len2 == 0 ) then
+       c1err = '&FITINP input FILTLIST_FIT is blank'
+       c2err = 'Must specify list of filters to fit; e.g., griz'
+       CALL MADABORT("FITPAR_INI", c1err, c2err )
+    endif
     IF ( Len2 .LT. Len1 ) THEN
        print*,'  WARNING: fitting filter subset  ',  & 
             FILTLIST_FIT(1:Len2),'  from  ', SURVEY_FILTERS(1:Len1)
     ENDIF
-
 
 ! -------------------------------------------------------
 ! Covariance matrix:
@@ -4147,6 +4152,7 @@
        write(6,602) SNLC_CCID,  ITER, IFLAG
 602      format(T5,'PREPARE FCNSNLC DUMP for CID= ', A16,  & 
                  3x,'   (ITER=',I2, 2x, 'IFLAG=',I2, ')' )
+
        call flush(6)
     ENDIF
 
@@ -4362,13 +4368,12 @@
                 ,flux_data, flux_data_errtot
 
 666         format(2x,A,  2x, 'Trest=',F6.2, 2x,'dchi2=',F9.5, 2x,  & 
-              'Fmodel=',E9.3,'+-',E8.3, 2x,  & 
-              'Fdata=', E10.4,'+-',E10.4  )
+              'Fmodel=',E10.4,'+-',E9.4, 2x,  & 
+              'Fdata=', E10.4,'+-',E9.4  )
 
           NDMPFCN(0)     = NDMPFCN(0) + 1
           NDMPFCN(ifilt) = NDMPFCN(ifilt) + 1
           CALL FLUSH(6)
-
       endif
 
 ! always store flux for model in case we need to re-compute
@@ -4631,6 +4636,7 @@
     endif
 
 ! - - - - - - -
+
     IF ( LDMPFCN_LOC ) THEN
        write(6,6665) chi2tot,  NFITDATA_FILT(0)
 6665   format(T5,'CHI2-FINAL(all filters)    = ', F10.2,3x,  'NFITDATA=', I5)
@@ -18742,24 +18748,6 @@
 ! 
 ! This routine is intended to replace CWNT_HBNAMES_SNFITVAR()
 ! 
-! Apr 29, 2013:
-!    ERR_[PARNAME] -> [PARNAME]ERR to have same names in the
-!    text/fitres file. Also changed PHOTOZ -> ZPHOT in FITPAR_INI
-!    Note extra SUFFIX arg in TABLE_PARNAMES.
-! 
-!    ERRFLAG[ipar1][ipar2] -> ERRFLAG_[parname]
-! 
-!    RHO[ipar1][ipar2] -> REDCOV_[nam1]_[nam2]
-!         and add COV_[nam1]_[nam2]
-! 
-! June 14, 2013: add optional Zmax variables for 1/Vmax option
-! 
-! Jan  4 2016: add MNSTAT_COV
-! Aug 29 2017: add fit params for IDEAL fit
-! 
-! Mar 19 2018:
-!   + call function SKIPTABLE_FITPAR(VARNAME)
-!   + write OPT_PHOTOZ to table if ZPHOT info is suppressed.
 ! 
 ! Nov 11 2019:
 !  Protect adding non-PKMJD covariance columns if there aren't any
@@ -18832,7 +18820,6 @@
               VARLIST, LENLIST)
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, TBL_SNRMAX(1),  & 
                  VARLIST(1:LENLIST)//char(0),0, LENBLOCK, LENLIST )
-
 
     CALL TABLE_VARLIST_FILTERS('XTMW', 'F', SURVEY_FILTERS_TABLE,  & 
               VARLIST, LENLIST)
@@ -19485,7 +19472,7 @@
     INTEGER ID, LENTB, LENPG, LENFMT
     CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20
 
-! ----------------- BEGIN ------------------------
+! ----------------- BEGIN  TABLE_DMPFCN -----------------------
 
     ID = IDTABLE_DMPFCN
 
@@ -19515,8 +19502,6 @@
 
 !   terminate strings for C table-functions (snana.car routine)
     CALL TABLE_STRING_TERMINATION(+1)
-
-    call flush(6) ! xxxxx
 
     CALL SNTABLE_FILL(ID)  ! generic C function
 

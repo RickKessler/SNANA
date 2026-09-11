@@ -26,6 +26,8 @@
 #
 # Aug 15 2026 RK - add CONE_REGIONS key, but only 1 cone allowed until there
 #                  is a cone-merge utility
+#
+# Sep 11 2026 R.Kessler and J.Medoff: begin add new MAGERR_MODELPAR
 # ===================================================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
@@ -46,8 +48,9 @@ KEY_CAT_DIR              = "CAT_DIR"
 KEY_HOSTLIB_VARNAMES_MAP = "HOSTLIB_VARNAMES_MAP"
 KEY_HOSTLIB_FILE         = "HOSTLIB_FILE"
 KEY_CUTWIN               = "CUTWIN"
-KEY_MAG_5SIG             = "MAG_5SIG"
-KEY_MAG_SNR              = "MAG_SNR"
+KEY_MAGERR_SNR5          = "MAGERR_SNR5"    # compute magerr using mag at SNR=5
+KEY_MAGERR_SNR           = "MAGERR_SNR"     # compute magerr using 2 mags at 2 SNR values
+KEY_MAGERR_PDF           = "MAGERR_PDF"  # draw magerr from double Gauss PDF (J.Medoff)
 KEY_HOSTLIB_GALID        = "GALID"
 KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
 KEY_OVERRIDE_COL         = "OVERRIDE_COLUMNS"
@@ -330,13 +333,13 @@ def parse_config_driver(config):
     # parse optional override file
     config   = parse_config_override(config)
     
-    # check options to compute mag errors
-    # xxx config['magerr_bands'] = []
+    # check options to compute mag errors    # xxx config['magerr_bands'] = []
     config['band_magerr_list_diffsky'] = []
-    config = parse_config_m5sig(config)
-    config = parse_config_mag_snr(config)    
+    config = parse_config_magerr_snr5(config)
+    config = parse_config_magerr_snr(config)
+    config = parse_config_magerr_pdf(config)
     config['add_magerr']   = len(config['band_magerr_list_diffsky']) > 0
-    
+
     # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
     config  = parse_config_hostlib_info(config)
 
@@ -517,7 +520,33 @@ def get_vartype(varname, config):
             
     return None, (None,None)
 
-def parse_config_mag_snr(config):
+
+def parse_config_magerr_pdf(config):
+
+    MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF,None)
+    if not MAGERR_PDF_DICT:
+        config[MAGERR_PDF_DICT] = None
+        return config
+
+
+    BANDMAP_INPUT = MAGERR_PDF_DICT['BANDMAP']  # user input map
+    BANDMAP_DICT  = {}
+    for b_string in BANDMAP_INPUT:
+        b_diffsky  = b_string.split()[0]
+        b_modelpar = b_string.split()[1]
+        BANDMAP_DICT[b_diffsky] = b_modelpar
+
+    #sys.exit(f"\n xxx MAGERR_MODELPAR_DICT = \n{MAGERR_MODELPAR_DICT}\n xxx ERRMAP_DICT = \n{ERRMAP_DICT}")    
+    MAGERR_PDF_DICT['BANDMAP_DICT'] = BANDMAP_DICT
+
+    config[KEY_MAGERR_PDF] = MAGERR_PDF_DICT
+    config['band_magerr_list_diffsky'] = list(BANDMAP_DICT.keys())
+    
+    #sys.exit(f"\n xxx band_magerr_list(MAGERR_PDF) = \n{config['band_magerr_list_diffsky']}\n xxx MAGERR_MODELPAR_DICT = \n{MAGERR_MODELPAR_DICT}")
+    
+    return config
+
+def parse_config_magerr_snr(config):
 
     # Created Jul 14 2026
     # parse MAG_SNR block if the form
@@ -525,10 +554,10 @@ def parse_config_mag_snr(config):
     # - [band]  [m0] [snr0]   [m1] [snr1]  [sig_m]  
     # - ... etc
 
-    MAG_SNR = config.get(KEY_MAG_SNR, [])
-    mag_snr_dict = {}
+    MAGERR_SNR = config.get(KEY_MAGERR_SNR, [])
+    magerr_snr_dict = {}
 
-    for row in MAG_SNR:
+    for row in MAGERR_SNR:
         words = row.split()
         band  = words[0]
 
@@ -538,24 +567,23 @@ def parse_config_mag_snr(config):
         mag_list = [ float(words[1]), float(words[3]) ]
         snr_list = [ float(words[2]), float(words[4]) ]
         std_mag  = float(words[5])
-        mag_snr_dict[band_diffsky] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
+        magerr_snr_dict[band_diffsky] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
         config['band_magerr_list_diffsky'].append(band_diffsky)
         
-    config['mag_snr_dict'] = mag_snr_dict
+    config['magerr_snr_dict'] = magerr_snr_dict
     
-    #sys.exit(f"\n xxx mag_snr_dict = \n{mag_snr_dict}")
     return config
-#end parse_config_mag_snr
+#end parse_config_magerr_snr
 
-def parse_config_m5sig(config):    
+def parse_config_magerr_snr5(config):    
     """ parse and load m5sig dictionaries and m5sig_bands list to config.
     """
-    MAG_5SIG = config.get(KEY_MAG_5SIG, [])
+    MAGERR_SNR5 = config.get(KEY_MAGERR_SNR5, [])
 
     m5sig_dict     = {}
     m5sig_std_dict = {}
-    
-    for row in MAG_5SIG:
+
+    for row in MAGERR_SNR5:
         words = row.split()
         band  = words[0]
         mag   = words[1]
@@ -576,7 +604,7 @@ def parse_config_m5sig(config):
 
     
     return config
-#end parse_config_m5sig
+#end parse_config_magerr_snr
 
 def inject_override_columns(df_cat, config):
     ### Jun, 2026. AI + AMITRA
@@ -698,18 +726,21 @@ def add_col_magerr(df_cat, config):
     
     m5sig_dict      = config['m5sig_dict']
     if len(m5sig_dict) > 0:
-        df_cat = add_col_magerr_m5sig(df_cat,config)
+        df_cat = add_col_magerr_snr5(df_cat,config)
         add_magerr = True
         
-    mag_snr_dict = config['mag_snr_dict']
-    if len(mag_snr_dict) > 0:
+    magerr_snr_dict = config['magerr_snr_dict']
+    if len(magerr_snr_dict) > 0:
         df_cat = add_col_magerr_snr(df_cat,config)
         add_magerr = True
 
+    
     #if jonah_method:
-    #    df_cat = add_col_magerr_jonah(df_cat,config)
-    #    add_magerr = True
-        
+    if config[KEY_MAGERR_PDF]:
+        df_cat = add_col_magerr_pdf(df_cat,config)
+        add_magerr = True
+
+    # - - - - - - -  -
     # add auto-computed columns for min and 2nd min error among bands
     if add_magerr:
         add_col_magerr_min(df_cat, config)
@@ -734,13 +765,43 @@ def add_col_magerr_min(df_cat, config):
 
     return df_cat
 
+def add_col_magerr_pdf(df_cat,config):
+
+    # Created Sep 11 2026 by R.Kessler and J.Medoff
+    # add error columns based on random drawings from PDF,
+    # where PDF in each band is estimated by parameters.
+
+    logging.info(f"Add MAGERR using {KEY_MAGERR_PDF}")
+        
+    MAGERR_PDF_DICT = config[KEY_MAGERR_PDF]
+    pdfpar_yaml_file     = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
+    # .xyz
+
+    with open(pdfpar_yaml_file) as f:
+        pdfpar_yaml_contents = yaml.safe_load(f.read())
+
+
+    print(f"\n xxx pdfpar_yaml_contents = {pdfpar_yaml_contents}")
+    
+    band_list = config['band_magerr_list_diffsky']
+    for band in band_list:
+        # compute magerr using distribution constructed from pdfpar_yaml above
+
+        mag     = df_cat[band]
+        mag_err = 0.01*mag   # for JM to complete
+        
+        band_err = band + '_err'
+        df_cat[band_err] = mag_err
+    
+    return df_cat 
+
 def add_col_magerr_snr(df_cat,config):
 
     # add magerr column using MAG_SNR block that provides two mag,snr pairs
     # to compute an effective ZP and sigSky.
 
-    mag_snr_dict = config['mag_snr_dict']
-    if len(mag_snr_dict) == 0:
+    magerr_snr_dict = config['magerr_snr_dict']
+    if len(magerr_snr_dict) == 0:
         return df_cat
 
     rng    = np.random.default_rng(seed=42)
@@ -754,9 +815,9 @@ def add_col_magerr_snr(df_cat,config):
     logging.info('  Append mag error columns using MAG_SNR:')
 
     for band in band_list:
-        mag_list = mag_snr_dict[band]['mag_list']
-        snr_list = mag_snr_dict[band]['snr_list']
-        std_mag  = mag_snr_dict[band]['std_mag']
+        mag_list = magerr_snr_dict[band]['mag_list']
+        snr_list = magerr_snr_dict[band]['snr_list']
+        std_mag  = magerr_snr_dict[band]['std_mag']
         noise    = gauran * std_mag
         
         m0   = mag_list[0] + noise  # mag ref per event with noise
@@ -795,13 +856,13 @@ def add_col_magerr_snr(df_cat,config):
 
 #end add_col_magerr_snr
 
-def add_col_magerr_m5sig(df_cat,config):
+def add_col_magerr_snr5(df_cat,config):
     
-    # mag errors from MAG_5SIG (applies in both OVERRIDE_FILE and native-mag modes).
+    # mag errors from MAGERR_SNR5 (applies in both OVERRIDE_FILE and native-mag modes).
     # Beware that sky-dominated bkg is assumed, which becomesa poor approx
     # as source becomes brighter.
     #
-    MAG_5SIG = config.get(KEY_MAG_5SIG, [])
+    MAGERR_SNR5 = config.get(KEY_MAGERR_SNR5, []) 
     SNR5_INV = 0.2
     FAC_DFDM = 1.086  # 2.5/ln(10)
     MXMAGERR = 5.0
@@ -837,7 +898,7 @@ def add_col_magerr_m5sig(df_cat,config):
 
 
     return df_cat
-# end add_col_magerr_m5sig
+# end add_col_magerr_snr5
 
 def check_Sersic_definitions(config):
 
@@ -1082,7 +1143,6 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     HOSTLIB_VARNAMES_STRING =  config['HOSTLIB_VARNAMES_STRING'] 
     HOSTLIB_VARNAMES_MAP    =  config[KEY_HOSTLIB_VARNAMES_MAP]
     CUTWIN                  =  config.setdefault(KEY_CUTWIN,None)
-    MAG_5SIG                =  config.setdefault(KEY_MAG_5SIG,None)
     
     cat_dir      = config[KEY_CAT_DIR]
     cat_dir_base = os.path.basename(cat_dir)
@@ -1128,12 +1188,17 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
         fp.write(f"  - {row} \n")
 
 
-    if MAG_5SIG:
-        fp.write(f"\n")
-        fp.write(f"  MAG_5SIG: \n")
-        for row in MAG_5SIG:
-            fp.write(f"  - {row} \n")
+    for key in [ KEY_MAGERR_SNR5, KEY_MAGERR_SNR, KEY_MAGERR_PDF ] :
+        magerr_dict = config.setdefault(key,None)        
+        if magerr_dict:
+            fp.write(f"\n")
 
+            if key == KEY_MAGERR_PDF :
+                fp.write(f"  {key}:  {magerr_dict['INPUT_FILE']} \n")
+            else:
+                fp.write(f"  {key}: \n")
+                for row in magerr_dict:
+                    fp.write(f"  - {row} \n")
 
     if CUTWIN :
         fp.write(f"\n")
@@ -1197,7 +1262,6 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
 
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
     exclude_var_list += [b + '_err' for b in config['band_magerr_list_diffsky'] ]
-    
     
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet
@@ -1449,109 +1513,6 @@ def write_hostlib_files(args, config, df_cat):
     print_proc_time(t0, "WRITE_HOSTLIB", nmax_gal )
         
     return  # end write_hostlib_files
-
-
-def write_hostlib_files_mem_hog(args, config, df_cat):
-    
-    t0 = time.time()
-    
-    hostlib_format_dict = config['hostlib_format_dict']
-    hostlib_dict = config['hostlib_dict']
-    FOUND_GALID  = config['FOUND_GALID']
-    n_hostlib    = config['n_hostlib']
-    var_list  = list(hostlib_format_dict.keys() )
-    row_list  = df_cat[var_list].values.tolist()
-    nrow_tot  = len(df_cat)
-
-    # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@
-    logging.info("")
-    logging.info(f"Prepare writing {n_hostlib} HOSTLIB files ")
-
-    nrow_cat = len(df_cat)
-    n_update_stdout = get_n_update_stdout(nrow_cat)
-    
-    # check for random subsets
-    ngal_write_dict  = {}
-    ngal_expect_dict = {}    
-    ngal_write_list = []
-    row_mask        = {}
-
-    # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@
-        
-    for hlib_file, hlib_dict in hostlib_dict.items():
-
-        logging.info(f"\t prepare row mask and DOCANA header for {hlib_file} ...")
-
-        if '.gz' in hlib_file :
-            fp      = gzip.open(hlib_file,"wt")
-        else:
-            fp      = open(hlib_file,"wt")
-            
-        hlib_dict['fp'] = fp  # store for GAL keys below
-        ra_min  = hlib_dict['ra_range'][0]
-        ra_max  = hlib_dict['ra_range'][1]
-        dec_min = hlib_dict['dec_range'][0]
-        dec_max = hlib_dict['dec_range'][1]                
-
-        row_mask[hlib_file] = \
-            (df_cat[VARNAME_RA]>=ra_min)   & (df_cat[VARNAME_RA]<=ra_max) & \
-            (df_cat[VARNAME_DEC]>=dec_min) & (df_cat[VARNAME_DEC]<=dec_max)
-
-        ngal                        = int(row_mask[hlib_file].sum())
-        ngal_expect_dict[hlib_file] = ngal
-        ngal_write_dict[hlib_file]  = 0
-
-        write_hostlib_header(fp, hlib_file, ngal, config)
-    # - - - -
-
-    # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@
-    
-    logging.info(f"  Start writing GAL rows to HOSTLIB(s) ... ")
-    nrow = -1
-    nrow_wr = 0
-    for item_list in row_list :  # each element of row_list is a list of items
-        nrow += 1
-        # convert comma-sep list into HOSTLIB-formatted row
-        row_hostlib = get_hostlib_row_format(item_list,config)
-        
-        if not FOUND_GALID:
-            GALID = 1000000 + nrow
-            row_hostlib  = f"{GALID}  {row_hostlib}"
-
-        WROTE_ROW = False
-        for hlib_file, hlib_dict in hostlib_dict.items():
-            fp   = hlib_dict['fp']
-            if row_mask[hlib_file][nrow] :
-                fp.write(f"GAL:  {row_hostlib} \n")
-                ngal_write_dict[hlib_file] += 1  # increment actual number of rows written
-                WROTE_ROW = True
-                
-        if WROTE_ROW :
-            nrow_wr += 1
-            update = (nrow_wr % n_update_stdout == 0  and nrow_wr > 0)
-            if update:
-                logging.info(f"\t Finished writing {nrow_wr:12,} HOSTLIB rows")
-
-    # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@                
-    # use unix sed utility to update DOCANA values now that we have ngal per hostlib
-
-    logging.info('' )
-    logging.info('Summary' )
-        
-    for hlib_file, hlib_dict in hostlib_dict.items():
-        ngal      = ngal_write_dict[hlib_file]
-        # print ngal to stdout
-        logging.info(f"  {hlib_file:40}   ngal = {ngal:10,}  ")
-        ngal_write_list.append(ngal)
-        
-        
-    # - - - -
-    nmax_gal = max(ngal_write_list)
-    print_proc_time(t0, "WRITE_HOSTLIB", nmax_gal )
-
-    # @@@@@@@@@@@ OBSOLETE @@@@@@@@@@
-    
-    return  # end write_hostlib_files_mem_hog
 
 
 

@@ -315,6 +315,8 @@ struct {
   int    *ICAST;         // cast per ivar (Jan 2025)
 } HASH_STORAGE;
 
+
+
 // Mar 2019: define user-input polynomial typedef with arbitrary order.
 #define MXORDER_GENPOLY 20
 typedef struct  {

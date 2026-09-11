@@ -327,7 +327,7 @@ struct OUTLIER_INFO {
 } OUTLIER_INFO ;
 
 
-#define MXFILE_AUTOSTORE 10   // max files to autoStore (Jan 2017)
+#define MXFILE_AUTOSTORE 10   // max files to autoStore 
 int NFILE_AUTOSTORE ;
 int NREAD_AUTOSTORE ;
 struct SNTABLE_AUTOSTORE {
@@ -345,13 +345,17 @@ struct SNTABLE_AUTOSTORE {
 
 } SNTABLE_AUTOSTORE[MXFILE_AUTOSTORE] ;
 
+// xxx ?? struct hash_table_def *hash_table_autostore[MXFILE_AUTOSTORE];
 
-// define LASTREAD structure to speed up AUTOSTORE lookup
-// when CCID is repeated.
+int IROW_SEARCH_AUTOSTORE[2]; // optional for faster lookup
+
+// define LASTREAD structure to speed AUTOSTORE lookup when CCID is repeated.
 struct LASTREAD_AUTOSTORE  {
-  int  IFILE, IROW[2];
+  int  IFILE, IROW_MATCH[2];
   char CCID[MXCHAR_CCID];
 } LASTREAD_AUTOSTORE ;
+
+
 
 // generic strings for errmsg 
 #define MXCHAR_MSGERR 200
@@ -505,6 +509,12 @@ extern"C" {
   void sntable_autostore_read__(char *CCID, char *varName, int *ISTAT,
 				double *DVAL, char *CVAL);  // output value
   
+  void SET_AUTOSTORE_ROWRANGE(char *substring_match, char *varname);
+  void set_autostore_rowrange__(char *substring_match, char *varname);
+
+  void get_autostore_irow(int IFILE, char *CCID, bool REQUIRE_FULLMATCH, 
+			  int *IROW_SEARCH, int *IROW_MATCH );
+  void fetch_autostore_indices(char *varname, int *IFILE, int *IVAR);
   void fetch_autostore_ccid(int ifile, int isn, char *ccid);
   void fetch_autostore_ccid__(int *ifile, int *isn, char *ccid);
 

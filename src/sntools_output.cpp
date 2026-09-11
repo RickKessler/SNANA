@@ -776,7 +776,7 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
 
   // ------------ BEGIN -------------
 
-  LDMP = 1 ; // ( strlen(VARLIST) > 100) ;
+  LDMP = 0 ; // ( strlen(VARLIST) > 100) ;
 
   // store original [unparsed] VARLiST
   sprintf(ADDCOL_VARDEF->VARLIST_ORIG,"%s", VARLIST);
@@ -1927,6 +1927,8 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   // Aug 26 2026: construct varName_withCast using global VARNAME_TABLE_IDLIST,
   //              that has ROW as first element to take priority over CID, CCID, etc ...
   //              ROW priority is needed for, e.g. MAGCOR_FILE
+  //
+  // Sep 10 2026: abort of NFILE_AUTOSTORE exceeds bound
 
   bool APPEND_FLAG, ABORT_FLAG;
   int  IFILETYPE, NF, ICAST, UNIQUE ;
@@ -1947,13 +1949,26 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // May 2022:
   // after reading autostore, reset NFILE for different autostore usage
-  if ( NREAD_AUTOSTORE > 0 ) { NFILE_AUTOSTORE = NREAD_AUTOSTORE = 0; } 
+  if ( NREAD_AUTOSTORE > 0 ) 
+    { NFILE_AUTOSTORE = NREAD_AUTOSTORE = 0;  } 
+
+  if ( NFILE_AUTOSTORE == 0 ) 
+    { IROW_SEARCH_AUTOSTORE[0] = IROW_SEARCH_AUTOSTORE[1] = -9; }
 
   // check option to store multiple files
   ABORT_FLAG  = ( optMask & 2 ) ;
   APPEND_FLAG = ( optMask & 4 ) ; // append more variables
   if ( APPEND_FLAG || NFILE_AUTOSTORE==0 ) { NFILE_AUTOSTORE++ ; }
 	
+  if ( NFILE_AUTOSTORE > MXFILE_AUTOSTORE ) {
+    print_preAbort_banner(fnam);
+    printf("\t fileName = %s \n", fileName);
+    printf("\t varList  = %s \n", varList);
+    printf("\t optMask  = %d \n", optMask);
+    sprintf(MSGERR1,"NFILE_AUTOSTORE=%d exceeds MXFILE_AUTOSTORE bound", NFILE_AUTOSTORE);
+    sprintf(MSGERR2,"Either combine files or increase MXFILE_AUTOSTORE");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2); 
+  } 
 
   varList_table        = (char*) malloc( MXCHAR_VARLIST * sizeof(char) );
   varList_table_ptrtok = (char*) malloc( MXCHAR_VARLIST * sizeof(char) );
@@ -2111,8 +2126,8 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
   // init LASTREAD quantities
   LASTREAD_AUTOSTORE.IFILE = -9;
-  LASTREAD_AUTOSTORE.IROW[0]  = -9;
-  LASTREAD_AUTOSTORE.IROW[1]  = -9;
+  LASTREAD_AUTOSTORE.IROW_MATCH[0]  = -9;
+  LASTREAD_AUTOSTORE.IROW_MATCH[1]  = -9;
   sprintf(LASTREAD_AUTOSTORE.CCID,"XXX");
 
   free(varList_table); free(varList_table_ptrtok);
@@ -2446,11 +2461,17 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   //      rows matching CCID; e.g., light curve or quantiles.
   //      Note that IROW is now IROW[2] = first and last row matching CID.
   //
-  
+  // Sep 10 2026: 
+  //  + call new utility fetch_autostore_indices(..) to get IFILE_READ and IVAR_READ
+  //  + call new util get_autostore_irow to return IROW_MATCH
+  //  + check IROW_SEARCH_AUTOSTORE for faster search
+
   int NROW_MATCH = 0;  
-  int IVAR_READ, IFILE_READ, ivar, i, irow ;
-  int NVAR_USR, NROW_TOT, ICAST, IROW[2] ;
-  char *tmpCCID, *tmpVar;
+  int IVAR_READ, IFILE_READ, irow ;
+  int NROW_TOT, ICAST, IROW_SEARCH[2], IROW_MATCH[2] ;
+  // int i, ivar, NVAR_USR;
+  // char *tmpVar
+  bool REQUIRE_FULLMATCH = true;
   int  LDMP = 0; // ( strstr(VARNAME,"MAGCOR") != NULL  && strcmp(CCID,"1341390-62472.348-Z")==0 );
   char fnam[] = "SNTABLE_AUTOSTORE_READ" ;
 
@@ -2460,10 +2481,12 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   CVAL[0] = 0; // init outputs
 
   *ISTAT = -1 ;       // default is that CCID is not found.
-  IVAR_READ = IFILE_READ = IROW[0] = IROW[1] = -9 ;
+  IROW_MATCH[0] = IROW_MATCH[1] = -9 ;
   NREAD_AUTOSTORE++ ;
 
+  /* xxxx mark delete Sep 10 2026 xxxxxxxxxxxx
   // search file and variable indices
+  IVAR_READ = IFILE_READ = -9 ;
   for(i=0; i < NFILE_AUTOSTORE; i++ ) {
     NVAR_USR = SNTABLE_AUTOSTORE[i].NVAR ;
     for(ivar=0; ivar < NVAR_USR; ivar++ ) {
@@ -2472,7 +2495,11 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 	{ IVAR_READ = ivar ; IFILE_READ = i ;  goto FIND_CCID; }   
     }
   }
+  xxxxxxxxx end mark xxxxxxx*/
 
+
+  fetch_autostore_indices(VARNAME, &IFILE_READ, &IVAR_READ );
+  if ( IFILE_READ >= 0 && IVAR_READ >= 0 ) { goto FIND_CCID; }
 
   if ( LDMP ) {
     printf(" 0. xxx ---------------------------------------------- \n");
@@ -2490,13 +2517,11 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
     fflush(stdout);
   }
 
-
   ICAST    = SNTABLE_AUTOSTORE[IFILE_READ].ICAST_READ[IVAR_READ] ;    
   NROW_TOT = SNTABLE_AUTOSTORE[IFILE_READ].NROW ; // total number of rows read
 
   // if IFILE and CCID are the same as last time, 
   // skip slow check of all CCIDs
-
 
   bool IS_SAME_FILE = ( IFILE_READ == LASTREAD_AUTOSTORE.IFILE );
   bool IS_SAME_CCID = ( strcmp(CCID,LASTREAD_AUTOSTORE.CCID)==0);
@@ -2504,13 +2529,14 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   if ( LDMP ) {
     printf(" 2a. xxx %s: CCID = '%s'   VARNAME = '%s'  \n", fnam, CCID, VARNAME); 
     printf(" 2b. xxx %s: IS_SAME_[FILE,CCID]=%d,%d LAST IROWS=%d to %d \n", 
-	   fnam, IS_SAME_FILE, IS_SAME_CCID, LASTREAD_AUTOSTORE.IROW[0], LASTREAD_AUTOSTORE.IROW[1]);
+	   fnam, IS_SAME_FILE, IS_SAME_CCID, 
+	   LASTREAD_AUTOSTORE.IROW_MATCH[0], LASTREAD_AUTOSTORE.IROW_MATCH[1]);
     fflush(stdout);
   }
 
   if (IS_SAME_FILE && IS_SAME_CCID )  { 
-    IROW[0] =  LASTREAD_AUTOSTORE.IROW[0] ;   // first row
-    IROW[1] =  LASTREAD_AUTOSTORE.IROW[1] ;   // last row
+    IROW_MATCH[0] =  LASTREAD_AUTOSTORE.IROW_MATCH[0] ;   // first row
+    IROW_MATCH[1] =  LASTREAD_AUTOSTORE.IROW_MATCH[1] ;   // last row
     goto SET_OUTVAL; 
   }
 
@@ -2518,48 +2544,61 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
 
   if (LDMP ) { printf(" 3.  xxx %s search for IROW ... \n", fnam); fflush(stdout); }
 
+
+  if ( IROW_SEARCH_AUTOSTORE[0] >= 0 ) {
+    // use restricted row range to search
+    IROW_SEARCH[0] = IROW_SEARCH_AUTOSTORE[0];
+    IROW_SEARCH[1] = IROW_SEARCH_AUTOSTORE[1];
+  }
+  else {
+    // search the entire table
+    IROW_SEARCH[0] = 0;  
+    IROW_SEARCH[1] = NROW_TOT-1; 
+  }
+  get_autostore_irow(IFILE_READ, CCID, REQUIRE_FULLMATCH, IROW_SEARCH, IROW_MATCH);
+
+
+  /* xxx mark del Sep 10 2026 xxxxxxxx
   // do slow loop over each row and do CCID string match each row.
+  char *tmpCCID;
   for(irow=0; irow < NROW_TOT; irow++ ) {
     tmpCCID = SNTABLE_AUTOSTORE[IFILE_READ].CCID[irow] ;
-
     if ( tmpCCID[0]      != CCID[0]      ) { continue ; } // quick check first char
     if ( strlen(tmpCCID) != strlen(CCID) ) { continue ; }
-
-    //    if ( LDMP ) { printf(" 3.  xxx %s: irow=%2d  tmpCCID='%s'\n", fnam, irow, tmpCCID); }
-
     if ( strcmp(tmpCCID,CCID) == 0 )  {
-      if ( IROW[0] < 0 ) { IROW[0] = irow; } // first row
-      IROW[1] = irow ;                       // last row
+      if ( IROW_MATCH[0] < 0 ) { IROW_MATCH[0] = irow; } // first row
+      IROW_MATCH[1] = irow ;                       // last row
       //goto SET_OUTVAL ; 
     }
-    else if ( IROW[0] >= 0 ) {
+    else if ( IROW_MATCH[0] >= 0 ) {
       break; // if IROW is set and no CID match, then stop looking
     }
   }
+  xxxxxxxx end mark xxxxxxx */
 
-  if ( IROW[0] < 0 ) { return 0; } // could not find CCID
+  if ( IROW_MATCH[0] < 0 ) { return 0; } // could not find CCID
 
  SET_OUTVAL:
 
-  if(LDMP) { printf(" 4. xxx %s IROW = %d %d  ICAST=%d \n", 
-		    fnam, IROW[0], IROW[1], ICAST ); fflush(stdout); }
+  if(LDMP) { printf(" 4. xxx %s IROW_MATCH = %d %d  ICAST=%d \n", 
+		    fnam, IROW_MATCH[0], IROW_MATCH[1], ICAST ); fflush(stdout); }
 
   *ISTAT = 0 ;
   if ( ICAST == ICAST_C ) {  
-    irow = IROW[0]; // maybe later put loop here, but need to modify CVAL cast
+    irow = IROW_MATCH[0]; // maybe later put loop here, but need to modify CVAL cast
     sprintf(CVAL, "%s", SNTABLE_AUTOSTORE[IFILE_READ].CVAL[IVAR_READ][irow]) ; 
   }
   else  { 
     // return double for D,F,I    
-    for (irow=IROW[0]; irow <= IROW[1]; irow++ ) {
+    for (irow=IROW_MATCH[0]; irow <= IROW_MATCH[1]; irow++ ) {
       DVAL[NROW_MATCH] = SNTABLE_AUTOSTORE[IFILE_READ].DVAL[IVAR_READ][irow]; 
       NROW_MATCH++ ;
     }
   }
 
   LASTREAD_AUTOSTORE.IFILE = IFILE_READ ;
-  LASTREAD_AUTOSTORE.IROW[0]  = IROW[0];
-  LASTREAD_AUTOSTORE.IROW[1]  = IROW[1];
+  LASTREAD_AUTOSTORE.IROW_MATCH[0]  = IROW_MATCH[0];
+  LASTREAD_AUTOSTORE.IROW_MATCH[1]  = IROW_MATCH[1];
   sprintf(LASTREAD_AUTOSTORE.CCID,"%s", CCID );
 
   // if we get here, return 'not found' value.
@@ -2573,6 +2612,76 @@ void sntable_autostore_read__(char *CCID, char *varName, int *ISTAT,
   SNTABLE_AUTOSTORE_READ(CCID,varName,ISTAT,DVAL,CVAL);
 }
 
+
+void get_autostore_irow(int IFILE, char *CCID, bool REQUIRE_FULLMATCH, 
+			int *IROW_SEARCH, int *IROW_MATCH ) {
+
+  // Created Sep 10 2026
+  int irow ;
+  bool MATCH ;
+  char *tmpCCID;
+  char fnam[] = "get_autostore_irow" ;  (void)fnam;
+  
+  // ------------ BEGIN -------------
+
+  for(irow=IROW_SEARCH[0]; irow <= IROW_SEARCH[1]; irow++ ) {
+    tmpCCID = SNTABLE_AUTOSTORE[IFILE].CCID[irow] ;
+
+    MATCH = false;
+
+    if ( REQUIRE_FULLMATCH ) {
+      if ( tmpCCID[0]  == CCID[0]      ) {  // quick check first char
+	MATCH = ( strcmp(tmpCCID,CCID) == 0 ) ;
+      }
+    }
+    else {
+      // partial match to first n chars where n = strlen(CCID)
+      MATCH = ( strncmp(tmpCCID, CCID, strlen(CCID) ) == 0 );
+      // xxx mark strstr(tmpCCID,CCID); // partial match
+    }
+
+    if ( MATCH )  {
+      if ( IROW_MATCH[0] < 0 ) { IROW_MATCH[0] = irow; } // first row
+      IROW_MATCH[1] = irow ;                       // last row
+    }
+    else if ( IROW_MATCH[0] >= 0 ) {
+      break; // if IROW is set and no CID match, then stop looking
+    }
+  }
+  
+  return;
+
+} // end get_autostore_irow
+
+void fetch_autostore_indices(char *VARNAME, int *IFILE, int *IVAR) {
+
+  // Created Sep 2026
+  // For input *VARNAME, return IFILE index and IVAR index/
+
+  int IFILE_LOC = -9, IVAR_LOC = -9 ;
+  int i, ivar, NVAR_USR ;
+  char *tmpVar;
+  char fnam[] = "fetch_autostore_indices" ;  (void)fnam ;
+
+  // ------------------- BEGIN ----------------
+
+  // search file and variable indices
+  for(i=0; i < NFILE_AUTOSTORE; i++ ) {
+    NVAR_USR = SNTABLE_AUTOSTORE[i].NVAR ;
+    for(ivar=0; ivar < NVAR_USR; ivar++ ) {
+      tmpVar = SNTABLE_AUTOSTORE[i].VARNAME[ivar] ;
+      if ( strcmp(tmpVar,VARNAME) == 0 ) 
+	{ IVAR_LOC = ivar ; IFILE_LOC = i ;  break ; }   
+    }
+  }
+
+  // load output args
+  *IFILE = IFILE_LOC ;
+  *IVAR  = IVAR_LOC ;
+
+  return;
+
+} // end fetch_autostore_indices
 
 void fetch_autostore_ccid(int ifile, int isn, char *ccid) {
   // Created Jan 4 2021
@@ -2595,7 +2704,7 @@ void SNTABLE_VARNAMES(char *FILENAME, char *VARNAMES) {
   // Beware: works only for TEXT format
 
   int  ISOPEN_DEJA, ISTYPE_TEXT ;
-  //  char fnam[] = "SNTABLE_VARNAMES";
+  char fnam[] = "SNTABLE_VARNAMES";  (void)fnam; 
 
   // ------- BEGIN ---------
 
@@ -2611,6 +2720,52 @@ void SNTABLE_VARNAMES(char *FILENAME, char *VARNAMES) {
   return;
 
 } // end end SNTABLE_VARLIST
+
+
+// ========================================
+void SET_AUTOSTORE_ROWRANGE(char *SUBSTRING_MATCH, char *VARNAME) {
+
+  // Created Sep 10 2026
+  // Find IROW_MATCH range for which CCID (row ID) contains SUBSTRING_MATCH;
+  // set this globally to be used for faster lookup by SNTABLE_AUTOSTORE_READ.
+  //
+  // Initial use is for MAGCOR/WAVECOR file that contains row-ID column
+  // ROW = CID-MJD-BAND;
+  // setting SUBSTRING_MATCH = "{CID}-" results is much smaller IROW range
+  // to search each epoch.
+
+  int   IFILE_READ, IVAR_READ, NROW_TOT, IROW_SEARCH[2], IROW_MATCH[2] ;
+  bool  REQUIRE_FULLMATCH = false;  // require partial match, not full match
+  int   LDMP = 0;
+  char fnam[] = "SET_AUTOSTORE_ROWRANGE" ;  (void)fnam; 
+
+  // --------------- BEGIN ----------------
+
+  fetch_autostore_indices(VARNAME, &IFILE_READ, &IVAR_READ );
+
+  NROW_TOT = SNTABLE_AUTOSTORE[IFILE_READ].NROW ; // total number of rows read
+  IROW_SEARCH[0] =  0;   IROW_SEARCH[1] = NROW_TOT-1;
+  IROW_MATCH[0]  = -9;   IROW_MATCH[1] = -9;
+  get_autostore_irow(IFILE_READ, SUBSTRING_MATCH, REQUIRE_FULLMATCH, IROW_SEARCH, 
+		     IROW_MATCH);  // <== return IROW_MATCH
+
+  if ( LDMP ) {
+    printf(" xxx %s: SUBSTRING_MATCH='%s' -> IROW_MATCH = %d-%d from IROW_SEARCH=%d-%d \n",
+	   fnam, SUBSTRING_MATCH,
+	   IROW_MATCH[0], IROW_MATCH[1], IROW_SEARCH[0], IROW_SEARCH[1] );
+    fflush(stdout);
+  }
+
+  // set next SEARCH range (global) to the match-range
+  IROW_SEARCH_AUTOSTORE[0] = IROW_MATCH[0] ;
+  IROW_SEARCH_AUTOSTORE[1] = IROW_MATCH[1] ;
+
+  return;
+} // SET_AUTOSTORE_ROWRANGE
+
+void set_autostore_rowrange__(char *substring_match, char *varname) 
+{ SET_AUTOSTORE_ROWRANGE(substring_match, varname); }
+
 
 // ========================================
 int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {

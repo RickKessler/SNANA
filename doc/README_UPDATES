@@ -24241,7 +24241,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  MISCELLANEOUS(v12_02d) *****
 
    
-
+    sntools_output.cpp[h]
+       + new utility SET_AUTOSTORE_ROWRANGE(...) to provide a prefix to set
+         a row range for future searches. Initial use is for WAVECOR lookup.
+         https://github.com/RickKessler/SNANA/issues/1785
+    
+     
 END:
 
 

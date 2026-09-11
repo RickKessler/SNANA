@@ -4457,7 +4457,7 @@
 66        format('Invalid ifilt_obs=',I3,'  for ifilt=',I3, 2x,'KEY_PREFIX=',A)
           C2ERR = 'Something is really messed up, perhaps FILTER_REPLACE?'
           CALL MADABORT("RDHEAD_FILTERLOOP", C1ERR, C2ERR)       
-       endif  ! .xyz
+       endif  
 
        band      = FILTDEF_STRING(ifilt_obs:ifilt_obs)
        KEY       = KEY_PREFIX(1:LENPRE) // '_' // band
@@ -16847,8 +16847,9 @@
     LDMP         = ( ep < -20 ) 
     IS_MAGCOR    = .FALSE.
     IS_WAVECOR   = .FALSE.
-    FNAM         = 'EXEC_MGACOR'
+    FNAM         = 'EXEC_MAGCOR'
     
+
     ABORT_ON_MISSING = .TRUE.
 
     if ( VARNAME == VARNAME_MAGCOR ) then
@@ -16925,7 +16926,7 @@
        
     ELSE
        if ( ABORT_ON_MISSING ) then
-          C1ERR = 'MIssing ' // varname // ' for ' // STR_EPID1
+          C1ERR = 'Missing ' // varname // ' for ' // STR_EPID1
           C2ERR = VARNAME // ' must exist for every CID-MJD'
           CALL MADABORT(FNAM,C1ERR,C2ERR)   ! Jun 8 2020
        else
@@ -17137,12 +17138,15 @@
         ,LSNRMAX2(MXFILT_ALL)  & 
         ,LFLUX, LERR, LTMP, USE4SNRMAX
 
+    CHARACTER SUBSTRING*60
+    INTEGER  LENSUB
+
 ! function
     REAL*8   DLMAG_REF
-    EXTERNAL SORTFLOAT, modify_MWEBV_SFD
+    EXTERNAL SORTFLOAT, modify_MWEBV_SFD, SET_AUTOSTORE_ROWRANGE
     INTEGER  ISTAT_REQUIRE_EPOCHS
 
-! ------------------ BEGIN -----------------
+! ------------------ BEGIN SNRECON -----------------
 
 ! check to increment SUBSURVEY_LIST
 ! WARNING: If CFA follows CFA3, the code will think that CFA already exists as a survey
@@ -17239,7 +17243,18 @@
       SNHOST_ZPHOT_ERR(1) = Zhosterr
     endif
 
-     CALL SET_SNHOST_CONFUSION()
+    CALL SET_SNHOST_CONFUSION()
+
+    ! for magcor/wavecor, set row-range for this CID for faster lookup for each epoch
+    if ( NSTORE_MAGCOR > 0 .or. NSTORE_WAVECOR > 0 ) then
+       SUBSTRING = SNLC_CCID(1:ISNLC_LENCCID) // '-' // char(0)
+       LENSUB    = ISNLC_LENCCID + 1
+       if ( NSTORE_MAGCOR > 0 ) then
+          call SET_AUTOSTORE_ROWRANGE(SUBSTRING, VARNAME_MAGCOR, LENSUB, 10) 
+       else
+          call SET_AUTOSTORE_ROWRANGE(SUBSTRING, VARNAME_WAVECOR, LENSUB, 10) 
+       endif
+    endif
 
 ! compute lumi-distance using "standard" cosmology
 ! Useful as initial value for fits.

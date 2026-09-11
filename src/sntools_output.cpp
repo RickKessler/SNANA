@@ -1952,9 +1952,6 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   if ( NREAD_AUTOSTORE > 0 ) 
     { NFILE_AUTOSTORE = NREAD_AUTOSTORE = 0;  } 
 
-  if ( NFILE_AUTOSTORE == 0 ) 
-    { IROW_SEARCH_AUTOSTORE[0] = IROW_SEARCH_AUTOSTORE[1] = -9; }
-
   // check option to store multiple files
   ABORT_FLAG  = ( optMask & 2 ) ;
   APPEND_FLAG = ( optMask & 4 ) ; // append more variables
@@ -1978,6 +1975,8 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
   SNTABLE_AUTOSTORE[NF].NVAR = 0 ;
   SNTABLE_AUTOSTORE[NF].NROW = 0 ;
   SNTABLE_AUTOSTORE[NF].IFILETYPE = -9;
+  SNTABLE_AUTOSTORE[NF].IROW_SEARCH[0] = -9;
+  SNTABLE_AUTOSTORE[NF].IROW_SEARCH[1] = -9;
 
   // open file and return file type(root,text)
   IFILETYPE = TABLEFILE_OPEN(fileName,readOpt, fnam) ;
@@ -2464,13 +2463,13 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   // Sep 10 2026: 
   //  + call new utility fetch_autostore_indices(..) to get IFILE_READ and IVAR_READ
   //  + call new util get_autostore_irow to return IROW_MATCH
-  //  + check IROW_SEARCH_AUTOSTORE for faster search
+  //  + check IROW_SEARCH for faster search
 
   int NROW_MATCH = 0;  
   int IVAR_READ, IFILE_READ, irow ;
-  int NROW_TOT, ICAST, IROW_SEARCH[2], IROW_MATCH[2] ;
-  // int i, ivar, NVAR_USR;
-  // char *tmpVar
+  int NROW_TOT, ICAST, *PTR_IROW_SEARCH_AUTOSTORE,  IROW_SEARCH[2], IROW_MATCH[2] ;
+  // xxx mark int i, ivar, NVAR_USR;
+  // xxx mark char *tmpVar
   bool REQUIRE_FULLMATCH = true;
   int  LDMP = 0; // ( strstr(VARNAME,"MAGCOR") != NULL  && strcmp(CCID,"1341390-62472.348-Z")==0 );
   char fnam[] = "SNTABLE_AUTOSTORE_READ" ;
@@ -2545,13 +2544,14 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   if (LDMP ) { printf(" 3.  xxx %s search for IROW ... \n", fnam); fflush(stdout); }
 
 
-  if ( IROW_SEARCH_AUTOSTORE[0] >= 0 ) {
-    // use restricted row range to search
-    IROW_SEARCH[0] = IROW_SEARCH_AUTOSTORE[0];
-    IROW_SEARCH[1] = IROW_SEARCH_AUTOSTORE[1];
+  PTR_IROW_SEARCH_AUTOSTORE = SNTABLE_AUTOSTORE[IFILE_READ].IROW_SEARCH ;
+  if ( PTR_IROW_SEARCH_AUTOSTORE[0] >= 0 ) {
+    // use restricted row range to search (based on external call to SET_AUTOSTORE_ROWRANGE)
+    IROW_SEARCH[0] = PTR_IROW_SEARCH_AUTOSTORE[0];
+    IROW_SEARCH[1] = PTR_IROW_SEARCH_AUTOSTORE[1];
   }
   else {
-    // search the entire table
+    // search entire table (default)
     IROW_SEARCH[0] = 0;  
     IROW_SEARCH[1] = NROW_TOT-1; 
   }
@@ -2757,8 +2757,8 @@ void SET_AUTOSTORE_ROWRANGE(char *SUBSTRING_MATCH, char *VARNAME) {
   }
 
   // set next SEARCH range (global) to the match-range
-  IROW_SEARCH_AUTOSTORE[0] = IROW_MATCH[0] ;
-  IROW_SEARCH_AUTOSTORE[1] = IROW_MATCH[1] ;
+  SNTABLE_AUTOSTORE[IFILE_READ].IROW_SEARCH[0] = IROW_MATCH[0] ;
+  SNTABLE_AUTOSTORE[IFILE_READ].IROW_SEARCH[1] = IROW_MATCH[1] ;
 
   return;
 } // SET_AUTOSTORE_ROWRANGE

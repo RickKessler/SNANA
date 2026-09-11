@@ -343,11 +343,13 @@ struct SNTABLE_AUTOSTORE {
   double  **DVAL ;
   char    ***CVAL ;
 
+  int IROW_SEARCH[2]; // optional: IROW range to search for faster lookup
+
 } SNTABLE_AUTOSTORE[MXFILE_AUTOSTORE] ;
 
 // xxx ?? struct hash_table_def *hash_table_autostore[MXFILE_AUTOSTORE];
 
-int IROW_SEARCH_AUTOSTORE[2]; // optional for faster lookup
+
 
 // define LASTREAD structure to speed AUTOSTORE lookup when CCID is repeated.
 struct LASTREAD_AUTOSTORE  {

@@ -69,6 +69,40 @@ Replace every `/path/to/...` and `catalog_release_name` with your actual inputs.
 and model parameters are loaded from `--catalog-dir` unless you supply
 `--model-dir /path/to/matching/model_files`.
 
+### Concrete input locations used on Perlmutter
+
+Our existing production workflow reads the following catalog release. The SSP
+and parameter loaders use this same directory as their model directory:
+
+```bash
+export SNANA_DIR="$HOME/SNANA"
+export DECAM_CATALOG=/global/cfs/cdirs/hacc/OpenCosmo/LastJourney/synthetic_galaxies/hltds_cosmos_260215_02_17_2026
+export DECAM_MODEL_DIR="$DECAM_CATALOG"
+export DECAM_MOCK_VERSION=hltds_cosmos_260215_02_17_2026
+```
+
+These are NERSC filesystem locations, not public download URLs; access to the
+shared HACC catalog is required. Outside NERSC, obtain the same release and
+matching SSP/model files from the Diffsky/OpenCosmo maintainers and substitute
+your local paths. Do not substitute a different release's model files.
+
+The original local scripts and configuration are in:
+
+```text
+/global/cfs/cdirs/desc-sn/SNANA/SURVEYS/LSST/USERS/ayanmitr/HOSTLIB_DIFFSKY/DIFFSKY_MAG
+```
+
+The historical photometry Python executable is:
+
+```bash
+export DECAM_PHOT_PYTHON=/global/common/software/lsst/install/td_env/2026-04-07-37-02/py/envs/td_env/bin/python
+```
+
+This identifies the environment used by the earlier production scripts; the new
+end-to-end workflow still needs real-catalog validation. Use your current
+SNANA-compatible Python for the conversion stage; the runner accepts separate
+Python executables for the two stages.
+
 The supported input layout is the LastJourney layout used by the original
 workflow: direct children named `lc_cores-*.diffsky_gals.hdf5`, cosmology attributes
 under `header/simulation/cosmology`, and the SSP scatter dimension under
@@ -199,6 +233,66 @@ and derives the configured host quantities and magnitude errors.
 
 Running the preprocessor does not edit your SNANA checkout, existing production
 configuration, or previous HOSTLIBs. The command above is an instruction for a later run.
+
+## Runnable example: configuration plus both stages
+
+[examples/run_decam_example.py](examples/run_decam_example.py) reads the example
+configuration, fills in the input/output paths, and runs the two commands in
+order. It uses the configuration's redshift bounds for photometry, retains its
+sky/mass cuts and magnitude depths, and writes one final HOSTLIB. You can supply
+an edited configuration with `--config /path/to/my_snana_des.config`.
+
+After setting the Perlmutter variables above, first prepare and inspect the run:
+
+```bash
+python "$SNANA_DIR/doc/diffsky_decam/examples/run_decam_example.py" \
+  --catalog-dir "$DECAM_CATALOG" \
+  --model-dir "$DECAM_MODEL_DIR" \
+  --mock-version "$DECAM_MOCK_VERSION" \
+  --photometry-python "$DECAM_PHOT_PYTHON" \
+  --snana-python "$(command -v python)" \
+  --run-dir "$PWD/decam_prepare_example" \
+  --prepare-only
+```
+
+This writes `decam_prepare_example/snana_des.config` and prints the exact
+commands without reading galaxy data or running either stage. The Python used
+to launch the runner needs PyYAML. Paths and the selected config are checked.
+
+To execute both stages **on a compute node**, use a new output directory:
+
+```bash
+python "$SNANA_DIR/doc/diffsky_decam/examples/run_decam_example.py" \
+  --catalog-dir "$DECAM_CATALOG" \
+  --model-dir "$DECAM_MODEL_DIR" \
+  --mock-version "$DECAM_MOCK_VERSION" \
+  --photometry-python "$DECAM_PHOT_PYTHON" \
+  --snana-python "$(command -v python)" \
+  --run-dir "$PWD/decam_run_example"
+```
+
+This is a workflow example, not a cheap two-galaxy smoke test: it processes all
+patches in the supplied catalog directory over the config's redshift interval.
+Use a small compatible catalog fixture for a short scientific test. The runner
+does not allocate compute resources or submit a job.
+
+The resulting directory contains:
+
+```text
+decam_run_example/
+  snana_des.config              # resolved configuration passed to SNANA
+  photometry/                  # Parquet magnitudes, metadata, filters and grid
+  stage1.log                   # photometry output
+  stage2.log                   # SNANA conversion output
+  DES_DIFFSKY.HOSTLIB           # final host library
+```
+
+A failed first stage prevents the SNANA stage from starting. Existing run
+directories are not overwritten. Review the logs before using the HOSTLIB;
+subprocess success alone does not establish scientific correctness or complete
+photometry matching. For an explicitly approximate reproduction of the old
+zero-scatter setting, add `--scatter-policy zero`; the default requires catalog
+scatter. Replace the example magnitude depths before production.
 
 ## Validation before production
 

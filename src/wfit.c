@@ -270,9 +270,10 @@
 
 #define OPT_RD_CALC     0  // 0=Planck; 1=compute with constant c_s, 2=c_s(z)
 
-#define FLAG_MUCOVNOSYS   0
-#define FLAG_MUCOVSYS     1
-#define FLAG_MUCOVTOT_INV 2
+#define FLAG_MUCOVNOSYS     0
+#define FLAG_MUCOVSYS       1
+#define FLAG_MUCOVTOT_INV   2
+#define FLAG_MUCOV_FACTORIZED 3
 
 // ======== global structures ==========
 
@@ -309,6 +310,7 @@ struct INPUTS {
   
   char **mucov_file ;  // input cov matrix(es); e.g., produced by create_cov
   int    NMUCOV ; // 1 or 2 cov matrices; 2 for HDIBC method
+  char   mucov_factorized_file[MXCHAR_FILENAME]; // Sep 2026: D+U U^T product
   
   char label_cospar[40]  ;   // string label for cospar file.
   int  ndump_mucov ; // dump this many column/rows
@@ -355,8 +357,28 @@ typedef struct COVMAT {
   double *ARRAY1D ;   // 1D representation of matrix
   int     N_NONZERO_TOT ;         // number of non-zero elements
   int     N_NONZERO_OFFDIAG ;     // number of non-zero off-diag elements
-  int     NDIM ;      // dimension size  
+  int     NDIM ;      // dimension size
 } COVMAT_DEF ;
+
+// Sep 2026: additive factorized covariance product C = diag(D) + U U^T,
+// read from create_covariance.py's --write_factorized npz output.
+// Avoids ever forming or inverting a dense NSN x NSN matrix; chi2 is
+// evaluated per grid point in O(NSN*K) using the Woodbury identity:
+//   Cinv = Dinv - Dinv U (I + U^T Dinv U)^-1 U^T Dinv
+typedef struct {
+  bool    USE ;        // true if factorized covariance is active
+  int     NSN ;         // dimension after selection cuts
+  int     K ;           // number of systematic vectors (0 = stat-only)
+  double *D ;           // (NSN,) diagonal [stat variance (+ sqsnrms)]
+  double *Dinv ;         // (NSN,) 1/D
+  double *U ;            // (NSN,K) row-major systematic vectors
+  double *Minv ;         // (K,K) row-major inverse of (I_K + U^T Dinv U)
+  double *g ;            // (K,) U^T Dinv  (== U^T Dinv * ones)
+  double  Csum_const ;   // ones^T Cinv ones; fixed, independent of cosmology
+  double *scratch_a ;    // (NSN,) reusable scratch: Dinv*dmu
+  double *scratch_b ;    // (K,)   reusable scratch: U^T scratch_a
+  double *scratch_c ;    // (K,)   reusable scratch: Minv @ scratch_b
+} FACCOV_DEF ;
 
 // define workspace
 struct  {
@@ -397,6 +419,7 @@ struct  {
 
   COVMAT_DEF MUCOV[2]; // up to two cov matrices
   COVMAT_DEF MUCOV_FINAL ;
+  FACCOV_DEF FACCOV ;   // Sep 2026: factorized D+U U^T alternative
   
   double w0_ran,   wa_ran,   omm_ran;
   double w0_final, wa_final, omm_final, chi2_final ;
@@ -532,6 +555,9 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) ;
 void compute_MUCOV_FINAL();
 void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
+void setup_factorized_mucov(void);
+void get_chi2_woodbury(double *dmu_list, int NSN,
+		       double *chi_hat, double *Bsum, double *Csum);
 void set_stepsizes(void);
 void print_and_check_grid(char *varname, double xmin, double xmax, int nstep, double step) ;
 void set_Ndof(void);
@@ -688,7 +714,10 @@ int main(int argc,char *argv[]){
       sync_HD_redshifts(&HD_LIST[0], &HD_LIST[1]); 
     }
 
-    if ( INPUTS.use_mucov ) {
+    if ( INPUTS.use_mucov == FLAG_MUCOV_FACTORIZED ) {
+      setup_factorized_mucov();
+    }
+    else if ( INPUTS.use_mucov ) {
       compute_MUCOV_FINAL();
       invert_mucovar(&WORKSPACE.MUCOV_FINAL, INPUTS.sqsnrms);
     }
@@ -783,6 +812,9 @@ void init_stuff(void) {
   INPUTS.weightmin           = 1.0E-20;
   INPUTS.outFile_mucovtot_inv[0] = 0 ;
   INPUTS.use_mucov           = FLAG_MUCOVNOSYS ;
+  INPUTS.mucov_factorized_file[0] = 0 ;
+  WORKSPACE.FACCOV.USE = false ;
+  WORKSPACE.FACCOV.K   = 0 ;
   sprintf(INPUTS.label_cospar,"none");
   INPUTS.format_cospar = 1; // csv like format
   INPUTS.fitnumber = 1;
@@ -909,6 +941,7 @@ void print_wfit_help(void) {
     "   -mucovsys_file\tfile with COV_syst e.g., from create_covariance",
     "   -mucov_file   \tlegacy key for mucovsys_file",
     "   -mucovtot_inv_file\tfile with inverse of COVTOT",
+    "   -mucov_factorized_file\tnpz with diag(D)+U U^T product (Woodbury; no dense NxN matrix)",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
     "   -varname_muerr\t column name with distance errors (default=MUERR)",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
@@ -1121,7 +1154,15 @@ void parse_args(int argc, char **argv) {
 	parse_commaSepList("mucov_file", argv[++iarg], 2, 2*MXCHAR_FILENAME,
 			   &INPUTS.NMUCOV, &INPUTS.mucov_file );
 	INPUTS.use_mucov = FLAG_MUCOVTOT_INV ;  // flag that mucovtot_inv has been read
-	
+
+      }
+      else if (strcasecmp(argv[iarg]+1,"mucov_factorized_file")==0) {
+	// Sep 2026: additive D + U U^T product from create_covariance.py
+	// --write_factorized; chi2 uses Woodbury identity, O(NSN*K) per
+	// grid point, without ever forming a dense NSN x NSN matrix.
+	strcpy(INPUTS.mucov_factorized_file, argv[++iarg]);
+	INPUTS.use_mucov = FLAG_MUCOV_FACTORIZED ;
+
       }
       else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
         strcpy(INPUTS.varname_muerr,argv[++iarg]);
@@ -2369,6 +2410,204 @@ void compute_MUCOV_FINAL(void) {
 
     return ;
 } // end compute_MUCOV_FINAL
+
+//===================================
+void setup_factorized_mucov(void) {
+
+  // Sep 2026: read the additive factorized covariance product
+  // C = diag(D) + U U^T (from create_covariance.py --write_factorized),
+  // apply the same selection cuts as HD_LIST[0], add sqsnrms to the
+  // diagonal, and precompute everything the Woodbury identity needs
+  // so that get_chi2_woodbury() can evaluate the full quadratic form
+  // dmu^T Cinv dmu in O(NSN*K) per grid point -- without ever forming
+  // or inverting a dense NSN x NSN matrix.
+  //
+  //   Cinv = Dinv - Dinv U (I_K + U^T Dinv U)^-1 U^T Dinv
+  //
+  // This disables the STOP_DIAG/SKIP_OFFDIAG speed tricks (they exist
+  // only to avoid the O(NSN^2) dense off-diag cost, which the Woodbury
+  // path never pays in the first place).
+
+  int  NSN_ORIG  = HD_LIST[0].NSN_ORIG;
+  int  NSN       = HD_LIST[0].NSN;       // after selection cuts
+  bool *pass_cut = HD_LIST[0].pass_cut;
+  double *D_orig=NULL, *U_orig=NULL;
+  int K, j, k, idx, i1, i2, NSN_read;
+  char fnam[] = "setup_factorized_mucov" ; (void)fnam;
+
+  // ---------- BEGIN -----------
+
+  if ( INPUTS.USE_HDIBC ) {
+    sprintf(c1err,"mucov_factorized_file is not supported with HDIBC");
+    sprintf(c2err,"Use -mucovsys_file or -mucovtot_inv_file instead");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  printf("\n# ======================================= \n");
+  printf("  Process MUCOV_FACTORIZED file %s\n",
+	 INPUTS.mucov_factorized_file); fflush(stdout);
+
+  NSN_read = read_npz_factorized(INPUTS.mucov_factorized_file,
+				  &D_orig, &U_orig, &K);
+
+  if ( NSN_read != NSN_ORIG ) {
+    sprintf(c1err,"Factorized cov file has NSN=%d", NSN_read);
+    sprintf(c2err,"but HD file %s has NSN_ORIG=%d",
+	    INPUTS.HD_infile_list[0], NSN_ORIG);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  double *D    = (double*) malloc( NSN * sizeof(double) );
+  double *U    = (K>0) ? (double*) malloc( (size_t)NSN*K * sizeof(double) ) : NULL;
+  double *Dinv = (double*) malloc( NSN * sizeof(double) );
+
+  // apply selection cuts: compact rows where pass_cut[j] is true,
+  // and add sqsnrms (anomalous mu-error) to the diagonal here --
+  // trivial since D is diagonal (unlike FLAG_MUCOVTOT_INV, which must
+  // abort if snrms != 0 because it only has the dense inverse).
+  idx = 0;
+  for(j=0; j < NSN_ORIG; j++ ) {
+    if ( !pass_cut[j] ) { continue; }
+    D[idx] = D_orig[j] + INPUTS.sqsnrms;
+    for(k=0; k < K; k++ )
+      { U[idx*K+k] = U_orig[(size_t)j*K+k]; }
+    idx++;
+  }
+  free(D_orig);  if (U_orig) { free(U_orig); }
+
+  if ( idx != NSN ) {
+    sprintf(c1err,"Applying cuts to factorized cov kept %d rows", idx);
+    sprintf(c2err,"but HD_LIST[0].NSN = %d", NSN);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  for(j=0; j < NSN; j++ ) { Dinv[j] = 1.0/D[j]; }
+
+  double *Minv=NULL, *g=NULL, Csum_const=0.0, sumDinv=0.0;
+
+  for(j=0; j < NSN; j++ ) { sumDinv += Dinv[j]; }
+
+  if ( K > 0 ) {
+    Minv = (double*) malloc( K*K * sizeof(double) );
+    g    = (double*) malloc( K   * sizeof(double) );
+
+    // M = I_K + U^T diag(Dinv) U   (K x K, symmetric)
+    for(i1=0; i1 < K; i1++ ) {
+      for(i2=i1; i2 < K; i2++ ) {
+	double sum=0.0;
+	for(j=0; j < NSN; j++ )
+	  { sum += U[j*K+i1] * Dinv[j] * U[j*K+i2]; }
+	if ( i1==i2 ) { sum += 1.0; }
+	Minv[i1*K+i2] = sum;
+	Minv[i2*K+i1] = sum;
+      }
+    }
+
+    invertMatrix(K, K, Minv);  // in-place K x K inverse (GSL LU; K is tiny)
+
+    // g = U^T Dinv  (K,) == U^T Dinv ones
+    for(i1=0; i1 < K; i1++ ) {
+      double sum=0.0;
+      for(j=0; j < NSN; j++ ) { sum += U[j*K+i1]*Dinv[j]; }
+      g[i1] = sum;
+    }
+
+    // Csum_const = ones^T Cinv ones = sum(Dinv) - g^T Minv g
+    double gMg=0.0;
+    for(i1=0; i1<K; i1++ ) {
+      double tmp=0.0;
+      for(i2=0; i2<K; i2++) { tmp += Minv[i1*K+i2]*g[i2]; }
+      gMg += g[i1]*tmp;
+    }
+    Csum_const = sumDinv - gMg;
+  }
+  else {
+    Csum_const = sumDinv;  // NOSYS: Cinv == Dinv, no correction term
+  }
+
+  WORKSPACE.FACCOV.USE        = true;
+  WORKSPACE.FACCOV.NSN        = NSN;
+  WORKSPACE.FACCOV.K          = K;
+  WORKSPACE.FACCOV.D          = D;
+  WORKSPACE.FACCOV.Dinv       = Dinv;
+  WORKSPACE.FACCOV.U          = U;
+  WORKSPACE.FACCOV.Minv       = Minv;
+  WORKSPACE.FACCOV.g          = g;
+  WORKSPACE.FACCOV.Csum_const = Csum_const;
+  WORKSPACE.FACCOV.scratch_a  = (double*) malloc( NSN * sizeof(double) );
+  WORKSPACE.FACCOV.scratch_b  = (K>0) ? (double*) malloc( K * sizeof(double) ) : NULL;
+  WORKSPACE.FACCOV.scratch_c  = (K>0) ? (double*) malloc( K * sizeof(double) ) : NULL;
+
+  // Woodbury already pays only O(NSN*K) per grid point, so the dense
+  // speed tricks (meant to dodge an O(NSN^2) cost this path never has)
+  // no longer apply; using them here would be wrong anyway since D is
+  // stat-only, not the true total diagonal (the systematic contribution
+  // to the diagonal lives inside U U^T, not in D).
+  INPUTS.USE_SPEED_STOP_DIAG    = false;
+  INPUTS.USE_SPEED_SKIP_OFFDIAG = false;
+
+  printf("\t Factorized cov: NSN=%d, K=%d systematic vector(s)\n", NSN, K);
+  printf("\t Woodbury setup done: O(NSN*K^2) one-time cost, "
+	 "O(NSN*K) per chi2 evaluation.\n");
+  fflush(stdout);
+
+  return;
+
+} // end setup_factorized_mucov
+
+//===================================
+void get_chi2_woodbury(double *dmu_list, int NSN,
+			double *chi_hat, double *Bsum, double *Csum) {
+
+  // Sep 2026: full quadratic form dmu^T Cinv dmu, and ones^T Cinv dmu,
+  // via the Woodbury identity, using the pieces precomputed once in
+  // setup_factorized_mucov(). Cost is O(NSN*K) (K = WORKSPACE.FACCOV.K),
+  // replacing the dense O(NSN^2) diag+offdiag double loop.
+
+  FACCOV_DEF *FC = &WORKSPACE.FACCOV;
+  int K = FC->K;
+  int j, i1, i2;
+  double *a = FC->scratch_a;   // a = Dinv * dmu           (NSN,)
+  double *b = FC->scratch_b;   // b = U^T a                (K,)
+  double *c = FC->scratch_c;   // c = Minv @ b              (K,)
+  double dot_dmu_a=0.0, sum_a=0.0;
+
+  // ---------- BEGIN -----------
+
+  for(j=0; j < NSN; j++ ) {
+    a[j] = FC->Dinv[j] * dmu_list[j];
+    dot_dmu_a += dmu_list[j] * a[j];
+    sum_a     += a[j];
+  }
+
+  if ( K > 0 ) {
+    for(i1=0; i1 < K; i1++ ) {
+      double sum=0.0;
+      for(j=0; j < NSN; j++ ) { sum += FC->U[j*K+i1] * a[j]; }
+      b[i1] = sum;
+    }
+    for(i1=0; i1 < K; i1++ ) {
+      double sum=0.0;
+      for(i2=0; i2 < K; i2++ ) { sum += FC->Minv[i1*K+i2] * b[i2]; }
+      c[i1] = sum;
+    }
+
+    double dot_b_c=0.0, dot_g_c=0.0;
+    for(i1=0; i1 < K; i1++ ) { dot_b_c += b[i1]*c[i1]; dot_g_c += FC->g[i1]*c[i1]; }
+
+    *chi_hat = dot_dmu_a - dot_b_c ;
+    *Bsum    = sum_a     - dot_g_c ;
+  }
+  else {
+    *chi_hat = dot_dmu_a ;
+    *Bsum    = sum_a ;
+  }
+
+  *Csum = FC->Csum_const ;   // fixed; independent of cosmology
+
+  return;
+
+} // end get_chi2_woodbury
 
 //===================================
 void set_priors(void) {
@@ -4303,12 +4542,17 @@ void get_chi2_fit (
     dmu_list[k] = mu_obs - mu_cos; 
 
     n_count++ ;
-    if ( use_mucov ) {
+    if ( use_mucov == FLAG_MUCOV_FACTORIZED ) {
+      // Woodbury: diag+offdiag contributions computed together via
+      // get_chi2_woodbury() after this loop; nothing to add here.
+      sqmusiginv = 0.0 ;
+    }
+    else if ( use_mucov ) {
       // sqmurms_add applied to MUCOV before inverting  (6.11.2026)
-      sqmusiginv = WORKSPACE.MUCOV_FINAL.ARRAY1D[k*(NSN+1)]; 
+      sqmusiginv = WORKSPACE.MUCOV_FINAL.ARRAY1D[k*(NSN+1)];
     }
     else {
-      sqmusig     = HD0->mu_sqsig[k] + sqmurms_add ; 
+      sqmusig     = HD0->mu_sqsig[k] + sqmurms_add ;
       sqmusiginv  = 1.0 / sqmusig ;
     }
 
@@ -4341,24 +4585,33 @@ void get_chi2_fit (
 
   
   // - - - - - -
-  // check for adding off-diagonal terms from cov matrix.
-  // If chi_hat(diag) is already > 10 sigma above naive chi2 -> 
-  // skip off-diag computation to save time.
+  if ( use_mucov == FLAG_MUCOV_FACTORIZED ) {
+    // Full quadratic form (diag+offdiag together) via Woodbury,
+    // O(NSN*K) instead of the O(NSN^2) double loop below.
+    get_chi2_woodbury(dmu_list, NSN, &chi_hat, &Bsum, &Csum);
+    chi2_diag  = chi_hat;   // no separate diag-only stage for this path
+    do_offdiag = false;     // already fully accounted for above
+  }
+  else {
+    // check for adding off-diagonal terms from cov matrix.
+    // If chi_hat(diag) is already > 10 sigma above naive chi2 ->
+    // skip off-diag computation to save time.
 
-  if ( use_mucov && N_NONZERO_OFFDIAG > 0 ) { 
-    if ( USE_SPEED_SKIP_OFFDIAG ) {
-      chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
-      nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
-      do_offdiag = nsig_chi2 < nsig_chi2min_skip ;
+    if ( use_mucov && N_NONZERO_OFFDIAG > 0 ) {
+      if ( USE_SPEED_SKIP_OFFDIAG ) {
+	chi_tmp     = chi_hat - Bsum*Bsum/Csum ;
+	nsig_chi2  = (chi_tmp - chi_hat_naive ) / sig_chi2min_naive ;
+	do_offdiag = nsig_chi2 < nsig_chi2min_skip ;
+      }
+      else {
+	do_offdiag = true ;
+      }
     }
-    else {
-      do_offdiag = true ; 
-    }
+
+    chi2_diag = chi_hat;
   }
 
-  chi2_diag = chi_hat;
-
-  // - - - - - - - - - - -  - - 
+  // - - - - - - - - - - -  - -
   // add off-diag elements if using cov matrix
   if ( do_offdiag ) {
     for ( k0=0; k0 < NSN-1; k0++) {

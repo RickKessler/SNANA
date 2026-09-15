@@ -7428,6 +7428,10 @@ void read_data_override(void) {
   //     New logic is much simpler.
   //     ABORT on duplicate CID in override file.
   //
+  // Sep 14 2026:
+  //   + add more protection for PTRVAL_OVERRIDE
+  //   + for zHD update, check TABLEVAR.zXXX instead pf PTRVAL_OVERRIDE
+
   int IVAR_OVER_VPEC = -9, IVAR_OVER_VPECERR = -9 ;
   int IVAR_OVER_zHEL = -9, IVAR_OVER_zHELERR = -9 ;
   int IVAR_OVER_zHD  = -9, IVAR_OVER_zHDERR  = -9 ;
@@ -7616,9 +7620,9 @@ void read_data_override(void) {
     
     // - - - - - 
     else if ( strcmp(varName,"zCMB") == 0 ) 
-      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmb ;  }
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmb ; }
     else if ( strcmp(varName,"zCMBERR") == 0 ) 
-      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmberr ; }
+      { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zcmberr ;  }
 
     else if ( strcmp(varName,"zHEL") == 0 ) 
       { INFO_DATA.PTRVAL_OVERRIDE[ivar_over] = INFO_DATA.TABLEVAR.zhel ;  }
@@ -7675,6 +7679,7 @@ void read_data_override(void) {
     if ( LDMP ) {
       printf(" 0. xxx ----------------------------------------------------------- \n");
       printf(" 1. xxx %s isn=%d  SNID=%s  zHEL(orig) = %.4f\n", fnam, isn, name, zhel_orig );
+      fflush(stdout);
     }
 
     override_zhd = override_zhderr = false;
@@ -7695,15 +7700,11 @@ void read_data_override(void) {
 	sprintf(c2err,"Remove duplicates from OVERRIDE file");
 	errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
       }
-      // xxxxxxx
-      if ( istat == -99990 ) {
-	printf(" xxx %s: isn=%4d ivar_over=%d  istat=%d, dval=%f \n",
-	       fnam, isn, ivar_over, istat, dval); fflush(stdout);
-      }// xxxx
      
       if ( LDMP ) {
 	printf(" 2. xxx %s:\t isn=%d  ivar_over=%d(%s) of %d  istat=%d  NROW_MATCH=%d \n", 
 	       fnam, isn, ivar_over, varName, NVAR_OVER, istat, NROW_MATCH );
+	fflush(stdout);
       }
 
       if ( istat == 0 ) {
@@ -7723,13 +7724,18 @@ void read_data_override(void) {
 	  else
 	    { dz = (dval-zcmb_orig); }  // dval = zcmb override value
 
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHEL][isn] = zhel_orig + dz ; 
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMB][isn] = zcmb_orig + dz ; 
-
 	  if ( LDMP ) { 
-	    printf(" 2b. xxx %s: \t isn=%d z[hel,cmb,hd] -> %.4f %.4f %.4f \n",
-		   fnam, isn, zhel_over, zcmb_over, zhd_over );
+	    printf(" 2b. xxx %s: \t isn=%d zhel_orig=%.4f  zcmb_orig=%.4f  dz=%.4f \n",
+		   fnam, isn, zhel_orig, zcmb_orig, dz );
+	    printf(" 2c  xx %s: \t IVAR_OVER_zHEL=%d  IVAR_OVER_zCMB=%d \n",
+		   fnam, IVAR_OVER_zHEL, IVAR_OVER_zCMB );
+	    fflush(stdout);
 	  }
+
+	  if ( IVAR_OVER_zHEL >= 0 ) 
+	    { INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHEL][isn] = zhel_orig + dz ;  }
+	  if ( IVAR_OVER_zCMB >= 0 ) 
+	    { INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMB][isn] = zcmb_orig + dz ; }
 
 	  if( !override_zhd ) { NSN_CHANGE[IVAR_OVER_zHD]++ ; }
 	  override_zhd = true ;
@@ -7742,8 +7748,13 @@ void read_data_override(void) {
           override_zhderr = true ;
 	}
 	else if ( ivar_over == IVAR_OVER_zHELERR || ivar_over == IVAR_OVER_zCMBERR ) {
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHELERR][isn] = dval;
-	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMBERR][isn] = dval;  // .xyz ??? check git issue 1771
+
+	  if ( IVAR_OVER_zHELERR >= 0 ) 
+	    { INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHELERR][isn] = dval; }
+
+	  if ( IVAR_OVER_zCMBERR >= 0 ) 
+	    { INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMBERR][isn] = dval; }
+
 	  if ( !override_zhderr ) { NSN_CHANGE[IVAR_OVER_zHDERR]++ ; }
           override_zhderr = true ;
 	}
@@ -7762,9 +7773,17 @@ void read_data_override(void) {
 
 	// update zhd and mumodel
 	if ( override_zhd ) {
+
+	  /* xxxxxxxxx mark del 9.14.2026 xxxxxx
 	  double zhel    = INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHEL][isn] ;
 	  double zcmb    = INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMB][isn] ;	  
 	  double vpec    = INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_VPEC][isn] ;	  
+	  xxxxxxxx end mark */
+
+	  double zhel    = INFO_DATA.TABLEVAR.zhel[isn];
+	  double zcmb    = INFO_DATA.TABLEVAR.zcmb[isn];
+	  double vpec    = INFO_DATA.TABLEVAR.vpec[isn];
+
 	  double zhd     = zhd_compute(zcmb, vpec); 
 	  double dl      = cosmodl_forFit(zhel, zhd, INPUTS.COSPAR);  
 	  double mumodel = 5.0*log10(dl) + 25.0 ;
@@ -7774,9 +7793,15 @@ void read_data_override(void) {
 	
 	// update zhd error
 	if ( override_zhderr ) {
+	  /* xxxxxx mark del 9.14.2026 xxxxxx
 	  double zcmb    = INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMB][isn] ;	  
 	  double zcmberr = INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zCMBERR][isn] ; 
 	  double vpecerr = INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_VPECERR][isn] ;
+	  xxxxxxx end */
+
+	  double zcmb    = INFO_DATA.TABLEVAR.zcmb[isn];
+	  double zcmberr = INFO_DATA.TABLEVAR.zcmberr[isn];
+	  double vpecerr = INFO_DATA.TABLEVAR.vpecerr[isn];
 	  double zhderr  = zhderr_compute(zcmb, zcmberr, vpecerr); 
 	  INFO_DATA.PTRVAL_OVERRIDE[IVAR_OVER_zHDERR][isn] = zhderr ;
 	}
@@ -8050,7 +8075,6 @@ float malloc_TABLEVAR(int opt, int LEN_MALLOC, TABLEVAR_DEF *TABLEVAR) {
     else if ( INPUTS.ISMODEL_LCFIT_BAYESN )  {      
 
     }
-
 
     TABLEVAR->zhd           = (float *) malloc(MEMF); MEMTOT+=MEMF;
     TABLEVAR->zhderr        = (float *) malloc(MEMF); MEMTOT+=MEMF;

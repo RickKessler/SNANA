@@ -1110,6 +1110,9 @@ def apply_cuts(cat_inp, config):
     logging.info('')
     logging.info(f" Cuts reduce {n_row_inp:,} rows to {n_row_out:,} rows")
 
+    if n_row_out == 0 :
+        sys.exit(f"\n ABORT on zero rows after cuts")
+
     print_proc_time(t0, "APPLY_CUTS", None)
     
     return cat_out   # end apply_cuts

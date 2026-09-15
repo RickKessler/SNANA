@@ -2492,7 +2492,7 @@ def get_label_cov_flatten(nwr, nrow, row_info_dict):
         label += '  diag'
     return label
 
-def write_summary_output(args, config, covsys_list, base):
+def write_summary_output(args, config, covsys_list, base, factorized_list=None):
 
     # write information to INFO.YAML that is intended to be
     # picked up by cosmology fitting progam. Info includes
@@ -2501,6 +2501,11 @@ def write_summary_output(args, config, covsys_list, base):
     # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
     # Feb 17 2025: write BBC_DIR
     # May 13 2025; fix refactor bug and restore ISDATA_REAL
+    # Sep 2026: add optional 4th COVOPTS field, the covfactorized filename
+    # (None if --write_factorized wasn't used, or if this COVOPT's
+    # contribution couldn't be represented as rank-1 and was skipped), so
+    # submit_prog_cosmofit.py can discover it the same way it already
+    # discovers covtot_inv_file.
 
     out        = Path(config["OUTDIR"])
     BBC_DIR    = str(Path(config['data_dir']))
@@ -2514,13 +2519,19 @@ def write_summary_output(args, config, covsys_list, base):
     for i, (label, covsys) in enumerate(covsys_list):
         covsys_file     = None
         covtot_inv_file = None
+        covfactorized_file = None
         if config['write_covsys']:
             covsys_file = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
 
         if config['write_covtot_inv']:
             covtot_inv_file = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
 
-        covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}"
+        if config.get('write_factorized', False) and factorized_list is not None:
+            _, _, _, incomplete = factorized_list[i]
+            if not incomplete:
+                covfactorized_file = get_cov_filename(i, PREFIX_COVFACTORIZED, args.write_format_cov)
+
+        covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}   {covfactorized_file}"
         if i==0:
             SIZE_HD = covsys.shape[0]
 
@@ -2916,7 +2927,7 @@ def create_covariance(config, args):
     if use_cosmomc :
         write_cosmomc_output(config, args, covsys_list, base)
 
-    write_summary_output(args, config, covsys_list, base)
+    write_summary_output(args, config, covsys_list, base, factorized_list=factorized_list)
 
     args.tend_all = time.time()
 

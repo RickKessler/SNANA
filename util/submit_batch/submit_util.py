@@ -37,20 +37,21 @@ def glob_wrapper(wildcard, search_dir):
 
     return f_list
 
-def grep(path_list, key_list, key_veto_list, verbose):
+def grep(path_list, key_list, key_veto_list, verbose, match_line_dict=None):
 
     # Created Sep 5 2025 
     # loop over all files in path_list;
     # grep each key in key_list;
-    # Return 
-    #   + total number of number of grep matches found in all path_list files, 
-    #   + list of n_match found per path_list file
+    # Return the total number of keyword matches, matches per path, and
+    # matches per key. A line can match more than one keyword.
+    # If supplied, fill match_line_dict[path] with up to 20 matching
+    # (line number, text) pairs, recording each line only once.
     # If element of key_veto_list is on file, do NOT count this.
     #
     # Example:
     #    path_list = [ 'a1.txt', 'a2.txt', a3.txt' ]
     #    and they contain 2, 0, 3 elements of key_list, respectively.
-    #    The output is   5, [2,0,3]
+    #    The per-path counts are { 'a1.txt': 2, 'a2.txt': 0, 'a3.txt': 3 }.
     #
     # Oct 78 2025: fix to avoid re-grepping grep message by checking for unique_symbol
     # Aug 29 2026: fix to return both dict of path and dict of keys to avoid confusion
@@ -63,15 +64,17 @@ def grep(path_list, key_list, key_veto_list, verbose):
 
     for fil in path_list:
         n_list_tmp = [0] * len(key_list)
+        if match_line_dict is not None:
+            match_line_dict[fil] = []
 
         # read lines from file that do NOT contain unique_symbol
         line_list = []
-        with open(fil,"rt") as f:
-            for line in f:                
+        with open(fil,"rt", errors="replace") as f:
+            for line_number, line in enumerate(f, 1):
                 if len(line) > 0 and unique_symbol not in line: 
-                    line_list.append(line)
+                    line_list.append((line_number, line))
 
-        for line in line_list:
+        for line_number, line in line_list:
 
             VETO = False
             for veto in key_veto_list:
@@ -79,12 +82,20 @@ def grep(path_list, key_list, key_veto_list, verbose):
             
             if VETO: continue
 
+            matched = False
             for k, key in enumerate(key_list):
                 if re.search(key, line):
+                    matched = True
                     n_tot += 1
                     out_key_dict[key] += 1
                     n_list_tmp[k]     += 1  # local for verbose print
                     out_path_dict[fil] += 1
+
+            if matched and match_line_dict is not None and len(match_line_dict[fil]) < 20:
+                text = line.rstrip()
+                if len(text) > 2000:
+                    text = text[:2000] + " ... [line truncated; see original log]"
+                match_line_dict[fil].append((line_number, text))
 
         for key, n in zip(key_list, n_list_tmp):
             if n > 0 and verbose:
@@ -95,6 +106,45 @@ def grep(path_list, key_list, key_veto_list, verbose):
     return n_tot, out_path_dict, out_key_dict
 
     # end grep
+
+def get_slurm_accounting(job_id_list):
+    # Best-effort diagnostics for already detected failures. Query once,
+    # before scancel, including job steps (OOM may appear only on .batch).
+    # Do not use sacct's Reason field as a failure cause: it records a past
+    # scheduling/blocking reason, even for jobs that subsequently succeeded.
+    job_ids = list(dict.fromkeys(str(job_id) for job_id in job_id_list))
+    records = {job_id: [] for job_id in job_ids}
+    if not job_ids:
+        return records, "SLURM job ID unavailable in SUBMIT.INFO."
+    if any(re.fullmatch(r"\d+(?:_\d+)?(?:\+\d+)?", job_id) is None
+           for job_id in job_ids):
+        return records, "SLURM accounting unavailable: invalid job ID in SUBMIT.INFO."
+
+    fields = ["JobIDRaw", "State", "ExitCode", "Elapsed", "Timelimit",
+              "MaxRSS", "ReqMem", "NodeList"]
+    cmd = ["sacct", "--noheader", "--parsable2", "--jobs=" + ",".join(job_ids),
+           "--format=JobIDRaw,State%40,ExitCode,Elapsed,Timelimit,MaxRSS,ReqMem,NodeList%100"]
+    try:
+        ret = subprocess.run(cmd, capture_output=True, text=True,
+                             errors="replace", timeout=10)
+    except subprocess.TimeoutExpired:
+        return records, "SLURM accounting unavailable: sacct timed out after 10 seconds."
+    except OSError as exc:
+        return records, f"SLURM accounting unavailable: {exc}"
+
+    if ret.returncode != 0:
+        detail = " ".join(ret.stderr.split())[:200]
+        return records, f"SLURM accounting unavailable: sacct exit {ret.returncode}; {detail}"
+
+    for line in ret.stdout.splitlines():
+        values = [value.strip() for value in line.split("|")]
+        if len(values) != len(fields):
+            continue
+        job_id = values[0].split(".", 1)[0]
+        if job_id in records:
+            records[job_id].append(dict(zip(fields, values)))
+
+    return records, ""
 
 def print_elapse_time(t0,comment):
     dt_sec = (datetime.datetime.now() - t0).total_seconds()

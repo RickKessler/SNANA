@@ -1663,12 +1663,13 @@ class Program:
         # get list of CPU*.LOG files that do NOT have associated CPU*.DONE
         cpu_log_list  = self.fetch_cpu_logfiles_notdone()
 
-        # grep each KEY_FATAL_LIST key in each cpu log file.
-        # n_tot is the total number of matches (scalar);
-        # n_list = number of matches for each KEY_FATAL_LIST (vector).
+        # Keep the original matching lines as well as counts, so MERGE.LOG
+        # explains what triggered the stop without another search of CPU logs.
         verbose = True
+        match_line_dict = {}
         n_tot, grep_path_dict, grep_key_dict = \
-                util.grep(cpu_log_list, KEY_FATAL_LIST, KEY_VETO_FATAL_LIST, verbose )
+                util.grep(cpu_log_list, KEY_FATAL_LIST, KEY_VETO_FATAL_LIST,
+                          verbose, match_line_dict)
 
         if debug_mode:
             pass
@@ -1684,14 +1685,15 @@ class Program:
             logging.info(f"Found FATAL key from slurm --> stop all jobs.")
             self.config_yaml['args'].kill = True
 
-            # construct error message for kill_jobs arg; to be appended to MERGE.LOG file
-            msgerr_merge_log = ''
-            cpu_fail_list = []
-            for cpu_log, n in grep_path_dict.items():
-                if n > 0:
-                    cpu_base_log      = os.path.basename(cpu_log)
-                    cpu_fail_list.append(cpu_base_log)
-                    msgerr_merge_log += f'slurm failure identified in {cpu_base_log}\n'
+            cpu_fail_logs = [path for path, n in grep_path_dict.items() if n > 0]
+            cpu_fail_list = [os.path.basename(path) for path in cpu_fail_logs]
+            # Collect accounting before cancellation can obscure the original
+            # state. Missing or delayed accounting must not prevent shutdown.
+            msgerr_merge_log = self.slurm_failure_report(cpu_fail_logs, match_line_dict)
+            # The merge process itself writes to a CPU log. Mark every report
+            # line so a later scan cannot mistake copied errors for new ones.
+            for line in msgerr_merge_log.splitlines():
+                logging.info(f"  _@_ {line}")
                     
             # Aug 29 2026: to assist in locating the real culprit, loop again and write message 
             # to each cpu*log that does NOT have a failure;
@@ -1699,20 +1701,69 @@ class Program:
                 if n == 0:
                     msgerr_cpu_log = \
                         f"\n# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n" \
-                        f"  This slurm job will be auto-killed by submit_batch_jobs because \n" \
-                        f"  slurm failuer(s) were detected in \n" \
-                        f"  {cpu_fail_list}\n" \
+                        f"  _@_ This slurm job will be auto-killed by submit_batch_jobs because \n" \
+                        f"  _@_ failures were detected in {cpu_fail_list}\n" \
+                        f"  _@_ See MERGE.LOG for the original messages and SLURM accounting.\n" \
                         f"# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n\n"
-                    cmd = f'echo -e "{msgerr_cpu_log}" >> {cpu_log}'
-                    os.system(cmd)      # .xyz
-                    #with open(cpu_log,"at") as f:
-                    #    f.write(f"{msgerr_cpu_log}")
+                    try:
+                        with open(cpu_log, "at") as f:
+                            f.write(msgerr_cpu_log)
+                    except OSError as exc:
+                        logging.warning(f"  _@_ Could not append cancellation notice to {cpu_log}: {exc}")
 
-            # sleep 2 minutes before kill_jobs so that original CPU*log has earlier time stamp
+            # Keep the original CPU log's timestamp earlier than cancellation output.
             time.sleep(3)
             self.kill_jobs(msgerr_merge_log)  # msgerr will appear in MERGE.LOG
 
         return  # end check_for_slurm_failure
+
+    def slurm_failure_report(self, cpu_fail_logs, match_line_dict):
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        batch_info = self.config_yaml.get('CONFIG', {}).get('BATCH_INFO', '').split()
+        use_slurm = (submit_info_yaml.get('SUBMIT_MODE') == SUBMIT_MODE_BATCH and
+                     (not batch_info or batch_info[0] == SBATCH_COMMAND))
+        cpu_jobs = {}
+        if use_slurm:
+            for cpu, job_id, job_name in submit_info_yaml.get('SBATCH_LIST') or []:
+                cpu_jobs[int(cpu)] = str(job_id)
+
+        log_jobs = {}
+        for path in cpu_fail_logs:
+            match = re.match(r"CPU(\d+)(?:_|\.)", os.path.basename(path))
+            log_jobs[path] = cpu_jobs.get(int(match.group(1))) if match else None
+
+        records, note = {}, "SLURM accounting is not applicable to this submission."
+        if use_slurm:
+            job_ids = [job_id for job_id in log_jobs.values() if job_id is not None]
+            records, note = util.get_slurm_accounting(job_ids)
+
+        lines = ["Worker log messages that triggered the stop:"]
+        for path in cpu_fail_logs:
+            base = os.path.basename(path)
+            job_id = log_jobs[path]
+            lines.append(f"  slurm failure identified in {base}")
+            if job_id is not None:
+                lines.append(f"    SLURM job ID: {job_id}")
+            elif use_slurm:
+                lines.append("    SLURM job ID unavailable in SUBMIT.INFO.")
+            matches = match_line_dict[path]
+            for line_number, text in matches:
+                lines.append(f"    {base}:{line_number}: {text}")
+            if len(matches) == 20:
+                lines.append("    Showing at most 20 matching lines; see the original CPU log for more.")
+            for record in records.get(job_id, []):
+                fields = " ".join(f"{key}={value}" for key, value in record.items() if value)
+                lines.append(f"    sacct: {fields}")
+            if job_id is not None and not note and not records.get(job_id):
+                lines.append("    No SLURM accounting record available yet; use the log messages above.")
+
+        if note:
+            lines.append(note)
+        elif records:
+            lines.append("SLURM accounting was queried before SNANA cancelled remaining jobs; "
+                         "records may still show RUNNING or incomplete usage.")
+        lines.append("Jobs cancelled by SNANA in response are not additional original failures.")
+        return "\n".join(lines) + "\n"
 
     def fetch_cpu_logfiles_notdone(self):
 
@@ -1731,7 +1782,7 @@ class Program:
 
         # check each CPU*LOG and store only those that do NOT have DONE file.
         for cpu_log in cpu_log_list_all:
-            prefix = cpu_log.split('.')[0] # remove .LOG
+            prefix = os.path.splitext(cpu_log)[0] # remove only the .LOG suffix
             cpu_done = f"{prefix}.DONE"
             if cpu_done not in cpu_done_list_all:
                 cpu_log_list.append(cpu_log)

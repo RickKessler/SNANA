@@ -747,6 +747,31 @@ merge process knows not to repeat already finished merge tasks. When all
 SciJobs and merge tasks have finished, a final "cleanup" task is run to
 do things like compress files and create a summary file.
 
+SLURM failures:
+When a merge task detects fatal keywords in an unfinished CPU*.LOG, it
+records the original matching lines (with file names and line numbers) in
+MERGE.LOG before stopping the remaining jobs. Up to 20 lines per CPU log
+are shown; the complete messages remain in the original log. These are
+the messages that triggered detection, not a guessed diagnosis.
+
+For sbatch jobs, the report includes the job ID from SUBMIT.INFO and makes
+one sacct query for the affected jobs and their steps, with a 10-second
+timeout. State and ExitCode can distinguish OUT_OF_MEMORY, TIMEOUT,
+NODE_FAIL, cancellation, and other failures. Available elapsed time,
+time limit, memory usage/request, and node names are included as context.
+A signal or nonzero exit code alone does not establish the root cause.
+The sacct Reason field is intentionally omitted: it describes an earlier
+scheduling/blocking reason and may be unrelated to the failure.
+
+Accounting is queried before SNANA cancels the other jobs. Records can be
+delayed, still show RUNNING, or omit memory usage; unavailable accounting
+is reported without preventing shutdown. CPU logs for jobs stopped in
+response point to the original failures and MERGE.LOG. Copied diagnostic
+lines use the _@_ marker so they cannot trigger another failure report.
+This reporting uses the existing CPU-log detection and merge mechanism;
+it does not add a monitor for jobs whose logs contain no fatal keyword or
+for runs in which every merge process has already stopped.
+
 2:(
 Merge conflicts are avoided using busy files named
    BUSY_MERGE_CPU[cpunum].LOCK

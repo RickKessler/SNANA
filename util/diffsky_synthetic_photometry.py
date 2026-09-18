@@ -5,12 +5,8 @@
     Prepare a DECam photometry override table for SNANA (LastJourney layout).
 
    TO-DO list for SNANA:
-     * change reader to glob.glob for lc-core files using optional wildcard;
-     * add --wildcard (-w) areg to select small subset of lc-cores for quick test
-
      * replace command-line inputs with config_file that includes filter definitions/file
-     * remove FILTER_NAMES and COLUMN_NAMED 
-     * determin --mock-version from catalog basename, instead of separate input
+     * remove FILTER_NAMES and COLUMN_NAMED
      * remove reference to DES/DECam; use more generic language
 
 """
@@ -39,7 +35,9 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--catalog-dir', type=Path, required=True)
     p.add_argument('--model-dir', type=Path, help='Default: catalog directory')
-    p.add_argument('--mock-version', required=True)
+    p.add_argument('--mock-version', default=None,
+                    help='Default: basename of --catalog-dir (the production convention); '
+                         'override only if the catalog directory does not follow that convention')
     p.add_argument('--output-dir', type=Path, required=True, help='New directory; never overwritten')
     p.add_argument('--z-min', type=float, required=True)
     p.add_argument('--z-max', type=float, required=True)
@@ -247,6 +245,8 @@ def main(argv=None):
     args.catalog_dir = args.catalog_dir.resolve()
     if not args.catalog_dir.is_dir():
         raise ValueError('catalog-dir must be an existing release directory')
+    if args.mock_version is None:
+        args.mock_version = args.catalog_dir.name
     if args.output_dir.exists():
         raise FileExistsError(f'Output already exists: {args.output_dir}')
     # Only direct children of the explicitly supplied catalog directory.

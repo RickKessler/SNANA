@@ -18,6 +18,18 @@
       BATCH_SIZE:  10000        # optional, default 10000
       SCATTER_POLICY: catalog   # optional, default catalog; choices: catalog, zero
 
+      CUTWIN:     # optional; selection cuts on diffsky-catalog columns, applied before
+                  # photometry synthesis so galaxies that would be discarded downstream
+                  # are never photometered (mirrors make_hostlib_diffsky.py's CUTWIN)
+      - COLUMN: ra
+        MIN: 240.0
+        MAX: 245.0
+      - COLUMN: dec
+        MIN: 53.0
+        MAX: 58.0
+      - COLUMN: logsm_obs
+        MIN: 8.0             # MIN and/or MAX; at least one is required per entry
+
       FILTERS:    # sedpy filter id -> output column name, in output column order
       - SEDPY_ID: decam_g
         COLUMN:   des_g
@@ -67,6 +79,23 @@ def load_filters(config):
     return sedpy_ids, column_names
 
 
+def load_cutwin(config):
+    """Return ((column, min_or_None, max_or_None), ...) from the config's optional CUTWIN list.
+
+    Applied before photometry synthesis so galaxies that would be cut downstream are
+    never photometered; mirrors make_hostlib_diffsky.py's CUTWIN.
+    """
+    cuts = []
+    for entry in config.get('CUTWIN', []):
+        column = str(entry['COLUMN'])
+        lo = entry.get('MIN')
+        hi = entry.get('MAX')
+        if lo is None and hi is None:
+            raise ValueError(f"CUTWIN entry for column {column!r} must set MIN and/or MAX")
+        cuts.append((column, None if lo is None else float(lo), None if hi is None else float(hi)))
+    return tuple(cuts)
+
+
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -94,13 +123,14 @@ def build_run_args(config, wildcard):
     if scatter_policy not in ('catalog', 'zero'):
         raise ValueError("SCATTER_POLICY must be 'catalog' or 'zero'")
     sedpy_ids, column_names = load_filters(config)
+    cutwin = load_cutwin(config)
     return SimpleNamespace(
         catalog_dir=Path(config['CATALOG_DIR']),
         model_dir=Path(config['MODEL_DIR']) if config.get('MODEL_DIR') else None,
         mock_version=str(config['MOCK_VERSION']) if config.get('MOCK_VERSION') else None,
         output_dir=Path(config['OUTPUT_DIR']),
         z_min=z_min, z_max=z_max, grid_size=grid_size, batch_size=batch_size,
-        scatter_policy=scatter_policy, wildcard=wildcard,
+        scatter_policy=scatter_policy, wildcard=wildcard, cutwin=cutwin,
         sedpy_ids=sedpy_ids, column_names=column_names,
     )
 
@@ -164,7 +194,7 @@ def compute_synthetic_photometry(
 
 
 
-def read_patch(path, scatter_policy):
+def read_patch(path, scatter_policy, extra_columns=()):
     # Register compression plugins before opening catalog data.
     import hdf5plugin  # noqa: F401
     import opencosmo as oc
@@ -173,7 +203,7 @@ def read_patch(path, scatter_policy):
     columns = list(dict.fromkeys([
         *DEFAULT_MAH_PARAMS._fields, *DEFAULT_DIFFSTAR_PARAMS._fields,
         'redshift_true', 'mc_sfh_type', 'uran_av', 'uran_delta', 'uran_funo',
-        'uran_pburst', 'gal_id',
+        'uran_pburst', 'gal_id', *extra_columns,
     ]))
     if scatter_policy == 'catalog':
         columns.append('delta_mag_ssp_scatter')
@@ -234,22 +264,41 @@ def register_ids(db, ids):
     return ids.astype(np.int64, copy=False)
 
 
+def select_rows(data, z_min, z_max, cutwin):
+    """Row indices passing the redshift range and all CUTWIN cuts."""
+    z = np.asarray(data['redshift_true'])
+    mask = (z >= z_min) & (z <= z_max)
+    for column, lo, hi in cutwin:
+        values = np.asarray(data[column])
+        if lo is not None:
+            mask &= values >= lo
+        if hi is not None:
+            mask &= values <= hi
+    return np.flatnonzero(mask)
+
+
 def write_batches(patches, args, work, model, curves, grid, n_ssp, column_names, reader=read_patch,
                   compute=compute_synthetic_photometry):
+    import gc
+    import jax
     import pyarrow as pa
     import pyarrow.parquet as pq
     schema = pa.schema([('serial_tag', pa.int64()), *[(name, pa.float64()) for name in column_names]])
+    # CUTWIN columns are only needed to build the selection mask; they are not
+    # inputs to the photometry engine, so drop them from each batch before compute().
+    cutwin_only_columns = tuple(column for column, _, _ in args.cutwin)
     counts = []
     with sqlite3.connect(work / 'ids.sqlite') as db, pq.ParquetWriter(work / 'photometry.parquet', schema) as writer:
         db.execute('CREATE TABLE ids (id INTEGER PRIMARY KEY)')
         for path in patches:
-            data = reader(path, args.scatter_policy)
+            data = reader(path, args.scatter_policy, cutwin_only_columns)
             z = np.asarray(data['redshift_true'])
             if z.ndim != 1 or not np.all(np.isfinite(z)):
                 raise ValueError(f'Invalid catalog redshifts: {path}')
             if any(np.asarray(value).ndim == 0 or len(value) != len(z) for value in data.values()):
                 raise ValueError(f'Input columns are not row aligned: {path}')
-            selected = np.flatnonzero((z >= args.z_min) & (z <= args.z_max))
+            selected = select_rows(data, args.z_min, args.z_max, args.cutwin)
+            data = {k: v for k, v in data.items() if k not in cutwin_only_columns}
             for start in range(0, len(selected), args.batch_size):
                 take = selected[start:start + args.batch_size]
                 batch = {k: v[take] for k, v in data.items()}
@@ -261,6 +310,10 @@ def write_batches(patches, args, work, model, curves, grid, n_ssp, column_names,
             counts.append({'path': str(path.resolve()), 'selected_rows': len(selected),
                            'size_bytes': path.stat().st_size, 'mtime_ns': path.stat().st_mtime_ns})
             print(f'{path.name}: {len(selected):,} selected galaxies', flush=True)
+            # Each patch has a different N_gal, so JAX JIT-compiles a new kernel per
+            # patch; clear the cache to prevent unbounded growth over many patches.
+            jax.clear_caches()
+            gc.collect()
     (work / 'ids.sqlite').unlink()
     if not sum(item['selected_rows'] for item in counts):
         raise ValueError('No galaxies selected; no output published')

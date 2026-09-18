@@ -17,8 +17,8 @@ import yaml
 
 import diffsky_synthetic_photometry as driver
 from diffsky_synthetic_photometry import (
-    build_run_args, compute_synthetic_photometry, load_filters,
-    parse_args, read_yaml, register_ids, write_batches,
+    build_run_args, compute_synthetic_photometry, load_cutwin, load_filters,
+    parse_args, read_yaml, register_ids, select_rows, write_batches,
 )
 
 
@@ -79,6 +79,13 @@ def test_build_run_args_defaults_and_overrides(tmp_path):
     assert args.wildcard == '007'
     assert args.sedpy_ids == ('survey_g', 'survey_r')
     assert args.column_names == ('band_g', 'band_r')
+    assert args.cutwin == ()
+
+
+def test_build_run_args_wires_cutwin(tmp_path):
+    config = read_yaml(write_config(tmp_path, CUTWIN=[{'COLUMN': 'ra', 'MIN': 240.0, 'MAX': 245.0}]))
+    args = build_run_args(config, wildcard=None)
+    assert args.cutwin == (('ra', 240.0, 245.0),)
 
 
 @pytest.mark.parametrize('missing_key', ['CATALOG_DIR', 'OUTPUT_DIR', 'Z_MIN', 'Z_MAX'])
@@ -196,7 +203,7 @@ def test_integer_ids_are_exact_and_duplicates_rejected():
 def test_batches_keep_scatter_and_large_ids_aligned(tmp_path):
     patch = tmp_path / 'patch.hdf5'
     patch.touch()
-    args = SimpleNamespace(z_min=0.1, z_max=1.0, batch_size=2, scatter_policy='catalog')
+    args = SimpleNamespace(z_min=0.1, z_max=1.0, batch_size=2, scatter_policy='catalog', cutwin=())
     data = {'gal_id': np.array([2**53+1, 2**53+2, 2**53+3, 2**53+4], dtype=np.int64),
             'redshift_true': np.array([0.5, 0.01, 0.8, 1.0]),
             'delta_mag_ssp_scatter': np.arange(12).reshape(4, 3)}
@@ -219,10 +226,57 @@ def test_batches_keep_scatter_and_large_ids_aligned(tmp_path):
 def test_empty_selection_fails(tmp_path):
     path = tmp_path / 'empty'
     path.touch()
-    args = SimpleNamespace(z_min=0.1, z_max=1, batch_size=1, scatter_policy='catalog')
+    args = SimpleNamespace(z_min=0.1, z_max=1, batch_size=1, scatter_policy='catalog', cutwin=())
     with pytest.raises(ValueError, match='No galaxies selected'):
         write_batches([path], args, tmp_path, {}, None, None, 3, COLUMN_NAMES,
                       reader=lambda *a: {'gal_id': np.array([7]), 'redshift_true': np.array([2.])})
+
+
+# ---- CUTWIN pre-selection (speed: avoid photometering discarded galaxies) ----
+
+def test_load_cutwin_empty_by_default():
+    assert load_cutwin({}) == ()
+
+
+def test_load_cutwin_parses_min_and_max():
+    config = {'CUTWIN': [{'COLUMN': 'ra', 'MIN': 240.0, 'MAX': 245.0},
+                         {'COLUMN': 'logsm_obs', 'MIN': 8.0}]}
+    cuts = load_cutwin(config)
+    assert cuts == (('ra', 240.0, 245.0), ('logsm_obs', 8.0, None))
+
+
+def test_load_cutwin_requires_min_or_max():
+    with pytest.raises(ValueError, match='MIN and/or MAX'):
+        load_cutwin({'CUTWIN': [{'COLUMN': 'ra'}]})
+
+
+def test_select_rows_combines_zrange_and_cutwin():
+    data = {'redshift_true': np.array([0.5, 0.5, 0.5, 1.5]),
+            'ra': np.array([241.0, 250.0, 242.0, 241.0]),
+            'logsm_obs': np.array([9.0, 9.0, 7.0, 9.0])}
+    cutwin = (('ra', 240.0, 245.0), ('logsm_obs', 8.0, None))
+    np.testing.assert_array_equal(select_rows(data, 0.1, 1.0, cutwin), [0])
+
+
+def test_write_batches_applies_cutwin_and_drops_cut_columns_before_compute(tmp_path):
+    patch = tmp_path / 'patch.hdf5'
+    patch.touch()
+    args = SimpleNamespace(z_min=0.1, z_max=1.0, batch_size=10, scatter_policy='catalog',
+                          cutwin=(('ra', 240.0, 245.0),))
+    data = {'gal_id': np.array([1, 2, 3]),
+            'redshift_true': np.array([0.5, 0.5, 0.5]),
+            'ra': np.array([241.0, 250.0, 242.0]),
+            'delta_mag_ssp_scatter': np.arange(9).reshape(3, 3)}
+    seen_batches = []
+
+    def compute(batch, **kwargs):
+        seen_batches.append(batch)
+        return {name: np.full(len(batch['redshift_true']), 20.0) for name in COLUMN_NAMES}
+
+    counts = write_batches([patch], args, tmp_path, {}, None, None, 3, COLUMN_NAMES,
+                          reader=lambda *a: dict(data), compute=compute)
+    assert counts[0]['selected_rows'] == 2
+    assert 'ra' not in seen_batches[0]
 
 
 # ---- main(): full config-driven run, engine/curves mocked ---------------

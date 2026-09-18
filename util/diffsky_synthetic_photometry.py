@@ -5,7 +5,7 @@
     Prepare a synthetic photometry override table for SNANA (LastJourney layout).
 
     Usage:
-      python diffsky_synthetic_photometry.py config.yml [-w WILDCARD]
+      python diffsky_synthetic_photometry.py config.yml [-w WILDCARD] [--output-dir DIR]
 
     Example config.yml:
       CATALOG_DIR:  /path/to/diffsky/catalog_release
@@ -104,10 +104,13 @@ def parse_args(argv=None):
     p.add_argument('--wildcard', '-w', type=str, default=None,
                     help='Optional substring to select a subset of lc_cores-*.diffsky_gals.hdf5 '
                          'files (e.g. for a quick test), matched as lc_cores-*<wildcard>*.diffsky_gals.hdf5')
+    p.add_argument('--output-dir', type=Path, default=None,
+                    help="Override the config file's OUTPUT_DIR for this run "
+                         '(e.g. to avoid colliding with a previous run\'s output)')
     return p.parse_args(argv)
 
 
-def build_run_args(config, wildcard):
+def build_run_args(config, wildcard, output_dir=None):
     """Validate the YAML config and merge it with CLI overrides into a run-argument namespace."""
     missing = [key for key in ('CATALOG_DIR', 'OUTPUT_DIR', 'Z_MIN', 'Z_MAX') if key not in config]
     if missing:
@@ -128,7 +131,7 @@ def build_run_args(config, wildcard):
         catalog_dir=Path(config['CATALOG_DIR']),
         model_dir=Path(config['MODEL_DIR']) if config.get('MODEL_DIR') else None,
         mock_version=str(config['MOCK_VERSION']) if config.get('MOCK_VERSION') else None,
-        output_dir=Path(config['OUTPUT_DIR']),
+        output_dir=Path(output_dir) if output_dir else Path(config['OUTPUT_DIR']),
         z_min=z_min, z_max=z_max, grid_size=grid_size, batch_size=batch_size,
         scatter_policy=scatter_policy, wildcard=wildcard, cutwin=cutwin,
         sedpy_ids=sedpy_ids, column_names=column_names,
@@ -347,7 +350,7 @@ def build_photometry_curves(sedpy_ids, column_names):
 def main(argv=None):
     cli = parse_args(argv)
     config = read_yaml(cli.config_file)
-    args = build_run_args(config, cli.wildcard)
+    args = build_run_args(config, cli.wildcard, cli.output_dir)
     args.catalog_dir = args.catalog_dir.resolve()
     if not args.catalog_dir.is_dir():
         raise ValueError('CATALOG_DIR must be an existing release directory')

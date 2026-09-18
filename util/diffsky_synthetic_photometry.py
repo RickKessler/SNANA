@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 from collections import namedtuple
 from datetime import datetime, timezone
+import glob
 from importlib.metadata import version, PackageNotFoundError
 import json
 from pathlib import Path
@@ -45,6 +46,9 @@ def parse_args(argv=None):
     p.add_argument('--grid-size', type=int, default=200)
     p.add_argument('--batch-size', type=int, default=10000)
     p.add_argument('--scatter-policy', choices=['catalog', 'zero'], default='catalog')
+    p.add_argument('--wildcard', '-w', type=str, default=None,
+                    help='Optional substring to select a subset of lc_cores-*.diffsky_gals.hdf5 '
+                         'files (e.g. for a quick test), matched as lc_cores-*<wildcard>*.diffsky_gals.hdf5')
     args = p.parse_args(argv)
     if not (0 < args.z_min < args.z_max < np.inf):
         p.error('Require finite 0 < z-min < z-max')
@@ -246,9 +250,13 @@ def main(argv=None):
     if args.output_dir.exists():
         raise FileExistsError(f'Output already exists: {args.output_dir}')
     # Only direct children of the explicitly supplied catalog directory.
-    patches = sorted(args.catalog_dir.glob('lc_cores-*.diffsky_gals.hdf5'))
+    if args.wildcard:
+        pattern = f'lc_cores-*{args.wildcard}*.diffsky_gals.hdf5'
+    else:
+        pattern = 'lc_cores-*.diffsky_gals.hdf5'
+    patches = sorted(Path(p) for p in glob.glob(str(args.catalog_dir / pattern)))
     if not patches:
-        raise FileNotFoundError('No lc_cores-*.diffsky_gals.hdf5 files in catalog-dir')
+        raise FileNotFoundError(f'No {pattern} files in catalog-dir')
     model, cosmology, n_ssp = load_model(args, patches[0])
     for patch in patches:
         check_patch_metadata(patch, cosmology, n_ssp)

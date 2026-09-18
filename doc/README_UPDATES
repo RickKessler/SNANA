@@ -24248,7 +24248,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          a row range for future searches. Initial use is for WAVECOR lookup.
          https://github.com/RickKessler/SNANA/issues/1785
     
-     
+    diffsky_synthetic_photometry.py
+       + continued refactor to remove explicit DES/DECam dependence from code
+ 
 END:
 
 

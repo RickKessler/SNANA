@@ -2,17 +2,41 @@
 """ Created Summer 2026 by  A.Mitra
     Installed into SNANA, Sep 2026
 
-    Prepare a DECam photometry override table for SNANA (LastJourney layout).
+    Prepare a synthetic photometry override table for SNANA (LastJourney layout).
 
-   TO-DO list for SNANA:
-     * change reader to glob.glob for lc-core files using optional wildcard;
-     * add --wildcard (-w) areg to select small subset of lc-cores for quick test
+    Usage:
+      python diffsky_synthetic_photometry.py config.yml [-w WILDCARD]
 
-     * replace command-line inputs with config_file that includes filter definitions/file
-     * remove FILTER_NAMES and COLUMN_NAMED 
-     * determin --mock-version from catalog basename, instead of separate input
-     * remove reference to DES/DECam; use more generic language
+    Example config.yml:
+      CATALOG_DIR:  /path/to/diffsky/catalog_release
+      MODEL_DIR:    /path/to/matching/model_files   # optional; default = CATALOG_DIR
+      MOCK_VERSION: catalog_release_name            # optional; default = basename(CATALOG_DIR)
+      OUTPUT_DIR:   /path/to/output                 # new directory; never overwritten
+      Z_MIN: 0.05
+      Z_MAX: 1.8
+      GRID_SIZE:   200          # optional, default 200
+      BATCH_SIZE:  10000        # optional, default 10000
+      SCATTER_POLICY: catalog   # optional, default catalog; choices: catalog, zero
 
+      CUTWIN:     # optional; selection cuts on diffsky-catalog columns, applied before
+                  # photometry synthesis so galaxies that would be discarded downstream
+                  # are never photometered (mirrors make_hostlib_diffsky.py's CUTWIN)
+      - COLUMN: ra
+        MIN: 240.0
+        MAX: 245.0
+      - COLUMN: dec
+        MIN: 53.0
+        MAX: 58.0
+      - COLUMN: logsm_obs
+        MIN: 8.0             # MIN and/or MAX; at least one is required per entry
+
+      FILTERS:    # sedpy filter id -> output column name, in output column order
+      - SEDPY_ID: decam_g
+        COLUMN:   des_g
+      - SEDPY_ID: decam_r
+        COLUMN:   des_r
+      # ...or, instead of an inline FILTERS list:
+      # FILTER_FILE: /path/to/filters.yml   # a YAML file holding its own FILTERS list
 """
 
 from __future__ import annotations
@@ -20,44 +44,102 @@ from __future__ import annotations
 import argparse
 from collections import namedtuple
 from datetime import datetime, timezone
+import glob
 from importlib.metadata import version, PackageNotFoundError
 import json
 from pathlib import Path
 import sqlite3
 import tempfile
+from types import SimpleNamespace
 
 import numpy as np
+import yaml
 
 
-FILTER_NAMES = ("decam_g", "decam_r", "decam_i", "decam_z", "decam_Y")
-COLUMN_NAMES = ("des_g", "des_r", "des_i", "des_z", "des_Y")
-DECamCurves = namedtuple("DECamCurves", COLUMN_NAMES)
+def read_yaml(path):
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
+def load_filters(config):
+    """Return (sedpy_ids, column_names) from the config's FILTERS list or FILTER_FILE."""
+    if 'FILTERS' in config:
+        entries = config['FILTERS']
+    elif 'FILTER_FILE' in config:
+        entries = read_yaml(config['FILTER_FILE'])['FILTERS']
+    else:
+        raise ValueError('config_file must define FILTERS (inline list) or '
+                          'FILTER_FILE (path to a YAML file with a FILTERS list)')
+    if not entries:
+        raise ValueError('FILTERS must list at least one filter')
+    sedpy_ids = tuple(str(e['SEDPY_ID']) for e in entries)
+    column_names = tuple(str(e['COLUMN']) for e in entries)
+    if len(set(column_names)) != len(column_names):
+        raise ValueError('FILTERS COLUMN names must be unique')
+    return sedpy_ids, column_names
+
+
+def load_cutwin(config):
+    """Return ((column, min_or_None, max_or_None), ...) from the config's optional CUTWIN list.
+
+    Applied before photometry synthesis so galaxies that would be cut downstream are
+    never photometered; mirrors make_hostlib_diffsky.py's CUTWIN.
+    """
+    cuts = []
+    for entry in config.get('CUTWIN', []):
+        column = str(entry['COLUMN'])
+        lo = entry.get('MIN')
+        hi = entry.get('MAX')
+        if lo is None and hi is None:
+            raise ValueError(f"CUTWIN entry for column {column!r} must set MIN and/or MAX")
+        cuts.append((column, None if lo is None else float(lo), None if hi is None else float(hi)))
+    return tuple(cuts)
 
 
 def parse_args(argv=None):
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--catalog-dir', type=Path, required=True)
-    p.add_argument('--model-dir', type=Path, help='Default: catalog directory')
-    p.add_argument('--mock-version', required=True)
-    p.add_argument('--output-dir', type=Path, required=True, help='New directory; never overwritten')
-    p.add_argument('--z-min', type=float, required=True)
-    p.add_argument('--z-max', type=float, required=True)
-    p.add_argument('--grid-size', type=int, default=200)
-    p.add_argument('--batch-size', type=int, default=10000)
-    p.add_argument('--scatter-policy', choices=['catalog', 'zero'], default='catalog')
-    args = p.parse_args(argv)
-    if not (0 < args.z_min < args.z_max < np.inf):
-        p.error('Require finite 0 < z-min < z-max')
-    if args.grid_size < 2 or args.batch_size < 1:
-        p.error('grid-size must be >= 2 and batch-size >= 1')
-    return args
+    p = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument('config_file', type=Path,
+                    help='YAML config with catalog paths, redshift range, and filter definitions')
+    p.add_argument('--wildcard', '-w', type=str, default=None,
+                    help='Optional substring to select a subset of lc_cores-*.diffsky_gals.hdf5 '
+                         'files (e.g. for a quick test), matched as lc_cores-*<wildcard>*.diffsky_gals.hdf5')
+    return p.parse_args(argv)
 
 
-def compute_decam_photometry(
-        diffsky_data, *, ssp_data, param_collection, sim_info, z_phot_table,
-        tcurves=None, scatter_policy="catalog", n_ssp_cols=None, ):
-    
-    """Return row-aligned DES magnitude columns using the Diffsky engine.
+def build_run_args(config, wildcard):
+    """Validate the YAML config and merge it with CLI overrides into a run-argument namespace."""
+    missing = [key for key in ('CATALOG_DIR', 'OUTPUT_DIR', 'Z_MIN', 'Z_MAX') if key not in config]
+    if missing:
+        raise ValueError(f'config_file is missing required key(s): {", ".join(missing)}')
+    z_min, z_max = float(config['Z_MIN']), float(config['Z_MAX'])
+    if not (0 < z_min < z_max < np.inf):
+        raise ValueError('Require finite 0 < Z_MIN < Z_MAX')
+    grid_size = int(config.get('GRID_SIZE', 200))
+    batch_size = int(config.get('BATCH_SIZE', 10000))
+    if grid_size < 2 or batch_size < 1:
+        raise ValueError('GRID_SIZE must be >= 2 and BATCH_SIZE >= 1')
+    scatter_policy = config.get('SCATTER_POLICY', 'catalog')
+    if scatter_policy not in ('catalog', 'zero'):
+        raise ValueError("SCATTER_POLICY must be 'catalog' or 'zero'")
+    sedpy_ids, column_names = load_filters(config)
+    cutwin = load_cutwin(config)
+    return SimpleNamespace(
+        catalog_dir=Path(config['CATALOG_DIR']),
+        model_dir=Path(config['MODEL_DIR']) if config.get('MODEL_DIR') else None,
+        mock_version=str(config['MOCK_VERSION']) if config.get('MOCK_VERSION') else None,
+        output_dir=Path(config['OUTPUT_DIR']),
+        z_min=z_min, z_max=z_max, grid_size=grid_size, batch_size=batch_size,
+        scatter_policy=scatter_policy, wildcard=wildcard, cutwin=cutwin,
+        sedpy_ids=sedpy_ids, column_names=column_names,
+    )
+
+
+def compute_synthetic_photometry(
+        diffsky_data, *, ssp_data, param_collection, sim_info, z_phot_table, tcurves,
+        column_names, scatter_policy="catalog", n_ssp_cols=None, ):
+
+    """Return row-aligned synthetic magnitude columns using the Diffsky engine.
 
     Model objects and input fields follow compute_phot_from_diffsky_mock.
     Redshifts must be positive and bracketed by the supplied interpolation grid.
@@ -103,17 +185,16 @@ def compute_decam_photometry(
         )
     result = engine(
         diffsky_data=data, ssp_data=ssp_data, param_collection=param_collection,
-        sim_info=sim_info, z_phot_table=grid,
-        tcurves=build_decam_curves() if tcurves is None else tcurves,
+        sim_info=sim_info, z_phot_table=grid, tcurves=tcurves,
     )
     mags = np.asarray(result["obs_mags"])
-    if mags.shape != (len(z), len(COLUMN_NAMES)) or not np.all(np.isfinite(mags)):
-        raise ValueError("Diffsky returned invalid magnitudes: expected finite (N_gal, 5)")
-    return {name: mags[:, i].copy() for i, name in enumerate(COLUMN_NAMES)}
+    if mags.shape != (len(z), len(column_names)) or not np.all(np.isfinite(mags)):
+        raise ValueError(f"Diffsky returned invalid magnitudes: expected finite (N_gal, {len(column_names)})")
+    return {name: mags[:, i].copy() for i, name in enumerate(column_names)}
 
 
 
-def read_patch(path, scatter_policy):
+def read_patch(path, scatter_policy, extra_columns=()):
     # Register compression plugins before opening catalog data.
     import hdf5plugin  # noqa: F401
     import opencosmo as oc
@@ -122,7 +203,7 @@ def read_patch(path, scatter_policy):
     columns = list(dict.fromkeys([
         *DEFAULT_MAH_PARAMS._fields, *DEFAULT_DIFFSTAR_PARAMS._fields,
         'redshift_true', 'mc_sfh_type', 'uran_av', 'uran_delta', 'uran_funo',
-        'uran_pburst', 'gal_id',
+        'uran_pburst', 'gal_id', *extra_columns,
     ]))
     if scatter_policy == 'catalog':
         columns.append('delta_mag_ssp_scatter')
@@ -183,32 +264,56 @@ def register_ids(db, ids):
     return ids.astype(np.int64, copy=False)
 
 
-def write_batches(patches, args, work, model, curves, grid, n_ssp, reader=read_patch,
-                  compute=compute_decam_photometry):
+def select_rows(data, z_min, z_max, cutwin):
+    """Row indices passing the redshift range and all CUTWIN cuts."""
+    z = np.asarray(data['redshift_true'])
+    mask = (z >= z_min) & (z <= z_max)
+    for column, lo, hi in cutwin:
+        values = np.asarray(data[column])
+        if lo is not None:
+            mask &= values >= lo
+        if hi is not None:
+            mask &= values <= hi
+    return np.flatnonzero(mask)
+
+
+def write_batches(patches, args, work, model, curves, grid, n_ssp, column_names, reader=read_patch,
+                  compute=compute_synthetic_photometry):
+    import gc
+    import jax
     import pyarrow as pa
     import pyarrow.parquet as pq
-    schema = pa.schema([('serial_tag', pa.int64()), *[(name, pa.float64()) for name in COLUMN_NAMES]])
+    schema = pa.schema([('serial_tag', pa.int64()), *[(name, pa.float64()) for name in column_names]])
+    # CUTWIN columns are only needed to build the selection mask; they are not
+    # inputs to the photometry engine, so drop them from each batch before compute().
+    cutwin_only_columns = tuple(column for column, _, _ in args.cutwin)
     counts = []
     with sqlite3.connect(work / 'ids.sqlite') as db, pq.ParquetWriter(work / 'photometry.parquet', schema) as writer:
         db.execute('CREATE TABLE ids (id INTEGER PRIMARY KEY)')
         for path in patches:
-            data = reader(path, args.scatter_policy)
+            data = reader(path, args.scatter_policy, cutwin_only_columns)
             z = np.asarray(data['redshift_true'])
             if z.ndim != 1 or not np.all(np.isfinite(z)):
                 raise ValueError(f'Invalid catalog redshifts: {path}')
             if any(np.asarray(value).ndim == 0 or len(value) != len(z) for value in data.values()):
                 raise ValueError(f'Input columns are not row aligned: {path}')
-            selected = np.flatnonzero((z >= args.z_min) & (z <= args.z_max))
+            selected = select_rows(data, args.z_min, args.z_max, args.cutwin)
+            data = {k: v for k, v in data.items() if k not in cutwin_only_columns}
             for start in range(0, len(selected), args.batch_size):
                 take = selected[start:start + args.batch_size]
                 batch = {k: v[take] for k, v in data.items()}
                 ids = register_ids(db, batch.pop('gal_id'))
                 mags = compute(batch, **model, tcurves=curves, z_phot_table=grid,
+                               column_names=column_names,
                                scatter_policy=args.scatter_policy, n_ssp_cols=n_ssp)
                 writer.write_table(pa.Table.from_pydict({'serial_tag': ids, **mags}, schema=schema))
             counts.append({'path': str(path.resolve()), 'selected_rows': len(selected),
                            'size_bytes': path.stat().st_size, 'mtime_ns': path.stat().st_mtime_ns})
             print(f'{path.name}: {len(selected):,} selected galaxies', flush=True)
+            # Each patch has a different N_gal, so JAX JIT-compiles a new kernel per
+            # patch; clear the cache to prevent unbounded growth over many patches.
+            jax.clear_caches()
+            gc.collect()
     (work / 'ids.sqlite').unlink()
     if not sum(item['selected_rows'] for item in counts):
         raise ValueError('No galaxies selected; no output published')
@@ -216,7 +321,7 @@ def write_batches(patches, args, work, model, curves, grid, n_ssp, reader=read_p
 
 
 
-"""DECam photometry adapter for Diffsky's existing galaxy photometry engine.
+"""Synthetic-photometry adapter for Diffsky's existing galaxy photometry engine.
 
 No catalog paths, selection cuts, geometry prescriptions, or SNANA dependency.
 The caller supplies row-aligned Diffsky arrays and matching model objects.
@@ -224,41 +329,50 @@ The caller supplies row-aligned Diffsky arrays and matching model objects.
 
 
 
-def build_decam_curves():
-    """Load sedpy DECam throughput curves; wavelengths are in Angstroms."""
+def build_photometry_curves(sedpy_ids, column_names):
+    """Load sedpy throughput curves for the configured filters; wavelengths are in Angstroms."""
     from sedpy.observate import load_filters
     from dsps.data_loaders.defaults import TransmissionCurve
 
-    return DECamCurves(*[
+    Curves = namedtuple('Curves', column_names)
+    return Curves(*[
         TransmissionCurve(
             wave=np.asarray(f.wavelength, dtype=np.float64),
             transmission=np.asarray(f.transmission, dtype=np.float64),
-        ) for f in load_filters(list(FILTER_NAMES))
+        ) for f in load_filters(list(sedpy_ids))
     ])
 
 
 
 def main(argv=None):
-    args = parse_args(argv)
+    cli = parse_args(argv)
+    config = read_yaml(cli.config_file)
+    args = build_run_args(config, cli.wildcard)
     args.catalog_dir = args.catalog_dir.resolve()
     if not args.catalog_dir.is_dir():
-        raise ValueError('catalog-dir must be an existing release directory')
+        raise ValueError('CATALOG_DIR must be an existing release directory')
+    if args.mock_version is None:
+        args.mock_version = args.catalog_dir.name
     if args.output_dir.exists():
         raise FileExistsError(f'Output already exists: {args.output_dir}')
     # Only direct children of the explicitly supplied catalog directory.
-    patches = sorted(args.catalog_dir.glob('lc_cores-*.diffsky_gals.hdf5'))
+    if args.wildcard:
+        pattern = f'lc_cores-*{args.wildcard}*.diffsky_gals.hdf5'
+    else:
+        pattern = 'lc_cores-*.diffsky_gals.hdf5'
+    patches = sorted(Path(p) for p in glob.glob(str(args.catalog_dir / pattern)))
     if not patches:
-        raise FileNotFoundError('No lc_cores-*.diffsky_gals.hdf5 files in catalog-dir')
+        raise FileNotFoundError(f'No {pattern} files in CATALOG_DIR')
     model, cosmology, n_ssp = load_model(args, patches[0])
     for patch in patches:
         check_patch_metadata(patch, cosmology, n_ssp)
-    curves = build_decam_curves()
+    curves = build_photometry_curves(args.sedpy_ids, args.column_names)
     grid = np.linspace(args.z_min, args.z_max, args.grid_size)
     args.output_dir.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='.decam-', dir=args.output_dir.parent) as temp:
+    with tempfile.TemporaryDirectory(prefix='.photometry-', dir=args.output_dir.parent) as temp:
         work = Path(temp) / 'result'
         work.mkdir()
-        counts = write_batches(patches, args, work, model, curves, grid, n_ssp)
+        counts = write_batches(patches, args, work, model, curves, grid, n_ssp, args.column_names)
         versions = {}
         for package in ('numpy', 'sedpy', 'dsps', 'diffsky', 'diffmah', 'diffstar',
                         'jax', 'jaxlib', 'opencosmo', 'h5py', 'hdf5plugin', 'pyarrow'):
@@ -267,11 +381,12 @@ def main(argv=None):
             except PackageNotFoundError:
                 versions[package] = 'not recorded by package metadata'
         arrays = {'z_phot_table': grid}
-        for name, curve in zip(FILTER_NAMES, curves):
+        for name, curve in zip(args.column_names, curves):
             arrays[name + '_wave'] = curve.wave
             arrays[name + '_transmission'] = curve.transmission
         np.savez(work / 'filters_and_grid.npz', **arrays)
         metadata = {'created_utc': datetime.now(timezone.utc).isoformat(),
+                    'config_file': str(cli.config_file.resolve()),
                     'arguments': {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
                     'model_dir': str((args.model_dir or args.catalog_dir).resolve()),
                     'cosmology': cosmology, 'n_ssp_cols': n_ssp, 'versions': versions,

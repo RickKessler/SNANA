@@ -5,7 +5,7 @@
     Prepare a synthetic photometry override table for SNANA (LastJourney layout).
 
     Usage:
-      python diffsky_synthetic_photometry.py config.yml [-w WILDCARD]
+      python diffsky_synthetic_photometry.py config.yml [-w WILDCARD] [--output-dir DIR]
 
     Example config.yml:
       CATALOG_DIR:  /path/to/diffsky/catalog_release
@@ -50,10 +50,24 @@ import json
 from pathlib import Path
 import sqlite3
 import tempfile
+import time
 from types import SimpleNamespace
 
 import numpy as np
 import yaml
+
+
+def print_cpu(dt, comment, n=None):
+    """Print elapsed wall time, e.g. print_cpu(time.time() - t0, "READ_PATCH", n_row).
+
+    Mirrors the CPU(comment) timing checks in make_hostlib_diffsky.py so slow
+    stages (catalog read vs. photometry compute vs. parquet write) are visible
+    in the log without a profiler.
+    """
+    msg = f"CPU({comment}): {dt:7.1f} sec"
+    if n:
+        msg += f"  ({int(n / dt):,} per sec)"
+    print(msg, flush=True)
 
 
 def read_yaml(path):
@@ -104,10 +118,13 @@ def parse_args(argv=None):
     p.add_argument('--wildcard', '-w', type=str, default=None,
                     help='Optional substring to select a subset of lc_cores-*.diffsky_gals.hdf5 '
                          'files (e.g. for a quick test), matched as lc_cores-*<wildcard>*.diffsky_gals.hdf5')
+    p.add_argument('--output-dir', type=Path, default=None,
+                    help="Override the config file's OUTPUT_DIR for this run "
+                         '(e.g. to avoid colliding with a previous run\'s output)')
     return p.parse_args(argv)
 
 
-def build_run_args(config, wildcard):
+def build_run_args(config, wildcard, output_dir=None):
     """Validate the YAML config and merge it with CLI overrides into a run-argument namespace."""
     missing = [key for key in ('CATALOG_DIR', 'OUTPUT_DIR', 'Z_MIN', 'Z_MAX') if key not in config]
     if missing:
@@ -128,7 +145,7 @@ def build_run_args(config, wildcard):
         catalog_dir=Path(config['CATALOG_DIR']),
         model_dir=Path(config['MODEL_DIR']) if config.get('MODEL_DIR') else None,
         mock_version=str(config['MOCK_VERSION']) if config.get('MOCK_VERSION') else None,
-        output_dir=Path(config['OUTPUT_DIR']),
+        output_dir=Path(output_dir) if output_dir else Path(config['OUTPUT_DIR']),
         z_min=z_min, z_max=z_max, grid_size=grid_size, batch_size=batch_size,
         scatter_policy=scatter_policy, wildcard=wildcard, cutwin=cutwin,
         sedpy_ids=sedpy_ids, column_names=column_names,
@@ -291,25 +308,34 @@ def write_batches(patches, args, work, model, curves, grid, n_ssp, column_names,
     with sqlite3.connect(work / 'ids.sqlite') as db, pq.ParquetWriter(work / 'photometry.parquet', schema) as writer:
         db.execute('CREATE TABLE ids (id INTEGER PRIMARY KEY)')
         for path in patches:
+            t0 = time.time()
             data = reader(path, args.scatter_policy, cutwin_only_columns)
             z = np.asarray(data['redshift_true'])
+            print_cpu(time.time() - t0, 'READ_PATCH', len(z))
             if z.ndim != 1 or not np.all(np.isfinite(z)):
                 raise ValueError(f'Invalid catalog redshifts: {path}')
             if any(np.asarray(value).ndim == 0 or len(value) != len(z) for value in data.values()):
                 raise ValueError(f'Input columns are not row aligned: {path}')
             selected = select_rows(data, args.z_min, args.z_max, args.cutwin)
             data = {k: v for k, v in data.items() if k not in cutwin_only_columns}
+            dt_compute = dt_write = 0.0
             for start in range(0, len(selected), args.batch_size):
                 take = selected[start:start + args.batch_size]
                 batch = {k: v[take] for k, v in data.items()}
                 ids = register_ids(db, batch.pop('gal_id'))
+                t0 = time.time()
                 mags = compute(batch, **model, tcurves=curves, z_phot_table=grid,
                                column_names=column_names,
                                scatter_policy=args.scatter_policy, n_ssp_cols=n_ssp)
+                dt_compute += time.time() - t0
+                t0 = time.time()
                 writer.write_table(pa.Table.from_pydict({'serial_tag': ids, **mags}, schema=schema))
+                dt_write += time.time() - t0
             counts.append({'path': str(path.resolve()), 'selected_rows': len(selected),
                            'size_bytes': path.stat().st_size, 'mtime_ns': path.stat().st_mtime_ns})
             print(f'{path.name}: {len(selected):,} selected galaxies', flush=True)
+            print_cpu(dt_compute, 'COMPUTE_PHOT', len(selected))
+            print_cpu(dt_write, 'WRITE_PARQUET', len(selected))
             # Each patch has a different N_gal, so JAX JIT-compiles a new kernel per
             # patch; clear the cache to prevent unbounded growth over many patches.
             jax.clear_caches()
@@ -345,9 +371,10 @@ def build_photometry_curves(sedpy_ids, column_names):
 
 
 def main(argv=None):
+    t_start = time.time()
     cli = parse_args(argv)
     config = read_yaml(cli.config_file)
-    args = build_run_args(config, cli.wildcard)
+    args = build_run_args(config, cli.wildcard, cli.output_dir)
     args.catalog_dir = args.catalog_dir.resolve()
     if not args.catalog_dir.is_dir():
         raise ValueError('CATALOG_DIR must be an existing release directory')
@@ -363,10 +390,14 @@ def main(argv=None):
     patches = sorted(Path(p) for p in glob.glob(str(args.catalog_dir / pattern)))
     if not patches:
         raise FileNotFoundError(f'No {pattern} files in CATALOG_DIR')
+    t0 = time.time()
     model, cosmology, n_ssp = load_model(args, patches[0])
+    print_cpu(time.time() - t0, 'LOAD_MODEL')
     for patch in patches:
         check_patch_metadata(patch, cosmology, n_ssp)
+    t0 = time.time()
     curves = build_photometry_curves(args.sedpy_ids, args.column_names)
+    print_cpu(time.time() - t0, 'LOAD_FILTERS')
     grid = np.linspace(args.z_min, args.z_max, args.grid_size)
     args.output_dir.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.photometry-', dir=args.output_dir.parent) as temp:
@@ -398,6 +429,7 @@ def main(argv=None):
             raise FileExistsError(args.output_dir)
         work.rename(args.output_dir)
     print(f'Created {args.output_dir}/photometry.parquet')
+    print_cpu(time.time() - t_start, 'TOTAL', sum(p['selected_rows'] for p in counts))
 
     return
 

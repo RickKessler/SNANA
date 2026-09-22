@@ -6050,6 +6050,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   // Created July 24 2021 by R.Kessler [extracted from SALT2mu code]
   // Utility to compute sig_scat term in Eq 4 in https://arxiv.org/abs/2202.04077
   // from N_LIST  mu-residuals
+  //   CID          : CID of object (fot diagnostic only)
   //   MURES_LIST   : mu - mu(true,fit)
   //   MUCOV_LIST   : covariance per mu
   //   WGT_LIST     : weight per element (e.g., from REWGT option in biasCor)
@@ -6090,7 +6091,8 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   //  + new OPTMASK += 4 -> use 1.48*MAD instead of STDDEV
   //  + refactor/simplify to use new arrayStat_STD[MEDIAN]
   //
-  
+  // Sep 22 2026: increase MXSTORE_PULL 100 -> 110 to handle nbin_lo nbin_hi bins
+
   bool LABORT  = (OPTMASK &  1) == 0 ;
   bool USE_WGT = (OPTMASK &  2) > 0 ;   
   bool USE_MAD = (OPTMASK &  4) > 0 ;     // Jun 2, 2026
@@ -6105,9 +6107,9 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
   int    nbin_lo     = 50 ; // prep this many bins below sigint_approx
   int    nbin_hi     = 50 ; // idem above sigint_approx
-  
 
-#define MXSTORE_PULL 100
+  // xxx mark delete 9.22.2026  #define MXSTORE_PULL 100
+#define MXSTORE_PULL 110  // at least as large as nbin_lo + nbin_hi
 
   int MEMD =  sizeof(double) * N_LIST ;
   int i;
@@ -6194,21 +6196,18 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   }
 
   // start with largest sigInt and decrease so that STD is increasing     
-  // for the interp function below                                        
-  //for(sigTmp = sigTmp_hi; sigTmp >= sigTmp_lo; sigTmp -= sigint_bin ) {
-
+  // for the interp function below. 
+  // for(sigTmp = sigTmp_hi; sigTmp >= sigTmp_lo; sigTmp -= sigint_bin ) {
 
   sigTmp = sigTmp_hi;
   while ( !BOUND_ONE ) {
     
     if ( sigTmp < sigint_min ) {
       if ( LABORT ) {
-	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??",
-		sigint_min );
-	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d",
-		STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
+	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??", sigint_min );
+	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d", STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
-      } 
+      }
       else { 
 	return sigint_min; 
       }
@@ -6236,8 +6235,8 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
     }
    
     if ( LDMP ) {
-      printf(" xxx %s:   sqrt(covTMP) = %.3f  stdPull=%.3f \n",
-	     fnam, sqrt(covTmp), stdPull) ; fflush(stdout);
+      printf(" xxx %s: bin=%3d  covTMP=%.5f  covtot=%.5f  stdPull=%.4f \n",
+	     fnam, NBIN_SIGINT, covTmp, covtot, stdPull) ; fflush(stdout);
     }
 
     free(MUPULL_LIST); free(ABS_MUPULL_LIST);
@@ -6258,6 +6257,12 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
     if (NBIN_SIGINT >= MXSTORE_PULL) {
       print_preAbort_banner(fnam);
+
+      for(i=0; i < NBIN_SIGINT; i++ ) {
+	printf("\t NBIN_SIGINT=%3d: sigTmp=%8.4f  stdPull=%8.4f \n",
+	       i, sigTmp_store[i] , stdPull_store[i]  ); fflush(stdout);
+      } 
+
       sprintf(c1err,"NBIN_SIGINT=%d exceeds bound MXSTORE_PULL=%d",
 	      NBIN_SIGINT,MXSTORE_PULL);
       sprintf(c2err,"Increase bound or check array input");
@@ -6306,284 +6311,6 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   return sigint;
 
 } // end sigint_muresid_list
-
-
-// ======================================================
-double sigint_muresid_list_legacy(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
-				  double *WGT_LIST, int OPTMASK, char *callFun ) { 
-
-
-  // Created July 24 2021 by R.Kessler [extracted from SALT2mu code]
-  // Unility to compute sigint from N_LIST  mu-residuals
-  //   MURES_LIST   : mu - mu(true,fit)
-  //   MUCOV_LIST   : covariance per mu
-  //   WGT_LIST     : weight per element (e.g., from REWGT option in biasCor)
-  //
-  // Strategy is to make first pass over LIST and compute sigint_approx. 
-  // Then make another pass over LIST and compute STD_PULL on a grid of 
-  // sigint in small steps around sigint_approx. Finally, interpolate 
-  // sigint vs. STD_PULL at STD_PULL=1.0
-  //
-  // OPTMASK & 1 --> do not abort on negative sigint
-  //    will return negative sqrt(abs(arg)) as flag/quantitative info
-  //
-  // OPTMASK & 2 --> apply WGT_LIST to reweight each elment on list
-  //
-  //
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-  // OPTMASK & 32 --> implement test feature
-  // OPTMASK & 64 --> print debug dump
-  //
-  // *callFun is for error messages.
-  //
-  // Sep 27 2021
-  //   + implement debug dump with OPTMASK & 64
-  //   + reduce covtotfloor from 0.1^2 to 0.02^2
-  //
-  // May 2 2024
-  //  + if there is only 1 bin and |rmsPull-1| < 0.001, return sigTmp_store[0].
-  //
-  // May 10 2024
-  //   nbin_lo[hi] -> 50 (was 30) is hopefully a more robust fix for extra
-  //   lensing scatter, and for the May 2 hack.
-  //
-  // May 20 2024: add WGT_LIST arg (used if OPTMASK & 2 > 0)
-  // Jun 05 2024: WGT /= WGTMAX so that int(SUM_WGT) has less round off error
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  bool LABORT  = (OPTMASK &  1) == 0 ;
-  bool USE_WGT = (OPTMASK &  2) > 0 ;   
-  bool LTEST   = (OPTMASK & 32) > 0 ;
-  bool LDMP    = (OPTMASK & 64) > 0 ;
-  
-  int    OPT_INTERP  = 1 ;
-  double sigint_bin  = 0.01 ;
-  double sigint_min = -0.3 ;
-  double covtotfloor = 0.02*0.02 ; // protection for negative covtot
-  if ( LTEST ) { covtotfloor = 0.1*0.1; } // see -927 flag in SALT2mu
-
-  int    nbin_lo     = 50 ; // prep this many bins below sigint_approx
-  int    nbin_hi     = 50 ; // idem above sigint_approx
-  //  double XN          = (double)N_LIST;
-
-#define MXSTORE_PULL 100
-
-  int i, NEVT_EFFECTIVE ;
-  double STD_MURES_ORIG, SQMURES, MURES, MUCOV;
-  double WGTMAX = 0.0, WGT, SUM_WGT = 0.0 ;
-  double SUM_MUCOV = 0.0, SUM_MURES = 0.0, SUM_SQMURES=0.0 ;
-  double sigint = 0.0, sigint_approx, tmp;
-  double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  char fnam[200];
-  concat_callfun_plus_fnam(callFun, "sigint_muresid_list_legacy", fnam);
-  // ---------------- BEGIN -------------
-
-  // determine max wgt
-  if ( USE_WGT ) {
-    for ( i=0; i < N_LIST ; i ++ ) {
-      WGT = WGT_LIST[i];
-      if ( WGTMAX < WGT ) { WGTMAX = WGT; }
-    }
-  }
-  else {
-    WGTMAX = 1.0 ;
-  }
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  // - - - - - -
-  SUM_WGT = 0.0 ;
-  for ( i=0; i < N_LIST ; i ++ ) {
-    MURES    = MURES_LIST[i];
-    MUCOV    = MUCOV_LIST[i];
-    SQMURES  = MURES * MURES ;
-    if ( USE_WGT ) { WGT = WGT_LIST[i]; } else { WGT=1.0; }
-    WGT /= WGTMAX;  // avoid very small numbers 
-    
-    if ( MUCOV <= 0.0 ) {
-      sprintf(c1err,"Invalid MUCOV = %le ", MUCOV);
-      sprintf(c2err,"i=%d  MURES=%le", i, MURES);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ; 
-    }
-
-    SUM_MUCOV   += (WGT * MUCOV);
-    SUM_MURES   += (WGT * MURES);
-    SUM_SQMURES += (WGT * SQMURES);
-    SUM_WGT     += (WGT  ) ;
-  }
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  AVG_MURES = SUM_MURES / SUM_WGT ;
-  AVG_MUCOV = SUM_MUCOV / SUM_WGT ;
-  AVG_MUERR = sqrt(AVG_MUCOV);
-  NEVT_EFFECTIVE   = (int)(SUM_WGT+0.5) ;
-  // STD_MURES_ORIG = STD_from_SUMS(N_LIST, SUM_MURES, SUM_SQMURES);
-  STD_MURES_ORIG = STD_from_SUMS( NEVT_EFFECTIVE, SUM_MURES, SUM_SQMURES);
-
-  tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
-  
-  bool INVALID_SIGINT_APPROX = (STD_MURES_ORIG < AVG_MUERR);
-  if  ( INVALID_SIGINT_APPROX && LABORT ) {
-      sprintf(c1err,"Cannot compute sigint because STD < AVG_MUERR ??");
-      sprintf(c2err,"STD=%.3f, sqrt(AVG_COV)=%.3f  N=%d",
-	      STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
-  } // end INVALID_SIGINT && ABORT
-  
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  if (tmp<0) {
-    sigint_approx = 0.;
-  } else {
-    sigint_approx = sqrt(tmp);
-  }
-
-  // - - - - - - - 
-  // prepare interp-grid of sigint vs. RMS around sigint_approx.
-  
-  int    NBIN_SIGINT = 0 ;
-  double sigTmp_lo   = sigint_approx - (nbin_lo*sigint_bin) - 1.0E-7 ;
-  double sigTmp_hi   = sigint_approx + (nbin_hi*sigint_bin) ;
-  double sigTmp, covTmp, covtot ;
-  double pull, sum_pull, sum_sqpull ;
-  double sigTmp_store[MXSTORE_PULL], rmsPull_store[MXSTORE_PULL], rmsPull ;
-  double ONE = 1.0 ;
-
-  bool BOUND_ONE = false;
-  
-  if ( LDMP ) {
-    printf(" xxx - - - - - - - - - - - - \n");
-    printf(" xxx %s: debug dump for %s\n", fnam, callFun);
-    printf(" xxx %s: AVG[MURES,MUCOV,MUERR] = %.3f, %.5f, %.3f \n",
-	   fnam, AVG_MURES, AVG_MUCOV, AVG_MUERR);
-    printf(" xxx %s: STD(MURES_ORIG) = %.3f \n", 
-	   fnam, STD_MURES_ORIG);
-    printf(" xxx %s: sigint[approx, (lo-hi)] = %.3f,  (%.3f to %.3f) \n",
-	   fnam, sigint_approx, sigTmp_lo, sigTmp_hi);
-    fflush(stdout);
-  }
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  // start with largest sigInt and decrease so that RMS is increasing     
-  // for the interp function below                                        
-  //for(sigTmp = sigTmp_hi; sigTmp >= sigTmp_lo; sigTmp -= sigint_bin ) {
-  //printf("xxx RMS_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f sigTmp_hi=%f\n",
-  //	 RMS_MURES_ORIG,sqrt(AVG_MUCOV),sigTmp_hi);
-  sigTmp = sigTmp_hi;
-  while (!BOUND_ONE){
-    
-    if ( sigTmp < sigint_min ) {
-      if ( LABORT ) {
-	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??",
-		sigint_min );
-	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d",
-		STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
-	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
-      } 
-      else { 
-	return sigint_min; 
-      }
-    }
-
-    // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-    
-    sum_pull = sum_sqpull = 0.0 ;
-    covTmp = sigTmp * fabs(sigTmp) ;
-
-    SUM_WGT = 0.0 ;
-    
-    for(i=0; i < N_LIST; i++ ) {
-
-      if ( USE_WGT ) { WGT = WGT_LIST[i]; }   else { WGT=1.0; }
-      WGT /= WGTMAX ;
-      
-      covtot = MUCOV_LIST[i] + covTmp;
-      if ( covTmp < 0  &&  covtot < covtotfloor ) { covtot = covtotfloor; }
-      pull        = (MURES_LIST[i] - AVG_MURES) / sqrt(covtot);
-      sum_pull   += ( WGT * pull ) ;
-      sum_sqpull += ( WGT * pull * pull);
-      SUM_WGT    += WGT ;
-    }
-
-    // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-    
-    // xxx     rmsPull = STD_from_SUMS(N_LIST, sum_pull, sum_sqpull);
-
-    NEVT_EFFECTIVE = (int)(SUM_WGT+0.5) ;
-    rmsPull = STD_from_SUMS( NEVT_EFFECTIVE, sum_pull, sum_sqpull);
-    if ( rmsPull == 0.0 ) { debugexit("xxx rmsPull = 0");  }
-
-    if (NBIN_SIGINT < MXSTORE_PULL) {
-       rmsPull_store[NBIN_SIGINT] = rmsPull;
-       sigTmp_store[NBIN_SIGINT]  = sigTmp ;
-    }
-
-    NBIN_SIGINT++ ;
-
-    // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-    if (NBIN_SIGINT >= MXSTORE_PULL) {
-      print_preAbort_banner(fnam);
-      sprintf(c1err,"NBIN_SIGINT=%d exceeds bound MXSTORE_PULL=%d",
-	      NBIN_SIGINT,MXSTORE_PULL);
-      sprintf(c2err,"Increase bound or check array input");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;             
-    }
-    
-    sigTmp -= sigint_bin;
-
-    if (rmsPull>1.0){ BOUND_ONE = true; }
-
-  } // end sigTmnp loop
-
-
-  // - - - - -
-  if ( NBIN_SIGINT == 1 && fabs(rmsPull_store[0]-1.0) < 0.001 )
-    { return sigTmp_store[0] ; }      // May 2 2024 
-
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
- 
-  bool ONE_TEST = ONE >= rmsPull_store[0] && ONE <= rmsPull_store[NBIN_SIGINT-1];
-  if (!ONE_TEST){ 
-    print_preAbort_banner(fnam);
-    printf("  sigTmp_store range is %f to %f \n", 
-	   sigTmp_store[0],sigTmp_store[NBIN_SIGINT-1]);
-    printf("  NBIN_SIGINT=%d N_EVT=%d sigint_approx=%f\n", 
-	   NBIN_SIGINT, N_LIST, sigint_approx );
-    printf("  STD_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
-	   STD_MURES_ORIG, sqrt(AVG_MUCOV) );
-    sprintf(c1err,"ONE NOT CONTAINED by rmsPull_store array" );
-    sprintf(c2err,"rmsPull_store range is %f to %f",
-	    rmsPull_store[0],rmsPull_store[NBIN_SIGINT-1]);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
-  }
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  // interpolate sigInt vs. rmsPull at rmsPull=1                          
-  sigint = interp_1DFUN(OPT_INTERP, ONE, NBIN_SIGINT,
-			rmsPull_store, sigTmp_store, fnam);
-
-  if ( LDMP ) {
-    printf(" xxx %s: sigint(approx->final) = "
-	   "%.4f -> %.4f  (<MURES>=%f)\n",
-	   fnam, sigint_approx, sigint, AVG_MURES);
-    printf(" xxx \n");
-    fflush(stdout) ;
-  }
-
-  // @@@@@@@@@@@@@@@@@ LEGACY sigint_muresid_list_legacy @@@@@@@@@@@@@@@@@
-
-  return sigint;
-
-} // end sigint_muresid_list_legacy
 
 
 // =============================================

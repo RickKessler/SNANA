@@ -10992,7 +10992,7 @@ void match_fieldGroup(char *SNID, char *FIELD,
   int  NMATCH_TOT, NMATCH_FIELD, igroup, NFIELD_OVP, ifield ;
   char *FTMP_GRP, *FTMP_EVT, fieldList[MXFIELD_OVERLAP][MXCHAR_CCID] ;
 
-  int LDMP = ( strcmp(SNID,"234490") == 0 );
+  int LDMP = 0; // ( strcmp(SNID,"234490") == 0 );
   char fnam[] = "match_fieldGroup" ;
 
   // ----------- BEGIN ------------
@@ -13418,6 +13418,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       if ( i1d == INPUTS.debug_mucovscale ) {
 	OPTMASK += 64;
 	printf(" xxx %s: ========================================= \n", fnam);
+	printf(" xxx %s: i1d=%d  IDSAMPLE=%d(%s) \n", 
+	       fnam, i1d, IDSAMPLE, SAMPLE_BIASCOR[IDSAMPLE].NAME );
 	printf(" xxx %s: ptr_MUCOVSCALE[%d] = %f   NperCell=%d\n", 
 	       fnam, i1d, ptr_MUCOVSCALE[i1d], N );
 	printf(" xxx %s: SIG_PULL_[STD,MAD][%d] = %f, %f \n",
@@ -13425,7 +13427,6 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
         sprintf(callfun,"%s(i1d=%d)", fnam, i1d); 
       }
       
-
       if ( INPUTS.restore_sn_unite ) 
 	{ (void)OPTMASK  ; }  //  do nothing
       else 
@@ -15933,7 +15934,7 @@ void write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muBias_list
     if ( !USE ) { continue; }
 
     sprintf(line,"SN: "
-	    "%4d %4d %4d  "       // ROW bin Ncell
+	    "%4d %4d %5d  "       // ROW bin Ncell
 	    "%5.3f %6.3f %6.3f "    // zMEAN cMEAN mMEAN
 	    "%7.3f %7.4f"              // MUCOVSCALE MUCOVADD
 	    ,i1d, i1d

@@ -5509,7 +5509,6 @@
 
         LDEBUG = .FALSE.
         if ( LDEBUG ) then
-        ! .xyz
            MJD  = R8EP_MJD(IFITDATA_USRFUN)          ! ,  IFILT_OBS 
            if ( abs(MJD - 62453.3946) < 0.001 .and. SNLC_CID == 1793194) then 
               OPTMASK = OPTMASK + 8
@@ -14527,7 +14526,7 @@
     FLUXERR = -9.0
 
     cfilt1     = filtdef_string(ifilt:ifilt)
-    WAVECOR    = 0.0 ! .xyz
+    WAVECOR    = 0.0 
     CFRAME_LOC = CFRAME
 
     LOBS  = .FALSE.
@@ -14733,7 +14732,7 @@
 
 ! get reference fluxes to computer deriviates below.
 
-    WAVECOR1 = 0.0  ! .xyz ??
+    WAVECOR1 = 0.0 
     WAVECOR2 = 0.0 
     Flux1   =  GET_FLUX_FITFUN ( ifilt1, T1, WAVECOR1, OPT )
     Flux2   =  GET_FLUX_FITFUN ( ifilt2, T2, WAVECOR2, OPT )
@@ -19621,8 +19620,10 @@
 ! Prepare table for SALT2 spectra computed from LC fit params.
 ! 
 ! Mar 21 2022: compute TBLSPEC_MAG_MODEL[_ERR] for each band and MJD
-! Sep 01 2206: RK: pass WAVECOR arg to getSpec_band_SALT2()
-!
+! Sep 01 2026: RK: pass WAVECOR arg to getSpec_band_SALT2()
+! Sep 23 2026: 
+!    + change table name from SPECTRA to MODELSPEC;
+!    + abort if no ROOTFILE
 ! -------------------------------
 
     USE SNDATCOM
@@ -19641,20 +19642,28 @@
     INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
     REAL    Tobs, z, x0, x1, c, MWEBV
     REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
-    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20
-
+    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20, FNAM*20
+    
 ! function
     INTEGER  getSpec_band_SALT2
     EXTERNAL getSpec_band_SALT2
 ! ----------------- BEGIN ------------------------
 
+    FNAM = 'TABLE_SNSPEC_SALT2'
     ID = IDTABLE_MODELSPEC
 
 ! ----------------------------------
 
     IF ( ISN .EQ. 0 ) THEN
 
-       TBNAME   = 'SPECTRA' // char(0)
+       if ( .not. USE_TABLEFILE_ROOT ) then
+          C1ERR = 'MODELSPEC table requires ROOT file output;'
+          C2ERR = 'Must specify ROOTFILE_OUT in &SNLCINP'
+          CALL MADABORT(FNAM, C1ERR, C2ERR)          
+       endif
+
+       ! xxx mark delete 9.23.2026  TBNAME   = 'SPECTRA' // char(0)
+       TBNAME   = 'MODELSPEC' // char(0)  
        LENTB    = INDEX(TBNAME,   ' ') - 1
 
        LENPG    = 12
@@ -19724,7 +19733,7 @@
           write(C1ERR,661) NBLAM_TBLSPEC, MXLAM_TBLSPEC
 661         format('NBLAM=',I5,' exceeds bound of ', I5)
           c2err = 'Check MXLAM_TBLSPEC'
-          CALL MADABORT('TABLE_SNSPEC_SALT2', C1ERR, C2ERR)
+          CALL MADABORT(FNAM, C1ERR, C2ERR)
         ENDIF
 
         IF ( NBLAM_TBLSPEC > 0 ) THEN

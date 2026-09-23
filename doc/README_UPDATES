@@ -24259,6 +24259,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          https://github.com/RickKessler/SNANA/issues/1792
          https://github.com/RickKessler/SNANA/issues/1793
 
+    snlc_fit.F90
+      + in subroutine TABLE_SNSPEC_SALT2, (1) abort if no root file, and
+        (2) change SPECTRA table name to MODELSPEC.
+
 END:
 
 

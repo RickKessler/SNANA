@@ -24254,6 +24254,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     diffsky_synthetic_photometry.py
        + continued refactor to remove explicit DES/DECam dependence from code
  
+    SALT2mu.c:
+       Fix subtle algorithm bug in sigint_mures_list():
+         https://github.com/RickKessler/SNANA/issues/1792
+         https://github.com/RickKessler/SNANA/issues/1793
+
 END:
 
 

@@ -6050,19 +6050,19 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   // Created July 24 2021 by R.Kessler [extracted from SALT2mu code]
   // Utility to compute sig_scat term in Eq 4 in https://arxiv.org/abs/2202.04077
   // from N_LIST  mu-residuals
-  //   CID          : CID of object (fot diagnostic only)
   //   MURES_LIST   : mu - mu(true,fit)
   //   MUCOV_LIST   : covariance per mu
   //   WGT_LIST     : weight per element (e.g., from REWGT option in biasCor)
   //
   // 
-  // Strategy is to make first pass over LIST and compute sigint_approx. 
+  // Strategy is to make first pass over LISTs and compute sigint_approx. 
   // Then make another pass over LIST and compute STD_PULL on a grid of 
   // sigint in small steps around sigint_approx. Finally, interpolate 
   // sigint vs. STD_PULL at STD_PULL=1.0
   //
-  // OPTMASK & 1 --> do not abort on negative sigint
-  //    will return negative sqrt(abs(arg)) as flag/quantitative info
+  // OPTMASK & 1 --> allow negative covint (i.e. do not abort);
+  //                  return negative sqrt(abs(cov)) to give value
+  //                  and flag for sign of cov.
   //
   // OPTMASK & 2 --> apply WGT_LIST to reweight each elment on list
   //
@@ -6091,25 +6091,26 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   //  + new OPTMASK += 4 -> use 1.48*MAD instead of STDDEV
   //  + refactor/simplify to use new arrayStat_STD[MEDIAN]
   //
-  // Sep 22 2026: increase MXSTORE_PULL 100 -> 110 to handle nbin_lo nbin_hi bins
+  // Sep 22 2026: 
+  //   + increase MXSTORE_PULL 100 -> 110 to handle nbin_lo nbin_hi bins
+  //   + use LTEST to fix subtle convergence issues (debug_flag=922 in SALT2mu)
+  //       + sigint_min should be sigTmp_lo (smallest grid value)
+  //       + nbin_hi = 50 -> 60
 
   bool LABORT  = (OPTMASK &  1) == 0 ;
   bool USE_WGT = (OPTMASK &  2) > 0 ;   
   bool USE_MAD = (OPTMASK &  4) > 0 ;     // Jun 2, 2026
-  bool LTEST   = (OPTMASK & 32) > 0 ;
+  bool LTEST   = (OPTMASK & 32) > 0 ;  (void)LTEST;
   bool LDMP    = (OPTMASK & 64) > 0 ;
   
   int    OPT_INTERP  = 1 ;
   double sigint_bin  = 0.01 ;
-  double sigint_min = -0.3 ;
+  double sigint_stop ;
   double covtotfloor = 0.02*0.02 ; // protection for negative covtot
-  if ( LTEST ) { covtotfloor = 0.1*0.1; } // see -927 flag in SALT2mu
 
   int    nbin_lo     = 50 ; // prep this many bins below sigint_approx
-  int    nbin_hi     = 50 ; // idem above sigint_approx
-
-  // xxx mark delete 9.22.2026  #define MXSTORE_PULL 100
-#define MXSTORE_PULL 110  // at least as large as nbin_lo + nbin_hi
+  int    nbin_hi     = 60 ; // idem above sigint_approx
+#define MXSTORE_PULL 120  // at least as large as nbin_lo + nbin_hi
 
   int MEMD =  sizeof(double) * N_LIST ;
   int i;
@@ -6118,8 +6119,11 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   double sigint = 0.0, sigint_approx, tmp;
   double AVG_MUCOV, AVG_MUERR, AVG_MURES ;
   double *ABS_MURES_LIST ;
-  char fnam[200];
+  char fnam[200];  
   concat_callfun_plus_fnam(callFun, "sigint_muresid_list", fnam);
+
+  bool LEGACY_ALGORITHM = false;
+  if ( LTEST ) LEGACY_ALGORITHM = true; // temp revert, 9.22.2026
 
   // ---------------- BEGIN -------------
 
@@ -6166,10 +6170,14 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   
 
   tmp = STD_MURES_ORIG*STD_MURES_ORIG - AVG_MUCOV ;
-  if (tmp < 0 ) 
-    { sigint_approx = 0.;  } 
+  if (tmp < 0 ) {
+    sigint_approx = -sqrt(fabs(tmp)) ; // fixed 9.22.2026
+    if ( LEGACY_ALGORITHM ) { sigint_approx = 0. ; }
+  }
   else 
     { sigint_approx = sqrt(tmp);  }
+
+  // Sep 22 2026
 
   // - - - - - - - 
   // prepare interp-grid of sigint vs. RMS around sigint_approx.
@@ -6199,17 +6207,21 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   // for the interp function below. 
   // for(sigTmp = sigTmp_hi; sigTmp >= sigTmp_lo; sigTmp -= sigint_bin ) {
 
-  sigTmp = sigTmp_hi;
+  sigTmp      = sigTmp_hi;
+  sigint_stop = sigTmp_lo;  // stop when reaching this limit
+
+  if ( LEGACY_ALGORITHM ) { sigint_stop = -0.3 ; }
+
   while ( !BOUND_ONE ) {
     
-    if ( sigTmp < sigint_min ) {
+    if ( sigTmp < sigint_stop ) {
       if ( LABORT ) {
-	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??", sigint_min );
+	sprintf(c1err,"Cannot compute sigint because sig trial < %f ??", sigint_stop );
 	sprintf(c2err,"STD=%le, sqrt(AVG_COV)=%le  N=%d", STD_MURES_ORIG, sqrt(AVG_MUCOV), N_LIST );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;       
       }
       else { 
-	return sigint_min; 
+	return sigint_stop; 
       }
     }
     
@@ -6283,7 +6295,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
  
   bool ONE_TEST = (ONE >= stdPull_store[0]) && (ONE <= stdPull_store[NBIN_SIGINT-1]) ;
-  if (!ONE_TEST){ 
+  if ( !ONE_TEST ) { 
     print_preAbort_banner(fnam);
     printf("  sigTmp_store range is %f to %f \n", 
 	   sigTmp_store[0],sigTmp_store[NBIN_SIGINT-1]);
@@ -6291,7 +6303,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 	   NBIN_SIGINT, N_LIST, sigint_approx );
     printf("  STD_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
 	   STD_MURES_ORIG, sqrt(AVG_MUCOV) );
-    sprintf(c1err,"ONE NOT CONTAINED by stdPull_store array" );
+    sprintf(c1err,"ONE is NOT CONTAINED by stdPull_store array" );
     sprintf(c2err,"stdPull_store range is %f to %f",
 	    stdPull_store[0], stdPull_store[NBIN_SIGINT-1]);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;

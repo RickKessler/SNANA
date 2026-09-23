@@ -13432,6 +13432,8 @@ void makeMap_sigmu_biasCor(int IDSAMPLE) {
       else 
 	{ OPTMASK += 4; }   // enable new MAD feature in REFAC code
 
+      if ( INPUTS.debug_flag == -922 ) { OPTMASK += 32 ; } // test mode
+
       sigInt =  
 	sigint_muresid_list(N, 
 			    CELL_MUCOVADD->MURES[i1d],

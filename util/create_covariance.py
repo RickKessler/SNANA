@@ -1870,7 +1870,10 @@ def write_standard_output(config, args, covsys_list, base,
                     f"one matched contribution (e.g. an EXTRA_COV file) "
                     f"cannot be represented as a rank-1 vector ***")
             else:
-                base_file = get_cov_filename(i, PREFIX_COVFACTORIZED, args.write_format_cov)
+                # always npz regardless of --write_format_cov: write_covariance_factorized()
+                # calls np.savez() unconditionally, so the recorded filename must match that,
+                # not whatever dense-cov format (text/csv) the user selected (bug fix, Sep 2026)
+                base_file = get_cov_filename(i, PREFIX_COVFACTORIZED, WRITE_FORMAT_COV_NPZ)
                 cov_file  = outdir / base_file
                 t_write   = write_covariance_factorized(
                     cov_file, base[VARNAME_MUERR].to_numpy()**2, U, vec_labels)
@@ -2529,7 +2532,8 @@ def write_summary_output(args, config, covsys_list, base, factorized_list=None):
         if config.get('write_factorized', False) and factorized_list is not None:
             _, _, _, incomplete = factorized_list[i]
             if not incomplete:
-                covfactorized_file = get_cov_filename(i, PREFIX_COVFACTORIZED, args.write_format_cov)
+                # always npz; see matching comment in write_standard_output()
+                covfactorized_file = get_cov_filename(i, PREFIX_COVFACTORIZED, WRITE_FORMAT_COV_NPZ)
 
         covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}   {covfactorized_file}"
         if i==0:

@@ -71,7 +71,6 @@ void  print_cputime(time_t t0, char *key_cputime, char *unit_time, int nevt) {
   // check option to report time per event
   char msg[100];
   double rate = 0.0 ;
-  // xxx mark del 6.26.2026  if ( strstr(key_cputime,STRING_CPUTIME_PROC_RATE) !=NULL ) {
   if ( strstr(key_cputime,"RATE") !=NULL ) {
     if ( dt > 0.0 )  { rate = (double)nevt / dt ; }
     sprintf(msg,"%-20s = %.3f %s^-1", key_cputime, rate, unit_time);
@@ -5795,64 +5794,6 @@ int  getList_PATH_SNDATA_SIM(char **pathList) {
 
 } // end getList_PATH_SNDATA_SIM
 
-/* xxxxxxx mark delete Jun 2 2026 xxxxxxxxxxxx
-// =============================================================
-void arrayStat_legacy(int N, double *array, double *AVG, double *STD, double *MEDIAN) {
-
-  // For input *array return *AVG and *STD
-  // Jun 2 2020: include MEDIAN in output
-  // Jul 21 2021: rename RMS -> STD to avoid confusion.
-  // Sep 30 2021: fix median calc based on odd or even N
-
-  int i;
-  double XN, val, avg, sum, sqsum, std, median ;
-
-  // ----------- BEGIN ------------
-
-  *AVG = *STD = *MEDIAN = 0.0 ;
-  if ( N <= 0 ) { return ; }
-
-  avg  = std = sqsum = sum = median = 0.0 ;
-  XN   = (double)N ;
-
-  for ( i=0; i < N; i++ ) 
-    { val=array[i] ; sum += val; sqsum += (val*val); }
-
-  avg = sum/XN ; 
-  std = STD_from_SUMS(N, sum, sqsum);
-
-  // for median, sort list and them median is middle element
-  int ORDER_SORT  = +1;
-  int *INDEX_SORT = (int*) malloc( N * sizeof(int) ) ;
-  int imed0, imed1, iHalf       = N/2;
-  sortDouble(N, array, ORDER_SORT, INDEX_SORT );
-
-  if ( N%2 == 1 ) { 
-    // odd number of elements -> use middle value
-    imed0   = INDEX_SORT[iHalf];
-    median  = array[imed0]; 
-  }
-  else {
-    // even number of elements; average middle two values
-    imed0 = INDEX_SORT[iHalf-1];
-    imed1 = INDEX_SORT[iHalf];
-    median  = 0.5 * ( array[imed0] + array[imed1] );
-  }
-  
-
-  // load output array.
-  *AVG    = avg ;
-  *STD    = std ;
-  *MEDIAN = median;
-
-  return ;
-} // end of arrayStat_legacy
-
-void arraystat_legacy__(int *N, double *array, double *AVG, double *STD, 
-			double *MEDIAN) 
-{ arrayStat_legacy(*N, array, AVG, STD, MEDIAN); }
-
-xxxxxxxxxxxx end mark xxxxxxxxx */
 
 void test_arrayStat(void) {
 
@@ -6096,6 +6037,8 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   //   + use LTEST to fix subtle convergence issues (debug_flag=922 in SALT2mu)
   //       + sigint_min should be sigTmp_lo (smallest grid value)
   //       + nbin_hi = 50 -> 60
+  //  + if first try results in stdPull > 1, increase sigma and start over;
+  //     follow new variable N_ADJUST_SIGINT_HI
 
   bool LABORT  = (OPTMASK &  1) == 0 ;
   bool USE_WGT = (OPTMASK &  2) > 0 ;   
@@ -6182,15 +6125,15 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   // - - - - - - - 
   // prepare interp-grid of sigint vs. RMS around sigint_approx.
   
-  int    NBIN_SIGINT = 0 ;
+  int    NBIN_SIGINT = 0,  N_ADJUST_SIGINT_HI = 0;
   double sigTmp_lo   = sigint_approx - (nbin_lo*sigint_bin) - 1.0E-7 ;
   double sigTmp_hi   = sigint_approx + (nbin_hi*sigint_bin) ;
   double sigTmp, covTmp, covtot, pull ;
   double sigTmp_store[MXSTORE_PULL], stdPull_store[MXSTORE_PULL], stdPull, avgPull ;
   double ONE = 1.0 ;
-
   bool BOUND_ONE = false;
   
+
   if ( LDMP ) {
     printf(" xxx - - - - - - - - - - - - \n");
     printf(" xxx %s: debug dump for %s with N_LIST=%d \n", fnam, callFun, N_LIST );
@@ -6253,6 +6196,18 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
 
     free(MUPULL_LIST); free(ABS_MUPULL_LIST);
 
+    // 9.23.2026: on first trial with max sigint, if corresponding min stdPull is > 1
+    // then there is no hope to find bins with stdPull < 1 and > 1 since stdPull
+    // can only increase. In this case, increase sigTmp_hi
+    if ( NBIN_SIGINT == 0 && N_ADJUST_SIGINT_HI == 0 && stdPull > 1.0 ) {
+      double delta_sigTmp = (stdPull-1.0) + 0.1 ;
+      sigTmp += delta_sigTmp;
+      printf(" WARNING: min stdPull = %.2f (N_LIST=%d) -> try fix with %.3f increase in max(sigint) \n",
+	     stdPull, N_LIST, delta_sigTmp); fflush(stdout);
+      N_ADJUST_SIGINT_HI++ ;
+      continue ;
+    }
+
     // - - - - 
     if ( stdPull == 0.0 ) {
       sprintf(c1err,"Invalid stdPull = %f", stdPull);
@@ -6260,7 +6215,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err) ;
     }
 
-    if (NBIN_SIGINT < MXSTORE_PULL) {
+    if ( NBIN_SIGINT < MXSTORE_PULL) {
        stdPull_store[NBIN_SIGINT] = stdPull;
        sigTmp_store[NBIN_SIGINT]  = sigTmp ;
     }
@@ -6298,11 +6253,12 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   if ( !ONE_TEST ) { 
     print_preAbort_banner(fnam);
     printf("  sigTmp_store range is %f to %f \n", 
-	   sigTmp_store[0],sigTmp_store[NBIN_SIGINT-1]);
-    printf("  NBIN_SIGINT=%d N_EVT=%d sigint_approx=%f\n", 
-	   NBIN_SIGINT, N_LIST, sigint_approx );
+	   sigTmp_store[0], sigTmp_store[NBIN_SIGINT-1]);
+    printf("  NBIN_SIGINT=%d N_LIST=%d sigint_approx=%f  sigint(lo,hi) = %.3f,%.3f \n", 
+	   NBIN_SIGINT, N_LIST, sigint_approx, sigTmp_lo, sigTmp_hi );
     printf("  STD_MURES_ORIG=%f sqrt(AVG_MUCOV)=%f\n", 
 	   STD_MURES_ORIG, sqrt(AVG_MUCOV) );
+
     sprintf(c1err,"ONE is NOT CONTAINED by stdPull_store array" );
     sprintf(c2err,"stdPull_store range is %f to %f",
 	    stdPull_store[0], stdPull_store[NBIN_SIGINT-1]);
@@ -8839,8 +8795,6 @@ int init_SNDATA_EVENT(void) {
 
   // --------- BEGIN -----------------
 
-  // xxx mark delete  sprintf(FLUXUNIT, "ADU");
-
   sprintf(SNDATA.NAME_IAUC,      "UNKNOWN" );
   sprintf(SNDATA.NAME_TRANSIENT, "UNKNOWN" );
   sprintf(SNDATA.AUXHEADER_FILE, "UNKNOWN" );
@@ -8856,15 +8810,6 @@ int init_SNDATA_EVENT(void) {
   SNDATA.DEC_AVG = NULLFLOAT ;
   SNDATA.FAKE    = NULLINT ;
   SNDATA.MWEBV   = NULLFLOAT ;
-
-  /* xxx mark delete Aug 17 2026 : move to global
-  SNDATA.WRFLAG_BLINDTEST     = false ; 
-  SNDATA.WRFLAG_PHOTPROB      = false ;
-  SNDATA.WRFLAG_ATMOS         = false ;
-  SNDATA.WRFLAG_SPECTRA       = true  ;
-  SNDATA.WRFLAG_DETINFO       = false ;
-  xxxxxxx end mark */
-
   SNDATA.SNTYPE = 0 ;
 
   SNDATA.FILTCHAR_1D[0] = 0 ;
@@ -9029,11 +8974,6 @@ int init_SNDATA_EVENT(void) {
   // epoch info
 
   SNDATA.HAS_TEXPOSE = false;
-  /* xxxxxx mark del Aug 2026 xxxxx
-  SNDATA.HAS_IMGNUM  = false;
-  SNDATA.HAS_DETNUM  = false;
-  SNDATA.HAS_XYPIX   = false;
-  xxxxxxxxx */
 
   // avoid wasting time with loop over huge MXEPOCH; use NEP_LOCAL
   int MXEP_LOCAL = NEP_LAST;
@@ -9445,7 +9385,6 @@ int  fluxcal_SNDATA ( int iepoch, double zp_fluxcal, char *magfun, int opt ) {
   VALID_MAGFUN = 0;
 
   ZP        = SNDATA.ZEROPT[iepoch];
-  // xxx mark  ZP_err    = SNDATA.ZEROPT_ERR[iepoch];
   ZP_sig    = SNDATA.ZEROPT_SIG[iepoch];
   flux      = SNDATA.FLUX[iepoch];
   flux_err  = SNDATA.FLUX_ERRTOT[iepoch];
@@ -9817,8 +9756,6 @@ void read_YAML_VALS(char *fileName, char *keystring_list, char *key_stop, char *
   // add colon for each key, and init val_list
   for(k=0; k < n_key; k++ ) {
     if ( strstr(key_list[k],COLON) == NULL ) { strcat(key_list[k],COLON); }
-    // xxx mark     len = strlen(key_list[k]);
-    // xxx mark    sprintf(&key_list[k][len], ":") ;
     val_list[k] = -999.0 ;
   }
 
@@ -10358,8 +10295,6 @@ void find_pathfile(char *fileName, char *PATH_LIST, char *FILENAME, char *funCal
 
   // free memory
   fmem = malloc_strlist(-1, MXPATH_CHECK, MXPATHLEN, &PATH );
-
-  // xxx mark  for(ipath=0; ipath < MXPATH_CHECK; ipath++ )  { free(PATH[ipath]); }
 
 
   return;

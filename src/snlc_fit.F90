@@ -1580,7 +1580,7 @@
 
     if ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
        IF ( OPT_TABLE(ITABLE_MODELSPEC) > 0 ) then
-          CALL TABLE_SNSPEC_SALT2(0)
+          CALL TABLE_MODELSPEC_SALT2(0)
        ENDIF
        IF ( LDMPFCN(0) ) then
           OPT_TABLE(ITABLE_DMPFCN) = 1 ! auto-enable this table
@@ -2334,7 +2334,7 @@
 
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
        if ( OPT_TABLE(ITABLE_MODELSPEC) > 0 ) then
-          CALL TABLE_SNSPEC_SALT2(isn)
+          CALL TABLE_MODELSPEC_SALT2(isn)
        endif
     ENDIF
 
@@ -19615,7 +19615,7 @@
   END SUBROUTINE INIT_TABLE_DMPFCN
 
 ! ===================================================
-    SUBROUTINE TABLE_SNSPEC_SALT2(isn)
+    SUBROUTINE TABLE_MODELSPEC_SALT2(isn)
 ! 
 ! Prepare table for SALT2 spectra computed from LC fit params.
 ! 
@@ -19642,14 +19642,14 @@
     INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
     REAL    Tobs, z, x0, x1, c, MWEBV
     REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
-    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20, FNAM*20
+    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20, FNAM*24
     
 ! function
     INTEGER  getSpec_band_SALT2
     EXTERNAL getSpec_band_SALT2
 ! ----------------- BEGIN ------------------------
 
-    FNAM = 'TABLE_SNSPEC_SALT2'
+    FNAM = 'TABLE_MODELSPEC_SALT2'
     ID = IDTABLE_MODELSPEC
 
 ! ----------------------------------
@@ -19675,7 +19675,7 @@
 
        CALL SNTABLE_CREATE(ID, TBNAME, PGNAME, TEXTFMT_forC, LENTB, LENPG, LENFMT)  ! C fun
 
-       CALL INIT_TABLE_SNSPECVAR(ID, 'SNSPEC' )
+       CALL INIT_TABLE_MODELSPECVAR(ID, 'MODELSPEC' )
 
       RETURN
     ENDIF
@@ -19747,10 +19747,10 @@
 ! ------------------------------------
 
     RETURN
-  END SUBROUTINE TABLE_SNSPEC_SALT2
+  END SUBROUTINE TABLE_MODELSPEC_SALT2
 
 ! =====================================
-    SUBROUTINE INIT_TABLE_SNSPECVAR(ID,BLOCK)
+    SUBROUTINE INIT_TABLE_MODELSPECVAR(ID,BLOCK)
 ! 
 ! Created Nov 18 2016
 ! 
@@ -19895,7 +19895,7 @@
               VARNAME, 0, LENBLOCK, 20)
 
     RETURN
-  END SUBROUTINE INIT_TABLE_SNSPECVAR
+  END SUBROUTINE INIT_TABLE_MODELSPECVAR
 
 
 ! ===============================

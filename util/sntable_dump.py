@@ -26,9 +26,11 @@
 #   + call print_elapse_time for VERBOSE mode
 #   + for combine_fitres.exe call in append mode, add 't' argument to 
 #     write only text output and avoid writing useless ROOT file.
-
+#
 # May 30 2024
 #   + Used program_exists to ensure exectuable exists.
+#
+# Sep 24 2026:  allow comma-sep or space sep varlist
 # ===================
 
 import os, sys, argparse, yaml, datetime 
@@ -75,8 +77,8 @@ def get_args():
     msg = "List possible table names"
     parser.add_argument("-l", "--list_tables", help=msg, action="store_true")
 
-    msg = "comma-sep list of variables to extract"
-    parser.add_argument("-v", "--varlist", help=msg, nargs='?', 
+    msg = "list of variables to extract (comma-sep or space-sep)"
+    parser.add_argument("-v", "--varlist", help=msg, nargs='+', 
                         type=str, default=None)
 
     msg = "Extract data-fit outliers with Nsig_min < |PULL| < Nsig_max"
@@ -123,16 +125,22 @@ def list_tables():
 def insert_ccid_varlist(args):
 
     # append CCID to varlist, and remove commas
+    # Sep 24 2026: allow comma-sep or space sep varlist
 
     # bail if CCID is already in varlist
     varlist = args.varlist
     if varlist is None : return None
 
+
+    varlist_string = ' '.join(varlist)
+
     if VARNAME_CCID in varlist: return varlist
 
-    varlist_new = f"{VARNAME_CCID},{varlist}"
+    varlist_new = f"{VARNAME_CCID},{varlist_string}"
 
     varlist_new = varlist_new.replace(',',' ')
+
+    # sys.exit(f"\n xxx varlist_string = {varlist_string} \n xxx varlist_new = {varlist_new}")
 
     # replace commas with spaces for C program
     return varlist_new

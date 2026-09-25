@@ -58,6 +58,7 @@
         ,LUNSPEC   = 37   &  ! to write reformatted SPEC
         ,LUNLIST2  = 47  & 
         ,LUNIGNORE2= 48  & 
+        ,LUNDUMP   = 49  &
         ,ISTAGE_INIT    = 10        &  ! init has finished
         ,ISTAGE_RDSN    = 20        &  ! SN have been read
         ,ISTAGE_CUTS    = 30        &  ! cuts have been applied
@@ -260,6 +261,7 @@
         ,SNDATA_PATH*(MXCHAR_PATH)       &  ! subdir with data or sim files
         ,SNLIST_FILE*(MXCHAR_FILENAME)   &  ! input list of SNDATA Files
         ,SNREADME_FILE(MXVERS)*(MXCHAR_FILENAME)    &  ! name of EVERY README file
+        ,SIMGEN_DUMP_FILE(MXVERS)*(MXCHAR_FILENAME) &  ! name of SIMGEN_DUMP file (9.2026)
         ,SNDATA_FILE_CURRENT*(MXCHAR_FILENAME)      &  ! current file being read
         ,GLOBAL_BANNER*120  & 
         ,SNDATA_PREFIX*(MXCHAR_FILENAME)   &  ! $SNDATA_ROOT/lcmerge/$VERSION
@@ -3293,8 +3295,9 @@
 
     INTEGER LEN_VERS, istat, L1, L2, L3
     CHARACTER*(2*MXCHAR_FILENAME)  & 
-         VERSION, PATH, LIST_FILE, README_FILE
+         VERSION, PATH, LIST_FILE, README_FILE, DUMP_FILE, DUMP_FILEgz
     CHARACTER FNAM*20
+    LOGICAL LEXIST
 
     INTEGER   GETINFO_PHOTOMETRY_VERSION
     EXTERNAL  GETINFO_PHOTOMETRY_VERSION, CHECK_FILE_DOCANA
@@ -3324,10 +3327,8 @@
     ENDIF
     SNDATA_PATH = PATH(1:L1)           ! fill global
 
-61    format('LEN(',A,')=',I3,  & 
-            ' is too long (MXCHAR_PATH=',I3,')')
-161   format('LEN(',A,')=',I3,  & 
-            ' is too long (MXCHAR_FILENAME=',I3,')')
+61    format('LEN(',A,')=',I3, ' is too long (MXCHAR_PATH=',I3,')')
+161   format('LEN(',A,')=',I3, ' is too long (MXCHAR_FILENAME=',I3,')')
 62    format('Check $SNDATA_ROOT');
 
     L2 = INDEX(LIST_FILE,char(0)) - 1
@@ -3358,6 +3359,19 @@
 ! construct prefix = path/[version]
     SNDATA_PREFIX = SNDATA_PATH(1:L1) //  & 
              '/'  // VERSION(1:LEN_VERS)
+
+    ! Sep 24 2026: construct name of optional SIMGEN_DUMP file (for VERSION_REFORMAT)
+    ! beware that dump file may or may not be gzipped
+    SIMGEN_DUMP_FILE(IVERS) = ''
+    DUMP_FILE   = SNDATA_PREFIX(1:L1+LEN_VERS+1) // '.DUMP'
+    DUMP_FILEgz = SNDATA_PREFIX(1:L1+LEN_VERS+1) // '.DUMP.gz'
+    INQUIRE(FILE=DUMP_FILE, EXIST=LEXIST)
+    if ( LEXIST ) then
+       SIMGEN_DUMP_FILE(IVERS) = trim(DUMP_FILE)
+    else
+       INQUIRE(FILE=DUMP_FILEgz, EXIST=LEXIST)
+       if ( LEXIST ) SIMGEN_DUMP_FILE(IVERS) = trim(DUMP_FILEgz)
+    endif
 
     RETURN
   END SUBROUTINE GETINFO_PHOTOMETRY
@@ -11033,6 +11047,7 @@
 ! 
 ! Mar 7 2022: do explicit gzip
 ! 
+! Sep 24 2026: check for SIMGEN_DUMP file
 ! -------------
 
     USE SNDATCOM
@@ -11042,9 +11057,9 @@
     IMPLICIT NONE
 
     INTEGER LEN_VERS, iver, OPTMASK
-    CHARACTER  & 
-         README_FILE*(MXCHAR_FILENAME)  & 
-        ,CMD*(2*MXCHAR_FILENAME)
+    CHARACTER  README_FILE_ORIG*(MXCHAR_FILENAME), README_FILE_OUT*(MXCHAR_FILENAME) 
+    CHARACTER  DUMP_FILE_ORIG*(MXCHAR_FILENAME),   DUMP_FILE_OUT*(MXCHAR_FILENAME)       
+    CHARACTER  CMD*(2*MXCHAR_FILENAME)
 
 ! ----------------- BEGIN ----------------
 
@@ -11054,32 +11069,47 @@
        CALL wr_snfitsio_end(OPTMASK)
 
        LEN_VERS  = INDEX(VERSION_REFORMAT_FITS,' ' ) - 1
-       CMD = 'cd ' // VERSION_REFORMAT_FITS(1:LEN_VERS) //  & 
-              ' ; gzip *.FITS'
-       print*,'   gzip output FITS files in ',  & 
-              VERSION_REFORMAT_FITS(1:LEN_VERS)
+       CMD = 'cd ' // VERSION_REFORMAT_FITS(1:LEN_VERS) // ' ; gzip *.FITS'
+       print*,'   gzip output FITS files in ',  VERSION_REFORMAT_FITS(1:LEN_VERS)
        call flush(6)
        CALL SYSTEM(CMD)
     ENDIF
 
 
 ! create README blank readme file
-    CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE)
+    CALL OPEN_REFORMAT_FILE(LUNTMP, 'README', README_FILE_OUT)
     CLOSE(LUNTMP)  ! close README file
 
+
 ! --- catenate original README contents for each version --------
+! --- also check for optional SIMGEN_DUMP file
 
     DO iver = 1, N_VERSION
-
-! now just catenate the final readme with the original readme file.
-
-       LEN_VERS  = INDEX(SNREADME_FILE(iver),' ' ) - 1
-       CMD = 'cat ' // SNREADME_FILE(iver)(1:LEN_VERS)  & 
-               // ' >> ' // README_FILE
-
+       README_FILE_ORIG = SNREADME_FILE(iver)
+       CMD = 'cat ' // trim(README_FILE_ORIG)  // ' >> ' // trim(README_FILE_OUT)
+       print*,'  Create ', trim(README_FILE_OUT) ; call flush(6)
        CALL SYSTEM(CMD)
 
-    ENDDO
+       ! check for SIMGEN_DUMP file
+       DUMP_FILE_ORIG = SIMGEN_DUMP_FILE(IVER)
+       if ( DUMP_FILE_ORIG .NE. '' ) THEN
+          CALL OPEN_REFORMAT_FILE(LUNTMP, 'DUMP', DUMP_FILE_OUT); CLOSE(LUNTMP)  ! close 
+          CMD = 'zcat  '  // trim(DUMP_FILE_ORIG)  // ' >> '  // trim(DUMP_FILE_OUT)
+          print*,'  Create ', trim(DUMP_FILE_OUT) ; call flush(6)
+
+          ! xxxx mark delete 
+          !print*,' xxx SIMGEN_DUMP_ORIG = ', DUMP_FILE_ORIG
+          !print*,' xxx DUMP_FILE_OUT    = ', DUMP_FILE_OUT(1:LEN_DUMP)
+          !print*,' xxx CMD = ', CMD
+          ! xxx end mark 
+
+          CALL SYSTEM(CMD)
+       endif
+
+       ! .xyz
+    ENDDO ! end loop over README catenation
+
+
 
 ! ---- update IGNORE file with comment on total number of IGNORE epochs
     write(LUNIGNORE2,430) NEPOCH_IGNORE_WRFITS

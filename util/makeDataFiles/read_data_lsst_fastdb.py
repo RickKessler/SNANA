@@ -80,6 +80,14 @@ FASTDB_KEYNAME_OBJID   = KEYMAP[gpar.DATAKEY_NAME_TRNS]
 FASTDB_ZP = 31.4  # nJy
 FLUXSCALE_SNANA = math.pow(10.0, (SNANA_ZP-FASTDB_ZP)/2.5 )
 
+# define valid options for --process_version argument; abort if missing from list.
+# This list must be manually updated; perhaps somebody it can be ready from
+# somewhere like the data base.
+
+PROCESS_VERSION_VALID_LIST = [
+    'realtime',       # July 2026
+    'edp2_cut2'       # Sep 25 2026 (after DP2-KP hac at U.Pitt
+]
 
 # ======================================================
 
@@ -99,27 +107,34 @@ class data_lsst_fastdb(Program):
             args.photflag_detect = PHOTFLAG_DETECT
         if args.photflag_garbage == 0 :
             args.photflag_garbage = PHOTFLAG_GARBAGE
-                    
+
+        process_version = args.process_version  # 9.25.2026
+        
         logging.info('')
-        logging.info("Begin init_read_data")        
-        logging.info("Connect to FASTDBClient")
-        fdb = FASTDBClient( "production" )
+        logging.info(f"Begin init_read_data for process_version = {process_version}")        
+        logging.info(f"Connect to FASTDBClient")
+        fdb = FASTDBClient( f"production" )
 
+        if process_version not in PROCESS_VERSION_VALID_LIST:
+            sys.exit(f"\n ERROR: Invalid process_version = {process_version} ; \n" \
+                     f"\t Valid process_version list: {PROCESS_VERSION_VALID_LIST}" )
+        
         # get total number of light curves
-        res = fdb.post( "count/rootid/realtime" )
-        nlc_tot = res['count']
-        logging.info(f" Total number of light curves in fastdb:  {nlc_tot} ")
-        if args.nevt < nlc_tot:      nlc_tot = args.nevt
-        logging.info(f" Total number of light curves to extract:  {nlc_tot} ")
+        res = fdb.post( f"count/rootid/{process_version}" )
+        nlc_exist = res['count']
+        # determine how many to process: all, or implement user-define nevt or prescale
+        nlc_proc = self.get_nlc_process(nlc_exist)
 
-        n_subgroup = int( ( nlc_tot-1) / MXOBJ_PER_FETCH) + 1
-        logging.info(f" Will read {n_subgroup} groups of {MXOBJ_PER_FETCH} objects")
+        
+        n_subgroup = int( ( nlc_proc-1) / MXOBJ_PER_FETCH) + 1
+        logging.info(f" Prepare to read {n_subgroup} groups of {MXOBJ_PER_FETCH} objects")
         logging.info(f" coadd_by_nite: {args.coadd_by_nite} ")
         logging.info(f" PHOTFLAG[DETECT,GARBAGE] = " \
-                     "{args.photflag_detect} {args.photflag_garbage}")
+                     f"{args.photflag_detect} {args.photflag_garbage}")
         
         self.fdb        = fdb
-        self.nlc_tot    = nlc_tot
+        self.nlc_proc   = nlc_proc
+        self.nlc_exist  = nlc_exist
         self.n_subgroup = n_subgroup
         self.garbage_table_extra_columns = { 'ltcvs_offset' : 0, 'ltcsv_limit': 0 }
 
@@ -131,27 +146,64 @@ class data_lsst_fastdb(Program):
         return
     # end init_read_data
 
+    def get_nlc_process(self, nlc_exist):
+
+        # return number of lc to process
         
+        args = self.config_inputs['args']  # command line args
+        prescale        = args.prescale
+        nevt            = args.nevt
+        process_version = args.process_version  # for print only
+
+        logging.info('')
+        logging.info("Determine number of LCTVS to process:")
+        
+        if nevt < nlc_exist:
+            nlc_proc = args.nevt
+            msg = f"Implement user-defined nevt = {nevt} "
+        elif prescale > 1:
+            nlc_proc  = int(nlc_exist/prescale)
+            msg = f"Implement user-defined prescale = {prescale} "
+        else:
+            nlc_proc = nlc_exist  # default is to process all existing lc
+            msg = f"Implement default = all LTCVS "
+
+        logging.info(f"\t {msg}")
+        logging.info(f"\t Total number of existing LTCVS in   {process_version}:  {nlc_exist} ")            
+        logging.info(f"\t Total number of LTCVS to process in {process_version}:  {nlc_proc} ")
+        
+        return nlc_proc
+    
     def prep_read_data_subgroup(self, i_subgroup):
 
         # read fast data base for this subgroup;
         # will parse it later for writing.
         # Objects and sources are stored separately.
         
-        args          = self.config_inputs['args']
+        args            = self.config_inputs['args']
+        process_version = args.process_version
+        # xxx mark nevt_request    = args.nevt
+
         fdb           = self.fdb
-        nlc_tot       = self.nlc_tot
+        nlc_proc      = self.nlc_proc
+        nlc_exist     = self.nlc_exist
         n_subgroup    = self.n_subgroup
 
         nsplit        = args.nsplitran
         isplit_select = args.isplitran  # 1 to nsplit, or -1 for all                                               
-        n_fetch    = min(MXOBJ_PER_FETCH,args.nevt)
-        n_offset   = i_subgroup * MXOBJ_PER_FETCH
-
-        if n_offset + n_fetch > args.nevt:
-            n_fetch = args.nevt - n_offset
-            
-        if n_offset >= nlc_tot:
+        nlc_fetch    = min(MXOBJ_PER_FETCH, nlc_proc)
+        nlc_offset   = i_subgroup * MXOBJ_PER_FETCH  
+        if nlc_offset + nlc_fetch > nlc_proc:
+            nlc_fetch = nlc_proc - nlc_offset
+        
+        # xxx mark delete 9.25.2026 xxxxx
+        #n_fetch    = min(MXOBJ_PER_FETCH, nevt_request)
+        #n_offset   = i_subgroup * MXOBJ_PER_FETCH
+        #if n_offset + n_fetch > nevt_request:
+        #    n_fetch = nevt_request - n_offset
+        # xxxxxxx
+        
+        if nlc_offset >= nlc_proc:
             return -1  # done reading
 
         # check split option to read this group (typically to split jobs among cores)
@@ -163,18 +215,20 @@ class data_lsst_fastdb(Program):
         # - - - -
         verb = "Begin" if match_split else "Skip "
         logging.info(f"# ---------------------------------------------------------------- ")
-        logging.info(f" {verb} reading {n_fetch} lightcurves for " \
+        logging.info(f" {verb} reading {nlc_fetch} lightcurves for " \
                      f"subgroup {i_subgroup:3d} of {n_subgroup} " \
-                     f"(offset={n_offset})")
+                     f"(offset={nlc_offset})")
 
         if not match_split: return 0
         
         t0 = time.perf_counter()
+        
         # here is the fastdb magic:
-        manyltcvs = fdb.post( "ltcv/getmanyltcvs/realtime",                          
+        lctv_source = f"ltcv/getmanyltcvs/{process_version}"
+        manyltcvs = fdb.post( lctv_source,                          
                               json={
-                                  'limit': n_fetch,
-                                  'offset' : n_offset,
+                                  'limit': nlc_fetch,
+                                  'offset' : nlc_offset,
                                   'include_source_positions':      True,
                                   'return_object_info':            True,
                                   'return_diaobject_positions':    True,
@@ -190,40 +244,52 @@ class data_lsst_fastdb(Program):
         
         dict_objinfo = manyltcvs['objinfo']        
         dict_ltcvs   = manyltcvs['ltcvs']
-        nevt         = len(dict_ltcvs);
+        nevt_extract = len(dict_ltcvs);
     
         t1 = time.perf_counter()
-        logging.info(f" Fetched {nevt} lightcurves in {t1-t0:.2f} sec.\n" )
+        logging.info(f" Extracted {nevt_extract} lightcurves in {t1-t0:.2f} sec.\n" )
         logging.info('')
 
+        #sys.exit(f"\n xxx dict_ltcvs[0] = \n{dict_ltcvs[0]} \n")
         
         self.dict_objinfo = dict_objinfo
         self.dict_ltcvs   = dict_ltcvs
-        self.ltcsv_offset = n_offset     # used only in GARBAGE table
-        self.ltcsv_limit  = n_fetch      # used only in GARBAGE table
-        self.garbage_table_extra_columns = { 'ltcvs_offset' : n_offset, 'ltcsv_limit': n_fetch }
+        self.ltcsv_offset = nlc_offset     # used only in GARBAGE table
+        self.ltcsv_limit  = nlc_fetch      # used only in GARBAGE table
+        self.garbage_table_extra_columns = { 'ltcvs_offset' : nlc_offset, 'ltcsv_limit': nlc_fetch }
 
-        if i_subgroup == -9 :
-            self.dump_dict_objinfo()
+        if i_subgroup == 0 :
+            self.dump_dict_keytypes()
             
-        return nevt
+        return nevt_extract
 
     # end prep_read_data_subgroup
 
-    def dump_dict_objinfo(self):
+    def dump_dict_keytypes(self):
         
         # dump structure of dict_objinfo to help debug this beast
-        
-        keys_objinfo = list(self.dict_objinfo.keys())
 
-        logging.info("")
-        logging.info(" dump_dict_objinfo: ")
+        objinfo = self.dict_objinfo
+        ltcvs   = self.dict_ltcvs[0]
+        
+        keys_objinfo = list(objinfo.keys())
+        keys_ltcvs   = list(ltcvs.keys())
+
+        logging.info('')
+        logging.info("# ==================================================")
+        logging.info(" DUMP keys for dict_objinfo: ")
         for key in keys_objinfo:
-            ty = type(self.dict_objinfo[key])
+            ty = type(objinfo[key])
             logging.info(f"\t dict_objinfo[{key}]  is type {ty}")
 
+        logging.info(" DUMP keys for dict_ltcvs[0]: ")
+        for key in keys_ltcvs:
+            ty = type(ltcvs[key])
+            logging.info(f"\t dict_ltcvs[0][{key}]  is type {ty}")
+
+        logging.info("# ==================================================")            
         logging.info("")            
-        #sys.exit("\n xxx TEMP EXIT xxx")
+
         return
     
     def read_event(self, evt ):

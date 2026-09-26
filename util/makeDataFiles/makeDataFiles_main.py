@@ -77,6 +77,10 @@ def get_args():
     msg = "Data source: SNANA sim-data folder (for testing)"
     parser.add_argument("--snana_folder", help=msg, type=str, default=None )
 
+    # - - - - -
+    msg = "process version"
+    parser.add_argument("--process_version", help=msg, type=str, default=None )
+    
     msg = "field name (e.g., SHALLOW, DEEP, etc ..)"
     parser.add_argument("--field", help=msg, type=str, default=gpar.FIELD_VOID )
 
@@ -122,8 +126,12 @@ def get_args():
     parser.add_argument('--peakmjd_range',
                         nargs='+', help=msg, type=float, default=None )
 
+    NEVT_DEFAULT = 99999999  # 100 million -1 
     msg = "number of events to process (default is all)"
-    parser.add_argument("--nevt", help=msg, type=int, default=99999999 )
+    parser.add_argument("--nevt", help=msg, type=int, default=NEVT_DEFAULT )
+
+    msg = "prescale for number of events to process; e..g, --prescale 10 -> process 1/10."
+    parser.add_argument("--prescale", help=msg, type=int, default=1 )    
 
     msg = "increase output verbosity (default=True)"
     parser.add_argument("-v", "--verbose", help=msg, action="store_true")
@@ -166,6 +174,10 @@ def get_args():
     if args.outdir_csv:
         args.outdir_csv = os.path.expandvars(args.outdir_csv)
 
+    if args.prescale > 1 and args.nevt < NEVT_DEFAULT:
+        sys.exit(f"\n ERROR: cannot specify both --nevt {args.nevt} and --prescale {args.prescale}" \
+                 f"\n\t Select either option, but not both.")
+        
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit()

@@ -45,6 +45,9 @@ DATA_UNIT_STR        = 'DATA_UNIT'  # merge table comment
 SUFFIX_GARBAGE = "GARBAGE"
 SUFFIX_SNIDALL = "SNIDALL"
 
+INPUT_NAME_FASTDB = "FASTDB"  # for fastdb, expected arg for MAKEDATAFILE_INPUTS
+
+
 # ====================================================
 #    BEGIN FUNCTIONS
 # ====================================================
@@ -125,10 +128,16 @@ class MakeDataFiles(Program):
         input_file    = self.config_yaml['args'].input_file  # for msgerr
         msgerr        = []
 
-        if inputs_list_orig is None:
+        # for fastdb, autofix MAKEDATAFILE_INPUTS input key if it is missing in the input file
+        # [allows less useless cluter in the input file for fastdb ]
+        if len(inputs_list_orig) == 0 and INPUT_NAME_FASTDB in input_source:
+            inputs_list_orig = [ INPUT_NAME_FASTDB ] 
+        
+        if len(inputs_list_orig) == 0:
             msgerr.append(f"MAKEDATAFILE_INPUTS key missing in yaml-CONFIG")
             msgerr.append(f"Check {input_file}")
             util.log_assert(False,msgerr) # just abort, no done stamp
+
         
         # if input_list includes a wildcard, scoop up files with glob.
         inputs_list      = []
@@ -445,11 +454,13 @@ class MakeDataFiles(Program):
         program            = self.config_prep['program']
         script_dir         = self.config_prep['script_dir']
         output_dir         = self.config_prep['output_dir']
-        nevt               = self.config_prep['nevt']
         write_garbage_file = self.config_prep['write_garbage_file']
         write_snid_file    = self.config_prep['write_snid_file']
+        nevt               = self.config_prep['nevt']        
         args               = self.config_yaml['args']
-        
+
+
+        prescale          = args.prescale
         kill_on_fail      = args.kill_on_fail
         output_format     = args.output_format
         merge_background  = args.merge_background
@@ -466,9 +477,12 @@ class MakeDataFiles(Program):
         arg_split         = f'--isplitran {isplitarg}'
         arg_list          = makeDataFiles_arg + [arg_split,]
 
+            
         if nevt is not None:
             arg_list.append(f"--nevt {nevt}")
-
+        elif prescale > 1:
+            arg_list.append(f"--prescale {prescale}")
+            
         arg_list.append(f"--output_yaml_file     {yaml_file}")
 
         # write snid & garbage file for select survey(s)

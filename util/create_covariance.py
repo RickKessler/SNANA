@@ -221,6 +221,7 @@ SUFFIX_FITRES = "FITRES"
 PREFIX_COVSYS     = "covsys"
 PREFIX_COVTOT_INV = "covtot_inv"
 PREFIX_COVTOT = "covtot"
+PREFIX_COVFACTORIZED = "covfactorized"  # Sep 2026: D + U U^T product, see --write_factorized
 HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
 
@@ -400,6 +401,15 @@ def get_args():
           f"(default: {WRITE_FORMAT_COV_DEFAULT})"
     parser.add_argument("--write_format_cov", help=msg,
                         nargs='?', type=str, default=WRITE_FORMAT_COV_DEFAULT )
+
+    msg = "Sep 2026: ALSO write, for each COVOPT, a factorized D+U*U^T product " \
+          f"('{PREFIX_COVFACTORIZED}_NNN.npz': diagonal statistical variance " \
+          "plus the per-systematic Delta_mu vectors already summed to build " \
+          "the dense cov) alongside the normal dense output(s). Purely " \
+          "additive: does not change any existing output. Skipped (with a " \
+          "warning) for a COVOPT that includes an EXTRA_COV read from an " \
+          "external file, since that contribution is not generally rank-1."
+    parser.add_argument("--write_factorized", help=msg, action="store_true")
 
 
     msg = "Max HD size to run posdef test on covtot_inv (beware it's slow for big matrix)"
@@ -1485,7 +1495,17 @@ def apply_filter(string, pattern):
         raise ValueError(f"Unable to parse COVOPT matching pattern {pattern}")
 
 
-def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contributions_source, base, calibrators):
+def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contributions_source, base, calibrators,
+                            return_vectors=False):
+
+    # Sep 2026: return_vectors=True additionally returns the per-systematic
+    # Delta_mu vectors (already scaled by fitopt_scale*muopt_scale*sqrt(covopt_scale)
+    # and, if applicable, masked at calibrator rows the same way the dense
+    # covariance contribution is masked) that sum to exactly this COVOPT's
+    # final_cov, i.e. final_cov == U @ U.T to floating-point precision, where
+    # U is the (N, K) matrix formed by stacking these vectors as columns.
+    # This is purely additive: default behavior (return_vectors=False) is
+    # completely unchanged from before this option existed.
 
     # Parse covopts (from input config file) that look like
     #        "[cal] [+cal,=DEFAULT]"
@@ -1539,6 +1559,17 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
     else:
         contributions = contributions_cov
 
+    # Sep 2026: vectors accumulated when return_vectors=True. vec_labels
+    # tracks which key each column came from (for provenance in the output
+    # file); vectors_incomplete becomes True if any matched contribution
+    # cannot be represented as a single rank-1 vector (an EXTRA_COV read
+    # from an external file, or the legacy FLAG_REDUCE_MEMORY=False path),
+    # in which case the caller should not trust/write the factorized output
+    # for this COVOPT even though final_cov itself is still fully correct.
+    vectors = [] if return_vectors else None
+    vec_labels = [] if return_vectors else None
+    vectors_incomplete = False
+
     # - - - - -
     t_start = time.time()
     n_cov = 0
@@ -1557,6 +1588,13 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
                        apply_filter(muopt_label,  "+ZSHIFT")
 
         if apply_fitopt and apply_muopt :
+
+            is_vector_contribution = (source != SOURCE_COV_FILE) and FLAG_REDUCE_MEMORY
+            # the all-zero reference contribution (f=f_REF, m=m_REF) is a
+            # valid, exact zero contribution to final_cov either way, but
+            # skip it silently from the vector list (not "incomplete") to
+            # avoid an inflated, wasted all-zero column in U
+            is_zero_vector = is_vector_contribution and not np.any(tmp)
 
             if source == SOURCE_COV_FILE:
                 cov = contributions_cov[key]  # cannot build cov-from-file using mudif (6.2025)
@@ -1580,10 +1618,29 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
                     final_cov += cov2 * covopt_scale
                     del cov2
                     gc.collect()  # for release of memory
+
+                    if return_vectors and not is_zero_vector:
+                        if is_vector_contribution:
+                            # zeroing an outer product's calibrator rows AND
+                            # columns is identical to zeroing those same
+                            # entries of the vector before outer-producting it
+                            vmasked = tmp.copy()
+                            vmasked[mask_calib.to_numpy()] = 0.0
+                            vectors.append(vmasked * np.sqrt(covopt_scale))
+                            vec_labels.append(key)
+                        else:
+                            vectors_incomplete = True
                 else:
                     # nominal usage here
                     final_cov += cov * covopt_scale
                     n_cov += 1
+
+                    if return_vectors and not is_zero_vector:
+                        if is_vector_contribution:
+                            vectors.append(tmp * np.sqrt(covopt_scale))
+                            vec_labels.append(key)
+                        else:
+                            vectors_incomplete = True
 
             del tmp, cov # Jan 2025
             gc.collect()  # for release of memory
@@ -1594,6 +1651,9 @@ def get_covsys_from_covopt(covopt, contributions_cov, contributions_mudif, contr
 
     assert final_cov is not None,  f"No syst matches {msg_content1}\n final_cov = {final_cov} "
 
+    if return_vectors:
+        U = np.column_stack(vectors) if len(vectors) > 0 else np.zeros((final_cov.shape[0], 0))
+        return label, final_cov, covopt_scale, U, vec_labels, vectors_incomplete
 
     return label, final_cov, covopt_scale
     # end get_covsys_from_covopt
@@ -1695,7 +1755,7 @@ def is_pos_def(x):
     # end is_pos_def
 
 def write_standard_output(config, args, covsys_list, base,
-                          data, label_list):
+                          data, label_list, factorized_list=None):
 
     # Created 9.22.2021 by R.Kessler
     # Write standard cov matrices and HD for cosmology fitting programs;
@@ -1797,6 +1857,27 @@ def write_standard_output(config, args, covsys_list, base,
             # resource control/monitor
             del covtot
             gc.collect()
+
+        # Sep 2026: optional additive factorized (D + U U^T) output.
+        # D is the same statistical diagonal for every COVOPT; U (N x K)
+        # holds the per-systematic Delta_mu vectors that sum, via U @ U.T,
+        # to exactly this COVOPT's covsys (to floating-point precision).
+        if config.get('write_factorized', False) and factorized_list is not None:
+            _, U, vec_labels, incomplete = factorized_list[i]
+            if incomplete:
+                logging.warning(
+                    f"\t *** Factorized output for {label} SKIPPED: at least "
+                    f"one matched contribution (e.g. an EXTRA_COV file) "
+                    f"cannot be represented as a rank-1 vector ***")
+            else:
+                # always npz regardless of --write_format_cov: write_covariance_factorized()
+                # calls np.savez() unconditionally, so the recorded filename must match that,
+                # not whatever dense-cov format (text/csv) the user selected (bug fix, Sep 2026)
+                base_file = get_cov_filename(i, PREFIX_COVFACTORIZED, WRITE_FORMAT_COV_NPZ)
+                cov_file  = outdir / base_file
+                t_write   = write_covariance_factorized(
+                    cov_file, base[VARNAME_MUERR].to_numpy()**2, U, vec_labels)
+                args.t_write_sum += t_write
 
 
     # - - - - - -
@@ -2333,6 +2414,46 @@ def write_covariance_npz(path, cov):
     return t_write
     # end write_covariance_npz
 
+def write_covariance_factorized(path, diag_D, U, vec_labels):
+    # Sep 2026: write the factorized D + U U^T representation of a
+    # covariance product (see get_covsys_from_covopt return_vectors=True).
+    # Inputs:
+    #   path       : output filename (extension stripped/ignored, npz added)
+    #   diag_D     : (N,) statistical variance (diagonal of D)
+    #   U          : (N, K) matrix; columns are the per-systematic Delta_mu
+    #                vectors, already scaled so that U @ U.T reproduces the
+    #                covariance product's systematic part exactly
+    #   vec_labels : length-K list of "FITOPT_LABEL|MUOPT_LABEL" strings,
+    #                one per column of U, for provenance
+    # This is purely an ADDITIVE product: reading it back and computing
+    # diag(diag_D) + U @ U.T reproduces the corresponding dense covariance
+    # to floating-point precision; nothing about the existing dense outputs
+    # changes because this function exists.
+
+    file_base   = os.path.basename(path)
+    path_no_ext = os.path.splitext(path)[0]
+    t0          = time.time()
+
+    n, k = U.shape
+    logging.info(f"Write to {file_base} (N={n}, K={k})")
+
+    # float64 throughout: U is only N x K (K ~ tens), negligibly small
+    # compared to a dense N x N covariance even at full double precision,
+    # so there is no reason to trade precision for size here the way the
+    # dense covtot_inv/covsys products do (float32 upper-triangle).
+    npz_arg_dict = {
+        'nsn'        : [n],
+        'diag'       : diag_D.astype(np.float64),
+        'U'          : U.astype(np.float64),
+        'vec_labels' : np.array(vec_labels),
+        'allow_pickle' : False
+    }
+    np.savez(path_no_ext, **npz_arg_dict)
+
+    t_write = time.time() - t0
+    return t_write
+    # end write_covariance_factorized
+
 def detcov_test(path,cov):
 
     # if nrow is not too big, compute and write det(cov) to use for regression testing
@@ -2374,7 +2495,7 @@ def get_label_cov_flatten(nwr, nrow, row_info_dict):
         label += '  diag'
     return label
 
-def write_summary_output(args, config, covsys_list, base):
+def write_summary_output(args, config, covsys_list, base, factorized_list=None):
 
     # write information to INFO.YAML that is intended to be
     # picked up by cosmology fitting progam. Info includes
@@ -2383,6 +2504,11 @@ def write_summary_output(args, config, covsys_list, base):
     # Mar 2023: include VERSION_PHOTOMETRY and COSPAR_BIASCOR
     # Feb 17 2025: write BBC_DIR
     # May 13 2025; fix refactor bug and restore ISDATA_REAL
+    # Sep 2026: add optional 4th COVOPTS field, the covfactorized filename
+    # (None if --write_factorized wasn't used, or if this COVOPT's
+    # contribution couldn't be represented as rank-1 and was skipped), so
+    # submit_prog_cosmofit.py can discover it the same way it already
+    # discovers covtot_inv_file.
 
     out        = Path(config["OUTDIR"])
     BBC_DIR    = str(Path(config['data_dir']))
@@ -2396,13 +2522,20 @@ def write_summary_output(args, config, covsys_list, base):
     for i, (label, covsys) in enumerate(covsys_list):
         covsys_file     = None
         covtot_inv_file = None
+        covfactorized_file = None
         if config['write_covsys']:
             covsys_file = get_cov_filename(i, PREFIX_COVSYS, args.write_format_cov)
 
         if config['write_covtot_inv']:
             covtot_inv_file = get_cov_filename(i, PREFIX_COVTOT_INV, args.write_format_cov)
 
-        covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}"
+        if config.get('write_factorized', False) and factorized_list is not None:
+            _, _, _, incomplete = factorized_list[i]
+            if not incomplete:
+                # always npz; see matching comment in write_standard_output()
+                covfactorized_file = get_cov_filename(i, PREFIX_COVFACTORIZED, WRITE_FORMAT_COV_NPZ)
+
+        covsys_info[i] = f"{label:<20} {covsys_file}   {covtot_inv_file}   {covfactorized_file}"
         if i==0:
             SIZE_HD = covsys.shape[0]
 
@@ -2755,16 +2888,25 @@ def create_covariance(config, args):
 
     covopts = covopts_default + config.get("COVOPTS",[])
 
+    write_factorized = config.get('write_factorized', False)
+
     args.tstart_cov = time.time()
     covsys_list = []
+    factorized_list = [] if write_factorized else None
     for c in covopts:
         if FLAG_WAIT: input("Press Enter to continue...")
-        label, covsys, covopt_scale = get_covsys_from_covopt(c,
-                                                             contributions_cov,
-                                                             contributions_mudif,
-                                                             contributions_source,
-                                                             base,
-                                                             config.get("CALIBRATORS") )
+        result = get_covsys_from_covopt(c,
+                                        contributions_cov,
+                                        contributions_mudif,
+                                        contributions_source,
+                                        base,
+                                        config.get("CALIBRATORS"),
+                                        return_vectors=write_factorized )
+        if write_factorized:
+            label, covsys, covopt_scale, U, vec_labels, incomplete = result
+            factorized_list.append( (label, U, vec_labels, incomplete) )
+        else:
+            label, covsys, covopt_scale = result
         covsys_list.append( (label, covsys) )
         tracemalloc_snapshot(args, f'Stage 40: after get_covsys for {label}')
     args.tend_cov = time.time()
@@ -2783,13 +2925,13 @@ def create_covariance(config, args):
     # write standard output for cov(s) and hubble diagram (9.22.2021)
 
     write_standard_output(config, args, covsys_list, base,
-                          data, label_list)
+                          data, label_list, factorized_list=factorized_list)
 
     # write specialized output for cosmoMC sampler
     if use_cosmomc :
         write_cosmomc_output(config, args, covsys_list, base)
 
-    write_summary_output(args, config, covsys_list, base)
+    write_summary_output(args, config, covsys_list, base, factorized_list=factorized_list)
 
     args.tend_all = time.time()
 
@@ -2824,9 +2966,13 @@ def prep_config(config,args):
     if args.write_mask_cov & WRITE_MASK_COVTOT:
         config['write_covtot'] = True
 
+    # Sep 2026: optional additive factorized (D + U U^T) output
+    config['write_factorized'] = args.write_factorized
+
     logging.info(f"WRITE_COVSYS:       {config['write_covsys']}")
     logging.info(f"WRITE_COVTOT_INV:   {config['write_covtot_inv']}")
     logging.info(f"WRITE_COVTOT:   {config['write_covtot']}")
+    logging.info(f"WRITE_FACTORIZED:   {config['write_factorized']}")
     logging.info(f"FLAG_REDUCE_MEMORY: {FLAG_REDUCE_MEMORY} ")
     logging.info(f"Check pos-def on covtot_inv for HD size <= {args.mxsize_test_posdef}")
 

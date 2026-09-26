@@ -90,3 +90,62 @@ int read_npz_covmat(char *npz_file, double *array1d) {
 
 } // read_npz_array
 
+
+// ===========================================================
+int read_npz_factorized(char *npz_file, double **diag, double **U, int *K) {
+
+  // Created Sep 2026
+  // Read the additive factorized covariance product D + U U^T,
+  // written by create_covariance.py's write_covariance_factorized().
+  // npz file contains:
+  //    nsn = NSN (int)
+  //    diag = (NSN,) float64        statistical variance (diagonal of D)
+  //    U    = (NSN,K) float64       per-systematic Delta_mu vectors
+  // Both diag and U are malloc'ed here (caller must free); K is returned
+  // via output arg (K=0 is valid: no systematics, e.g. NOSYS covopt).
+  //
+  // Returns NSN.
+
+  char fnam[] = "read_npz_factorized" ;
+
+  // ------------ BEGIN --------------
+
+  cnpy::npz_t my_npz = cnpy::npz_load(npz_file);
+
+  cnpy::NpyArray nsn_npz = my_npz["nsn"];
+  int NSN = *nsn_npz.data<int>();
+
+  cnpy::NpyArray diag_npz = my_npz["diag"];
+  double *diag_data = diag_npz.data<double>();
+
+  cnpy::NpyArray U_npz = my_npz["U"];
+  int K_local = ( U_npz.shape.size() == 2 ) ? (int)U_npz.shape[1] : 0 ;
+  double *U_data = U_npz.data<double>();
+
+  if ( (int)diag_npz.shape[0] != NSN ) {
+    // caller (wfit.c) does the fatal-abort sanity check on the return
+    // value vs. expected NSN, matching the read_npz_covmat convention;
+    // just warn here since sntools.h errmsg()/c1err are not available
+    // in this translation unit.
+    printf(" %s WARNING: diag array has %d elements, but nsn=%d (%s)\n",
+	   fnam, (int)diag_npz.shape[0], NSN, npz_file); fflush(stdout);
+  }
+
+  *diag = (double*) malloc( NSN * sizeof(double) );
+  memcpy(*diag, diag_data, NSN * sizeof(double) );
+
+  long long n_u = (long long)NSN * (long long)K_local ;
+  if ( n_u > 0 ) {
+    *U = (double*) malloc( n_u * sizeof(double) );
+    memcpy(*U, U_data, n_u * sizeof(double) );
+  }
+  else {
+    *U = NULL ;
+  }
+
+  *K = K_local ;
+
+  return NSN;
+
+} // end read_npz_factorized
+

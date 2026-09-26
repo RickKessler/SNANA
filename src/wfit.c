@@ -664,7 +664,17 @@ int main(int argc,char *argv[]){
 
   set_EXIT_ERRCODE(EXIT_ERRCODE_wfit);
 
-  // Give help if no arguments
+  // Give help if no arguments or if help is requested
+  int i;
+  for (i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "-help") == 0 ||
+        strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "help") == 0 ||
+        strcmp(argv[i], "-H") == 0 || strcmp(argv[i], "--HELP") == 0) {
+      print_wfit_help();
+      exit(0);
+    }
+  }
+
   if (argc < 2) { print_wfit_help();  exit(0);  }
 
   // init variables

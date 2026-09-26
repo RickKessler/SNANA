@@ -20,6 +20,8 @@ import makeDataFiles_params as  gpar
 from   makeDataFiles_base    import Program
 from   makeDataFiles_params  import *
 
+import coadd_by_nite as cbn
+
 # use try/except for imports that might crash on other data sets
 try:
     import pyarrow
@@ -359,6 +361,9 @@ class data_lsst_fastdb(Program):
             
         # store first/second/last MJD_DETECT before coadd        
         self.store_mjd_detections(snana_head_calc, snana_phot_raw)
+
+        # set detect flag for coadd_by_nite
+        snana_phot_raw['DETECT'] = lc_dict['isdet']
         
         # do nightly coadd on snana dictionary if (1) coadd is requested
         # as command line arg, and (2) there is no garbage
@@ -366,8 +371,13 @@ class data_lsst_fastdb(Program):
         nobs_garbage = self.n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL]
         do_coadd = args.coadd_by_nite and nobs_garbage == 0
 
-        nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \
-            self.coadd_by_nite(snana_phot_raw, do_coadd)
+        if args.refac == 926:
+            nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \
+                cbn.coadd_by_nite(snana_phot_raw, BAND_LIST_LSST, do_coadd)
+            snana_phot_coadd[gpar.DATAKEY_NOBS_GARBAGE] = 0
+        else:
+            nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \
+                self.coadd_by_nite_legacy(snana_phot_raw, do_coadd)
             
         # --- private LSST variables that are not standard SNANA vars
         ratio = nobs_after_coadd / nobs_before_coadd 
@@ -517,7 +527,7 @@ class data_lsst_fastdb(Program):
                 
         return 0
     
-    def coadd_by_nite(self, phot_raw, do_coadd):
+    def coadd_by_nite_legacy(self, phot_raw, do_coadd):
 
         # for inpyut phot_raw dictionary of lists (table columns),
         # coadd each band grouped by nights and return coadd dictionary
@@ -545,7 +555,7 @@ class data_lsst_fastdb(Program):
             n_obs_band = len(t_band)
             nite_detect_dict[b] = 0
             if n_obs_band > 0:
-                t_coadd_band = self.coadd_single_band(t_band, do_coadd)
+                t_coadd_band = self.coadd_single_band_legacy(t_band, do_coadd)
                 t_coadd_list.append(t_coadd_band)                
 
                 photflag_list         = t_coadd_band[gpar.DATAKEY_PHOTFLAG].tolist()
@@ -558,7 +568,7 @@ class data_lsst_fastdb(Program):
 
         # determine number of nites with detection, regardless of band : 'ANY_BAND'
         # need to coadd again using all bands together and only use coadded PHOTFLAG
-        t_coadd_dummy                = self.coadd_single_band(t_phot, do_coadd)  
+        t_coadd_dummy                = self.coadd_single_band_legacy(t_phot, do_coadd)  
         photflag_list                = t_coadd_dummy[gpar.DATAKEY_PHOTFLAG].tolist()
         n_detect, detect_list        = self.count_detect(photflag_list)
         nite_detect_dict['ANY_BAND'] = n_detect
@@ -579,9 +589,9 @@ class data_lsst_fastdb(Program):
         del t_phot
         
         return nobs_coadd, phot_coadd_dict, nite_detect_dict
-    # end coadd_by_nite
+    # end coadd_by_nite_legacy
         
-    def coadd_single_band(self, t_band, do_coadd):
+    def coadd_single_band_legacy(self, t_band, do_coadd):
 
         # coadd table for this band, and also compute number of nites with detection
         
@@ -642,7 +652,7 @@ class data_lsst_fastdb(Program):
         t_coadd = vstack(t_coadd_list)
 
         return t_coadd
-    # end coadd_single_band
+    # end coadd_single_band_legacy
     
     def force_snr_detections(self, snana_data_dict):
 

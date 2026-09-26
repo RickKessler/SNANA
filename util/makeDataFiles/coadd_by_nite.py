@@ -2,13 +2,18 @@
 #   [pulled out of read_fastdb_test.py to be independent uti]
 #
 # Generic import utility to pass photometry dictionary of lists,
-# and return co-added phot dict.
+# and return co-added phot dict, where co-add is nitely and in each band.
+#
+# Note that user-passed dictionary must include some required keys
+# as indicated in the hard-coded KEYLIST_COADD_DICT lists below.
+#
 
 import os, sys,  logging
 import numpy  as np
 from  astropy.table import Table, vstack
 
-TOL_MJD_NIGHT = 0.4  # coadd observations with this fraction of a day
+TOL_MJD_SINGLE_BAND = 0.4  # for each band, coadd observations with this fraction of a day
+TOL_MJD_ANY_BAND    = 0.6  # for any-band nite detection
 
 # map local KEY_TYPE (left) to possible key names in passed phot dictionary (right)
 KEYLIST_COADD_DICT = {
@@ -94,7 +99,7 @@ def coadd_by_nite(phot_dict, band_list_full, do_coadd):
         t_band     = t_phot[t_phot[key_band] == b]  
         n_obs_band = len(t_band)
         if n_obs_band > 0:
-            t_coadd_band        = coadd_single_band(t_band, colnames, do_coadd)
+            t_coadd_band        = coadd_single_band(t_band, colnames, TOL_MJD_SINGLE_BAND, do_coadd)
             nite_detect_dict[b] = t_coadd_band[key_detect].sum()
             t_coadd_list.append(t_coadd_band) 
 
@@ -105,7 +110,7 @@ def coadd_by_nite(phot_dict, band_list_full, do_coadd):
     
     # determine number of nites with detection, regardless of band : 'ANY_BAND'
     # need to coadd again using all bands together and only use coadded PHOTFLAG
-    t_coadd_dummy = coadd_single_band(t_phot, colnames, do_coadd)  
+    t_coadd_dummy = coadd_single_band(t_phot, colnames, TOL_MJD_ANY_BAND, do_coadd)  
 
     nite_detect_dict['ANY_BAND'] = t_coadd_dummy[key_detect].sum()
     
@@ -133,10 +138,17 @@ def coadd_by_nite(phot_dict, band_list_full, do_coadd):
     return nobs_coadd, phot_coadd_dict, nite_detect_dict
 # end coadd_by_nite
         
-def coadd_single_band(t_band, colnames, do_coadd):
+def coadd_single_band(t_band, colnames, tol_mjd, do_coadd):
 
     # coadd table for this single band; return co-added table
-        
+    # Inputs:
+    #   t_band:   astropy table with mjd, band, flux[err], etc ...
+    #   colnames: list of column names to consider in coadd
+    #   tol_mjd:  coadd within this time-window (days)
+    #   do_coadd: do coadd if true; else return t_band unmodified
+    #
+    #
+    
     from functools import reduce
     from operator import ior
 
@@ -155,7 +167,7 @@ def coadd_single_band(t_band, colnames, do_coadd):
 
     # Identify where the difference exceeds tolerance
     diff           = np.diff( t_band[key_mjd].data )
-    new_group_mask = diff > TOL_MJD_NIGHT
+    new_group_mask = diff > tol_mjd
 
     # 4. Generate group IDs using cumulative sum
     group_ids          = np.zeros(len(t_band), dtype=int)

@@ -29,6 +29,7 @@
 
  Jan 2025: add --lsst-fastdb
 
+ Sep 2025: more devel for edp2 (e.g., --coadd_by_nite now takes time-window arg
 """
 
 # ============================================
@@ -97,8 +98,9 @@ def get_args():
     msg = "number of random sub-samples (default=1)"
     parser.add_argument("--nsplitran", help=msg, type=int, default=1 )
 
-    msg = "do coadd by nite"
-    parser.add_argument("--coadd_by_nite", help=msg, action="store_true")
+    msg = "coadd by nite (per band); argument is MJD tolerance within nite. " \
+        "E.g., 0.2 -> 5.8hr coadd for each band"
+    parser.add_argument("--coadd_by_nite", help=msg, type=float, default=None)
     
     msg = "photflag mask for detections (default=class value)"
     parser.add_argument("--photflag_detect", help=msg, type=int, default=0)

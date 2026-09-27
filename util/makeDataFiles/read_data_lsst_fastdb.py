@@ -368,12 +368,13 @@ class data_lsst_fastdb(Program):
         # do nightly coadd on snana dictionary if (1) coadd is requested
         # as command line arg, and (2) there is no garbage
         # [coadding would hide the garbage]
-        nobs_garbage = self.n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL]
-        do_coadd = args.coadd_by_nite and nobs_garbage == 0
+        nobs_garbage  = self.n_garbage_dict[gpar.GARBAGEKEY_FLUX_ALL]
+        coadd_by_nite = args.coadd_by_nite
+        do_coadd      = coadd_by_nite and nobs_garbage == 0
 
         if args.refac == 926:
             nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \
-                cbn.coadd_by_nite(snana_phot_raw, BAND_LIST_LSST, do_coadd)
+                cbn.coadd_by_nite(snana_phot_raw, BAND_LIST_LSST, coadd_by_nite, do_coadd)
             snana_phot_coadd[gpar.DATAKEY_NOBS_GARBAGE] = 0
         else:
             nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \

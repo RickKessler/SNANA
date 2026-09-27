@@ -88,6 +88,7 @@ class MakeDataFiles(Program):
         '''
         CONFIG      = self.config_yaml['CONFIG']
         input_file  = self.config_yaml['args'].input_file  # for msgerr
+        prescale    = self.config_yaml['args'].prescale    # based on --fast or --faster
         msgerr      = []
 
         output_args  = None
@@ -97,6 +98,7 @@ class MakeDataFiles(Program):
                 outdir = CONFIG[key]
                 if '/' not in outdir: # checking to make sure that the outdir has a full path
                     outdir = os.getcwd() + '/' + outdir
+                    
                 output_args = f'{opt} {outdir}'
                 noutkeys += 1
 
@@ -560,27 +562,30 @@ class MakeDataFiles(Program):
         split_mjd_key_name  = self.config_prep['split_mjd_key_name']
         split_mjd           = self.config_prep['split_mjd']
         nsplitnite          = split_mjd['nbin']
-
+        make_args           = CONFIG.setdefault('MAKEDATAFILE_ARGS',None)
+        
         f.write(f"# makeDataFiles info \n")
         f.write(f"JOBFILE_WILDCARD: {BASE_PREFIX}* \n")
         f.write(f"\n")
 
+        f.write(f"MAKEDATAFILE_ARGS:   {make_args} \n")
         f.write(f"MAKEDATAFILE_SOURCE: {input_source} \n")
         f.write(f"OUTPUT_FORMAT:   {output_format} \n")
 
         f.write(f"\n")
 
-        f.write(f"KEYNAME_SPLITMJD:  {split_mjd_key_name}\n")
-        f.write(f"NSPLITNITE: {nsplitnite} \n");
-        if nsplitnite > 1:
-            min_edge = list(split_mjd['min_edge'])
-            max_edge = list(split_mjd['max_edge'])
-            f.write(f"MIN_MJD_EDGE: {min_edge} \n")
-            f.write(f"MAX_MJD_EDGE: {max_edge} \n")
-        f.write(f"\n")
+        if split_mjd_key_name:
+            f.write(f"KEYNAME_SPLITMJD:  {split_mjd_key_name}\n")
+            f.write(f"NSPLITNITE: {nsplitnite} \n");
+            if nsplitnite > 1:
+                min_edge = list(split_mjd['min_edge'])
+                max_edge = list(split_mjd['max_edge'])
+                f.write(f"MIN_MJD_EDGE: {min_edge} \n")
+                f.write(f"MAX_MJD_EDGE: {max_edge} \n")
+            f.write(f"\n")
 
         # write out each job prefix
-        f.write(f"PREFIX_OUTPUT_LIST:  \n" )
+        f.write(f"PREFIX_OUTPUT_LIST:  # prefix for LOG & DONE files in /{SUBDIR_SCRIPTS_MKDATA} \n" )
         for prefix in prefix_output_list:
             f.write(f"  - {prefix} \n")
         f.write("\n")

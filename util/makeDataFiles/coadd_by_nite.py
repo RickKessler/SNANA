@@ -12,7 +12,6 @@ import os, sys,  logging
 import numpy  as np
 from  astropy.table import Table, vstack
 
-TOL_MJD_SINGLE_BAND = 0.4  # for each band, coadd observations with this fraction of a day
 TOL_MJD_ANY_BAND    = 0.6  # for any-band nite detection
 
 # map local KEY_TYPE (left) to possible key names in passed phot dictionary (right)
@@ -34,7 +33,7 @@ for key in list(KEYLIST_COADD_DICT):
 
 
 # ====================================================
-def coadd_by_nite(phot_dict, band_list_full, do_coadd):
+def coadd_by_nite(phot_dict, band_list_full, tol_mjd_coadd, do_coadd):
 
     # for input phot_dict dictionary of lists (table columns),
     # coadd each band grouped by nights and return coadd dictionary
@@ -46,6 +45,8 @@ def coadd_by_nite(phot_dict, band_list_full, do_coadd):
     #
     # band_list_full = full list of bands for which nite_detect_dict is returned.
     #                  For missing bands in phot_dict, nite_detect_dict[band] = 0.
+    #
+    # tol_mjd_coadd: MJD tolerance for coadd; e.g, 0.2 -> coadd obs (same band) within 5.8hr
     #
     # do_coadd = True -> return coadded photometry;
     #          = False -> return original photometry;
@@ -99,7 +100,7 @@ def coadd_by_nite(phot_dict, band_list_full, do_coadd):
         t_band     = t_phot[t_phot[key_band] == b]  
         n_obs_band = len(t_band)
         if n_obs_band > 0:
-            t_coadd_band        = coadd_single_band(t_band, colnames, TOL_MJD_SINGLE_BAND, do_coadd)
+            t_coadd_band        = coadd_single_band(t_band, colnames, tol_mjd_coadd, do_coadd)
             nite_detect_dict[b] = t_coadd_band[key_detect].sum()
             t_coadd_list.append(t_coadd_band) 
 
@@ -109,7 +110,8 @@ def coadd_by_nite(phot_dict, band_list_full, do_coadd):
     t_coadd.sort(key_mjd)       # re-sort by MJD
     
     # determine number of nites with detection, regardless of band : 'ANY_BAND'
-    # need to coadd again using all bands together and only use coadded PHOTFLAG
+    # need to coadd again using all bands together, and pass wide tolerance
+    # to cover full nite.
     t_coadd_dummy = coadd_single_band(t_phot, colnames, TOL_MJD_ANY_BAND, do_coadd)  
 
     nite_detect_dict['ANY_BAND'] = t_coadd_dummy[key_detect].sum()

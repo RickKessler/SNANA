@@ -13,11 +13,11 @@
 #   Check 2 (INFO.YML filename correctness -- regression test for the Sep
 #     2026 bug fix): create_covariance.py --write_factorized together with
 #     --write_format_cov text (i.e. NOT the npz default) must write a
-#     covfactorized_NNN.npz file whose name EXACTLY matches what INFO.YML
+#     covtot_factorized_NNN.npz file whose name EXACTLY matches what INFO.YML
 #     records for that COVOPT. Before the fix, get_cov_filename() named the
-#     factorized file using the dense-cov suffix (e.g. "covfactorized_000.
+#     factorized file using the dense-cov suffix (e.g. "covtot_factorized_000.
 #     txt.gz") while write_covariance_factorized() always calls np.savez()
-#     regardless, actually writing "covfactorized_000.txt.npz" -- any
+#     regardless, actually writing "covtot_factorized_000.txt.npz" -- any
 #     consumer (submit_prog_cosmofit.py, or a user script) trusting
 #     INFO.YML would get a silent FileNotFoundError at fit time.
 #
@@ -50,15 +50,15 @@ echo "======================================================================"
 echo " Check 1: factorized wfit == dense wfit (numerical equivalence)"
 echo "======================================================================"
 OUT1=$TESTDIR/output_BBCFIT-0001
-if [ ! -f "$OUT1/covfactorized_000.npz" ] || [ ! -f "$UNBINNED_OFFICIAL_OUTDIR/covtot_inv_000.npz" ]; then
-  echo "  SKIP: prerequisite covfactorized_000.npz / covtot_inv_000.npz not found"
+if [ ! -f "$OUT1/covtot_factorized_000.npz" ] || [ ! -f "$UNBINNED_OFFICIAL_OUTDIR/covtot_inv_000.npz" ]; then
+  echo "  SKIP: prerequisite covtot_factorized_000.npz / covtot_inv_000.npz not found"
   echo "        (run run_3way_wfit_test.sh or run_create_cov_to_wfit.sh first)"
 else
   $WFIT $UNBINNED_OFFICIAL_OUTDIR/hubble_diagram.txt $WOPTS \
         -mucovtot_inv_file $UNBINNED_OFFICIAL_OUTDIR/covtot_inv_000.npz \
         -cospar_yaml $TMPDIR/check1_dense.yaml > $TMPDIR/check1_dense.log 2>&1
   $WFIT $OUT1/hubble_diagram.txt $WOPTS \
-        -mucov_factorized_file $OUT1/covfactorized_000.npz \
+        -mucov_factorized_file $OUT1/covtot_factorized_000.npz \
         -cospar_yaml $TMPDIR/check1_fac.yaml > $TMPDIR/check1_fac.log 2>&1
 
   python3 - "$TMPDIR/check1_dense.yaml" "$TMPDIR/check1_fac.yaml" "$TOL" <<'PYEOF'
@@ -81,7 +81,7 @@ fi
 
 echo
 echo "======================================================================"
-echo " Check 2: INFO.YML covfactorized filename matches file on disk"
+echo " Check 2: INFO.YML covtot_factorized filename matches file on disk"
 echo "          (regression test for the write_format_cov=text/csv bug fix)"
 echo "======================================================================"
 OUT2=$TMPDIR/check2
@@ -97,7 +97,7 @@ if [ -n "$RECORDED" ] && [ -f "$OUT2/$RECORDED" ]; then
   echo "  OK: INFO.YML records '$RECORDED', and it exists on disk"
 else
   echo "  FAIL: INFO.YML records '$RECORDED', but that file does NOT exist on disk"
-  echo "        (actual covfactorized_000.* present: $(ls $OUT2 2>/dev/null | grep covfactorized_000))"
+  echo "        (actual covtot_factorized_000.* present: $(ls $OUT2 2>/dev/null | grep covtot_factorized_000))"
   FAIL=1
 fi
 

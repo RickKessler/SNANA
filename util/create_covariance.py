@@ -221,7 +221,7 @@ SUFFIX_FITRES = "FITRES"
 PREFIX_COVSYS     = "covsys"
 PREFIX_COVTOT_INV = "covtot_inv"
 PREFIX_COVTOT = "covtot"
-PREFIX_COVFACTORIZED = "covfactorized"  # Sep 2026: D + U U^T product, see --write_factorized
+PREFIX_COVFACTORIZED = "covtot_factorized"  # Sep 2026: D + U U^T product, see --write_factorized
 HD_FILENAME       = "hubble_diagram.txt"
 INFO_YML_FILENAME = "INFO.YML"
 

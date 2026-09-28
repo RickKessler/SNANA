@@ -108,7 +108,7 @@ KEYNAME_FITAVG_LIST  = [ "FITAVG",           # new default, Apr 6 2023
                          "WEIGHT_AVG" ]      # legacy
 
 KEYNAME_USE_COVSYS_INV = "USE_COVSYS_INV"
-KEYNAME_USE_FACTORIZED = "USE_FACTORIZED"  # Sep 2026: opt-in, default False
+KEYNAME_USE_FACTORIZED = "USE_COVTOT_FACTORIZED"  # Sep 2026: opt-in, default False
 
 # WARING: blind flag Works for wfit but not for firecrown 
 ARG_BLIND   = { COSMOFIT_CODE_WFIT       : '-blind',
@@ -516,8 +516,10 @@ class cosmofit(Program):
         #  
         
         # define yaml keys written by create_covariance.py
-        INFO_FILENAME          = "INFO.YML" # read this from inpdir
 
+        CONFIG     = self.config_yaml['CONFIG']
+
+        INFO_FILENAME          = "INFO.YML" # read this from inpdir
         INFO_KEYNAME_HD        = "HD"
         INFO_KEYNAME_COVOPTS   = "COVOPTS"
         INFO_KEYNAME_ISDATA    = "ISDATA_REAL"     # key in cov info file
@@ -529,7 +531,6 @@ class cosmofit(Program):
         # check option to use COVSYS_INV (default) or to perform inversion
         # USE_COVSYS_INV 
         USE_COVSYS_INV = True  # default
-        CONFIG     = self.config_yaml['CONFIG']
         if KEYNAME_USE_COVSYS_INV in CONFIG:
             USE_COVSYS_INV = CONFIG[KEYNAME_USE_COVSYS_INV]
 
@@ -537,10 +538,10 @@ class cosmofit(Program):
         # covariance representation when a CREATE_COV output provides one,
         # instead of the default dense -mucovtot_inv_file path. Off by
         # default so existing configs are unaffected.
-        USE_FACTORIZED = False  # default
+        USE_FACTORIZED = True
         if KEYNAME_USE_FACTORIZED in CONFIG:
             USE_FACTORIZED = CONFIG[KEYNAME_USE_FACTORIZED]
-            
+
         if index_HD == 0 :
             logging.info(f"\t USE_COVSYS_INV = {USE_COVSYS_INV}")
         
@@ -891,7 +892,7 @@ class cosmofit(Program):
         hd_file          = self.glue_inpdir_plus_filename(inpdir,hd_base)
 
         if covsys_base:
-            covsys_file      = self.glue_inpdir_plus_filename(inpdir,covsys_base)
+            covsys_file = self.glue_inpdir_plus_filename(inpdir,covsys_base)
         else:
             covsys_file = None
 
@@ -928,7 +929,7 @@ class cosmofit(Program):
         # this is what lets a genuinely patched wfit.exe evaluate the
         # accelerated O(N K) fit instead of the dense O(N^2) solve.
         if covfactorized_file:
-            arg_list.append(f"-mucov_factorized_file {covfactorized_file}")
+            arg_list.append(f"-mucovtot_factorized_file {covfactorized_file}")
         elif covtot_inv_file:
             arg_list.append(f"-mucovtot_inv_file {covtot_inv_file}")
         else:

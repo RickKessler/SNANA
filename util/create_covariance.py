@@ -232,7 +232,9 @@ INFO_YML_FILENAME = "INFO.YML"
 WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
+WRITE_MASK_FACTORIZED  = 8  # covtot in compact factorized form (Sep 2026)
 WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
+#WRITE_MASK_COV_DEFAULT  = WRITE_MASK_FACTORIZED  # change to this default when ready (Sep 28 2026)
 
 WRITE_FORMAT_COV_TEXT   = "text"
 WRITE_FORMAT_COV_NPZ    = "npz"
@@ -391,8 +393,8 @@ def get_args():
     #msg = "Restore DES-SN5YR bug that ignored VPEC systematic under EXTRA_COVs"
     #parser.add_argument("--restore_des5yr", help=msg, action="store_true")
 
-    mmm = f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT}"
-    msg = f"Define which COV(s) to write: +={mmm} -> covsys/covtot_inv/covtot ; " \
+    mmm = f"{WRITE_MASK_COVSYS}/{WRITE_MASK_COVTOT_INV}/{WRITE_MASK_COVTOT}/{WRITE_MASK_FACTORIZED}"
+    msg = f"Define which COV(s) to write: +={mmm} -> covsys/covtot_inv/covtot/factorized ; " \
           f"{WRITE_MASK_COV_DEFAULT}=default;  7 -> write all 3 covs "
     parser.add_argument("--write_mask_cov", help=msg,
                         nargs='?', type=int, default=WRITE_MASK_COV_DEFAULT )
@@ -2562,7 +2564,7 @@ def write_summary_output(args, config, covsys_list, base, factorized_list=None):
     logging.info(f"Write {INFO_YML_FILENAME}")
     with open(out / INFO_YML_FILENAME, "w") as f:
         f.write(f"# Dictionary arguments for COVOPTS:\n")
-        f.write(f"# index:  <sysLabel>  <name of covsys file>   " \
+        f.write(f"# index:  <sysLabel>  <name of covsys file>   <name of cov_factorized file>" \
                 f"<name of covtot_inv file>\n")
         f.write(f"#  (file name = None -> not written)\n")
 
@@ -2955,9 +2957,8 @@ def prep_config(config,args):
     logging.info(f"BINNED / REBIN / UNBIN = {args.binned} / {args.rebin} / {args.unbinned} ")
 
     # Apr 28 2024: check which COV(s) to write
-    config['write_covsys']     = False
-    config['write_covtot_inv'] = False
-    config['write_covtot']     = False
+    key_write_list  = [ 'write_covsys', 'write_covtot_inv', 'write_covtot', 'write_factorized' ]
+    for key in key_write_list :   config[key]     = False
 
     if args.write_mask_cov & WRITE_MASK_COVSYS:
         config['write_covsys'] = True
@@ -2965,13 +2966,17 @@ def prep_config(config,args):
         config['write_covtot_inv'] = True
     if args.write_mask_cov & WRITE_MASK_COVTOT:
         config['write_covtot'] = True
+    if args.write_mask_cov & WRITE_MASK_FACTORIZED:
+        config['write_factorized'] = True
 
+    # xxxx mark delete 9.28 2026 
     # Sep 2026: optional additive factorized (D + U U^T) output
-    config['write_factorized'] = args.write_factorized
+    #config['write_factorized'] = args.write_factorized
+    # xxxxxxx end mark
 
     logging.info(f"WRITE_COVSYS:       {config['write_covsys']}")
     logging.info(f"WRITE_COVTOT_INV:   {config['write_covtot_inv']}")
-    logging.info(f"WRITE_COVTOT:   {config['write_covtot']}")
+    logging.info(f"WRITE_COVTOT:       {config['write_covtot']}")
     logging.info(f"WRITE_FACTORIZED:   {config['write_factorized']}")
     logging.info(f"FLAG_REDUCE_MEMORY: {FLAG_REDUCE_MEMORY} ")
     logging.info(f"Check pos-def on covtot_inv for HD size <= {args.mxsize_test_posdef}")

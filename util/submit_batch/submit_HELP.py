@@ -334,8 +334,12 @@ HELP_CONFIG_COSMOFIT = f"""
   - UNBIN5YR_5YR_OnlyIa - UNBIN5YR_5YR_IaCC  # w(wa) diff-avg
   - UNBIN5YR_5YR_IaCC                        # w(wa) avg
 
-  USE_COVSYS_INV: False  # disable default use of already-inverted COVSYS
-                         # and let cosmo-fit code invert COVSYS
+
+  # disable default use of already-inverted COVSYS and let cosmo-fit code invert COVSYS
+  USE_COVSYS_INV: False  
+
+  # disable default priority to use factorized covtot
+  USE_COVTOT_FACTORIZED: False 
 
 """
 

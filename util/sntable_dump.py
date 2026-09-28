@@ -140,8 +140,6 @@ def insert_ccid_varlist(args):
 
     varlist_new = varlist_new.replace(',',' ')
 
-    # sys.exit(f"\n xxx varlist_string = {varlist_string} \n xxx varlist_new = {varlist_new}")
-
     # replace commas with spaces for C program
     return varlist_new
 
@@ -279,7 +277,10 @@ def append_fitres(input_args,config):
 
     input_table_file = input_args.input_table_file
     append_file      = input_args.append_file
-    varlist          = (input_args.varlist).replace(',',' ')
+
+    # xxx mark varlist          = (input_args.varlist).replace(',',' ')
+    varlist          = ' '.join(input_args.varlist).replace(',',' ')
+
     outfile_dump     = config.outfile
     table_name       = config.table_name
     Format           = config.Format

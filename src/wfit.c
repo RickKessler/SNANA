@@ -273,7 +273,8 @@
 #define FLAG_MUCOVNOSYS     0
 #define FLAG_MUCOVSYS       1
 #define FLAG_MUCOVTOT_INV   2
-#define FLAG_MUCOV_FACTORIZED 3
+//#define FLAG_MUCOV_FACTORIZED 3
+#define FLAG_MUCOVTOT_FACTORIZED 3
 
 // ======== global structures ==========
 
@@ -310,7 +311,8 @@ struct INPUTS {
   
   char **mucov_file ;  // input cov matrix(es); e.g., produced by create_cov
   int    NMUCOV ; // 1 or 2 cov matrices; 2 for HDIBC method
-  char   mucov_factorized_file[MXCHAR_FILENAME]; // Sep 2026: D+U U^T product
+  // xxx mark char   mucov_factorized_file[MXCHAR_FILENAME]; // Sep 2026: D+U U^T product
+  char   mucovtot_factorized_file[MXCHAR_FILENAME]; // Sep 2026: D+U U^T product
   
   char label_cospar[40]  ;   // string label for cospar file.
   int  ndump_mucov ; // dump this many column/rows
@@ -555,7 +557,7 @@ void sync_HD_redshifts(HD_DEF *HD0, HD_DEF *HD1) ;
 void compute_MUCOV_FINAL();
 void invert_mucovar(COVMAT_DEF *COV, double sqmurms_add);
 void check_invertMatrix(int N, double *COV, double *COVINV );
-void setup_factorized_mucov(void);
+void setup_factorized_mucovtot(void);
 void get_chi2_woodbury(double *dmu_list, int NSN,
 		       double *chi_hat, double *Bsum, double *Csum);
 void set_stepsizes(void);
@@ -724,8 +726,8 @@ int main(int argc,char *argv[]){
       sync_HD_redshifts(&HD_LIST[0], &HD_LIST[1]); 
     }
 
-    if ( INPUTS.use_mucov == FLAG_MUCOV_FACTORIZED ) {
-      setup_factorized_mucov();
+    if ( INPUTS.use_mucov == FLAG_MUCOVTOT_FACTORIZED ) {
+      setup_factorized_mucovtot();
     }
     else if ( INPUTS.use_mucov ) {
       compute_MUCOV_FINAL();
@@ -822,7 +824,7 @@ void init_stuff(void) {
   INPUTS.weightmin           = 1.0E-20;
   INPUTS.outFile_mucovtot_inv[0] = 0 ;
   INPUTS.use_mucov           = FLAG_MUCOVNOSYS ;
-  INPUTS.mucov_factorized_file[0] = 0 ;
+  INPUTS.mucovtot_factorized_file[0] = 0 ;
   WORKSPACE.FACCOV.USE = false ;
   WORKSPACE.FACCOV.K   = 0 ;
   sprintf(INPUTS.label_cospar,"none");
@@ -951,7 +953,7 @@ void print_wfit_help(void) {
     "   -mucovsys_file\tfile with COV_syst e.g., from create_covariance",
     "   -mucov_file   \tlegacy key for mucovsys_file",
     "   -mucovtot_inv_file\tfile with inverse of COVTOT",
-    "   -mucov_factorized_file\tnpz with diag(D)+U U^T product (Woodbury; no dense NxN matrix)",
+    "   -mucovtot_factorized_file\tnpz with diag(D)+U U^T product (Woodbury; no dense NxN matrix)",
     "   -ndump_mucov\t dump this many rows/columns of MUCOV and MUCOVINV",
     "   -varname_muerr\t column name with distance errors (default=MUERR)",
     "   -refit\tfit once for sigint then refit with snrms=sigint.", 
@@ -1166,12 +1168,12 @@ void parse_args(int argc, char **argv) {
 	INPUTS.use_mucov = FLAG_MUCOVTOT_INV ;  // flag that mucovtot_inv has been read
 
       }
-      else if (strcasecmp(argv[iarg]+1,"mucov_factorized_file")==0) {
+      else if (strcasecmp(argv[iarg]+1,"mucovtot_factorized_file")==0) {
 	// Sep 2026: additive D + U U^T product from create_covariance.py
 	// --write_factorized; chi2 uses Woodbury identity, O(NSN*K) per
 	// grid point, without ever forming a dense NSN x NSN matrix.
-	strcpy(INPUTS.mucov_factorized_file, argv[++iarg]);
-	INPUTS.use_mucov = FLAG_MUCOV_FACTORIZED ;
+	strcpy(INPUTS.mucovtot_factorized_file, argv[++iarg]);
+	INPUTS.use_mucov = FLAG_MUCOVTOT_FACTORIZED ;
 
       }
       else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
@@ -1891,7 +1893,7 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
   int NDIM_STORE   = NSN_STORE ;
   
-  bool ISFORMAT_TEXT=0, ISFORMAT_NPZ=0;  (void)ISFORMAT_NPZ;
+  bool ISFORMAT_TEXT=0, ISFORMAT_NPZ=0, ISFORMAT_FACTORIZED=0;  (void)ISFORMAT_NPZ;
 
   time_t t_start_read ;
   double dt_read;
@@ -1902,7 +1904,11 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // ---------- BEGIN ----------------
 
-  if ( strstr(inFile, "npz") != NULL ) 
+  if ( strstr(inFile,"factor") != NULL  || strstr(inFile,"FACTOR") != NULL ) {
+    ISFORMAT_FACTORIZED = true; 
+    return; 
+  }  
+  else if ( strstr(inFile, "npz") != NULL ) 
     { ISFORMAT_NPZ = true; }
   else
     { ISFORMAT_TEXT = true; }
@@ -1916,6 +1922,8 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
     { sprintf(covtype, "MUCOVSYS");  }
   else if ( INPUTS.use_mucov == FLAG_MUCOVTOT_INV )
     { sprintf(covtype, "MUCOVTOT^{-1}");  }    
+  else if ( INPUTS.use_mucov == FLAG_MUCOVTOT_FACTORIZED )
+    { sprintf(covtype, "MUCOVTOT_FACTORIZED");  }    
 
   printf("  Process %s file %s\n", covtype, inFile);   fflush(stdout);
   sprintf(MUCOV->fileName, "%s", inFile);
@@ -1926,11 +1934,19 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   MUCOV->NDIM    = NSN_ORIG; // read entire COV without cuts
   malloc_COVMAT(+1,MUCOV);
 
-  if ( ISFORMAT_TEXT ) {
+  if ( ISFORMAT_FACTORIZED ) {
+    return; // later should move read_npz_factorized to be here; for now, bail
+  }
+  else if ( ISFORMAT_TEXT ) {
     NMAT_read = read_mucov_text(inFile, NSN_ORIG, MUCOV);
   }
-  else {
+  else if ( ISFORMAT_NPZ ) {
     NMAT_read = read_mucov_npz(inFile, NSN_ORIG, MUCOV);    
+  }
+  else {
+    sprintf(c1err,"Unknown format for covtot/covsys/covtot_inv ... ");
+    sprintf(c2err,"Check %s", inFile);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   dt_read = time(NULL) - t_start_read ;
@@ -2422,7 +2438,7 @@ void compute_MUCOV_FINAL(void) {
 } // end compute_MUCOV_FINAL
 
 //===================================
-void setup_factorized_mucov(void) {
+void setup_factorized_mucovtot(void) {
 
   // Sep 2026: read the additive factorized covariance product
   // C = diag(D) + U U^T (from create_covariance.py --write_factorized),
@@ -2443,21 +2459,22 @@ void setup_factorized_mucov(void) {
   bool *pass_cut = HD_LIST[0].pass_cut;
   double *D_orig=NULL, *U_orig=NULL;
   int K, j, k, idx, i1, i2, NSN_read;
-  char fnam[] = "setup_factorized_mucov" ; (void)fnam;
+  char fnam[] = "setup_factorized_mucovtot" ; (void)fnam;
 
   // ---------- BEGIN -----------
 
   if ( INPUTS.USE_HDIBC ) {
-    sprintf(c1err,"mucov_factorized_file is not supported with HDIBC");
+    sprintf(c1err,"mucovtot_factorized_file is not supported with HDIBC");
     sprintf(c2err,"Use -mucovsys_file or -mucovtot_inv_file instead");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   printf("\n# ======================================= \n");
-  printf("  Process MUCOV_FACTORIZED file %s\n",
-	 INPUTS.mucov_factorized_file); fflush(stdout);
+  printf("  Process MUCOVTOT_FACTORIZED file %s\n",
+	 INPUTS.mucovtot_factorized_file); fflush(stdout);
 
-  NSN_read = read_npz_factorized(INPUTS.mucov_factorized_file,
+  // RK comment this read should be move to read_mucov to preserve structure
+  NSN_read = read_npz_factorized(INPUTS.mucovtot_factorized_file,
 				  &D_orig, &U_orig, &K);
 
   if ( NSN_read != NSN_ORIG ) {
@@ -2563,7 +2580,7 @@ void setup_factorized_mucov(void) {
 
   return;
 
-} // end setup_factorized_mucov
+} // end setup_factorized_mucovtot
 
 //===================================
 void get_chi2_woodbury(double *dmu_list, int NSN,
@@ -4552,7 +4569,7 @@ void get_chi2_fit (
     dmu_list[k] = mu_obs - mu_cos; 
 
     n_count++ ;
-    if ( use_mucov == FLAG_MUCOV_FACTORIZED ) {
+    if ( use_mucov == FLAG_MUCOVTOT_FACTORIZED ) {
       // Woodbury: diag+offdiag contributions computed together via
       // get_chi2_woodbury() after this loop; nothing to add here.
       sqmusiginv = 0.0 ;
@@ -4595,7 +4612,7 @@ void get_chi2_fit (
 
   
   // - - - - - -
-  if ( use_mucov == FLAG_MUCOV_FACTORIZED ) {
+  if ( use_mucov == FLAG_MUCOVTOT_FACTORIZED ) {
     // Full quadratic form (diag+offdiag together) via Woodbury,
     // O(NSN*K) instead of the O(NSN^2) double loop below.
     get_chi2_woodbury(dmu_list, NSN, &chi_hat, &Bsum, &Csum);

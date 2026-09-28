@@ -411,7 +411,7 @@ PHOT file:
 * FIELD                    name of field; e.g., SHALLOW, DEEP, etc ...
 * PHOTFLAG                 bit-mask of information (check data README)
 * PHOTPROB                 float metric; e.g, RealBogus score, chi2, ...
-* FLUXCAL                  calibrated flux : mag = 27.5 - 2.5*log10(FLUXCAL)
+* FLUXCAL                  calibrated flux : mag = 31.4 - 2.5*log10(FLUXCAL)
 * FLUXCALERR               Poisson uncertainty on FLUXCAL; sky+galaxy+source
 
      image properties
@@ -2514,7 +2514,7 @@ A few of the output variables must be converted for the
 {\tt FLUXERRMAP}:
 %
 \begin{verbatim}
-   SBMAG       = 27.5 - 2.5*log10(SBFLUXCAL)  [and protect SBFLUXCAL<0]
+   SBMAG       = 31.4 - 2.5*log10(SBFLUXCAL)  [and protect SBFLUXCAL<0]
    sigma_SIM   = ERRTEST * FLUXCAL_DATA_ERR
    PSF(arcSec) = PSF(sig,pixels) * 2.35 * PIXSIZE
 \end{verbatim}
@@ -5447,7 +5447,7 @@ and the file syntax is
 NOISEMODEL_NAME: SB_ERRSCALE 
 
 # SBMAG    = mag/arcsec^2 in template at SN location 
-#          = 27.5 - 2.5*log10(FLUXCAL_SB) 
+#          = 31.4 - 2.5*log10(FLUXCAL_SB) 
 # ERRSCALE: fluxerr -> fluxerr x ERRSCALE 
 
 LIBID: 1 

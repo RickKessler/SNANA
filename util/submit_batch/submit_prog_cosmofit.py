@@ -108,6 +108,7 @@ KEYNAME_FITAVG_LIST  = [ "FITAVG",           # new default, Apr 6 2023
                          "WEIGHT_AVG" ]      # legacy
 
 KEYNAME_USE_COVSYS_INV = "USE_COVSYS_INV"
+KEYNAME_USE_FACTORIZED = "USE_FACTORIZED"  # Sep 2026: opt-in, default False
 
 # WARING: blind flag Works for wfit but not for firecrown 
 ARG_BLIND   = { COSMOFIT_CODE_WFIT       : '-blind',
@@ -265,7 +266,8 @@ class cosmofit(Program):
         isdata_list            = []
         hd_file_list           = []
         covsys_file_list2d     = [] # file list per inpdir
-        covtot_inv_file_list2d = [] # file list per inpdir        
+        covtot_inv_file_list2d = [] # file list per inpdir
+        covfactorized_file_list2d = [] # file list per inpdir; Sep 2026
         covsys_num_list2d      = [] # cov index list per inpdir
         covinfo_list           = [] # list of yaml info per inpdir
 
@@ -293,16 +295,18 @@ class cosmofit(Program):
                         msgerr=[f"{key} name mismatch between {inpdir_list}" ]
                         self.log_assert(False, msgerr)
                 
-            hd_file               = dict_info['hd_file'] 
+            hd_file               = dict_info['hd_file']
             covsys_file_list      = dict_info['covsys_file_list']
-            covtot_inv_file_list  = dict_info['covtot_inv_file_list'] 
+            covtot_inv_file_list  = dict_info['covtot_inv_file_list']
+            covfactorized_file_list = dict_info.get('covfactorized_file_list', [None]*len(covsys_file_list))  # Sep 2026
             covsys_num_list       = dict_info['covsys_num_list']
             n_covsys              = len(covsys_file_list)
-            isdata                = dict_info['isdata']   
+            isdata                = dict_info['isdata']
 
             hd_file_list.append(hd_file)
             covsys_file_list2d.append(covsys_file_list)
             covtot_inv_file_list2d.append(covtot_inv_file_list)  # 4.2024
+            covfactorized_file_list2d.append(covfactorized_file_list)  # Sep 2026
             covsys_num_list2d.append(covsys_num_list)
             isdata_list.append(isdata)
             covinfo_list.append(yaml_info)
@@ -323,7 +327,8 @@ class cosmofit(Program):
 
         self.config_prep['hd_file_list']           = hd_file_list
         self.config_prep['covsys_file_list2d']     = covsys_file_list2d
-        self.config_prep['covtot_inv_file_list2d'] = covtot_inv_file_list2d 
+        self.config_prep['covtot_inv_file_list2d'] = covtot_inv_file_list2d
+        self.config_prep['covfactorized_file_list2d'] = covfactorized_file_list2d  # Sep 2026
         self.config_prep['covsys_num_list2d']      = covsys_num_list2d
         self.config_prep['isdata_list']            = isdata_list
         self.config_prep['covinfo_list']           = covinfo_list
@@ -527,6 +532,14 @@ class cosmofit(Program):
         CONFIG     = self.config_yaml['CONFIG']
         if KEYNAME_USE_COVSYS_INV in CONFIG:
             USE_COVSYS_INV = CONFIG[KEYNAME_USE_COVSYS_INV]
+
+        # Sep 2026: opt-in flag to use the factorized (D + U U^T, Woodbury)
+        # covariance representation when a CREATE_COV output provides one,
+        # instead of the default dense -mucovtot_inv_file path. Off by
+        # default so existing configs are unaffected.
+        USE_FACTORIZED = False  # default
+        if KEYNAME_USE_FACTORIZED in CONFIG:
+            USE_FACTORIZED = CONFIG[KEYNAME_USE_FACTORIZED]
             
         if index_HD == 0 :
             logging.info(f"\t USE_COVSYS_INV = {USE_COVSYS_INV}")
@@ -554,7 +567,8 @@ class cosmofit(Program):
         covsys_label_list = []
         covsys_file_list  = []
         covtot_inv_file_list = []  # 4.2024
-        
+        covfactorized_file_list = []  # Sep 2026
+
         for covnum, covinfo in COVOPTS.items():
             covinfo_split = covinfo.split()
 
@@ -569,12 +583,24 @@ class cosmofit(Program):
             covsys_file_list.append(covsys_file)
 
             if len(covinfo_split) > 2 and USE_COVSYS_INV:
-                covtot_inv_file = covinfo_split[2] 
-                if covtot_inv_file == 'None' : 
+                covtot_inv_file = covinfo_split[2]
+                if covtot_inv_file == 'None' :
                     covtot_inv_file = None # 6.12.2026 bug fix
                 covtot_inv_file_list.append(covtot_inv_file)  # 4.2024
             else:
                 covtot_inv_file_list.append(None)
+
+            # Sep 2026: optional 4th COVOPTS field, the covfactorized file
+            # (D + U U^T Woodbury representation); None if this COVOPT's
+            # INFO.YML predates this field, if it wasn't written, or if
+            # USE_FACTORIZED wasn't explicitly requested for this CONFIG.
+            if len(covinfo_split) > 3 and USE_FACTORIZED:
+                covfactorized_file = covinfo_split[3]
+                if covfactorized_file == 'None':
+                    covfactorized_file = None
+                covfactorized_file_list.append(covfactorized_file)
+            else:
+                covfactorized_file_list.append(None)
 
         # - - - - -
         # check optional subset of covsys options to store
@@ -583,20 +609,26 @@ class cosmofit(Program):
             yaml_info_select         = yaml_info.copy()
             covsys_file_list_select  = []
             covtot_inv_file_list_select = []
+            covfactorized_file_list_select = []  # Sep 2026
             covsys_num_list_select   = []
-            for covsys_num_tmp, covsys_file_tmp, covtot_inv_file_tmp in \
-                zip(COVOPTS_DICT, covsys_file_list, covtot_inv_file_list):
+            for covsys_num_tmp, covsys_file_tmp, covtot_inv_file_tmp, covfactorized_file_tmp in \
+                zip(COVOPTS_DICT, covsys_file_list, covtot_inv_file_list, covfactorized_file_list):
                 covsys_name_tmp = COVOPTS_DICT[covsys_num_tmp].split()[0]
 
                 if covsys_name_tmp in covsys_select_list:
                     covsys_file_list_select.append(covsys_file_tmp)
-                    covtot_inv_file_list_select.append(covtot_inv_file_tmp)   
+                    covtot_inv_file_list_select.append(covtot_inv_file_tmp)
+                    covfactorized_file_list_select.append(covfactorized_file_tmp)  # Sep 2026
                     covsys_num_list_select.append(covsys_num_tmp)
                 else:
                     yaml_info_select["COVOPTS"].pop(covsys_num_tmp)
 
             # update lists to include only the user-requsted subset
             covsys_file_list = covsys_file_list_select
+            covtot_inv_file_list = covtot_inv_file_list_select  # Sep 2026 bug fix: this was
+                                                                  # not being updated in the
+                                                                  # select branch before either
+            covfactorized_file_list = covfactorized_file_list_select  # Sep 2026
             covsys_num_list  = covsys_num_list_select
             yaml_info        = yaml_info_select
 
@@ -607,8 +639,9 @@ class cosmofit(Program):
             'covsys_num_list'       : covsys_num_list,
             'covsys_label_list'     : covsys_label_list,
             'covsys_file_list'      : covsys_file_list,
-            'covtot_inv_file_list'  : covtot_inv_file_list,            
-            'isdata'                : isdata            
+            'covtot_inv_file_list'  : covtot_inv_file_list,
+            'covfactorized_file_list' : covfactorized_file_list,  # Sep 2026
+            'isdata'                : isdata
         }
         
         #print(f"\n xxx dict_info = \n{dict_info}\n")
@@ -847,11 +880,12 @@ class cosmofit(Program):
         arg_string   = self.config_prep['fitopt_arg_list'][ifit]
         arg_global   = self.config_prep['fitopt_global']
         covsys_base  = self.config_prep['covsys_file_list2d'][idir][icov]
-        covtot_inv_base  = self.config_prep['covtot_inv_file_list2d'][idir][icov] 
+        covtot_inv_base  = self.config_prep['covtot_inv_file_list2d'][idir][icov]
+        covfactorized_base = self.config_prep['covfactorized_file_list2d'][idir][icov]  # Sep 2026
         hd_base          = self.config_prep['hd_file_list'][idir]
         outdir_chi2grid  = self.config_prep['outdir_chi2grid']
-        outdir_resid     = self.config_prep['outdir_resid']        
-        
+        outdir_resid     = self.config_prep['outdir_resid']
+
         prefix = self.cosmofit_num_string(idir,icov,ifit)
 
         hd_file          = self.glue_inpdir_plus_filename(inpdir,hd_base)
@@ -865,7 +899,12 @@ class cosmofit(Program):
             covtot_inv_file  = self.glue_inpdir_plus_filename(inpdir,covtot_inv_base)
         else:
             covtot_inv_file = None
-            
+
+        if covfactorized_base:  # Sep 2026
+            covfactorized_file = self.glue_inpdir_plus_filename(inpdir,covfactorized_base)
+        else:
+            covfactorized_file = None
+
 
         log_file      = f"{prefix}.LOG" 
         done_file     = f"{prefix}.DONE"
@@ -884,7 +923,13 @@ class cosmofit(Program):
 
 
         # define covsys file from create_cov
-        if covtot_inv_file:
+        # Sep 2026: prefer the factorized (D + U U^T, Woodbury) file when
+        # USE_FACTORIZED was requested and one exists for this COVOPT;
+        # this is what lets a genuinely patched wfit.exe evaluate the
+        # accelerated O(N K) fit instead of the dense O(N^2) solve.
+        if covfactorized_file:
+            arg_list.append(f"-mucov_factorized_file {covfactorized_file}")
+        elif covtot_inv_file:
             arg_list.append(f"-mucovtot_inv_file {covtot_inv_file}")
         else:
             arg_list.append(f"-mucovsys_file {covsys_file}")

@@ -8,6 +8,7 @@ extern"C" {
 #endif
 
   int read_npz_covmat(char *npz_file, double *array1d);
+  int read_npz_factorized(char *npz_file, double **diag, double **U, int *K);
 
   void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
   void  print_banner ( const char *banner ) ;

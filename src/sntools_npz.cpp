@@ -16,6 +16,22 @@
 #include "cnpy.h"
 
 
+int get_npz_filetype(char *npz_file) {
+  // for npz file written by create_covariance.py,
+  // return ISFILE_NPZ_COV *npz_file contains a 'cov' data type;
+  // return ISFILE_NPZ_FACTORIEZE if *npz_file contains 'diag' data type.
+
+  int ISFILE_TYPE = -9;
+  char fnam[] = "get_npz_filetype" ;  (void)fnam;
+
+  // ---------- BEGIN -----------
+
+
+
+
+  return ISFILE_TYPE;
+
+} // end get_npz_filetype
 
 int read_npz_covmat(char *npz_file, double *array1d) {
 

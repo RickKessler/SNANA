@@ -17,7 +17,9 @@
 
 
 int get_npz_filetype(char *npz_file) {
-  // for npz file written by create_covariance.py,
+
+  // Created Sep 29 2026 by R.Kessler and Claude.
+  // For npz file written by create_covariance.py,
   // return ISFILE_NPZ_COV *npz_file contains a 'cov' data type;
   // return ISFILE_NPZ_FACTORIEZE if *npz_file contains 'diag' data type.
 
@@ -26,10 +28,17 @@ int get_npz_filetype(char *npz_file) {
 
   // ---------- BEGIN -----------
 
+  cnpy::npz_t my_npz = cnpy::npz_load(npz_file);
 
-
+  if ( my_npz.count("cov") > 0 ) {
+    ISFILE_TYPE = ISFILE_NPZ_COV;
+  }
+  else if ( my_npz.count("diag") > 0 ) {
+    ISFILE_TYPE = ISFILE_NPZ_FACTORIZE;
+  }
 
   return ISFILE_TYPE;
+
 
 } // end get_npz_filetype
 

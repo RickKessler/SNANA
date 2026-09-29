@@ -710,7 +710,7 @@ int main(int argc,char *argv[]){
     
     // Set BAO and CMB priors
     set_priors();
-  
+
     // read optional mu-covSys or mucovtot_inv matrix
     for(f=0; f < INPUTS.NMUCOV; f++ ) 
       { read_mucov(INPUTS.mucov_file[f], f, &WORKSPACE.MUCOV[f] ); }
@@ -725,6 +725,7 @@ int main(int argc,char *argv[]){
 
       sync_HD_redshifts(&HD_LIST[0], &HD_LIST[1]); 
     }
+
 
     if ( INPUTS.use_mucov == FLAG_MUCOVTOT_FACTORIZED ) {
       setup_factorized_mucovtot();
@@ -1174,7 +1175,6 @@ void parse_args(int argc, char **argv) {
 	// grid point, without ever forming a dense NSN x NSN matrix.
 	strcpy(INPUTS.mucovtot_factorized_file, argv[++iarg]);
 	INPUTS.use_mucov = FLAG_MUCOVTOT_FACTORIZED ;
-
       }
       else if (strcasecmp(argv[iarg]+1,"varname_muerr")==0) {
         strcpy(INPUTS.varname_muerr,argv[++iarg]);
@@ -1893,7 +1893,7 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   int NSN_ORIG     = HD_LIST[imat].NSN_ORIG; // total number read from HD file
   int NDIM_STORE   = NSN_STORE ;
   
-  bool ISFORMAT_TEXT=0, ISFORMAT_NPZ=0, ISFORMAT_FACTORIZED=0;  (void)ISFORMAT_NPZ;
+  bool ISFORMAT_TEXT=0, ISFORMAT_NPZ=0 ;
 
   time_t t_start_read ;
   double dt_read;
@@ -1904,14 +1904,13 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
 
   // ---------- BEGIN ----------------
 
-  if ( strstr(inFile,"factor") != NULL  || strstr(inFile,"FACTOR") != NULL ) {
-    ISFORMAT_FACTORIZED = true; 
-    return; 
-  }  
-  else if ( strstr(inFile, "npz") != NULL ) 
-    { ISFORMAT_NPZ = true; }
-  else
-    { ISFORMAT_TEXT = true; }
+  if ( strstr(inFile, "npz") != NULL ) {
+    ISFORMAT_NPZ = true ;
+  }
+  else {
+    ISFORMAT_TEXT = true; 
+  }
+
 
   MUCOV->N_NONZERO_TOT     = 0;
   MUCOV->N_NONZERO_OFFDIAG = 0;
@@ -1929,19 +1928,20 @@ void read_mucov(char *inFile, int imat, COVMAT_DEF *MUCOV ){
   sprintf(MUCOV->fileName, "%s", inFile);
   
   // - - - - - - -
-  t_start_read = time(NULL);
 
+  if ( ISFORMAT_NPZ && INPUTS.use_mucov == FLAG_MUCOVTOT_FACTORIZED ) {
+    return; 
+  }
+
+  t_start_read = time(NULL);
   MUCOV->NDIM    = NSN_ORIG; // read entire COV without cuts
   malloc_COVMAT(+1,MUCOV);
 
-  if ( ISFORMAT_FACTORIZED ) {
-    return; // later should move read_npz_factorized to be here; for now, bail
+  if ( ISFORMAT_NPZ ) {
+    NMAT_read = read_mucov_npz(inFile, NSN_ORIG, MUCOV);    
   }
   else if ( ISFORMAT_TEXT ) {
     NMAT_read = read_mucov_text(inFile, NSN_ORIG, MUCOV);
-  }
-  else if ( ISFORMAT_NPZ ) {
-    NMAT_read = read_mucov_npz(inFile, NSN_ORIG, MUCOV);    
   }
   else {
     sprintf(c1err,"Unknown format for covtot/covsys/covtot_inv ... ");

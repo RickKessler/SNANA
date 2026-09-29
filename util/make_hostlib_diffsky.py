@@ -772,7 +772,10 @@ def add_col_magerr_pdf(df_cat,config):
     # where PDF in each band is estimated by parameters.
 
     logging.info(f"Add MAGERR using {KEY_MAGERR_PDF}")
-        
+
+    # Import magerr_sampler.py (copied to SNANA/util)
+    from magerr_sampler import MagErrSampler
+    
     MAGERR_PDF_DICT = config[KEY_MAGERR_PDF]
     pdfpar_yaml_file     = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
     # .xyz
@@ -788,7 +791,13 @@ def add_col_magerr_pdf(df_cat,config):
         # compute magerr using distribution constructed from pdfpar_yaml above
 
         mag     = df_cat[band]
-        mag_err = 0.01*mag   # for JM to complete
+        band_pdfpar_yaml = MAGERR_PDF_DICT['BANDMAP_DICT'][band]
+        #print(f'xxx band_pdfpar_yaml = {band_pdfpar_yaml}')
+
+        sampler = MagErrSampler(pdfpar_yaml_file)
+        rng = np.random.default_rng(42) # Setting rng to make it repeatable
+        mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng) # band string needs to match pdfpar_yaml_file
+        #mag_err = 0.01*mag   # test
         
         band_err = band + '_err'
         df_cat[band_err] = mag_err

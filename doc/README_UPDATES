@@ -24274,7 +24274,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snana.exe 
       + for VERSION_REFORMAT option with sim data, copy SIMGEN_DUMP file.
 
-    snlc_sim.h:  MXOBS_SPECTROGRAPH = 50 -> 150 for Roman
+    snlc_sim.h:  MXOBS_SPECTROGRAPH = 50 -> 200 for Roman
 
     sntools_dataformat_fits.c:
       + in rd_snfitsio_malloc(), increase string malloc from 40 to 60 bytes

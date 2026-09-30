@@ -64,7 +64,7 @@
 
 #define  MXREAD_SIMLIB 150000  // max number of SIMLIB observations/entries
 #define  MXOBS_SIMLIB  MXEPOCH    // max number of observ. per simlib
-#define  MXOBS_SPECTROGRAPH 150 // max number of spectra per event (50->150, 9.29.2026)
+#define  MXOBS_SPECTROGRAPH 200 // max number of spectra per event (50->200, 9.29.2026)
 
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10
 #define  MXSEASON_SIMLIB  30      // max number of seasons

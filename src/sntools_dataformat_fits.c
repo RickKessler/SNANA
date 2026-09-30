@@ -5056,7 +5056,7 @@ void rd_snfitsio_free(int ifile, int itype ) {
   // Oct 17 2012 set   MALLOC_LEN_SNFITSIO[itype] = 0 ; 
 
   int LDMP = 0;
-  int iform, ipar, npar, LEN, i, icol ;
+  int iform, ipar, npar, LEN, i ;
   char fnam[] = "rd_snfitsio_free" ;
 
   // --------------- BEGIN ----------

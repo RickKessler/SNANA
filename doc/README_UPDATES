@@ -24231,7 +24231,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim: 
       + fix subtle SIMLIB-rewind bug:  https://github.com/RickKessler/SNANA/issues/1783
 
-
     Merge Claude+Ayan PR https://github.com/RickKessler/SNANA/pull/1797
     to implement much more efficient handling of cov matrices using
     Woodbury factorization method. Code changes are in
@@ -24241,14 +24240,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Related tests in $SNDATA_ROOT/SNANA_TESTS/inputs_submit_batch have been expanded
     to include COVTOT_INV and COVTOT_FACTORIZE.
 
-    BEWARE: Remaining wfit.c task: identify covtot_inv or covtot_factorized by file content
-      instead of fragile check if for "factor" in or not in  the filename.
-
          *****  USEFUL(v12_02d) *****
 
     snlc_fit:
       + wrap up WAVECOR to correct filter transmissions per epoch in LCFIT
-
 
     add diffsky_synthetic_photometry.py (from A.Mitra)
 
@@ -24278,6 +24273,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
  
     snana.exe 
       + for VERSION_REFORMAT option with sim data, copy SIMGEN_DUMP file.
+
+    snlc_sim.h:  MXOBS_SPECTROGRAPH = 50 -> 150 for Roman
 
 END:
 

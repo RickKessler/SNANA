@@ -5056,7 +5056,7 @@ void rd_snfitsio_free(int ifile, int itype ) {
   // Oct 17 2012 set   MALLOC_LEN_SNFITSIO[itype] = 0 ; 
 
   int LDMP = 0;
-  int iform, ipar, npar, LEN, i ;
+  int iform, ipar, npar, LEN, i, icol ;
   char fnam[] = "rd_snfitsio_free" ;
 
   // --------------- BEGIN ----------
@@ -5064,8 +5064,8 @@ void rd_snfitsio_free(int ifile, int itype ) {
   LEN = MALLOC_LEN_SNFITSIO[itype] ;
   if ( LEN <= 0 ) { return ; }
 
-  printf("\t Free memory for ifile=%d : %s \n",
-	 ifile, rd_snfitsFile[ifile][itype] );
+  printf("\t Free memory for ifile=%d : %s  (LEN=%d)\n",
+	 ifile, rd_snfitsFile[ifile][itype], LEN );
   fflush(stdout);
 
 
@@ -5075,17 +5075,19 @@ void rd_snfitsio_free(int ifile, int itype ) {
 
     if ( npar <= 0 ) { continue ; }
 
-    if ( LDMP ) {
-      printf(" xxx %s: FREE itype=%d  iform=%d  npar=%3d \n",
-	     fnam, itype, iform, npar);    fflush(stdout);
-    }
-
-
     for ( ipar=0; ipar <= npar; ipar++ ) {
+
+      if ( LDMP ) {
+	int   icol    =  RD_SNFITSIO_TABLEVAL[itype].IPAR[iform][ipar];
+	char *parname =  RD_SNFITSIO_TABLEDEF[itype].name[icol]; 
+	printf(" xxx %s: FREE itype=%d  iform=%d  ipar=%d of %3d (%s) \n",
+	       fnam, itype, iform, ipar, npar, parname );    fflush(stdout);
+      }
 
       if ( iform == IFORM_A ) {	 
 	for ( i=0; i <= LEN; i++ )
-	  { free (RD_SNFITSIO_TABLEVAL_A[itype][ipar][i]); }
+	  { printf(" xxx %s: free %d of %d \n", fnam, i, LEN); fflush(stdout);
+		   free (RD_SNFITSIO_TABLEVAL_A[itype][ipar][i]); }  // .xyz crash
 	
 	free ( RD_SNFITSIO_TABLEVAL_A[itype][ipar]  ) ;
       }     

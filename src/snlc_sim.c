@@ -19570,6 +19570,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   //   +  print message to stdout indicate rewind.
   //   +  call new SIMLIB_skipGlobalHeader() after rewind
   //
+  // Sep 29 2026: write NOBS_SPECTROGRAPH > bound error after loop to see
+  //              total number of SPECTROGRAPH keys in LIBID
+  //
+
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 #define MXCHAR_LINE_SIMLIB 400
 
@@ -19863,7 +19867,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  
 	  
 	  // - - - - - done reading columns - - - - -
-	  //.xyz
 
 	  if ( INPUTS.FORCEVAL_PSF > 0.001 )  // Sep 2020
 	    { SIMLIB_OBS_RAW.PSFSIG1[ISTORE] = INPUTS.FORCEVAL_PSF;  }
@@ -19924,12 +19927,14 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  SIMLIB_OBS_RAW.OBSLIST_SPECTROGRAPH[NTMP] = ISTORE;
 	  SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH++ ;
 	  
-	  if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH >= MXOBS_SPECTROGRAPH ) { // 9.09.2026	   
-	    sprintf(c1err,"NOBS_SPECTROGRAPH = %d exceeds MXOBS_SPECTROGRAPH bound",
-		    SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH );
+	  /* xxxxxxxxx mark delete 9.29 2026 xxxxx
+	  if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH >= MXOBS_SPECTROGRAPH ) { 
+	    sprintf(c1err,"NOBS_SPECTROGRAPH = %d exceeds MXOBS_SPECTROGRAPH bound at LIBID=%d",  //.xyz
+		    SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH, SIMLIB_HEADER.LIBID );
 	    sprintf(c2err,"Check SPECTROGRAPH options");
 	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
 	  }
+	  xxxxxxxx end mark xxxxx */
 
 	  // store few things at this ISTORE location
 	  SIMLIB_OBS_RAW.OPTLINE[ISTORE]    = OPTLINE ;
@@ -19974,6 +19979,15 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
     } // end while wd loop with 
   }   // end !DONE_READING
+
+  // -- - - - - 
+  if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH >= MXOBS_SPECTROGRAPH ) { 
+    sprintf(c1err,"NOBS_SPECTROGRAPH = %d exceeds bound MXOBS_SPECTROGRAPH=%d.",  //.xyz
+	    SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH, MXOBS_SPECTROGRAPH );
+    sprintf(c2err,"Check LIBID=%d and check SPECTROGRAPH options", SIMLIB_HEADER.LIBID);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
+  }
+  
   
   // ---------------------
 

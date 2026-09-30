@@ -1,7 +1,4 @@
 """
-Created by Jonah Medoff with help from Claude.
-September 23, 2026
-
 Efficient sampling of magnitude errors from the Diffsky magerr model.
 
 Strategy
@@ -68,9 +65,9 @@ FLAG_GOOD, FLAG_WARN, FLAG_BAD = "GOOD", "WARN", "BAD"
 
 class MagErrSampler:
     def __init__(self, yaml_path, bands=("g", "r", "i", "z"),
-                 key="NONE", amp_convention=None,
+                 field="NONE", amp_convention=None,
                  nq=N_QUANTILES, clip_negative=True, bin_label="center",
-                 chi2_max=None, repair_bad_bins=True,
+                 chi2_max=None, repair_bad_bins=False,
                  bad_severities=(FLAG_BAD,), verbose=True):
         with open(yaml_path) as f:
             model = yaml.safe_load(f)
@@ -113,7 +110,7 @@ class MagErrSampler:
         self.ndata = {}
         self.fit_max = {}
         for b in self.bands:
-            blk = model[key][b]
+            blk = model[field][b]
             g = np.asarray(blk["ERR_FUNC"]["GAUSS_PAR"], float)
             s = np.asarray(blk["ERR_FUNC"]["SKEWGAUSS_PAR"], float)
             assert g.shape == (nbin, 3) and s.shape == (nbin, 4), (b, g.shape, s.shape)
@@ -161,6 +158,8 @@ class MagErrSampler:
         self.Q = {b: self._build_quantile_table(b) for b in self.bands}
 
         # Rebuild untrustworthy rows from their nearest trustworthy neighbours.
+        # xxx I am not sure if this repair_bad_bins feature works properly, so
+        # keep it set to False
         self.repaired = {b: (self._repair_band(b) if repair_bad_bins else {})
                          for b in self.bands}
 

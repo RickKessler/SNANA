@@ -42,12 +42,15 @@ from astropy.cosmology import LambdaCDM
 
 from astropy.table import Table, vstack
 
+from magerr_sampler import MagErrSampler
+
 # =======
 
 KEY_CAT_DIR              = "CAT_DIR"
 KEY_HOSTLIB_VARNAMES_MAP = "HOSTLIB_VARNAMES_MAP"
 KEY_HOSTLIB_FILE         = "HOSTLIB_FILE"
 KEY_CUTWIN               = "CUTWIN"
+KEY_CONE                 = "CONE_REGIONS"
 KEY_MAGERR_SNR5          = "MAGERR_SNR5"    # compute magerr using mag at SNR=5
 KEY_MAGERR_SNR           = "MAGERR_SNR"     # compute magerr using 2 mags at 2 SNR values
 KEY_MAGERR_PDF           = "MAGERR_PDF"  # draw magerr from double Gauss PDF (J.Medoff)
@@ -104,6 +107,9 @@ def get_args():
     msg = "lc-core wildcard (e.g., 14) to select subset of lc-core*{wildcard}* files"
     parser.add_argument("-w", "--wildcard_lc", help=msg, type=str, default=None)
 
+    msg = "Select one of the defined cone regions"
+    parser.add_argument("--select_cone", help=msg, type=str, default=None)
+    
     # parse it
     args = parser.parse_args()
 
@@ -180,7 +186,7 @@ CUTWIN:
 - lsst_r           0   28
 
 CONE_REGIONS:
-- <ra>  <dec>  <radius>  # degrees
+- <ra>  <dec>  <radius>  <label> # degrees
 [maybe later can add more independent cone regions]
     """
     
@@ -317,7 +323,7 @@ def addcol_sersic_sizes(cat_inp, config):
 
 # logsfr_obs = logssfr_obs + logsm_obs is computed at the pandas level in add_col_pd
 
-def parse_config_driver(config):
+def parse_config_driver(args, config):
 
     # July 2026
     # Driver routint to parse config file and compute lots of handy
@@ -343,11 +349,53 @@ def parse_config_driver(config):
     # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
     config  = parse_config_hostlib_info(config)
 
+    config = parse_config_cones(args, config)
+    config = parse_config_magerr(args, config) # Needs to come after parse_config_cones
+    
     logging.info(f"")
-
+    
     return config
 
 # end parse_config_driver
+
+def parse_config_magerr(args, config):
+    MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF, None)
+
+    cone_dict = config[KEY_CONE] # Requires parse_config_cones
+    field = list(cone_dict)[0] # Fragile alert (will break if multiple cones)
+
+    if MAGERR_PDF_DICT:
+        pdfpar_yaml_file  = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
+        sampler = MagErrSampler(pdfpar_yaml_file, field=field)
+        config["sampler_pdf"] = sampler
+        # Do error checking (is everything I need in the sampler)
+        # config['band_magerr_list_diffsky'] defined prior in parse_config_driver
+        band_list = config['band_magerr_list_diffsky']
+        for band in band_list:
+            if band not in MAGERR_PDF_DICT['BANDMAP_DICT']:
+                sys.exit(f"ERROR:  {band} band not in MAGERR_PDF_DICT['BANDMAP_DICT']: {MAGERR_PDF_DICT['BANDMAP_DICT']}")
+    config[KEY_MAGERR_PDF] = MAGERR_PDF_DICT
+        
+    return config
+
+
+def parse_config_cones(args, config):
+    cones = config.setdefault(KEY_CONE, None)
+    select_cone = args.select_cone
+    if select_cone:
+        if not cones:
+            sys.exit(f"ERROR:  --select_cone = {select_cone} but no {KEY_CONE} in config file")
+        if select_cone not in list(cones):
+            sys.exit(f"ERROR:  --select_cone = {select_cone} but not found in {KEY_CONE}")
+        # Drop keys not in select_cone
+        for key in list(cones):
+            if key != select_cone:
+                cones.pop(key)
+    #sys.exit(f"xxx cones = {cones}")
+    config[KEY_CONE] = cones
+    
+    return config
+
 
 def parse_config_varname_map(config):
 
@@ -772,30 +820,26 @@ def add_col_magerr_pdf(df_cat,config):
     # where PDF in each band is estimated by parameters.
 
     logging.info(f"Add MAGERR using {KEY_MAGERR_PDF}")
-
-    # Import magerr_sampler.py (copied to SNANA/util)
-    from magerr_sampler import MagErrSampler
     
     MAGERR_PDF_DICT = config[KEY_MAGERR_PDF]
-    pdfpar_yaml_file     = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
-    # .xyz
+    if not MAGERR_PDF_DICT:
+        return
 
-    with open(pdfpar_yaml_file) as f:
-        pdfpar_yaml_contents = yaml.safe_load(f.read())
+    # sampler created in parse_config_magerr and already has field information
+    sampler = config["sampler_pdf"]
 
-
-    print(f"\n xxx pdfpar_yaml_contents = {pdfpar_yaml_contents}")
+    #with open(pdfpar_yaml_file) as f:
+    #    pdfpar_yaml_contents = yaml.safe_load(f.read())
+    #print(f"\n xxx pdfpar_yaml_contents = {pdfpar_yaml_contents}")
     
     band_list = config['band_magerr_list_diffsky']
+    rng = np.random.default_rng(42) # Setting rng to make it repeatable
+    
     for band in band_list:
-        # compute magerr using distribution constructed from pdfpar_yaml above
-
         mag     = df_cat[band]
         band_pdfpar_yaml = MAGERR_PDF_DICT['BANDMAP_DICT'][band]
         #print(f'xxx band_pdfpar_yaml = {band_pdfpar_yaml}')
 
-        sampler = MagErrSampler(pdfpar_yaml_file)
-        rng = np.random.default_rng(42) # Setting rng to make it repeatable
         mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng) # band string needs to match pdfpar_yaml_file
         #mag_err = 0.01*mag   # test
         
@@ -1094,12 +1138,14 @@ def apply_cuts(cat_inp, config):
         logging.info(f"\t n_row after {cutvar} cut: {n_row_out:,} ")
 
     # Aug 2026: check for cone regions (e.g., Roman)
+    # Sep 2026: Updated by J.Medoff to account for new CONE_REGIONS format
     n_cone = len(CONE_REGIONS)
     if n_cone > 0:
         if n_cone > 1:
             sys.exit(f"\n ERROR: cannot merge {n_cone} cones; only 1 allowed.")
         
-        for row in CONE_REGIONS:
+        for field, row in CONE_REGIONS.items():
+            #print(f"xxx field = {field}, row = {row}")
             ra_cen       = float(row.split()[0])
             dec_cen      = float(row.split()[1])
             radius_cone  = float(row.split()[2])
@@ -1540,7 +1586,7 @@ if __name__ == "__main__":
     config  = read_yaml(args.config_file)
 
     # parse config and add more stuff for easier access below
-    config = parse_config_driver(config)
+    config = parse_config_driver(args, config)
 
     # - - - - - - - - - 
     import opencosmo as oc

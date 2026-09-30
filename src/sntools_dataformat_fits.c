@@ -5085,9 +5085,7 @@ void rd_snfitsio_free(int ifile, int itype ) {
       }
 
       if ( iform == IFORM_A ) {	 
-	for ( i=0; i <= LEN; i++ )
-	  { printf(" xxx %s: free %d of %d \n", fnam, i, LEN); fflush(stdout);
-		   free (RD_SNFITSIO_TABLEVAL_A[itype][ipar][i]); }  // .xyz crash
+	for ( i=0; i <= LEN; i++ ) { free (RD_SNFITSIO_TABLEVAL_A[itype][ipar][i]); }
 	
 	free ( RD_SNFITSIO_TABLEVAL_A[itype][ipar]  ) ;
       }     
@@ -5118,7 +5116,7 @@ void rd_snfitsio_free(int ifile, int itype ) {
   free ( RD_SNFITSIO_TABLEVAL_K[itype] ) ;
 
   MALLOC_LEN_SNFITSIO[itype] = 0 ; // Oct 17, 2012
-
+  return ;
 } // end of rd_snfitsio_free
 
 
@@ -5132,6 +5130,8 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   // May 29 2026: 
   //   + if LDMP, print each MEMTOT increment. 
   //   + MEM and MEMTOT are declared long long (no longer int)
+  //
+  // Sep 30 2026: allocate 60 bytes for string instead of 40 (to fix crash)
 
   int LEN_LOCAL  = LEN ;
   int MALLOC_LEN = MALLOC_LEN_SNFITSIO[itype];
@@ -5142,7 +5142,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   long long MEMTOT, MEMFORM, MEM, MEM_TMP ;
   float FMEM ;
   char *parname;
-  int   LDMP = 0 ;
+  int   LDMP = 0 ;  
   char  fnam[] = "rd_snfitsio_malloc"  ;
 
   // ------------ BEGIN --------------
@@ -5157,7 +5157,11 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
   LEN_LOCAL += 10;
   MEMTOT = 0 ;
 
-  if ( LDMP ) { printf(" xxx %s: dump for %s \n", fnam, snfitsType[itype] ); fflush(stdout); }
+  if ( LDMP ) { 
+    printf(" xxx %s: ---------------------------------------------------- \n", fnam );
+    printf(" xxx %s: dump for %s \n", fnam, snfitsType[itype] ); 
+    fflush(stdout); 
+  }
 
   for ( iform=1; iform < MXFORM_SNFITSIO; iform++ ) {
 
@@ -5175,9 +5179,9 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 
       sizeof_mem = sizeof(char**) ;
       sizeof_MEM = sizeof(char*) ;
-      mem = (npar+1)       * sizeof_mem;
-      MEM = (LEN_LOCAL+1)  * sizeof_MEM;
-      MSTR  = 40 ;
+      mem   = (npar+1)       * sizeof_mem;
+      MEM   = (LEN_LOCAL+1)  * sizeof_MEM;
+      MSTR  = 60 * sizeof(char);
 
       RD_SNFITSIO_TABLEVAL_A[itype] = (char***)malloc(mem); 
       MEMFORM = 0;
@@ -5190,7 +5194,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	}
       }
 
-      if(LDMP) { printf(" xxx %s:   MEM(A)=%lld  MEMTOT=%lld for iform=%d\n", 
+      if(LDMP) { printf(" xxx %s:      MEM(A)=%lld  MEMTOT=%lld for iform=%d\n", 
 			fnam, MEMFORM, MEMTOT, iform); }
     }
 
@@ -5208,7 +5212,7 @@ void rd_snfitsio_malloc(int ifile, int itype, int LEN ) {
 	MEMTOT  += MEM ;
       }
 
-      if(LDMP) { printf(" xxx %s:   MEMFORM(J)=%lld  MEMTOT=%lld for iform=%d\n", 
+      if(LDMP) { printf(" xxx %s:      MEMFORM(J)=%lld  MEMTOT=%lld for iform=%d\n", 
 			fnam, MEMFORM, MEMTOT, iform); }
     }
     
@@ -5387,6 +5391,7 @@ void rd_snfitsio_tblcol(int itype, int icol, int firstRow, int lastRow) {
   }
   
   
+  return;
 
 } // end of rd_snfitsio_tblcol
 
@@ -5419,8 +5424,10 @@ void rd_snfitsio_head(int ifile) {
       parname = RD_SNFITSIO_TABLEDEF[itype].name[icol] ; 
       if ( iform == IFORM_E && n_elem > 1 ) { NROW *= n_elem; }
 
-      //      printf(" xxx %s: icol=%3d  iform=%d  n_elem=%2d (%s) \n", 
-      //     fnam, icol, iform, n_elem, parname);  
+      /* xxxxxxx
+      printf(" xxx %s: icol=%3d  iform=%d  n_elem=%2d (%s) \n", 
+	     fnam, icol, iform, n_elem, parname);  fflush(stdout);
+	     xxxxxx */
     }
 
     rd_snfitsio_tblcol ( itype, icol, 1, NROW ); 

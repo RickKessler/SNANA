@@ -1206,7 +1206,7 @@ void open_HOSTLIB(FILE **fp) {
 
   *fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
 			   PATH_DEFAULT_HOSTLIB, INPUTS.HOSTLIB_FILE,
-			   libname_full, &HOSTLIB.GZIPFLAG );  // <== returned
+			   libname_full, &HOSTLIB.GZIPFLAG, fnam );  // <== returned
 
   if ( *fp == NULL ) {
     abort_openTextFile("HOSTLIB_FILE", 
@@ -1432,7 +1432,7 @@ int read_VARNAMES_WGTMAP_LEGACY(char *VARLIST_WGTMAP) {
   // open file containing WGTMAP
   fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
 			  PATH_DEFAULT_HOSTLIB, WGTMAP_FILE,
-			  FILENAME_FULL, &gzipFlag );  // <== returned
+			  FILENAME_FULL, &gzipFlag, fnam );  // <== returned
   
   if ( !fp ) {
     sprintf(c1err, "Unable to open WGTMAP file (to read VARNAMES)");
@@ -1739,7 +1739,7 @@ void  read_specTable_HOSTLIB(void) {
   // read until VARNAMES or EAZY_FILE key in case there are supplemental keys
   fp = snana_openTextFile(OPTMASK_OPENFILE_HOSTLIB, 
 			  PATH_USER_INPUT, ptrFile,
-			  fileName_full, &gzipFlag );  // <== returned
+			  fileName_full, &gzipFlag, fnam );  // <== returned
   if ( !fp ) {
     sprintf(varName_tmp,"HOSTLIB_SPEC%s_FILE", HOSTSPEC.TABLENAME );
     abort_openTextFile(varName_tmp, PATH_USER_INPUT, ptrFile, fnam);
@@ -2010,7 +2010,7 @@ void read_specTable_EAZY(char *spec_list_file) {
   fflush(stdout);
 
   fp_list = snana_openTextFile(OPENMASK, PATH_USER_INPUT, spec_list_file,
-			       fileName_tmp, &gzipFlag );  // <== returned
+			       fileName_tmp, &gzipFlag, fnam );  // <== returned
   if ( !fp_list ) {
     abort_openTextFile("EAZY_TEMPLATES_LIST_FILE", 
 		       PATH_USER_INPUT, spec_list_file, fnam);

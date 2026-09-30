@@ -592,7 +592,8 @@ void PSNID_READ_TEMPLATES(int TYPEINDX, char *file ) {
   fp = snana_openTextFile(1,PATH_TEMPLATES_PSNID,       // (I) public area
 			  ptrFile,                    // (I) filename
 			  FILE,                // (O) full filename 
-			  &gzipFlag );         // (O) gzip flag
+			  &gzipFlag,         // (O) gzip flag
+			  fnam );    
 
   if ( fp == NULL ) {
     sprintf(c1err,"Could not open template file:");

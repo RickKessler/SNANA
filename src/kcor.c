@@ -793,7 +793,7 @@ int rd_input(void) {
 
     int OPENMASK = OPENMASK_VERBOSE;
     fp = snana_openTextFile(OPENMASK, INPUTS.FILTPATH, inFile,
-			    SPECTRO_FILENAME, &gzipFlag );
+			    SPECTRO_FILENAME, &gzipFlag, fnam );
 
     if ( !fp ) {
       sprintf(c1err, "Could not open SPECTROGRAPH file");
@@ -1652,7 +1652,7 @@ void rd_ZPOFF(char *sdir, char *zpoff_file_override) {
 
 
   fp = snana_openTextFile(0, PATH_SNDATA_FILTER, zpoff_File, 
-			  ZPOFF_FILE, &gzipFlag );
+			  ZPOFF_FILE, &gzipFlag, fnam );
 
   // if file does not exist ...
   if ( fp == NULL ) {
@@ -2270,7 +2270,7 @@ int rd_filter ( int ifilt ) {
      // read 2-column ascii file
      int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
      fp = snana_openTextFile(OPENMASK,PATH_SNDATA_FILTER, ptr_file, 
-			     FILTFILE_FULLNAME, &gzipFlag );
+			     FILTFILE_FULLNAME, &gzipFlag, fnam );
    
      // if we get here, abort because file cannot be found.
      if ( fp == NULL ) {
@@ -2953,7 +2953,7 @@ int rd_primary ( int INDX, char *subdir ) {
    sprintf(SNPATH, "%s/%s", PATH_SNDATA_ROOT, subdir );
 
    int OPENMASK = OPENMASK_IGNORE_DOCANA ;
-   fp = snana_openTextFile (OPENMASK,SNPATH, sedFile, fullName, &gzipFlag );
+   fp = snana_openTextFile (OPENMASK,SNPATH, sedFile, fullName, &gzipFlag, fnam );
 
    if ( fp == NULL ) {
      sprintf(c1err,"%s", "Could not open file");

@@ -1825,7 +1825,7 @@ bool read_ISDATA_REAL(char *inFile) {
 
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
   fp = snana_openTextFile(OPENMASK, "", inFile,
-			  locFile, &gzipFlag );
+			  locFile, &gzipFlag, fnam );
 
   if ( !fp ) {
     sprintf(c1err,"Cannot open HD file") ;
@@ -2035,7 +2035,7 @@ int read_mucov_text(char *inFile, int NSN,  COVMAT_DEF *MUCOV) {
   // Open File using the utility
   int OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA ;
   fp = snana_openTextFile(OPENMASK, "", inFile,
-			  locFile, &gzipFlag );
+			  locFile, &gzipFlag, fnam );
 
   if ( !fp ) {
     sprintf(c1err,"Cannot open mucov_file") ;

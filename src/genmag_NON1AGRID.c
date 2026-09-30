@@ -47,8 +47,9 @@ void init_genmag_NON1AGRID(char *GRIDFILE, double FRAC_PEC1A) {
   fp = snana_openTextFile(1,PATH_NON1AGRID,       // (I) public area  
 			  GRIDFILE,             // (I) filename  
 			  FILENAME,            // (O) full filename  
-			  &gzipFlag );         // (O) gzip flag
-  
+			  &gzipFlag,            // (O) gzip flag
+			  fnam);
+
   if ( fp == NULL ) {
     sprintf(c1err,"Could not open NON1GRID file:");
     sprintf(c2err,"%s", GRIDFILE);

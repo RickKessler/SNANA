@@ -18404,7 +18404,7 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
 
   sprintf(PATH_DEFAULT, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
   fp_SIMLIB = snana_openTextFile(OPENMASK, PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
-				 OPENFILE, &INPUTS.SIMLIB_GZIPFLAG );
+				 OPENFILE, &INPUTS.SIMLIB_GZIPFLAG, fnam );
   
   if ( fp_SIMLIB == NULL ) {
     abort_openTextFile("SIMLIB_FILE", PATH_DEFAULT, INPUTS.SIMLIB_FILE, fnam);
@@ -22908,7 +22908,7 @@ void init_zvariation(void) {
   // open file
 
   fpz = snana_openTextFile(1, PATH_USER_INPUT, ptrZfile,
-			   fileName_full, &gzipFlag );
+			   fileName_full, &gzipFlag, fnam );
   
   if ( !fpz ) {
     abort_openTextFile("ZVARIATION_FILE", 

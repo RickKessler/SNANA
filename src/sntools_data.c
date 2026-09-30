@@ -1412,7 +1412,7 @@ void RD_OVERRIDE_INIT(char *OVERRIDE_PATH, int REQUIRE_DOCANA) {
     if ( REQUIRE_DOCANA ) {
       int OPTMASK_OPEN = OPENMASK_REQUIRE_DOCANA, gzipFlag ;
       char fullName[MXPATHLEN], PATH_LIST[] = "" ;
-      FILE *fp = snana_openTextFile (OPTMASK_OPEN, PATH_LIST, ptrFile, fullName, &gzipFlag );
+      FILE *fp = snana_openTextFile (OPTMASK_OPEN, PATH_LIST, ptrFile, fullName, &gzipFlag, fnam );
       if ( !fp ) { abort_openTextFile("HEADER_OVERRIDE", PATH_LIST, ptrFile, fnam); }
       fclose(fp);
     }

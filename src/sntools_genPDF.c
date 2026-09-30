@@ -183,7 +183,7 @@ void init_genPDF(int OPTMASK, FILE *FP, char *fileName, char *ignoreList) {
     printf("  Read already opened file,\n\t %s\n", fileName);
   }
   else  { 
-    fp = snana_openTextFile(1, PATH, fileName, fileName_full, &gzipFlag); 
+    fp = snana_openTextFile(1, PATH, fileName, fileName_full, &gzipFlag, fnam ); 
     sprintf(GENPDF_FILE, "%s", fileName_full); // store global 
   }
 

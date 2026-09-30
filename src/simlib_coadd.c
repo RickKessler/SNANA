@@ -597,7 +597,7 @@ void SIMLIB_open_read(void) {
   int OPTMASK = 1;  // 1=verbose
 
   fp_simlib_input = snana_openTextFile (OPTMASK, "", SIMLIB_INPUT.FILE,
-					fullName,  &gzipFlag ); 
+					fullName,  &gzipFlag, fnam ); 
   if ( !fp_simlib_input ) {
     sprintf(c1err,"cannot open input simlib file: ");
     sprintf(c2err," '%.*s' ", MXCHAR_MSGERR, SIMLIB_INPUT.FILE );

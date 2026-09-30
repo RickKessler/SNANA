@@ -6517,6 +6517,8 @@ void splitString(char *string, char *sep, char *callFun, int MXsplit,
 
   // ------------ BEGIN ---------------
   LEN         = strlen(string);
+  if(LEN==0) { *Nsplit=0; return; }
+
   localString = (char*) malloc( (LEN+10) * sizeof(char) );
   sprintf(localString, "%s", string);
 
@@ -10491,7 +10493,7 @@ void snana_close(FILE *fp, char *FILENAME, int GZIPFLAG) {
 
 // *************************************************
 FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName, 
-			  char *fullName, int *gzipFlag ) {
+			  char *fullName, int *gzipFlag, char *callFun  ) {
 
   /* ----------------------------------------------
     Shell to open text file for reading.
@@ -10541,7 +10543,9 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   char **PATH, sepKey[]= " " ; 
   float fmem;  (void)fmem;
   FILE *fp ;
-  char fnam[] = "snana_openTextFile" ;
+
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "snana_openTextFile", fnam);
 
   // --------------- BEGIN ----------------
 
@@ -10579,6 +10583,7 @@ FILE *snana_openTextFile (int OPTMASK, char *PATH_LIST, char *fileName,
   fmem = malloc_strlist(-1, MXPATH_CHECK, MXPATHLEN, &PATH );
 
  DONE:
+
 
   if  ( fp != NULL  && !IGNORE_DOCANA ) { 
     bool FOUND_DOCANA ;

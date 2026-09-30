@@ -293,7 +293,7 @@ int init_SEARCHEFF_PIPELINE(char *SURVEY_NAME, char *SURVEY_FILTERS) {
   // use utility to check local dir and path.
   if ( REQUIRE_EFF_FILE ) {
     fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, file_local, 
-			    ptrFile_final, &gzipFlag ); // returned
+			    ptrFile_final, &gzipFlag, fnam ); // returned
   }
 
   
@@ -915,7 +915,7 @@ void  init_SEARCHEFF_LOGIC(char *survey) {
 
   
   fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, logicFile,
-			  ptrFile_final, &gzipFlag ); // returned
+			  ptrFile_final, &gzipFlag, fnam ); // returned
 
   if ( !fp ) {
     abort_openTextFile("SEARCHEFF_PIPELINE_LOGIC_FILE",
@@ -1323,7 +1323,7 @@ void read_searcheff_map(char *USER_MAP_FILE, SEARCHEFF_INFO_DEF *SEARCHEFF_INFO)
   // use utility to check local dir and path.
   if ( REQUIRE_EFF_FILE ) {
     fp = snana_openTextFile(OPTMASK, PATH_SEARCHEFF, eff_file_local, 
-			    ptrFile_final, &gzipFlag ); // returned
+			    ptrFile_final, &gzipFlag, fnam ); // returned
 
     if ( !fp ) {
       abort_openTextFile(KEYNAME_MAP_FILE,
@@ -1834,7 +1834,8 @@ void read_searcheff_raw_varnames(char *SEARCHEFF_FILE, int *OPEN_STATUS,
   //   This functions returns *NVAR_RAW = 3  and VARNAMES_RAW = 'r', 'g', 'i'
   //   
   // Jul 3 2026: fix MXSUBSTR as described so eloquently in git issue 1726
-  //
+  // Sep 30 2026: call check_file_pointer(fp,...) to abort on NULL file pointer
+
   int MXVAR = MXVAR_SEARCHEFF_MAP ;
   int NSKIP = 1; // skip HOSTEFF of SPECEFF column
   int MXSUBSTR = MXSUBSTR_SEARCHEFF_MAP ;
@@ -1858,7 +1859,8 @@ void read_searcheff_raw_varnames(char *SEARCHEFF_FILE, int *OPEN_STATUS,
   int OPTMASK = 1;  // +=1(verbose)  +=4(don't check DOC)
   int gzipFlag;
   char PATH_LIST[] = "",   SEARCHEFF_FULLPATH[MXPATHLEN];
-  fp  = snana_openTextFile (OPTMASK, PATH_LIST, SEARCHEFF_FILE, SEARCHEFF_FULLPATH, &gzipFlag);
+  fp  = snana_openTextFile (OPTMASK, PATH_LIST, SEARCHEFF_FILE, SEARCHEFF_FULLPATH, &gzipFlag, fnam);
+  check_file_pointer(fp, SEARCHEFF_FILE, "rt", fnam) ;
 
   fmem += malloc_strlist(+1, MXVAR_SEARCHEFF_MAP, 40, &VARNAMES_LOCAL );
   fmem += malloc_strlist(+1, MXVAR_SEARCHEFF_MAP, 40, &SUBSTRING_LIST );
@@ -1960,7 +1962,7 @@ FILE *open_zHOST_FILE(int VBOSE) {
   int OPTMASK_OPEN  = INPUTS_SEARCHEFF.OPTMASK_OPENFILE ;
   if ( REQUIRE_zHOST_FILE ) {
     fp = snana_openTextFile(OPTMASK_OPEN, PATH_SEARCHEFF, localFile, 
-			    ptrFile_final, &gzipFlag); // returned
+			    ptrFile_final, &gzipFlag, fnam ); // returned
 
     // examine if there is no zHOST file
     if ( !fp  ) {    

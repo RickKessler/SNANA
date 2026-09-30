@@ -744,7 +744,7 @@ void read_filterTrans(int ifile) {
 
   sprintf(PATH_SNANA_FILTERS,"%s/filters", PATH_SNDATA_ROOT );
   fp = snana_openTextFile(0, PATH_SNANA_FILTERS, filterFile, 
-			  tmpFile, &gzipFlag );
+			  tmpFile, &gzipFlag, fnam );
 
   if ( fp == NULL ) {
     sprintf(c1err,"Could not find filter-transmission file");

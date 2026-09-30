@@ -61,7 +61,7 @@ void init_stronglens(char *MODEL_FILE) {
 
   // open input file for reading
   fp = snana_openTextFile(1,PATH_USER_INPUT, MODEL_FILE,
-			  FULLNAME_MODEL_FILE, &gzipFlag );
+			  FULLNAME_MODEL_FILE, &gzipFlag, fnam );
 
   if ( fp == NULL ) {
     abort_openTextFile("STRONGLENS_FILE",
@@ -422,6 +422,10 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
   //
   // July 1 2022: pass new output args LOGMASS[_ERR]_LENS
   //
+  // Sep 30 2026: fix random_lens_index computation based on bug found by
+  //              Mateusz Bronikowski and code fix recommended by Claude
+  //              (github issue 1804)
+  //
 
   int    NLENS_LIB = INPUTS_STRONGLENS.NLENS;
   int    NIMG_local=0, img,i,j, numLens ;
@@ -467,7 +471,13 @@ void get_stronglens(double zSN, double *hostpar, int DUMPFLAG,
     }
   }
 
-  int random_lens_index = possible_lenses[ (int)( FlatRan*(numLens-1) ) ];
+  // 9.30.2026: code recommendation from Claude 
+  int k, random_lens_index ;
+  k = (int)( FlatRan * numLens );
+  if ( k >= numLens ) { k = numLens - 1; }   // guard in case FlatRan == 1
+  random_lens_index = possible_lenses[k];
+
+  // xxx mark delete 9.30.2026   int random_lens_index = possible_lenses[ (int)( FlatRan*(numLens-1) ) ];
 
   IDLENS_local  = INPUTS_STRONGLENS.IDLENS[random_lens_index];
   zLENS_local   = (double)INPUTS_STRONGLENS.ZLENS[random_lens_index];

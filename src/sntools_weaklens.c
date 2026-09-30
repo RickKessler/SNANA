@@ -76,7 +76,7 @@ void init_lensDMU(void) {
   
   // check mapFileName in user dir, then under PATH_DEFAULT
   FPMAP = snana_openTextFile(OPENMASK, PATH_DEFAULT, PROBMAP_FILE, 
-			     MAPFILENAME, &gzipFlag );
+			     MAPFILENAME, &gzipFlag, fnam );
 
   if ( FPMAP == NULL ) {
     abort_openTextFile("WEAKLENS_PROBMAP_FILE", 

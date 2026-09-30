@@ -188,7 +188,7 @@ void open_LCLIB(char *lcLibFile) {
 
   printf("\n");
   fp = snana_openTextFile(OPTMASK_OPEN, MODELPATH_LIST, lcLibFile, 
-			  LCLIB_FILE, &LCLIB_INFO.GZIPFLAG ); // <=== returned
+			  LCLIB_FILE, &LCLIB_INFO.GZIPFLAG, fnam ); // <=== returned
   
   if ( fp == NULL ) {
     sprintf(c1err,"Could not open LCLIB file:");

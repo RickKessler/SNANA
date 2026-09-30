@@ -159,7 +159,7 @@ int init_SIMEFFMAP(char *file, char *varnamesList) {
   sprintf(PATH_SIMEFF,"%s/models/simeff", getenv("SNDATA_ROOT") );
 
   // check user's directory, then check PATH_SIMEFF
-  fp = snana_openTextFile(1,PATH_SIMEFF, file, FILE, &gzipFlag );
+  fp = snana_openTextFile(1,PATH_SIMEFF, file, FILE, &gzipFlag, fnam );
   
   // abort if there is no SIMEFF file.
   if ( fp == NULL ) {

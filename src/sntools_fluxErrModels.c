@@ -86,7 +86,7 @@ void INIT_FLUXERRMODEL(int OPTMASK, char *fileName,
     { OPENMASK += OPENMASK_REQUIRE_DOCANA; }
 
   sprintf(PATH, "%s %s/simlib", PATH_USER_INPUT, PATH_SNDATA_ROOT);
-  fp = snana_openTextFile(OPENMASK, PATH, fileName, fullName, &gzipFlag);
+  fp = snana_openTextFile(OPENMASK, PATH, fileName, fullName, &gzipFlag, fnam);
 
   if ( !fp ) {
     abort_openTextFile("FLUXERRMODEL_FILE", PATH, fileName, fnam);

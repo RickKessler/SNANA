@@ -24088,6 +24088,7 @@
 ! Jul 13 2024: fix bug in which all gal property indices were 1 instead of IGAL.
 ! Sep 24 2024: fix so that MAGOBS works for IGAL > 1
 ! Dec 01 2025: add MAGERR
+! Oct 01 2026: write HOSTGAL_FLAG
 
     USE SNDATCOM
     USE SNANAFIT
@@ -24124,6 +24125,9 @@
 
     VARLIST =  PREFIX(1:LP) // 'OBJID:D' // char(0)
     CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, DSNHOST_OBJID(IGAL), VARLIST,ITEXT, LENBLOCK, 20 )
+
+    VARLIST =  PREFIX(1:LP) // 'FLAG:I' // char(0)  ! 1o.01.2026 
+    CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNHOST_FLAG(IGAL), VARLIST,ITEXT, LENBLOCK, 20 )
 
     VARLIST =  PREFIX(1:LP) // 'ZPHOT:F' // char(0)
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNHOST_ZPHOT(IGAL), VARLIST,ITEXT, LENBLOCK, 40 )

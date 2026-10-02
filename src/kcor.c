@@ -36,7 +36,8 @@
 
     kcor.exe  <inFile>  BD17_SED   <bd17File>
     kcor.exe  <inFile>  VEGA_SED   <vegaFile>
-    kcor.exe  <inFile>  PRIMARY_SED  BD17 <bd17File>
+    kcor.exe  <inFile>  PRIMARY_SED  BD17  <bd17File>
+    kcor.exe  <inFile>  CALSPEC_SED  BD17  <bd17File>
 
     kcor.exe  <inFile> FILTPATH_REPLACE XXXXX Bessell90  
          (replace XXXXX" with "Bessell90")
@@ -220,8 +221,8 @@ void  print_kcor_help(void) {
     "BD17_SED:     $SNDATA_ROOT/standards/bd_17d4708_stisnic_003.dat ",
     "VEGA_SED:     $SNDATA_ROOT/standards/alpha_lyr_stis_005.dat  ",
     "AB_SED:       $SNDATA_ROOT/standards/flatnu.dat ",
-    "PRIMARY_SED:  whatever_you_want   # can use this for BD17 or VEGA or AB or anything else",
-    
+    "CALSPEC_SED:  <favorite CALSPEC SED>",
+    "PRIMARY_SED:  whatever_you_want  ",
     "",
     "# Example filter system for DES:",
     "MAGSYSTEM: AB        # AB, BD17, VEGA",
@@ -504,13 +505,19 @@ int rd_input(void) {
     if ( strcmp(c_get,"PRIMARY_SED:")==0 )  {
       INPUTS.NPRIMARY++ ;
       iprim = INPUTS.NPRIMARY ;
+      sprintf(INPUTS.name_PRIMARY[iprim], "PRIMARY"  ) ;
       readchar ( fp_input, INPUTS.name_PRIMARY[iprim]   ) ;
       readchar ( fp_input, INPUTS.inFile_PRIMARY[iprim] ) ;
       ENVreplace(INPUTS.inFile_PRIMARY[iprim],fnam,1) ;
+    }
 
-      if ( INPUTS.NPRIMARY >= MXPRIMARY ) {
-	// abort ??
-      }
+    if ( strcmp(c_get,"CALSPEC_SED:")==0 )  {
+      INPUTS.NPRIMARY++ ;
+      iprim = INPUTS.NPRIMARY ;
+      sprintf(INPUTS.name_PRIMARY[iprim], "CALSPEC"  ) ;
+      readchar ( fp_input, INPUTS.name_PRIMARY[iprim]   ) ;
+      readchar ( fp_input, INPUTS.inFile_PRIMARY[iprim] ) ;
+      ENVreplace(INPUTS.inFile_PRIMARY[iprim],fnam,1) ;
     }
 
     // -----

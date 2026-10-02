@@ -110,6 +110,8 @@
 
  Mar 28 2025; allow command-line override for SPECTROGRAPH
 
+ Oct 02 2026: add MAG_SYN as last column in ZOPOFF table (HDU 1)
+
 ****************************************************/
 
 #include "fitsio.h"
@@ -1085,13 +1087,14 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
 
   int NF, lenf, IFLAG_SYN  ;
   char FILENAME[2*MXPATHLEN], band[4];
-  char fnam[] = "storeFilterInfo" ; (void)fnam;
 
   // strip inputs into local variables
   char *filtName = INPUT_FILTER->FILTNAME ;
   char *fileName = INPUT_FILTER->FILENAME ;  
   double magRef  = INPUT_FILTER->MAGREF ;
   
+  char fnam[] = "storeFilterInfo" ; (void)fnam;
+
   // ------------- BEGIN -----------------
 
   // check if this is a synthetic filter from the spectrograph
@@ -1150,8 +1153,8 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
   FILTER[NF].MAGFILTER_REF    = magRef ;
   FILTER[NF].FILTSYSTEM_INDX  = FILTSYSTEM->INDX ;
 
-  sprintf(FILTER[NF].FILTSYSTEM_NAME,"%s", FILTSYSTEM->NAME ) ;
-  sprintf(FILTER[NF].PATH,     "%s", INPUTS.FILTPATH ) ;
+  sprintf(FILTER[NF].FILTSYSTEM_NAME, "%s", FILTSYSTEM->NAME ) ;
+  sprintf(FILTER[NF].PATH,            "%s", INPUTS.FILTPATH ) ;
   sprintf(FILTER[NFILTPATH].PATH_ORIG,"%s", INPUTS.FILTPATH_ORIG ) ;  
   FILTER[NF].IPATH = NFILTPATH ;  
   
@@ -1191,7 +1194,7 @@ void  storeFilterInfo(INPUT_FILTER_DEF *INPUT_FILTER,
     //update list of filter-bands defined by spectrograph
     char *ptrBand = INPUTS_SPECTRO.SYN_FILTERLIST_BAND ;
     strcat(ptrBand,band);
-    // xxx mark delete sprintf(ptrBand,"%s%s", ptrBand, band);
+
   } 
   else {
     FILTER[NF].IFLAG_SYN = 0 ;
@@ -4492,7 +4495,7 @@ void primarymag_summary(int iprim) {
     USE_FILT = (iprim==INDX);
     if ( !USE_FILT ) { continue; }
     
-    printf("%20s (%6s)   %9.3le %8.4f %8.4f %8.4f  \n"  // .xyz
+    printf("%20s (%6s)   %9.3le %8.4f %8.4f %8.4f  \n"  
 	   ,FILTER[ifilt].name
 	   ,FILTER[ifilt].MAGSYSTEM_NAME
 	   ,PRIMARYSED[iprim].FLUXSUM[ifilt]
@@ -5021,38 +5024,39 @@ void wr_fits_ZPT(fitsfile *fp) {
   // offsets. These offsets are NOT used here in the K-cor program;
   // instead they are stored so that snana can use them.
   //
+  // Oct 2 2026: add primary synthetic mag as 6th (last) column
+  //
 
   int istat, ncol, icol, ifilt ;
-  int firstrow, firstelem, nrow ;
+  int firstrow, firstelem, nrow, INDX_INPUT ;
 
   long NROW      = 0 ;
  
   char 
-     LABEL_FILT[]         = "Filter Name"
-    ,LABEL_PRIMARY_NAME[] = "Primary Name"
-    ,LABEL_PRIMARY_MAG[]  = "Primary Mag"
-    ,LABEL_ZPOFF_REF[]    = "ZPoff(Primary)"  // used here, but not in snana
-    ,LABEL_ZPOFF_SN[]     = "ZPoff(SNpot)"    // ignore here, used in snana
+     LABEL_FILT[]               = "Filter Name"
+    ,LABEL_PRIMARY_NAME[]       = "Primary Name"
+    ,LABEL_PRIMARY_MAG_INSTR[]  = "Primary instrument mag"
+    ,LABEL_ZPOFF_REF[]          = "ZPoff(Primary)"  // used here, but not in snana
+    ,LABEL_ZPOFF_SN[]           = "ZPoff(SNpot)"    // ignore here, used in snana
+    ,LABEL_PRIMARY_MAG_SYN[]    = "Primary synthetic mag"  // 10.02.2026
     ,TBLname[] = "ZPoff" 
     ;
 
   char fnam[] = "wr_fits_ZPT";  (void)fnam;
-  //     iprim =  FILTER[ifilt].MAGSYSTEM_INDX ;
 
   // ------------ BEGIN ---------
 
   printf("\t %s: write ZPT info \n", fnam );
   fflush(stdout);
 
-  ncol = 5 ; istat = 0 ;
+  ncol = 6 ; istat = 0 ;
 
   STRFITS.tName[0] = LABEL_FILT ;
   STRFITS.tName[1] = LABEL_PRIMARY_NAME ;
-  STRFITS.tName[2] = LABEL_PRIMARY_MAG ;
+  STRFITS.tName[2] = LABEL_PRIMARY_MAG_INSTR ;
   STRFITS.tName[3] = LABEL_ZPOFF_REF ;
   STRFITS.tName[4] = LABEL_ZPOFF_SN ;
-
-
+  STRFITS.tName[5] = LABEL_PRIMARY_MAG_SYN ;
 
   for(icol=0; icol < ncol; icol++ ) {
     STRFITS.tForm[icol] = STRFITS.F4 ;
@@ -5077,18 +5081,22 @@ void wr_fits_ZPT(fitsfile *fp) {
   firstelem = nrow = 1;
   firstrow = 0 ;
 
-  float mag_prim, zptoff_ref, zptoff_filt ;
+  float mag_prim_instr, mag_prim_syn, zptoff_ref, zptoff_filt ;
   char  *name_filt, *name_prim ;
 
   for ( ifilt = 1; ifilt <= NFILTDEF ; ifilt++) {
 
     firstrow++ ;  icol=0;
-    name_filt    = FILTER[ifilt].name ;
-    name_prim    = FILTER[ifilt].MAGSYSTEM_NAME ; 
-    mag_prim     = FILTER[ifilt].MAGFILTER_REF ;     // primary mag
-    zptoff_ref   = FILTER[ifilt].MAGFILTER_ZP ;      // applied filter zp
-    zptoff_filt  = FILTER[ifilt].MAGFILTER_ZPOFF;    // stored AB  offset
-   
+    name_filt       = FILTER[ifilt].name ;
+    name_prim       = FILTER[ifilt].MAGSYSTEM_NAME ; 
+    mag_prim_instr  = FILTER[ifilt].MAGFILTER_REF ;     // primary instrument mag
+    zptoff_ref      = FILTER[ifilt].MAGFILTER_ZP ;      // applied filter zp
+    zptoff_filt     = FILTER[ifilt].MAGFILTER_ZPOFF;    // stored AB  offset
+
+    INDX_INPUT      = FILTER[ifilt].MAGSYSTEM_INDX_INPUT;
+    printf(" xxx %s: INDX_INPUT=%d  ifilt=%d  \n", fnam, INDX_INPUT, ifilt);
+    mag_prim_syn    = PRIMARYSED[INDX_INPUT].SYNMAG[ifilt] ; //.xyz
+
     icol++;     
     fits_write_col(fp, TSTRING, icol, firstrow, firstelem, nrow,
 		   &name_filt, &istat);  
@@ -5103,8 +5111,8 @@ void wr_fits_ZPT(fitsfile *fp) {
 
     icol++ ;     
     fits_write_col(fp, TFLOAT, icol, firstrow, firstelem, nrow,
-		   &mag_prim, &istat);
-    sprintf(c1err,"write MAG_PRIM into %s", TBLname );
+		   &mag_prim_instr, &istat);
+    sprintf(c1err,"write MAG_PRIM_INSTR into %s", TBLname );
     wr_fits_errorCheck(c1err, istat) ;  
 
     icol++ ;     
@@ -5117,6 +5125,13 @@ void wr_fits_ZPT(fitsfile *fp) {
     fits_write_col(fp, TFLOAT, icol, firstrow, firstelem, nrow,
 		   &zptoff_filt, &istat);  
     sprintf(c1err,"write ZPTOFF_FILT into %s", TBLname );
+    wr_fits_errorCheck(c1err, istat) ;  
+
+    // Oct 2 2026: add synth mag
+    icol++ ;     
+    fits_write_col(fp, TFLOAT, icol, firstrow, firstelem, nrow,
+		   &mag_prim_syn, &istat);
+    sprintf(c1err,"write MAG_PRIM_SYN into %s", TBLname );
     wr_fits_errorCheck(c1err, istat) ;  
 
   }

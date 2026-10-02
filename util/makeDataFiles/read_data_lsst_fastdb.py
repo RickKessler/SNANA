@@ -235,8 +235,11 @@ class data_lsst_fastdb(Program):
                                   'return_object_info':            True,
                                   'return_diaobject_positions':    True,
                                   'use_weighted_source_positions': True,
+                                  # 'which' : 'detections' or 'forced' or 'patch(default)',
                                   'nonevalue': -999
                           } )
+
+        # to-do: check ispatch=T -> diaSource patched in , ispatch=F -> Forced
 
         # include_object_positions with return_diaobject_positions
         # xxx mark 'always_use_weighted_source_positions': True,

@@ -24283,6 +24283,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + in rd_snfitsio_malloc(), increase string malloc from 40 to 60 bytes
           (fixes crash in  https://github.com/RickKessler/SNANA/issues/1799)
 
+    kcor.c:
+      add MAG_SYN as last column in ZOPOFF table (HDU 1) 
+      (initially needed to check magcor/handshaker code for Roman)
+
 END:
 
 

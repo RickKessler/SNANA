@@ -4279,7 +4279,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       GALID  = get_GALID_HOSTLIB(igal);
       ZTRUE  = get_ZTRUE_HOSTLIB(igal);
       
-      if ( NROW == 0 ) 
+      if ( NROW == 0 )  // if now WGTMAP, set all WGTs to 1 and skip to below
 	{  WGT = 1.0 ;  SNMAGSHIFT = 0.0 ;  goto WGTSUM ;    }
       
       // May 2022: 
@@ -4378,7 +4378,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   
       }
 
-      WGTSUM_LAST  =  WGTSUM ;
+      WGTSUM_LAST  =  WGTSUM ; 
 	
       // store IGAL if this GALID is on the check-list
       
@@ -4437,18 +4437,19 @@ void malloc_HOSTLIB_WGTMAP(void) {
 
   if ( N_SNVAR > 0 ) { 
 
-    HOSTLIB_WGTMAP.WGTSUM_SNVAR       = (double    **) malloc(MEMDD);
+    
+    HOSTLIB_WGTMAP.WGTSUM_SNVAR       = (double    **) malloc(MEMDD); 
     HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR = (short int **) malloc(MEMSS);
     
     for(ibin=0; ibin < NBTOT_SNVAR; ibin++ ) {
-      HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin]       = (double   *) malloc(MEMD2);
+      HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin]       = (double   *) malloc(MEMD2); 
       HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin] = (short int*) malloc(MEMS2);
       MEMTOT += (double)(MEMD2 + MEMS2);
     }
   }
   else {
     // HOSTLIB vars only
-    HOSTLIB_WGTMAP.WGTSUM       = (double    *)malloc(MEMD2);
+    HOSTLIB_WGTMAP.WGTSUM       = (double    *)malloc(MEMD2); 
     HOSTLIB_WGTMAP.I2SNMAGSHIFT = (short int *)malloc(MEMS2);
     MEMTOT += (double)(MEMD2 + MEMS2) ;
 
@@ -4490,7 +4491,7 @@ void runCheck_HOSTLIB_WGTMAP(void) {
     igal        = HOSTLIB_WGTMAP.CHECKLIST_IGAL[i] ;
     GALID       = HOSTLIB_WGTMAP.CHECKLIST_GALID[i] ;
     WGT_EXACT   = HOSTLIB_WGTMAP.CHECKLIST_WGT[i] ;
-    WGT_INTERP  = HOSTLIB_WGTMAP.WGTSUM[igal] - HOSTLIB_WGTMAP.WGTSUM[igal-1];
+    WGT_INTERP  = HOSTLIB_WGTMAP.WGTSUM[igal] - HOSTLIB_WGTMAP.WGTSUM[igal-1]; 
     WGT_INTERP *= HOSTLIB_WGTMAP.WGTMAX ; // back to user's WGT definition
     // if ( WGT_EXACT < 0.1 ) { continue ; } // test only
     NN++ ;
@@ -6101,6 +6102,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
   // Aug 28 2026: check USE_SIMLIB_GALID
   // Aug 31 2206: fix minor bug using INPUTS.HOSTLIB_GALID_PRIORITY
+  // Oct 02 2026: select by FIELD if FIELD column exists
 
   bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
 
@@ -6124,7 +6126,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
   double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
   double ztol, dztol, z, z_start, z_end ;
-
+  bool   SELECT_BY_FIELD = 0;
   int  LDMP   = 0; // (GENLC.CID>50000 && GENLC.CID < 50005) ;
   char fnam[] = "GEN_SNHOST_GALID" ;  (void)fnam;
 
@@ -6134,6 +6136,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
   
   IGAL_SELECT = -9 ; 
 
+  // Oct 2026: select by field if FIELD column exists in HOSTLIB;
+  //   Perhaps later we may need a more selective test such as
+  //   explicit request in the sim0-input file
+  SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0 );
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
@@ -6169,7 +6175,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   // begin with approx calculation using IZPTR grid
   if ( IZ_CEN >= HOSTLIB.MAXiz ) 
-    { igal_start = HOSTLIB.NGAL_STORE-1; }
+    { igal_start = HOSTLIB.NGAL_STORE-1; } // end of hostlib
   else {
     igal_start = HOSTLIB.IZPTR[IZ_TOLMIN+1];
   }
@@ -6263,12 +6269,12 @@ void GEN_SNHOST_GALID(double ZGEN) {
     ptrWGT     = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR];
   }
   else {
-    ptrWGT     = HOSTLIB_WGTMAP.WGTSUM;
+    ptrWGT     = HOSTLIB_WGTMAP.WGTSUM; // CDF vs. index (which is z-sorted) 
   }
 
 
   // pick randomly from CDF between WGT_start and WGT_end
-  WGT_start  = ptrWGT[igal_start];
+  WGT_start  = ptrWGT[igal_start];  
   WGT_end    = ptrWGT[igal_end];    
   WGT_dif    = WGT_end - WGT_start ;
   WGT_select = WGT_start + ( WGT_dif * FlatRan1_GALID * 0.95 ) ;
@@ -6326,6 +6332,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   
   while ( !CONVERGE ) {
     WGT = ptrWGT[igal_middle] ;
+    igal_middle = (int)( (igal0 + igal1)/2 );
 
     // check to avoid infinite loop
     NGAL_CHECK++ ;

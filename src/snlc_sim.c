@@ -12894,7 +12894,7 @@ gen_event_driver:
     // Note that SNHOST_DRIVER can change GENLC.REDSHIFT_CMB 
     // and DLMAG to match that of the HOST
     // Similarly, GENLC.REDSHIFT_HOST is changed to be the true zhost
-    GEN_SNHOST_DRIVER(zHOST, GENLC.PEAKMJD); 
+    GEN_SNHOST_DRIVER(zHOST, GENLC.PEAKMJD, SIMLIB_HEADER.FIELD_MAXDEPTH); 
 
     // Jun 12 2020 
     //  if no SN par in WGTMAP, generate SN params after picking host
@@ -17280,7 +17280,7 @@ void gen_redshift_LCLIB(void) {
   GENLC.REDSHIFT_HELIO = ZHEL_TRUE ;
   GENLC.REDSHIFT_CMB   = ZCMB_TRUE ;
   if ( LCLIB_INFO.IPAR_REDSHIFT > 0  ) 
-    { GEN_SNHOST_DRIVER(ZHEL_TRUE, GENLC.PEAKMJD); }
+    { GEN_SNHOST_DRIVER(ZHEL_TRUE, GENLC.PEAKMJD, SIMLIB_HEADER.FIELD_MAXDEPTH); }
   else
     { SNHOSTGAL.ZPHOT = SNHOSTGAL.ZPHOT_ERR  = 0.0 ; }
 
@@ -18399,8 +18399,6 @@ void SIMLIB_readGlobalHeader_TEXT(void) {
   // ---------- BEGIN ----------
 
   print_banner(fnam);
-
-  // xxx  OPENMASK = OPENMASK_VERBOSE + OPENMASK_IGNORE_DOCANA;
 
   sprintf(PATH_DEFAULT, "%s %s/simlib",  PATH_USER_INPUT, PATH_SNDATA_ROOT );
   fp_SIMLIB = snana_openTextFile(OPENMASK, PATH_DEFAULT, INPUTS.SIMLIB_FILE, 
@@ -19573,20 +19571,25 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   // Sep 29 2026: write NOBS_SPECTROGRAPH > bound error after loop to see
   //              total number of SPECTROGRAPH keys in LIBID
   //
+  // Oct 01 2026: load SIMLIB_HEADER.FIELD_MAXDEPTH = name of field with max avg zpt depth;
+  //              for overlaps, pass FIELD_MAXDEPTH to HOSTLIB_DRIVER().
+  //
 
 #define MXWDLIST_SIMLIB 20  // max number of words per line to read
 #define MXCHAR_LINE_SIMLIB 400
 
   int ISMODEL_SIMLIB =  (INDEX_GENMODEL == MODEL_SIMLIB);
   int ID, NOBS_EXPECT, NOBS_FOUND, NOBS_FOUND_ALL, ISTORE=0 ;
-  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, NWD, NWD_LAST = -9, iwd, IWD ;
+  int APPEND_PHOTFLAG, ifilt_obs, DONE_READING, NWD, NWD_LAST = -9, iwd, IWD, i ;
   int NTRY, USEFLAG_LIBID, USEFLAG_MJD, OPTLINE, NTMP, NFIELD=0 ;
   int NOBS_SKIP, SKIP_FIELD, SKIP_APPEND, OPTLINE_REJECT, NMAG_notZeroFlux;
   int OPTMASK, noTEMPLATE ;
   double TEXPOSE, TSCALE ;
   bool  FOUND_SPECTROGRAPH, FOUND_EOF, FOUND_ENDKEY ;
   bool  ISKEY, ISKEY_S, ISKEY_TEMPLATE, KEEP_MJD ;
-  double PIXSIZE, TEXPOSE_S, MJD, MAG ;
+  double PIXSIZE, TEXPOSE_S, MJD, MAG;
+  double ZPT, ZPTAVG_BY_FIELD[MXFIELD_OVP], ZPTSUM_BY_FIELD[MXFIELD_OVP] ;
+  int  NOBS_BY_FIELD[MXFIELD_OVP];
   char wd0[MXCHAR_LINE_SIMLIB], wd1[MXCHAR_LINE_SIMLIB];
   char ctmp[200], *BAND, cline[MXCHAR_LINE_SIMLIB], *pos ;
   char WDLIST[MXWDLIST_SIMLIB][MXCHAR_LINE_SIMLIB];
@@ -19601,8 +19604,10 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   SIMLIB_HEADER.NWRAP = NTRY = 0 ; // reset wrap before START 
   SIMLIB_OBS_RAW.NOBS = SIMLIB_OBS_RAW.NOBS_READ = 0 ;
   SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH = 0 ;
-
-  for(iwd=0; iwd < MXWDLIST_SIMLIB; iwd++ ) { ptrWDLIST[iwd] = WDLIST[iwd]; }
+  for(i=0; i < MXFIELD_OVP; i++ ) 
+    { ZPTSUM_BY_FIELD[i] = ZPTAVG_BY_FIELD[i] = 0.0;  NOBS_BY_FIELD[i]=0; }
+  for(iwd=0; iwd < MXWDLIST_SIMLIB; iwd++ ) 
+    { ptrWDLIST[iwd] = WDLIST[iwd]; }
 
   
  START:
@@ -19711,14 +19716,18 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       
 	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", field);
 
+	if ( NFIELD == 0 ) { sprintf(SIMLIB_HEADER.FIELD_MAXDEPTH,"%s", field); }
+
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
-	if ( NFIELD == 1 ) 
+	catVarList_with_sep(FIELD_LIST, field, PLUS);
+	/* xxx mark delete Oct 1 2026 xxxxxxx
+	if ( NFIELD == 1 )   // .xyz
 	  { sprintf(FIELD_LIST, "%s", field) ; }
 	else
 	  { strcat(FIELD_LIST,"+"); strcat(FIELD_LIST, field); }
-	
-	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD_LIST) &&
-		       (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
+	xxxxxx end mark */
+
+	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD_LIST) && (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
 
 	iwd++ ; continue;
       }
@@ -19858,13 +19867,15 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	    checkval_D("PSF1(readNextCadence)", 1, 
 		       &SIMLIB_OBS_RAW.PSFSIG1[ISTORE], 0.0, 30.0, fnam ) ;
 	  }
-	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTADU[ISTORE] ); 
-	  checkval_D("ZPT(readNextCadence)", 1, 
-		     &SIMLIB_OBS_RAW.ZPTADU[ISTORE], 5.0, 50.0, fnam ) ;
+	  IWD++; sscanf(WDLIST[IWD], "%le", &ZPT);
+	  checkval_D("ZPT(readNextCadence)", 1, &ZPT, 5.0, 50.0, fnam ) ;
+	  SIMLIB_OBS_RAW.ZPTADU[ISTORE] = ZPT;
 	  
+	  // Oct 1 2026 update ZPT-sum by FIELD to determine field with max depth
+	  ZPTSUM_BY_FIELD[NFIELD-1] = ZPT;     	  NOBS_BY_FIELD[NFIELD-1]++ ;
+
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.ZPTERR[ISTORE] );  
 	  IWD++; sscanf(WDLIST[IWD], "%le", &SIMLIB_OBS_RAW.MAG[ISTORE]   );
-	  
 	  
 	  // - - - - - done reading columns - - - - -
 
@@ -19927,15 +19938,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  SIMLIB_OBS_RAW.OBSLIST_SPECTROGRAPH[NTMP] = ISTORE;
 	  SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH++ ;
 	  
-	  /* xxxxxxxxx mark delete 9.29 2026 xxxxx
-	  if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH >= MXOBS_SPECTROGRAPH ) { 
-	    sprintf(c1err,"NOBS_SPECTROGRAPH = %d exceeds MXOBS_SPECTROGRAPH bound at LIBID=%d",  //.xyz
-		    SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH, SIMLIB_HEADER.LIBID );
-	    sprintf(c2err,"Check SPECTROGRAPH options");
-	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
-	  }
-	  xxxxxxxx end mark xxxxx */
-
 	  // store few things at this ISTORE location
 	  SIMLIB_OBS_RAW.OPTLINE[ISTORE]    = OPTLINE ;
 	  SIMLIB_OBS_RAW.MJD[ISTORE]        = MJD ;
@@ -19982,7 +19984,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
   // -- - - - - 
   if ( SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH >= MXOBS_SPECTROGRAPH ) { 
-    sprintf(c1err,"NOBS_SPECTROGRAPH = %d exceeds bound MXOBS_SPECTROGRAPH=%d.",  //.xyz
+    sprintf(c1err,"NOBS_SPECTROGRAPH = %d exceeds bound MXOBS_SPECTROGRAPH=%d.",  
 	    SIMLIB_OBS_RAW.NOBS_SPECTROGRAPH, MXOBS_SPECTROGRAPH );
     sprintf(c2err,"Check LIBID=%d and check SPECTROGRAPH options", SIMLIB_HEADER.LIBID);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
@@ -20000,6 +20002,21 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   if ( INPUTS.SIMLIB_FIELDSKIP_FLAG==0 && ( NOBS_EXPECT==NOBS_SKIP) ) 
     { goto START ; }
 
+  // Oct 2026 : 
+  //   Determine FIELD with max zptsum and assign FIELD_MAXDEPTH.
+  //   The correct depth is 2.5 * log10 [ \sum 10^(0.4*ZPT_i) ],
+  //   but here we use naive sum to reduce CPU.
+  //   FIELD_MAXDEPTH is automatically set to first FIELD in cadence,
+  //   so loop starts at 1, not 0, to check for deeper field.
+  for(i=1; i < NFIELD; i++ ) {
+    if ( ZPTSUM_BY_FIELD[i] > ZPTSUM_BY_FIELD[i-1] ) 
+      { sprintf(SIMLIB_HEADER.FIELD_MAXDEPTH, "%s", SIMLIB_HEADER.FIELDLIST_OVP[i] ) ; }
+  }
+
+  /* xxx mark delete 
+  printf(" xxx %s: NFIELD=%d  LIBID=%3d  FIELD_MAXDEPTH=%s \n",
+	 fnam, NFIELD, SIMLIB_HEADER.LIBID, SIMLIB_HEADER.FIELD_MAXDEPTH); fflush(stdout);
+  xxxxx end mark xxxx */
 
   if ( ISTORE > MXOBS_SIMLIB ) {
     sprintf(c1err,"Selected %d obs from %d total in LIBID=%d", 
@@ -21910,6 +21927,9 @@ void init_SIMLIB_HEADER(void) {
   sprintf(SIMLIB_HEADER.FIELD,"%s", SIMLIB_GLOBAL_HEADER.FIELD);
 
   SIMLIB_HEADER.NFIELD_OVP = 0 ;
+  SIMLIB_HEADER.FIELD_MAXDEPTH[0] = 0 ;
+  for(i=0; i < MXFIELD_OVP; i++ ) { SIMLIB_HEADER.FIELDLIST_OVP[i][0] = 0; }
+
   SIMLIB_HEADER.SUBSURVEY_NAME[0] = 0 ;
 
   SIMLIB_HEADER.NSEASON = 1 ;
@@ -25613,7 +25633,6 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
 
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
-
 
     if ( INPUTS.USE_SIMLIB_IDEXPT ) {
       SNDATA.IMGNUM[epoch]     = GENLC.IDEXPT[epoch];  // Aug 2026

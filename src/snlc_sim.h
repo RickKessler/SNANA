@@ -1639,8 +1639,9 @@ struct SIMLIB_HEADER {
   char GROUPID_HOSTLIB_STRING[400];
 
   // these header keys can be changed anywhere in the simlib entry
-  char FIELD[MXCHAR_FIELDLIST];
-  char FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME];
+  char FIELD[MXCHAR_FIELDLIST]; // e.g. 'X1' or 'X1+X3' for overlap
+  char FIELD_MAXDEPTH[MXCHAR_FIELDNAME];             // single field with max avg depth in cadence
+  char FIELDLIST_OVP[MXFIELD_OVP][MXCHAR_FIELDNAME]; // list of overlap fields
   int  NFIELD_OVP ;
   
   // optional GENRANGES to re-generate

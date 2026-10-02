@@ -3544,12 +3544,6 @@ void read_galRow_HOSTLIB(FILE *fp, int NVAL, double *VALUES,
   } // end ival loop
 
   
-  /*
-  printf(" xxx NVAL=%d  N1=%d  N2=%d  FIELD=%s  ZTRUE=%.5f\n",
-	 NVAL, N1, N2, FIELD, VALUES[2]);
-  debugexit("read row"); // xxx
-  */
-
   return ;
 
 }  // read_galRow_HOSTLIB
@@ -3815,8 +3809,7 @@ void check_duplicate_GALID(void) {
 void sortz_HOSTLIB(void) {
 
   // Mar 2011
-  // Use CERNLIB sortz function to sort library by redshift. 
-  // Note that sortzv accepts a real*4 array, so be careful.
+  // Sort library by redshift. 
   //
   // Also compute ZGAPMAX, ZGAPAVG and Z_ATGAPMAZ
   // Also compute VPEC stuff to avoid another igal loop.
@@ -5959,7 +5952,7 @@ int ICOL_SPECTABLE(char *varname, int ABORTFLAG) {
 } // end of ICOL_SPECTABLE
 
 // =========================================
-void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
+void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD, char *FIELD ) {
 
   // Mar 2011
   // Driver function to select host-galaxy from library,
@@ -5975,6 +5968,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   //  which changes random sync.
   //
   // May 01 2026: check INPUTS.HOSTLIB_FIXRAN_WGT
+  // Oct 01 2026: pass FIELD as argument
 
   int    USE, IGAL, ilist ;
   int    NREPEAT_GALID_SNPOS = INPUTS.HOSTLIB_NREPEAT_GALID_SNPOS;
@@ -6016,6 +6010,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD) {
   SNHOSTGAL.ZGEN              = ZGEN_HELIO ; 
   SNHOSTGAL.ZSPEC             = ZGEN_HELIO ;
   SNHOSTGAL.PEAKMJD           = PEAKMJD ;
+  sprintf(SNHOSTGAL.FIELD, "%s", FIELD);
 
   // check option to use HOST library
   USE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USE ) ;

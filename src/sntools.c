@@ -1383,11 +1383,7 @@ void write_epoch_list_summary__(void)
 
 // ==========================================================
 void catVarList_with_comma(char *varList, char *addVarName) {
-
   catVarList_with_sep(varList,addVarName,COMMA);
-  // xxx  char comma[] = "," ;
-  // xxx if ( strlen(varList) > 0 ) { strcat(varList,comma); }
-  // xxx strcat(varList,addVarName);
 } 
 
 

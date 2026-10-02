@@ -207,7 +207,7 @@ struct HOSTLIB_DEF {
   int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
-  int   *INDEX_FIELD; // corresponds to user-inputs HOSTLIB_FIELDMATCH
+  // xxx mark 10.01.2026  int *INDEX_FIELD; // corresponds to user-inputs HOSTLIB_FIELDMATCH
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
 
@@ -537,6 +537,7 @@ struct SNHOSTGAL {
   double PEAKMJD ;
   double WEAKLENS_DMU;
   double MAGOBS_ERR_SCALE ; // based on user input HOSTLIB_SNR_SCALE
+  char   FIELD[MXCHAR_FIELDNAME]; 
 
   int    NNBR_DDLRCUT;   // number of nearby galaxies passing MAXDDLR
   int    NNBR_DDLRCUT2;  // number of nearby galaxies passing MAXDDLR2 (9.2022)
@@ -662,7 +663,7 @@ void   INIT_HOSTLIB(void);  // one-time init
 void   print_HOSTLIB_MSKOPT(void);
 
 void   init_event_SNHOSTGAL(void);  // init each event
-void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD);
+void   GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD, char *FIELD);
 void   GEN_SNHOST_GALID(double ZGEN);
 void   GEN_SNHOST_POS(int IGAL);
 void   SIMLIB_SNHOST_POS(int IGAL, SERSIC_DEF *SERSIC, int DEBUG_MODE);

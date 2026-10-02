@@ -34,10 +34,10 @@
     kcor.exe  <inFile>  FILTER_LAMSHIFT  g 0.5  r -1.2  i 3.3
          [each number is a shift in A]
 
-    kcor.exe  <inFile>  BD17_SED   <bd17File>
-    kcor.exe  <inFile>  VEGA_SED   <vegaFile>
-    kcor.exe  <inFile>  PRIMARY_SED  BD17  <bd17File>
-    kcor.exe  <inFile>  CALSPEC_SED  BD17  <bd17File>
+    kcor.exe  <inFile>  BD17_SED     <bd17File>          # internal primary name is BD17
+    kcor.exe  <inFile>  VEGA_SED     <vegaFile>          # internal primary name is VEGA
+    kcor.exe  <inFile>  CALSPEC_SED  <calSpecFile>       # internal primary name is CALSPEC
+    kcor.exe  <inFile>  PRIMARY_SED  <NAME>  <sedFile>   # user specifies NAME of primary
 
     kcor.exe  <inFile> FILTPATH_REPLACE XXXXX Bessell90  
          (replace XXXXX" with "Bessell90")
@@ -218,11 +218,11 @@ void  print_kcor_help(void) {
     "SN_SED: <file>   # SN flux vs. lam and phase (for k-cors)",
     "",
     "# primary SEDs",
-    "BD17_SED:     $SNDATA_ROOT/standards/bd_17d4708_stisnic_003.dat ",
-    "VEGA_SED:     $SNDATA_ROOT/standards/alpha_lyr_stis_005.dat  ",
-    "AB_SED:       $SNDATA_ROOT/standards/flatnu.dat ",
-    "CALSPEC_SED:  <favorite CALSPEC SED>",
-    "PRIMARY_SED:  whatever_you_want  ",
+    "BD17_SED:     $SNDATA_ROOT/standards/bd_17d4708_stisnic_003.dat #internal prim name is BD17",
+    "VEGA_SED:     $SNDATA_ROOT/standards/alpha_lyr_stis_005.dat     # internal prim name is VEGA",
+    "AB_SED:       $SNDATA_ROOT/standards/flatnu.dat                 # internal prim name is AB",
+    "CALSPEC_SED:  <favorite CALSPEC SED>                            # internal prim name is CALSPEC", 
+    "PRIMARY_SED:  NAME   <whatever_you_want>    # user specifies primary NAME",
     "",
     "# Example filter system for DES:",
     "MAGSYSTEM: AB        # AB, BD17, VEGA",
@@ -515,7 +515,6 @@ int rd_input(void) {
       INPUTS.NPRIMARY++ ;
       iprim = INPUTS.NPRIMARY ;
       sprintf(INPUTS.name_PRIMARY[iprim], "CALSPEC"  ) ;
-      readchar ( fp_input, INPUTS.name_PRIMARY[iprim]   ) ;
       readchar ( fp_input, INPUTS.inFile_PRIMARY[iprim] ) ;
       ENVreplace(INPUTS.inFile_PRIMARY[iprim],fnam,1) ;
     }
@@ -561,6 +560,7 @@ int rd_input(void) {
 
       INDX_INPUT   = index_primary(MAGSYSTEM.NAME_INPUT);  (void)INDX_INPUT;
       INDX         = index_primary(MAGSYSTEM.NAME);
+
       MAGSYSTEM.INDX_INPUT = INDX_INPUT ;
       MAGSYSTEM.INDX       = INDX ;
       PRIMARYSED[INDX_INPUT].USE = 1; 

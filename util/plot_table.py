@@ -45,6 +45,7 @@
 # Jul 05 2026: add new @@CUTMASK option to apply cuts to subset of files or variables
 # Jul 08 2026: provide initial guess_xxx for Gaussian fitpars.
 # Jul 16 2026: if cutmask=0 then do not require CUT variable(s) to exist in corresponding table file.
+# Oct 03 2026: add optional arg @@COLNAME_ID two break ambiguity or use non-default name
 #
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
@@ -164,7 +165,7 @@ FITFUN_LIST  = [ FITFUN_GAUSS, FITFUN_EXP,
 
 
 # list possible VARNAME to identify row
-VALID_IDROW_LIST = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID', 'id', 'POINTING'  ]
+VALID_IDROW_LIST_DEFAULT = [ 'CID', 'SNID', 'GALID', 'ROW', 'ID', 'id', 'POINTING'  ]
 
 # internal strings to identify type of string in @V or @@CUT
 STRTYPE_VAR       = "VARIABLE"
@@ -595,6 +596,9 @@ def get_args():
     msg = "required: Variable(s) to plot from table file, or function of variables." \
           "For the histogram, counts are normalised to the first table file."
     parser.add_argument('@V', '@@VARIABLE', '@v', help=msg, nargs="+")
+
+    msg = "force column name to be identifier if there are two ambiguous id cols (e.g., CID and GALID)"
+    parser.add_argument('@@COLNAME_ID', '@@colname_id', help=msg, type=str, default=None)
 
     msg = 'variable to use for error bar in 2D plot, and for weighted avg per bin'
     parser.add_argument('@E', '@@ERROR', default=None, help=msg, nargs="+")
@@ -1756,8 +1760,7 @@ def read_tables(args, plot_info):
             # if cutmask=0, then only check plotvars; else check plotvar & cutvars
             var_list_local = args.raw_var_list if cutmask>0 else args.raw_plotvar_list 
 
-            varname_idrow, nrow_skip, colsep = check_table_varnames(tfile, var_list_local)
-            # xxx mark varname_idrow, nrow_skip, colsep = check_table_varnames(tfile, args.raw_var_list)
+            varname_idrow, nrow_skip, colsep = check_table_varnames(args, tfile, var_list_local)
 
             plot_info.varname_idrow  = varname_idrow            
 
@@ -2027,7 +2030,7 @@ def set_xbins(args, plot_info):
     
     return   # end set_xbins
 
-def check_table_varnames(tfile, var_list):
+def check_table_varnames(args, tfile, var_list):
 
     # Check if format is SNANA_TABLE (keyed csv) or pure csv.
     # For SNANA_TABLE format, count number of rows to skip before VARNAMES key,
@@ -2100,17 +2103,21 @@ def check_table_varnames(tfile, var_list):
 
     # - - - - - - -
     # extract info from list of variables
-    varname_idrow = []      # xxx table_var_list[0]  
-    for idrow in VALID_IDROW_LIST:
+    valid_idrow_list = VALID_IDROW_LIST_DEFAULT
+    if args.COLNAME_ID: valid_idrow_list = [ args.COLNAME_ID ] 
+    varname_idrow = [] 
+    for idrow in valid_idrow_list:
         if idrow in table_var_list:
             varname_idrow.append(idrow)
 
     n_idrow = len(varname_idrow)
     if n_idrow != 1 :
         print(f"\nPre-ABORT dump")
-        print(f"  VALID_IDROW_LIST = {VALID_IDROW_LIST}")
+        print(f"  valid_idrow_list = {valid_idrow_list}")
         print(f"  table_var_list = {table_var_list}")
-        sys.exit(f"\n ERROR: found {n_idrow} ID columns: {varname_idrow}\n\t One and only one is allowed. ")
+        sys.exit(f"\n ERROR: found {n_idrow} ID columns: {varname_idrow}\n" \
+                 f"\t One and only one is allowed. \n" \
+                 f"\t Try command line arg @@COLNAME_ID")
 
     varname_idrow = varname_idrow[0]  # switch from list back to scaler
 

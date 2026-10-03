@@ -9489,13 +9489,9 @@ void  set_GENMODEL_NAME(void) {
 void  init_event_GENLC(void) {
 
   // called for each SN.
-  // Oct    2011: return if SIMLIB_IDLOCK is set
-  // Jan    2017: init GENLC.SNTYPE=0 instead of -9
-  // Apr 6, 2017: move more stuff before USE_SAME_SIMLIB call.
-  // Nov 06 2017: init SEARCHEFF_RANDOMS structure
-  // Nov 22 2017: use NEP_RESET (instead of MXEPSIM) to limit
-  //               wasted CPU on initializing (based on gprof)
   // Jul 20 2019: add skip for repeated strong lens images
+  // Oct 03 2026: init a few SNHOSTGAL variables to avoud confusion for
+  //              events that are discarded before calling GEN_SNHOST_DRIVER.
 
   int epoch, ifilt, ifilt_obs, i, obs, imjd, NEP_RESET ;
   char fnam[] = "init_event_GENLC" ;  (void)fnam;
@@ -9768,7 +9764,7 @@ void  init_event_GENLC(void) {
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
   // skip rest of init if we are going to use the same LIBID
-  if ( USE_SAME_SIMLIB_ID(1) != 0 ) { return ; } // Dec 2015
+  if ( USE_SAME_SIMLIB_ID(1) != 0 ) { return ; } 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
   GENLC.NGEN_SIMLIB_ID = 0 ;
@@ -9825,6 +9821,10 @@ void  init_event_GENLC(void) {
     SIMLIB_OBS_RAW.BAND[i][0] = 0 ;
   }
 
+  // - - - - - - - -
+  // Oct 3 2026: Init a few SNHOSTGAL variables in case GEN_SNHOST_DRIVER is not called
+  SNHOSTGAL.GALID = INPUTS.HOSTLIB_GALID_NULL ;
+  SNHOSTGAL.ZTRUE = 0.0001 ; // beware: setting this to -9 will change random sync
   return ;
  
 }  // end of init_event_GENLC
@@ -24003,7 +24003,6 @@ int GENRANGE_CUT(void) {
     }
     return istat; 
   }
-
 
   
   if ( INPUTS_STRONGLENS.USE_FLAG ) {

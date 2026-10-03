@@ -754,7 +754,6 @@ void init_REQUIRED_HOSTVAR(void) {
   sprintf(cptr, "%s", HOSTLIB_VARNAME_ZTRUE );
   LOAD = load_VARNAME_STORE(cptr) ;
 
-
   // check for required specTemplate coefficients
   for(i = 0; i < HOSTSPEC.NSPECBASIS; i++ ) {
     varName = HOSTSPEC.VARNAME_SPECBASIS[i];
@@ -767,6 +766,12 @@ void init_REQUIRED_HOSTVAR(void) {
   if ( HOSTSPEC.ITABLE == ITABLE_SPECDATA ) {
     cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
     sprintf(cptr, "%s", VARNAME_SPECDATA_HOSTLIB ); // IDSPECDATA
+    LOAD = load_VARNAME_STORE(cptr) ;
+  }
+
+  if ( INPUTS.DEBUG_FLAG == 1002 ) {
+    cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
+    sprintf(cptr, "%s", HOSTLIB_VARNAME_FIELD ); // FIELD
     LOAD = load_VARNAME_STORE(cptr) ;
   }
 
@@ -914,8 +919,6 @@ void append_HOSTLIB_STOREPAR(void) {
   // INPUTS.HOSTLIB_STOREPAR_LIST --> ensure that all of the 
   // HOSTLIB-zHOST parameters are read from the HOSTLIB.
 
-  // xxx mark   int REFAC_SEARCHEFF = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP ;
-
   char **VARNAMES_RAW;
   char *ptrFile[2] = 
     { INPUTS_SEARCHEFF.USER_SPEC_FILE, INPUTS_SEARCHEFF.USER_zHOST_FILE } ;
@@ -999,6 +1002,14 @@ void append_HOSTLIB_STOREPAR(void) {
 	     VARLIST_WGTMAP_noSNVAR); fflush(stdout);  
     }
   } // end CHECK_WGTMAP
+
+  /* xxxx ??
+  // -- - - - - - - - 
+  // Oct 2 2026: check FIELD ... need some kind of user or implicit input to set this
+  if ( INPUTS.DEBUG_FLAG == 1002 ) {
+    catVarList_with_comma(STOREPAR, HOSTLIB_VARNAME_FIELD);
+  }
+  xxxxx */
 
   return ;
 
@@ -2551,7 +2562,7 @@ void prep_head_HOSTLIB(void) {
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
   bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
 
-  int ivar, ivar_map, IVAR_STORE, i, N, NVAR_WGTMAP, FOUND_SNPAR;
+  int ivar, ivar_map, igal, IVAR_STORE, i, N, NVAR_WGTMAP, FOUND_SNPAR;
   int MATCH, NVAR_STORE_SNPAR=0, USE, IS_SNPAR, VBOSE ;
   char *c_var_all, *c_var_opt, wd[20], ctmp[100];
   char *basename;
@@ -2606,11 +2617,10 @@ void prep_head_HOSTLIB(void) {
   } // end ivar loop over all variables
 
 
-  if ( INPUTS.REFAC_DATA_FLAG == 701 ) {
-    int igal;
-    for(igal=0; igal < MXHOSTGAL; igal++ ) 
-      { SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ = HOSTLIB.NQZPHOT; }
-  }
+  // xxx mark delete Oct 3 2026   if ( INPUTS.REFAC_DATA_FLAG == 701 ) {
+  for(igal=0; igal < MXHOSTGAL; igal++ ) 
+    { SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ = HOSTLIB.NQZPHOT; }
+  // xxx mark }
 
   //-----------------------
   // sanity check on optioanl SNPARams
@@ -6102,7 +6112,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
   // Aug 28 2026: check USE_SIMLIB_GALID
   // Aug 31 2206: fix minor bug using INPUTS.HOSTLIB_GALID_PRIORITY
-  // Oct 02 2026: select by FIELD if FIELD column exists
+  // Oct 02 2026: check SELECT_BY_FIELD option
 
   bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
 
@@ -6127,7 +6137,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
   double ztol, dztol, z, z_start, z_end ;
   bool   SELECT_BY_FIELD = 0;
-  int  LDMP   = 0; // (GENLC.CID>50000 && GENLC.CID < 50005) ;
+  int  LDMP   =  (GENLC.CID == 19 || GENLC.CID == 26 );
   char fnam[] = "GEN_SNHOST_GALID" ;  (void)fnam;
 
   // ---------- BEGIN ------------
@@ -6139,7 +6149,13 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Oct 2026: select by field if FIELD column exists in HOSTLIB;
   //   Perhaps later we may need a more selective test such as
   //   explicit request in the sim0-input file
-  SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0  && INPUTS.DEBUG_FLAG == 1002);
+  if ( INPUTS.DEBUG_FLAG == 1002 )
+    { SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0 ); }
+
+
+  //  printf(" xxx %s: IVAR_FIELD=%d  DEBUG_FLAG=%d  SELECT_BY_FIELD=%d \n",
+  //	 fnam, HOSTLIB.IVAR_FIELD, INPUTS.DEBUG_FLAG, SELECT_BY_FIELD); fflush(stdout);
+
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
@@ -6227,8 +6243,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   if ( LDMP ) {
     printf(" xxx ---------- %s DUMP ---------- \n", fnam);
-    printf(" xxx CID=%d  ZGEN = %f  dztol=%f \n", 
-	   GENLC.CID, ZGEN, dztol );
+    printf(" xxx CID=%d  ZGEN = %f  dztol=%f   FIELD(SN)=%s \n", 
+	   GENLC.CID, ZGEN, dztol, SNHOSTGAL.FIELD );
     printf(" xxx igal_start = %d -> %d (loop %d)\n", 
 	   igal_start_init, igal_start, igal_start_init-igal_start);
     printf(" xxx igal_end   = %d -> %d (loop %d)\n", 
@@ -6371,7 +6387,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   NGAL_CHECK = 0 ;
   igal_start = igal0; // restrict igal search range based on binary search above
-  if ( !USEONCE ) { igal_end = igal1; } // idem
+
+  bool PRESERVE_IGAL_END_ORIG = ( USEONCE || SELECT_BY_FIELD ) ;
+  if ( !PRESERVE_IGAL_END_ORIG ) { igal_end = igal1; } 
+  // xxx mark delete Oct 3 2026 if ( SELECT_BY_FIELD ||  !USEONCE ) { igal_end = igal1; } // idem
 
   // - - - - - - - - - - - 
   // Brute force search, one igal at a time.
@@ -6398,15 +6417,22 @@ void GEN_SNHOST_GALID(double ZGEN) {
       // LEGACY; find first WGT above WGT_select.
       // At some point, should switch to finding WGT closest to WGT_select.
       if ( WGT <  WGT_select  )  { SKIP_WGT = true; }
-
     }
 
     // - - - - - - -
     // Oct 2 2026: check field match
-    if ( SELECT_BY_FIELD ) {  //.xyz
+    if ( SELECT_BY_FIELD ) {  
       char *FIELD_SN   = SNHOSTGAL.FIELD;
-      char *FIELD_HOST = HOSTLIB.FIELD_ZSORTED[igal];
-      if ( strcmp(FIELD_SN,FIELD_HOST) == 0 ) { SKIP_WGT = true; }
+      char *FIELD_HOST = HOSTLIB.FIELD_ZSORTED[igal];      
+
+      if ( LDMP ) {
+	double ztrue_tmp   = get_ZTRUE_HOSTLIB(igal); 
+	printf(" xxx %s: CID=%d  igal=%4d  FIELD[HOST]=%s  zHOST=%.5f  WGT=%.3f (SKIP=%d)\n",
+	       fnam, GENLC.CID, igal,  FIELD_HOST, ztrue_tmp, WGT, SKIP_WGT );  //.xyz
+	fflush(stdout);
+      }
+      if ( strcmp(FIELD_SN,FIELD_HOST) != 0 ) { SKIP_WGT = true; }
+      //debugexit(fnam);
     }
     // - - - - - - 
 
@@ -8180,15 +8206,18 @@ bool snr_detect_HOSTLIB(int IGAL) {
     }
   }
 
+  /* xxx mark delete Oct 3 2026 xxxxx
   bool REFAC = (INPUTS.DEBUG_FLAG == 715) ;
   if ( REFAC ) {
-    //printf(" xxx %s: call passCuts_snr_HOSTLIB ... \n", fnam ); fflush(stdout);
-    detect = passCuts_snr_HOSTLIB(GALID, NBAND_EXIST, SNR_LIST, 
-				  NBAND_SNR_DETECT, INPUTS.HOSTLIB_SNR_DETECT, fnam );
-    return detect ;
-  }
+  */
+  detect = passCuts_snr_HOSTLIB(GALID, NBAND_EXIST, SNR_LIST, 
+				NBAND_SNR_DETECT, INPUTS.HOSTLIB_SNR_DETECT, fnam );
+  return detect ;
+
+    // xxxx mark delete   }
 
  
+  /* xxxxxxxxx mark delete Oct 3 2026 xxxxxxx
   // - - - - below is legacy - - - - -
 
   // abort if there are fewer bands than needed to apply the SNR cut
@@ -8229,6 +8258,10 @@ bool snr_detect_HOSTLIB(int IGAL) {
   }
   
   return detect ;
+
+  xxxxxxxxxxx end mark xxxxxxxx*/
+
+
 
 } // end snr_detect_HOSTLIB
 

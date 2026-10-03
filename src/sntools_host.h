@@ -621,9 +621,7 @@ struct {
   int  NSPECDATA, IDSPECDATA  ; 
 
   int  NBIN_WAVE;  // number of wavelength bins
-  // xxx mark delete  int  ICOL_WAVE;  // table column with wavelength
   int  ICOL_SPECTABLE[MXSPECBASIS_HOSTLIB]; // colum for each template
-  // xxx mark  int  NUM_SPECBASIS[MXSPECBASIS_HOSTLIB];  // number for each template
   char VARNAME_SPECBASIS[MXSPECBASIS_HOSTLIB][28];
 
   int  IVAR_HOSTLIB[MXSPECBASIS_HOSTLIB]; // identified HOSTLIB ivar with coeff

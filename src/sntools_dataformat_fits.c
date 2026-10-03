@@ -700,11 +700,12 @@ void wr_snfitsio_init_host(int igal, int itype) {
 
   // add zPHOT quantiles, and logmass zgrid 
   int NZq, NZm;
-  if ( REFAC_DATA_FLAG == 701 ) {
-    NZq = SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ ;  
-    NZm = SNDATA.HOSTGALz_LOGMASS[0].NZ ; 
-  }
-  else {
+  // xxx mark delete Oct 3 2026   if ( REFAC_DATA_FLAG == 701 ) {
+  NZq = SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ ;  
+  NZm = SNDATA.HOSTGALz_LOGMASS[0].NZ ; 
+  // xxxx mark }
+
+  if ( LEGACY_NZQ_NZM > 0 ) {
     NZq = MXBIN_HOSTGALz_QUANTILE;  // legacy
     NZm = MXBIN_HOSTGALz ;
   }
@@ -2503,12 +2504,16 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   WR_SNFITSIO_TABLEVAL[itype].value_I = HOSTGALz->NZ ;
   wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_NZ, itype );
 
+  if ( NZ == 0 &&  LEGACY_NZQ_NZM==0 ) { *COLNUM_INDX = LOC; return; }
+
+  /* xxxx mark delete oct 3 2026 xxxxxxx
   if ( REFAC_DATA_FLAG == 701 ) {
     if ( NZ == 0 ) {
       *COLNUM_INDX = LOC;
       return;
     }
   }
+  xxxxxxxx end mark */
 
   LOC++ ; 
   ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3383,7 +3388,7 @@ void PREP_CCID_SAVELIST_SNFITSIO(char *SNID) {
 
   int N = NCCID_SAVELIST_SNFITSIO;
   int MEMC = sizeof(char) * MXCHAR_CCID;
-  int LDMP = 0; // (REFAC_DATA_FLAG==702);
+  int LDMP = 0; ;
   char fnam[] = "PREP_CCID_SAVELIST_SNFITSIO"; (void)fnam;
   // --------------- BEGIN ------------
   
@@ -3526,9 +3531,7 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     
 
     // Jul 2 2026: if a sparse list of SNIDs is store, check to stop reading here to save time
-    //  xxx mark   if ( REFAC_DATA_FLAG == 702 ) {
     if ( !MATCH_CCID_SAVELIST_SNFITSIO() ) { return SUCCESS; }
-    // xxx mark }
 
     // - - - - - - - - - -
     // here we either matched CCID_SAVELIST, or there is no list ... continue reading entire event

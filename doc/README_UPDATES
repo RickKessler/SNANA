@@ -24287,6 +24287,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       add MAG_SYN as last column in ZOPOFF table (HDU 1) 
       (initially needed to check magcor/handshaker code for Roman)
 
+    sntools_dataformat_fits.c & sntools_host.c:
+      + noticed a few REFAC_DATA_FLAG flags that were never made default, 
+        so they are now default ( see old 701 and 715 flags)
+   
 END:
 
 

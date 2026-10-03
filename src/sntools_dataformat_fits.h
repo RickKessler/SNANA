@@ -23,6 +23,9 @@
 // ==================================
 // global variables
 
+#define LEGACY_NZQ_NZM 0  // fallback in case REFAC_DATA_FLAG == 701 has problems
+
+
 #define ITYPE_SNFITSIO_HEAD      0
 #define ITYPE_SNFITSIO_PHOT      1
 #define ITYPE_SNFITSIO_SPEC      2  // SPEC summary & fluxes tables

@@ -9685,7 +9685,10 @@ void  init_event_GENLC(void) {
 
     GENLC.OBSFLAG_WRITE[epoch] = false ;
 
-    sprintf(GENLC.FIELDNAME[epoch],"%s", FIELD_NONAME );
+    if ( epoch == 0 ) 
+      { GENLC.FIELDNAME[epoch][0] = 0; } // string with all fields
+    else
+      { sprintf(GENLC.FIELDNAME[epoch],"%s", FIELD_NONAME ); } // field for epoch
 
     GENLC.NEXPOSE[epoch]     =  1 ; 
     GENLC.DETNUM[epoch]      = -9 ; 
@@ -18341,7 +18344,8 @@ void SIMLIB_initGlobalHeader(void) {
   SIMLIB_GLOBAL_HEADER.NLIBID             = 0 ;
   SIMLIB_GLOBAL_HEADER.NFIELD_TEXPOSE     = 0 ;
   SIMLIB_GLOBAL_HEADER.NGENSKIP_PEAKMJD   = 0 ;
-  sprintf(SIMLIB_GLOBAL_HEADER.FIELD,  "%s", FIELD_NONAME);
+  // xxx mark delete sprintf(SIMLIB_GLOBAL_HEADER.FIELD,  "%s", FIELD_NONAME);
+  SIMLIB_GLOBAL_HEADER.FIELD[0] = 0;
 
   sprintf(SIMLIB_GLOBAL_HEADER.SKYSIG_UNIT, "%s", 
 	  SIMLIB_SKYSIG_SQPIX );
@@ -18577,7 +18581,7 @@ void SIMLIB_prepGlobalHeader(void) {
   }
  
 
-  FIELD = SIMLIB_GLOBAL_HEADER.FIELD ;
+  FIELD = SIMLIB_GLOBAL_HEADER.FIELD ; 
   sprintf(GENLC.FIELDNAME[0], "%.*s", MXCHAR_FIELDNAME-2, FIELD );
   if ( !IGNOREFILE(FIELD) )
     { printf("\t SIMLIB Field : %.*s \n", MXCHAR_FIELDLIST, FIELD ); }
@@ -19716,7 +19720,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       
 	sprintf(SIMLIB_HEADER.FIELDLIST_OVP[NFIELD], "%s", field);
 
-	if ( NFIELD == 0 ) { sprintf(SIMLIB_HEADER.FIELD_MAXDEPTH,"%s", field); }
+	if ( NFIELD == 0 ) { sprintf(SIMLIB_HEADER.FIELD_MAXDEPTH,"%.*s", MXCHAR_FIELDNAME-1, field); }
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
 	catVarList_with_sep(FIELD_LIST, field, PLUS);
@@ -25633,6 +25637,7 @@ void snlc_to_SNDATA(int FLAG) {
     SNDATA.MJD[epoch]          = GENLC.MJD[epoch];
 
     sprintf(SNDATA.FIELDNAME[epoch], "%s", GENLC.FIELDNAME[epoch] );
+    if ( epoch == 1 ) { sprintf(SNDATA.FIELDNAME[0], "%s", GENLC.FIELDNAME[0] ); }
 
     if ( INPUTS.USE_SIMLIB_IDEXPT ) {
       SNDATA.IMGNUM[epoch]     = GENLC.IDEXPT[epoch];  // Aug 2026

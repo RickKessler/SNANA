@@ -148,6 +148,7 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 
   fprintf(fp,"RA:       %.6f  # deg (avg among obs)\n", SNDATA.RA_AVG);
   fprintf(fp,"DEC:      %.6f  # deg (avg among obs)\n", SNDATA.DEC_AVG);
+  fprintf(fp,"FIELD:    %s \n", SNDATA.FIELDNAME[0] );  // to enable grep
 
   if ( SNDATA.WRFLAG_ATMOS ) { 
     wr_dataformat_text_FILTERPAR_D(fp, "RA_AVG", "avg per band", 

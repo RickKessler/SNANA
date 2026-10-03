@@ -6061,7 +6061,7 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD, char *FIELD ) {
 
   // check on host properties for each possible host match (Feb 2020)
   int ivar_property;
-  for (ivar_property=0; ivar_property<N_HOSTGAL_PROPERTY; ivar_property++){
+  for (ivar_property=0; ivar_property<N_HOSTGAL_PROPERTY; ivar_property++) {
     GEN_SNHOST_PROPERTY(ivar_property);
   }
 
@@ -6139,7 +6139,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Oct 2026: select by field if FIELD column exists in HOSTLIB;
   //   Perhaps later we may need a more selective test such as
   //   explicit request in the sim0-input file
-  SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0 );
+  SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0  && INPUTS.DEBUG_FLAG == 1002);
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
@@ -6398,7 +6398,17 @@ void GEN_SNHOST_GALID(double ZGEN) {
       // LEGACY; find first WGT above WGT_select.
       // At some point, should switch to finding WGT closest to WGT_select.
       if ( WGT <  WGT_select  )  { SKIP_WGT = true; }
+
     }
+
+    // - - - - - - -
+    // Oct 2 2026: check field match
+    if ( SELECT_BY_FIELD ) {  //.xyz
+      char *FIELD_SN   = SNHOSTGAL.FIELD;
+      char *FIELD_HOST = HOSTLIB.FIELD_ZSORTED[igal];
+      if ( strcmp(FIELD_SN,FIELD_HOST) == 0 ) { SKIP_WGT = true; }
+    }
+    // - - - - - - 
 
     if ( SKIP_WGT ) { NSKIP_WGT++; continue; }
 
@@ -11150,7 +11160,6 @@ void rewrite_HOSTLIB_select(char *append_file) {
   // - - - - 
   // loop over all galaxies and prepare string to append.
   NGAL_SELECT = 0 ;
-  //.xyz
   for(igal_unsort=0; igal_unsort < NGAL_ORIG; igal_unsort++ ) {
 
     // get GALID for diagnostics (not needed for selection)

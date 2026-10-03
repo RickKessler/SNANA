@@ -416,6 +416,8 @@ bool    DID_CHI2MAX_RESCORE = false ;
 int     NREJ_CHI2MAX_PASS1  = 0 ;
 int     NREJ_CHI2MAX_PASS2  = 0 ;
 
+int     GLOBAL_DEBUG_FLAG;  
+
 // Aug 2026: opt_chi2max=3 state (fixed-point iteration on membership,
 // with the SCORING error model anchored to the full-sample fit).
 #define KEY_GREP_CHI2MAX_UPDATE   "chi2max_update"  // key to grep for updates
@@ -2222,6 +2224,7 @@ void SALT2mu_DRIVER_INIT(int argc, char **argv) {
   PIFAC  = 1.0/sqrt(TWOPI);
   LOGTEN = log(10.0) ;
   DO_H0marg = false;
+  GLOBAL_DEBUG_FLAG = 0;
 
   t_start = time(NULL);
 
@@ -24514,17 +24517,26 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
   //  
   // Nov 14 2020: check for datafile_overrides.
   // Dec 28 2021: pass rowkey to allow for prescaling HOSTLIB
+  //
+  // Oct 02 2026: increase word size from MXCHAR_VARNAME to 2*MXCHAR_VARNAME
+  //              to protect against long NBR_LIST strings
 
   int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
   int ISTAT = 0 ;
   int  ivar_tot, ivar_file, ivar_word, idsample ;
   bool IS_RECYCLED = false; 
-  char word[MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;  
+  char word[2*MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;  
   char blank[] = " ";
   char fnam[] = "write_fitres_line" ;
-  int  LDMP = 0 ;
+  int  LDMP = 0 ; // (strstr(line,"3200020316") != NULL ) || (GLOBAL_DEBUG_FLAG > 0);
   // ----------- BEGIN -----------
 
+  if ( LDMP ) {
+    GLOBAL_DEBUG_FLAG = 1;
+    printf(" xxx %s DUMP ---------------------------------------- \n", fnam);
+    printf(" xxx %s: line = '%s' \n", fnam, line);
+    fflush(stdout);
+  }
 
   sprintf(line_out,"%s ", rowkey);
 
@@ -24551,8 +24563,19 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
     write_word_override(ivar_tot,  indx, word);
     write_word_parshift(ivar_tot,  indx, word);     
 
-    strcat(line_out,word);
-    strcat(line_out,blank);
+    int n0 = strlen(line_out), n1=strlen(word);
+    if ( (n0 + n1) >= MXCHAR_LINE ) {
+      //.xyz
+      print_preAbort_banner(fnam);
+      printf("\t line_out = '%s' \n", line_out);
+      printf("\t next word to add = '%s' \n", word);
+      sprintf(c1err,"len(line_out) + len(word = %d + %d = %d", n0, n1, n0+n1);
+      sprintf(c2err,"but MXCHAR_LINE = %d", MXCHAR_LINE);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+    }
+
+    strcat(line_out, word  );  // <== crash here using table-dump mode
+    strcat(line_out, blank );
   }
 
   fprintf(fout,"%s", line_out);
@@ -24569,7 +24592,7 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
 
   ISTAT = 1;
 
-  if ( LDMP ) { debugexit(fnam); }
+  //  if ( LDMP ) { debugexit(fnam); }
 
   return(ISTAT);
 

@@ -6137,7 +6137,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
   double ztol, dztol, z, z_start, z_end ;
   bool   SELECT_BY_FIELD = 0;
-  int  LDMP   =  (GENLC.CID == 19 || GENLC.CID == 26 );
+  int  LDMP   =  (GENLC.CID == 19 && INPUTS.DEBUG_FLAG == 1002 );
   char fnam[] = "GEN_SNHOST_GALID" ;  (void)fnam;
 
   // ---------- BEGIN ------------
@@ -6421,14 +6421,15 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
     // - - - - - - -
     // Oct 2 2026: check field match
-    if ( SELECT_BY_FIELD ) {  
+    if ( SELECT_BY_FIELD && !SKIP_WGT ) {  
       char *FIELD_SN   = SNHOSTGAL.FIELD;
       char *FIELD_HOST = HOSTLIB.FIELD_ZSORTED[igal];      
 
       if ( LDMP ) {
 	double ztrue_tmp   = get_ZTRUE_HOSTLIB(igal); 
-	printf(" xxx %s: CID=%d  igal=%4d  FIELD[HOST]=%s  zHOST=%.5f  WGT=%.3f (SKIP=%d)\n",
-	       fnam, GENLC.CID, igal,  FIELD_HOST, ztrue_tmp, WGT, SKIP_WGT );  //.xyz
+	GALID = get_GALID_HOSTLIB(igal) ;
+	printf(" xxx %s: CID=%d  igal=%4d GALID=%9lld  FIELD[HOST]=%s  zHOST=%.5f  WGT=%.3f\n",
+	       fnam, GENLC.CID, igal, GALID, FIELD_HOST, ztrue_tmp, WGT );  //.xyz
 	fflush(stdout);
       }
       if ( strcmp(FIELD_SN,FIELD_HOST) != 0 ) { SKIP_WGT = true; }

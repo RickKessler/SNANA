@@ -517,7 +517,8 @@ SNHOSTGAL_DDLR_SORT_DEF SNHOSTGAL_DDLR_SORT[MXNBR_LIST] ;
 struct SNHOSTGAL {
 
   int   IGAL  ;     // sequential sparse galaxy index 
-  int   IGAL_SELECT_RANGE[2] ; // range to select random IGAL
+  int    IGAL_SELECT_RANGE[2] ; // range to select random IGAL
+  double CDFWGT_TARGET, CDFWGT_SELECT ;
 
   long long GALID ;   // Galaxy ID from library
   int  IMATCH_TRUE_SORT ;  // true-host index for SNHOSTGAL_DDLR_SORT

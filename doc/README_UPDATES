@@ -24291,6 +24291,13 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + noticed a few REFAC_DATA_FLAG flags that were never made default, 
         so they are now default ( see old 701 and 715 flags)
    
+   sntools_host.c:  
+      + DEBUG_FLAG=1002 (temporary) picks host with same FIELD that is
+        passed from sim to GEN_SNHOST_DRIVER. Need to add user input with
+        FIELD map; e.g
+            HOSTLIB_FIELDMAP: DEFAULT   # literal field
+            HOSTLIB_FIELDMAP: DEEP(X3,C3),SHALLOW(E1,E2,C1,C2,X1,X2,S1,S2)
+          
 END:
 
 

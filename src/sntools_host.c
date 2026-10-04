@@ -1003,14 +1003,6 @@ void append_HOSTLIB_STOREPAR(void) {
     }
   } // end CHECK_WGTMAP
 
-  /* xxxx ??
-  // -- - - - - - - - 
-  // Oct 2 2026: check FIELD ... need some kind of user or implicit input to set this
-  if ( INPUTS.DEBUG_FLAG == 1002 ) {
-    catVarList_with_comma(STOREPAR, HOSTLIB_VARNAME_FIELD);
-  }
-  xxxxx */
-
   return ;
 
 } // end append_HOSTLIB_STOREPAR
@@ -6134,10 +6126,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
   int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, ibin_SNVAR=-9, USEHOST; 
   long long int GALID = -9 ;
   double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
-  double WGT_start, WGT_end, WGT_dif, WGT_select, WGT, *ptrWGT ;
+  double WGT_start, WGT_end, WGT_dif, WGT_target, WGT_SELECT, WGT, *ptrWGT, CDF_target ;
   double ztol, dztol, z, z_start, z_end ;
   bool   SELECT_BY_FIELD = 0;
-  int  LDMP   =  (GENLC.CID == 19 && INPUTS.DEBUG_FLAG == 1002 );
+  int  LDMP   =  (GENLC.CID == 548 && INPUTS.DEBUG_FLAG == 1002 );
   char fnam[] = "GEN_SNHOST_GALID" ;  (void)fnam;
 
   // ---------- BEGIN ------------
@@ -6145,6 +6137,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   if ( HOSTLIB_REPEAT_GALID_SNPOS ) { return; }
   
   IGAL_SELECT = -9 ; 
+  WGT_SELECT  = -9.0 ;
 
   // Oct 2026: select by field if FIELD column exists in HOSTLIB;
   //   Perhaps later we may need a more selective test such as
@@ -6293,7 +6286,13 @@ void GEN_SNHOST_GALID(double ZGEN) {
   WGT_start  = ptrWGT[igal_start];  
   WGT_end    = ptrWGT[igal_end];    
   WGT_dif    = WGT_end - WGT_start ;
-  WGT_select = WGT_start + ( WGT_dif * FlatRan1_GALID * 0.95 ) ;
+  WGT_target = WGT_start + ( WGT_dif * FlatRan1_GALID * 0.95 ) ;
+  CDF_target = (WGT_target-WGT_start)/WGT_dif ;
+
+  if(LDMP) {
+    printf(" xxx WGT_target %f  (CDF_target=%f) \n", 
+	   WGT_target, CDF_target); fflush(stdout);
+  }
 
   NSKIP_WGT   = NSKIP_USED = NGAL_CHECK = 0 ;
 
@@ -6336,7 +6335,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // ---------------------------------------------------
 
   // perform binary search to restrict igal range to within a few galaxies
-  // that satisfy WGT_select. This loop is much faster than brute-force
+  // that satisfy WGT_target. This loop is much faster than brute-force
   // search when HOSTLIB is large.
 
   bool CONVERGE = false;
@@ -6355,7 +6354,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
     if ( NGAL_CHECK > NGAL_CHECK_ABORT ) {
       print_preAbort_banner(fnam);
       printf("\t CID=%d  ZGEN=%f\n", GENLC.CID, ZGEN);
-      printf("\t WGT_select=%le   current WGT=%le\n", WGT_select, WGT);
+      printf("\t WGT_target=%le   current WGT=%le\n", WGT_target, WGT);
       printf("\t igal[start,end]=%d,%d  igal[0,middle,1]=%d,%d,%d\n",
 	     igal_start, igal_end,   igal0, igal_middle, igal1);
       sprintf(c1err,"Cannot converge finding igal range.");
@@ -6363,7 +6362,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	
     }
 
-    if ( WGT < WGT_select )
+    if ( WGT < WGT_target )
       {  igal0 = igal_middle ;  } // select upper half for next iter
     else 
       {  igal1 = igal_middle ;   } // lower half for next iter
@@ -6372,10 +6371,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
     CONVERGE = (igal1 - igal0) < IGAL_RANGE_CONVERGE ;
     
     if ( LDMP ) {
-      double WGT_ratio = (WGT-WGT_start) / ( WGT_select-WGT_start);
+      double CDF = (WGT-WGT_start) / ( WGT_target-WGT_start);
       printf(" xxx igal[0,m,1] = %d, %d, %d   CONVERGE=%d "
-	     "WGT_ratio=%.4f \n",
-	     igal0, igal_middle, igal1, CONVERGE, WGT_ratio);
+	     "CDF=%.4f \n",
+	     igal0, igal_middle, igal1, CONVERGE, CDF);
     }
     
   } // end while not CONVERGE
@@ -6403,10 +6402,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
     
     SKIP_WGT = false ;
     if ( NGROUPID > 0 ) {
-      // find WGT closest to WGT_select that has GROUPID match.
+      // find WGT closest to WGT_target that has GROUPID match.
       // Beware that this can be very slow for LARGE HOSTLIB because
       // it does not benefit from binary search above.
-      WGTDIF        = fabs(WGT-WGT_select);
+      WGTDIF        = fabs(WGT-WGT_target);
       MATCH_GROUPID = MATCH_GROUPID_HOSTLIB(igal);
       if ( WGTDIF < WGTDIF_MIN && MATCH_GROUPID ) 
 	{ WGTDIF_MIN = WGTDIF;  }
@@ -6414,9 +6413,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
 	{ SKIP_WGT = true; }
     }
     else {
-      // LEGACY; find first WGT above WGT_select.
-      // At some point, should switch to finding WGT closest to WGT_select.
-      if ( WGT <  WGT_select  )  { SKIP_WGT = true; }
+      // Nominal; find first WGT above WGT_target.
+      // At some point, should switch to finding WGT closest to WGT_target.
+      if ( WGT <  WGT_target  )  { SKIP_WGT = true; }
     }
 
     // - - - - - - -
@@ -6428,8 +6427,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
       if ( LDMP ) {
 	double ztrue_tmp   = get_ZTRUE_HOSTLIB(igal); 
 	GALID = get_GALID_HOSTLIB(igal) ;
-	printf(" xxx %s: CID=%d  igal=%4d GALID=%9lld  FIELD[HOST]=%s  zHOST=%.5f  WGT=%.3f\n",
-	       fnam, GENLC.CID, igal, GALID, FIELD_HOST, ztrue_tmp, WGT );  //.xyz
+	printf(" xxx \t CID=%d  igal=%4d GALID=%9lld  FIELD[HOST]=%s  zHOST=%.5f  WGT=%.3f\n",
+	       GENLC.CID, igal, GALID, FIELD_HOST, ztrue_tmp, WGT );  //.xyz
 	fflush(stdout);
       }
       if ( strcmp(FIELD_SN,FIELD_HOST) != 0 ) { SKIP_WGT = true; }
@@ -6444,8 +6443,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
     if ( !USEHOST  ) 
       { NSKIP_USED++ ; continue ; }
     
-    // select IGAL closest to WGT_select
+    // select IGAL closest to WGT_target
     IGAL_SELECT = igal ;
+    WGT_SELECT  = WGT;
     goto DONE_SELECT_GALID ;
     
   } // end igal loop
@@ -6486,7 +6486,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
     printf("  WGT_[start,end]_final = %f, %f (for brute-force search)\n",
 	   ptrWGT[igal_start], ptrWGT[igal_end] );
 
-    printf("\t WGT_select      = %f \n", WGT_select);
+    printf("\t WGT_target      = %f / CDF_target = %f\n", WGT_target, CDF_target);
     printf("\t SIMLIB LIBID    = %d \n", GENLC.SIMLIB_ID);
 
     printf("\t INPUTS.HOSTLIB_GALID_PRIORITY = %lld to %lld \n",
@@ -6523,6 +6523,9 @@ void GEN_SNHOST_GALID(double ZGEN) {
   SNHOSTGAL.ZTRUE      = ZTRUE  ;  
   SNHOSTGAL.ZDIF       = ZGEN - ZTRUE ; // zSN - zGAL (helio)
   SNHOSTGAL.ZRATIO     = ZGEN/ZTRUE;    // zSN/zGAL
+  
+  SNHOSTGAL.CDFWGT_TARGET = (WGT_target - WGT_start) / ( WGT_end - WGT_start ) ;
+  SNHOSTGAL.CDFWGT_SELECT = (WGT_SELECT - WGT_start) / ( WGT_end - WGT_start ) ;
 
   if ( DO_SN2GAL_Z ) { SNHOSTGAL.ZDIF = 0.0 ; SNHOSTGAL.ZRATIO=1.0; } 
 
@@ -6577,6 +6580,9 @@ void init_event_SNHOSTGAL(void) {
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
   SNHOSTGAL.FIELD[0]    = 0;
+
+  SNHOSTGAL.CDFWGT_TARGET = -9.0 ;
+  SNHOSTGAL.CDFWGT_SELECT = -9.0 ;
 
   SNHOSTGAL.a_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;
   SNHOSTGAL.b_SNGALSEP_ASEC   = HOSTLIB_SNPAR_UNDEFINED ;

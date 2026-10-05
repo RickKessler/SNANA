@@ -19726,7 +19726,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	  { strcat(FIELD_LIST,"+"); strcat(FIELD_LIST, field); }
 	xxxxxx end mark */
 
-	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(FIELD_LIST) && (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
+	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(1,FIELD_LIST) && (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
 
 	iwd++ ; continue;
       }
@@ -21235,7 +21235,7 @@ bool keep_SIMLIB_OBS(int OBS) {
   if (LTRACE) {printf(" xxx 2 pass keep_SIMLIB_MJD \n"); fflush(stdout); }
 
   // check option to skip field 
-  if ( SKIP_SIMLIB_FIELD(FIELD) ) { return(NOKEEP); }
+  if ( SKIP_SIMLIB_FIELD(1,FIELD) ) { return(NOKEEP); }
 
   // apply PEAKMJD cut-window for SIMLIB_DUMP option (Feb 2013)
   // Skip this check for nominal use because OBS before/after
@@ -22611,7 +22611,7 @@ void set_SIMLIB_NREPEAT(void) {
 } // end set_SIMLIB_NREPEAT
 
 // ================================================
-int SKIP_SIMLIB_FIELD(char *field) {
+int SKIP_SIMLIB_FIELD(int OPTMASK, char *FIELD) {
 
   // Created Mar 2015.
   // Refactored Feb 2021 to enable optional preScale per FIELD
@@ -22619,23 +22619,34 @@ int SKIP_SIMLIB_FIELD(char *field) {
   // Returns 1 if this field should be skipped.
   // Returns 0 if this field should be kept.
   //
+  // Inputs:
+  //   OPTMASK:  1 -> check prescale 
+  //   FIELD: field to check
+  //
+  //
+
+  bool  CHECK_FIELD_PRESCALE = (OPTMASK & 1);
+  char *FIELDLIST = INPUTS.SIMLIB_FIELDLIST ;
 
   double preScale;
   int iPS, iTEST ;
-  char *FIELDLIST = INPUTS.SIMLIB_FIELDLIST ;
   int   OPT_DICT  = 1 ; // --> do partial match
   char fnam[] = "SKIP_SIMLIB_FIELD" ;  (void)fnam;
   
   // -------------- BEGIN -----------------------
+
   if ( strcmp(FIELDLIST,"ALL") == 0 )  { return 0 ; }
 
   // fetch prescale for this field
-  preScale = get_string_dict(OPT_DICT, field, 
+  preScale = get_string_dict(OPT_DICT, FIELD, 
 			     &INPUTS.DICT_SIMLIB_FIELDLIST_PRESCALE);
   iPS = (int)preScale ;
 
-  //  printf(" xxx %s: field=%s -> PS = %d \n", fnam, field, iPS);
-  // fflush(stdout);
+  /* xxx
+  printf(" xxx %s: FIELDLIST=%s  FIELD=%s -> PS = %d \n", 
+	 fnam, FIELDLIST, FIELD, iPS);  fflush(stdout);
+  */
+
 
   if ( iPS < 0 ) {
     return 1 ;    // field not specified -> skip
@@ -22648,15 +22659,18 @@ int SKIP_SIMLIB_FIELD(char *field) {
   // To avoid artifacts from harmonics, do NOT use NGENLC_TOT
   // or NGENLC_WRITE because these are corrleated with iTEST.
 
-  iTEST = (SIMLIB_HEADER.LIBID + SIMLIB_HEADER.NWRAP) ;
-  if ( ( iTEST % iPS ) == 0 )  // beware of harmonic effects XXX
-    { return 0; }  // keep field
-  else
-    { return 1 ; }  // reject due to prescale
+  if ( CHECK_FIELD_PRESCALE ) {
+    iTEST = (SIMLIB_HEADER.LIBID + SIMLIB_HEADER.NWRAP) ;
+    if ( ( iTEST % iPS ) == 0 )  // beware of harmonic effects XXX
+      { return 0; }  // keep field
+    else
+      { return 1 ; }  // reject due to prescale
+  }
+  else {
+    return 0 ; // accept
+  }
 
 } // end of SKIP_SIMLIB_FIELD
-
-
 
 
 // ====================================

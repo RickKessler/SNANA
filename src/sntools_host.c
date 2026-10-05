@@ -3174,7 +3174,8 @@ void read_gal_HOSTLIB(FILE *fp) {
       if ( HOSTLIB.NGAL_READ > INPUTS.HOSTLIB_MAXREAD ) 
 	{ goto DONE_RDGAL ; } 
 
-      if ( passCuts_HOSTLIB(xval) == 0 ) { NCUT_FAIL++; continue; }
+      if ( passCuts_HOSTLIB(xval,FIELD) == 0 ) { NCUT_FAIL++; continue; }
+
 
       // count how many priority entries (for print summary below)
       if ( GALID_MIN < GALID_MAX ) {
@@ -3246,9 +3247,8 @@ void read_gal_HOSTLIB(FILE *fp) {
 	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ, NCUT_FAIL );
 
   if ( NPRIORITY > 0 ) {
-    printf("\t   --> %d galaxies have priority "
-	   "(GALID between %lld and %lld)\n",
-	   NPRIORITY, GALID_MIN, GALID_MAX );
+    printf("\t   --> %d galaxies have priority (GALID between %lld and %lld)\n",
+	   NPRIORITY, GALID_MIN, GALID_MAX ); fflush(stdout);
   }
 
   // if user did not specify photo-z outlier range,
@@ -3346,13 +3346,14 @@ void check_redshift_HOSTLIB(void) {
 }  // end check_redshift_HOSTLIB
 
 // ====================================
-int passCuts_HOSTLIB(double *xval ) {
+int passCuts_HOSTLIB(double *XVAL, char *FIELD ) {
 
   // Return 1 if cuts are satisfied; zero otherwise.
   // Jul 16 2026: check passCuts_SNR
+  // Oct 05 2026: check SIMLIB-FIELD cut
 
   int ivar_ALL, i, LRA ,LRA2;
-  double ZTRUE, RA, RA2, DEC;
+  double ZTRUE, RA, RA2, DEC ;
   char fnam[] = "passCuts_HOSTLIB" ;  (void)fnam;
 
   // ---------- BEGIN ---------
@@ -3362,7 +3363,7 @@ int passCuts_HOSTLIB(double *xval ) {
 
   // REDSHIFT
   ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_ZTRUE] ; 
-  ZTRUE       = xval[ivar_ALL];
+  ZTRUE       = XVAL[ivar_ALL];
   if ( ZTRUE < ZMAX_STAR ) { HOSTLIB.NSTAR++; }      // diagnostic
   if ( ZTRUE < HOSTLIB_CUTS.ZWIN[0] ) { return(0); }
   if ( ZTRUE > HOSTLIB_CUTS.ZWIN[1] ) { return(0); }
@@ -3370,7 +3371,7 @@ int passCuts_HOSTLIB(double *xval ) {
   // RA
   if ( HOSTLIB.IVAR_RA > 0 && HOSTLIB.IVAR_DEC > 0 ) { 
     ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_RA] ;
-    RA          = xval[ivar_ALL];
+    RA          = XVAL[ivar_ALL];
     RA2         = RA + 360.0 ; 
     LRA   = (RA  > HOSTLIB_CUTS.RAWIN[0] && RA  < HOSTLIB_CUTS.RAWIN[1] );
     LRA2  = (RA2 > HOSTLIB_CUTS.RAWIN[0] && RA2 < HOSTLIB_CUTS.RAWIN[1] );
@@ -3378,7 +3379,7 @@ int passCuts_HOSTLIB(double *xval ) {
     
     // DEC
     ivar_ALL    = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_DEC] ;
-    DEC         = xval[ivar_ALL];   
+    DEC         = XVAL[ivar_ALL];   
     if ( DEC  < HOSTLIB_CUTS.DECWIN[0] ) { return(0) ; }
     if ( DEC  > HOSTLIB_CUTS.DECWIN[1] ) { return(0) ; }
   }
@@ -3390,7 +3391,7 @@ int passCuts_HOSTLIB(double *xval ) {
     double COEFF;
     for(i=0; i < HOSTSPEC.NSPECBASIS; i++ ) {
       ivar_ALL = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_COEFF_SPECBASIS00] + i ;
-      COEFF    = xval[ivar_ALL];
+      COEFF    = XVAL[ivar_ALL];
       if ( COEFF > 0.0 ) { NCOEFF_NONZERO++; }
     }
     if ( NCOEFF_NONZERO == 0 ) { return(0); }
@@ -3400,11 +3401,18 @@ int passCuts_HOSTLIB(double *xval ) {
   // Jul 16 2026: check SNR cuts
   if ( INPUTS.HOSTLIB_NBAND_SNR_STORE > 0 ) {
     // ivar_ALL         = HOSTLIB.IVAR_ALL[HOSTLIB.IVAR_GALID] ;
-    long long GALID  = (long long)xval[0] ;
-    bool store       = snr_store_HOSTLIB(GALID, xval);
+    long long GALID  = (long long)XVAL[0] ;
+    bool store       = snr_store_HOSTLIB(GALID, XVAL);
     if ( !store ) { return(0); }
     
   }
+
+  // Oct 2026: cut on FIELD using same cut as SIMLIB_FIELDLIST
+  if ( HOSTLIB.DO_FIELD_MATCH ) {
+    if ( SKIP_SIMLIB_FIELD(0,FIELD) )  // opt=0 -> ignore FIELD prescale
+      { return 0; }
+  }
+
   return(1);
 
 } // end passCuts_HOSTLIB
@@ -11172,7 +11180,7 @@ void rewrite_HOSTLIB_select(char *append_file) {
 
   // Created Aug 18 2026
   // Use WGTMAP to select weighted sub-sample and re-write new HOSTLIB.
-  // Intended use is to use the gaalxy RA,DEC list to construct SIMLIB/cadence
+  // Intended use is to use the galaxy RA,DEC list to construct SIMLIB/cadence
   // for image overlays. Do NOT use this hostlib output for biasCor or
   // or for validation sims.
 

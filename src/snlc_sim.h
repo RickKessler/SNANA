@@ -1931,7 +1931,7 @@ void   SIMLIB_TAKE_SPECTRUM(void) ;
 
 void   set_TIMERS(int flag);
 
-int    SKIP_SIMLIB_FIELD(char *field);
+int    SKIP_SIMLIB_FIELD(int optmask, char *field);
 int    USE_SAME_SIMLIB_ID(int IFLAG) ;
 void   set_SIMLIB_NREPEAT(void);
 

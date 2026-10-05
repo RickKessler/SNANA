@@ -84,7 +84,8 @@
 // hard wire logarithmic z-bins
 #define DZPTR_HOSTLIB      0.01   // logz-binning for Z-pointers
 #define MINLOGZ_HOSTLIB   -3.00    // zmin = 0.001
-#define MAXLOGZ_HOSTLIB    log10(ZMAX_SNANA)     // Feb 21 2023
+static const double MAXLOGZ_HOSTLIB = log10(ZMAX_SNANA)  ;
+// xxx mark del Oct 5 2026   #define MAXLOGZ_HOSTLIB log10(ZMAX_SNANA)
 
 #define LOGZRANGE_HOSTLIB  MAXLOGZ_HOSTLIB-MINLOGZ_HOSTLIB
 #define ZMIN_HOSTLIB       pow(10.0,MINLOGZ_HOSTLIB)
@@ -263,9 +264,6 @@ struct HOSTLIB_DEF {
   int IVAR_COEFF_SPECBASIS00 ;       // location of first specbasis coeff (mar 2025)
   int NFILT_MAGOBS;  // NFILT with host mag info read
 
-  // xxx mark del 7.16.2026  char filterList[MXFILTINDX]; // filter list for gal-mag
-
-
   char   VARNAME_QZPHOT[MXBIN_HOSTGALz_QUANTILE][20];
   double SIGMA_QGAUSS[MXBIN_ZPHOTEFF];   // for forced Gauss quantiles
 
@@ -284,10 +282,6 @@ struct HOSTLIB_DEF {
   int  *IZPTR;            // pointers to nearest z-bin with .01 bin-size
   int   MINiz, MAXiz ;    // min,max valid iz arg for IZPTR
 
-  /* xxx mark delete Aug 2023
-  int NLINE_COMMENT ;
-  char COMMENT[MXCOMMENT_HOSTLIB][120] ; // comment lines for README file.
-  xxxx */
 
   // PSF-aperture info
   double Aperture_Radius[NMAGPSF_HOSTLIB+1]; // integ. radius for each PSF
@@ -313,6 +307,7 @@ struct HOSTLIB_DEF {
   int IGAL_STRONGLENS; // galaxy selected as strong lens
 
 } HOSTLIB ;
+
 
 
 #define MXCHAR_NBR_LIST 200 // Apr 25 2022 -> 200 (was 100)
@@ -446,7 +441,9 @@ struct HOSTLIB_WGTMAP_DEF {
   // weigt storage for each galaxy
   double  WGTMAX ;      // max weight for entire  wgtmap
   double  WGTMAX_GAL;   // max weight among hostlib galaxies
+
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
+
   double *WGT ;         // wgt for each hostlib entry (for +HOSTSELECT only)
   bool   MALLOC_WGT;    // flag that WGT has been malloced and stored (for special options only)
 
@@ -455,7 +452,7 @@ struct HOSTLIB_WGTMAP_DEF {
   short int **I2SNMAGSHIFT_SNVAR ;    // idem
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
-  int      NCHECKLIST ;
+  int       NCHECKLIST ;
   int       CHECKLIST_IGAL[MXCHECK_WGTMAP] ;  // sparse pointer
   long long CHECKLIST_GALID[MXCHECK_WGTMAP] ; // absolute GALID
   double    CHECKLIST_ZTRUE[MXCHECK_WGTMAP] ;
@@ -467,6 +464,7 @@ struct HOSTLIB_WGTMAP_DEF {
   int OPT_EXTRAP; // 1 ==> pull out-of-range values to edge of grid
 
 } HOSTLIB_WGTMAP ;
+
 
 
 
@@ -739,7 +737,7 @@ void   read_gal_HOSTLIB(FILE *fp);
 void   read_galRow_HOSTLIB(FILE *fp, int nval, double *values, 
 			   char *field, char *nbr_list  );
 void   check_redshift_HOSTLIB(void);
-int    passCuts_HOSTLIB(double *xval);
+int    passCuts_HOSTLIB(double *xval, char *field);
 void   summary_snpar_HOSTLIB(void) ;
 void   malloc_HOSTLIB(int NGAL_STORE, int NGAL_READ);
 void   sortz_HOSTLIB(void);

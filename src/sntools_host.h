@@ -208,8 +208,10 @@ struct HOSTLIB_DEF {
   int     SORTFLAG ; // 1=> sorted
 
   // xxx mark 10.01.2026  int *INDEX_FIELD; // corresponds to user-inputs HOSTLIB_FIELDMATCH
+  bool DO_FIELD_MATCH ;
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
+  STRING_DICT_DEF INDEX_FIELD_DICT ;  // dict[field] = index to store other info
 
   char **NBR_UNSORTED ; // read from NBR_LIST column, Nov 11 2019
   char **NBR_ZSORTED ;

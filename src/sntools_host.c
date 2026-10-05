@@ -309,10 +309,10 @@ void initvar_HOSTLIB(void) {
 
   // ----------- BEGIN -------------
 
-
   sprintf(PATH_DEFAULT_HOSTLIB, "%s %.200s/simlib", 
 	  PATH_USER_INPUT, PATH_SNDATA_ROOT ); // Jul 14 2020
  
+  HOSTLIB.DO_FIELD_MATCH = (INPUTS.DEBUG_FLAG == 1002 ); // Oct 4 2026
 
   NCALL_GEN_SNHOST_DRIVER = 0 ;
 
@@ -369,9 +369,6 @@ void initvar_HOSTLIB(void) {
   for ( ifilt=0; ifilt < MXFILTINDX; ifilt++ )  
     { HOSTLIB.IVAR_MAGOBS[ifilt] = -9 ;  }
 
-  // xxx mark delete   sprintf(HOSTLIB.filterList, "%s", "" );
-
-
   // -----------------------
   // init Sersic shape parameters a0, a1 ...a9 and b0, b1 ... b9
   for ( j=0; j < MXSERSIC_HOSTLIB ; j++ ) {       
@@ -421,7 +418,6 @@ void initvar_HOSTLIB(void) {
 
   reset_SNHOSTGAL_DDLR_SORT(MXNBR_LIST);
 
-  
   HOSTLIB.IGAL_FORCE = -9 ;
 
   return ;
@@ -769,7 +765,7 @@ void init_REQUIRED_HOSTVAR(void) {
     LOAD = load_VARNAME_STORE(cptr) ;
   }
 
-  if ( INPUTS.DEBUG_FLAG == 1002 ) {
+  if ( HOSTLIB.DO_FIELD_MATCH ) {
     cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
     sprintf(cptr, "%s", HOSTLIB_VARNAME_FIELD ); // FIELD
     LOAD = load_VARNAME_STORE(cptr) ;
@@ -3822,6 +3818,7 @@ void sortz_HOSTLIB(void) {
   
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   int  NGAL, igal, ival, unsort, VBOSE, DO_FIELD, DO_NBR;
+  int  index_field, n_field_unique = 0 ;
   int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT, MEMC, IVAR_VPEC ;
   double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT, VAL ;
   double VPEC, VSUM, VSUMSQ ;
@@ -3867,6 +3864,7 @@ void sortz_HOSTLIB(void) {
   if ( DO_FIELD  ) {
     HOSTLIB.FIELD_ZSORTED = (char**)malloc( MEMCp );
     MEMC = MXCHAR_FIELDNAME * sizeof(char) ;
+
     for ( igal=0; igal <= NGAL; igal++ )  {
       HOSTLIB.FIELD_ZSORTED[igal] = (char*)malloc(MEMC) ;
       MEMTOT += (double)MEMC ;
@@ -3916,6 +3914,9 @@ void sortz_HOSTLIB(void) {
   HOSTLIB.VPEC_MIN = HOSTLIB.VPEC_MAX = 0.0 ;
   VSUM = VSUMSQ = 0.0;
 
+  if ( HOSTLIB.DO_FIELD_MATCH ) 
+    { init_string_dict( &HOSTLIB.INDEX_FIELD_DICT, "INDEX_FIELD", 2*MXFIELD_OVP); }
+
   // fill sorted array. 'igal' is the z-sorted index; 
   // 'unsort' is the  un-sorted index matching the original HOSTLIB order.
   for ( igal = 0; igal < NGAL ; igal++ ) {
@@ -3929,10 +3930,21 @@ void sortz_HOSTLIB(void) {
 
     if ( DO_FIELD ) {
       ptr_UNSORT = HOSTLIB.FIELD_UNSORTED[unsort];
+
+      if ( HOSTLIB.DO_FIELD_MATCH ) {        // .xyz field dict
+	index_field = (int)get_string_dict(0, ptr_UNSORT, &HOSTLIB.INDEX_FIELD_DICT );
+	if ( index_field < 0 ) { 
+	  VAL = (double)n_field_unique;
+	  load_string_dict(&HOSTLIB.INDEX_FIELD_DICT, ptr_UNSORT, VAL);
+	  n_field_unique++ ;
+	}
+      }  // end HOSTLIB.DO_FIELD_MATCH
+
       sprintf(HOSTLIB.FIELD_ZSORTED[igal],"%s", ptr_UNSORT);
-      free(HOSTLIB.FIELD_UNSORTED[unsort]); // Nov 11 2019
-    }
-    
+      free(HOSTLIB.FIELD_UNSORTED[unsort]); 
+    } // end DO_FIELD
+
+
     if ( DO_NBR ) {  // Nov 11 2019 
       ptr_UNSORT = HOSTLIB.NBR_UNSORTED[unsort];
       MEMC = (1+strlen(ptr_UNSORT)) * sizeof(char);
@@ -4006,6 +4018,12 @@ void sortz_HOSTLIB(void) {
   int  OPT_PLUSNBR   = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_PLUSNBR);
   if ( !(OPT_PLUSMAGS || OPT_PLUSNBR) ) {
     free(HOSTLIB.LIBINDEX_UNSORT);
+  }
+
+
+  if ( HOSTLIB.DO_FIELD_MATCH ) {  
+    printf(" \t %s store FIELD index for %d unique FIELD names \n", fnam, n_field_unique);
+    fflush(stdout);
   }
 
   return ;
@@ -6142,13 +6160,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Oct 2026: select by field if FIELD column exists in HOSTLIB;
   //   Perhaps later we may need a more selective test such as
   //   explicit request in the sim0-input file
-  if ( INPUTS.DEBUG_FLAG == 1002 )
+  if ( HOSTLIB.DO_FIELD_MATCH )
     { SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0 ); }
-
-
-  //  printf(" xxx %s: IVAR_FIELD=%d  DEBUG_FLAG=%d  SELECT_BY_FIELD=%d \n",
-  //	 fnam, HOSTLIB.IVAR_FIELD, INPUTS.DEBUG_FLAG, SELECT_BY_FIELD); fflush(stdout);
-
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;

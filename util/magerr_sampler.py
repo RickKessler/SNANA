@@ -103,6 +103,8 @@ class MagErrSampler:
         self.gauss_par = {}
         self.skew_par = {}
         self.median = {}
+        self.data_mean = {}
+        self.data_std = {}
         self.fitchi2 = {}
         self.fitflag = {}
         self.fitreason = {}
@@ -117,6 +119,12 @@ class MagErrSampler:
             self.gauss_par[b] = g
             self.skew_par[b] = s
             self.median[b] = np.asarray(blk["MEDIAN"], float)
+            # Summary stats of the magerr data per bin, used by
+            # sample(check_bin_means=...).  Absent in older yaml.
+            self.data_mean[b] = np.asarray(blk["MEAN"], float) \
+                if "MEAN" in blk else None
+            self.data_std[b] = np.asarray(blk["STDDEV"], float) \
+                if "STDDEV" in blk else None
             # All of these are absent in yaml written before the fitter learned
             # to record fit quality.
             self.fitchi2[b] = np.asarray(blk["FITCHI2"], float) \
@@ -427,10 +435,47 @@ class MagErrSampler:
         t = (np.asarray(mag, float) - self.mag_centers[0]) / self.dmag
         return np.clip(t, 0.0, len(self.mag_centers) - 1.0)
 
-    def sample(self, band, mag, rng=None, u=None):
+    def _check_bin_means(self, band, mag, err, nsig):
+        """Raise if, in any mag bin, |mean(err) - MEAN| / STDDEV > nsig.
+
+        MEAN and STDDEV are the yaml's summary stats of the magerr data in that
+        bin.  The offset is measured in units of STDDEV (the scatter of the
+        data), NOT the standard error STDDEV/sqrt(n): the fitted model is
+        slightly off the data mean in most bins, so a standard-error test would
+        fail on any large enough sample even when the sampler works correctly.
+        Mags outside the binned range, and bins with no usable MEAN/STDDEV, are
+        skipped.
+        """
+        mu, sd = self.data_mean[band], self.data_std[band]
+        if mu is None or sd is None:
+            raise ValueError(f"check_bin_means needs MEAN and STDDEV for band "
+                             f"{band}, but the yaml does not have them")
+        nbin = len(self.bin_edges)
+        k = np.floor((np.ravel(mag) - self.bin_edges[0]) / self.dmag).astype(int)
+        err = np.ravel(err)
+        inside = (k >= 0) & (k < nbin) & np.isfinite(err)
+        n = np.bincount(k[inside], minlength=nbin)
+        s = np.bincount(k[inside], weights=err[inside], minlength=nbin)
+        for j in np.where(n > 0)[0]:
+            if not (np.isfinite(mu[j]) and np.isfinite(sd[j]) and sd[j] > 0):
+                continue
+            z = (s[j] / n[j] - mu[j]) / sd[j]
+            if abs(z) > nsig:
+                lo = self.bin_edges[j]
+                raise ValueError(
+                    f"Mean of sampled errors is not consistent with error model "
+                    f"mean in {band} band, mag bin {lo:.2f}-{lo + self.dmag:.2f}: "
+                    f"sampled mean={s[j] / n[j]:.5g} (n={n[j]}), "
+                    f"model MEAN={mu[j]:.5g}, STDDEV={sd[j]:.5g}, "
+                    f"|diff|/STDDEV={abs(z):.3g} > {nsig:g}")
+
+    def sample(self, band, mag, rng=None, u=None, check_bin_means=None):
         """Draw one magerr per entry of `mag` for a single band.
         Pass `u` (uniforms in (0,1)) to drive the draw yourself -- that is how
         cross-band correlation is injected.
+        check_bin_means: if a number, after drawing, compare the mean sampled
+        error in each mag bin with the yaml's MEAN for that bin and raise
+        ValueError if |diff|/STDDEV exceeds it.  None (default) skips the check.
         t and u are the coordinates used to locate a magerr in the Q table
         t=8.7 means take a mag between the 8th and 9th bin center, weighted 70%
         towards the 9th
@@ -438,99 +483,19 @@ class MagErrSampler:
         the magerr
         """
         rng = rng or np.random.default_rng()
+        # map_coordinates cannot take 0-d coordinates, so a bare scalar mag
+        # becomes a length-1 array.
+        mag = np.atleast_1d(mag)
         t = self._mag_coord(mag)
         if u is None:
             u = rng.random(t.shape)
+        u = np.atleast_1d(u)
         # Bilinear: linear in mag between bins, linear in u within the quantile
         # table -> exactly quantile interpolation between adjacent mag bins.
         coords = np.stack([t, np.asarray(u) * (self.nq - 1)])
         err = map_coordinates(self.Q[band], coords, order=1, mode="nearest")
-        return np.maximum(err, 0.0) if self.clip_negative else err
-
-    def sample_all_bands(self, mags, rng=None, correlated=True):
-        """mags: (N, nband) array in self.bands order.  Returns (N, nband) errors.
-
-        With correlated=True the per-band uniforms come from a Gaussian copula
-        built on PEARSON_COEFS, so bright/faint fluctuations are shared across
-        bands the way they are in the training sample.
-        """
-        rng = rng or np.random.default_rng()
-        mags = np.asarray(mags, float)
-        n, nb = mags.shape
-        assert nb == len(self.bands)
-
-        if correlated and self.chol is not None:
-            z = rng.standard_normal((n, nb)) @ self.chol.T
-            u = ndtr(z)
-        else:
-            u = rng.random((n, nb))
-
-        out = np.empty_like(mags)
-        for j, b in enumerate(self.bands):
-            out[:, j] = self.sample(b, mags[:, j], u=u[:, j])
-        return out
-
-
-# ------------------------------------------------------------------ self-test
-
-if __name__ == "__main__":
-    import time
-
-    s = MagErrSampler("diffsky_magerr_model.yml")
-    print("bins:", s.mag_centers)
-    print("table shape per band:", s.Q["g"].shape)
-
-    # --- correctness: at a bin center we must reproduce that bin's own fit
-    rng = np.random.default_rng(0)
-    k = 6
-    mc = s.mag_centers[k]
-    draws = s.sample("g", np.full(400_000, mc), rng=rng)
-    amp_g, mu, sig = s.gauss_par["g"][k]
-    amp_s, a, loc, scale = s.skew_par["g"][k]
-    m_g, m_s = s._mixture_weights(amp_g, sig, amp_s)
-    wg = m_g / (m_g + m_s)
-    truth_mean = wg * mu + (1 - wg) * skewnorm.mean(a, loc, scale)
-    print(f"\nat bin center mag={mc}: sampled mean={draws.mean():.6f}  "
-          f"analytic mean={truth_mean:.6f}")
-    for q in (0.05, 0.5, 0.95):
-        print(f"  q{q:.2f}: sampled={np.quantile(draws, q):.6f}  "
-              f"table={s.Q['g'][k][int(q * s.nq)]:.6f}")
-
-    # --- interpolation behaves monotonically across a bin boundary
-    print("\nmedian magerr vs mag (g):")
-    for m in np.arange(24.0, 25.3, 0.25):
-        d = s.sample("g", np.full(200_000, m), rng=rng)
-        print(f"  mag={m:5.2f}  median={np.median(d):.5f}  std={d.std():.5f}")
-
-    # --- what the naive alternatives do at a bin midpoint (mag 24.75)
-    mmid = 24.75
-    dmid = s.sample("g", np.full(400_000, mmid), rng=rng)
-    lo = s.sample("g", np.full(400_000, s.mag_centers[8]), rng=rng)
-    hi = s.sample("g", np.full(400_000, s.mag_centers[9]), rng=rng)
-    avg = 0.5 * (lo + hi)                       # average two draws  -- WRONG
-    pick = np.where(rng.random(400_000) < 0.5, lo, hi)   # coin flip -- WRONG
-    print(f"\nat mag={mmid}  (between bins {s.mag_centers[8]} and {s.mag_centers[9]}):")
-    print(f"  quantile interp : mean={dmid.mean():.5f} std={dmid.std():.5f}")
-    print(f"  average 2 draws : mean={avg.mean():.5f} std={avg.std():.5f}")
-    print(f"  coin-flip bin   : mean={pick.mean():.5f} std={pick.std():.5f}")
-
-    # --- cross-band correlation
-    N = 2_000_000
-    mags = rng.uniform(21, 26, size=(N, 4))
-    mags = np.sort(mags, axis=1)[:, ::-1] * 0 + mags[:, :1] + rng.normal(0, .3, (N, 4))
-    t0 = time.perf_counter()
-    errs = s.sample_all_bands(mags, rng=rng, correlated=True)
-    t1 = time.perf_counter()
-    print(f"\n{N:,} galaxies x 4 bands in {t1 - t0:.3f} s "
-          f"({(t1 - t0) / N * 1e9:.1f} ns per galaxy-band / 4)")
-    print("recovered correlation of errors:\n",
-          np.round(np.corrcoef(errs, rowvar=False), 3))
-    print("target PEARSON_COEFS:\n", np.round(s.corr, 3))
-
-    # --- single-band throughput
-    m1 = rng.uniform(20, 27, 10_000_000)
-    t0 = time.perf_counter()
-    _ = s.sample("g", m1, rng=rng)
-    t1 = time.perf_counter()
-    print(f"\nsingle band, 10M draws: {t1 - t0:.3f} s "
-          f"({(t1 - t0) / 1e7 * 1e9:.1f} ns each)")
+        if self.clip_negative:
+            err = np.maximum(err, 0.0)
+        if check_bin_means is not None:
+            self._check_bin_means(band, mag, err, check_bin_means)
+        return err

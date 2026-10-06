@@ -5222,7 +5222,10 @@ To select a host in a field matching the \simlib\ field:
    HOSTLIB_FIELD_MAP:  DEEP(C3+X3),SHALLOW(C1+C2+E1+E2+S1+S2+X1+X2)  
     \end{verbatim}
 \end{itemize}
-
+%
+To test host property distributions for single field, \verb|SIMLIB_FIELDLIST| 
+selects a single field from the \simlib, and also from the \hostlib\ so that there
+is no multi-field confusion in selecting hosts that follow the {\tt WGTMAP} file.
 
 % ------------------------------------
 \subsubsection{Treatment of {\tt LOGMASS} }

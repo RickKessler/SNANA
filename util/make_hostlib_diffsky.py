@@ -73,14 +73,17 @@ VARNAME_VPEC     = "VPEC"
 VARLIST_FOR_VPEC = [ 'vx', 'vy', 'vz', 'ra', 'dec' ] # needed to compute VPEC
 VARNAME_RA       = 'ra'
 VARNAME_DEC      = 'dec'
+VARNAME_FIELD    = 'FIELD'
 
 DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
 DIFFSKY_ANGLE_PREFIX = "psi"
 
 # columns computed at the pandas level (after HDF5→pandas conversion); excluded from HDF5 select
-ADDCOL_PD_NAMES  = ['logsfr_obs']
 ADDCOL_PD_ERRMIN = [ 'obs_err_min', 'obs_err_min2', 'obs_err_min3' ]
-ADDCOL_FIELD = 'FIELD'
+ADDCOL_PD_NAMES  = ['logsfr_obs', VARNAME_FIELD ] + ADDCOL_PD_ERRMIN
+
+ABORT_EXCEPTION_LIST = [ 'serial', 'err', 'n_', 'D_A', 'Sersic' ] + ADDCOL_PD_NAMES
+    
 
 VARTYPE_DIFFSKY = "DIFFSKY"
 VARTYPE_HOSTLIB = "HOSTLIB"
@@ -422,14 +425,14 @@ def parse_config_varname_map(config):
         for i, addcol in enumerate(ADDCOL_PD_ERRMIN) :
             rownum_insert = rownum_last + 1 + i
             HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol}  {addcol}  6.3f')
-            ADDCOL_PD_NAMES.append(addcol)            
+            #ADDCOL_PD_NAMES.append(addcol)            
         
     #sys.exit(f"\n xxx HOSTLIB_VARNAMES_MAP = \n{HOSTLIB_VARNAMES_MAP}")
 
     if config[KEY_CONE]:
         rownum_insert += 1 # Fragile alert
-        HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{ADDCOL_FIELD}  {ADDCOL_FIELD}  10s')
-        ADDCOL_PD_NAMES.append(ADDCOL_FIELD)
+        HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{VARNAME_FIELD}  {VARNAME_FIELD}  10s')
+        #ADDCOL_PD_NAMES.append(ADDCOL_PD_FIELD)
     
     for row in HOSTLIB_VARNAMES_MAP:
         logging.info(f"\t {row}")
@@ -786,8 +789,8 @@ def add_col_field(df_cat, config):
     field_name = list(config[KEY_CONE])[0]
     logging.info(f"Append Field = {field_name}")
 
-    df_cat[ADDCOL_FIELD] = field_name
-    print(df_cat)
+    df_cat[VARNAME_FIELD] = field_name
+
     return df_cat
 
 
@@ -1115,7 +1118,8 @@ def check_diffsky_columns(config, ds):
     hostlib_varname_dict = config['hostlib_varname_dict']
 
     # these are computed and hence don't exist in catalog
-    exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr', ADDCOL_FIELD ]
+    # xxxx mark delete exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr', ADDCOL_PD_FIELD ]
+    exception_list = ABORT_EXCEPTION_LIST
 
     # if OVERRIDE_FILE is configured,  columns are not in HDF5 — skip them
     if KEY_OVERRIDE_FILE in config:

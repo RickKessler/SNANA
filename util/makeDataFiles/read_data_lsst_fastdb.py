@@ -3,13 +3,9 @@
 #
 # Jun ?? 2026: begin complete overhaual with real data
 # Jun 26 2026: minor overhaul after Rob-Refac on fastdb
+# Sep/Oct 2026: more adjustments for edp2 and add season_index 
 #
-#
-# To DO:
-#  - provide name of final data folder; e.g., LSST_ALERTS
-#  - load IGNORE file with garbage epochs
-#  - final folder should have FITS files, not sym links, to allow moving it
-#
+
 import os, sys, glob, yaml, shutil, time, logging, math, io, copy
 import numpy  as np
 import pandas as pd
@@ -21,6 +17,7 @@ from   makeDataFiles_base    import Program
 from   makeDataFiles_params  import *
 
 import coadd_by_nite as cbn
+import season_index
 
 # use try/except for imports that might crash on other data sets
 try:
@@ -35,8 +32,8 @@ except:
 # =======================================================================
 # hard-wired stuff for fastdb access
 
-
-MXOBJ_PER_FETCH = 1000 ; # max number of objects per source query
+MXOBJ_PER_FETCH = 5000 ; # max number of objects per source query
+#MXOBJ_PER_FETCH = 1000 ; # max number of objects per source query
 
 SURVEY_LSST     = 'LSST'
 FILTERLIST_LSST = SURVEY_INFO['FILTERS'][SURVEY_LSST]
@@ -90,6 +87,9 @@ PROCESS_VERSION_VALID_LIST = [
     'realtime',       # July 2026
     'edp2_cut2'       # Sep 25 2026 (after DP2-KP hac at U.Pitt
 ]
+
+
+MJD_START = 60750.0  # start date for season_index
 
 # ======================================================
 
@@ -362,8 +362,8 @@ class data_lsst_fastdb(Program):
         # tack on GARBAGE bit
         self.check_garbage(snana_head_raw, snana_phot_raw)
             
-        # store first/second/last MJD_DETECT before coadd        
-        self.store_mjd_detections(snana_head_calc, snana_phot_raw)
+        # store first/second/last MJD_DETECT before coadd, and season index
+        self.store_mjd_detections(snana_head_raw, snana_head_calc, snana_phot_raw)
 
         # set detect flag for coadd_by_nite
         snana_phot_raw['DETECT'] = lc_dict['isdet']
@@ -375,7 +375,9 @@ class data_lsst_fastdb(Program):
         coadd_by_nite = args.coadd_by_nite
         do_coadd      = coadd_by_nite and nobs_garbage == 0
 
-        if args.refac == 926:
+        legacy_coadd_by_nite = (args.refac == -926)
+        
+        if not legacy_coadd_by_nite:
             nobs_after_coadd, snana_phot_coadd, nite_detect_dict = \
                 cbn.coadd_by_nite(snana_phot_raw, BAND_LIST_LSST, coadd_by_nite, do_coadd)
             snana_phot_coadd[gpar.DATAKEY_NOBS_GARBAGE] = 0
@@ -695,15 +697,15 @@ class data_lsst_fastdb(Program):
         
         return 
 
-    def store_mjd_detections(self, head_calc, phot_raw):
+    def store_mjd_detections(self, head_raw, head_calc, phot_raw):
 
         # compute and store MJD_DETECT_[FIRST/SECOND/LAST]
         args            = self.config_inputs['args']        
         photflag_detect = args.photflag_detect
         
-        #head_calc    = snana_data_dict['head_calc']
-        #phot_raw     = snana_data_dict['phot_raw']
         KEY_MJD      = gpar.DATAKEY_MJD
+        KEY_RA       = gpar.DATAKEY_RA
+        KEY_DEC      = gpar.DATAKEY_DEC
         KEY_PHOTFLAG = gpar.DATAKEY_PHOTFLAG
 
         if KEY_PHOTFLAG not in phot_raw : return
@@ -711,6 +713,7 @@ class data_lsst_fastdb(Program):
         mjd_detect_first  = -9.0
         mjd_detect_second = -9.0
         mjd_detect_last   = -9.0
+        season            = -9
         n_detect = 0
         
         j_first  = -9
@@ -734,12 +737,23 @@ class data_lsst_fastdb(Program):
 
             mjd_detect_first  = phot_raw[KEY_MJD][j_first]
             mjd_detect_last   = phot_raw[KEY_MJD][j_last]
+            mjd_for_season     = mjd_detect_first
             
             tmp_list = detect_list[j_first+1:]
             if True in tmp_list:
                 j_second = tmp_list.index(True) + j_first+1
                 mjd_detect_second = phot_raw[KEY_MJD][j_second]                
-        
+                mjd_for_season     = mjd_detect_second
+
+        if mjd_for_season > 10. :
+            ra_list  = [ head_raw[KEY_RA] ]
+            dec_list = [ head_raw[KEY_DEC] ]
+            mjd_list = [ mjd_for_season ]
+            season_input_dict = { 'RA': ra_list, 'DEC': dec_list, 'MJD': mjd_list }
+            season = season_index.get_season(season_input_dict, SURVEY_LSST, MJD_START)[0]
+
+        logging.info(f" xxx mjd_for_season={mjd_for_season:.3f}  -> season = {season}")
+            
         #print(f" xxx mjd_detect = {mjd_detect_first}  {mjd_detect_second}  {mjd_detect_last} ")
         # store output
 
@@ -747,7 +761,8 @@ class data_lsst_fastdb(Program):
         head_calc[gpar.DATAKEY_MJD_DETECT_SECOND] = mjd_detect_second        
         head_calc[gpar.DATAKEY_MJD_DETECT_LAST]   = mjd_detect_last        
         head_calc[gpar.DATAKEY_N_DETECT]          = n_detect
-        
+        head_calc[gpar.DATAKEY_SEASON]            = season
+        # .xyz
         return
 
     def count_detect(self,photflag_list):

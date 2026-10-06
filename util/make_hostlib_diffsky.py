@@ -28,6 +28,8 @@
 #                  is a cone-merge utility
 #
 # Sep 11 2026 R.Kessler and J.Medoff: begin add new MAGERR_MODELPAR
+# Oct 06 2026: RK and JM: write FIELD column if CONE_REGIONS is used
+#
 # ===================================================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
@@ -53,7 +55,8 @@ KEY_CUTWIN               = "CUTWIN"
 KEY_CONE                 = "CONE_REGIONS"
 KEY_MAGERR_SNR5          = "MAGERR_SNR5"    # compute magerr using mag at SNR=5
 KEY_MAGERR_SNR           = "MAGERR_SNR"     # compute magerr using 2 mags at 2 SNR values
-KEY_MAGERR_PDF           = "MAGERR_PDF"  # draw magerr from double Gauss PDF (J.Medoff)
+KEY_MAGERR_PDF           = "MAGERR_PDF"     # draw magerr from double Gauss PDF (J.Medoff)
+KEY_MAGERR_DUMMY         = "MAGERR_DUMMY"   # test writing to header
 KEY_HOSTLIB_GALID        = "GALID"
 KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
 KEY_OVERRIDE_COL         = "OVERRIDE_COLUMNS"
@@ -164,7 +167,7 @@ HOSTLIB_VARNAMES_MAP:
 -  lsst_z          z_obs           6.3f
 -  lsst_y          y_obs           6.3f
 #
--  lsst_u_err      u_obs_err         6.3f   # internally computed if MAG_5SIG are provided
+-  lsst_u_err      u_obs_err         6.3f   # internally computed if MAGERR option is provided
 -  lsst_g_err      g_obs_err         6.3f
 -  lsst_r_err      r_obs_err         6.3f
 -  lsst_i_err      i_obs_err         6.3f
@@ -172,13 +175,17 @@ HOSTLIB_VARNAMES_MAP:
 -  lsst_y_err      y_obs_err         6.3f
 
 
-MAG_5SIG:
+{KEY_MAGERR_SNR5}:
 - lsst_u  25       # use this 5 sigma depth to compute [band]_err columns
 - lsst_g  27  .2   # apply optional 0.2 mag dispersion to m5sig depth
 - lsst_r  27
 - lsst_i  27
 - lsst_z  26
 - lsst_y  25
+
+#    ...or ...
+{KEY_MAGERR_PDF}:   <yml file with fitted model params>
+
 
 OVERRIDE_FILE: <filename> # Optional read synthetic mags from external file instead of from OpenCosmo
 
@@ -425,14 +432,11 @@ def parse_config_varname_map(config):
         for i, addcol in enumerate(ADDCOL_PD_ERRMIN) :
             rownum_insert = rownum_last + 1 + i
             HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol}  {addcol}  6.3f')
-            #ADDCOL_PD_NAMES.append(addcol)            
-        
-    #sys.exit(f"\n xxx HOSTLIB_VARNAMES_MAP = \n{HOSTLIB_VARNAMES_MAP}")
+            # xxx mark delete Oct 6 2026   ADDCOL_PD_NAMES.append(addcol)                    
 
     if config[KEY_CONE]:
-        rownum_insert += 1 # Fragile alert
+        rownum_insert = len(HOSTLIB_VARNAMES_MAP)
         HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{VARNAME_FIELD}  {VARNAME_FIELD}  10s')
-        #ADDCOL_PD_NAMES.append(ADDCOL_PD_FIELD)
     
     for row in HOSTLIB_VARNAMES_MAP:
         logging.info(f"\t {row}")
@@ -868,7 +872,6 @@ def add_col_magerr_pdf(df_cat,config):
 
         mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng) # band string needs to match pdfpar_yaml_file
         #mag_err = 0.01*mag   # test
-        
         band_err = band + '_err'
         df_cat[band_err] = mag_err
     
@@ -891,7 +894,7 @@ def add_col_magerr_snr(df_cat,config):
     
     band_list = config['band_magerr_list_diffsky']
     
-    logging.info('  Append mag error columns using MAG_SNR:')
+    logging.info('  Append mag error columns using {KEY_MAGERR_SNR}:')
 
     for band in band_list:
         mag_list = magerr_snr_dict[band]['mag_list']
@@ -956,7 +959,7 @@ def add_col_magerr_snr5(df_cat,config):
     rng             = np.random.default_rng(seed=42)
     len_df          = len(df_cat)
     
-    logging.info('  Append mag error columns using MAG_5SIG:')
+    logging.info('  Append mag error columns using {KEY_MAGERR_SNR5}:')
 
     for band in m5sig_bands :
         band_err   = band + '_err'
@@ -1227,8 +1230,7 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     hostlib_dict            =  config['hostlib_dict']
     HOSTLIB_VARNAMES_STRING =  config['HOSTLIB_VARNAMES_STRING'] 
     HOSTLIB_VARNAMES_MAP    =  config[KEY_HOSTLIB_VARNAMES_MAP]
-    CUTWIN                  =  config.setdefault(KEY_CUTWIN,None)
-    CONE                    =  config.setdefault(KEY_CONE,None) 
+
     
     cat_dir      = config[KEY_CAT_DIR]
     cat_dir_base = os.path.basename(cat_dir)
@@ -1267,40 +1269,23 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
 
     if config['USE_SERIAL_TAG'] :
         fp.write("#   WARNING: GALID is sequential number unrelated to diffsky cat\n")
-        
-    fp.write(f"\n")
-    fp.write(f"  HOSTLIB_VARNAMES_MAP: \n")
-    for row in HOSTLIB_VARNAMES_MAP:
-        fp.write(f"  - {row} \n")
 
-
-    for key in [ KEY_MAGERR_SNR5, KEY_MAGERR_SNR, KEY_MAGERR_PDF ] :
-        magerr_dict = config.setdefault(key,None)        
-        if magerr_dict:
-            fp.write(f"\n")
-
-            if key == KEY_MAGERR_PDF :
-                fp.write(f"  {key}:  {magerr_dict['INPUT_FILE']} \n")
-            else:
-                fp.write(f"  {key}: \n")
-                for row in magerr_dict:
-                    fp.write(f"  - {row} \n")
-
-    #if CUTWIN :
-    #    fp.write(f"\n")
-    #    fp.write(f"  CUTWIN: \n")
-    #    for row in CUTWIN:
-    #        fp.write(f"  - {row} \n")
-
-    block_list_name = ["CUTWIN", "CONE_REGIONS"]
-    block_list_dict = [CUTWIN, CONE]
-    for name, d in zip(block_list_name, block_list_dict):
+    # - - - -
+    # Oct 6 2026: write list of misc config blocks
+    key_name_list = [ KEY_HOSTLIB_VARNAMES_MAP, KEY_MAGERR_SNR5, KEY_MAGERR_SNR, KEY_MAGERR_PDF,
+                      KEY_MAGERR_DUMMY, KEY_CUTWIN, KEY_CONE ]
+    for KEY in key_name_list:
+        d = config.setdefault(KEY,None)
         if d:
             fp.write(f"\n")
-            fp.write(f"  {name}: \n")
-            for row in d:
-                fp.write(f"  - {row} \n")
-    
+            fp.write(f"  {KEY}: \n")
+            if isinstance(d,list):
+                for row in d:
+                    fp.write(f"  - {row} \n")
+            if isinstance(d,dict):
+                for key, item in d.items():
+                    fp.write(f"    {key}: {item} \n")
+    # - - - - -  -
     SNANA_VERSION = get_snana_version()
     fp.write(f"\n")
     fp.write(f" PROVENANCE: \n")

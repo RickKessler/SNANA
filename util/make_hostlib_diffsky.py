@@ -80,6 +80,7 @@ DIFFSKY_ANGLE_PREFIX = "psi"
 # columns computed at the pandas level (after HDF5→pandas conversion); excluded from HDF5 select
 ADDCOL_PD_NAMES  = ['logsfr_obs']
 ADDCOL_PD_ERRMIN = [ 'obs_err_min', 'obs_err_min2', 'obs_err_min3' ]
+ADDCOL_FIELD = 'FIELD'
 
 VARTYPE_DIFFSKY = "DIFFSKY"
 VARTYPE_HOSTLIB = "HOSTLIB"
@@ -425,6 +426,11 @@ def parse_config_varname_map(config):
         
     #sys.exit(f"\n xxx HOSTLIB_VARNAMES_MAP = \n{HOSTLIB_VARNAMES_MAP}")
 
+    if config[KEY_CONE]:
+        rownum_insert += 1 # Fragile alert
+        HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{ADDCOL_FIELD}  {ADDCOL_FIELD}  10s')
+        ADDCOL_PD_NAMES.append(ADDCOL_FIELD)
+    
     for row in HOSTLIB_VARNAMES_MAP:
         logging.info(f"\t {row}")
         tmp_list = row.split()
@@ -763,10 +769,27 @@ def add_col_pd(df_cat, config):
     # RK - Jul 14 2026 - define wrapper to add mag errors
     t0     = time.time()    
     df_cat = add_col_magerr(df_cat, config)
+    df_cat = add_col_field(df_cat, config)
     
     print_proc_time(t0, "ADDCOL_MAGERR", None)
     
     return df_cat  # end add_col_pd
+
+def add_col_field(df_cat, config):
+    # Be aware this only works for a single cone
+    # May need to update later for multiple cones
+    
+    add_field = config[KEY_CONE]
+    if not add_field:
+        return df_cat
+
+    field_name = list(config[KEY_CONE])[0]
+    logging.info(f"Append Field = {field_name}")
+
+    df_cat[ADDCOL_FIELD] = field_name
+    print(df_cat)
+    return df_cat
+
 
 def add_col_magerr(df_cat, config):
 
@@ -1092,7 +1115,7 @@ def check_diffsky_columns(config, ds):
     hostlib_varname_dict = config['hostlib_varname_dict']
 
     # these are computed and hence don't exist in catalog
-    exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr' ]
+    exception_list = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'logsfr', ADDCOL_FIELD ]
 
     # if OVERRIDE_FILE is configured,  columns are not in HDF5 — skip them
     if KEY_OVERRIDE_FILE in config:
@@ -1108,7 +1131,7 @@ def check_diffsky_columns(config, ds):
 
         VALID = varname in ds.columns or SKIPIT
         if not VALID:
-            print(f" ERROR: column {varname} is not available in catalog")
+            print(f" ERROR: column {varname} is not available in catalog\n\tCheck exception_list = {exception_list}")
             nerr+=1
     if nerr > 0:
         sys.exit(f"\n FATAL ERROR: {nerr} missing columns.")
@@ -1201,6 +1224,7 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     HOSTLIB_VARNAMES_STRING =  config['HOSTLIB_VARNAMES_STRING'] 
     HOSTLIB_VARNAMES_MAP    =  config[KEY_HOSTLIB_VARNAMES_MAP]
     CUTWIN                  =  config.setdefault(KEY_CUTWIN,None)
+    CONE                    =  config.setdefault(KEY_CONE,None) 
     
     cat_dir      = config[KEY_CAT_DIR]
     cat_dir_base = os.path.basename(cat_dir)
@@ -1258,13 +1282,21 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
                 for row in magerr_dict:
                     fp.write(f"  - {row} \n")
 
-    if CUTWIN :
-        fp.write(f"\n")
-        fp.write(f"  CUTWIN: \n")
-        for row in CUTWIN:
-            fp.write(f"  - {row} \n")
+    #if CUTWIN :
+    #    fp.write(f"\n")
+    #    fp.write(f"  CUTWIN: \n")
+    #    for row in CUTWIN:
+    #        fp.write(f"  - {row} \n")
 
-
+    block_list_name = ["CUTWIN", "CONE_REGIONS"]
+    block_list_dict = [CUTWIN, CONE]
+    for name, d in zip(block_list_name, block_list_dict):
+        if d:
+            fp.write(f"\n")
+            fp.write(f"  {name}: \n")
+            for row in d:
+                fp.write(f"  - {row} \n")
+    
     SNANA_VERSION = get_snana_version()
     fp.write(f"\n")
     fp.write(f" PROVENANCE: \n")

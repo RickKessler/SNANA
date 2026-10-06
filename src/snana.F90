@@ -631,6 +631,7 @@
         ,ISNLC_NEPOCH_FILT(MXFILT_OBS)   &  ! NEPOCH vs. filter
         ,ISNLC_NOBS_DETECT       &  ! NOBS with detection
         ,ISNLC_NOBS_PREDETECT    &  ! NOBS in CUTWIN_TOBS_PREDETECT window
+        ,ISNLC_SEASON_INDEX      &  ! index of continuous viewing season
         ,ISNLC_FAKE              &  ! => real data, else it's a fake
         ,ISNLC_DETNUM(MXEPOCH)   &  ! read from header (May 2017)
         ,ISNLC_IMGNUM(MXEPOCH)   &  ! Oct 2021: IMAGE NUNBER (e.g., EXPNUM, VISIT_ID)
@@ -4180,6 +4181,10 @@
 ! read MJD-related variables (PEAK, trigger, first & last detection)
     CALL FETCH_SNDATA_WRAPPER("PEAKMJD", ONE, STRING, DARRAY, OPT)
     SNLC_SEARCH_PEAKMJD = SNGL(DARRAY(1))
+
+    CALL FETCH_SNDATA_WRAPPER("SEASON_INDEX",  & 
+              ONE, STRING, DARRAY, OPT)
+    ISNLC_SEASON_INDEX = int(DARRAY(1))
 
     CALL FETCH_SNDATA_WRAPPER("MJD_TRIGGER",  & 
               ONE, STRING, DARRAY, OPT)
@@ -15045,6 +15050,7 @@
     ISNLC_NOBS_PREDETECT   =  0
     ISNLC_NOBS_DETECT      =  0
     SNLC_TLIVE_DETECT      = -9.0
+    ISNLC_SEASON_INDEX     = -9
     SNLC8_MJD_TRIGGER      = -99.0
     SNLC8_MJD_DETECT_FIRST = -99.0
     SNLC8_MJD_DETECT_LAST  = -99.0
@@ -23893,9 +23899,10 @@
 
 ! - - - - - MJD_DETECT and MJD_TRIGGER (Sep 2023) - - - - -
 
+    VARLIST = 'SEASON_INDEX:I' // char(0)
+    CALL SNTABLE_ADDCOL_int(ID, CBLOCK, ISNLC_SEASON_INDEX, VARLIST, ITEXT_NO,   LENBLOCK, 20 )
     VARLIST = 'MJD_TRIGGER:D' // char(0)
     CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_TRIGGER, VARLIST, ITEXT_NO,   LENBLOCK, 20 )
-
     VARLIST = 'MJD_DETECT_FIRST:D' // char(0)
     CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, SNLC8_MJD_DETECT_FIRST, VARLIST, ITEXT_NO,   LENBLOCK, 20 )
     VARLIST = 'MJD_DETECT_LAST:D' // char(0)

@@ -218,12 +218,12 @@ FLAG_WAIT           = False  # flag to wait for user input at each step (for pma
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_FITRES = "FITRES"
 
-PREFIX_COVSYS     = "covsys"
-PREFIX_COVTOT_INV = "covtot_inv"
-PREFIX_COVTOT = "covtot"
+PREFIX_COVSYS        = "covsys"
+PREFIX_COVTOT_INV    = "covtot_inv"
+PREFIX_COVTOT        = "covtot"
 PREFIX_COVFACTORIZED = "covtot_factorized"  # Sep 2026: D + U U^T product, see --write_factorized
-HD_FILENAME       = "hubble_diagram.txt"
-INFO_YML_FILENAME = "INFO.YML"
+HD_FILENAME          = "hubble_diagram.txt"
+INFO_YML_FILENAME    = "INFO.YML"
 
 # Apr 28 2024: setup masks to control which COV matrice are written.
 #  start with default of writing both, but eventually the default should
@@ -233,6 +233,7 @@ WRITE_MASK_COVSYS       = 1
 WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
 WRITE_MASK_FACTORIZED  = 8  # covtot in compact factorized form (Sep 2026)
+
 WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
 #WRITE_MASK_COV_DEFAULT  = WRITE_MASK_FACTORIZED  # change to this default when ready (Sep 28 2026)
 

@@ -543,6 +543,8 @@ void copy_SNDATA_HEAD(int copyFlag, char *key, int NVAL,
   else if ( strcmp(key,"PEAKMJD") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.SEARCH_PEAKMJD) ; }  
 
+  else if ( strcmp(key,"SEASON_INDEX") == 0 ) 
+    { copy_int(copyFlag, parVal, &SNDATA.SEASON_INDEX) ; }  
   else if ( strcmp(key,"MJD_TRIGGER") == 0 ) 
     { copy_flt(copyFlag, parVal, &SNDATA.MJD_TRIGGER) ; }  
   else if ( strcmp(key,"MJD_DETECT_FIRST") == 0 ) 

@@ -23,6 +23,8 @@
 
   Apr 26 2026: MXHOSTGAL = 2 -> 3 and switch FLUXCAL unit to nJy
   Jun 20 2026: MXCHAR_CCID = 32 -> 40 to handle 128-bit root IDs in fastdb
+  Oct 06 2026: define SEASON_INDEX
+
 *****************************************************/
 
 #define MXEPOCH  60000   // max Nepoch for data & simlib
@@ -418,6 +420,7 @@ struct SNDATA {
   float SEARCH_PEAKMJD ;     // approx MJD at g-band peak, from LC fit
   int   SEARCH_TYPE ;        // type from search (i.e., 120=confirmed Ia)
 
+  int   SEASON_INDEX;      // season of MJD[trigger or 1st detect or 2nd detect]
   float MJD_TRIGGER ;      //  MJD when trigger is satisfied (Apr 2017)
   float MJD_DETECT_FIRST ; // mjd of 1st detection
   float MJD_DETECT_LAST;

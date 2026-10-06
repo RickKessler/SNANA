@@ -83,6 +83,8 @@
  Aug 26 2026: if there are multiple sim classes, skip writing model params to avoid confusion
               See SNFITSIO_SIMFLAG_MULTIMODEL
 
+ Oct 06 2026: read/write SEASON_INDEX
+
 **************************************************/
 
 #include "fitsio.h"
@@ -391,6 +393,7 @@ void wr_snfitsio_init_head(void) {
   // -----------------
 
   wr_snfitsio_addCol( "1E", "PEAKMJD" ,          itype );
+  wr_snfitsio_addCol( "1I", "SEASON_INDEX" ,     itype ); // Oct 2026, short int
   wr_snfitsio_addCol( "1E", "MJD_TRIGGER" ,      itype );
   wr_snfitsio_addCol( "1E", "MJD_DETECT_FIRST",  itype );
   wr_snfitsio_addCol( "1E", "MJD_DETECT_LAST",   itype );
@@ -1947,6 +1950,11 @@ void wr_snfitsio_update_head(void) {
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
   WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.SEARCH_PEAKMJD ;
   wr_snfitsio_fillTable ( ptrColnum, "PEAKMJD", itype );
+
+  // SEASON_INDEX (Oct 2026)
+  LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+  WR_SNFITSIO_TABLEVAL[itype].value_I = SNDATA.SEASON_INDEX ;
+  wr_snfitsio_fillTable ( ptrColnum, "SEASON_INDEX", itype );
 
   // MJD_TRIGGER (Oct 2021)
   LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
@@ -3771,6 +3779,9 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 
     // - - - - -
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "PEAKMJD", &SNDATA.SEARCH_PEAKMJD,
+				 &SNFITSIO_READINDX_HEAD[j] ) ;          
+
+    j++ ;  NRD = RD_SNFITSIO_INT(isn, "SEASON_INDEX", &SNDATA.SEASON_INDEX,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;          
 
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "MJD_TRIGGER", &SNDATA.MJD_TRIGGER,

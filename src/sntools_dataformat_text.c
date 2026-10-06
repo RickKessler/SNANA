@@ -186,6 +186,9 @@ void  wr_dataformat_text_HEADER(FILE *fp) {
 	  SNDATA.SEARCH_PEAKMJD ); 
 
   // Oct 18 2021: write mjds related to detections, but only if valid values
+
+  fprintf(fp,"SEASON_INDEX:     %d \n", SNDATA.SEASON_INDEX); // Oct 2026
+
   float MJD_TMP;
   MJD_TMP = SNDATA.MJD_TRIGGER;
   if ( MJD_TMP > 0.0 && MJD_TMP < 1.0E6 ) 
@@ -900,12 +903,6 @@ void  wr_dataformat_text_SNPHOT(FILE *fp) {
 			    SNDATA.MJD_TRIGGER > 1000.0 );
 
   bool WRFLAG_DETINFO    = SNDATA.WRFLAG_DETINFO ; // Aug 2026
-
-  /* xxx mark delete
-  bool WRFLAG_IMGNUM     = SNDATA.HAS_IMGNUM ;
-  bool WRFLAG_DETNUM     = SNDATA.HAS_DETNUM ;
-  bool WRFLAG_XYPIX      = SNDATA.HAS_XYPIX ;
-  xxxxx */
 
   bool WRFLAG_TEXPOSE    = SNDATA.HAS_TEXPOSE ;
   bool WRFLAG_METADATA   = true;
@@ -2550,6 +2547,9 @@ bool parse_SNTEXTIO_HEAD(int *iwd_file) {
     SNDATA.SEARCH_PEAKMJD = FVAL;
   }
 
+  else if ( strcmp(word0,"SEASON_INDEX:") == 0 ) {
+    SNDATA.SEASON_INDEX = IVAL;    // Oct 2026
+  }
   else if ( strcmp(word0,"MJD_TRIGGER:") == 0 ) {
     SNDATA.MJD_TRIGGER = FVAL;
   }

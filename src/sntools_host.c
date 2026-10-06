@@ -218,6 +218,10 @@ void INIT_HOSTLIB(void) {
   // init parameters and Gauss2d integrals for galaxy aperture mag
   init_GALMAG_HOSTLIB();
 
+  // Oct 5 2026: init FIELD MAP 
+  init_FIELD_MAP_HOSTLIB();
+
+  // - - - - - - - 
   TIME_INIT_HOSTLIB[1]  = time(NULL);
   double dT = (TIME_INIT_HOSTLIB[1]-TIME_INIT_HOSTLIB[0]);
   printf("\t HOSTLIB Init time: %.2f seconds \n", dT );
@@ -312,7 +316,14 @@ void initvar_HOSTLIB(void) {
   sprintf(PATH_DEFAULT_HOSTLIB, "%s %.200s/simlib", 
 	  PATH_USER_INPUT, PATH_SNDATA_ROOT ); // Jul 14 2020
  
-  HOSTLIB.DO_FIELD_MATCH = (INPUTS.DEBUG_FLAG == 1002 ); // Oct 4 2026
+
+  HOSTLIB.NFIELD_UNIQUE = 0 ;
+  if ( strlen(INPUTS.HOSTLIB_FIELD_MAP) > 0 ) {
+    if ( strcmp(INPUTS.HOSTLIB_FIELD_MAP,"DEFAULT") == 0 ) 
+      { HOSTLIB.OPT_FIELD_MATCH = 1; } // trivial one-to-one mapping betweeen SIMLIB and HOSTLIB field names
+    else
+      { HOSTLIB.OPT_FIELD_MATCH = 2; } // non-trivial map
+  }
 
   NCALL_GEN_SNHOST_DRIVER = 0 ;
 
@@ -765,7 +776,7 @@ void init_REQUIRED_HOSTVAR(void) {
     LOAD = load_VARNAME_STORE(cptr) ;
   }
 
-  if ( HOSTLIB.DO_FIELD_MATCH ) {
+  if ( HOSTLIB.OPT_FIELD_MATCH ) {
     cptr = HOSTLIB.VARNAME_REQUIRED[NVAR] ;  NVAR++;
     sprintf(cptr, "%s", HOSTLIB_VARNAME_FIELD ); // FIELD
     LOAD = load_VARNAME_STORE(cptr) ;
@@ -3408,7 +3419,7 @@ int passCuts_HOSTLIB(double *XVAL, char *FIELD ) {
   }
 
   // Oct 2026: cut on FIELD using same cut as SIMLIB_FIELDLIST
-  if ( HOSTLIB.DO_FIELD_MATCH ) {
+  if ( HOSTLIB.OPT_FIELD_MATCH ) {
     if ( SKIP_SIMLIB_FIELD(0,FIELD) )  // opt=0 -> ignore FIELD prescale
       { return 0; }
   }
@@ -3826,7 +3837,7 @@ void sortz_HOSTLIB(void) {
   
   bool DO_VPEC  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USEVPEC ) ;
   int  NGAL, igal, ival, unsort, VBOSE, DO_FIELD, DO_NBR;
-  int  index_field, n_field_unique = 0 ;
+  int  index_field, nfield_unique = 0 ;
   int  IVAR_ZTRUE, NVAR_STORE, ORDER_SORT, MEMC, IVAR_VPEC ;
   double ZTRUE, ZLAST, ZGAP, ZSUM, *ZSORT, VAL ;
   double VPEC, VSUM, VSUMSQ ;
@@ -3922,8 +3933,8 @@ void sortz_HOSTLIB(void) {
   HOSTLIB.VPEC_MIN = HOSTLIB.VPEC_MAX = 0.0 ;
   VSUM = VSUMSQ = 0.0;
 
-  if ( HOSTLIB.DO_FIELD_MATCH ) 
-    { init_string_dict( &HOSTLIB.INDEX_FIELD_DICT, "INDEX_FIELD", 2*MXFIELD_OVP); }
+  if ( HOSTLIB.OPT_FIELD_MATCH ) 
+    { init_string_dict( &HOSTLIB.INDEX_FIELD_DICT, "INDEX_FIELD", MXFIELD_HOSTLIB); }
 
   // fill sorted array. 'igal' is the z-sorted index; 
   // 'unsort' is the  un-sorted index matching the original HOSTLIB order.
@@ -3939,14 +3950,17 @@ void sortz_HOSTLIB(void) {
     if ( DO_FIELD ) {
       ptr_UNSORT = HOSTLIB.FIELD_UNSORTED[unsort];
 
-      if ( HOSTLIB.DO_FIELD_MATCH ) {        // .xyz field dict
+      if ( HOSTLIB.OPT_FIELD_MATCH ) { 
 	index_field = (int)get_string_dict(0, ptr_UNSORT, &HOSTLIB.INDEX_FIELD_DICT );
 	if ( index_field < 0 ) { 
-	  VAL = (double)n_field_unique;
+	  VAL = (double)nfield_unique;
 	  load_string_dict(&HOSTLIB.INDEX_FIELD_DICT, ptr_UNSORT, VAL);
-	  n_field_unique++ ;
+
+	  HOSTLIB.FIELD_UNIQUE_LIST[nfield_unique] = (char*)malloc( MXCHAR_FIELDNAME*sizeof(char) );
+	  sprintf(HOSTLIB.FIELD_UNIQUE_LIST[nfield_unique],"%s", ptr_UNSORT) ;
+	  nfield_unique++ ;
 	}
-      }  // end HOSTLIB.DO_FIELD_MATCH
+      }  // end HOSTLIB.OPT_FIELD_MATCH
 
       sprintf(HOSTLIB.FIELD_ZSORTED[igal],"%s", ptr_UNSORT);
       free(HOSTLIB.FIELD_UNSORTED[unsort]); 
@@ -4029,8 +4043,9 @@ void sortz_HOSTLIB(void) {
   }
 
 
-  if ( HOSTLIB.DO_FIELD_MATCH ) {  
-    printf(" \t %s store FIELD index for %d unique FIELD names \n", fnam, n_field_unique);
+  if ( HOSTLIB.OPT_FIELD_MATCH ) {  
+    HOSTLIB.NFIELD_UNIQUE = nfield_unique;
+    printf(" \t %s store FIELD index for %d unique FIELD names \n", fnam, nfield_unique);
     fflush(stdout);
   }
 
@@ -4832,6 +4847,79 @@ void init_GALMAG_HOSTLIB(void) {
 
 } // init_GALMAG_HOSTLIB
 
+
+// ====================================================
+void init_FIELD_MAP_HOSTLIB(void) {
+
+  // Created Oct 5 2026
+  // Parse sim-input INPUTS.HOSTLIB_FIELD_MAP
+  //
+  // E.g., 'DEEP(C3+X3),SHALLOW(X1+X2+C1+C2)'
+  // means that SIMLIB fields C3 and C3 are mapped to hostlib field DEEP,
+  // and SIMLIB fields X1, X2, C1, and C2 are mapped to hostlib field SHALLOW.
+  //
+  // Motivation for this mapping is to get correct instrument magErr vs. field depth.
+
+  int  OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH;
+  char *FIELD_MAP = INPUTS.HOSTLIB_FIELD_MAP;
+  char **ptr_MAP, **ptr_FIELD ;
+  int  NMAP, imap, NFIELD, ifield, index_field ;
+  double DVAL;
+  char fnam[] = "init_FIELD_MAP_HOSTLIB" ;
+
+  // ------------- BEGIN ------------
+
+  if ( !OPT_FIELD_MATCH ) { return; }
+
+  printf("\t %s with OPT_FIELD_MATCH = %d \n", fnam, OPT_FIELD_MATCH); fflush(stdout);
+
+  if ( OPT_FIELD_MATCH == 1 ) {
+    printf("\t\t Match each SIMLIB FIELD name to same HOSTLIB FIELD name\n"); 
+    fflush(stdout);
+    return;
+  }
+
+  // - - - - - 
+  init_string_dict( &HOSTLIB.FIELD_MAP_DICT, "FIELD_MAP", MXFIELD_HOSTLIB); 
+
+  malloc_strlist(+1, MXFIELD_HOSTLIB, MXCHAR_FIELDLIST, &ptr_MAP    );
+  malloc_strlist(+1, MXFIELD_HOSTLIB, MXCHAR_FIELDNAME, &ptr_FIELD  );
+
+  // split string by comma
+  splitString(FIELD_MAP, COMMA, fnam, MXFIELD_HOSTLIB,    // inputs                                             
+              &NMAP, ptr_MAP );                           // outputs                                                   
+
+  char FIELD_HOSTLIB[MXCHAR_FIELDLIST], FIELDLIST_SIMLIB[MXCHAR_FIELDLIST];
+  char FIELD_SIMLIB[MXCHAR_FIELDNAME];
+
+  for (imap=0; imap < NMAP; imap++ ) {
+    sprintf(FIELD_HOSTLIB,"%s", ptr_MAP[imap] );
+    extractStringOpt (FIELD_HOSTLIB, FIELDLIST_SIMLIB) ; // <== return both
+    
+    // split FIELDLIST_SIMLIB by PLUS to get list
+    splitString(FIELDLIST_SIMLIB, PLUS, fnam, MXFIELD_HOSTLIB,    // inputs 
+		&NFIELD, ptr_FIELD );  
+
+    // .xyz
+    for ( ifield = 0; ifield < NFIELD; ifield++ ) {
+      sprintf(FIELD_SIMLIB,"%s", ptr_FIELD[ifield]);
+      DVAL        = get_string_dict(0, FIELD_HOSTLIB, &HOSTLIB.INDEX_FIELD_DICT );
+      index_field = (int)DVAL;
+      if (  index_field < 0 ) {
+	sprintf(c1err, "Undefined FIELD_HOSTLIB=%s in sim-input", FIELD_HOSTLIB);
+	sprintf(c2err, "HOSTLIB_FIELD_MAP: %.*s", MXCHAR_FIELDLIST, FIELD_MAP);
+	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      }
+      load_string_dict(&HOSTLIB.FIELD_MAP_DICT, FIELD_SIMLIB, DVAL);
+      printf("\t\t Match SIMLIB FIELD=%s  to  HOSTLIB FIELD=%s (index=%d) \n",
+	     FIELD_SIMLIB, FIELD_HOSTLIB, index_field); 
+    }
+  }
+
+  fflush(stdout);
+  return ;
+
+} // end init_FIELD_MAP_HOSTLIB
 
 // =====================================
 void init_Gauss2d_Overlap(void) {
@@ -6039,8 +6127,10 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD, char *FIELD ) {
   SNHOSTGAL.ZGEN              = ZGEN_HELIO ; 
   SNHOSTGAL.ZSPEC             = ZGEN_HELIO ;
   SNHOSTGAL.PEAKMJD           = PEAKMJD ;
-  sprintf(SNHOSTGAL.FIELD, "%s", FIELD);
+  LOAD_FIELD_HOSTLIB(FIELD);
+  sprintf(SNHOSTGAL.FIELD_SIMLIB, "%s", FIELD);
 
+  // - - - - - 
   // check option to use HOST library
   USE = ( INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_USE ) ;
   if ( USE == 0 ) { return ; }
@@ -6115,6 +6205,41 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD, char *FIELD ) {
 } // end of GEN_SNHOST_DRIVER
 
 
+void LOAD_FIELD_HOSTLIB(char *FIELD_SIMLIB) {
+
+  // Created Oct 5 2026
+  // load the following globals:
+  //   + SNHOSTGAL.FIELD_SIMLIB = *FIELD_SIMLIB  # trivial
+  //   + SNHOSTGAL.FIELD_HOSTLIB depends on HOSTLIB.OPT_FIELD_MATCH
+  //
+  // The latter is used to match FIELD, if sim-input HOSTLIB_FIELD_MAP key is set.
+
+  int OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH ;
+  int index_field = -9; (void)index_field ;
+  char fnam[] = "LOAD_FIELD_HOSTLIB";  (void)fnam;
+
+  // ----------- BEGIN ------------
+  sprintf(SNHOSTGAL.FIELD_SIMLIB, "%s", FIELD_SIMLIB);
+
+  if ( !OPT_FIELD_MATCH ) { return; }
+
+  if ( OPT_FIELD_MATCH == 1 ) {
+    sprintf(SNHOSTGAL.FIELD_HOSTLIB, "%s", FIELD_SIMLIB);  // default is trival one-to-one map
+  }
+  else if ( OPT_FIELD_MATCH == 2 ) {
+    // non-trivial map
+    // .xyz
+    index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.FIELD_MAP_DICT );
+    sprintf(SNHOSTGAL.FIELD_HOSTLIB,"%s", HOSTLIB.FIELD_UNIQUE_LIST[index_field] );
+  }
+  else {
+    sprintf(c1err,"Invalid OPT_FIELD_MATCH = %d", OPT_FIELD_MATCH );
+    sprintf(c2err,"for CID=%d  and  FIELD_SIMLIB = %s", GENLC.CID, FIELD_SIMLIB );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  return;
+} // end LOAD_FIELD_HOSTLIB
 
 // =========================================
 void GEN_SNHOST_GALID(double ZGEN) {
@@ -6168,7 +6293,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Oct 2026: select by field if FIELD column exists in HOSTLIB;
   //   Perhaps later we may need a more selective test such as
   //   explicit request in the sim0-input file
-  if ( HOSTLIB.DO_FIELD_MATCH )
+  if ( HOSTLIB.OPT_FIELD_MATCH )
     { SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0 ); }
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
@@ -6257,8 +6382,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   if ( LDMP ) {
     printf(" xxx ---------- %s DUMP ---------- \n", fnam);
-    printf(" xxx CID=%d  ZGEN = %f  dztol=%f   FIELD(SN)=%s \n", 
-	   GENLC.CID, ZGEN, dztol, SNHOSTGAL.FIELD );
+    printf(" xxx CID=%d  ZGEN = %f  dztol=%f   FIELD_SIMLIB=%s \n", 
+	   GENLC.CID, ZGEN, dztol, SNHOSTGAL.FIELD_SIMLIB );
     printf(" xxx igal_start = %d -> %d (loop %d)\n", 
 	   igal_start_init, igal_start, igal_start_init-igal_start);
     printf(" xxx igal_end   = %d -> %d (loop %d)\n", 
@@ -6442,17 +6567,17 @@ void GEN_SNHOST_GALID(double ZGEN) {
     // - - - - - - -
     // Oct 2 2026: check field match
     if ( SELECT_BY_FIELD && !SKIP_WGT ) {  
-      char *FIELD_SN   = SNHOSTGAL.FIELD;
-      char *FIELD_HOST = HOSTLIB.FIELD_ZSORTED[igal];      
+      char *FIELD_HOSTLIB  = SNHOSTGAL.FIELD_HOSTLIB;      // desired field to match
+      char *FIELD_ZSORT    = HOSTLIB.FIELD_ZSORTED[igal];   // actual field in this galaxy
 
       if ( LDMP ) {
 	double ztrue_tmp   = get_ZTRUE_HOSTLIB(igal); 
 	GALID = get_GALID_HOSTLIB(igal) ;
-	printf(" xxx \t CID=%d  igal=%4d GALID=%9lld  FIELD[HOST]=%s  zHOST=%.5f  WGT=%.3f\n",
-	       GENLC.CID, igal, GALID, FIELD_HOST, ztrue_tmp, WGT );  //.xyz
+	printf(" xxx \t CID=%d  igal=%4d GALID=%9lld  FIELD[HOST,ZSORT]=%s,%s  zHOST=%.5f  WGT=%.3f\n",
+	       GENLC.CID, igal, GALID, FIELD_HOSTLIB, FIELD_ZSORT, ztrue_tmp, WGT );  
 	fflush(stdout);
       }
-      if ( strcmp(FIELD_SN,FIELD_HOST) != 0 ) { SKIP_WGT = true; }
+      if ( strcmp(FIELD_HOSTLIB,FIELD_ZSORT) != 0 ) { SKIP_WGT = true; }
       //debugexit(fnam);
     }
     // - - - - - - 
@@ -6600,7 +6725,8 @@ void init_event_SNHOSTGAL(void) {
   SNHOSTGAL.ZTRUE       = -9.0 ;
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
-  SNHOSTGAL.FIELD[0]    = 0;
+  SNHOSTGAL.FIELD_SIMLIB[0]    = 0;
+  SNHOSTGAL.FIELD_HOSTLIB[0]   = 0;
 
   SNHOSTGAL.CDFWGT_TARGET = -9.0 ;
   SNHOSTGAL.CDFWGT_SELECT = -9.0 ;

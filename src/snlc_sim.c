@@ -1153,7 +1153,8 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTLIB_SPECBASIS_FILE,"NONE" );  //optional host-spec templ
   sprintf(INPUTS.HOSTLIB_SPECDATA_FILE, "NONE" ); 
   sprintf(INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT, "%s" , HOSTLIB_VARNAME_ZPHOT); 
-  
+  INPUTS.HOSTLIB_FIELD_MAP[0] = 0;
+
   HOSTLIB_WGTMAP.OPT_EXTRAP         = 0 ; 
   INPUTS.HOSTLIB_STOREPAR_LIST[0]   = 0 ; // optional vars -> outfile
   INPUTS.HOSTLIB_COMMENTPAR_LIST[0] = 0;
@@ -3887,7 +3888,9 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   //
   // Jul 13 2024: set skip_readme_store=T for MAXDDLR cuts to avoid double-printing
   //              in the readme
-  
+  //
+  // Oct 5 2026: parse HOSTLIB_FIELD_MAP
+
   int  j, N=0, nread, MSKOPT_OLD ;
   bool skip_readme_store = false;
   char *ptr_str ;
@@ -3929,6 +3932,10 @@ int parse_input_HOSTLIB(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTLIB_VARNAME_ZPHOT", WORDS[0], keySource) ) {
     check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_COLUMN_NAME_ZPHOT ) ; 
+  }
+  else if ( keyMatchSim(1, "HOSTLIB_FIELD_MAP", WORDS[0], keySource) ) {
+    check_arg_len(WORDS[0], WORDS[1], MXPATHLEN );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTLIB_FIELD_MAP ) ; 
   }
   else if ( keyMatchSim(1, "HOSTLIB_MSKOPT", WORDS[0], keySource) ) {
     MSKOPT_OLD = INPUTS.HOSTLIB_MSKOPT ; 
@@ -16228,6 +16235,11 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
   SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRVAL8 = &SNHOSTGAL.CDFWGT_SELECT ;
   NVAR_SIMGEN_DUMP++ ;
 
+  cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
+  sprintf(cptr,"GALFIELD") ;  // 10.05.2026
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRCHAR = SNHOSTGAL.FIELD_HOSTLIB ; //.xyz
+  NVAR_SIMGEN_DUMP++ ;
+
   // allow any variable used in HOSTLIB_WGTMXAP
   for ( imap=0; imap < HOSTLIB_WGTMAP.GRIDMAP.NDIM; imap++ ) {   
     cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
@@ -18943,7 +18955,7 @@ void  SIMLIB_prep_fluxerrScale(void) {
 
 
   SIMLIB_FLUXERR_COR.USE = 1 ;
-  printf("\t SIMLIB Found FLUXERR_COR map. \n");
+  printf("\t SIMLIB Found FLUXERR_COR map with NFLUXERR_COR=%d \n", NFLUXERR_COR);
   fflush(stdout);
 
   // malloc memory
@@ -19008,6 +19020,8 @@ void  SIMLIB_prep_fluxerrScale(void) {
   } // end icor loop
 
   
+  return ;
+
 } // end SIMLIB_prep_fluxerrScale
 
 

@@ -144,6 +144,8 @@ static const double MAXLOGZ_HOSTLIB = log10(ZMAX_SNANA)  ;
 #define FILENAME_Gauss2d    "$SNDATA_ROOT/simlib/Gauss2dIntegrals.dat" 
 #define FILENAME_Sersic_bn  "$SNDATA_ROOT/simlib/Sersic_bn.dat" 
 
+#define MXFIELD_HOSTLIB 20
+
 int NCALL_GEN_SNHOST_DRIVER ;
 char PATH_DEFAULT_HOSTLIB[2*MXPATHLEN]; // e.g., $SNDATA_ROOT/simlib
 bool HOSTLIB_REPEAT_GALID_SNPOS;
@@ -208,12 +210,16 @@ struct HOSTLIB_DEF {
   int    *LIBINDEX_ZSORT;     // inverse map 
   int     SORTFLAG ; // 1=> sorted
 
-  // xxx mark 10.01.2026  int *INDEX_FIELD; // corresponds to user-inputs HOSTLIB_FIELDMATCH
-  bool DO_FIELD_MATCH ;
+  // - - - - - - -
+  int  OPT_FIELD_MATCH ;
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
-  STRING_DICT_DEF INDEX_FIELD_DICT ;  // dict[field] = index to store other info
+  char *FIELD_UNIQUE_LIST[MXFIELD_HOSTLIB] ; // unique list of HOSTLIB fields
+  int   NFIELD_UNIQUE;
+  STRING_DICT_DEF INDEX_FIELD_DICT ;  // dict[host_field]   = sparse index 0 to NFIELD-1
+  STRING_DICT_DEF FIELD_MAP_DICT ;    // dict[simlib_field] = sparse index of host field (from HOSTLIB_FIELD_MAP)
 
+  // - - - - - - 
   char **NBR_UNSORTED ; // read from NBR_LIST column, Nov 11 2019
   char **NBR_ZSORTED ;
 
@@ -307,6 +313,7 @@ struct HOSTLIB_DEF {
   int IGAL_STRONGLENS; // galaxy selected as strong lens
 
 } HOSTLIB ;
+
 
 
 
@@ -538,7 +545,8 @@ struct SNHOSTGAL {
   double PEAKMJD ;
   double WEAKLENS_DMU;
   double MAGOBS_ERR_SCALE ; // based on user input HOSTLIB_SNR_SCALE
-  char   FIELD[MXCHAR_FIELDNAME]; 
+  char   FIELD_SIMLIB[MXCHAR_FIELDNAME];   // passed from SIMLIB
+  char   FIELD_HOSTLIB[MXCHAR_FIELDNAME];  // mapped HOSTLIB field to match
 
   int    NNBR_DDLRCUT;   // number of nearby galaxies passing MAXDDLR
   int    NNBR_DDLRCUT2;  // number of nearby galaxies passing MAXDDLR2 (9.2022)
@@ -744,6 +752,7 @@ void   sortz_HOSTLIB(void);
 void   zptr_HOSTLIB(void);
 double transform_ZTRUE_HOSTLIB(int igal); 
 
+void   init_FIELD_MAP_HOSTLIB(void);
 void   init_HOSTLIB_ZPHOTEFF(void);
 void   init_HOSTLIB_QUANTILE_ZPHOT(void);
 void   init_GALMAG_HOSTLIB(void);
@@ -763,6 +772,7 @@ void   append_HOSTLIB_STOREPAR(void);
 void   strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
 				       char *VARLIST_WGTMAP_noSNVAR);
 
+void   LOAD_FIELD_HOSTLIB(char *FIELD);
 bool   QstringMatch(char *varName0, char *varName1);
 
 void   check_duplicate_GALID(void);

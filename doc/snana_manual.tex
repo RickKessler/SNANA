@@ -4457,6 +4457,7 @@ the sim-input file (or via command-line override):
    HOSTLIB_SBRADIUS:     xxx          # default=1.2 arcsec
    HOSTLIB_GENRANGE_RA:    xxx yyy    # default= -999 to +999
    HOSTLIB_GENRANGE_DEC:   xxx yyy    # default= -999 to +999)   
+   HOSTLIB_FIELD_MAP:      xxx        # default=''
    HOSTLIB_STOREPAR:  var1,var2,var3  # default = ''
    HOSTLIB_MINDAYSEP_SAMEGAL: xxx     # default=9999999
    HOSTLIB_DZTOL:  a0,a1,a2,,,aN      # default=0.002,0.040
@@ -5193,6 +5194,34 @@ except to select the first \verb|MAX_HOSTLIB_SELECT| galaxies.
 The output \verb|HOSTLIB| (with \verb|+SELECT| extension in file name) includes
 an extra column \verb|WGT_SELECT|. This output is recommended only to define placement
 of events on images, and is NOT recommended to generated to generate SNANA sims for science.
+
+
+
+% ------------------------------------
+\clearpage
+\subsubsection{Selecting HOST in SIMLIB-FIELD }
+\label{sss:hostlib_field}
+% ------------------------------------
+
+Since the physical galaxy properties do not depend on survey field or sky location,
+the default behavior is to return a host galaxy based solely on its properties and
+not on location or field. If the \hostlib\ includes instrumental mags and mag-uncertainties,
+then indeed field-dependent variations in depth may need to be modeled.
+To select a host in a field matching the \simlib\ field:
+\begin{itemize}[noitemsep]
+  \item define a FIELD column in the \hostlib. The FIELD names can match those in 
+        the \simlib\ file, or they can be arbitray names mapping onto several
+        field names in the \simlib\ file; e.g., DES often defines DEEP
+        to mean either C3 or X3 field, and SHALLOW to mean either \{C1,C2,E1,E2,S1,S2,X1,X2\}.
+  \item To request \simlib-\hostlib\ field matching, define the following sim-input key:
+    \begin{verbatim}
+   # trivial one-to-one map betwean SIMLIB FIELD name and HOSTLIB name
+   HOSTLIB_FIELD_MAP:  DEFAULT  
+           or
+   # 10 SIMLIB FIELDS map to 2 HOSTLIB FIELDS (no pad spaces allowed)
+   HOSTLIB_FIELD_MAP:  DEEP(C3+X3),SHALLOW(C1+C2+E1+E2+S1+S2+X1+X2)  
+    \end{verbatim}
+\end{itemize}
 
 
 % ------------------------------------

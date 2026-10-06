@@ -600,6 +600,7 @@ struct INPUTS {
   char HOSTLIB_SPECBASIS_FILE[MXPATHLEN]; // spec basis vec for host spec
   char HOSTLIB_SPECDATA_FILE[MXPATHLEN]; // spec data for host spec
   char HOSTLIB_COLUMN_NAME_ZPHOT[60];        // alternate ZPHOT column name
+  char HOSTLIB_FIELD_MAP[MXPATHLEN];         // e.g., DEEP(C3+X3),SHALLOW(X1+X2+C1+C2)
   int  HOSTLIB_MSKOPT ;         // user bitmask of options
   int  HOSTLIB_MSKOPT_ADD ;     // add to HOSTLIB_MSKOPT (command-line only)
   int  HOSTLIB_MAXREAD ;        // max entries to read (def= infinite)

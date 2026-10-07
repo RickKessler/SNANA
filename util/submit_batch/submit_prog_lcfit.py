@@ -147,6 +147,12 @@ KEY_SUBCLASS_DICT = {
         LCFIT_SALT3  : None
     },
 
+    'outfile_npz' :  {
+        LCFIT_SNANA  : None,
+        LCFIT_BAYESN : '--systematics',  # ??? Oct 7 2026 ???
+        LCFIT_SALT3  : None
+    },
+
     'dummy_nocomma' : None
 }
 
@@ -246,6 +252,8 @@ class LightCurveFit(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
 
+        global REFAC_TABLE; REFAC_TABLE = self.config_yaml['args'].devel_flag == 1007
+        
         # check which subclass/code-type (SNANA, BayeSN, SALT3
         self.fit_prep_subclass()
 
@@ -283,7 +291,6 @@ class LightCurveFit(Program):
         # check SAME-EVENT (SYNC) option to use same SNe as in FITOPT000
         self.fit_prep_same_sncid()
 
-
         # end submit_prepare_driver
 
         return
@@ -298,7 +305,7 @@ class LightCurveFit(Program):
         global LCFIT_SUBCLASS, TABLE_FORMAT_LIST, NTABLE_FORMAT, TABLE_INPKEY_LIST
         
         if 'bayesn' in program_name :
-            LCFIT_SUBCLASS = LCFIT_BAYESN  # begin integration Oct 2023
+            LCFIT_SUBCLASS    = LCFIT_BAYESN  
             TABLE_FORMAT_LIST = [ FORMAT_TEXT, FORMAT_NPZ ] 
             
         elif 'salt3' in program_name :
@@ -309,17 +316,39 @@ class LightCurveFit(Program):
             # default is SNANA lcfit
             LCFIT_SUBCLASS    = LCFIT_SNANA
             TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_ROOT ] 
+
+        logging.info(f'')
+        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        logging.info(f"       ALERT: REFAC_TABLE = {REFAC_TABLE}")          
+        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ")
+        logging.info(f'')
         
-        NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
-
         # load input key(s) TABLE_INPKEY_LIST for each format
-        key_dict_list = [ 'outfile_prefix', 'outfile_root' ] # internal only
-        TABLE_INPKEY_LIST = []
-        for itable in range(0,NTABLE_FORMAT):
-            key_dict = key_dict_list[itable]  # internal key for dictionary
-            key_input_file = KEY_SUBCLASS_DICT[key_dict][LCFIT_SUBCLASS] # key in fit-input file
-            TABLE_INPKEY_LIST.append(key_input_file) # key per defined out-table format
+        if REFAC_TABLE:
+            # refac to handle NPZ syst tables from BayeSN
+            outfile_key_subclass_dict = {
+                FORMAT_TEXT : 'outfile_prefix',
+                FORMAT_ROOT : 'outfile_root' ,
+                FORMAT_NPZ  : 'outfile_npz'
+            }
+            for fmt in TABLE_FORMAT_LIST:
+                key_subclass_dict = outfile_key_subclass_dict.setdefault(fmt,None)
+                if not isinstance(key_subclass_dict,str):
+                    sys.exit(f"\n ERROR: Invalid key_subclass_dict={key_subclass_dict} for fmt={fmt}")
+                key_input_file = KEY_SUBCLASS_DICT[key_subclass_dict][LCFIT_SUBCLASS] # key in fit-input file
+                TABLE_INPKEY_LIST.append(key_input_file)
+                logging.info(f"\t format {fmt} --> pass {LCFIT_SUBCLASS} key = {key_input_file}")
+        else:
+            # legacy
+            NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)            
+            key_dict_list = [ 'outfile_prefix', 'outfile_root' ] # internal only
+            TABLE_INPKEY_LIST = []
+            for itable in range(0,NTABLE_FORMAT):
+                key_dict = key_dict_list[itable]  # internal key for dictionary
+                key_input_file = KEY_SUBCLASS_DICT[key_dict][LCFIT_SUBCLASS] # key in fit-input file
+                TABLE_INPKEY_LIST.append(key_input_file) # key per defined out-table format
 
+        # - - - - - - - 
         msg = f"\n\t !!!! LCFIT_SUBCLASS = {LCFIT_SUBCLASS} !!!! \n"
         logging.info(msg)
         return
@@ -879,7 +908,6 @@ class LightCurveFit(Program):
 
         self.config_prep['use_table_format'] = [ False ] * NTABLE_FORMAT
         use_table_format = self.config_prep['use_table_format']
-        # xxx mark use_table_format[ITABLE_TEXT] = True  # always force this format
 
         use_table_format = []
         for key, fmt in zip(TABLE_INPKEY_LIST, TABLE_FORMAT_LIST):

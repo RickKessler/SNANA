@@ -71,6 +71,9 @@
 #              pass FLAG_USE_SAME_EVENTS key to snlc_fit (instead of legacy OPT_SNCID_LIST).
 #              Note that snana.F90 was modified to accept FLAG_USE_SAME_EVENTS or OPT_SNCID_LIST.
 #
+# Oct 7 2026: 
+#     + begin integrating SYST tables into merge process
+#     + remove HBOOK stuff
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -98,13 +101,13 @@ LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 # - - - - - 
 # define output table-format info
 ITABLE_TEXT  = 0
-ITABLE_HBOOK = 1
-ITABLE_ROOT  = 2
-ITABLE_NPZ   = 3  # for new SYST table from BayeSN
+#xxx mark delete ITABLE_HBOOK = 1
+ITABLE_ROOT  = 1
+ITABLE_NPZ   = 2  # for new SYST table from BayeSN
 TABLE_NAME_LIST    = [ SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF, SUFFIX_SYST ] # for TEXT format only
 
 FORMAT_TEXT  = 'TEXT'
-FORMAT_HBOOK = 'HBOOK'
+# xxx mark delete FORMAT_HBOOK = 'HBOOK'
 FORMAT_ROOT  = 'ROOT'
 FORMAT_NPZ   = 'NPZ'
 
@@ -136,11 +139,6 @@ KEY_SUBCLASS_DICT = {
     'outfile_prefix' :  {
         LCFIT_SNANA  : 'TEXTFILE_PREFIX',
         LCFIT_BAYESN : '--outfile_prefix',
-        LCFIT_SALT3  : None
-    },
-    'outfile_hbook' :  {
-        LCFIT_SNANA  : 'HFILE_OUT',
-        LCFIT_BAYESN : None,
         LCFIT_SALT3  : None
     },
     'outfile_root' :  {
@@ -315,7 +313,7 @@ class LightCurveFit(Program):
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
 
         # load input key(s) TABLE_INPKEY_LIST for each format
-        key_dict_list = [ 'outfile_prefix', 'outfile_hbook', 'outfile_root' ] # internal only
+        key_dict_list = [ 'outfile_prefix', 'outfile_root' ] # internal only
         TABLE_INPKEY_LIST = []
         for itable in range(0,NTABLE_FORMAT):
             key_dict = key_dict_list[itable]  # internal key for dictionary
@@ -869,7 +867,7 @@ class LightCurveFit(Program):
     def fit_prep_table_options(self):
         
         # check table options in &SNLCINP namelist, and set
-        # logical flag for each table format: TEXT, HBOOK, ROOT
+        # logical flag for each table format: TEXT, ROOT
         # In &SNLCINP, existance of HFILE_OUT is a logical flag
         # to create an output HBOOK file; ROOTFILE_OUT is a flag
         # to create a root file. TEXT format is always output
@@ -891,7 +889,7 @@ class LightCurveFit(Program):
                 use = False
 
             if LCFIT_SUBCLASS == LCFIT_SNANA :
-                if key in snlcinp :  # snana selects among TEXT, ROOT, HBOOK   
+                if key in snlcinp :  # snana selects among TEXT, ROOT
                     use = True
 
             use_table_format.append(use)
@@ -940,7 +938,7 @@ class LightCurveFit(Program):
                 require = True
             if not require:
                 msgerr.append(f" {key} found in CONFIG input")
-                msgerr.append(f" but could not find {FORMAT_HBOOK} or {FORMAT_ROOT}. ")
+                msgerr.append(f" but could not find {FORMAT_ROOT}. ")
                 self.log_assert(False,msgerr)
             
         # for LCFIT_SNANA
@@ -1608,7 +1606,7 @@ class LightCurveFit(Program):
         # these temp files remain. After NEVT validation,
         # each temp file is moved to {version}/{fitopt}.{suffix}
 
-        # only SNANA has root and hbook
+        # only SNANA has root 
         if LCFIT_SUBCLASS == LCFIT_SNANA:
             if use_table_format[ITABLE_ROOT] :
                 self.merge_table_CERN(ITABLE_ROOT, version_fitopt_dict)
@@ -1620,7 +1618,7 @@ class LightCurveFit(Program):
 
 
         # all subclass must have TEXT format.
-        # Process TEXT format after ROOT & HBOOK to allow for append feature
+        # Process TEXT format after ROOT to allow for append feature
         if use_table_format[ITABLE_TEXT] :
             for table_name in TABLE_NAME_LIST :
                 self.merge_table_TEXT(table_name, version_fitopt_dict)
@@ -1731,7 +1729,7 @@ class LightCurveFit(Program):
         # to separate set of files, so here each table name is processed
         # separately. Usually only the FITRES table is requested, but 
         # sometimes other tables are included.
-        # HBOOK & ROOT don't have this issue because all tables
+        # ROOT don't have this issue because all tables
         # reside in one file.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
@@ -1809,7 +1807,7 @@ class LightCurveFit(Program):
             self.config_prep['merge_table_file_list'][itable] = out_table_file
 
             # check options to append FITRES file
-            # 1. APPEND_TABLE_VARLIST  -> extract vars from HBOOK or ROOT file
+            # 1. APPEND_TABLE_VARLIST  -> extract vars from ROOT file
             # 2. APPEND_TABLE_TEXTFILE -> append vars from external file.
             self.append_table_varlist(version_fitopt_dict, table_name)   # optional
             self.append_table_textfile(version_fitopt_dict, table_name)  # optional
@@ -1932,7 +1930,7 @@ class LightCurveFit(Program):
 
     def append_table_varlist(self, version_fitopt_dict, table_name) :
 
-        # Check option to extract variables from HBOOK/ROOT file,
+        # Check option to extract variables from ROOT file,
         # and append TEXT-FITRES file.
         # See CONFIG key APPEND_TABLE_VARLIST
         #
@@ -1963,7 +1961,7 @@ class LightCurveFit(Program):
             full_table_file = merge_table_file_list[ITABLE_ROOT]
         else :
             msgerr.append("Cannot append TEXT table without full table")
-            msgerr.append("Must define HBOOK or ROOT to append TEXT table")
+            msgerr.append("Must define ROOT to append TEXT table")
             self.log_assert(False,msgerr) 
 
         append_log_file = f"sntable_append_{PREFIX_MERGE}_{version_fitopt}.log"
@@ -2113,7 +2111,7 @@ class LightCurveFit(Program):
 
     def merge_table_CERN(self, itable, version_fitopt_dict):
 
-        # call merge program for HBOOK or ROOT based on itable arg.
+        # call merge program for ROOT based on itable arg.
         # into one.
         version          = version_fitopt_dict['version']
         fitopt           = version_fitopt_dict['fitopt']
@@ -2154,12 +2152,6 @@ class LightCurveFit(Program):
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         util.check_file_exists(OUT_TABLE_FILE, ["Problem with table-merge"])
 
-        # for HBOOK, remove garbage from log file
-        if itable == ITABLE_HBOOK :
-            cmd_clean_log = \
-                f"{cddir} ; remove_locf_messages.py {log_table_file} -q"
-            os.system(cmd_clean_log)
-
         # - - - -
         util.print_elapse_time(tref,f"merge {n_job_split} table files")
         
@@ -2167,7 +2159,7 @@ class LightCurveFit(Program):
         # ?? check log file for success message ??
         tref = datetime.datetime.now()
 
-        # extract number of events in final HBOOK/ROOT file and check
+        # extract number of events in final ROOT file and check
         # that it matches expection
         NTRY_MAX = 2; ntry=0; nevt_find = -9
         while nevt_find < 0 and ntry < NTRY_MAX :
@@ -2216,7 +2208,7 @@ class LightCurveFit(Program):
     
     def nrow_table_CERN(self, table_file, table_name):
 
-        # return number of table rows in CERN file that has either HBOOK or ROOT extension
+        # return number of table rows in CERN file that has either ROOT extension
         # Return -9 on error.
         # Script prints "NEVT:  <nevt>", so parse the 2nd element.
         # Jun 27 2026: pass table_name to work for any table

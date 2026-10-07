@@ -111,6 +111,7 @@ SUFFIX_LCPLOT = "LCPLOT"
 SUFFIX_PDF    = "PDF"
 SUFFIX_M0DIF  = "M0DIF"
 SUFFIX_COV    = "COV"
+SUFFIX_NPZ    = "NPZ"
 
 # define monitor files
 MERGE_LOG_FILE         = "MERGE.LOG"

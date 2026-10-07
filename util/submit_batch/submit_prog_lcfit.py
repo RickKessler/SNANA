@@ -100,12 +100,13 @@ LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 ITABLE_TEXT  = 0
 ITABLE_HBOOK = 1
 ITABLE_ROOT  = 2
-TABLE_NAME_LIST    = [SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF ] # for TEXT format only
+ITABLE_NPZ   = 3  # for new SYST table from BayeSN
+TABLE_NAME_LIST    = [ SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF, SUFFIX_SYST ] # for TEXT format only
 
 FORMAT_TEXT  = 'TEXT'
 FORMAT_HBOOK = 'HBOOK'
 FORMAT_ROOT  = 'ROOT'
-
+FORMAT_NPZ   = 'NPZ'
 
 # these globals will be updated in prep_subclass
 TABLE_INPKEY_LIST  = []   # input key per format
@@ -300,7 +301,7 @@ class LightCurveFit(Program):
         
         if 'bayesn' in program_name :
             LCFIT_SUBCLASS = LCFIT_BAYESN  # begin integration Oct 2023
-            TABLE_FORMAT_LIST = [ FORMAT_TEXT ] # remove HBOOK and ROOT options
+            TABLE_FORMAT_LIST = [ FORMAT_TEXT, FORMAT_NPZ ] 
             
         elif 'salt3' in program_name :
             LCFIT_SUBCLASS = LCFIT_SALT3  # placeholder for future
@@ -309,7 +310,7 @@ class LightCurveFit(Program):
         else :
             # default is SNANA lcfit
             LCFIT_SUBCLASS    = LCFIT_SNANA
-            TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_HBOOK,  FORMAT_ROOT ] 
+            TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_ROOT ] 
         
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST)
 
@@ -1538,12 +1539,14 @@ class LightCurveFit(Program):
         # end merge_update_state
 
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
+
         # irow is the row to wrapup in MERGE_INFO_CONTENTS
         # One row corresonds to one VERSION and one FITOPT;
         # combine the SPLIT output tables into one merged table file.
-        # Merge separately for each table format; HBOOK, ROOT, TEXT ...
+        # Merge separately for each table format; ROOT, TEXT ...
         # Also check for symLink option to replace table-merge
         # with sym link to FITOPT000.
+        # Oct 7 2026: check for SYST files from BayeSN
 
         # init name of merged table file for each format
         self.config_prep['merge_table_file_list'] = [''] * NTABLE_FORMAT
@@ -1607,11 +1610,14 @@ class LightCurveFit(Program):
 
         # only SNANA has root and hbook
         if LCFIT_SUBCLASS == LCFIT_SNANA:
-            if use_table_format[ITABLE_HBOOK] :
-                self.merge_table_CERN(ITABLE_HBOOK, version_fitopt_dict)
-
             if use_table_format[ITABLE_ROOT] :
                 self.merge_table_CERN(ITABLE_ROOT, version_fitopt_dict)
+
+        # OCt 7 2026: only BAYESN has SYST tables .xyz
+        if LCFIT_SUBCLASS == LCFIT_BAYESN :
+            if use_table_format[ITABLE_NPZ] :
+                self.merge_table_SYST(ITABLE_SYST, version_fitopt_dict)
+
 
         # all subclass must have TEXT format.
         # Process TEXT format after ROOT & HBOOK to allow for append feature
@@ -1695,6 +1701,28 @@ class LightCurveFit(Program):
         
         return create_links
         # end create_sym_link_tables
+
+    def merge_table_SYST(table_name, version_fitopt_dict):
+
+        # Created Oct 7 2026 by R.Kessler and M.Grayling
+        # Merge SYST files produced by BayeSN
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        n_job_split      = submit_info_yaml['N_JOB_SPLIT']
+        version          = version_fitopt_dict['version']
+        fitopt           = version_fitopt_dict['fitopt']
+        version_fitopt   = version_fitopt_dict['version_fitopt']
+
+        itable           = ITABLE_NPZ
+        suffix           = TABLE_FORMAT_LIST[itable]
+        prefix           = PREFIX_MERGE  
+        table_wildcard  = f"{version_fitopt}*{table_name}.TEXT"
+
+        print(f" xxx suffix = {suffix} \n xxx table_wildcard = \n{table_wildcard}")
+
+        sys.exit("\n xxx DEBUG STOP to see what goin on ... ")
+        return
 
     def merge_table_TEXT(self, table_name, version_fitopt_dict):
 

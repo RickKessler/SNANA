@@ -172,8 +172,8 @@ void INIT_HOSTLIB(void) {
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
   read_HOSTLIB_WGTMAP();
 
-  // open hostlib and start reading
-  prep_head_HOSTLIB();  // prepare HOSTLIB variables after reading WGTMAP
+  // prepare HOSTLIB variables after reading WGTMAP
+  prep_head_HOSTLIB();  
 
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();
@@ -2553,7 +2553,7 @@ void prep_head_HOSTLIB(void) {
 
   // Created Mar 28 2026
   // HOSTLIB VARNAMES have already been read by read_head_HOSTLIB;
-  // here to the preparation and lots of error checking.
+  // here do the one-time preparation and lots of error checking.
   //
   // Jul 16 2026: load IVAR_MAGOBS[_ERR] here instead of in init_GALMAG_HOSTLIB
 
@@ -2561,7 +2561,7 @@ void prep_head_HOSTLIB(void) {
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
   bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
 
-  int ivar, ivar_map, igal, IVAR_STORE, i, N, NVAR_WGTMAP, FOUND_SNPAR;
+  int ivar, ivar_map,  IVAR_STORE, i, N, NVAR_WGTMAP, FOUND_SNPAR;
   int MATCH, NVAR_STORE_SNPAR=0, USE, IS_SNPAR, VBOSE ;
   char *c_var_all, *c_var_opt, wd[20], ctmp[100];
   char *basename;
@@ -2616,10 +2616,14 @@ void prep_head_HOSTLIB(void) {
   } // end ivar loop over all variables
 
 
+
+  /* xxx mark delete Oct 6 2026; move this init to hostgal_to_SNLC()
   // xxx mark delete Oct 3 2026   if ( INPUTS.REFAC_DATA_FLAG == 701 ) {
+  int igal;
   for(igal=0; igal < MXHOSTGAL; igal++ ) 
     { SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ = HOSTLIB.NQZPHOT; }
   // xxx mark }
+  xxxxxxxxx end mark xxxxxxxx*/
 
   //-----------------------
   // sanity check on optioanl SNPARams
@@ -4684,22 +4688,6 @@ void init_HOSTLIB_QUANTILE_ZPHOT(void) {
 
   }  // end USE_QGAUSS
 
-
-  /* xxxxxxx mark delete xxxxxxx
-  // list zphot quantiles
-  char STRING_Q[200], str_q[40];
-  sprintf(STRING_Q,"QUANTILE_ZPHOT: ");
-  for(q=0; q<N_Q; q++ ) {
-    percentile = HOSTLIB.PERCENTILE_QZPHOT[q] ;
-    sprintf(str_q,"%d ", percentile);
-    strcat(STRING_Q, str_q);
-  }
-
-  printf("\t %s\n", STRING_Q);
-  fflush(stdout);
-  xxxxxxx end mark */
-
-
   return;
 
 } // init_HOSTLIB_QUANTILE_ZPHOT
@@ -4900,7 +4888,6 @@ void init_FIELD_MAP_HOSTLIB(void) {
     splitString(FIELDLIST_SIMLIB, PLUS, fnam, MXFIELD_HOSTLIB,    // inputs 
 		&NFIELD, ptr_FIELD );  
 
-    // .xyz
     for ( ifield = 0; ifield < NFIELD; ifield++ ) {
       sprintf(FIELD_SIMLIB,"%s", ptr_FIELD[ifield]);
       DVAL        = get_string_dict(0, FIELD_HOSTLIB, &HOSTLIB.INDEX_FIELD_DICT );
@@ -6228,7 +6215,6 @@ void LOAD_FIELD_HOSTLIB(char *FIELD_SIMLIB) {
   }
   else if ( OPT_FIELD_MATCH == 2 ) {
     // non-trivial map
-    // .xyz
     index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.FIELD_MAP_DICT );
     sprintf(SNHOSTGAL.FIELD_HOSTLIB,"%s", HOSTLIB.FIELD_UNIQUE_LIST[index_field] );
   }
@@ -8368,54 +8354,6 @@ bool snr_detect_HOSTLIB(int IGAL) {
   detect = passCuts_snr_HOSTLIB(GALID, NBAND_EXIST, SNR_LIST, 
 				NBAND_SNR_DETECT, INPUTS.HOSTLIB_SNR_DETECT, fnam );
   return detect ;
-
-    // xxxx mark delete   }
-
- 
-  /* xxxxxxxxx mark delete Oct 3 2026 xxxxxxx
-  // - - - - below is legacy - - - - -
-
-  // abort if there are fewer bands than needed to apply the SNR cut
-  if ( NBAND_EXIST < NBAND_SNR_DETECT ) {
-    sprintf(c1err,"NBAND_EXIST = %d but NBAND_SNR_EXIST==%d", 
-	    NBAND_EXIST, NBAND_SNR_DETECT);
-    sprintf(c2err,"Check <BAND>_OBS in HOSTLIB, "
-	    "and sim-input HOSTLIB_SNR_DETECT.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-
-  // sort HOST mags by SNR, in decreasing order
-  int ORDER_SORT = -1; // decreasing order
-  int INDEX_SORT[MXFILTINDX];
-  sortDouble( NBAND_EXIST, SNR_LIST, ORDER_SORT, INDEX_SORT ) ;
-
-  // loop over SNR cut values and apply SNR cut in sorted space.
-  int icut, isort; 
-  for(icut=0; icut < NBAND_SNR_DETECT; icut++){
-    isort = INDEX_SORT[icut];
-    if ( SNR_LIST[isort] < INPUTS.HOSTLIB_SNR_DETECT[icut] ) {
-      detect = false;
-    }
-  }
-
-  int i, LDMP = 0;
-  int NNBR_ORIG = SNHOSTGAL.NNBR_ALL ;
-  if ( LDMP && NNBR_ORIG > 1 ) {
-    printf("XXX: ----------------------------------- \n");
-    printf("XXX: %s DUMP for CID=%d  GALID = %lld \n",
-	   fnam, GENLC.CID, GALID);
-    printf("XXX: SNR_LIST = ");
-    for(i=0; i < NBAND_EXIST; i++) { printf("%.3f  ",SNR_LIST[i]); }
-    printf("\nXXX: detect = %d  (CID=%d, zSN=%.3f  NNBR_ORIG=%d)\n", 
-	   detect, GENLC.CID, GENLC.REDSHIFT_CMB, NNBR_ORIG );
-    fflush(stdout);
-  }
-  
-  return detect ;
-
-  xxxxxxxxxxx end mark xxxxxxxx*/
-
 
 
 } // end snr_detect_HOSTLIB

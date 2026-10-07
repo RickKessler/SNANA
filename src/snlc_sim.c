@@ -16237,7 +16237,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALFIELD") ;  // 10.05.2026
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRCHAR = SNHOSTGAL.FIELD_HOSTLIB ; //.xyz
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRCHAR = SNHOSTGAL.FIELD_HOSTLIB ; 
   NVAR_SIMGEN_DUMP++ ;
 
   // allow any variable used in HOSTLIB_WGTMXAP
@@ -19733,13 +19733,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
 	catVarList_with_sep(FIELD_LIST, field, PLUS);
-	/* xxx mark delete Oct 1 2026 xxxxxxx
-	if ( NFIELD == 1 )   // .xyz
-	  { sprintf(FIELD_LIST, "%s", field) ; }
-	else
-	  { strcat(FIELD_LIST,"+"); strcat(FIELD_LIST, field); }
-	xxxxxx end mark */
-
 	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(1,FIELD_LIST) && (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
 
 	iwd++ ; continue;
@@ -25817,6 +25810,7 @@ void zsource_to_SNDATA(int FLAG){
 
   int igal=0, iz=0, N_Q = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ;
   double zq0 = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].Z_LIST[iz];
+
   if (N_Q > 0 && zq0 >= 0. ) 
     { SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_QUANTILE;  }
 
@@ -26013,7 +26007,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   //  + use SNDATA.PTR_HOSTGAL_PROPERTY_XXX pointers.
   //  + if no DDLR matches, set OBS and ERR values for true properties.
   //
-
+  // Oct 6 2026: set SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ here instead of in sntools_host.c
+  //
 
   int    IMATCH_TRUE_SORT = SNHOSTGAL.IMATCH_TRUE_SORT;
 
@@ -26040,6 +26035,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     SNDATA.SIM_HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
+    SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ = HOSTLIB.NQZPHOT ; // Oct 6 2026
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;
@@ -26167,7 +26163,6 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
 	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
 	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
-
       }
 
     }
@@ -31099,7 +31094,8 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   // init SNDATA strucure
-  init_SNDATA_EVENT() ; 
+  init_SNDATA_EVENT() ;
+
 
   // load SNDATA structure
   snlc_to_SNDATA(0) ;
@@ -31114,11 +31110,11 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   wr_SIMGEN_DUMP_TRAINSALT(FLAG,SIMFILE_AUX);     // tmax for trainsalt  
 
-
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
 
   apply_prescale_GENSPEC();
-  
+
+
   if ( WRFLAG_FITS ) { 
     WR_SNFITSIO_UPDATE(); 
   }
@@ -31126,6 +31122,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT);
     fprintf(SIMFILE_AUX->FP_LIST, "%s\n", SNDATA.snfile_output);
   }
+
 
   return ;
 

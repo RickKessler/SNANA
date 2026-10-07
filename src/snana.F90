@@ -4615,7 +4615,7 @@
 ! functions
     INTEGER ISMODEL_SNIa
 
-! ----------- BEGIN ----------
+! ----------- BEGIN RDHEAD_SIM_SNANA ----------
 
     STRING  = 'DUMMY'
 
@@ -4635,6 +4635,11 @@
     CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  & 
           ONE, STRING, DARRAY, OPT)
     SIM_MODEL_INDEX = INT(DARRAY(1))
+
+    if ( DEBUG_FLAG == 1006 ) then
+       print*,' xxx RDHEAD_SIM: SIM_MODEL_INDEX= ', SIM_MODEL_INDEX
+       call flush(6)
+    endif
 
       ! set TRUE_SNIa and NONIa  logicals (Apr 2024)
     LSIM_TRUE_SNIa = .FALSE.
@@ -24685,6 +24690,11 @@
 ! This is for the SALT2 model with intinsic color (c) and
 ! external scatter (SIM_AV) from dust.
 ! Aug 2 2022: perform test only for SALT2 model.
+
+    if ( DEBUG_FLAG == 1006 ) then
+       print*,' xxx ADDCOL: SIM_MODEL_INDEX= ', SIM_MODEL_INDEX, SIMNAME_COLORPAR(1:20)
+       call flush(6)
+    endif
 
     if ( SIM_MODEL_INDEX .EQ. MODEL_SALT2 ) then
       if ( SIMNAME_COLORPAR(1:6) .NE. 'SIM_AV' ) then

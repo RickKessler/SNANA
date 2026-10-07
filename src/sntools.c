@@ -21,6 +21,8 @@
 #include "eispack.h"
 #include "eispack.c"
 
+int DEBUG_HOSTGALz ;
+
 /*********************************************************
 **********************************************************
 
@@ -8768,6 +8770,7 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.HOSTGAL_USEMASK      = 0;
 
 
+  DEBUG_HOSTGALz = 0; // .xyz
   // init HOSTGALz stucture for refactor (note that REFAC_DATA_FLAG isn't set yet)
   for(igal=0; igal < MXHOSTGAL; igal++ ) {
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
@@ -8875,10 +8878,11 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
 
+    DEBUG_HOSTGALz = 1; // .xyz
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
-			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
+    			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal, MXBIN_HOSTGALz,
-			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
+    			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
 
@@ -9086,10 +9090,12 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
 
   // ------------ BEGIN ----------
 
-  if ( SAY_HELLO ) 
-    { printf(" xxx %s: hello for igal=%d  %s \n", fnam, igal, SUFFIX_z); fflush(stdout); }
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
+
+  if ( SAY_HELLO ) 
+    { printf(" xxx %s: hello for igal=%d  SUFFIX_z=%s  PREFIX=%s  PREFIXz=%s \n",
+	     fnam, igal, SUFFIX_z, PREFIX, PREFIXz ); fflush(stdout); }
 
   HOSTGALz->MXZ = MXBIN;
   sprintf(HOSTGALz->VARNAME_NZ,  "%s_NBIN_%s", PREFIXz, SUFFIX_z);
@@ -9102,12 +9108,15 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
   else 
     { HOSTGALz->VARNAME_VAL2[0] = 0 ; }
 
-  HOSTGALz->NZ = 0;
-  int NBLOC = MXBIN_HOSTGALz;
+  // if ( DEBUG_HOSTGALz > 0 ) { return; } // xxx REMOVE .xyz
+
+  HOSTGALz->NZ = 0;   // <== causes corrupt data when called from init_SNDATA_EVENT .xyz
+
+  int NBLOC = MXBIN; // _HOSTGALz;  
   for (j=0; j < NBLOC ; j++ ) {
     HOSTGALz->Z_LIST[j]    = -9.0 ;
     HOSTGALz->VAL_LIST[j]  = -9.0 ;
-    HOSTGALz->VAL2_LIST[j] = -9.0 ;
+    HOSTGALz->VAL2_LIST[j] = -9.0 ;  
   }
 
   return;

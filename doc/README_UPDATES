@@ -24230,6 +24230,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_sim: 
       + fix subtle SIMLIB-rewind bug:  https://github.com/RickKessler/SNANA/issues/1783
+      + finally implement HOSTGALz feature to write only NZ_QUANTILE bins (from HOSTLIB)
+        to data files, instead of writing MAX bins for array. If NZQ=0, write nothing. 
+        This feature was added in July with REFAC_FLAG=701, and forgotten; it is now default,
+        after fixing a nasty bug that was missed. 
+        See https://github.com/RickKessler/SNANA/issues/1810.
 
     Merge Claude+Ayan PR https://github.com/RickKessler/SNANA/pull/1797
     to implement much more efficient handling of cov matrices using

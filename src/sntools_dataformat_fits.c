@@ -1501,6 +1501,7 @@ void WR_SNFITSIO_UPDATE(void) {
   // ----------- START WITH HEADER --------------
   wr_snfitsio_update_head() ;
 
+
   // Now the photometry.  Note that NEPOCH includes peak values
   // (for sim) and epochs with undefined model-mags.
   // NOBS <= NPEOCH is the number of valid observations.
@@ -1918,7 +1919,7 @@ void wr_snfitsio_update_head(void) {
     
     HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
     wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
-    
+
     HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
     wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
 
@@ -2512,7 +2513,7 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   WR_SNFITSIO_TABLEVAL[itype].value_I = HOSTGALz->NZ ;
   wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_NZ, itype );
 
-  if ( NZ == 0 &&  LEGACY_NZQ_NZM==0 ) { *COLNUM_INDX = LOC; return; }
+  if ( NZ == 0 &&  !LEGACY_NZQ_NZM ) { *COLNUM_INDX = LOC; return; } 
 
   /* xxxx mark delete oct 3 2026 xxxxxxx
   if ( REFAC_DATA_FLAG == 701 ) {
@@ -2579,15 +2580,6 @@ void wr_snfitsio_update_phot(int ep) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_I = (short int)SNDATA.DETNUM[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "DETNUM", itype );
-
-    /******** mark delete Aug 17 2026 xxxxxxx
-    // IMGNUM (Oct 2021)
-    if ( !SNFITSIO_SIMFLAG_SNANA ) {
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.IMGNUM[ep] ;
-      wr_snfitsio_fillTable ( ptrColnum, "IMGNUM", itype );
-    }
-    xxxxxxxxx end mark xxxxx*/
 
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.XPIX[ep] ;

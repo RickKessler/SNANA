@@ -377,7 +377,7 @@ def parse_config_magerr(args, config):
 
     if MAGERR_PDF_DICT:
         pdfpar_yaml_file  = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
-        sampler = MagErrSampler(pdfpar_yaml_file, field=field)
+        sampler = MagErrSampler(pdfpar_yaml_file, field=field, repair_bad_bins=False)
         config["sampler_pdf"] = sampler
         # Do error checking (is everything I need in the sampler)
         # config['band_magerr_list_diffsky'] defined prior in parse_config_driver
@@ -870,7 +870,7 @@ def add_col_magerr_pdf(df_cat,config):
         band_pdfpar_yaml = MAGERR_PDF_DICT['BANDMAP_DICT'][band]
         #print(f'xxx band_pdfpar_yaml = {band_pdfpar_yaml}')
 
-        mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng) # band string needs to match pdfpar_yaml_file
+        mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
         #mag_err = 0.01*mag   # test
         band_err = band + '_err'
         df_cat[band_err] = mag_err

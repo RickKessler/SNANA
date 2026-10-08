@@ -2499,7 +2499,8 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   // Created Apt 2026
   // load FITS table values with generic HOSTGALz info
   // (e.g., zphot quantiles, logmass-vs-z grid ...)
-
+  //
+  // Oct 7 2026: fix logic for when NZ=0; make sure that LOC increments for unfilled variables.
  
   int LOC = *COLNUM_INDX ;
   int NZ  = HOSTGALz->NZ ;
@@ -2513,8 +2514,7 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   WR_SNFITSIO_TABLEVAL[itype].value_I = HOSTGALz->NZ ;
   wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_NZ, itype );
 
-  if ( NZ == 0 &&  !LEGACY_NZQ_NZM ) { *COLNUM_INDX = LOC; return; } 
-
+  // xxx mark del Oct 7 2026 if ( NZ == 0 &&  !LEGACY_NZQ_NZM ) { *COLNUM_INDX = LOC+2; return; } 
   /* xxxx mark delete oct 3 2026 xxxxxxx
   if ( REFAC_DATA_FLAG == 701 ) {
     if ( NZ == 0 ) {
@@ -2525,21 +2525,27 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   xxxxxxxx end mark */
 
   LOC++ ; 
-  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->Z_LIST;
-  wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_Z, itype );  
+  if ( NZ > 0 ) {
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->Z_LIST;
+    wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_Z, itype );  
+  }
 
   LOC++ ;
-  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL_LIST;
-  wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL, itype );
+  if ( NZ > 0 ) {
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL_LIST;
+    wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL, itype );
+  }
 
   // optional VAL2_LIST (e.g., uncertainties on VAL_LIST)
   if ( HOSTGALz->USE_VAL2 ) {
     LOC++ ;
-    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL2_LIST;
-    wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL2, itype );
+    if ( NZ > 0 ) {
+      ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL2_LIST;
+      wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL2, itype );
+    }
   }
 
   *COLNUM_INDX = LOC;
@@ -6356,7 +6362,7 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   // reading FITS file and also for OVERRIDE; pad -9 values are ignored.
   HOSTGALz->NZ = NZ_HOSTGALz(MXBIN, HOSTGALz->Z_LIST, SNDATA.CCID );
 
-  int LDMP = ( strcmp(SNDATA.CCID,"3488709") == 0 );
+  int LDMP = 0; // ( strcmp(SNDATA.CCID,"3488709") == 0 );
   if ( LDMP ) { dump_SNDATA_HOSTGALz(HOSTGALz, igal, fnam); }
   
   *jcol = j;

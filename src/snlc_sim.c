@@ -20019,11 +20019,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       { sprintf(SIMLIB_HEADER.FIELD_MAXDEPTH, "%s", SIMLIB_HEADER.FIELDLIST_OVP[i] ) ; }
   }
 
-  /* xxx mark delete 
-  printf(" xxx %s: NFIELD=%d  LIBID=%3d  FIELD_MAXDEPTH=%s \n",
-	 fnam, NFIELD, SIMLIB_HEADER.LIBID, SIMLIB_HEADER.FIELD_MAXDEPTH); fflush(stdout);
-  xxxxx end mark xxxx */
-
   if ( ISTORE > MXOBS_SIMLIB ) {
     sprintf(c1err,"Selected %d obs from %d total in LIBID=%d", 
 	    ISTORE, SIMLIB_HEADER.NOBS, SIMLIB_HEADER.LIBID );
@@ -26035,7 +26030,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     SNDATA.SIM_HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
-    SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ = HOSTLIB.NQZPHOT ; // Oct 6 2026
+    SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ = HOSTLIB.NQZPHOT ;  // Oct 6 2026
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;
@@ -26115,6 +26110,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     }   
 
     for(m=0; m < NMATCH2; m++ ) {
+
       SNDATA.HOSTGAL_OBJID[m]      = SNHOSTGAL_DDLR_SORT[m].GALID;
       SNDATA.HOSTGAL_PHOTOZ[m]     = SNHOSTGAL_DDLR_SORT[m].ZPHOT;
       SNDATA.HOSTGAL_PHOTOZ_ERR[m] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_ERR;
@@ -26160,7 +26156,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       for(j=0; j<SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ; j++){
 	double zq   = SNHOSTGAL_DDLR_SORT[m].QZPHOT[j] ;
 	double pct  = SNHOSTGAL_DDLR_SORT[m].QPERCENTILE[j] ;
-
+	
 	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
 	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
       }

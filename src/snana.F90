@@ -17809,7 +17809,7 @@
 
     WRITE(CCID_GALID, 50) SNLC_CCID(1:ISNLC_LENCCID), GALID
 50  FORMAT(A,'/', I12.12 )
-
+    call flush(6)
 
     INDEX_SPLINE = IND_OFF_SPLINE_QUANTILE_ZPHOT+IGAL
     
@@ -17825,8 +17825,11 @@
              print*,'   CCID_GALID   = ', CCID_GALID
              print*,'   IGAL, GALID = ', igal, GALID
              print*,'   NQZPHOT     = ', NQ
+             call DUMP_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(IGAL))
+
              write(C1ERR,61) q-1, q, QZPHOT(q-1), QZPHOT(q)
 61           format('QZPHOT(',I2,',',I2,') = ', 2F8.3 )
+             call flush(6)
              C2ERR = 'QZPHOT must be monotonically increasing'
              if ( ABORT_ON_BADQZPHOT ) then
                 CALL MADABORT(FNAM, c1err, c2err )

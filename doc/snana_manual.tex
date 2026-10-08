@@ -5224,8 +5224,18 @@ To select a host in a field matching the \simlib\ field:
 \end{itemize}
 %
 To test host property distributions for single field, \verb|SIMLIB_FIELDLIST| 
-selects a single field from the \simlib, and also from the \hostlib\ so that there
+selects field(s) from the \simlib, and also from the \hostlib\ so that there
 is no multi-field confusion in selecting hosts that follow the {\tt WGTMAP} file.
+For the \verb|DEFAULT| \verb|HOSTLIB_FIELD_MAP|, \verb|SIMLIB_FIELDLIST| trivially works. 
+For the more complex map, the \verb|SIMLIB| fields do not exist in the \verb|HOSTLIB|, 
+and vice versa. To select only DEEP fields in this case,
+\begin{verbatim}
+   SIMLIB_FIELDLIST: X3+C3+DEEP
+\end{verbatim}
+%
+All three fields are selected for both the \verb|SIMLIB| and \verb|HOSTLIB|,
+but only {\tt X3+C3} are recognized in the \verb|SIMLIB|,
+while only {\tt DEEP} is recognized in the \verb|HOSTLIB|.
 
 % ------------------------------------
 \subsubsection{Treatment of {\tt LOGMASS} }

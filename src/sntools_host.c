@@ -3261,6 +3261,13 @@ void read_gal_HOSTLIB(FILE *fp) {
   printf("\t Stored %d galaxies from HOSTLIB (from %d total, %d fail cuts). \n",
 	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ, NCUT_FAIL );
 
+  if ( HOSTLIB.NGAL_STORE == 0 ) {
+    sprintf(c1err,"Invalid NGAL_STORE = %d", HOSTLIB.NGAL_STORE);
+    sprintf(c2err,"Check HOSTLIB cuts: redshift range, RA, DEC, FIELD ...");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
+  }
+
   if ( NPRIORITY > 0 ) {
     printf("\t   --> %d galaxies have priority (GALID between %lld and %lld)\n",
 	   NPRIORITY, GALID_MIN, GALID_MAX ); fflush(stdout);
@@ -4849,7 +4856,7 @@ void init_FIELD_MAP_HOSTLIB(void) {
   // Motivation for this mapping is to get correct instrument magErr vs. field depth.
 
   int  OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH;
-  char *FIELD_MAP = INPUTS.HOSTLIB_FIELD_MAP;
+  char *FIELD_MAP      = INPUTS.HOSTLIB_FIELD_MAP;
   char **ptr_MAP, **ptr_FIELD ;
   int  NMAP, imap, NFIELD, ifield, index_field ;
   double DVAL;
@@ -4879,6 +4886,9 @@ void init_FIELD_MAP_HOSTLIB(void) {
 
   char FIELD_HOSTLIB[MXCHAR_FIELDLIST], FIELDLIST_SIMLIB[MXCHAR_FIELDLIST];
   char FIELD_SIMLIB[MXCHAR_FIELDNAME];
+  bool DOCUT_FIELD = ( strstr(INPUTS.SIMLIB_FIELDLIST,"ALL") == NULL );
+
+  // xxx mark del  printf(" xxx %s: DOCUT_FIELD = %d \n", fnam, DOCUT_FIELD); fflush(stdout);
 
   for (imap=0; imap < NMAP; imap++ ) {
     sprintf(FIELD_HOSTLIB,"%s", ptr_MAP[imap] );
@@ -4891,17 +4901,21 @@ void init_FIELD_MAP_HOSTLIB(void) {
     for ( ifield = 0; ifield < NFIELD; ifield++ ) {
       sprintf(FIELD_SIMLIB,"%s", ptr_FIELD[ifield]);
       DVAL        = get_string_dict(0, FIELD_HOSTLIB, &HOSTLIB.INDEX_FIELD_DICT );
-      index_field = (int)DVAL;
-      if (  index_field < 0 ) {
+      index_field = (int)DVAL;      
+      if (  index_field < 0 && !DOCUT_FIELD ) {
 	sprintf(c1err, "Undefined FIELD_HOSTLIB=%s in sim-input", FIELD_HOSTLIB);
 	sprintf(c2err, "HOSTLIB_FIELD_MAP: %.*s", MXCHAR_FIELDLIST, FIELD_MAP);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
-      load_string_dict(&HOSTLIB.FIELD_MAP_DICT, FIELD_SIMLIB, DVAL);
-      printf("\t\t Match SIMLIB FIELD=%s  to  HOSTLIB FIELD=%s (index=%d) \n",
-	     FIELD_SIMLIB, FIELD_HOSTLIB, index_field); 
-    }
-  }
+
+      if ( index_field >= 0 ) {
+	load_string_dict(&HOSTLIB.FIELD_MAP_DICT, FIELD_SIMLIB, DVAL);
+	printf("\t\t Match SIMLIB FIELD=%s  to  HOSTLIB FIELD=%s (index=%d) \n",
+	       FIELD_SIMLIB, FIELD_HOSTLIB, index_field); 
+      }
+
+    } // end ifield loop
+  } // end imap loop
 
   fflush(stdout);
   return ;

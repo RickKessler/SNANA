@@ -987,13 +987,6 @@ void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
     { sprintf(sepKey, "%s", COMMA); }
 
   // allocate memory for each item in FIELDLIST
-
-  /* xxxx mark del Oct 5 2026 xxxxxxx
-  MEMC = 40*sizeof(char);
-  ptr_ITEMLIST = (char**)malloc( MAXITEM*sizeof(char*));
-  for(i=0; i < MAXITEM; i++ ) { ptr_ITEMLIST[i] = (char*)malloc(MEMC); }
-  xxxxxxx end mark xxxxx */
-
   malloc_strlist(+1, MAXITEM, 40, &ptr_ITEMLIST );
 
   splitString(STRING, sepKey, fnam, MAXITEM,         // inputs               

@@ -1735,7 +1735,12 @@ class LightCurveFit(Program):
     def merge_table_SYST(self, version_fitopt_dict):
 
         # Created Oct 7 2026 by R.Kessler and M.Grayling
-        # Merge SYST files produced by BayeSN
+        # Merge SYST files produced by BayeSN.
+        #
+        # Beware that NPZ format is applied only for the SYST tables,
+        # and is not generic across all tables (i.e., there is no
+        # NPZ format for SNANA, FITRES, LCPLOT tables). 
+        # Thus NPZ is not treated the same as more generic TEXT or ROOT format.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']

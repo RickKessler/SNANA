@@ -7605,6 +7605,9 @@ void prep_user_input(void) {
     printf("\t Restore bugs for DES3YR sims.\n");
   }
     
+  if ( INPUTS.RESTORE_BUG_GALMAG ) {
+    printf("\t Restore GALMAG bug related to FGAL_TOT calculation.\n");
+  }
   if ( INPUTS.RESTORE_DES5YR ) {
     if ( (INPUTS.RESTORE_DES5YR & 1) > 0 )  { 
       printf("\t Restore DES-SN5YR: Approx Fitzpatrick99 colorlaw\n"); 
@@ -7616,7 +7619,7 @@ void prep_user_input(void) {
     }
 
   }
-
+ 
   int REFAC = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP;
   if ( REFAC > 0 ) {
     printf("\t REFAC_SEARCHEFF_MAP = %d (for SPECID and zHOST efficiency maps)\n", REFAC );

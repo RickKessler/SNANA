@@ -9760,6 +9760,8 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
   // Mar 4 2015: fix aweful index bug setting FGAL_TOT.
   //             Bug affects only the host-noise contribution.
   //
+  // Oct 9 2026: fix another aweful index bug setting FGAL_TOT (found by Claude).
+  //             Follow INPUTS.RESTORE_BUG_GALMAG.
 
   int    j ;
   double a, b, w, n, bn, rexp, sqsum,  arg ;

@@ -106,7 +106,7 @@ LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 ITABLE_TEXT  = 0
 #xxx mark delete ITABLE_HBOOK = 1
 ITABLE_ROOT  = 1
-ITABLE_NPZ   = 2  # for new SYST table from BayeSN
+ITABLE_NPZ   = 2  # for new SYST table format from BayeSN
 TABLE_NAME_LIST    = [ SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF, SUFFIX_SYST ] # for TEXT format only
 
 FORMAT_TEXT  = 'TEXT'
@@ -1646,7 +1646,7 @@ class LightCurveFit(Program):
 
         # only BAYESN has SYST tables (Oct 7 2026) .xyz
         if LCFIT_SUBCLASS == LCFIT_BAYESN :
-            self.merge_table_SYST(ITABLE_SYST, version_fitopt_dict)
+            self.merge_table_SYST(version_fitopt_dict)
 
 
         # all subclass must have TEXT format.
@@ -1732,7 +1732,7 @@ class LightCurveFit(Program):
         return create_links
         # end create_sym_link_tables
 
-    def merge_table_SYST(table_name, version_fitopt_dict):
+    def merge_table_SYST(self, version_fitopt_dict):
 
         # Created Oct 7 2026 by R.Kessler and M.Grayling
         # Merge SYST files produced by BayeSN
@@ -1743,15 +1743,31 @@ class LightCurveFit(Program):
         version          = version_fitopt_dict['version']
         fitopt           = version_fitopt_dict['fitopt']
         version_fitopt   = version_fitopt_dict['version_fitopt']
+        prefix           = PREFIX_MERGE
 
-        itable           = ITABLE_NPZ
-        suffix           = TABLE_FORMAT_LIST[itable]
-        prefix           = PREFIX_MERGE  
-        table_wildcard  = f"{version_fitopt}*{table_name}.TEXT"
+        FORMAT_LIST = [ FORMAT_NPZ, FORMAT_TEXT ]
+        FORMAT_LIST[1] = 'TXT'  # <=== temp hack until output is fixed
+        
+        # check all possible formats to merge  .xyz
+        for fmt_suffix in FORMAT_LIST:
+            table_wildcard  = f"{version_fitopt}*{SUFFIX_SYST}.{fmt_suffix}"
 
-        print(f" xxx suffix = {suffix} \n xxx table_wildcard = \n{table_wildcard}")
+            table_list = sorted(util.glob_wrapper(table_wildcard,script_dir))
+            n_split    = len(table_list)
+            if n_split > 0:
+                out_table_file  = f"{prefix}_{version_fitopt}.{fmt_suffix}" 
+                logging.info(f"   merge {n_split} {SUFFIX_SYST}.{fmt_suffix} table files "\
+                             f"-> {out_table_file}")
+                cddir           = f"cd {script_dir}"
 
-        sys.exit("\n xxx DEBUG STOP to see what goin on ... ")
+                # RK place-holder is to copy first split file to merged file;
+                # Matt can put in correct code later
+                cmd_merge       = f"cp {table_list[0]}  {out_table_file}"   # <=== MERGE command here
+                
+                os.system(f"{cddir} ; {cmd_merge}")   
+        
+        
+        #sys.exit("\n xxx DEBUG STOP to see what goin on ... ")
         return
 
     def merge_table_TEXT(self, table_name, version_fitopt_dict):
@@ -1784,14 +1800,11 @@ class LightCurveFit(Program):
             table_wildcard += f(" {table_wildcard}") # double output
 
         # if no tables exist, bail out
-        # xxx mark table_list = sorted(glob.glob1(script_dir,table_wildcard))
         table_list = sorted(util.glob_wrapper(table_wildcard,script_dir))
         if len(table_list) == 0 :
             return
 
-        # check that all of the VARNAMES lists 
-        # are the same; else abort
-        # xxx mark if table_name == SUFFIX_FITRES :
+        # check that all of the VARNAMES lists  are the same; else abort
         self.check_table_varnames_TEXT(table_list)
 
         # construct linux command to catenate TEXT files,
@@ -1807,7 +1820,7 @@ class LightCurveFit(Program):
                    f"{out_table_file2} ; " \
                    f"mv {out_table_file2} {out_table_file}"
 
-        msg = f"   merge {n_job_split} {suffix}-{table_name} table files -> {out_table_file}"
+        msg = f"   merge {n_job_split} {table_name}.{suffix} table files -> {out_table_file}"
         logging.info(msg)
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :

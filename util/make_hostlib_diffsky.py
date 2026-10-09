@@ -78,12 +78,16 @@ VARNAME_RA       = 'ra'
 VARNAME_DEC      = 'dec'
 VARNAME_FIELD    = 'FIELD'
 
+VARNAME_LOGSFR   = 'logsfr_obs'
+VARNAME_LOGSSFR  = 'logssfr_obs'
+VARNAME_LOGMASS  = 'logsm_obs'
+
 DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
 DIFFSKY_ANGLE_PREFIX = "psi"
 
 # columns computed at the pandas level (after HDF5→pandas conversion); excluded from HDF5 select
 ADDCOL_PD_ERRMIN = [ 'obs_err_min', 'obs_err_min2', 'obs_err_min3' ]
-ADDCOL_PD_NAMES  = ['logsfr_obs', VARNAME_FIELD ] + ADDCOL_PD_ERRMIN
+ADDCOL_PD_NAMES  = [ VARNAME_LOGSFR, VARNAME_FIELD ] + ADDCOL_PD_ERRMIN
 
 ABORT_EXCEPTION_LIST = [ 'serial', 'err', 'n_', 'D_A', 'Sersic' ] + ADDCOL_PD_NAMES
     
@@ -370,10 +374,17 @@ def parse_config_driver(args, config):
 # end parse_config_driver
 
 def parse_config_magerr(args, config):
+    
     MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF, None)
-
+    if not MAGERR_PDF_DICT:
+        config[KEY_MAGERR_PDF] = MAGERR_PDF_DICT
+        return config
+    
     cone_dict = config[KEY_CONE] # Requires parse_config_cones
-    field = list(cone_dict)[0] # Fragile alert (will break if multiple cones)
+    if not cone_dict:
+        sys.exit(f"\n ERROR: config file is missing {KEY_CONE} key that is required for {KEY_MAGERR_PDF} ")
+        
+    field     = list(cone_dict)[0] # Fragile alert; ignores multuple cones if/when that option exists
 
     if MAGERR_PDF_DICT:
         pdfpar_yaml_file  = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
@@ -384,7 +395,8 @@ def parse_config_magerr(args, config):
         band_list = config['band_magerr_list_diffsky']
         for band in band_list:
             if band not in MAGERR_PDF_DICT['BANDMAP_DICT']:
-                sys.exit(f"ERROR:  {band} band not in MAGERR_PDF_DICT['BANDMAP_DICT']: {MAGERR_PDF_DICT['BANDMAP_DICT']}")
+                sys.exit(f"ERROR:  {band} band not in MAGERR_PDF_DICT['BANDMAP_DICT']: " \
+                         f"{MAGERR_PDF_DICT['BANDMAP_DICT']}")
     config[KEY_MAGERR_PDF] = MAGERR_PDF_DICT
         
     return config
@@ -414,8 +426,12 @@ def parse_config_varname_map(config):
     logging.info(f"Parse {KEY_HOSTLIB_VARNAMES_MAP}" )
 
     # read map from user input and covert to dictionarys
-    HOSTLIB_VARNAMES_MAP = config[KEY_HOSTLIB_VARNAMES_MAP]
+    HOSTLIB_VARNAMES_MAP = config.setdefault(KEY_HOSTLIB_VARNAMES_MAP,None)
+    CONE_REGION          = config.setdefault(KEY_CONE,None)
 
+    if not HOSTLIB_VARNAMES_MAP:
+        sys.exit(f"\n ERROR: config file is missing required {KEY_HOSTLIB_VARNAMES_MAP}")
+        
     hostlib_varname_dict = {}
     hostlib_format_dict  = {}
 
@@ -434,9 +450,9 @@ def parse_config_varname_map(config):
             HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol}  {addcol}  6.3f')
             # xxx mark delete Oct 6 2026   ADDCOL_PD_NAMES.append(addcol)                    
 
-    if config[KEY_CONE]:
+    if CONE_REGION:
         rownum_insert = len(HOSTLIB_VARNAMES_MAP)
-        HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{VARNAME_FIELD}  {VARNAME_FIELD}  10s')
+        HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{VARNAME_FIELD}       {VARNAME_FIELD}  10s')
     
     for row in HOSTLIB_VARNAMES_MAP:
         logging.info(f"\t {row}")
@@ -768,9 +784,13 @@ def add_col_pd(df_cat, config):
     t0 = time.time()
 
     # logsfr = logssfr + logmass
+    colnames = list(df_cat)
+    
     logging.info("  Append logsfr_obs = logssfr_obs + logsm_obs")
-    df_cat['logsfr_obs'] = df_cat['logssfr_obs'] + df_cat['logsm_obs']
-    print_proc_time(t0, "ADDCOL_LOGSFR", None)
+
+    if VARNAME_LOGSSFR in colnames and VARNAME_LOGMASS in colnames:
+        df_cat[VARNAME_LOGSFR] = df_cat[VARNAME_LOGSSFR] + df_cat[VARNAME_LOGMASS]
+        print_proc_time(t0, "ADDCOL_LOGSFR", None)
 
 
     # RK - Jul 14 2026 - define wrapper to add mag errors
@@ -1151,29 +1171,30 @@ def apply_cuts(cat_inp, config):
 
     n_row_inp    = len(cat_inp)
     CUTWIN       = config.setdefault(KEY_CUTWIN,[])
-    CONE_REGIONS = config.setdefault('CONE_REGIONS',[])
-    APPLY_CUTS   = len(CUTWIN)>0  or len(CONE_REGIONS)>0
+    CONE_REGIONS = config[KEY_CONE]
     
-    if not  APPLY_CUTS: return cat_out
+    APPLY_CUTS   = len(CUTWIN) > 0  or CONE_REGIONS
+    
+    if not  APPLY_CUTS:
+        return cat_out
 
     logging.info(f"")
     logging.info(f"Apply cuts:")
-    for row in CUTWIN:
-        cutvar = row.split()[0]
-        cutmin = float(row.split()[1])
-        cutmax = float(row.split()[2])
-        logging.info(f"   Apply cut {cutmin} < {cutvar} < {cutmax} ")
-        cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
-        n_row_out = len(cat_out)
-        logging.info(f"\t n_row after {cutvar} cut: {n_row_out:,} ")
+
+    if len(CUTWIN) > 0:
+        for row in CUTWIN:
+            cutvar = row.split()[0]
+            cutmin = float(row.split()[1])
+            cutmax = float(row.split()[2])
+            logging.info(f"   Apply cut {cutmin} < {cutvar} < {cutmax} ")
+            cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
+            n_row_out = len(cat_out)
+            logging.info(f"\t n_row after {cutvar} cut: {n_row_out:,} ")
 
     # Aug 2026: check for cone regions (e.g., Roman)
     # Sep 2026: Updated by J.Medoff to account for new CONE_REGIONS format
-    n_cone = len(CONE_REGIONS)
-    if n_cone > 0:
-        if n_cone > 1:
-            sys.exit(f"\n ERROR: cannot merge {n_cone} cones; only 1 allowed.")
-        
+
+    if CONE_REGIONS:
         for field, row in CONE_REGIONS.items():
             #print(f"xxx field = {field}, row = {row}")
             ra_cen       = float(row.split()[0])
@@ -1187,8 +1208,8 @@ def apply_cuts(cat_inp, config):
             n        = len(cat_cone)
             logging.info(f"\t n_galaxies in cone : {n:,} ")
             if n == 0 : continue
-    
         cat_out = cat_cone
+        
 
     # - - - - - - - 
     n_row_out = len(cat_out)
@@ -1371,9 +1392,13 @@ def convert_angle_unit_degrees(df_cat):
     # convert angle units from rad to degree; keep same column name
     substr             = DIFFSKY_ANGLE_PREFIX
     colname_angle_list = df_cat.columns[df_cat.columns.str.contains(substr)].tolist()
-    colname_angle      = colname_angle_list[0]
-    n_col              = len(colname_angle_list)
 
+    n_col              = len(colname_angle_list)
+    if n_col == 0:
+        logging.info(f"WARNING: did not find {substr} column ")
+        return
+    
+    colname_angle      = colname_angle_list[0]
     if n_col > 1:
         sys.exit(f"\n ERROR: ambiguous angle column: \n" \
                  f"\t {colname_angle_list} all contain '{substr}'\n")

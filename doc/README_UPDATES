@@ -24308,6 +24308,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
             HOSTLIB_FIELDMAP: DEFAULT   # literal field
             HOSTLIB_FIELDMAP: DEEP(X3,C3),SHALLOW(E1,E2,C1,C2,X1,X2,S1,S2)
     
+      + implement new sim input RESTORE_BUG_GALMAG 
+
    submit_prog_lcfit.py:
      + start prepping to merge SYST.NPZ and SYST.TEXT files produced
        by BayeSN.

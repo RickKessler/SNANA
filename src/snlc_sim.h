@@ -526,11 +526,11 @@ struct INPUTS {
   bool RESTORE_BUG_HOSTLIB ;      // set if DEBUG_FLAG==3 .or. RESTORE_DES3YR
   bool RESTORE_BUG_FLUXERR ;      // set if DEBUG_FLAG==3 .or. idem
   bool RESTORE_WRONG_VPEC;       // incorrect VPEC sign convention (not a bug)
-  bool RESTORE_BUG_ZHEL;         // ZHEL include vpec for DLMU calc
+  bool RESTORE_BUG_GALMAG ;      // Oct 2026: restore GALMAG bug found by Claude and Jack T. 
 
   // restores settings for DES-SN5YR/V24: 
   // +=1(Fitz99 approx), +=2(no host NBR); 3 -> both
-  int RESTORE_DES5YR;    
+  int RESTORE_DES5YR; 
   int REFAC_DATA_FLAG;
 
   char SIMLIB_FILE[MXPATHLEN];  // read conditions from simlib file

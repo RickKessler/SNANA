@@ -719,7 +719,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_HOSTLIB    = false; // Nov 2019
   INPUTS.RESTORE_BUG_FLUXERR    = false; // Jan 2020
   INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
-  INPUTS.RESTORE_BUG_ZHEL       = true;
+  INPUTS.RESTORE_BUG_GALMAG     = true;   // Oct 9 2026
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
   INPUTS.REFAC_DATA_FLAG        = 0; // 701 ;
@@ -1836,9 +1836,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     if (ITMP) { INPUTS.RESTORE_BUGS_DES3YR = true; }    
   }
-  else if ( keyMatchSim(1, "RESTORE_BUG_ZHEL", WORDS[0], keySource) ) {
+  else if ( keyMatchSim(1, "RESTORE_BUG_GALMAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
-    if (ITMP) { INPUTS.RESTORE_BUG_ZHEL = true; }    
+    if (ITMP == 0) 
+      { INPUTS.RESTORE_BUG_GALMAG = false; }    
+    else
+      { INPUTS.RESTORE_BUG_GALMAG = true; }    
   }
   else if ( keyMatchSim(1, "RESTORE_WRONG_VPEC", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  

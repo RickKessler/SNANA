@@ -5578,7 +5578,7 @@ void init_Sersic_integrals(int j) {
 
 
   // allocate memory for this cumulative integral table.  
-  MEM  = 8*SERSIC_TABLE.NBIN_reduced + 8;
+  MEM  = (SERSIC_TABLE.NBIN_reduced+1) * sizeof(double);
   SERSIC_TABLE.TABLEMEMORY    += MEM ;
   SERSIC_TABLE.INTEG_CUM[j]    = (double *)malloc(MEM);
   SERSIC_TABLE.INTEG_CUM[j][0] = 0.0 ; 
@@ -9784,7 +9784,15 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
     // The stored INTEG_SUM is integrated over the reduced radius;
     // the pre-factor a*b converts to the total flux over the 
     // physical galaxy size.
-    FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[NSERSIC_TABLE-1];
+    if ( INPUTS.RESTORE_BUG_GALMAG )  { 
+      FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[NSERSIC_TABLE-1];  
+    }
+    else {
+      // Oct 9 2026 fix for bug identified by Claude .xyz
+      FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[j];        
+      //FGAL_TOT = (a*b) * TWOPI * n * exp(bn) * pow(bn, -2.0*n) * tgamma(2.0*n);
+
+    }
 
     // get scale needed to move input xgal,ygal onto the
     // half-light ellipse; this scale is the reduced radius (R/Re)

@@ -2597,7 +2597,7 @@ void prep_head_HOSTLIB(void) {
 	if ( strstr(c_var_all,"ZPHOT_Q") != NULL ) {  // legacy key
 	  int   N_Q = HOSTLIB.NQZPHOT ;
 	  int   percentile      = N_Q * N_Q;
-	  char *VARNAME         = HOSTLIB.VARNAME_QZPHOT[N_Q]; 
+	  char *VARNAME         = HOSTLIB.VARNAME_QZPHOT[N_Q];   // legacy
 	  sprintf(VARNAME, "ZPHOT_Q%3.3d", percentile);
 	  HOSTLIB.NQZPHOT++ ;
 	}
@@ -2704,7 +2704,11 @@ void prep_head_HOSTLIB(void) {
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_TRUE_MATCH, 0, fnam) ; 
   HOSTLIB.IVAR_ZPHOT        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT,      0, fnam) ; 
   HOSTLIB.IVAR_ZPHOT_ERR    = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT_ERR,  0, fnam);
-  HOSTLIB.IVAR_Q0ZPHOT      = IVAR_HOSTLIB_PREFIX("ZPHOT_Q", 0);
+
+  HOSTLIB.IVAR_Q0ZPHOT      = IVAR_HOSTLIB_PREFIX(PREFIX_QZPHOT, 0);
+  if ( HOSTLIB.IVAR_Q0ZPHOT < 0 ) 
+    { HOSTLIB.IVAR_Q0ZPHOT      = IVAR_HOSTLIB_PREFIX("ZPHOT_Q", 0); } // try legacy colname
+
   HOSTLIB.IVAR_VPEC         = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC,       0, fnam) ; 
   HOSTLIB.IVAR_VPEC_ERR     = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC_ERR,   0, fnam);
   char c_var[200];

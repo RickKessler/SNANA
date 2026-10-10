@@ -46,7 +46,7 @@
 # Jul 08 2026: provide initial guess_xxx for Gaussian fitpars.
 # Jul 16 2026: if cutmask=0 then do not require CUT variable(s) to exist in corresponding table file.
 # Oct 03 2026: add optional arg @@COLNAME_ID two break ambiguity or use non-default name
-#
+# Oct 09 2026: print number of duplicate IDs to screen (does not appear on plot)
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -1788,7 +1788,7 @@ def read_tables(args, plot_info):
 
         # apply user cuts
         if cut and cutmask>0:
-            df = eval(cut)  # .xyz
+            df = eval(cut)  
 
         if prescale > 1:
             df = df.iloc[::prescale]
@@ -1796,6 +1796,8 @@ def read_tables(args, plot_info):
         if fraction < 1.0 :
             df = df.sample(frac=fraction)  # Mar 12 2025
             
+        # count and print duplicate IDs
+
         # drop duplicates for DIFF CID matching
         if args.DIFF == OPT_DIFF_CID:
             df.drop_duplicates(varname_idrow, inplace=True)
@@ -1805,11 +1807,13 @@ def read_tables(args, plot_info):
         nf += 1    
         MASTER_DF_DICT[key] = df
         nrow        = len(df)
+        ndup        = df[varname_idrow].duplicated().sum(); pct_dup=100.*ndup/(nrow+1.0e-9)
         nrow_tot   += nrow
         name_legend = legend
         axis_list = []
 
-        logging.info(f"\t Read nrow={nrow}  for {name_legend}")
+        logging.info(f"\t Read nrow={nrow}  for {name_legend}")        
+        logging.info(f"\t Found {ndup} DUPLICATE rows ({pct_dup:.1f} percent)") # does not appear in plot
 
         if nrow == 0: 
             logging.warning(f"zero rows read for {name_legend}")
@@ -2571,8 +2575,7 @@ def get_info_plot1d(args, info_plot_dict):
         
     # - - - -
     yerr_list =  [ (x+y)/2. for x,y in zip(errl_list,erru_list) ]
-    nevt    = nevt
-
+    nevt      = nevt
 
     x_val_list  = df.x_plot_val.to_numpy()
     w_val_list  = df.weights.to_numpy()

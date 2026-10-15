@@ -2701,13 +2701,18 @@ For simplicity, note that the PSF is modeled as a single-Gaussian,
 and that the gain is unity.  Now let's compute that flux and noise
 for $i$-band.
 
-The measured flux (in ADU) and the calibrated flux (for lightcurve fits)
-are given in terms if the magnitude ($m_i$) and zeropoint ($Z_i$),
+\newcommand{\Zcal}{Z_{\rm cal}}
+\newcommand{\Zimg}{Z_{\rm image}}
+
+The measured flux (in ADU) is defined in terms of the magnitude ($m$) 
+and image zeropoint ($\Zimg$), and 
+the calibrated flux (for lightcurve fits) is evaluated from $m$ and
+a calibration zeropoint ($\Zcal=31.4$) corresponding to nJy:
 %
 \begin{eqnarray}
-   {\tt FLUX}    & = & 10^{-0.4(m_i - Z_i)}  =  10^{-0.4(23.3402 - 34.56)} 
+   {\tt FLUX}    & = & 10^{-0.4(m - \Zimg)}  =  10^{-0.4(23.3402 - 34.56)} 
         = 30755~{\rm ADU} \\
-   {\tt FLUXCAL} & = & 10^{-0.4m_i} \times 10^{11}   =   46.13
+   {\tt FLUXCAL} & = & 10^{-0.4(m - \Zcal)}  =  46.13
 \end{eqnarray}
 %
 which agrees with the simulated values above.

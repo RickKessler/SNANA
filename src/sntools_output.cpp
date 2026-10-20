@@ -468,8 +468,14 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
 
 #ifdef USE_NPZ
   if ( TYPE_FLAG == IFILETYPE_NPZ ) {
-    //    cnpy::npz_t  my_npz = cnpy::npz_load(FILENAME);  // placeholder ?? .xyz
-    NOPEN_TABLEFILE++ ;
+
+    if ( OPEN_FLAG == OPENFLAG_NEW ) {
+      cnpy::npz_t  my_npz = cnpy::npz_load(FILENAME);  // placeholder ?? .xyz
+      NOPEN_TABLEFILE++ ;
+    }
+    else {
+      npz_table_create(FILENAME);
+    }
   }
 #endif
 

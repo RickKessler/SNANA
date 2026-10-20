@@ -359,7 +359,6 @@ char SNTABLE_VERSION_PHOTOMETRY[MXCHAR_VERSION_PHOTOMETRY]; // beware it's a com
 #ifdef __cplusplus
 extern"C" {
 #endif
-
   void  get_SNANA_VERSION(char *SNANA_VERSION);  // defined in sntools.c
   void  set_FILTERSTRING(char *FILTERSTRING); // defined in sntools.c
   void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
@@ -597,6 +596,18 @@ extern"C" {
 
   void SPECPAK_FILL(char *CCID) ;
   void specpak_fill__(char *CCID) ;
+
+  // --- npz functions ---
+  int read_npz_covmat(char *npz_file, double *array1d);
+  int read_npz_factorized(char *npz_file, double **diag, double **U, int *K);
+  int get_npz_filetype(char *npz_file);
+
+  // ---- table writer (buffered, spilled to compressed temp files, zipped at close)
+  int  npz_table_create (char *fileName);
+  int  npz_table_addcol (int h, char *varName, int icast, int strlen_max);
+  void npz_table_append (int h, int icol, void *ptr);
+  void npz_table_endrow (int h);     // call once per row; triggers flush every NFLUSH rows
+  void npz_table_close  (int h);
 
   // --- ISFILE_xxx functions
   int ISFILE_ROOT(char *fileName);

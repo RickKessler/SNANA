@@ -2,26 +2,6 @@
   Created Feb 2013 by R.Kessler
   Generic functions for filling tables and packing lightcurves.
   
-
- Mar 28 2016: 
-   + defined int NVAR_ADDCOL_TOT
-   + MXVAR_TABLE -> 240 (was 200)
-
- Apr 13 2016: MXVAR_TABLE -> 400 (for Hounsell)
-
- Sep 12 2016: allow up to 2 pointers per variable to read a column 
-              in 2 different arrays.
-
- Jan 6, 2017: 
-    + MXCHAR_VARLIST->2000 (was 1000)
-    + define MXFILE_AUTOSTORE & NFILE_AUTOSTORE 
-   
- Feb 7 2017:
-    + MXCHAR_FILENAME -> 240  (was 200)
- 
- Apr 11 2017: add MXCHAR_MODELNAME
-
- May 11 2017: declare IVAR_READTABLE_POINTER
  
  Dec 11 2019: replace lots of [40] with [MXCHAR_VARNAME]
 
@@ -32,6 +12,8 @@
 
  Aug 29 2025: MXVAR_TABLE -> 800 (was 400)
 
+ Oct 19 2026: add _NPZ variables and function 
+
 *******************************************/
 
 
@@ -41,6 +23,7 @@
 #define USE_ROOT     
 #define USE_TEXT  // always leave this on; same logic as for ROOT, ...
 #define USE_MARZ  // always leave this on
+#define USE_NPZ   // always leave this on (Oct 19 2026)
 
 // ---------------------------------------
 // flags to identify TABLEFILE_TYPE 
@@ -49,8 +32,9 @@
 #define IFILETYPE_HBOOK  1   // obsolete as of May 15 2025
 #define IFILETYPE_ROOT   2
 #define IFILETYPE_TEXT   3
-#define IFILETYPE_MARZ   4
-#define MXTABLEFILETYPE  5
+#define IFILETYPE_NPZ    4 
+#define IFILETYPE_MARZ   5
+#define MXTABLEFILETYPE  6
 
 #define MXCHAR_FILENAME  300
 #define MXCHAR_VARLIST   2000  
@@ -178,16 +162,16 @@ struct READTABLE_POINTERS {
 #define SPECPAK_INITDONE  98765
 #define MXFIT_PER_SN      10
 
-// xxx mark bool SNLCPAK_USE_HBOOK ; 
 bool SNLCPAK_USE_ROOT  ;
 bool SNLCPAK_USE_HDF5  ;
 bool SNLCPAK_USE_TEXT  ;
+bool SNLCPAK_USE_NPZ   ;
 int NCALL_SNLCPAK_FILL ; // number of calls to SNLCPAK_FILL
 
-// xxx makrk bool SPECPAK_USE_HBOOK ; 
 bool SPECPAK_USE_ROOT  ;
 bool SPECPAK_USE_HDF5  ;
 bool SPECPAK_USE_TEXT  ;
+bool SPECPAK_USE_NPZ   ;
 bool SPECPAK_USE_MARZ  ;
 int NCALL_SPECPAK_FILL ; // number of calls to SPECPAK_FILL
 
@@ -615,9 +599,9 @@ extern"C" {
   void specpak_fill__(char *CCID) ;
 
   // --- ISFILE_xxx functions
-  // xxxx mark delete  int ISFILE_HBOOK(char *fileName);
   int ISFILE_ROOT(char *fileName);
   int ISFILE_TEXT(char *fileName);
+  int ISFILE_NPZ (char *fileName);
   int ISFILE_MARZ(char *fileName);
 				 
 #ifdef __cplusplus

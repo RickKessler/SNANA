@@ -24245,6 +24245,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     Related tests in $SNDATA_ROOT/SNANA_TESTS/inputs_submit_batch have been expanded
     to include COVTOT_INV and COVTOT_FACTORIZE.
 
+    Makefile.am and sntools_output*
+     + integrate npz-table code from Claude with goal of adding NPZ table format
+       option along with TEXT and ROOT. NPZ should be MUCH faster to read.
+       
+
          *****  USEFUL(v12_02d) *****
 
     snlc_fit:

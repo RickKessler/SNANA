@@ -5,6 +5,7 @@
 #define ISFILE_NPZ_COV        1
 #define ISFILE_NPZ_FACTORIZE  2
 
+int NTABLE_NPZ ;
 
 #ifdef __cplusplus
 extern"C" {

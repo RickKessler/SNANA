@@ -411,6 +411,7 @@
     LOGICAL  & 
          USE_TABLEFILE_ROOT    &  ! write table in ROOT format
         ,USE_TABLEFILE_TEXT    &  ! write table in TEXT format
+        ,USE_TABLEFILE_NPZ     &  ! write table in NPZ  format
         ,USE_TABLEFILE_MARZ    &  ! write table in MARZ/FITS format
         ,USE_TABLEFILE         &  ! T if either any of the above are set
         ,WRTABLEFILE_IAUC      &  ! T-> add IAUC column(for writing tables)
@@ -1690,6 +1691,7 @@
          NMLFILE           &  ! name of input namelist file
         ,ROOTFILE_OUT      &  ! I: output filename for root for tables
         ,TEXTFILE_PREFIX   &  ! I: prefix for text file tables
+        ,NPZFILE_PREFIX    &  ! I: prefix for NPZ file tables (Oct 19 2026)
         ,MARZFILE_OUT      &  ! I: output FITS file for input to MARZ (spectra)
         ,SNTABLE_LIST      &  ! I: list of SNTABLEs to create; e.g., 'SNANA FITRES'
         ,SNTABLE_APPEND_VARNAME   &  ! I: add this varname to output tables
@@ -1889,7 +1891,7 @@
           , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT  & 
           , REFORMAT_KEYS, OPT_REFORMAT_FITS, ZP_FLUXCAL_REFORMAT  & 
           , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE  & 
-          , rootfile_out, textfile_prefix  & 
+          , rootfile_out, textfile_prefix, npzfile_prefix  & 
           , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT  & 
           , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE  & 
           , CALIB_FILE, KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY  & 
@@ -5885,6 +5887,7 @@
 
     rootfile_out      = ' '
     textfile_prefix   = ' '
+    npzfile_prefix    = ' '
     MARZFILE_OUT      = ' '  ! May 2020
 
     SNCID_LIST_FILE   = ' '
@@ -6653,7 +6656,8 @@
 
     USE_TABLEFILE        = .FALSE.
     USE_TABLEFILE_ROOT   = .FALSE.
-    USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 (forgot init earlier)
+    USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 
+    USE_TABLEFILE_NPZ    = .FALSE.     ! Oct 19 2026
     USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
 
 ! MARZ (host spectra only)
@@ -6691,7 +6695,7 @@
        ENDIF
     ENDIF
 
-
+    ! - - - - -
     LENFILE   = INDEX(TEXTFILE_PREFIX,' ') - 1
     CFILE     = TEXTFILE_PREFIX(1:LENFILE) // char(0)
     IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
@@ -6704,6 +6708,24 @@
        IF ( IFILETYPE < 0 ) THEN
           C1ERR = 'Could not open TEXT table-files with PREFIX='
           C2ERR = TEXTFILE_PREFIX(1:LENFILE)
+          CALL  MADABORT(FNAM, C1ERR, C2ERR)
+       ENDIF
+    ENDIF
+
+
+    ! - - - - -  Oct 19 2026: add NPZ option - - - - - - - -
+    LENFILE   = INDEX(NPZFILE_PREFIX,' ') - 1
+    CFILE     = NPZFILE_PREFIX(1:LENFILE) // char(0)
+    IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
+       CALL ENVreplace(NPZFILE_PREFIX)
+       COPT          = "new npz" // char(0)
+       USE_TABLEFILE_NPZ  = .TRUE.
+       USE_TABLEFILE      = .TRUE.
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM, LENFILE, 20, 20)
+
+       IF ( IFILETYPE < 0 ) THEN
+          C1ERR = 'Could not open NPZ table-files with PREFIX='
+          C2ERR = NPZFILE_PREFIX(1:LENFILE)
           CALL  MADABORT(FNAM, C1ERR, C2ERR)
        ENDIF
     ENDIF
@@ -9879,7 +9901,13 @@
 ! Apr 18 2022: if no events were processed then there are no text files.
 !      In this case, create blank text-table file for each table
        IF ( N_SNLC_PROC == 0 ) CALL SNTABLE_CREATE_TEXT_EMPTY()
-       CALL TABLEFILE_CLOSE("NULL"//char(0),10)
+       ! xxx mark delete Oct 10 2026 CALL TABLEFILE_CLOSE("NULL"//char(0),10)
+       CALL TABLEFILE_CLOSE("TEXT"//char(0),10)
+    ENDIF
+
+    IF ( USE_TABLEFILE_NPZ ) THEN
+       ! protect empty file like text above ???
+       CALL TABLEFILE_CLOSE("NPZ"//char(0),10)
     ENDIF
 
     IF ( USE_TABLEFILE_MARZ ) THEN  ! April 2019

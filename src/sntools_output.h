@@ -209,7 +209,7 @@ struct  SNLCPAK_OUTPUT {
   char VERSION_SNANA[40];
   char SURVEY_FILTERS[MXFILTINDX] ;
 
-  char TEXT_FORMAT[20]; // added Sep 2014
+  char TEXT_FORMAT[20]; 
   int  OPT_TEXT_FORMAT ;  // integer index for above (-9 -> no text output)
 
   // set user-passed variables that change with each SN

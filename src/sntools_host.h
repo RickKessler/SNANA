@@ -426,8 +426,6 @@ struct HOSTLIB_WGTMAP_DEF {
   bool  USE_SALT2GAMMA_GRID;
   bool  FOUNDVAR_SNMAGSHIFT;  // T -> SNMAGSHIFT column was found
 
-  double MEMTOT_MB;  // memory (MB) allocated for wgtmap
-
   // params for SN variables that are NOT in the hostlib (Mar 2020)
   int   IDMAP_INDEX_SNVAR;       // for get_1DINDEX
   int   N_SNVAR ;                // number of SN properties
@@ -450,13 +448,16 @@ struct HOSTLIB_WGTMAP_DEF {
   double  WGTMAX_GAL;   // max weight among hostlib galaxies
 
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
+  double *WGTSUM_BY_FIELD[MXFIELD_HOSTLIB]; // use with input HOSTLIB_FIELD_MAP (Oct 20 2026)
 
-  double *WGT ;         // wgt for each hostlib entry (for +HOSTSELECT only)
-  bool   MALLOC_WGT;    // flag that WGT has been malloced and stored (for special options only)
+  double *WGT ;       // wgt for each hostlib entry (for +HOSTSELECT only)
+  bool   MALLOC_WGT;  // flag that WGT has been malloced and stored (for special options only)
 
-  short int *I2SNMAGSHIFT ;  // SN mag shift for each hostlib entry
   double **WGTSUM_SNVAR;              // idem
-  short int **I2SNMAGSHIFT_SNVAR ;    // idem
+  double **WGTSUM_SNVAR_BY_FIELD[MXFIELD_HOSTLIB];              // idem
+
+  short int *I2MAGSHIFT ;  // SN mag shift for each hostlib entry
+  short int **I2MAGSHIFT_SNVAR ;    // idem
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int       NCHECKLIST ;
@@ -720,7 +721,7 @@ void   checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST, char *varName,
 				 char *funCall);
 
 void   runCheck_HOSTLIB_WGTMAP(void);
-void   malloc_HOSTLIB_WGTMAP(void); 
+void   malloc_HOSTLIB_WGTMAP(int index_field); 
 void   malloc_HOSTGAL_PROPERTY(void);
 int    getindex_HOSTGAL_PROPERTY(char *PROPERTY);
 

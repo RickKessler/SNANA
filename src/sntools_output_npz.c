@@ -331,6 +331,39 @@ int npz_table_create(char *fileName) {
 }
 
 int npz_table_addcol(int h, char *varName, int icast, int strlen_max) {
+
+  // ======================================================================
+  // npz_table_addcol
+  //
+  // FREQUENCY: called ONCE PER COLUMN, during table setup (after
+  //            npz_table_create, before the first row is written).
+  //            It is not part of the per-event loop.
+  //
+  // Defines one column of table 'h' and returns its index (0,1,2,...),
+  // which the caller must save and pass as 'icol' to npz_table_append.
+  //
+  // Inputs:
+  //   h          : table handle returned by npz_table_create
+  //   varName    : column name; becomes "<varName>.npy" inside the .npz
+  //   icast      : data type, one of NPZ_ICAST_[D,F,I,S,L,C]
+  //                (double, float, int, short, long long, char-string)
+  //   strlen_max : fixed string width in bytes; used ONLY for NPZ_ICAST_C,
+  //                ignored for numeric types
+  //
+  // Returns: column index (>= 0), or -1 if icast is not recognized
+  //          (in which case no column is added).
+  //
+  // Notes:
+  //  - Only metadata is created here. No file is opened and no zlib stream
+  //    is allocated; both are created lazily in col_deflate() on the first
+  //    flush. Memory cost is just an empty NPZCol until rows arrive.
+  //  - Add ALL columns before the first npz_table_endrow. A column added
+  //    after rows have been flushed would be shorter than the others, and
+  //    the npz file would be inconsistent. There is no check for this.
+  // ======================================================================
+
+  char fnam[] = "npz_table_addcol";  (void)fnam;
+
   NPZCol c;  c.name = varName;  c.icast = icast;
   switch (icast) {
     case NPZ_ICAST_D: c.wsize = sizeof(double);        break;
@@ -348,6 +381,39 @@ int npz_table_addcol(int h, char *varName, int icast, int strlen_max) {
 }
 
 void npz_table_append(int h, int icol, void *ptr) {
+
+  // ======================================================================
+  // npz_table_append
+  //
+  // FREQUENCY: called ONCE PER COLUMN PER ROW (i.e. per event). For each
+  //            event, call it once for every column, then call
+  //            npz_table_endrow once. Total calls = NCOL * NROW.
+  //
+  // Copies the current value of one column into that column's in-memory
+  // buffer. The data are compressed and written to disk later, by
+  // npz_flush, which npz_table_endrow triggers every nflush rows.
+  //
+  // Inputs:
+  //   h    : table handle
+  //   icol : column index returned by npz_table_addcol
+  //   ptr  : address of the value for THIS row. It is read immediately,
+  //          so the pointer need not stay valid after the call. It must
+  //          point to a type matching the column's icast:
+  //            D -> double*, F -> float*, I -> int*, S -> short*,
+  //            L -> long long*, C -> char* (null-terminated string)
+  //
+  // Notes:
+  //  - Numeric types: wsize bytes are copied verbatim.
+  //  - Strings: the slot is zero-filled first, then at most wsize bytes
+  //    are copied (stopping at the string's NUL). Strings are therefore
+  //    NUL-padded to strlen_max. A string of length >= strlen_max is
+  //    truncated and has no terminator, as in numpy fixed-width 'S' arrays.
+  //  - Nothing is checked, so every column must receive exactly one append
+  //    per row. Missing or extra appends silently desynchronize column lengths.
+  //  - Memory use is bounded: a column buffer holds at most nflush rows
+  //    (default 100) before it is cleared by npz_flush.
+  // =========================================================
+
   NPZCol &c = NPZ_TAB[h].col[icol];
   size_t n0 = c.buf.size();
   c.buf.resize(n0 + c.wsize, 0);
@@ -356,6 +422,32 @@ void npz_table_append(int h, int icol, void *ptr) {
 }
 
 void npz_table_endrow(int h) {
+
+  // ======================================================================
+  // npz_table_endrow
+  //
+  // FREQUENCY: called ONCE PER ROW (i.e. per event), after
+  //            npz_table_append has been called for every column of that
+  //            row. It is not per column and not per table.
+  //
+  // Marks the current row as complete and decides whether to spill to disk:
+  //   - nrow : running total of rows. It is used at close time to write
+  //            the .npy shape header (nrow) for every column.
+  //   - nbuf : rows currently held in memory since the last flush.
+  //   - every nflush rows (default 100; env SNANA_NPZ_NFLUSH overrides),
+  //     npz_flush() deflates each column buffer into its temp file and
+  //     empties the buffers, so memory stays bounded however many events
+  //     are written.
+  //
+  // Any rows still buffered when the table ends (fewer than nflush) are
+  // written by npz_table_close, which finishes each deflate stream.
+  //
+  // Per-event pattern:
+  //   for each event {
+  //     for each column icol:  npz_table_append(h, icol, &value[icol]);
+  //     npz_table_endrow(h);
+  //   }
+  // ===================================================
   NPZTab &t = NPZ_TAB[h];
   t.nrow++;  t.nbuf++;
   if ( t.nbuf >= t.nflush ) { npz_flush(t); }

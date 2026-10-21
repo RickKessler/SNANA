@@ -3435,6 +3435,8 @@ int passCuts_HOSTLIB(double *XVAL, char *FIELD ) {
   }
 
   // Oct 2026: cut on FIELD using same cut as SIMLIB_FIELDLIST
+  //  when using HOSTLIB_FIELD_MAP, make sure that SIMLIB_FIELDLIST
+  //  includes HOSTLIB field names in addition to SIMLIB field names.
   if ( HOSTLIB.OPT_FIELD_MATCH ) {
     if ( SKIP_SIMLIB_FIELD(0,FIELD) )  // opt=0 -> ignore FIELD prescale
       { return 0; }
@@ -3983,6 +3985,13 @@ void sortz_HOSTLIB(void) {
 	  HOSTLIB.FIELD_UNIQUE_LIST[nfield_unique] = (char*)malloc( MXCHAR_FIELDNAME*sizeof(char) );
 	  sprintf(HOSTLIB.FIELD_UNIQUE_LIST[nfield_unique],"%s", ptr_UNSORT) ;
 	  nfield_unique++ ;
+
+	  if ( nfield_unique >= MXFIELD_HOSTLIB ) {
+	    sprintf(c1err,"nfield_unique=%d exceeds bound MXFIELD_HOSTLIB=%d",
+		    nfield_unique, MXFIELD_HOSTLIB);
+	    sprintf(c2err,"Check FIELDs in HOSTLIB and SIMLIB");
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	  
+	  }
 	}
       }  // end HOSTLIB.OPT_FIELD_MATCH
 
@@ -4276,7 +4285,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, NROW, ibin, istat ;
-  int  NGAL, igal, isparse, IVAL ;
+  int  NGAL, igal, isparse, IVAL, INDEX_FIELD=0 ;
   short int I2MAG;
   bool LDMPWGT ;
 
@@ -4284,7 +4293,6 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   int NBTOT_SNVAR     = HOSTLIB_WGTMAP.NBTOT_SNVAR ;
   int IVAR_TRUE_MATCH = HOSTLIB.IVAR_TRUE_MATCH;
   int OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH;
-  int INDEX_FIELD     = SNHOSTGAL.INDEX_FIELD;
 
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1]; 
@@ -4372,11 +4380,8 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       // and set WGTSUM = WGTSUM for previous galaxy.
 
       if ( OPT_FIELD_MATCH ) { 
-	// xxx mark printf(" 2a. xxx %s: igal=%d \n", fnam, igal); fflush(stdout);
 	setDefault_HOSTLIB_WGTSUM_BY_FIELD(igal); // set all WGTSUM[igal] = WGTSUM[igal-1]
-
-	if ( INDEX_FIELD != HOSTLIB.INDEX_FIELD[igal] )
-	  { WGT = MAGSHIFT = 0.0; goto WGTSUM; }	
+	INDEX_FIELD = HOSTLIB.INDEX_FIELD[igal]; // only this field increments WGTSUM
       }
 
       // strip off variables used for weighting
@@ -10044,7 +10049,7 @@ void set_HOSTLIB_WGTSUM_POINTER(void) {
     ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;
 
     if ( OPT_FIELD_MATCH ) 
-      { HOSTLIB_WGTMAP.ptr_WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[ibin_SNVAR][INDEX_FIELD]; }
+      { HOSTLIB_WGTMAP.ptr_WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[INDEX_FIELD][ibin_SNVAR]; }
     else 
       { HOSTLIB_WGTMAP.ptr_WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR]; }
   }

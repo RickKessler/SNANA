@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # 
-#  TO-DO: give sensible error message if one of the columns has blank string
+#  TO-DO: in check_table_varnames(), check that number of entries in first row matchs Ncol in header
 # 
 # Created by B.Popovic during his graduate career at Duke University.
 # Installed into SNANA Jun 24 2024 by R.Kessler

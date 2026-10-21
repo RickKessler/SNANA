@@ -12,6 +12,8 @@
 # Aug 25 2026 RK - add sntools_cosmology dependence for SALT2mu
 # Oct 19 2026 RK - npz code is now in sntools_output_npz.c and included 
 #                   in sntools_output.cpp
+# Oct 20 2026 RK - CPPLIB += -lz to fix compile bug caught on Perlmutter, 
+#                  but not caught on Midway.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -67,7 +69,7 @@ IROOT  =
 MERGE_ROOT_PROGRAM = 
 endif
 
-CPPLIB = -lstdc++
+CPPLIB = -lstdc++ -lz
 
 # ---------------------------------------------------------------------------
 # Create obj/ and bin/ before anything is compiled
@@ -631,7 +633,7 @@ $(BIN)/wfit.exe: $(OBJ)/wfit.o  $(OBJ)/sntools.o \
 		$(OBJ)/sntools_output.o \
 		$(OBJ)/sntools_cosmology.o \
 		$(LROOT) $(CPPLIB) \
-		$(LCFITSIO) -lm $(LGSL) -lz
+		$(LCFITSIO) -lm $(LGSL)
 	cd $(OBJ); rm -f wfit.o
 
 $(BIN)/kcor.exe: $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o \

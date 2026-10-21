@@ -46,9 +46,11 @@
 # Jun 30 2026: new WRITE_TF option to write tf with cuts applied and ALL columns
 # Jul 05 2026: add new @@CUTMASK option to apply cuts to subset of files or variables
 # Jul 08 2026: provide initial guess_xxx for Gaussian fitpars.
-# Jul 16 2026: if cutmask=0 then do not require CUT variable(s) to exist in corresponding table file.
+# Jul 16 2026: if cutmask=0 then don't require CUT variable(s) to exist in table file.
 # Oct 03 2026: add optional arg @@COLNAME_ID two break ambiguity or use non-default name
 # Oct 09 2026: print number of duplicate IDs to screen (does not appear on plot)
+# oct 21 2026: abort on blank string in any column to avoid crash; see check_blank_strings()
+#
 # ==============================================
 import os, sys, gzip, copy, logging, math, re, gzip
 import pandas as pd
@@ -1703,6 +1705,61 @@ def set_custom_bounds_dict(args,plot_info):
     
     return # end set_custom_bounds_dict
 
+
+def check_blank_strings(df, tfile, varname_idrow=None, max_show=5):
+
+    # Created Oct 21 2026 by Claude-AI.
+    # Abort with a sensible message if any string column (object dtype) has
+    # a blank entry in any row. A blank string is read by pandas as NaN (float),
+    # which then crashes later with, e.g.,
+    #   TypeError: '<' not supported between instances of 'float' and 'str'
+    # in np.amin/np.amax or in sorted(unique strings).
+    # Must be called BEFORE df[varname_idrow].astype(str), which would silently
+    # turn NaN into the string 'nan'.
+    #
+    # Numeric columns are skipped here: NaN in a float column does not crash
+    # 
+    # Inputs:
+    #   df            : data frame just read from tfile
+    #   tfile         : name of table file (for error message)
+    #   varname_idrow : name of ID column (optional), used to identify bad rows
+    #   max_show      : max number of bad rows to list per column
+
+    bad_dict = {}   # key = column name, value = boolean mask of blank rows 
+
+    for col in df.columns:
+        s    = df[col]
+        #if pd.api.types.is_numeric_dtype(s) :  continue
+        mask = s.isna() | s.astype(str).str.strip().eq('')   # NaN or whitespace-only 
+        if mask.any():
+            bad_dict[col] = mask
+
+    if len(bad_dict) == 0 : return
+
+    tfile_base = os.path.basename(tfile)
+    logging.error(f"Found blank string entries in {tfile_base}:")
+
+    have_id = varname_idrow is not None and varname_idrow in df.columns
+    for col, mask in bad_dict.items():
+        n_bad    = int(mask.sum())
+        irow_bad = df.index[mask].tolist()
+        msg      = f"\t column '{col}': {n_bad} blank row(s); " \
+                   f"data row index (0-based, excl. comments & header) = " \
+                   f"{irow_bad[:max_show]}"
+        if n_bad > max_show: msg += " ..."
+        if have_id and col != varname_idrow:
+            id_bad = df.loc[mask, varname_idrow].tolist()
+            msg += f"\n\t\t {varname_idrow} = {id_bad[:max_show]}"
+        logging.error(msg)
+
+    sys.exit(f"\n ERROR: blank string(s) in column(s) {list(bad_dict.keys())} " \
+             f"of {tfile_base}\n" \
+             f"\t Fill the blank entries (e.g., with 'NONE') or remove those rows.")
+
+    return
+
+    # end check_blank_strings 
+
 def read_tables(args, plot_info):
 
     tfile_list      = args.tfile_list
@@ -1779,6 +1836,9 @@ def read_tables(args, plot_info):
                               usecols  = usecol_list,
                               skiprows = nrow_skip,
                               nrows    = NROWS )
+
+            # abort on blank strings, which would otherwise crash later
+            check_blank_strings(df, tfile, varname_idrow)
 
         if store_df_ref:    
             df_ref = copy.deepcopy(df)

@@ -6369,14 +6369,23 @@ void LOAD_FIELD_HOSTLIB(char *FIELD_SIMLIB) {
 
   int OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH ;
   int index_field = -9; (void)index_field ;
+  int LDMP = 0;
   char fnam[] = "LOAD_FIELD_HOSTLIB";  (void)fnam;
 
   // ----------- BEGIN ------------
+
   sprintf(SNHOSTGAL.FIELD_SIMLIB, "%s", FIELD_SIMLIB);
 
   if ( !OPT_FIELD_MATCH ) { return; }
 
-  index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.INDEX_FIELD_DICT );
+  if ( OPT_FIELD_MATCH == 1 ) {
+    // 1-to-1 map between SIMLIB and HOSTLOB
+    index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.INDEX_FIELD_DICT );
+  }
+  else {
+    // translate FIELD names between SIMLIB and HOSTLIB
+    index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.FIELD_MAP_DICT );
+  }
 
   if ( index_field < 0 ) {
     sprintf(c1err,"Invalid index_field = %d for FIELD_SIMLIB=%s", index_field, FIELD_SIMLIB);
@@ -6386,6 +6395,12 @@ void LOAD_FIELD_HOSTLIB(char *FIELD_SIMLIB) {
  
   sprintf(SNHOSTGAL.FIELD_HOSTLIB,"%s", HOSTLIB.FIELD_UNIQUE_LIST[index_field] );
   SNHOSTGAL.INDEX_FIELD = index_field ;
+
+  if ( LDMP ) {
+    printf(" xxx %s: FIELD_SIMLIB=%s -> FIELD_HOSTLIB=%s and INDEX_FIELD=%d \n", 
+	   fnam, FIELD_SIMLIB, SNHOSTGAL.FIELD_HOSTLIB, SNHOSTGAL.INDEX_FIELD);
+    fflush(stdout);
+  }
 
   /* xxxxxxxxxxxxxxxxx mark del Oct 20 2026 xxxxxx
   if ( OPT_FIELD_MATCH == 1 ) {

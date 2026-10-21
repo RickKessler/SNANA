@@ -214,7 +214,7 @@ struct HOSTLIB_DEF {
   int  OPT_FIELD_MATCH ;
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
-  short int  *INDEX_FIELD ; //.xyz 
+  short int  *INDEX_FIELD ; 
   char *FIELD_UNIQUE_LIST[MXFIELD_HOSTLIB] ; // unique list of HOSTLIB fields
   int   NFIELD_UNIQUE;
   STRING_DICT_DEF INDEX_FIELD_DICT ;  // dict[host_field]   = sparse index 0 to NFIELD-1

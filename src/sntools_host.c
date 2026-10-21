@@ -3884,38 +3884,44 @@ void sortz_HOSTLIB(void) {
   int MEMI  = (NGAL+1) * sizeof(int) ;
   int MEMD  = (NGAL+1) * sizeof(double) ;
   int MEMCp = (NGAL+1) * sizeof(char*) ;
-  double MEMTOT = 0.0 ;
+  int MEMS  = (NGAL+1) * sizeof(short int);
+  float MEMTOT = 0.0 ;
   
   // allocate memory for sort-pointers
-  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( MEMI ); MEMTOT += (double)MEMI ;
-  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( MEMI ); MEMTOT += (double)MEMI ;
+  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( MEMI ); MEMTOT += (float)MEMI ;
+  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( MEMI ); MEMTOT += (float)MEMI ;
 
   // allocate memory for sorted values
   for ( ival=0; ival < NVAR_STORE; ival++ )  {
     HOSTLIB.VALUE_ZSORTED[ival] = (double*)malloc(MEMD);
-    MEMTOT += (double)MEMD ;
+    MEMTOT += (float)MEMD ;
   }
 
   if ( DO_FIELD  ) {
+    MEMTOT += malloc_strlist(+1, NGAL+1, MXCHAR_FIELDNAME, &HOSTLIB.FIELD_ZSORTED);
+    if ( HOSTLIB.OPT_FIELD_MATCH )  {
+      init_string_dict( &HOSTLIB.INDEX_FIELD_DICT, "INDEX_FIELD", MXFIELD_HOSTLIB); 
+      HOSTLIB.INDEX_FIELD = (short int*)malloc(MEMS);      MEMTOT += (float)MEMS;
+    }
+
+    /* xxx mark del Oct 21 2026
     HOSTLIB.FIELD_ZSORTED = (char**)malloc( MEMCp );
     MEMC = MXCHAR_FIELDNAME * sizeof(char) ;
-
     for ( igal=0; igal <= NGAL; igal++ )  {
       HOSTLIB.FIELD_ZSORTED[igal] = (char*)malloc(MEMC) ;
-      MEMTOT += (double)MEMC ;
+      MEMTOT += (float)MEMC ;
     }
+    xxxxxxxxx end mark xxxxx*/
   }
 
   if ( DO_NBR ) {
     HOSTLIB.NBR_ZSORTED = (char**)malloc( MEMCp ) ;
-    MEMTOT += (double)MEMCp ;
-
+    MEMTOT += (float)MEMCp ;
   }
 
 
   // allocate memory and load ZSORT need for sorting routine
   ZSORT = (double*)malloc( (NGAL+1) * sizeof(double) ); 
-
 
   // - - - -
   printf("\t %s malloc-sum: %.2f MB \n", fnam, MEMTOT*1.0E-6);
@@ -3949,8 +3955,6 @@ void sortz_HOSTLIB(void) {
   HOSTLIB.VPEC_MIN = HOSTLIB.VPEC_MAX = 0.0 ;
   VSUM = VSUMSQ = 0.0;
 
-  if ( HOSTLIB.OPT_FIELD_MATCH ) 
-    { init_string_dict( &HOSTLIB.INDEX_FIELD_DICT, "INDEX_FIELD", MXFIELD_HOSTLIB); }
 
   // fill sorted array. 'igal' is the z-sorted index; 
   // 'unsort' is the  un-sorted index matching the original HOSTLIB order.
@@ -3968,7 +3972,11 @@ void sortz_HOSTLIB(void) {
 
       if ( HOSTLIB.OPT_FIELD_MATCH ) {  // --> user input HOSTLIB_FIELD_MAP
 	index_field = (int)get_string_dict(0, ptr_UNSORT, &HOSTLIB.INDEX_FIELD_DICT );
-	if ( index_field < 0 ) { 
+	if ( index_field >= 0 ) { 
+	  HOSTLIB.INDEX_FIELD[igal] = index_field ;
+	}
+	else {
+	  HOSTLIB.INDEX_FIELD[igal] = nfield_unique ;
 	  VAL = (double)nfield_unique;
 	  load_string_dict(&HOSTLIB.INDEX_FIELD_DICT, ptr_UNSORT, VAL);
 
@@ -4311,13 +4319,6 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   }
 
 
-  //debugexit(fnam);
-  /* xxx end mark
-  printf("\t Interpolate WGTMAP for each galaxy (%.2f MB) ... \n",
-	 HOSTLIB_WGTMAP.MEMTOT_MB ) ;  fflush(stdout);
-  xxx*/
-
-
   // - - - - - - - - 
   NDIM = HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
   NROW = HOSTLIB_WGTMAP.GRIDMAP.NROW ;
@@ -4371,7 +4372,9 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       // and set WGTSUM = WGTSUM for previous galaxy.
 
       if ( OPT_FIELD_MATCH ) { 
+	// xxx mark printf(" 2a. xxx %s: igal=%d \n", fnam, igal); fflush(stdout);
 	setDefault_HOSTLIB_WGTSUM_BY_FIELD(igal); // set all WGTSUM[igal] = WGTSUM[igal-1]
+
 	if ( INDEX_FIELD != HOSTLIB.INDEX_FIELD[igal] )
 	  { WGT = MAGSHIFT = 0.0; goto WGTSUM; }	
       }
@@ -4548,7 +4551,8 @@ void malloc_HOSTLIB_WGTMAP(int index_field) {
     // allocate field-dependent WGTSUMs
     PTR_WGTSUM             = &HOSTLIB_WGTMAP.WGTSUM_BY_FIELD[index_field] ;
     PTR_WGTSUM_SNVAR       = &HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[index_field] ;
-    sprintf(ctmp,"FIELD=%s subset of HOSTLIB", HOSTLIB.FIELD_UNIQUE_LIST[index_field] );
+    sprintf(ctmp,"FIELD=%s subset %d of HOSTLIB", 
+	    HOSTLIB.FIELD_UNIQUE_LIST[index_field], index_field );
   }
 
 
@@ -4601,7 +4605,7 @@ void malloc_HOSTLIB_WGTMAP(int index_field) {
   else {
     // HOSTLIB vars only
 
-    *PTR_WGTSUM      = (double *)malloc(MEMD2); // malloc each field
+    *PTR_WGTSUM = (double *)malloc(MEMD2); // malloc each field
     MEMTOT += (float)MEMD2 ;
 
     if(LDMP) { printf(" 3. xxx %s \n", fnam); fflush(stdout); }
@@ -5002,8 +5006,8 @@ void init_FIELD_MAP_HOSTLIB(void) {
   malloc_strlist(+1, MXFIELD_HOSTLIB, MXCHAR_FIELDNAME, &ptr_FIELD  );
 
   // split string by comma
-  splitString(FIELD_MAP, COMMA, fnam, MXFIELD_HOSTLIB,    // inputs                                             
-              &NMAP, ptr_MAP );                           // outputs                                                   
+  splitString(FIELD_MAP, COMMA, fnam, MXFIELD_HOSTLIB,    // inputs  
+              &NMAP, ptr_MAP );                           // outputs 
 
   char FIELD_HOSTLIB[MXCHAR_FIELDLIST], FIELDLIST_SIMLIB[MXCHAR_FIELDLIST];
   char FIELD_SIMLIB[MXCHAR_FIELDNAME];
@@ -5050,7 +5054,7 @@ void setDefault_HOSTLIB_WGTSUM_BY_FIELD(int igal) {
   // For each FIELD, set default WGTSUM equal to previous WGTSUM
   int ifld;
   double *ptr_WGTSUM ;
-  char fnam[] = "setDefault_HOSTLIB_WGTSUM_BY_FIELD" ;
+  char fnam[] = "setDefault_HOSTLIB_WGTSUM_BY_FIELD" ;  (void)fnam;
   // ------------ BEGIN ----------
 
   if ( !HOSTLIB.OPT_FIELD_MATCH ) { return; }
@@ -5060,12 +5064,13 @@ void setDefault_HOSTLIB_WGTSUM_BY_FIELD(int igal) {
   for(ifld=0; ifld < HOSTLIB.NFIELD_UNIQUE; ifld++ ) {
     ptr_WGTSUM = HOSTLIB_WGTMAP.WGTSUM_BY_FIELD[ifld];
     if(igal == 0 ) 
-      { ptr_WGTSUM[0] = 0.0; }
+      { ptr_WGTSUM[igal] = 0.0; }
     else
       { ptr_WGTSUM[igal] = ptr_WGTSUM[igal-1]; }
   }
 
   return;
+
 } // end setDefault_HOSTLIB_WGTSUM_BY_FIELD
 
 // =====================================
@@ -6371,7 +6376,14 @@ void LOAD_FIELD_HOSTLIB(char *FIELD_SIMLIB) {
 
   if ( !OPT_FIELD_MATCH ) { return; }
 
-  index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.FIELD_MAP_DICT );
+  index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.INDEX_FIELD_DICT );
+
+  if ( index_field < 0 ) {
+    sprintf(c1err,"Invalid index_field = %d for FIELD_SIMLIB=%s", index_field, FIELD_SIMLIB);
+    sprintf(c2err,"for CID=%d  OPT_FIELD_MATCH=%d", GENLC.CID, OPT_FIELD_MATCH );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+ 
   sprintf(SNHOSTGAL.FIELD_HOSTLIB,"%s", HOSTLIB.FIELD_UNIQUE_LIST[index_field] );
   SNHOSTGAL.INDEX_FIELD = index_field ;
 
@@ -6420,7 +6432,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double DZPTR          = DZPTR_HOSTLIB ;
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
-  int OPT_FIELD_MATCH   = HOSTLIB.OPT_FIELD_MATCH;
+  // xxx mark delete  int OPT_FIELD_MATCH   = HOSTLIB.OPT_FIELD_MATCH;
 
   int NGROUPID = SIMLIB_HEADER.NGROUPID_HOSTLIB;
 
@@ -6905,7 +6917,7 @@ void init_event_SNHOSTGAL(void) {
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
   SNHOSTGAL.FIELD_SIMLIB[0]    = 0;
-  SNHOSTGAL.FIELD_HOSTLIB[0]   = 0;
+  // xxx mark  SNHOSTGAL.FIELD_HOSTLIB[0]   = 0;  // init'ed in snlc_sim
   SNHOSTGAL.INDEX_FIELD        = -9;
 
   SNHOSTGAL.CDFWGT_TARGET = -9.0 ;
@@ -10011,7 +10023,7 @@ void set_HOSTLIB_WGTSUM_POINTER(void) {
   int  ibin_SNVAR ;
   char fnam[] = "set_HOSTLIB_WGTSUM_POINTER" ;  (void)fnam;
 
-  // ---------- BEGIN ---------- .xyz
+  // ---------- BEGIN ---------- 
 
   if ( N_SNVAR > 0 ) {
     ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;

@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-#
+# 
+#  TO-DO: give sensible error message if one of the columns has blank string
+# 
 # Created by B.Popovic during his graduate career at Duke University.
 # Installed into SNANA Jun 24 2024 by R.Kessler
 # Refactor to have __main__, and add translate_VARIABLE and tranlate_CUT
@@ -1999,6 +2001,8 @@ def set_xbins(args, plot_info):
         # Make sure get min/max among all tables
         xmin =  1.0E20
         xmax = -1.0e20
+
+        tmp_list = list(MASTER_DF_DICT)
         for key_tf  in MASTER_DF_DICT:
             xmin = min(xmin,MASTER_DF_DICT[key_tf]['xmin'])
             xmax = max(xmax,MASTER_DF_DICT[key_tf]['xmax'])

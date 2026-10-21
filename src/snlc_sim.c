@@ -9838,6 +9838,8 @@ void  init_event_GENLC(void) {
   // Oct 3 2026: Init a few SNHOSTGAL variables in case GEN_SNHOST_DRIVER is not called
   SNHOSTGAL.GALID = INPUTS.HOSTLIB_GALID_NULL ;
   SNHOSTGAL.ZTRUE = 0.0001 ; // beware: setting this to -9 will change random sync
+  sprintf(SNHOSTGAL.FIELD_HOSTLIB,"NONE"); // protect SIMGEN_DUMP if no HOSTLIB
+
   return ;
  
 }  // end of init_event_GENLC

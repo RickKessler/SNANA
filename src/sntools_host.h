@@ -214,6 +214,7 @@ struct HOSTLIB_DEF {
   int  OPT_FIELD_MATCH ;
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
+  short int  *INDEX_FIELD ; //.xyz 
   char *FIELD_UNIQUE_LIST[MXFIELD_HOSTLIB] ; // unique list of HOSTLIB fields
   int   NFIELD_UNIQUE;
   STRING_DICT_DEF INDEX_FIELD_DICT ;  // dict[host_field]   = sparse index 0 to NFIELD-1
@@ -459,6 +460,11 @@ struct HOSTLIB_WGTMAP_DEF {
   short int *I2MAGSHIFT ;  // SN mag shift for each hostlib entry
   short int **I2MAGSHIFT_SNVAR ;    // idem
 
+  // define global pointer for each event to point to WGTSUM[_SNVAR] or
+  // WGTSUM[_SNVAR]_BY_FIELD, and same for I2MAGSHIFT
+  double    *ptr_WGTSUM; 
+  short int *ptr_I2MAGSHIFT;
+
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int       NCHECKLIST ;
   int       CHECKLIST_IGAL[MXCHECK_WGTMAP] ;  // sparse pointer
@@ -548,6 +554,7 @@ struct SNHOSTGAL {
   double MAGOBS_ERR_SCALE ; // based on user input HOSTLIB_SNR_SCALE
   char   FIELD_SIMLIB[MXCHAR_FIELDNAME];   // passed from SIMLIB
   char   FIELD_HOSTLIB[MXCHAR_FIELDNAME];  // mapped HOSTLIB field to match
+  int    INDEX_FIELD;  
 
   int    NNBR_DDLRCUT;   // number of nearby galaxies passing MAXDDLR
   int    NNBR_DDLRCUT2;  // number of nearby galaxies passing MAXDDLR2 (9.2022)
@@ -698,7 +705,7 @@ void   FREEHOST_GALID(int IGAL) ;
 void   checkAbort_noHOSTLIB(void) ;
 void   checkAbort_HOSTLIB(void) ;
 
-void   STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR);
+void   STORE_SNHOST_MISC(int IGAL);
 double modelPar_from_SNHOST(double parVal_orig, char *parName);
 void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
@@ -754,6 +761,8 @@ void   zptr_HOSTLIB(void);
 double transform_ZTRUE_HOSTLIB(int igal); 
 
 void   init_FIELD_MAP_HOSTLIB(void);
+void   setDefault_HOSTLIB_WGTSUM_BY_FIELD(int igal);
+
 void   init_HOSTLIB_ZPHOTEFF(void);
 void   init_HOSTLIB_QUANTILE_ZPHOT(void);
 void   init_GALMAG_HOSTLIB(void);
@@ -773,6 +782,8 @@ void   append_HOSTLIB_STOREPAR(void);
 void   strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
 				       char *VARLIST_WGTMAP_noSNVAR);
 
+void   set_HOSTLIB_WGTSUM_POINTER(void);
+void   set_HOSTLIB_I2MAGSHIFT_POINTER(void);
 void   LOAD_FIELD_HOSTLIB(char *FIELD);
 bool   QstringMatch(char *varName0, char *varName1);
 

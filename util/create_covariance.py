@@ -191,6 +191,8 @@
 #
 # Mar 24 2026 Rujuta P: col_iz = HD[VARNAME_iz] --> HD[VARNAME_iz].to_numpy()
 #
+# Oct 20 2026: change default to use factorized cov and Woodbury identity (see git issue #1812)
+#
 # ===============================================
 
 import os, argparse, logging, shutil, time, datetime, subprocess
@@ -234,8 +236,8 @@ WRITE_MASK_COVTOT_INV   = 2
 WRITE_MASK_COVTOT       = 4
 WRITE_MASK_FACTORIZED  = 8  # covtot in compact factorized form (Sep 2026)
 
-WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
-#WRITE_MASK_COV_DEFAULT  = WRITE_MASK_FACTORIZED  # change to this default when ready (Sep 28 2026)
+#WRITE_MASK_COV_DEFAULT  = WRITE_MASK_COVTOT_INV  # write only covtot_inv (Apr 14 2025)
+WRITE_MASK_COV_DEFAULT  = WRITE_MASK_FACTORIZED  # implemented new default, Oct 20 2026
 
 WRITE_FORMAT_COV_TEXT   = "text"
 WRITE_FORMAT_COV_NPZ    = "npz"

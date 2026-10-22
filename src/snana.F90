@@ -4272,7 +4272,8 @@
 ! May 11 2022: read ZPHOT_Q
 ! Dec 01 2025: read HOSTGAL_MAGERR
 ! Apr 08 2026: read HOSTGALz array(s)
-      
+! Oct 22 2026: abort on SNHOST_NMATCH2 < SNHOST_NMATCH
+
     USE SNDATCOM
     USE SNLCINP_NML
     USE FILTCOM
@@ -4285,7 +4286,7 @@
     CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60
     REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
-! -------------- BEGIN ----------
+! -------------- BEGIN RDHEAD_HOSTGAL ----------
 
     CALL SET_HOSTGAL_PREFIX(IGAL,PREFIX,LENPRE)
 
@@ -4302,6 +4303,13 @@
               ONE, STRING, DARRAY, OPT)
        SNHOST_NMATCH2 = INT(DARRAY(1))
 
+       if ( SNHOST_NMATCH2 < SNHOST_NMATCH ) then
+          write(C1ERR,601) SNHOST_NMATCH2, SNHOST_NMATCH
+601       format('Invalid SNHOST_NMATCH2=',I2,' < SNHOST_NMATCH=',I2)
+          C2ERR = 'SNHOST_NMATCH2 must be >= SNHOST_NMATCH; check data file construction'
+          CALL MADABORT("RDHEAD_HOSTGAL", C1ERR, C2ERR)  
+       endif
+       
        KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
        CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
        DO ifilt = 1, NFILTDEF_READ

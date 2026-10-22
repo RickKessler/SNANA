@@ -24290,6 +24290,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snana.exe 
       + for VERSION_REFORMAT option with sim data, copy SIMGEN_DUMP file.
       + write HOSTGAL_FLAG to table
+      + add abort traps for corrupt HOST data (for LSST-DP2)
 
     snlc_sim.h:  MXOBS_SPECTROGRAPH = 50 -> 200 for Roman
 

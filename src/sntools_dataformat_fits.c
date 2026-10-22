@@ -3756,7 +3756,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 1; }
 
 	// older FITS files don't have NMATCH, so load it here.
-	if ( SNFITSIO_CODE_IVERSION <= 4 ) { SNDATA.HOSTGAL_NMATCH[0] = 1; }
+	if ( SNFITSIO_CODE_IVERSION <= 4 ) {
+	  SNDATA.HOSTGAL_NMATCH[0] = 1;
+	  SNDATA.HOSTGAL_NMATCH[1] = 1; // Oct 22 2026
+	}
       }
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
@@ -4456,9 +4459,10 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun) {
   // Jan 11, 2022: read optional NZPHOT_Q A. Gagliano
   // Jun 24, 2022: call rd_snfitsio_check_gzip() to abort if both
   //                unzip and gzip files exist.
-  // July 23 2025: read ZP_FLUXCAL
+  // Jul 23 2025: read ZP_FLUXCAL
   // Aug 26 2026: pass calFun for messages
-
+  // Oct 22 2026: print CODE_IVERSION
+  
   fitsfile *fp ;
   int istat, itype, istat_spec, hdutype, nrow, nmove = 1, FLAG  ;
   char keyname[60], comment[200], *ptrFile ;
@@ -4481,7 +4485,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun) {
   sprintf(c1err,"Open %s", rd_snfitsFile[ifile][itype] );
   snfitsio_errorCheck(c1err, istat);
 
-  if ( vbose ) { printf("   Open %s  \n",  rd_snfitsFile[ifile][itype] ); }
+  if( vbose )
+    { printf("   Open %s  \n",  rd_snfitsFile[ifile][itype] ); fflush(stdout); }
 
   fp = fp_rd_snfitsio[itype] ;
 
@@ -4494,6 +4499,9 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun) {
   if ( istat ) { SNFITSIO_CODE_IVERSION = 1; } // no key -> default 
   istat = 0;  // reset in case CODE_IVERSION key does not exist.
 
+  if ( vbose )
+    { printf("\t [CODE_IVERSION = %d] \n", SNFITSIO_CODE_IVERSION); fflush(stdout); }
+  
   // - - - - - - - -
   // Oct 2020: read SNANA_VERSION in header
   // Jan 12 2021: if no SNANA_VERSION key, replace v10_30 with UNKNOWN

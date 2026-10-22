@@ -1596,7 +1596,7 @@
   END SUBROUTINE FITPAR_INI2
 
 ! ===========================================
-    SUBROUTINE FITPAR_END(IERR)
+  SUBROUTINE FITPAR_END(IERR)
 ! 
 ! User end-routine after all analysis/fits are done.
 ! [close files, summarize statistics, global analysis, etc ...]
@@ -1630,37 +1630,39 @@
   END SUBROUTINE FITPAR_END
 
 ! ==========================================
-    SUBROUTINE FITPAR_PREP ( iter, IERR )
-! 
-! For each "isn" supernova, this user-routine is used to
-! initialize global variables used as input to the fitter:
-! 
-! NFITPAR             = number of fit parameters
-! PARNAME_STORE(1:NFITPAR)  = name of each parameters (<= 10 bytes)
-! INIVAL(1:NFITPAR)   = initial value
-! INISTP(1:NFITPAR)   = initial step size (0 => fixed parameter!)
-! 
-! 
-! Useful notes:
-! 
-! 
-! It is highly recommened that the first fit parameter
-! is INIVAL(1) = DBLE(ISN)  with INISTP(1) = 0.0
-! You will need this index in FCNSNLC to get information
-! about a particular SN.
-! Another useful init is to set your initial MJD_AT_PEAK equal  to
-! SNLC_SEARCH_PEAKMJD(isn) from Masao's LC fitter during the survey.
-! 
-! 
-! Fill MAG_XTMW_REF(ifilt_obs)  so that  USRFUN
-! can make the same approx MilkyWay correction that was
-! applied to data.
-! 
-! 
-! Mar 19 2024: set MASK_PHOTOZ_SOURCE
-! 
-! ----------------------------------------
-
+  SUBROUTINE FITPAR_PREP ( iter, IERR )
+    ! 
+    ! For each event, this user-routine is used to
+    ! initialize global variables used as input to the fitter:
+    ! 
+    ! NFITPAR             = number of fit parameters
+    ! PARNAME_STORE(1:NFITPAR)  = name of each parameters (<= 10 bytes)
+    ! INIVAL(1:NFITPAR)   = initial value
+    ! INISTP(1:NFITPAR)   = initial step size (0 => fixed parameter!)
+    ! 
+    ! 
+    ! Useful notes:
+    ! 
+    ! It is highly recommened that the first fit parameter
+    ! is INIVAL(1) = DBLE(ISN)  with INISTP(1) = 0.0
+    ! You will need this index in FCNSNLC to get information
+    ! about a particular SN.
+    ! Another useful init is to set your initial MJD_AT_PEAK equal  to
+    ! SNLC_SEARCH_PEAKMJD(isn) from Masao's LC fitter during the survey.
+    ! 
+    ! Fill MAG_XTMW_REF(ifilt_obs)  so that  USRFUN
+    ! can make the same approx MilkyWay correction that was
+    ! applied to data.
+    !
+    !            HISTORY
+    ! Mar 19 2024: set MASK_PHOTOZ_SOURCE
+    !
+    ! Oct 22 2026;
+    !  + if BESTZ option and PRIOR_ZERRSCALE is not set by user,
+    !              set PRIOR_ZERRSCALE = 1.0. Logic moved from
+    !  + minor REFAC so that SET_REDSHIFT_PRIOR is called after PRIOR_ZERRSCALE -> 1
+    ! ----------------------------------------
+    
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -1685,8 +1687,10 @@
     LOGICAL  & 
          USE_FILT_ITER1(MXFILT_ALL)  & 
         ,FIRST_ITER, NEXT_ITER, NOMATCH, LAMFAIL, LPRINT  & 
-        ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, LDMP_MASK
+        ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, LDMP_MASK, L_BESTZ
 
+    LOGICAL REFAC_SET_REDSHIFT_FIT
+    
 ! functions
 
     LOGICAL LFITFUN_FILT, FIRST_ITERATION, IS_ZSPEC
@@ -1694,6 +1698,8 @@
 
 ! ---------- BEGIN FITPAR_PREP -------------
 
+    REFAC_SET_REDSHIFT_FIT = .TRUE.
+    
     IERR = 0  ! init to OK
     LPRINT = STDOUT_UPDATE
 
@@ -1761,57 +1767,63 @@
 ! set global REDSHIFT_FIT to use for things like
 ! getting rest-frame filters and Trest values.
 
-    CALL SET_REDSHIFT_FIT(iter)
-
-    Z8 = DBLE(REDSHIFT_FIT)
-    Z4 = REDSHIFT_FIT       ! ensure 4-byte redshift variable
-
+    if ( .NOT. REFAC_SET_REDSHIFT_FIT ) then
+       CALL SET_REDSHIFT_FIT(iter)
+       Z8 = DBLE(REDSHIFT_FIT)
+       Z4 = REDSHIFT_FIT       ! ensure 4-byte redshift variable
+       Z8TEST = Z8
+       if ( DOFIT_PHOTOZ ) Z8TEST = -9.0
+    endif
+    
 ! ---------------------------------
 ! set redshift-arg for LFITFUN_FILT (below)
 ! For photoz fit set Z8TEST=-9 so that z-dependent tests are
 ! skipped ; they are applied in PHOTOZ_ANA (after 1st fit) instead.
 
-    Z8TEST = Z8
+
     IF ( DOFIT_PHOTOZ ) THEN
-      Z8TEST = -9.0
 
 ! reset DROPFILTER array in first iteration only
-      if ( FIRST_ITER ) then
+       if ( FIRST_ITER ) then
 
-! Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
-        MASK_PHOTOZ_SOURCE = 0
+          ! Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
+          MASK_PHOTOZ_SOURCE = 0
 
-        LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
-        LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
-        LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
-        LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
-
-        if ( LPZ_Q ) then
-!           use z_spec prior or quantiles; ignore zPHOT point estimate
-          if ( LZSPEC ) then
-              bit = BIT_BESTZ_GAUSS  ! use zspec prior if available and requested
-          else
-              bit = BIT_PHOTOZ_QUANTILES
+          LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
+          LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
+          LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
+          LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
+          
+          if ( LPZ_Q ) then
+             !           use z_spec prior or quantiles; ignore zPHOT point estimate
+             if ( LZSPEC ) then
+                bit = BIT_BESTZ_GAUSS  ! use zspec prior if available and requested
+             else
+                bit = BIT_PHOTOZ_QUANTILES
+             endif
+             MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT)
+             
+          else if ( LPZ_BEST ) then
+             MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
+          else if ( LPZ_HOST ) then
+             MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
           endif
-          MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT)
 
-        else if ( LPZ_BEST ) then
-           MASK_PHOTOZ_SOURCE =  & 
-                IBSET(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
-        else if ( LPZ_HOST ) then
-           MASK_PHOTOZ_SOURCE =  & 
-                IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
-        endif
-
+          ! - - - - 
+          L_BESTZ = BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
+          if ( L_BESTZ .and. PRIOR_ZERRSCALE == 1000.01 ) then
+             PRIOR_ZERRSCALE = 1.0  ! auto-set since users are likely to forget
+             !print*,' xxx FITPAR_PREP: set PRIOR_ZERRSCALE = 1' ; call flush(6) ! .xyz
+          endif
+        
 ! - - - - - - -
-        LDMP_MASK = .FALSE.
-        if ( LDMP_MASK ) then
-           write(6,660) LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC,  & 
-                    MASK_PHOTOZ_SOURCE
+          LDMP_MASK = .FALSE.
+          if ( LDMP_MASK ) then
+             write(6,660) LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, MASK_PHOTOZ_SOURCE
 660          format(' xxx LPZ[HOST,BEST,Q]=',3L2, 3x, 'LZSPEC=',L2, 3x,  & 
-                 '--> MASK_PHOTOZ_SOURCE=',I5 )
-           call flush(6)
-        endif
+                  '--> MASK_PHOTOZ_SOURCE=',I5 )
+             call flush(6)
+          endif
 
 ! --------------------
         DO 220 ifilt_obs = 1,  MXFILT_ALL
@@ -1840,6 +1852,15 @@
 
     ENDIF  ! end of DOFIT_PHTOOZ
 
+    ! - - - - - 
+    if ( REFAC_SET_REDSHIFT_FIT ) then
+       CALL SET_REDSHIFT_FIT(iter)
+       Z8 = DBLE(REDSHIFT_FIT)
+       Z4 = REDSHIFT_FIT       ! ensure 4-byte redshift variable
+       Z8TEST = Z8
+       IF ( DOFIT_PHOTOZ ) Z8TEST = -9.0  ! no test for zphot
+    endif
+    
 ! ---------------------------------
 ! count how many filters to fit;
 ! a fit filter must:
@@ -1878,11 +1899,8 @@
 ! set USE_FILT based on user-request, existence,
 ! and valid rest-frame filter.
 
-       USE_FILT(ifilt_obs) =  & 
-            LFITFUN_FILT(ifilt_obs,Z8TEST)
-
-       NOMATCH  =  & 
-           USE_FILT_ITER1(ifilt_obs) .NEQV. USE_FILT(ifilt_obs)
+       USE_FILT(ifilt_obs) = LFITFUN_FILT(ifilt_obs,Z8TEST)
+       NOMATCH  = USE_FILT_ITER1(ifilt_obs) .NEQV. USE_FILT(ifilt_obs)
 
 ! print message if observer-filter is dropped or added on 2nd iteration
        if ( NEXT_ITER .and. NOMATCH .and. STDOUT_UPDATE ) THEN
@@ -7120,7 +7138,7 @@
    ! But note PRIOR_ZERRSCALE=1000.01 by default
        OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
     endif
-
+    
 ! Set non-zero step-size for PHOTOZ or DLMAG,
 ! depending on type of fit.
     if ( DOCHI2_SIGMA) OPT_CHI2_SIGMA = MASK_CHI2_SIGMA_ERRTOT  ! Preserve original option WDK
@@ -8361,12 +8379,10 @@
     INTEGER IFLAG
     REAL*8  GRAD(MXFITPAR), CHI2GUESS, CHI2 
     REAL*8 GET_DIST8, USRFUN
-    LOGICAL LEGACY
     EXTERNAL USRFUN, init_zPDF_spline
 
-! --------------- BEGIN -----------------
+! --------------- BEGIN FITINI_PHOTOZ -----------------
 
-    LEGACY = (DEBUG_FLAG == -202)  ! undo Feb 2 2026 fix below 
 
     IERR = 0
     FNAM = 'FITINI_PHOTOZ'
@@ -8431,19 +8447,15 @@
     STD       = 0.0
     PHOTODZ_REJECT = PHOTODZ_REJECT_ORIG ! Nov 2024
 
-    IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
+    IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! best-z prior
       INIVAL(ipar) = SNLC_REDSHIFT
       STD          = SNLC_REDSHIFT_ERR
       CZTMP        = 'zBEST-Gauss'
-
-
-      if ( .NOT. LEGACY) THEN
-          LZDONE       = .TRUE.  ! Feb 2 2026 fix
-      endif
+      LZDONE       = .TRUE.  ! Feb 2 2026 fix
 
 ! Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
-      if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
-
+      ! xxx mark del 10.22.2026 if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
+      
       if ( SNLC_REDSHIFT_ERR < 0.05 ) then ! avoid crazy zSpec err
          PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
       endif
@@ -8687,15 +8699,15 @@
   END SUBROUTINE PRINT_INIPAR_ZPHOT
 
 ! ====================================
-    SUBROUTINE INIPAR_PHOTOZ_COURSEGRID(CHI2INI,LZFIX)
+  SUBROUTINE INIPAR_PHOTOZ_COURSEGRID(CHI2INI,LZFIX)
 
-! Created July 12 2019
-! Estimate initial photo-z parameters using course grid.
-! [Code moved from FITINI_PHOTOZ]
-!
-! Dec 11 2025; 
-!   + set OPT_CHI2_SIGMA=0 and restore value after completion
-!   + add optional PKMJD loop
+    ! Created July 12 2019
+    ! Estimate initial photo-z parameters using course grid.
+    ! [Code moved from FITINI_PHOTOZ]
+    !
+    ! Dec 11 2025; 
+    !   + set OPT_CHI2_SIGMA=0 and restore value after completion
+    !   + add optional PKMJD loop
 
     USE SNDATCOM
     USE SNANAFIT
@@ -8718,7 +8730,7 @@
     REAL*8 ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
     REAL*8 RESTLAMBDA_SAVE(2) 
-    INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER
+    INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER, LDMP
     REAL SCALE_ALL
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
@@ -8730,7 +8742,7 @@
 ! ------------- BEGIN ------------
 
     MARK_USED(ZBIN)
-
+    LDMP = 0
     FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
     
     ITER  = 1
@@ -8779,7 +8791,16 @@
        ZMAX  = ZBND_MAX
     ENDIF
 
-
+    if ( LDMP > 0 ) then
+       print*,' xxx ------------------ '
+       print*,' xxx CID  ', SNLC_CCID 
+       print*,' xxx RANGEz_COURSE_PHOTOZ = ', RANGEz_COURSE_PHOTOZ
+       print*,' xxx DOFIT_PHOTOZ_HOST = ', DOFIT_PHOTOZ_HOST
+       print*,' xxx PRIOR_PHOTOZ[_ERR] = ', PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR
+       print*,' xxx ZMIN, ZMAX = ', ZMIN, ZMAX
+       call flush(6)
+    endif
+    
     ! - - - - -  - -
     CALL SET_COURSEBIN_PHOTOZ(IPAR_COLOR, ITER,  & 
          NCBIN, CBIN, CMIN, CMAX)  ! output
@@ -13863,36 +13884,41 @@
 
     IMPLICIT NONE
 
-    INTEGER  & 
-        iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
+    INTEGER iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
 
 ! local
-    INTEGER NQZPHOT
-    REAL Zhost
-
-! ---------------- BEGIN ---------------
+    INTEGER NQZPHOT, LDMP
+    REAL    Zhost
+    
+! ---------------- BEGIN SET_REDSHIFT_FIT ---------------
 
     REDSHIFT_FIT = SNLC_REDSHIFT  ! start with "best" Z
 
     DOFIT_PHOTOZ_HOST   =  .FALSE.
     DOFIT_PHOTOZ_noHOST =  .FALSE.
 
+    LDMP = 0
 ! -------------------------------
 
     IF ( DOFIT_PHOTOZ ) THEN
 
 ! check for host photoZ
-
       Zhost    = SNHOST_ZPHOT(1)
-
-
-      NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
+      NQZPHOT  = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
       DOFIT_PHOTOZ_HOST =  & 
-           (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
+           (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE < 30.0)
 
       DOFIT_PHOTOZ_noHOST = .NOT. DOFIT_PHOTOZ_HOST
 
+      if ( LDMP > 0 ) then
+         print*,' xxx ------------------------------------------------- '
+         print*,' xxx DUMP for SET_REDSHIFT_FIT, CID=', SNLC_CCID
+         print*,' xxx ZHOST, NQZPHOT    = ', zhost, NQZPHOT
+         print*,' xxx PRIOR_ZERRSCALE   = ', PRIOR_ZERRSCALE
+         print*,' xxx DOFIT_PHOTOZ_HOST = ', DOFIT_PHOTOZ_HOST
+         call flush(6)
+      endif
 ! --------------------------------------------
 
        if ( ITER.EQ. 1 .and. DOFIT_PHOTOZ_HOST  )  then
@@ -18477,7 +18503,7 @@
 
       xi      = float(i) - 0.5
       TOBS    = TMIN + TBIN * xi
-      WAVECOR = 0.0  ! .xyz ??
+      WAVECOR = 0.0  
       VFILTOBS(NOBS)      = IFILT_OBS
       VMJD(NOBS)          = TOBS + PKMJD + MJDOFF
       VTOBS(NOBS)         = TOBS

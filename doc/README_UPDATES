@@ -24236,20 +24236,20 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         after fixing a nasty bug that was missed. 
         See https://github.com/RickKessler/SNANA/issues/1810.
 
-    Merge Claude+Ayan PR https://github.com/RickKessler/SNANA/pull/1797
-    to implement much more efficient handling of cov matrices using
-    Woodbury factorization method. Code changes are in
+    Merge PR https://github.com/RickKessler/SNANA/pull/1797 (Ayan Mitra + Claude)
+    to implement much more efficient handling of cov matrices using Woodbury 
+    factorization method. Code changes are in
        submit_batch_jobs, create_covariance.py, wfit.c 
     Initial use requires create_cov arg "--write_mask_cov 8" (covtot_inv still default),
     but will later change default to use factorize method.
     Related tests in $SNDATA_ROOT/SNANA_TESTS/inputs_submit_batch have been expanded
-    to include COVTOT_INV and COVTOT_FACTORIZE.
+    to include COVTOT_INV and COVTOT_FACTORIZE. 
+    Oct 20 2026: changed create_covariance.py default to use Woodbury factorization.
 
     Makefile.am and sntools_output*
      + integrate npz-table code from Claude with goal of adding NPZ table format
        option along with TEXT and ROOT. NPZ should be MUCH faster to read.
        
-
     snana/sntools
       + init host NMATCH and NMATCH2 to -9 instead of 0 so that -9 means
         it is not defined in the data (older data doesn't have these keys).
@@ -24260,6 +24260,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_fit:
       + wrap up WAVECOR to correct filter transmissions per epoch in LCFIT
+      + in FITPAR_PREP, fix subtle init-ordering problem that caused incorrect
+        zPHOT fit on first event only (occurs with OPT_PHOTOZ += 2 and not 
+        setting PRIOR_ZERRSCALE=1)
 
     add diffsky_synthetic_photometry.py (from A.Mitra)
 
@@ -24269,7 +24272,6 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_02d) *****
 
-   
     sntools_output.cpp[h]
        + new utility SET_AUTOSTORE_ROWRANGE(...) to provide a prefix to set
          a row range for future searches. Initial use is for WAVECOR lookup.

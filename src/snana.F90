@@ -4302,7 +4302,7 @@
        CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NMATCH2",  & 
               ONE, STRING, DARRAY, OPT)
        SNHOST_NMATCH2 = INT(DARRAY(1))
-
+       
        if ( SNHOST_NMATCH2 >= 0 .and. SNHOST_NMATCH2 < SNHOST_NMATCH ) then
           write(C1ERR,601) SNHOST_NMATCH2, SNHOST_NMATCH, SNLC_CCID(1:ISNLC_LENCCID)
 601       format('Invalid HOST NMATCH2=',I2,' < NMATCH=',I2, ' for CID=',A )
@@ -4345,6 +4345,14 @@
     SNHOST_OBJID(igal)  = INT8(DARRAY(1))
     DSNHOST_OBJID(igal) = DARRAY(1)
 
+    ! xxxxxxxxx mark delete xxxxxxxxxx
+    !print*,' xxx ------------------------ '
+    !print*,' xxx SNID = ', SNLC_CID
+    !print*,' xxx NMATCH, NMATCH2 = ', SNHOST_NMATCH, SNHOST_NMATCH2
+    !print*,' xxx igal, DSNHOST_OBJID = ', igal, DSNHOST_OBJID(igal)  ! .xyz
+    !call flush(6)
+    ! xxxxxxxxx
+    
     KEY    = PREFIX(1:LENPRE)//'_FLAG'
     CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
     SNHOST_FLAG(igal)  = INT(DARRAY(1))
@@ -15133,7 +15141,7 @@
 ! init a few SNHOST arrays
 
     SNHOST_NMATCH            =  0
-    SNHOST_NMATCH2           = -9  ! allow this key to be missing in older data
+    SNHOST_NMATCH2           = -9
     SNHOST_CONFUSION         = -9.0
     do igal = 1, MXSNHOST
        SNHOST_FLAG(igal)        = 0

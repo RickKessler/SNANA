@@ -3650,6 +3650,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
     j++ ;  NRD = RD_SNFITSIO_INT(isn, "HOSTGAL_NMATCH2", 
 				 &SNDATA.HOSTGAL_NMATCH[1],
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
+
+    // Oct 22 2026: if NMATCH2 is not defined, set it equal to NMATCH
+    //  to avoid analysis confusion
+    if ( SNDATA.HOSTGAL_NMATCH[0] >= 0 && SNDATA.HOSTGAL_NMATCH[1] < 0 )
+      { SNDATA.HOSTGAL_NMATCH[1] = SNDATA.HOSTGAL_NMATCH[0]; }
     
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "HOSTGAL_CONFUSION", 
 				 &SNDATA.HOSTGAL_CONFUSION,

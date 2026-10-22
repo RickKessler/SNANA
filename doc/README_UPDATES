@@ -24250,6 +24250,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        option along with TEXT and ROOT. NPZ should be MUCH faster to read.
        
 
+    snana/sntools
+      + init host NMATCH and NMATCH2 to -9 instead of 0 so that -9 means
+        it is not defined in the data (older data doesn't have these keys).
+        With new abort trap on NMATCH2 < NMATCH, need to protect against
+        unecessary abort on older data that does not have these keys.
+
          *****  USEFUL(v12_02d) *****
 
     snlc_fit:

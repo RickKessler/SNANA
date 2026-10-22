@@ -3662,8 +3662,6 @@
        C2ERR = 'KEY = ' // KEY
        CALL MADABORT(FNAM, C1ERR, C2ERR)
     ENDIF
-!       print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
-
 
     LEN_STR   = INDEX(cSTRING,char(0)) - 1
     STRINGVAL = cSTRING(1:LEN_STR)
@@ -4272,7 +4270,9 @@
 ! May 11 2022: read ZPHOT_Q
 ! Dec 01 2025: read HOSTGAL_MAGERR
 ! Apr 08 2026: read HOSTGALz array(s)
-! Oct 22 2026: abort on SNHOST_NMATCH2 < SNHOST_NMATCH
+! Oct 22 2026: abort on SNHOST_NMATCH2 < SNHOST_NMATCH only if NMATCH2>=0;
+!              i.e., do not abort if SNHOST_NMATCH2 is undefined in older data
+!     
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -4303,13 +4303,15 @@
               ONE, STRING, DARRAY, OPT)
        SNHOST_NMATCH2 = INT(DARRAY(1))
 
-       if ( SNHOST_NMATCH2 < SNHOST_NMATCH ) then
-          write(C1ERR,601) SNHOST_NMATCH2, SNHOST_NMATCH
-601       format('Invalid SNHOST_NMATCH2=',I2,' < SNHOST_NMATCH=',I2)
-          C2ERR = 'SNHOST_NMATCH2 must be >= SNHOST_NMATCH; check data file construction'
-          CALL MADABORT("RDHEAD_HOSTGAL", C1ERR, C2ERR)  
+       if ( DEBUG_FLAG == 1022 ) then
+          if ( SNHOST_NMATCH2 >= 0 .and. SNHOST_NMATCH2 < SNHOST_NMATCH ) then
+             write(C1ERR,601) SNHOST_NMATCH2, SNHOST_NMATCH, SNLC_CCID(1:ISNLC_LENCCID)
+601          format('Invalid HOST NMATCH2=',I2,' < NMATCH=',I2, ' for CID=',A )
+             C2ERR = 'SNHOST_NMATCH2 must be >= SNHOST_NMATCH; check data file construction'
+             CALL MADABORT("RDHEAD_HOSTGAL", C1ERR, C2ERR)  
+          endif
        endif
-       
+
        KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
        CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
        DO ifilt = 1, NFILTDEF_READ
@@ -15133,7 +15135,7 @@
 ! init a few SNHOST arrays
 
     SNHOST_NMATCH            =  0
-    SNHOST_NMATCH2           =  0
+    SNHOST_NMATCH2           = -9  ! allow this key to be missing in older data
     SNHOST_CONFUSION         = -9.0
     do igal = 1, MXSNHOST
        SNHOST_FLAG(igal)        = 0

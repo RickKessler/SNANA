@@ -8698,7 +8698,9 @@ int init_SNDATA_GLOBAL(void) {
   // one-time init of global variables
   //
   // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
-  // Jun 30 2206: init SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME
+  // Jun 30 2026: init SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME
+  // Oct 22 2026: init NEPOCH=-9 to avoid potential bug on first event where last NEP=0
+
   int ifilt, ep, igal ;
   char fnam[] = "init_SNDATA_GLOBAL" ;  (void)fnam;
 
@@ -8727,6 +8729,8 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.VARNAME_SNRMON[0] =  0 ;
   SNDATA.DATATYPE[0]       =  0 ;
   SNDATA.ZP_FLUXCAL        = NULLFLOAT ; // Jul 2025
+
+  SNDATA.NEPOCH = -9; 
 
   SNDATA_FILTER.NDEF       =  0 ;
   SNDATA_FILTER.LIST[0]    =  0 ;
@@ -8790,9 +8794,12 @@ int init_SNDATA_EVENT(void) {
 
   int NEP_LAST = SNDATA.NEPOCH;
   int i_epoch, ifilt, i, igal ;
+  int LDMP=0 ;
   char fnam[] = "init_SNDATA_EVENT" ;  (void)fnam;
 
   // --------- BEGIN -----------------
+
+  if ( LDMP ) { printf(" 1. xxx %s start: NEP_LAST=%d \n", fnam, NEP_LAST); fflush(stdout); }
 
   sprintf(SNDATA.NAME_IAUC,      "UNKNOWN" );
   sprintf(SNDATA.NAME_TRANSIENT, "UNKNOWN" );
@@ -8836,8 +8843,10 @@ int init_SNDATA_EVENT(void) {
   SNDATA.MASK_REDSHIFT_SOURCE  = 0 ;
 
   // init HOSTGAL info
-  SNDATA.HOSTGAL_NMATCH[0] = 0;
-  SNDATA.HOSTGAL_NMATCH[1] = 0;
+  if ( LDMP ) { printf(" 2. xxx %s:  \n", fnam); fflush(stdout); }
+
+  SNDATA.HOSTGAL_NMATCH[0] = -9 ; // negative -> no key exists in header file
+  SNDATA.HOSTGAL_NMATCH[1] = -9 ;
   SNDATA.HOSTGAL_CONFUSION = -99.0;
   
   for(igal=0; igal<MXHOSTGAL; igal++ ) {  
@@ -9048,6 +9057,8 @@ int init_SNDATA_EVENT(void) {
 
   }  //  end i_epoch init loop
 
+
+  if ( LDMP ) { printf(" 3. xxx %s: done  \n", fnam); fflush(stdout); }
 
   return SUCCESS ;
 

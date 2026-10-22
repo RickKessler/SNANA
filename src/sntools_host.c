@@ -4926,6 +4926,8 @@ void init_GALMAG_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  HOSTLIB.NWARN_PSFMAX = 0;
+
   NR=0;  HOSTLIB.Aperture_PSFSIG[NR] = 0.0 ; 
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 0.03/2.35; // Added 9.28.2015 for WFIRST
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 0.07/2.35; // Added 5.22.2015 for WFIRST
@@ -4935,6 +4937,12 @@ void init_GALMAG_HOSTLIB(void) {
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 0.80/2.35; 
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 1.30/2.35;
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 2.10/2.35;
+
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 3.0/2.35; // Oct 21 2026 - for ATLAS
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 4.0/2.35; // idem
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 6.0/2.35; // idem
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 8.0/2.35; // idem
+
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = PSFMAX_SNANA/2.35 ;
 
   if ( NR != NMAGPSF_HOSTLIB ) {
@@ -5196,7 +5204,7 @@ void init_Gauss2d_Overlap(void) {
 } // end of init_Gauss2d_Overlap
 
 // ======================================
-double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
+double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG, char *callFun ) {
  
   //
   // Return interpolated GALMAG for this 
@@ -5210,12 +5218,15 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
   //
   // Mar 23 2021: if PSF is outside range of map, bring PSF withing
   //    range instead of abort.
+  //
+  // Oct 21 2026: write WARNING if PSF exceeds PSFMAX_SNANA
 
   int NPSF ;
   double GALMAG, PSFSIGmin, PSFSIGmax, PSFSIG_local ;
   double *PTRGRID_GALMAG, *PTRGRID_PSF ;
-  char fnam[] = "interp_GALMAG_HOSTLIB" ;  (void)fnam;
 
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "interp_GALMAG_HOSTLIB", fnam);
   // ------------- BEGIN -------------
   
   NPSF = NMAGPSF_HOSTLIB ;
@@ -5223,8 +5234,17 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
   PSFSIGmax = HOSTLIB.Aperture_PSFSIG[NPSF] ;
 
   PSFSIG_local = PSFSIG;
-  if ( PSFSIG < PSFSIGmin ) { PSFSIG_local = PSFSIGmin + 0.0001; }
-  if ( PSFSIG > PSFSIGmax ) { PSFSIG_local = PSFSIGmax - 0.0001; }
+  if ( PSFSIG < PSFSIGmin ) 
+    { PSFSIG_local = PSFSIGmin + 0.0001; }
+
+  if ( PSFSIG > PSFSIGmax ) { 
+    PSFSIG_local = PSFSIGmax - 0.0001; 
+    HOSTLIB.NWARN_PSFMAX++ ;
+    if ( HOSTLIB.NWARN_PSFMAX < 20 ) {
+      printf("WARNING(%s): PSFSIG(%c)=%5.2f -> %5.2f to stay under PSFSIGmax \n",
+	     fnam, FILTERSTRING[ifilt_obs], PSFSIG, PSFSIG_local ); fflush(stdout);
+    }
+  }
 
   // note that the zero'th element is total aperture,
   // so ignore it for interpolatio.
@@ -9814,7 +9834,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
-    SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig ) ;
+    SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig, fnam ) ;
     SB_MAG    += 2.5*log10(AREA); // normalize to 1 sq-arcsec
     arg     = -0.4*(SB_MAG - INPUTS.ZP_FLUXCAL) ;
     SB_FLUXCAL = pow(10.0,arg) ;

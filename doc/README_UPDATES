@@ -24293,6 +24293,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     snlc_sim.h:  MXOBS_SPECTROGRAPH = 50 -> 200 for Roman
 
+    snlc_sim/sntools.h: PSFMAX_SNANA = 5.0 -> 10.0 (for ATLAS); see git issue #1819
+
     sntools_dataformat_fits.c:
       + in rd_snfitsio_malloc(), increase string malloc from 40 to 60 bytes
           (fixes crash in  https://github.com/RickKessler/SNANA/issues/1799)

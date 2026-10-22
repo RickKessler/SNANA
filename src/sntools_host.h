@@ -29,6 +29,10 @@
  Aug 11 2023: MXROW_HOSTLIB -> 40M (was 10M)
  Oct 03 2023: MXROW_HOSTLIB -> 60M
 
+ Oct 21 2026: for ATLAS, increase PSFMAX_SNANA = 5 -> 10, and alter a few
+              other related variables as indicated in 
+              https://github.com/RickKessler/SNANA/issues/1819
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -77,7 +81,8 @@
 #define MAXRADIUS_SERSIC   100.0   // max R/Re value for integ table
 #define MINRADIUS_SERSIC  1.0E-4   // min R/Re value for integ table
 
-#define NRBIN_GALMAG        100    // No. of radius bins for Galmag 
+// xxx mark del  #define NRBIN_GALMAG        100    // No. of radius bins for Galmag 
+#define NRBIN_GALMAG        200    // No. of radius bins for Galmag 
 #define NTHBIN_GALMAG        36    // No. theta bins for galmag
 #define MXBIN_SERSIC_bn     2000   // max bins in Sersic_bn file
  
@@ -92,7 +97,8 @@ static const double MAXLOGZ_HOSTLIB = log10(ZMAX_SNANA)  ;
 #define ZMAX_HOSTLIB       pow(10.0,MAXLOGZ_HOSTLIB)
 #define ZMAX_STAR          0.001   // give warnings for ZTRUE < ZMAX_STAR
 
-#define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
+// xxx mark #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
+#define NMAGPSF_HOSTLIB   13    // number of aperture mags vs. PSF to compute (9->13, Oct 2026)
 #define DEG_ARCSEC    (1./3600.)  // 1 arcsec in deg.
 #define DEBUG_WGTFLUX2    0.0    // fix 2nd WGTFLUX if non-zero
 
@@ -296,6 +302,7 @@ struct HOSTLIB_DEF {
   double Aperture_Rmax ;   // max radius (arsec) to integrage gal flux
   double Aperture_Rbin ;   // radial integration bins size (arcsec)
   double Aperture_THbin ;  // azim. integration binsize (radians)
+  int    NWARN_PSFMAX;
 
   // pre-computed 2d-Gaussian integrals
   int    NGauss2d ;        // Number of Gauss2d entries
@@ -798,7 +805,7 @@ double get_ZTRUE_HOSTLIB(int igal);
 double get_VALUE_HOSTLIB(int ivar, int igal);
 double get_GALFLUX_HOSTLIB(double a, double b);
 
-double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ); 
+double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF, char *callFun ); 
 double Gauss2d_Overlap(double offset, double sig);
 void   magkey_HOSTLIB(int  ifilt_obs, char *key, char *key_err);
 void   set_usebit_HOSTLIB_MSKOPT(int MSKOPT);

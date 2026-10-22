@@ -26199,7 +26199,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {
     psfsig   = 1./2.355 ;     // typical PSF in arcsec 
-    mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs,psfsig );
+    mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig, fnam );
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;
     mag_dif  = mag_GAL - mag_SN ;
     if ( mag_SN < 98.0 ) {
@@ -27887,7 +27887,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   OVP = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT ;
   if ( OVP > 0 ) {
     // get galmag over NEA
-    galmag        = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig_arcsec ); 
+    galmag        = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig_arcsec, fnam ); 
     arg           = 0.4 * ( zpt - galmag );
     fluxgal_pe    = ccdgain * pow(10.0,arg);   // effec-aper flux in pe.
   }

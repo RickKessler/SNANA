@@ -6489,7 +6489,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
   int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
   int  IGAL_SELECT, igal_start, igal_end, igal;
   int  igal0, igal1, igal_middle;
-  int  igal_start_init, igal_end_init ;
+  int  igal_start_init, igal_end_init, igal_start_orig=0, igal_end_orig=0 ;
+  
   int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, USEHOST; 
   long long int GALID = -9 ;
   double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
@@ -6765,8 +6766,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
 
   // reset igal_start[end] for brute-force search below.
-  int igal_start_orig = igal_start;
-  int igal_end_orig   = igal_end;
+  igal_start_orig = igal_start;
+  igal_end_orig   = igal_end;
 
   NGAL_CHECK = 0 ;
   igal_start = igal0; // restrict igal search range based on binary search above

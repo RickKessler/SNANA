@@ -2586,11 +2586,11 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   *istat_cov = -1 ;
         
-  for (k=0;k<MATSIZE;++k)  { 
+  for (k=0; k < MATSIZE; k++)  { 
     eigvalOrig[k] = eigval[k] ;
     if ( eigval[k] < EIGMIN ) { eigval[k] = EIGMIN; }  
   }
-    
+ 
   for (l=0;l<MATSIZE;++l)  {
     for (m=0;m<MATSIZE;++m)  {
       covOrig[l][m] = covMat[l][m] ;
@@ -2601,13 +2601,15 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
     }
   }
 
-
   // --------------------------------------
   // check option to dump info for cov fix
   if ( LDMP ) {
     printf("xxx -------- %s DUMP for SN=%s ------------- \n",  fnam, name);
-    printf("xxx rsError=%i  Eigenval(mB,x1,c) = %f %f %f \n",
-	   ierr, eigvalOrig[0], eigvalOrig[1], eigvalOrig[2] );
+    printf("xxx rsError=%i \n",	ierr);
+
+    for(l=0; l < MATSIZE; l++ ) {
+      printf(" xxx Eigenval_orig[%d] = %f -> %f \n", l, eigvalOrig[l], eigval[l] ); 
+    }
     fflush(stdout);
 
     printf("xxx  COV_ORIG(mB,x1,c)       -->      COV_FIXED(mB,x1,c) \n");
@@ -6124,7 +6126,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   int    NBIN_SIGINT = 0,  N_ADJUST_SIGINT_HI = 0;
   double sigTmp_lo   = sigint_approx - (nbin_lo*sigint_bin) - 1.0E-7 ;
   double sigTmp_hi   = sigint_approx + (nbin_hi*sigint_bin) ;
-  double sigTmp, covTmp, covtot, pull ;
+  double sigTmp, covTmp, covtot=0.0, pull ;
   double sigTmp_store[MXSTORE_PULL], stdPull_store[MXSTORE_PULL], stdPull, avgPull ;
   double ONE = 1.0 ;
   bool BOUND_ONE = false;

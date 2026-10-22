@@ -4285,7 +4285,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, NROW, ibin, istat ;
-  int  NGAL, igal, isparse, IVAL, INDEX_FIELD=0 ;
+  int  NGAL, igal, isparse, IVAL, INDEX_FIELD = -9 ;
   short int I2MAG;
   bool LDMPWGT ;
 
@@ -4305,7 +4305,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   long long GALID, GALID_CHECK ;
 
   double
-    VAL, VALMIN, VALMAX, WGT, WGTSUM, WGTSUM_LAST, MAGSHIFT
+    VAL, VALMIN, VALMAX, WGT, WGTSUM, WGTSUM_LAST=0.0 , MAGSHIFT
     ,VAL_WGTMAP[MXVAR_HOSTLIB], VAL_SNVAR[MXVAR_HOSTLIB]
     ,ZTRUE, ZTRUE_CHECK, ZDIF, TMPVAL[2]
     ;
@@ -4355,13 +4355,23 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
     if ( N_SNVAR > 0 )  // fetch SN grid values
       { getVal_SNVAR_HOSTLIB_WGTMAP(ibin,VAL_SNVAR); }
+    
+    set_HOSTLIB_I2MAGSHIFT_POINTER(ibin);
 
-    WGTSUM_LAST = 0.0 ;
-    for ( igal=IGAL_START ; igal <= IGAL_END ; igal++ ) {  // loop over z-sorted igal
-	
+    //    ptrWGT = HOSTLIB_WGTMAP.ptr_WGTSUM ;
+
+    // xxx mark    WGTSUM_LAST = 0.0 ;
+    for ( igal=IGAL_START ; igal <= IGAL_END ; igal++ ) {  // loop over z-sorted igal	
+
       GALID  = get_GALID_HOSTLIB(igal);
       ZTRUE  = get_ZTRUE_HOSTLIB(igal);
-      
+    
+      if ( OPT_FIELD_MATCH ) { 
+	setDefault_HOSTLIB_WGTSUM_BY_FIELD(igal); // set all WGTSUM[igal] = WGTSUM[igal-1]
+	INDEX_FIELD = HOSTLIB.INDEX_FIELD[igal]; // only this field increments WGTSUM
+      }
+      set_HOSTLIB_WGTSUM_POINTER(ibin,INDEX_FIELD);  // set CDF pointer
+
       if ( NROW == 0 )  // if no WGTMAP, set all WGTs to 1 and skip to below
 	{  WGT = 1.0 ;  MAGSHIFT = 0.0 ;  goto WGTSUM ;    }
       
@@ -4375,15 +4385,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	if ( IVAL == 0 ) { WGT = MAGSHIFT = 0.0; goto WGTSUM; }
       }
 
-      // Oct 20 2026:
-      // if HOSTLIB_FIELD_MATCH is set, set WGT=0 for galaxies in wrong field,
-      // and set WGTSUM = WGTSUM for previous galaxy.
-
-      if ( OPT_FIELD_MATCH ) { 
-	setDefault_HOSTLIB_WGTSUM_BY_FIELD(igal); // set all WGTSUM[igal] = WGTSUM[igal-1]
-	INDEX_FIELD = HOSTLIB.INDEX_FIELD[igal]; // only this field increments WGTSUM
-      }
-
+    
       // strip off variables used for weighting
       for ( ivar=0; ivar < NDIM; ivar++ ) {  // WGTMAP variables
 	IS_SNVAR     = HOSTLIB_WGTMAP.IS_SNVAR[ivar]; 
@@ -4440,7 +4442,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       if ( WGT > HOSTLIB_WGTMAP.WGTMAX_GAL ) { HOSTLIB_WGTMAP.WGTMAX_GAL = WGT; }
 
     WGTSUM:
-      
+
       // check for random assignment of MAGSHIFT (for BiasCor)
       if(USE_GAMMA_GRID) 
 	{ MAGSHIFT = snmagshift_salt2gamma_HOSTLIB(GALID); }
@@ -4449,7 +4451,10 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       I2MAG = (short int)(MAGSHIFT*I2MAGSCALE_HOSTLIB);
 
       // local sum
-      WGTSUM = WGTSUM_LAST + WGT;
+      WGTSUM_LAST = 0.0;
+      if(igal>0) { WGTSUM_LAST = HOSTLIB_WGTMAP.ptr_WGTSUM[igal-1]; }
+
+      WGTSUM = WGTSUM_LAST + WGT;  
       
       // print first 3 weights and last wgt
       if ( VBOSE && ibin==0 && (igal < 2 || igal == NGAL-1) ) {
@@ -4458,10 +4463,14 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	fflush(stdout);
       }
 	
-      
+      HOSTLIB_WGTMAP.ptr_WGTSUM[igal]     = WGTSUM;
+      HOSTLIB_WGTMAP.ptr_I2MAGSHIFT[igal] = I2MAG;
+      if ( HOSTLIB_WGTMAP.MALLOC_WGT ) { HOSTLIB_WGTMAP.WGT[igal] = WGT ;  }
+
+      /* xxxxxxxx mark del Oct 21 2026 xxxxxxxx
       // load global array for each sum 
-      if ( N_SNVAR > 0 ) 
-{	if ( OPT_FIELD_MATCH == 0 ) 
+      if ( N_SNVAR > 0 ) {
+	if ( OPT_FIELD_MATCH == 0 ) 
 	  { HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin][igal] = WGTSUM ; }
 	else
 	  { HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[INDEX_FIELD][ibin][igal] = WGTSUM ; }
@@ -4475,8 +4484,9 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	HOSTLIB_WGTMAP.I2MAGSHIFT[igal] = I2MAG ;
 	if ( HOSTLIB_WGTMAP.MALLOC_WGT ) { HOSTLIB_WGTMAP.WGT[igal] = WGT ;  }
       }
+      xxxxxxxxxx end mark xxxxx*/
 
-      WGTSUM_LAST  =  WGTSUM ; 
+      // xxx mark delete      WGTSUM_LAST  =  WGTSUM ; 
 	
       // store IGAL if this GALID is on the check-list
       
@@ -6440,7 +6450,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
   // Aug 28 2026: check USE_SIMLIB_GALID
   // Aug 31 2206: fix minor bug using INPUTS.HOSTLIB_GALID_PRIORITY
-  // Oct 02 2026: check SELECT_BY_FIELD option
+  // Oct    2026: implement HOSTLIB_FIELD_MAP
 
   bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
 
@@ -6608,8 +6618,10 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
   if ( N_SNVAR > 0 ) { HOSTLIB_WGTMAP.ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP(); }
 
-  set_HOSTLIB_WGTSUM_POINTER(); // set global HOSTLIB_WGTMAP.ptr_WGTSUM
-  set_HOSTLIB_I2MAGSHIFT_POINTER();
+  int ibin_SNVAR  = HOSTLIB_WGTMAP.ibin_SNVAR;
+  int INDEX_FIELD = SNHOSTGAL.INDEX_FIELD;
+  set_HOSTLIB_WGTSUM_POINTER(ibin_SNVAR,INDEX_FIELD); // set global HOSTLIB_WGTMAP.ptr_WGTSUM
+  set_HOSTLIB_I2MAGSHIFT_POINTER(ibin_SNVAR);
   ptrWGT = HOSTLIB_WGTMAP.ptr_WGTSUM ;
 
   /* xxxx mark delete Oct 20 2026
@@ -10027,7 +10039,7 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
 } // end of get_GALFLUX_HOSTLIB
 
 // ==============================================
-void set_HOSTLIB_WGTSUM_POINTER(void) {
+void set_HOSTLIB_WGTSUM_POINTER(int ibin_SNVAR, int INDEX_FIELD) {
 
   // Created Oct 20 2026
   //
@@ -10038,15 +10050,13 @@ void set_HOSTLIB_WGTSUM_POINTER(void) {
 
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
   int OPT_FIELD_MATCH   = HOSTLIB.OPT_FIELD_MATCH;
-  int INDEX_FIELD       = SNHOSTGAL.INDEX_FIELD;
-
-  int  ibin_SNVAR ;
   char fnam[] = "set_HOSTLIB_WGTSUM_POINTER" ;  (void)fnam;
 
   // ---------- BEGIN ---------- 
 
   if ( N_SNVAR > 0 ) {
-    ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;
+
+    // xxx mark    ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;
 
     if ( OPT_FIELD_MATCH ) 
       { HOSTLIB_WGTMAP.ptr_WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[INDEX_FIELD][ibin_SNVAR]; }
@@ -10066,16 +10076,15 @@ void set_HOSTLIB_WGTSUM_POINTER(void) {
 } // end set_HOSTLIB_WGTSUM_POINTER
 
 // ==============================================
-void set_HOSTLIB_I2MAGSHIFT_POINTER(void) {
+void set_HOSTLIB_I2MAGSHIFT_POINTER(int ibin_SNVAR) {
 
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
-  int ibin_SNVAR ;
   char fnam[] = "set_HOSTLIB_I2MAGSHIFT_POINTER" ; (void) fnam;
 
   // ---------- BEGIN -----------
   
   if ( N_SNVAR > 0 ) {
-    ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;
+    // xxx mark dele    ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;
     HOSTLIB_WGTMAP.ptr_I2MAGSHIFT = HOSTLIB_WGTMAP.I2MAGSHIFT_SNVAR[ibin_SNVAR]; 
   }
   else {

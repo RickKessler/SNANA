@@ -782,8 +782,8 @@ void   append_HOSTLIB_STOREPAR(void);
 void   strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
 				       char *VARLIST_WGTMAP_noSNVAR);
 
-void   set_HOSTLIB_WGTSUM_POINTER(void);
-void   set_HOSTLIB_I2MAGSHIFT_POINTER(void);
+void   set_HOSTLIB_WGTSUM_POINTER(int ibin_SNVAR, int INDEX_FIELD);
+void   set_HOSTLIB_I2MAGSHIFT_POINTER(int ibin_SNVAR);
 void   LOAD_FIELD_HOSTLIB(char *FIELD);
 bool   QstringMatch(char *varName0, char *varName1);
 

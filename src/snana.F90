@@ -4303,13 +4303,11 @@
               ONE, STRING, DARRAY, OPT)
        SNHOST_NMATCH2 = INT(DARRAY(1))
 
-       if ( DEBUG_FLAG == 1022 ) then
-          if ( SNHOST_NMATCH2 >= 0 .and. SNHOST_NMATCH2 < SNHOST_NMATCH ) then
-             write(C1ERR,601) SNHOST_NMATCH2, SNHOST_NMATCH, SNLC_CCID(1:ISNLC_LENCCID)
-601          format('Invalid HOST NMATCH2=',I2,' < NMATCH=',I2, ' for CID=',A )
-             C2ERR = 'SNHOST_NMATCH2 must be >= SNHOST_NMATCH; check data file construction'
-             CALL MADABORT("RDHEAD_HOSTGAL", C1ERR, C2ERR)  
-          endif
+       if ( SNHOST_NMATCH2 >= 0 .and. SNHOST_NMATCH2 < SNHOST_NMATCH ) then
+          write(C1ERR,601) SNHOST_NMATCH2, SNHOST_NMATCH, SNLC_CCID(1:ISNLC_LENCCID)
+601       format('Invalid HOST NMATCH2=',I2,' < NMATCH=',I2, ' for CID=',A )
+          C2ERR = 'SNHOST_NMATCH2 must be >= SNHOST_NMATCH; check data file construction'
+          CALL MADABORT("RDHEAD_HOSTGAL", C1ERR, C2ERR)  
        endif
 
        KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"

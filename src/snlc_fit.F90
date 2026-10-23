@@ -8743,7 +8743,7 @@
     REAL*8    GET_DIST8, USRFUN
     EXTERNAL USRFUN
 
-! ------------- BEGIN ------------
+! ------------- BEGIN INIPAR_PHOTOZ_COURSEGRID ------------
 
     RESTORE_BUG_T_SAVE = (DEBUG_FLAG == -1022)
 
@@ -8799,7 +8799,8 @@
 
     if ( LDMP > 0 ) then
        print*,' xxx ------------------ '
-       print*,' xxx CID  ', SNLC_CCID 
+       print*,' xxx DUMP for INIPAR_PHOTOZ_COURSEGRID: '
+       print*,' xxx CID = ', SNLC_CCID 
        print*,' xxx RANGEz_COURSE_PHOTOZ = ', RANGEz_COURSE_PHOTOZ
        print*,' xxx DOFIT_PHOTOZ_HOST = ', DOFIT_PHOTOZ_HOST
        print*,' xxx PRIOR_PHOTOZ[_ERR] = ', PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR
@@ -13921,7 +13922,8 @@
 
       if ( LDMP > 0 ) then
          print*,' xxx ------------------------------------------------- '
-         print*,' xxx DUMP for SET_REDSHIFT_FIT, CID=', SNLC_CCID
+         print*,' xxx DUMP for SET_REDSHIFT_FIT, ITER=', ITER
+         print*,' xxx CID=', SNLC_CCID
          print*,' xxx ZHOST, NQZPHOT    = ', zhost, NQZPHOT
          print*,' xxx PRIOR_ZERRSCALE   = ', PRIOR_ZERRSCALE
          print*,' xxx DOFIT_PHOTOZ_HOST = ', DOFIT_PHOTOZ_HOST

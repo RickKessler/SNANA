@@ -2119,9 +2119,11 @@ class LightCurveFit(Program):
         # external TEXT file. See CONFIG key APPEND_TABLE_TEXFILE
         #
         # Jun 27 2026; pass table_name = SNANA or FITRES
+        # Oct 22 2026: fix bug by define snana_dir
 
         submit_info_yaml      = self.config_prep['submit_info_yaml']
         merge_table_file_list = self.config_prep['merge_table_file_list']
+        snana_dir             = self.config_yaml['args'].snana_dir
         script_dir            = submit_info_yaml['SCRIPT_DIR']
         use_table_format      = submit_info_yaml['USE_TABLE_FORMAT']
         version_fitopt        = version_fitopt_dict['version_fitopt']

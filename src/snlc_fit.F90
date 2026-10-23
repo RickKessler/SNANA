@@ -8708,7 +8708,11 @@
     ! Dec 11 2025; 
     !   + set OPT_CHI2_SIGMA=0 and restore value after completion
     !   + add optional PKMJD loop
-
+    !
+    ! Oct 22 2026: fix bug setting PEAKMJD (see T_SAVE);
+    !              https://github.com/RickKessler/SNANA/issues/1820
+    !
+    !
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -8734,12 +8738,14 @@
     REAL SCALE_ALL
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
-    LOGICAL REFAC_LAMRANGE
+    LOGICAL   RESTORE_BUG_T_SAVE
     CHARACTER FNAM*28
-    REAL*8 GET_DIST8, USRFUN
+    REAL*8    GET_DIST8, USRFUN
     EXTERNAL USRFUN
 
 ! ------------- BEGIN ------------
+
+    RESTORE_BUG_T_SAVE = (DEBUG_FLAG == -1022)
 
     MARK_USED(ZBIN)
     LDMP = 0
@@ -8836,9 +8842,7 @@
 
 
     ! Mar 24 2026: open wavelength range if UVLAM_EXTRAPFLUX is set;
-    !        DEBUG_FLAG = -324 restores legacy code to ignore UVLAM_EXTRAPFLUX.
-    REFAC_LAMRANGE = ( DEBUG_FLAG .NE. -324 )
-    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then
+    IF ( UVLAM_EXTRAPFLUX > 0.0 )  then
        RESTLAMBDA_SAVE(1) = RESTLAMBDA_USEFIT(1)
        RESTLAMBDA_SAVE(2) = RESTLAMBDA_USEFIT(2)
        RESTLAMBDA_USEFIT(1) = RESTLAMBDA_MODEL(1) 
@@ -8903,6 +8907,7 @@
 ! -------
       if ( CHI2 .LT. CHI2MIN ) then
           chi2min = chi2
+          T_SAVE = INIVAL(IPAR_PEAKMJD)  ! Oct 22 2026 bug-fix
           Z_SAVE = INIVAL(IPAR_zPHOT)
           C_SAVE = INIVAL(IPAR_COLOR)
           S_SAVE = INIVAL(IPAR_SHAPE)
@@ -8917,24 +8922,27 @@
 
 ! update INIVAL
       
-    INIVAL(IPAR_zPHOT)   = Z_SAVE  ! save redshift
-    INIVAL(IPAR_COLOR)   = C_SAVE  ! save color
-    INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
-    INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
-    INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
-    OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
+      if ( .NOT. RESTORE_BUG_T_SAVE ) then
+         INIVAL(IPAR_PEAKMJD) = T_SAVE    ! Oct 22 2026 bug fix
+      endif
+      INIVAL(IPAR_zPHOT)   = Z_SAVE  ! save redshift
+      INIVAL(IPAR_COLOR)   = C_SAVE  ! save color
+      INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
+      INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
+      INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
+      OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
 
-    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then ! restore user wave range
-       if ( STDOUT_UPDATE ) then
-          write(6,439) RESTLAMBDA_SAVE(1), RESTLAMBDA_SAVE(2)
-439       format(T5,'UVLAM_EXTRAP -> restore RESTLAMBDA to: ', 2F8.0 )
-       endif
-       call flush(6)
-       RESTLAMBDA_USEFIT(1) = SNGL( RESTLAMBDA_SAVE(1) )
-       RESTLAMBDA_USEFIT(2) = SNGL( RESTLAMBDA_SAVE(2) )
-    endif
-
-    RETURN
+      IF ( UVLAM_EXTRAPFLUX > 0.0 )  then ! restore user wave range
+         if ( STDOUT_UPDATE ) then
+            write(6,439) RESTLAMBDA_SAVE(1), RESTLAMBDA_SAVE(2)
+439         format(T5,'UVLAM_EXTRAP -> restore RESTLAMBDA to: ', 2F8.0 )
+         endif
+         call flush(6)
+         RESTLAMBDA_USEFIT(1) = SNGL( RESTLAMBDA_SAVE(1) )
+         RESTLAMBDA_USEFIT(2) = SNGL( RESTLAMBDA_SAVE(2) )
+      endif
+      
+      RETURN
   END SUBROUTINE INIPAR_PHOTOZ_COURSEGRID
 
 

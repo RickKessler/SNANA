@@ -76,6 +76,7 @@
         ,FCNFLAG_FAST     = 91    &  ! go as fast as possible (no LAST if-block)
         ,FCNFLAG_PRIOR_ONLY = 92  & 
         ,FCNFLAG_SIGMA_ONLY = 93  & 
+        ,FCNFLAG_GRID       = 94  &  ! photoz course-grid: store per-epoch fluxes, skip LAST block
         ,FCNFLAG_USESIM     = 99    &  ! pass this IFLAG to use SIM params
         ,FCNFLAG_MAX        = 100  & 
         ,OPT_INTEGPDF_QUITCHI2 = 2   &  ! abort FCNSNLC if chi2 > quitchi2

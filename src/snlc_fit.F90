@@ -330,6 +330,15 @@
          ,R4SN_FFSUM_RATIO  & 
          ,RADIUS_POP   ! e.g., sqrt [  (x1/3)^2 + (c/0.3)^2 ]
 
+! Oct 26 2026: per-epoch storage filled by FCNSNLC(IFLAG=FCNFLAG_GRID); used by
+!   INIPAR_PHOTOZ_COURSEGRID to re-evaluate chi2 vs. model-flux scale without
+!   calling the model again.
+    INTEGER NGRID_EP   ! number of stored epochs
+    REAL*8  GRID_FDATA(MXFIT_DATA)   &  ! data flux
+           ,GRID_FMODEL(MXFIT_DATA)  &  ! model flux at scale=1
+           ,GRID_SQSIG0(MXFIT_DATA)  &  ! data err^2 + fudge err^2
+           ,GRID_ERRFRAC(MXFIT_DATA)    ! model flux-err / model flux
+
 ! define covariance matrices for SN model correlations (NOT for fit)
 
     REAL*8  & 
@@ -4046,6 +4055,7 @@
         ,LFLAG_USER       &  ! called from user (IFLAG=30)
         ,LFLAG_USESIM     &  ! use SIM params instead of XVAL (IFLAG=99)
         ,LFLAG_FAST       &  ! speed up if possible (for pdf integration)
+        ,LFLAG_GRID       &  ! photoz course grid (FCNFLAG_GRID)
         ,LFLAG_FIT, LFLAG_PRIOR_ONLY, LFLAG_SIGMA_ONLY  & 
         ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LREJECT2, LFITDATA  & 
         ,FIRSTFILT, LASTFILT, LTMP, LMUFIX, LPOSFLUX  & 
@@ -4076,6 +4086,8 @@
     LFLAG_USER       = IFLAG .EQ. FCNFLAG_USER ! user-call (NOT from MINUIT)
     LFLAG_USESIM     = IFLAG .EQ. FCNFLAG_USESIM ! use sim params
     LFLAG_FAST       = IFLAG .EQ. FCNFLAG_FAST
+    LFLAG_GRID       = IFLAG .EQ. FCNFLAG_GRID
+    IF ( LFLAG_GRID ) NGRID_EP = 0
     LFLAG_PRIOR_ONLY = IFLAG .EQ. FCNFLAG_PRIOR_ONLY
     LFLAG_SIGMA_ONLY = IFLAG .EQ. FCNFLAG_SIGMA_ONLY
     LAST = LFLAG_LAST_MN .or. LFLAG_USER .or. LFLAG_USESIM
@@ -4138,8 +4150,8 @@
 ! ------------------------------------
 ! Get initial CHI2 from priors.
 
-    IF ( LFLAG_SIGMA_ONLY ) THEN
-      CHI2INI = 0.0
+    IF ( LFLAG_SIGMA_ONLY .or. LFLAG_GRID ) THEN
+      CHI2INI = 0.0   ! grid: caller evaluates prior at final model scale
     ELSE
       CHI2INI = FCNCHI2_PRIOR(XVAL,CHI2PRIOR)
     ENDIF
@@ -4371,6 +4383,22 @@
 ! always tack on chi2 from log(sigma) term
         chi2tot  = chi2tot + delchi2_sigma
 
+      ENDIF
+
+! Oct 2026: photoz course-grid call; store per-epoch quantities needed
+! to re-evaluate chi2 for a different model-flux scale (see INIPAR_PHOTOZ_COURSEGRID),
+! and accumulate FFSUM sums (same selection as in LAST block below).
+      IF ( LFLAG_GRID .and. LFITDATA ) THEN
+         NGRID_EP                = NGRID_EP + 1
+         GRID_FDATA(NGRID_EP)    = flux_data
+         GRID_FMODEL(NGRID_EP)   = flux_model
+         GRID_SQSIG0(NGRID_EP)   = flux_data_sqerrtot + flux_fudge_sqerr
+         GRID_ERRFRAC(NGRID_EP)  = errfrac
+         IF ( SNR_RAW > 3.0 .and. SCALE_NBIN_COURSE_PHOTOZ > 0 ) THEN
+            R4SN_FFSUM_DATA   = SNGL(R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig )
+            R4SN_FFSUM_MODEL  = SNGL(R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig )
+            R4SN_FFSUM_CROSS  = SNGL(R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig )
+         ENDIF
       ENDIF
 
 ! if fast-flag is set, quit when chi2 is too big;
@@ -8739,13 +8767,26 @@
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
     LOGICAL   RESTORE_BUG_T_SAVE
+    LOGICAL   LFAST_GRID   ! Oct 2026: analytic chi2 vs. model scale (no 2nd model call)
+    REAL*8    CHI2PRI, CHI2PRIOR(0:MXFITPAR)
     CHARACTER FNAM*28
-    REAL*8    GET_DIST8, USRFUN
+    REAL*8    GET_DIST8, USRFUN, FCNCHI2_PRIOR, GRID_CHI2_SCALED
     EXTERNAL USRFUN
 
 ! ------------- BEGIN INIPAR_PHOTOZ_COURSEGRID ------------
 
     RESTORE_BUG_T_SAVE = (DEBUG_FLAG == -1022)
+
+! Oct 26 2026: model flux scales exactly with Fmodel_SCALE for SALT2 if x0 (or log10 x0)
+! is the distance parameter and x0 is floated. In that case the 2nd FCNSNLC call per
+! grid cell is replaced by an analytic chi2 re-evaluation. Legacy path is used for
+! all other cases, or with DEBUG_FLAG=-1026.
+    LFAST_GRID = ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) .and.  &
+                 ( .NOT. USE_FITCOV )                .and.  &
+                 ( INISTP_DLMAG > 0.0 )              .and.  &
+                 ( OPT_SALT2FIT == 0 .or. OPT_SALT2FIT == 1 .or. OPT_SALT2FIT == 4 ) .and. &
+                 ( DEBUG_FLAG /= 325 )               .and.  &
+                 ( DEBUG_FLAG /= -1026 )
 
     MARK_USED(ZBIN)
     LDMP = 0
@@ -8880,7 +8921,12 @@
 
 ! call function to evaluate R4SN_XXX variables needed to
 ! determine Fmodel_SCALE below.
-      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG, USRFUN)
+      IF ( LFAST_GRID ) THEN
+         ! stores per-epoch fluxes and FFSUM sums; no prior, no LAST-block bookkeeping
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, FCNFLAG_GRID, USRFUN)
+      ELSE
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG, USRFUN)
+      ENDIF
 
       ! now compute Fmodel_SCALE to minimize chi2 as a function of
       ! x0 or MU. This is an approximation assuming that the error-squared
@@ -8894,7 +8940,19 @@
          
       d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
       INIVAL(IPAR_DLMAG)  = d
-      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
+
+      IF ( LFAST_GRID ) THEN
+         ! chi2 = prior(final d) + data chi2 re-computed analytically for flux scale.
+         ! Early exit once data-chi2 alone cannot beat CHI2MIN.
+         CHI2PRI = FCNCHI2_PRIOR(INIVAL, CHI2PRIOR)
+         IF ( CHI2PRI > 1.0E7 ) THEN
+            CHI2 = CHI2PRI
+         ELSE
+            CHI2 = CHI2PRI + GRID_CHI2_SCALED(Fmodel_SCALE, CHI2MIN - CHI2PRI)
+         ENDIF
+      ELSE
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
+      ENDIF
 
 ! ------------
       if ( chi2 < -1300.  ) then
@@ -8945,6 +9003,37 @@
       
       RETURN
   END SUBROUTINE INIPAR_PHOTOZ_COURSEGRID
+
+! =====================================
+    DOUBLE PRECISION FUNCTION GRID_CHI2_SCALED(SCALE, CHI2MAX)
+!
+! Oct 26 2026
+! Return data chi2 for model flux = SCALE * (model flux stored by the last call to
+! FCNSNLC with IFLAG=FCNFLAG_GRID). Model flux-error is a fixed fraction of the model
+! flux, so it scales too. Same chi2 as FCNSNLC for USE_FITCOV=F and OPT_CHI2_SIGMA=0.
+! Sum has only non-negative terms, so quit and return partial sum if it exceeds CHI2MAX.
+!
+    USE SNFITVAR
+    IMPLICIT NONE
+
+    REAL*8 SCALE, CHI2MAX   ! (I)
+    REAL*8 CHI2, FM, EM, DIF, SQSIG
+    INTEGER i
+
+! ----------- BEGIN ----------
+    CHI2 = 0.0
+    DO i = 1, NGRID_EP
+       FM    = SCALE * GRID_FMODEL(i)
+       EM    = FM * GRID_ERRFRAC(i)
+       SQSIG = GRID_SQSIG0(i) + EM*EM
+       DIF   = GRID_FDATA(i) - FM
+       CHI2  = CHI2 + DIF*DIF / SQSIG
+       IF ( CHI2 > CHI2MAX ) EXIT
+    ENDDO
+
+    GRID_CHI2_SCALED = CHI2
+    RETURN
+  END FUNCTION GRID_CHI2_SCALED
 
 
   SUBROUTINE PRINT_TEST_CHI2()

@@ -5169,8 +5169,13 @@ void *MNCHI2FUN(void *thread) {
   BIASCORLIST_DEF     BIASCORLIST ;
   INTERPWGT_AlphaBetaGammaDM INTERPWGT ;
   FITPARBIAS_DEF FITPARBIAS_ALPHABETA[MXa][MXb][MXg]; // bias at each a,b
-  double   MUCOVSCALE_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVscale at each a,b
-  double   MUCOVADD_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVadd at each a,b
+
+  // int REFAC_SPEED = (INPUTS.debug_flag == 1026 );
+  // int LEGACY_SPEED = !REFAC_SPEED ;
+
+  double  MUCOVSCALE_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVscale at each a,b
+  double  MUCOVADD_ALPHABETA[MXa][MXb][MXg]; // (I) muCOVadd at each a,b
+
   double   *fitParBias;
 
   bool LDMP          = ISMODEL_LCFIT_SALT2 ;
@@ -5297,15 +5302,15 @@ void *MNCHI2FUN(void *thread) {
 	  for(ig=0; ig<MXg; ig++ ) {
 	    
 	    MUCOVSCALE_ALPHABETA[ia][ib][ig] = INFO_DATA.MUCOVSCALE_ALPHABETA[n][ia][ib][ig] ; 
-
+	  
 	    if ( DO_COVADD ) 
 	      { MUCOVADD_ALPHABETA[ia][ib][ig] = INFO_DATA.MUCOVADD_ALPHABETA[n][ia][ib][ig] ; 	}
-
+	    
 	    if (set_fitwgt0) { 
 	      MUCOVSCALE_ALPHABETA[ia][ib][ig] = 1.0; 
 	      MUCOVADD_ALPHABETA[ia][ib][ig]   = 1.0; 
 	    }
-	    
+	  
 	    FITPARBIAS_ALPHABETA[ia][ib][ig].NEVT_BIASCOR =
 	      INFO_DATA.FITPARBIAS_ALPHABETA[n][ia][ib][ig].NEVT_BIASCOR ; 
 	    for(ipar = ILCPAR_MIN; ipar <= ILCPAR_MAX; ipar++ ) {
@@ -5317,6 +5322,8 @@ void *MNCHI2FUN(void *thread) {
 	  }  // end ig
 	}    // end ib 
       }     // end ia
+    
+
       fitParBias = INFO_DATA.fitParBias[n] ; 
     } // end NDIM_BIASCOR if block
     else {

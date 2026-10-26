@@ -24226,7 +24226,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 # =============================================================
          v12_02d (Sep 08 2026) <--- start date of git tag
 
-         *****  IMPORTANT(v12_0dc) *****
+         *****  IMPORTANT(v12_02d) *****
 
     snlc_sim: 
       + fix subtle SIMLIB-rewind bug:  https://github.com/RickKessler/SNANA/issues/1783
@@ -24293,6 +24293,7 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_fit.F90
       + in subroutine TABLE_SNSPEC_SALT2, (1) abort if no root file, and
         (2) change SPECTRA table name to MODELSPEC.
+      + 50% speedup for LCFITz from Claude: https://github.com/RickKessler/SNANA/pull/1823
 
  
     snana.exe 
@@ -24329,7 +24330,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
    submit_prog_lcfit.py:
      + start prepping to merge SYST.NPZ and SYST.TEXT files produced
        by BayeSN.
-      
+    
+
+# =============================================================
+         v12_02e (Oct 26 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_02e) *****
+
+         *****  USEFUL(v12_02e) *****
+
+         *****  MISCELLANEOUS(v12_02e) *****
+  
+
 END:
 
 

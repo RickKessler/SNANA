@@ -78,17 +78,18 @@ VARNAME_RA       = 'ra'
 VARNAME_DEC      = 'dec'
 VARNAME_FIELD    = 'FIELD'
 
+VARNAME_LOGSFR   = 'logsfr_obs'
+VARNAME_LOGSSFR  = 'logssfr_obs'
+VARNAME_LOGMASS  = 'logsm_obs'
 
 DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
 DIFFSKY_ANGLE_PREFIX = "psi"
 
 # columns computed at the pandas level (after HDF5→pandas conversion); excluded from HDF5 select
 ADDCOL_PD_ERRMIN = [ 'obs_err_min', 'obs_err_min2', 'obs_err_min3' ]
-ADDCOL_PD_M5_DIFFSKY  = [ 'des_g_m5', 'des_r_m5', 'des_i_m5', 'des_z_m5']
-ADDCOL_PD_M5_HOSTLIB  = [ 'g_obs_m5', 'r_obs_m5', 'i_obs_m5', 'z_obs_m5'] # Fragile if naming format for these columns changes
-ADDCOL_PD_NAMES  = ['logsfr_obs', VARNAME_FIELD ] + ADDCOL_PD_ERRMIN + ADDCOL_PD_M5_DIFFSKY
+ADDCOL_PD_NAMES  = [VARNAME_LOGSFR, VARNAME_FIELD ] + ADDCOL_PD_ERRMIN
 
-ABORT_EXCEPTION_LIST = [ 'serial', 'err', 'n_', 'D_A', 'Sersic' ] + ADDCOL_PD_NAMES
+ABORT_EXCEPTION_LIST = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'm5' ] + ADDCOL_PD_NAMES
 
 VARTYPE_DIFFSKY = "DIFFSKY"
 VARTYPE_HOSTLIB = "HOSTLIB"
@@ -425,6 +426,21 @@ def parse_config_varname_map(config):
     HOSTLIB_VARNAMES_LIST   = []
     FOUND_GALID = False
 
+    MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF,None)
+    if not MAGERR_PDF_DICT:
+        sys.exit(f"config does not contain {KEY_MAGERR_PDF}")
+
+    BANDMAP_INPUT = MAGERR_PDF_DICT['BANDMAP']  # user input map
+    b_diffsky_m5 = [] # [ '{survey}_{band}_m5' ]
+    b_hostlib_m5 = [] # [ '{band}_obs_m5' ]
+    for b_string in BANDMAP_INPUT:
+        diffsky_str = b_string.split()[0] # e.g., 'des_g'
+        diffsky_m5_str = diffsky_str + '_m5'
+        b_diffsky_m5.append(diffsky_m5_str)
+        hostlib_str = b_string.split()[1] # e.g., 'g'
+        hostlib_m5_str = hostlib_str + '_obs_m5'
+        b_hostlib_m5.append(hostlib_m5_str)
+    
     # if [band]_obs_err are defined as HOSTLIB vars, then automatically add
     # obs_err_min and obs_err_min2
     rownum_list_obs_err = get_rownums_substring(HOSTLIB_VARNAMES_MAP, '_obs_err')
@@ -435,7 +451,9 @@ def parse_config_varname_map(config):
             rownum_insert = rownum_last + 1 + i
             HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol}  {addcol}  6.3f')
             # xxx mark delete Oct 6 2026   ADDCOL_PD_NAMES.append(addcol)
-        for i, (addcol_diff, addcol_host) in enumerate(zip(ADDCOL_PD_M5_DIFFSKY, ADDCOL_PD_M5_HOSTLIB)) :
+        #b_diffsky_m5  = [ 'des_g_m5', 'des_r_m5', 'des_i_m5', 'des_z_m5']
+        #b_hostlib_m5  = [ 'g_obs_m5', 'r_obs_m5', 'i_obs_m5', 'z_obs_m5']
+        for i, (addcol_diff, addcol_host) in enumerate(zip(b_diffsky_m5, b_hostlib_m5)) :
             rownum_insert = rownum_last + 1 + i
             HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol_diff}  {addcol_host}  6.3f')
 
@@ -1367,6 +1385,7 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
 
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
     exclude_var_list += [b + '_err' for b in config['band_magerr_list_diffsky'] ]
+    exclude_var_list += [b + '_m5' for b in config['band_magerr_list_diffsky'] ]
     
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet

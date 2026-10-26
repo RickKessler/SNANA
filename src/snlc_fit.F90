@@ -1687,7 +1687,7 @@
 
 ! local var
 
-    INTEGER  ipar, bit, ifilt, ifilt_obs, OPT, LL, LCHAR
+    INTEGER  ipar, bit, ifilt, ifilt_obs, OPT, LL, LCHAR, LDMP_MASK
     REAL*8 LAMMIN,LAMMAX, LAMAVG, Z8, Z8TEST
     REAL*4 Z4, LMIN4
 
@@ -1696,7 +1696,7 @@
     LOGICAL  & 
          USE_FILT_ITER1(MXFILT_ALL)  & 
         ,FIRST_ITER, NEXT_ITER, NOMATCH, LAMFAIL, LPRINT  & 
-        ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, LDMP_MASK, L_BESTZ
+        ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, L_BESTZ
 
     LOGICAL REFAC_SET_REDSHIFT_FIT
     
@@ -1819,18 +1819,23 @@
           endif
 
           ! - - - - 
-          L_BESTZ = BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
+          L_BESTZ = &
+               BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS) .or. &  ! best z .or.
+               BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)    ! quantiles 10.26.2026
           if ( L_BESTZ .and. PRIOR_ZERRSCALE == 1000.01 ) then
              PRIOR_ZERRSCALE = 1.0  ! auto-set since users are likely to forget
-             !print*,' xxx FITPAR_PREP: set PRIOR_ZERRSCALE = 1' ; call flush(6) ! .xyz
           endif
         
 ! - - - - - - -
-          LDMP_MASK = .FALSE.
-          if ( LDMP_MASK ) then
+          LDMP_MASK = 0  ! .xyz
+          if ( LDMP_MASK > 0 ) then
+             print*,' xxx --------------------------------------'
+             print*,' xxx DUMP for FITPAR_PREP   ITER=', ITER
+             print*,' xxx CID = ', SNLC_CCID
              write(6,660) LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, MASK_PHOTOZ_SOURCE
 660          format(' xxx LPZ[HOST,BEST,Q]=',3L2, 3x, 'LZSPEC=',L2, 3x,  & 
                   '--> MASK_PHOTOZ_SOURCE=',I5 )
+             print*,' xxx PRIOR_ZERRSCALE = ', PRIOR_ZERRSCALE
              call flush(6)
           endif
 
@@ -13995,7 +14000,7 @@
     DOFIT_PHOTOZ_HOST   =  .FALSE.
     DOFIT_PHOTOZ_noHOST =  .FALSE.
 
-    LDMP = 0
+    LDMP = 0  ! .xyz
 ! -------------------------------
 
     IF ( DOFIT_PHOTOZ ) THEN

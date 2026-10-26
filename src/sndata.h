@@ -183,7 +183,7 @@ struct VERSION
 } VERSION_INFO ;
 
 
-#define MXBIN_HOSTGALz 40 // max z bins for HOSTGALz_DEF arrays
+#define MXBIN_HOSTGALz          40 // max z bins for HOSTGALz_DEF arrays
 #define MXBIN_HOSTGALz_QUANTILE 20
 
 typedef struct {

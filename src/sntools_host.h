@@ -29,6 +29,10 @@
  Aug 11 2023: MXROW_HOSTLIB -> 40M (was 10M)
  Oct 03 2023: MXROW_HOSTLIB -> 60M
 
+ Oct 21 2026: for ATLAS, increase PSFMAX_SNANA = 5 -> 10, and alter a few
+              other related variables as indicated in 
+              https://github.com/RickKessler/SNANA/issues/1819
+
 ==================================================== */
 
 #define HOSTLIB_MSKOPT_USE           1 // internally set if HOSTLIB_FILE
@@ -77,7 +81,8 @@
 #define MAXRADIUS_SERSIC   100.0   // max R/Re value for integ table
 #define MINRADIUS_SERSIC  1.0E-4   // min R/Re value for integ table
 
-#define NRBIN_GALMAG        100    // No. of radius bins for Galmag 
+// xxx mark del  #define NRBIN_GALMAG        100    // No. of radius bins for Galmag 
+#define NRBIN_GALMAG        200    // No. of radius bins for Galmag 
 #define NTHBIN_GALMAG        36    // No. theta bins for galmag
 #define MXBIN_SERSIC_bn     2000   // max bins in Sersic_bn file
  
@@ -92,7 +97,8 @@ static const double MAXLOGZ_HOSTLIB = log10(ZMAX_SNANA)  ;
 #define ZMAX_HOSTLIB       pow(10.0,MAXLOGZ_HOSTLIB)
 #define ZMAX_STAR          0.001   // give warnings for ZTRUE < ZMAX_STAR
 
-#define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
+// xxx mark #define NMAGPSF_HOSTLIB    9    // number of aperture mags vs. PSF to compute
+#define NMAGPSF_HOSTLIB   13    // number of aperture mags vs. PSF to compute (9->13, Oct 2026)
 #define DEG_ARCSEC    (1./3600.)  // 1 arcsec in deg.
 #define DEBUG_WGTFLUX2    0.0    // fix 2nd WGTFLUX if non-zero
 
@@ -214,6 +220,7 @@ struct HOSTLIB_DEF {
   int  OPT_FIELD_MATCH ;
   char **FIELD_UNSORTED ;
   char **FIELD_ZSORTED ;
+  short int  *INDEX_FIELD ; 
   char *FIELD_UNIQUE_LIST[MXFIELD_HOSTLIB] ; // unique list of HOSTLIB fields
   int   NFIELD_UNIQUE;
   STRING_DICT_DEF INDEX_FIELD_DICT ;  // dict[host_field]   = sparse index 0 to NFIELD-1
@@ -295,6 +302,7 @@ struct HOSTLIB_DEF {
   double Aperture_Rmax ;   // max radius (arsec) to integrage gal flux
   double Aperture_Rbin ;   // radial integration bins size (arcsec)
   double Aperture_THbin ;  // azim. integration binsize (radians)
+  int    NWARN_PSFMAX;
 
   // pre-computed 2d-Gaussian integrals
   int    NGauss2d ;        // Number of Gauss2d entries
@@ -426,8 +434,6 @@ struct HOSTLIB_WGTMAP_DEF {
   bool  USE_SALT2GAMMA_GRID;
   bool  FOUNDVAR_SNMAGSHIFT;  // T -> SNMAGSHIFT column was found
 
-  double MEMTOT_MB;  // memory (MB) allocated for wgtmap
-
   // params for SN variables that are NOT in the hostlib (Mar 2020)
   int   IDMAP_INDEX_SNVAR;       // for get_1DINDEX
   int   N_SNVAR ;                // number of SN properties
@@ -450,13 +456,21 @@ struct HOSTLIB_WGTMAP_DEF {
   double  WGTMAX_GAL;   // max weight among hostlib galaxies
 
   double *WGTSUM ;      // cumulative sum of weights over entire HOSTLIB
+  double *WGTSUM_BY_FIELD[MXFIELD_HOSTLIB]; // use with input HOSTLIB_FIELD_MAP (Oct 20 2026)
 
-  double *WGT ;         // wgt for each hostlib entry (for +HOSTSELECT only)
-  bool   MALLOC_WGT;    // flag that WGT has been malloced and stored (for special options only)
+  double *WGT ;       // wgt for each hostlib entry (for +HOSTSELECT only)
+  bool   MALLOC_WGT;  // flag that WGT has been malloced and stored (for special options only)
 
-  short int *I2SNMAGSHIFT ;  // SN mag shift for each hostlib entry
   double **WGTSUM_SNVAR;              // idem
-  short int **I2SNMAGSHIFT_SNVAR ;    // idem
+  double **WGTSUM_SNVAR_BY_FIELD[MXFIELD_HOSTLIB];              // idem
+
+  short int *I2MAGSHIFT ;  // SN mag shift for each hostlib entry
+  short int **I2MAGSHIFT_SNVAR ;    // idem
+
+  // define global pointer for each event to point to WGTSUM[_SNVAR] or
+  // WGTSUM[_SNVAR]_BY_FIELD, and same for I2MAGSHIFT
+  double    *ptr_WGTSUM; 
+  short int *ptr_I2MAGSHIFT;
 
   // define  arrays to store list of GALIDs to check wgtmap interpolation
   int       NCHECKLIST ;
@@ -547,6 +561,7 @@ struct SNHOSTGAL {
   double MAGOBS_ERR_SCALE ; // based on user input HOSTLIB_SNR_SCALE
   char   FIELD_SIMLIB[MXCHAR_FIELDNAME];   // passed from SIMLIB
   char   FIELD_HOSTLIB[MXCHAR_FIELDNAME];  // mapped HOSTLIB field to match
+  int    INDEX_FIELD;  
 
   int    NNBR_DDLRCUT;   // number of nearby galaxies passing MAXDDLR
   int    NNBR_DDLRCUT2;  // number of nearby galaxies passing MAXDDLR2 (9.2022)
@@ -697,7 +712,7 @@ void   FREEHOST_GALID(int IGAL) ;
 void   checkAbort_noHOSTLIB(void) ;
 void   checkAbort_HOSTLIB(void) ;
 
-void   STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR);
+void   STORE_SNHOST_MISC(int IGAL);
 double modelPar_from_SNHOST(double parVal_orig, char *parName);
 void   DUMPROW_SNHOST(void) ;
 void   DUMP_SNHOST(void);
@@ -720,7 +735,7 @@ void   checkModel_HOSTLIB_WGTMAP(int NMODEL, int *MODEL_LIST, char *varName,
 				 char *funCall);
 
 void   runCheck_HOSTLIB_WGTMAP(void);
-void   malloc_HOSTLIB_WGTMAP(void); 
+void   malloc_HOSTLIB_WGTMAP(int index_field); 
 void   malloc_HOSTGAL_PROPERTY(void);
 int    getindex_HOSTGAL_PROPERTY(char *PROPERTY);
 
@@ -753,6 +768,8 @@ void   zptr_HOSTLIB(void);
 double transform_ZTRUE_HOSTLIB(int igal); 
 
 void   init_FIELD_MAP_HOSTLIB(void);
+void   setDefault_HOSTLIB_WGTSUM_BY_FIELD(int igal);
+
 void   init_HOSTLIB_ZPHOTEFF(void);
 void   init_HOSTLIB_QUANTILE_ZPHOT(void);
 void   init_GALMAG_HOSTLIB(void);
@@ -772,6 +789,8 @@ void   append_HOSTLIB_STOREPAR(void);
 void   strip_SNVAR_from_VARLIST_WGTMAP(char *VARLIST_WGTMAP,
 				       char *VARLIST_WGTMAP_noSNVAR);
 
+void   set_HOSTLIB_WGTSUM_POINTER(int ibin_SNVAR, int INDEX_FIELD);
+void   set_HOSTLIB_I2MAGSHIFT_POINTER(int ibin_SNVAR);
 void   LOAD_FIELD_HOSTLIB(char *FIELD);
 bool   QstringMatch(char *varName0, char *varName1);
 
@@ -786,7 +805,7 @@ double get_ZTRUE_HOSTLIB(int igal);
 double get_VALUE_HOSTLIB(int ivar, int igal);
 double get_GALFLUX_HOSTLIB(double a, double b);
 
-double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF ); 
+double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSF, char *callFun ); 
 double Gauss2d_Overlap(double offset, double sig);
 void   magkey_HOSTLIB(int  ifilt_obs, char *key, char *key_err);
 void   set_usebit_HOSTLIB_MSKOPT(int MSKOPT);

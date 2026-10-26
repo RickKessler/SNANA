@@ -719,7 +719,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_HOSTLIB    = false; // Nov 2019
   INPUTS.RESTORE_BUG_FLUXERR    = false; // Jan 2020
   INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
-  INPUTS.RESTORE_BUG_ZHEL       = true;
+  INPUTS.RESTORE_BUG_GALMAG     = true;   // Oct 9 2026
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
   INPUTS.REFAC_DATA_FLAG        = 0; // 701 ;
@@ -1836,9 +1836,12 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
     if (ITMP) { INPUTS.RESTORE_BUGS_DES3YR = true; }    
   }
-  else if ( keyMatchSim(1, "RESTORE_BUG_ZHEL", WORDS[0], keySource) ) {
+  else if ( keyMatchSim(1, "RESTORE_BUG_GALMAG", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
-    if (ITMP) { INPUTS.RESTORE_BUG_ZHEL = true; }    
+    if (ITMP == 0) 
+      { INPUTS.RESTORE_BUG_GALMAG = false; }    
+    else
+      { INPUTS.RESTORE_BUG_GALMAG = true; }    
   }
   else if ( keyMatchSim(1, "RESTORE_WRONG_VPEC", WORDS[0], keySource) ) {
     N++;  sscanf(WORDS[N], "%d", &ITMP);  
@@ -7602,6 +7605,9 @@ void prep_user_input(void) {
     printf("\t Restore bugs for DES3YR sims.\n");
   }
     
+  if ( INPUTS.RESTORE_BUG_GALMAG ) {
+    printf("\t Restore GALMAG bug related to FGAL_TOT calculation.\n");
+  }
   if ( INPUTS.RESTORE_DES5YR ) {
     if ( (INPUTS.RESTORE_DES5YR & 1) > 0 )  { 
       printf("\t Restore DES-SN5YR: Approx Fitzpatrick99 colorlaw\n"); 
@@ -7613,7 +7619,7 @@ void prep_user_input(void) {
     }
 
   }
-
+ 
   int REFAC = INPUTS_SEARCHEFF.REFAC_SEARCHEFF_MAP;
   if ( REFAC > 0 ) {
     printf("\t REFAC_SEARCHEFF_MAP = %d (for SPECID and zHOST efficiency maps)\n", REFAC );
@@ -9832,6 +9838,8 @@ void  init_event_GENLC(void) {
   // Oct 3 2026: Init a few SNHOSTGAL variables in case GEN_SNHOST_DRIVER is not called
   SNHOSTGAL.GALID = INPUTS.HOSTLIB_GALID_NULL ;
   SNHOSTGAL.ZTRUE = 0.0001 ; // beware: setting this to -9 will change random sync
+  sprintf(SNHOSTGAL.FIELD_HOSTLIB,"NONE"); // protect SIMGEN_DUMP if no HOSTLIB
+
   return ;
  
 }  // end of init_event_GENLC
@@ -16237,7 +16245,7 @@ void PREP_SIMGEN_DUMP(int OPT_DUMP) {
 
   cptr = SIMGEN_DUMP[NVAR_SIMGEN_DUMP].VARNAME ;
   sprintf(cptr,"GALFIELD") ;  // 10.05.2026
-  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRCHAR = SNHOSTGAL.FIELD_HOSTLIB ; //.xyz
+  SIMGEN_DUMP[NVAR_SIMGEN_DUMP].PTRCHAR = SNHOSTGAL.FIELD_HOSTLIB ; 
   NVAR_SIMGEN_DUMP++ ;
 
   // allow any variable used in HOSTLIB_WGTMXAP
@@ -19733,13 +19741,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 
 	NFIELD++ ;   SIMLIB_HEADER.NFIELD_OVP = NFIELD;
 	catVarList_with_sep(FIELD_LIST, field, PLUS);
-	/* xxx mark delete Oct 1 2026 xxxxxxx
-	if ( NFIELD == 1 )   // .xyz
-	  { sprintf(FIELD_LIST, "%s", field) ; }
-	else
-	  { strcat(FIELD_LIST,"+"); strcat(FIELD_LIST, field); }
-	xxxxxx end mark */
-
 	SKIP_FIELD = ( SKIP_SIMLIB_FIELD(1,FIELD_LIST) && (INPUTS.SIMLIB_FIELDSKIP_FLAG ==0 ) ) ;
 
 	iwd++ ; continue;
@@ -20025,11 +20026,6 @@ void  SIMLIB_readNextCadence_TEXT(void) {
     if ( ZPTSUM_BY_FIELD[i] > ZPTSUM_BY_FIELD[i-1] ) 
       { sprintf(SIMLIB_HEADER.FIELD_MAXDEPTH, "%s", SIMLIB_HEADER.FIELDLIST_OVP[i] ) ; }
   }
-
-  /* xxx mark delete 
-  printf(" xxx %s: NFIELD=%d  LIBID=%3d  FIELD_MAXDEPTH=%s \n",
-	 fnam, NFIELD, SIMLIB_HEADER.LIBID, SIMLIB_HEADER.FIELD_MAXDEPTH); fflush(stdout);
-  xxxxx end mark xxxx */
 
   if ( ISTORE > MXOBS_SIMLIB ) {
     sprintf(c1err,"Selected %d obs from %d total in LIBID=%d", 
@@ -25817,6 +25813,7 @@ void zsource_to_SNDATA(int FLAG){
 
   int igal=0, iz=0, N_Q = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ;
   double zq0 = SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].Z_LIST[iz];
+
   if (N_Q > 0 && zq0 >= 0. ) 
     { SNDATA.MASK_REDSHIFT_SOURCE += MASK_REDSHIFT_SOURCE_ZHOST_QUANTILE;  }
 
@@ -26013,7 +26010,8 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   //  + use SNDATA.PTR_HOSTGAL_PROPERTY_XXX pointers.
   //  + if no DDLR matches, set OBS and ERR values for true properties.
   //
-
+  // Oct 6 2026: set SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ here instead of in sntools_host.c
+  //
 
   int    IMATCH_TRUE_SORT = SNHOSTGAL.IMATCH_TRUE_SORT;
 
@@ -26040,6 +26038,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
 
     SNDATA.SIM_HOSTLIB_MSKOPT = INPUTS.HOSTLIB_MSKOPT ; // needed in sntools_fitsio
 
+    SNDATA.HOSTGALz_QUANTILE_ZPHOT[0].NZ = HOSTLIB.NQZPHOT ;  // Oct 6 2026
 
     NPAR = HOSTLIB_OUTVAR_EXTRA.NOUT ;
     SNDATA.NPAR_SIM_HOSTLIB = NPAR ;
@@ -26119,6 +26118,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
     }   
 
     for(m=0; m < NMATCH2; m++ ) {
+
       SNDATA.HOSTGAL_OBJID[m]      = SNHOSTGAL_DDLR_SORT[m].GALID;
       SNDATA.HOSTGAL_PHOTOZ[m]     = SNHOSTGAL_DDLR_SORT[m].ZPHOT;
       SNDATA.HOSTGAL_PHOTOZ_ERR[m] = SNHOSTGAL_DDLR_SORT[m].ZPHOT_ERR;
@@ -26164,10 +26164,9 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
       for(j=0; j<SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].NZ; j++){
 	double zq   = SNHOSTGAL_DDLR_SORT[m].QZPHOT[j] ;
 	double pct  = SNHOSTGAL_DDLR_SORT[m].QPERCENTILE[j] ;
-
+	
 	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].Z_LIST[j]   = zq;   
 	SNDATA.HOSTGALz_QUANTILE_ZPHOT[m].VAL_LIST[j] = pct;
-
       }
 
     }
@@ -26200,7 +26199,7 @@ void hostgal_to_SNDATA(int IFLAG, int ifilt_obs) {
   OVP = (INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT) ;
   if ( OVP > 0 ) {
     psfsig   = 1./2.355 ;     // typical PSF in arcsec 
-    mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs,psfsig );
+    mag_GAL  = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig, fnam );
     mag_SN   = (double)SNDATA.SIM_PEAKMAG[ifilt_obs] ;
     mag_dif  = mag_GAL - mag_SN ;
     if ( mag_SN < 98.0 ) {
@@ -27888,7 +27887,7 @@ void gen_fluxNoise_calc(int epoch, int vbose, FLUXNOISE_DEF *FLUXNOISE) {
   OVP = INPUTS.SMEARFLAG_HOSTGAL & SMEARMASK_HOSTGAL_PHOT ;
   if ( OVP > 0 ) {
     // get galmag over NEA
-    galmag        = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig_arcsec ); 
+    galmag        = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig_arcsec, fnam ); 
     arg           = 0.4 * ( zpt - galmag );
     fluxgal_pe    = ccdgain * pow(10.0,arg);   // effec-aper flux in pe.
   }
@@ -31099,7 +31098,8 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
 
   // init SNDATA strucure
-  init_SNDATA_EVENT() ; 
+  init_SNDATA_EVENT() ;
+
 
   // load SNDATA structure
   snlc_to_SNDATA(0) ;
@@ -31114,11 +31114,11 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
 
   wr_SIMGEN_DUMP_TRAINSALT(FLAG,SIMFILE_AUX);     // tmax for trainsalt  
 
-
   if ( INPUTS.FORMAT_MASK <= 0 ) { return ; }
 
   apply_prescale_GENSPEC();
-  
+
+
   if ( WRFLAG_FITS ) { 
     WR_SNFITSIO_UPDATE(); 
   }
@@ -31126,6 +31126,7 @@ void update_simFiles(SIMFILE_AUX_DEF *SIMFILE_AUX) {
     WR_SNTEXTIO_DATAFILE(SNDATA.SNFILE_OUTPUT);
     fprintf(SIMFILE_AUX->FP_LIST, "%s\n", SNDATA.snfile_output);
   }
+
 
   return ;
 

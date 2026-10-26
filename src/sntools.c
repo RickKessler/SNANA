@@ -21,6 +21,8 @@
 #include "eispack.h"
 #include "eispack.c"
 
+int DEBUG_HOSTGALz ;
+
 /*********************************************************
 **********************************************************
 
@@ -985,13 +987,6 @@ void parse_string_prescales(char *STRING, STRING_DICT_DEF *DICT) {
     { sprintf(sepKey, "%s", COMMA); }
 
   // allocate memory for each item in FIELDLIST
-
-  /* xxxx mark del Oct 5 2026 xxxxxxx
-  MEMC = 40*sizeof(char);
-  ptr_ITEMLIST = (char**)malloc( MAXITEM*sizeof(char*));
-  for(i=0; i < MAXITEM; i++ ) { ptr_ITEMLIST[i] = (char*)malloc(MEMC); }
-  xxxxxxx end mark xxxxx */
-
   malloc_strlist(+1, MAXITEM, 40, &ptr_ITEMLIST );
 
   splitString(STRING, sepKey, fnam, MAXITEM,         // inputs               
@@ -2591,11 +2586,11 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
 
   *istat_cov = -1 ;
         
-  for (k=0;k<MATSIZE;++k)  { 
+  for (k=0; k < MATSIZE; k++)  { 
     eigvalOrig[k] = eigval[k] ;
     if ( eigval[k] < EIGMIN ) { eigval[k] = EIGMIN; }  
   }
-    
+ 
   for (l=0;l<MATSIZE;++l)  {
     for (m=0;m<MATSIZE;++m)  {
       covOrig[l][m] = covMat[l][m] ;
@@ -2606,13 +2601,15 @@ void  update_covMatrix(char *name, int OPTMASK, int MATSIZE,
     }
   }
 
-
   // --------------------------------------
   // check option to dump info for cov fix
   if ( LDMP ) {
     printf("xxx -------- %s DUMP for SN=%s ------------- \n",  fnam, name);
-    printf("xxx rsError=%i  Eigenval(mB,x1,c) = %f %f %f \n",
-	   ierr, eigvalOrig[0], eigvalOrig[1], eigvalOrig[2] );
+    printf("xxx rsError=%i \n",	ierr);
+
+    for(l=0; l < MATSIZE; l++ ) {
+      printf(" xxx Eigenval_orig[%d] = %f -> %f \n", l, eigvalOrig[l], eigval[l] ); 
+    }
     fflush(stdout);
 
     printf("xxx  COV_ORIG(mB,x1,c)       -->      COV_FIXED(mB,x1,c) \n");
@@ -6129,7 +6126,7 @@ double sigint_muresid_list(int N_LIST, double *MURES_LIST, double *MUCOV_LIST,
   int    NBIN_SIGINT = 0,  N_ADJUST_SIGINT_HI = 0;
   double sigTmp_lo   = sigint_approx - (nbin_lo*sigint_bin) - 1.0E-7 ;
   double sigTmp_hi   = sigint_approx + (nbin_hi*sigint_bin) ;
-  double sigTmp, covTmp, covtot, pull ;
+  double sigTmp, covTmp, covtot=0.0, pull ;
   double sigTmp_store[MXSTORE_PULL], stdPull_store[MXSTORE_PULL], stdPull, avgPull ;
   double ONE = 1.0 ;
   bool BOUND_ONE = false;
@@ -8703,7 +8700,9 @@ int init_SNDATA_GLOBAL(void) {
   // one-time init of global variables
   //
   // Apr 14 2026: add calls to init_SNDATA_HOSTGALz
-  // Jun 30 2206: init SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME
+  // Jun 30 2026: init SNDATA.MXLEN_FILTNAME and SNDATA.MXLEN_FIELDNAME
+  // Oct 22 2026: init NEPOCH=-9 to avoid potential bug on first event where last NEP=0
+
   int ifilt, ep, igal ;
   char fnam[] = "init_SNDATA_GLOBAL" ;  (void)fnam;
 
@@ -8732,6 +8731,8 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.VARNAME_SNRMON[0] =  0 ;
   SNDATA.DATATYPE[0]       =  0 ;
   SNDATA.ZP_FLUXCAL        = NULLFLOAT ; // Jul 2025
+
+  SNDATA.NEPOCH = -9; 
 
   SNDATA_FILTER.NDEF       =  0 ;
   SNDATA_FILTER.LIST[0]    =  0 ;
@@ -8768,6 +8769,7 @@ int init_SNDATA_GLOBAL(void) {
   SNDATA.HOSTGAL_USEMASK      = 0;
 
 
+  DEBUG_HOSTGALz = 0; // .xyz
   // init HOSTGALz stucture for refactor (note that REFAC_DATA_FLAG isn't set yet)
   for(igal=0; igal < MXHOSTGAL; igal++ ) {
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
@@ -8794,9 +8796,12 @@ int init_SNDATA_EVENT(void) {
 
   int NEP_LAST = SNDATA.NEPOCH;
   int i_epoch, ifilt, i, igal ;
+  int LDMP=0 ;
   char fnam[] = "init_SNDATA_EVENT" ;  (void)fnam;
 
   // --------- BEGIN -----------------
+
+  if ( LDMP ) { printf(" 1. xxx %s start: NEP_LAST=%d \n", fnam, NEP_LAST); fflush(stdout); }
 
   sprintf(SNDATA.NAME_IAUC,      "UNKNOWN" );
   sprintf(SNDATA.NAME_TRANSIENT, "UNKNOWN" );
@@ -8840,8 +8845,10 @@ int init_SNDATA_EVENT(void) {
   SNDATA.MASK_REDSHIFT_SOURCE  = 0 ;
 
   // init HOSTGAL info
-  SNDATA.HOSTGAL_NMATCH[0] = 0;
-  SNDATA.HOSTGAL_NMATCH[1] = 0;
+  if ( LDMP ) { printf(" 2. xxx %s:  \n", fnam); fflush(stdout); }
+
+  SNDATA.HOSTGAL_NMATCH[0] = -9 ; // negative -> no key exists in header file
+  SNDATA.HOSTGAL_NMATCH[1] = -9 ;
   SNDATA.HOSTGAL_CONFUSION = -99.0;
   
   for(igal=0; igal<MXHOSTGAL; igal++ ) {  
@@ -8875,10 +8882,11 @@ int init_SNDATA_EVENT(void) {
     SNDATA.HOSTGAL_OBJID2[igal]       = 0 ;
     SNDATA.HOSTGAL_OBJID_UNIQUE[igal] = 0 ;
 
+    DEBUG_HOSTGALz = 1; // .xyz
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal], igal, MXBIN_HOSTGALz_QUANTILE,
-			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
+    			 SUFFIX_QUANTILE_ZPHOT, SUFFIX_QUANTILE_PERCENT, ""  );
     init_SNDATA_HOSTGALz(&SNDATA.HOSTGALz_LOGMASS[igal], igal, MXBIN_HOSTGALz,
-			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
+    			 SUFFIX_LOGMASS_ZGRID, SUFFIX_LOGMASS_VALGRID, SUFFIX_LOGMASS_ERRGRID );
   }
 
 
@@ -9052,6 +9060,8 @@ int init_SNDATA_EVENT(void) {
   }  //  end i_epoch init loop
 
 
+  if ( LDMP ) { printf(" 3. xxx %s: done  \n", fnam); fflush(stdout); }
+
   return SUCCESS ;
 
 }   // end of init_SNDATA_EVENT
@@ -9086,10 +9096,12 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
 
   // ------------ BEGIN ----------
 
-  if ( SAY_HELLO ) 
-    { printf(" xxx %s: hello for igal=%d  %s \n", fnam, igal, SUFFIX_z); fflush(stdout); }
 
   get_SNDATA_HOSTGAL_PREFIX(igal, PREFIX, PREFIXz); // HOSTGAL or HOSTGAL2 ...
+
+  if ( SAY_HELLO ) 
+    { printf(" xxx %s: hello for igal=%d  SUFFIX_z=%s  PREFIX=%s  PREFIXz=%s \n",
+	     fnam, igal, SUFFIX_z, PREFIX, PREFIXz ); fflush(stdout); }
 
   HOSTGALz->MXZ = MXBIN;
   sprintf(HOSTGALz->VARNAME_NZ,  "%s_NBIN_%s", PREFIXz, SUFFIX_z);
@@ -9102,12 +9114,15 @@ void init_SNDATA_HOSTGALz(HOSTGALz_DEF *HOSTGALz, int igal, int MXBIN,
   else 
     { HOSTGALz->VARNAME_VAL2[0] = 0 ; }
 
-  HOSTGALz->NZ = 0;
-  int NBLOC = MXBIN_HOSTGALz;
+  // if ( DEBUG_HOSTGALz > 0 ) { return; } // xxx REMOVE .xyz
+
+  HOSTGALz->NZ = 0;   // <== causes corrupt data when called from init_SNDATA_EVENT .xyz
+
+  int NBLOC = MXBIN; // _HOSTGALz;  
   for (j=0; j < NBLOC ; j++ ) {
     HOSTGALz->Z_LIST[j]    = -9.0 ;
     HOSTGALz->VAL_LIST[j]  = -9.0 ;
-    HOSTGALz->VAL2_LIST[j] = -9.0 ;
+    HOSTGALz->VAL2_LIST[j] = -9.0 ;  
   }
 
   return;

@@ -330,6 +330,15 @@
          ,R4SN_FFSUM_RATIO  & 
          ,RADIUS_POP   ! e.g., sqrt [  (x1/3)^2 + (c/0.3)^2 ]
 
+! Oct 26 2026: per-epoch storage filled by FCNSNLC(IFLAG=FCNFLAG_GRID); used by
+!   INIPAR_PHOTOZ_COURSEGRID to re-evaluate chi2 vs. model-flux scale without
+!   calling the model again.
+    INTEGER NGRID_EP   ! number of stored epochs
+    REAL*8  GRID_FDATA(MXFIT_DATA)   &  ! data flux
+           ,GRID_FMODEL(MXFIT_DATA)  &  ! model flux at scale=1
+           ,GRID_SQSIG0(MXFIT_DATA)  &  ! data err^2 + fudge err^2
+           ,GRID_ERRFRAC(MXFIT_DATA)    ! model flux-err / model flux
+
 ! define covariance matrices for SN model correlations (NOT for fit)
 
     REAL*8  & 
@@ -1596,7 +1605,7 @@
   END SUBROUTINE FITPAR_INI2
 
 ! ===========================================
-    SUBROUTINE FITPAR_END(IERR)
+  SUBROUTINE FITPAR_END(IERR)
 ! 
 ! User end-routine after all analysis/fits are done.
 ! [close files, summarize statistics, global analysis, etc ...]
@@ -1630,37 +1639,39 @@
   END SUBROUTINE FITPAR_END
 
 ! ==========================================
-    SUBROUTINE FITPAR_PREP ( iter, IERR )
-! 
-! For each "isn" supernova, this user-routine is used to
-! initialize global variables used as input to the fitter:
-! 
-! NFITPAR             = number of fit parameters
-! PARNAME_STORE(1:NFITPAR)  = name of each parameters (<= 10 bytes)
-! INIVAL(1:NFITPAR)   = initial value
-! INISTP(1:NFITPAR)   = initial step size (0 => fixed parameter!)
-! 
-! 
-! Useful notes:
-! 
-! 
-! It is highly recommened that the first fit parameter
-! is INIVAL(1) = DBLE(ISN)  with INISTP(1) = 0.0
-! You will need this index in FCNSNLC to get information
-! about a particular SN.
-! Another useful init is to set your initial MJD_AT_PEAK equal  to
-! SNLC_SEARCH_PEAKMJD(isn) from Masao's LC fitter during the survey.
-! 
-! 
-! Fill MAG_XTMW_REF(ifilt_obs)  so that  USRFUN
-! can make the same approx MilkyWay correction that was
-! applied to data.
-! 
-! 
-! Mar 19 2024: set MASK_PHOTOZ_SOURCE
-! 
-! ----------------------------------------
-
+  SUBROUTINE FITPAR_PREP ( iter, IERR )
+    ! 
+    ! For each event, this user-routine is used to
+    ! initialize global variables used as input to the fitter:
+    ! 
+    ! NFITPAR             = number of fit parameters
+    ! PARNAME_STORE(1:NFITPAR)  = name of each parameters (<= 10 bytes)
+    ! INIVAL(1:NFITPAR)   = initial value
+    ! INISTP(1:NFITPAR)   = initial step size (0 => fixed parameter!)
+    ! 
+    ! 
+    ! Useful notes:
+    ! 
+    ! It is highly recommened that the first fit parameter
+    ! is INIVAL(1) = DBLE(ISN)  with INISTP(1) = 0.0
+    ! You will need this index in FCNSNLC to get information
+    ! about a particular SN.
+    ! Another useful init is to set your initial MJD_AT_PEAK equal  to
+    ! SNLC_SEARCH_PEAKMJD(isn) from Masao's LC fitter during the survey.
+    ! 
+    ! Fill MAG_XTMW_REF(ifilt_obs)  so that  USRFUN
+    ! can make the same approx MilkyWay correction that was
+    ! applied to data.
+    !
+    !            HISTORY
+    ! Mar 19 2024: set MASK_PHOTOZ_SOURCE
+    !
+    ! Oct 22 2026;
+    !  + if BESTZ option and PRIOR_ZERRSCALE is not set by user,
+    !              set PRIOR_ZERRSCALE = 1.0. Logic moved from
+    !  + minor REFAC so that SET_REDSHIFT_PRIOR is called after PRIOR_ZERRSCALE -> 1
+    ! ----------------------------------------
+    
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -1676,7 +1687,7 @@
 
 ! local var
 
-    INTEGER  ipar, bit, ifilt, ifilt_obs, OPT, LL, LCHAR
+    INTEGER  ipar, bit, ifilt, ifilt_obs, OPT, LL, LCHAR, LDMP_MASK
     REAL*8 LAMMIN,LAMMAX, LAMAVG, Z8, Z8TEST
     REAL*4 Z4, LMIN4
 
@@ -1685,8 +1696,10 @@
     LOGICAL  & 
          USE_FILT_ITER1(MXFILT_ALL)  & 
         ,FIRST_ITER, NEXT_ITER, NOMATCH, LAMFAIL, LPRINT  & 
-        ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, LDMP_MASK
+        ,LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, L_BESTZ
 
+    LOGICAL REFAC_SET_REDSHIFT_FIT
+    
 ! functions
 
     LOGICAL LFITFUN_FILT, FIRST_ITERATION, IS_ZSPEC
@@ -1694,6 +1707,8 @@
 
 ! ---------- BEGIN FITPAR_PREP -------------
 
+    REFAC_SET_REDSHIFT_FIT = .TRUE.
+    
     IERR = 0  ! init to OK
     LPRINT = STDOUT_UPDATE
 
@@ -1761,57 +1776,68 @@
 ! set global REDSHIFT_FIT to use for things like
 ! getting rest-frame filters and Trest values.
 
-    CALL SET_REDSHIFT_FIT(iter)
-
-    Z8 = DBLE(REDSHIFT_FIT)
-    Z4 = REDSHIFT_FIT       ! ensure 4-byte redshift variable
-
+    if ( .NOT. REFAC_SET_REDSHIFT_FIT ) then
+       CALL SET_REDSHIFT_FIT(iter)
+       Z8 = DBLE(REDSHIFT_FIT)
+       Z4 = REDSHIFT_FIT       ! ensure 4-byte redshift variable
+       Z8TEST = Z8
+       if ( DOFIT_PHOTOZ ) Z8TEST = -9.0
+    endif
+    
 ! ---------------------------------
 ! set redshift-arg for LFITFUN_FILT (below)
 ! For photoz fit set Z8TEST=-9 so that z-dependent tests are
 ! skipped ; they are applied in PHOTOZ_ANA (after 1st fit) instead.
 
-    Z8TEST = Z8
+
     IF ( DOFIT_PHOTOZ ) THEN
-      Z8TEST = -9.0
 
 ! reset DROPFILTER array in first iteration only
-      if ( FIRST_ITER ) then
+       if ( FIRST_ITER ) then
 
-! Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
-        MASK_PHOTOZ_SOURCE = 0
+          ! Mar 19 2024: set mask of which OPT_PHOTOZ option (bit) is actually used.
+          MASK_PHOTOZ_SOURCE = 0
 
-        LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
-        LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
-        LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
-        LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
-
-        if ( LPZ_Q ) then
-!           use z_spec prior or quantiles; ignore zPHOT point estimate
-          if ( LZSPEC ) then
-              bit = BIT_BESTZ_GAUSS  ! use zspec prior if available and requested
-          else
-              bit = BIT_PHOTOZ_QUANTILES
+          LPZ_HOST = btest(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
+          LPZ_BEST = btest(OPT_PHOTOZ,BIT_BESTZ_GAUSS)
+          LPZ_Q    = btest(OPT_PHOTOZ,BIT_PHOTOZ_QUANTILES)
+          LZSPEC   = LPZ_BEST .and. IS_ZSPEC()
+          
+          if ( LPZ_Q ) then
+             !           use z_spec prior or quantiles; ignore zPHOT point estimate
+             if ( LZSPEC ) then
+                bit = BIT_BESTZ_GAUSS  ! use zspec prior if available and requested
+             else
+                bit = BIT_PHOTOZ_QUANTILES
+             endif
+             MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT)
+             
+          else if ( LPZ_BEST ) then
+             MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
+          else if ( LPZ_HOST ) then
+             MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
           endif
-          MASK_PHOTOZ_SOURCE = IBSET(MASK_PHOTOZ_SOURCE,BIT)
 
-        else if ( LPZ_BEST ) then
-           MASK_PHOTOZ_SOURCE =  & 
-                IBSET(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS)
-        else if ( LPZ_HOST ) then
-           MASK_PHOTOZ_SOURCE =  & 
-                IBSET(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_GAUSS)
-        endif
-
+          ! - - - - 
+          L_BESTZ = &
+               BTEST(MASK_PHOTOZ_SOURCE,BIT_BESTZ_GAUSS) .or. &  ! best z .or.
+               BTEST(MASK_PHOTOZ_SOURCE,BIT_PHOTOZ_QUANTILES)    ! quantiles 10.26.2026
+          if ( L_BESTZ .and. PRIOR_ZERRSCALE == 1000.01 ) then
+             PRIOR_ZERRSCALE = 1.0  ! auto-set since users are likely to forget
+          endif
+        
 ! - - - - - - -
-        LDMP_MASK = .FALSE.
-        if ( LDMP_MASK ) then
-           write(6,660) LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC,  & 
-                    MASK_PHOTOZ_SOURCE
+          LDMP_MASK = 0  ! .xyz
+          if ( LDMP_MASK > 0 ) then
+             print*,' xxx --------------------------------------'
+             print*,' xxx DUMP for FITPAR_PREP   ITER=', ITER
+             print*,' xxx CID = ', SNLC_CCID
+             write(6,660) LPZ_HOST, LPZ_BEST, LPZ_Q, LZSPEC, MASK_PHOTOZ_SOURCE
 660          format(' xxx LPZ[HOST,BEST,Q]=',3L2, 3x, 'LZSPEC=',L2, 3x,  & 
-                 '--> MASK_PHOTOZ_SOURCE=',I5 )
-           call flush(6)
-        endif
+                  '--> MASK_PHOTOZ_SOURCE=',I5 )
+             print*,' xxx PRIOR_ZERRSCALE = ', PRIOR_ZERRSCALE
+             call flush(6)
+          endif
 
 ! --------------------
         DO 220 ifilt_obs = 1,  MXFILT_ALL
@@ -1840,6 +1866,15 @@
 
     ENDIF  ! end of DOFIT_PHTOOZ
 
+    ! - - - - - 
+    if ( REFAC_SET_REDSHIFT_FIT ) then
+       CALL SET_REDSHIFT_FIT(iter)
+       Z8 = DBLE(REDSHIFT_FIT)
+       Z4 = REDSHIFT_FIT       ! ensure 4-byte redshift variable
+       Z8TEST = Z8
+       IF ( DOFIT_PHOTOZ ) Z8TEST = -9.0  ! no test for zphot
+    endif
+    
 ! ---------------------------------
 ! count how many filters to fit;
 ! a fit filter must:
@@ -1878,11 +1913,8 @@
 ! set USE_FILT based on user-request, existence,
 ! and valid rest-frame filter.
 
-       USE_FILT(ifilt_obs) =  & 
-            LFITFUN_FILT(ifilt_obs,Z8TEST)
-
-       NOMATCH  =  & 
-           USE_FILT_ITER1(ifilt_obs) .NEQV. USE_FILT(ifilt_obs)
+       USE_FILT(ifilt_obs) = LFITFUN_FILT(ifilt_obs,Z8TEST)
+       NOMATCH  = USE_FILT_ITER1(ifilt_obs) .NEQV. USE_FILT(ifilt_obs)
 
 ! print message if observer-filter is dropped or added on 2nd iteration
        if ( NEXT_ITER .and. NOMATCH .and. STDOUT_UPDATE ) THEN
@@ -4028,6 +4060,7 @@
         ,LFLAG_USER       &  ! called from user (IFLAG=30)
         ,LFLAG_USESIM     &  ! use SIM params instead of XVAL (IFLAG=99)
         ,LFLAG_FAST       &  ! speed up if possible (for pdf integration)
+        ,LFLAG_GRID       &  ! photoz course grid (FCNFLAG_GRID)
         ,LFLAG_FIT, LFLAG_PRIOR_ONLY, LFLAG_SIGMA_ONLY  & 
         ,LAST, LDMPFCN_LOC, LDMPFUN_LOC, LREJECT, LREJECT2, LFITDATA  & 
         ,FIRSTFILT, LASTFILT, LTMP, LMUFIX, LPOSFLUX  & 
@@ -4058,6 +4091,8 @@
     LFLAG_USER       = IFLAG .EQ. FCNFLAG_USER ! user-call (NOT from MINUIT)
     LFLAG_USESIM     = IFLAG .EQ. FCNFLAG_USESIM ! use sim params
     LFLAG_FAST       = IFLAG .EQ. FCNFLAG_FAST
+    LFLAG_GRID       = IFLAG .EQ. FCNFLAG_GRID
+    IF ( LFLAG_GRID ) NGRID_EP = 0
     LFLAG_PRIOR_ONLY = IFLAG .EQ. FCNFLAG_PRIOR_ONLY
     LFLAG_SIGMA_ONLY = IFLAG .EQ. FCNFLAG_SIGMA_ONLY
     LAST = LFLAG_LAST_MN .or. LFLAG_USER .or. LFLAG_USESIM
@@ -4120,8 +4155,8 @@
 ! ------------------------------------
 ! Get initial CHI2 from priors.
 
-    IF ( LFLAG_SIGMA_ONLY ) THEN
-      CHI2INI = 0.0
+    IF ( LFLAG_SIGMA_ONLY .or. LFLAG_GRID ) THEN
+      CHI2INI = 0.0   ! grid: caller evaluates prior at final model scale
     ELSE
       CHI2INI = FCNCHI2_PRIOR(XVAL,CHI2PRIOR)
     ENDIF
@@ -4353,6 +4388,22 @@
 ! always tack on chi2 from log(sigma) term
         chi2tot  = chi2tot + delchi2_sigma
 
+      ENDIF
+
+! Oct 2026: photoz course-grid call; store per-epoch quantities needed
+! to re-evaluate chi2 for a different model-flux scale (see INIPAR_PHOTOZ_COURSEGRID),
+! and accumulate FFSUM sums (same selection as in LAST block below).
+      IF ( LFLAG_GRID .and. LFITDATA ) THEN
+         NGRID_EP                = NGRID_EP + 1
+         GRID_FDATA(NGRID_EP)    = flux_data
+         GRID_FMODEL(NGRID_EP)   = flux_model
+         GRID_SQSIG0(NGRID_EP)   = flux_data_sqerrtot + flux_fudge_sqerr
+         GRID_ERRFRAC(NGRID_EP)  = errfrac
+         IF ( SNR_RAW > 3.0 .and. SCALE_NBIN_COURSE_PHOTOZ > 0 ) THEN
+            R4SN_FFSUM_DATA   = SNGL(R4SN_FFSUM_DATA   + (flux_data**2 )*inv_sqsig )
+            R4SN_FFSUM_MODEL  = SNGL(R4SN_FFSUM_MODEL  + (flux_model**2)*inv_sqsig )
+            R4SN_FFSUM_CROSS  = SNGL(R4SN_FFSUM_CROSS  + (flux_data*flux_model)*inv_sqsig )
+         ENDIF
       ENDIF
 
 ! if fast-flag is set, quit when chi2 is too big;
@@ -7120,7 +7171,7 @@
    ! But note PRIOR_ZERRSCALE=1000.01 by default
        OPT_PHOTOZ = IBSET(OPT_PHOTOZ,BIT_PHOTOZ_GAUSS)
     endif
-
+    
 ! Set non-zero step-size for PHOTOZ or DLMAG,
 ! depending on type of fit.
     if ( DOCHI2_SIGMA) OPT_CHI2_SIGMA = MASK_CHI2_SIGMA_ERRTOT  ! Preserve original option WDK
@@ -8361,12 +8412,10 @@
     INTEGER IFLAG
     REAL*8  GRAD(MXFITPAR), CHI2GUESS, CHI2 
     REAL*8 GET_DIST8, USRFUN
-    LOGICAL LEGACY
     EXTERNAL USRFUN, init_zPDF_spline
 
-! --------------- BEGIN -----------------
+! --------------- BEGIN FITINI_PHOTOZ -----------------
 
-    LEGACY = (DEBUG_FLAG == -202)  ! undo Feb 2 2026 fix below 
 
     IERR = 0
     FNAM = 'FITINI_PHOTOZ'
@@ -8431,19 +8480,15 @@
     STD       = 0.0
     PHOTODZ_REJECT = PHOTODZ_REJECT_ORIG ! Nov 2024
 
-    IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! Zspec prior
+    IF ( BTEST(MASK,BIT_BESTZ_GAUSS) ) THEN  ! best-z prior
       INIVAL(ipar) = SNLC_REDSHIFT
       STD          = SNLC_REDSHIFT_ERR
       CZTMP        = 'zBEST-Gauss'
-
-
-      if ( .NOT. LEGACY) THEN
-          LZDONE       = .TRUE.  ! Feb 2 2026 fix
-      endif
+      LZDONE       = .TRUE.  ! Feb 2 2026 fix
 
 ! Jan 2021: if user has not specified PRIOR_ZERRSCALE, then set it to 1
-      if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
-
+      ! xxx mark del 10.22.2026 if ( PRIOR_ZERRSCALE == 1000.01 )  PRIOR_ZERRSCALE = 1.0
+      
       if ( SNLC_REDSHIFT_ERR < 0.05 ) then ! avoid crazy zSpec err
          PHOTODZ_REJECT   = SNLC_REDSHIFT_ERR
       endif
@@ -8687,16 +8732,20 @@
   END SUBROUTINE PRINT_INIPAR_ZPHOT
 
 ! ====================================
-    SUBROUTINE INIPAR_PHOTOZ_COURSEGRID(CHI2INI,LZFIX)
+  SUBROUTINE INIPAR_PHOTOZ_COURSEGRID(CHI2INI,LZFIX)
 
-! Created July 12 2019
-! Estimate initial photo-z parameters using course grid.
-! [Code moved from FITINI_PHOTOZ]
-!
-! Dec 11 2025; 
-!   + set OPT_CHI2_SIGMA=0 and restore value after completion
-!   + add optional PKMJD loop
-
+    ! Created July 12 2019
+    ! Estimate initial photo-z parameters using course grid.
+    ! [Code moved from FITINI_PHOTOZ]
+    !
+    ! Dec 11 2025; 
+    !   + set OPT_CHI2_SIGMA=0 and restore value after completion
+    !   + add optional PKMJD loop
+    !
+    ! Oct 22 2026: fix bug setting PEAKMJD (see T_SAVE);
+    !              https://github.com/RickKessler/SNANA/issues/1820
+    !
+    !
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -8718,19 +8767,34 @@
     REAL*8 ZVAR, ZVAR_MIN, ZVAR_MAX, ZVAR_BIN
     REAL*8 GRAD(MXFITPAR), CHI2, CHI2MIN
     REAL*8 RESTLAMBDA_SAVE(2) 
-    INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER
+    INTEGER NZBIN, NSBIN, NCBIN, NTBIN, iz, is, ic, it, IFLAG, ITER, LDMP
     REAL SCALE_ALL
     INTEGER OPT_CHI2_SIGMA_SAVE, NBIN_TOT
 
-    LOGICAL REFAC_LAMRANGE
+    LOGICAL   RESTORE_BUG_T_SAVE
+    LOGICAL   LFAST_GRID   ! Oct 2026: analytic chi2 vs. model scale (no 2nd model call)
+    REAL*8    CHI2PRI, CHI2PRIOR(0:MXFITPAR)
     CHARACTER FNAM*28
-    REAL*8 GET_DIST8, USRFUN
+    REAL*8    GET_DIST8, USRFUN, FCNCHI2_PRIOR, GRID_CHI2_SCALED
     EXTERNAL USRFUN
 
-! ------------- BEGIN ------------
+! ------------- BEGIN INIPAR_PHOTOZ_COURSEGRID ------------
+
+    RESTORE_BUG_T_SAVE = (DEBUG_FLAG == -1022)
+
+! Oct 26 2026: model flux scales exactly with Fmodel_SCALE for SALT2 if x0 (or log10 x0)
+! is the distance parameter and x0 is floated. In that case the 2nd FCNSNLC call per
+! grid cell is replaced by an analytic chi2 re-evaluation. Legacy path is used for
+! all other cases, or with DEBUG_FLAG=-1026.
+    LFAST_GRID = ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) .and.  &
+                 ( .NOT. USE_FITCOV )                .and.  &
+                 ( INISTP_DLMAG > 0.0 )              .and.  &
+                 ( OPT_SALT2FIT == 0 .or. OPT_SALT2FIT == 1 .or. OPT_SALT2FIT == 4 ) .and. &
+                 ( DEBUG_FLAG /= 325 )               .and.  &
+                 ( DEBUG_FLAG /= -1026 )
 
     MARK_USED(ZBIN)
-
+    LDMP = 0
     FNAM = 'INIPAR_PHOTOZ_COURSEGRID'
     
     ITER  = 1
@@ -8779,7 +8843,17 @@
        ZMAX  = ZBND_MAX
     ENDIF
 
-
+    if ( LDMP > 0 ) then
+       print*,' xxx ------------------ '
+       print*,' xxx DUMP for INIPAR_PHOTOZ_COURSEGRID: '
+       print*,' xxx CID = ', SNLC_CCID 
+       print*,' xxx RANGEz_COURSE_PHOTOZ = ', RANGEz_COURSE_PHOTOZ
+       print*,' xxx DOFIT_PHOTOZ_HOST = ', DOFIT_PHOTOZ_HOST
+       print*,' xxx PRIOR_PHOTOZ[_ERR] = ', PRIOR_PHOTOZ, PRIOR_PHOTOZ_ERR
+       print*,' xxx ZMIN, ZMAX = ', ZMIN, ZMAX
+       call flush(6)
+    endif
+    
     ! - - - - -  - -
     CALL SET_COURSEBIN_PHOTOZ(IPAR_COLOR, ITER,  & 
          NCBIN, CBIN, CMIN, CMAX)  ! output
@@ -8815,9 +8889,7 @@
 
 
     ! Mar 24 2026: open wavelength range if UVLAM_EXTRAPFLUX is set;
-    !        DEBUG_FLAG = -324 restores legacy code to ignore UVLAM_EXTRAPFLUX.
-    REFAC_LAMRANGE = ( DEBUG_FLAG .NE. -324 )
-    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then
+    IF ( UVLAM_EXTRAPFLUX > 0.0 )  then
        RESTLAMBDA_SAVE(1) = RESTLAMBDA_USEFIT(1)
        RESTLAMBDA_SAVE(2) = RESTLAMBDA_USEFIT(2)
        RESTLAMBDA_USEFIT(1) = RESTLAMBDA_MODEL(1) 
@@ -8854,7 +8926,12 @@
 
 ! call function to evaluate R4SN_XXX variables needed to
 ! determine Fmodel_SCALE below.
-      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG, USRFUN)
+      IF ( LFAST_GRID ) THEN
+         ! stores per-epoch fluxes and FFSUM sums; no prior, no LAST-block bookkeeping
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, FCNFLAG_GRID, USRFUN)
+      ELSE
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG, USRFUN)
+      ENDIF
 
       ! now compute Fmodel_SCALE to minimize chi2 as a function of
       ! x0 or MU. This is an approximation assuming that the error-squared
@@ -8868,7 +8945,19 @@
          
       d                   = GET_DIST8(Z,s,c,Fmodel_SCALE)
       INIVAL(IPAR_DLMAG)  = d
-      CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
+
+      IF ( LFAST_GRID ) THEN
+         ! chi2 = prior(final d) + data chi2 re-computed analytically for flux scale.
+         ! Early exit once data-chi2 alone cannot beat CHI2MIN.
+         CHI2PRI = FCNCHI2_PRIOR(INIVAL, CHI2PRIOR)
+         IF ( CHI2PRI > 1.0E7 ) THEN
+            CHI2 = CHI2PRI
+         ELSE
+            CHI2 = CHI2PRI + GRID_CHI2_SCALED(Fmodel_SCALE, CHI2MIN - CHI2PRI)
+         ENDIF
+      ELSE
+         CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG,USRFUN)
+      ENDIF
 
 ! ------------
       if ( chi2 < -1300.  ) then
@@ -8882,6 +8971,7 @@
 ! -------
       if ( CHI2 .LT. CHI2MIN ) then
           chi2min = chi2
+          T_SAVE = INIVAL(IPAR_PEAKMJD)  ! Oct 22 2026 bug-fix
           Z_SAVE = INIVAL(IPAR_zPHOT)
           C_SAVE = INIVAL(IPAR_COLOR)
           S_SAVE = INIVAL(IPAR_SHAPE)
@@ -8896,25 +8986,59 @@
 
 ! update INIVAL
       
-    INIVAL(IPAR_zPHOT)   = Z_SAVE  ! save redshift
-    INIVAL(IPAR_COLOR)   = C_SAVE  ! save color
-    INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
-    INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
-    INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
-    OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
+      if ( .NOT. RESTORE_BUG_T_SAVE ) then
+         INIVAL(IPAR_PEAKMJD) = T_SAVE    ! Oct 22 2026 bug fix
+      endif
+      INIVAL(IPAR_zPHOT)   = Z_SAVE  ! save redshift
+      INIVAL(IPAR_COLOR)   = C_SAVE  ! save color
+      INIVAL(IPAR_DLMAG)   = D_SAVE  ! save distance
+      INIVAL(IPAR_SHAPE)   = S_SAVE  ! save lumi/shape param
+      INIVAL(IPAR_SPARE)   = Fmodel_SCALE_SAVE
+      OPT_CHI2_SIGMA       = OPT_CHI2_SIGMA_SAVE 
 
-    IF ( REFAC_LAMRANGE .and. UVLAM_EXTRAPFLUX > 0.0 )  then ! restore user wave range
-       if ( STDOUT_UPDATE ) then
-          write(6,439) RESTLAMBDA_SAVE(1), RESTLAMBDA_SAVE(2)
-439       format(T5,'UVLAM_EXTRAP -> restore RESTLAMBDA to: ', 2F8.0 )
-       endif
-       call flush(6)
-       RESTLAMBDA_USEFIT(1) = SNGL( RESTLAMBDA_SAVE(1) )
-       RESTLAMBDA_USEFIT(2) = SNGL( RESTLAMBDA_SAVE(2) )
-    endif
-
-    RETURN
+      IF ( UVLAM_EXTRAPFLUX > 0.0 )  then ! restore user wave range
+         if ( STDOUT_UPDATE ) then
+            write(6,439) RESTLAMBDA_SAVE(1), RESTLAMBDA_SAVE(2)
+439         format(T5,'UVLAM_EXTRAP -> restore RESTLAMBDA to: ', 2F8.0 )
+         endif
+         call flush(6)
+         RESTLAMBDA_USEFIT(1) = SNGL( RESTLAMBDA_SAVE(1) )
+         RESTLAMBDA_USEFIT(2) = SNGL( RESTLAMBDA_SAVE(2) )
+      endif
+      
+      RETURN
   END SUBROUTINE INIPAR_PHOTOZ_COURSEGRID
+
+! =====================================
+    DOUBLE PRECISION FUNCTION GRID_CHI2_SCALED(SCALE, CHI2MAX)
+!
+! Oct 26 2026
+! Return data chi2 for model flux = SCALE * (model flux stored by the last call to
+! FCNSNLC with IFLAG=FCNFLAG_GRID). Model flux-error is a fixed fraction of the model
+! flux, so it scales too. Same chi2 as FCNSNLC for USE_FITCOV=F and OPT_CHI2_SIGMA=0.
+! Sum has only non-negative terms, so quit and return partial sum if it exceeds CHI2MAX.
+!
+    USE SNFITVAR
+    IMPLICIT NONE
+
+    REAL*8 SCALE, CHI2MAX   ! (I)
+    REAL*8 CHI2, FM, EM, DIF, SQSIG
+    INTEGER i
+
+! ----------- BEGIN ----------
+    CHI2 = 0.0
+    DO i = 1, NGRID_EP
+       FM    = SCALE * GRID_FMODEL(i)
+       EM    = FM * GRID_ERRFRAC(i)
+       SQSIG = GRID_SQSIG0(i) + EM*EM
+       DIF   = GRID_FDATA(i) - FM
+       CHI2  = CHI2 + DIF*DIF / SQSIG
+       IF ( CHI2 > CHI2MAX ) EXIT
+    ENDDO
+
+    GRID_CHI2_SCALED = CHI2
+    RETURN
+  END FUNCTION GRID_CHI2_SCALED
 
 
   SUBROUTINE PRINT_TEST_CHI2()
@@ -13863,36 +13987,42 @@
 
     IMPLICIT NONE
 
-    INTEGER  & 
-        iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
+    INTEGER iter  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
 
 ! local
-    INTEGER NQZPHOT
-    REAL Zhost
-
-! ---------------- BEGIN ---------------
+    INTEGER NQZPHOT, LDMP
+    REAL    Zhost
+    
+! ---------------- BEGIN SET_REDSHIFT_FIT ---------------
 
     REDSHIFT_FIT = SNLC_REDSHIFT  ! start with "best" Z
 
     DOFIT_PHOTOZ_HOST   =  .FALSE.
     DOFIT_PHOTOZ_noHOST =  .FALSE.
 
+    LDMP = 0  ! .xyz
 ! -------------------------------
 
     IF ( DOFIT_PHOTOZ ) THEN
 
 ! check for host photoZ
-
       Zhost    = SNHOST_ZPHOT(1)
-
-
-      NQZPHOT = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
+      NQZPHOT  = SNHOSTz_QUANTILE_ZPHOT(1)%NZ
 
       DOFIT_PHOTOZ_HOST =  & 
-           (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE .LT. 30.0)
+           (Zhost > 0.0 .or. NQZPHOT > 0) .and. (PRIOR_ZERRSCALE < 30.0)
 
       DOFIT_PHOTOZ_noHOST = .NOT. DOFIT_PHOTOZ_HOST
 
+      if ( LDMP > 0 ) then
+         print*,' xxx ------------------------------------------------- '
+         print*,' xxx DUMP for SET_REDSHIFT_FIT, ITER=', ITER
+         print*,' xxx CID=', SNLC_CCID
+         print*,' xxx ZHOST, NQZPHOT    = ', zhost, NQZPHOT
+         print*,' xxx PRIOR_ZERRSCALE   = ', PRIOR_ZERRSCALE
+         print*,' xxx DOFIT_PHOTOZ_HOST = ', DOFIT_PHOTOZ_HOST
+         call flush(6)
+      endif
 ! --------------------------------------------
 
        if ( ITER.EQ. 1 .and. DOFIT_PHOTOZ_HOST  )  then
@@ -18477,7 +18607,7 @@
 
       xi      = float(i) - 0.5
       TOBS    = TMIN + TBIN * xi
-      WAVECOR = 0.0  ! .xyz ??
+      WAVECOR = 0.0  
       VFILTOBS(NOBS)      = IFILT_OBS
       VMJD(NOBS)          = TOBS + PKMJD + MJDOFF
       VTOBS(NOBS)         = TOBS

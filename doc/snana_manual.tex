@@ -2701,13 +2701,18 @@ For simplicity, note that the PSF is modeled as a single-Gaussian,
 and that the gain is unity.  Now let's compute that flux and noise
 for $i$-band.
 
-The measured flux (in ADU) and the calibrated flux (for lightcurve fits)
-are given in terms if the magnitude ($m_i$) and zeropoint ($Z_i$),
+\newcommand{\Zcal}{Z_{\rm cal}}
+\newcommand{\Zimg}{Z_{\rm image}}
+
+The measured flux (in ADU) is defined in terms of the magnitude ($m$) 
+and image zeropoint ($\Zimg$), and 
+the calibrated flux (for lightcurve fits) is evaluated from $m$ and
+a calibration zeropoint ($\Zcal=31.4$) corresponding to nJy:
 %
 \begin{eqnarray}
-   {\tt FLUX}    & = & 10^{-0.4(m_i - Z_i)}  =  10^{-0.4(23.3402 - 34.56)} 
+   {\tt FLUX}    & = & 10^{-0.4(m - \Zimg)}  =  10^{-0.4(23.3402 - 34.56)} 
         = 30755~{\rm ADU} \\
-   {\tt FLUXCAL} & = & 10^{-0.4m_i} \times 10^{11}   =   46.13
+   {\tt FLUXCAL} & = & 10^{-0.4(m - \Zcal)}  =  46.13
 \end{eqnarray}
 %
 which agrees with the simulated values above.
@@ -5224,8 +5229,18 @@ To select a host in a field matching the \simlib\ field:
 \end{itemize}
 %
 To test host property distributions for single field, \verb|SIMLIB_FIELDLIST| 
-selects a single field from the \simlib, and also from the \hostlib\ so that there
+selects field(s) from the \simlib, and also from the \hostlib\ so that there
 is no multi-field confusion in selecting hosts that follow the {\tt WGTMAP} file.
+For the \verb|DEFAULT| \verb|HOSTLIB_FIELD_MAP|, \verb|SIMLIB_FIELDLIST| trivially works. 
+For the more complex map, the \verb|SIMLIB| fields do not exist in the \verb|HOSTLIB|, 
+and vice versa. To select only DEEP fields in this case,
+\begin{verbatim}
+   SIMLIB_FIELDLIST: X3+C3+DEEP
+\end{verbatim}
+%
+All three fields are selected for both the \verb|SIMLIB| and \verb|HOSTLIB|,
+but only {\tt X3+C3} are recognized in the \verb|SIMLIB|,
+while only {\tt DEEP} is recognized in the \verb|HOSTLIB|.
 
 % ------------------------------------
 \subsubsection{Treatment of {\tt LOGMASS} }
@@ -5627,6 +5642,81 @@ i) create larger \hostlib,
 ii) relax \{RA,DEC\} match tolerance between \simlib\ and \hostlib, or
 iii) relax redshift match tolerance ({\tt see HOSTLIB\_DZTOL} key).
 
+% ------------------------------------
+   \clearpage
+\newcommand{\diffsky}{{\tt DIFFSKY}}
+\newcommand{\makeDiffsky}{{\tt make\_hostlib\_diffsky.py}}
+\newcommand{\msyn}{m_{\rm syn}}
+
+\newcommand{\URLDIFFSKY}{\url{https://diffsky.readthedocs.io/en/latest/demos.html}}
+
+\subsubsection{Constructing Synthetic \hostlib\ using DIFFSKY}
+\label{sss:hostlib_diffsky}
+
+A {\hostlib} derived from real data has the advantage of using real data,
+but also suffers from several problems: 
+(1) most true redshifts are $\Zphot$ estimates, which are not suitable for
+simulations that use host photo-$z$ in the analysis,
+(2) incomplete at high redshfits,
+(3) no truth for host properties (e.g., LOGMASS, SFR).
+To overcome these issues, the \snana\ program  \makeDiffsky\
+uses the pip-installable {\tt opencosmo} package to read a 
+\diffsky\ catalog\footnote{\URLDIFFSKY} and construct a \hostlib\ for 
+the \snana\ simulation.
+To get help on the input config file keys,
+\begin{verbatim}
+  make_hostlib_diffsky.py -H
+\end{verbatim}
+The primary dictionary in the config file is a map between \diffsky\
+variable names and the \hostlib\ names. 
+
+
+The \diffsky\ catalog includes true quanties for
+redshift,
+sky location,
+peculiar velocity,
+logmass,
+star formation rate,
+Sersic sizes (double profile) in kpc that are internally converted to arcsec
+using computed $D_A$,
+synethetic magnitudes ($\msyn$) in LSST and Roman bands.
+For other surveys, the \diffsky\ SEDs can be used to compute
+$\msyn$ for arbitray filter transmissions using the \snana\ program 
+%
+\begin{verbatim}
+   diffsky_synthetic_photometry.py   .
+\end{verbatim}
+%
+The \diffsky\ catalog includes large-scale structure,
+although testing this feature against other mocks is recommended.
+
+
+Instrumental galaxy mag uncertainties may be needed for
+$\Zphot$ estimation, detection limits, etc...
+\makeDiffsky\ has two config-file options to model instrumental mag uncertainties:
+\begin{itemize}
+   \item \verb|MAGERR_SNR5:| provide 5-sigma mag-depth per band, along
+         with Gaussian sigma for MAGERR dispersion
+%
+   \item \verb|MAGERR_PDF:| using double-Gaussian pdf of mag-err uncertainty
+         in mag bins, based on fits to real data using \snana\ program
+         \verb|magerr_sampler.py|.  The sampler program outputs a YAML file
+         that is read by \makeDiffsky.
+\end{itemize} 
+%
+The true mags are randomly fluctuated using the computed uncertainties,
+and written to the \hostlib\ as \verb|[band]_obs|. A future update may
+include both true and observed mags.
+To determine measured quantites for host properties (e.g., logmass, sfr),
+pass the observed mags into the same SED-fitting program (e.g., CIGALE)
+that was used for real data;
+\snana\ does not include SED-fitting codes.
+For $\Zspec$ simulations, the SED-fitted galaxy properties can be
+appended as extra columns in the \hostlib\ using the \verb|+HOSTAPPEND|
+feature described in \S\ref{sss:hostlib_append}.
+
+
+% .xyz
 
 % ------------------------------------
    \clearpage

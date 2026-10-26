@@ -172,8 +172,8 @@ void INIT_HOSTLIB(void) {
   // check to read external WEIGHT-MAP instead of the HOSTLIB WEIGHT-MAP
   read_HOSTLIB_WGTMAP();
 
-  // open hostlib and start reading
-  prep_head_HOSTLIB();  // prepare HOSTLIB variables after reading WGTMAP
+  // prepare HOSTLIB variables after reading WGTMAP
+  prep_head_HOSTLIB();  
 
   // check for match among spec templates and hostlib varnames (Jun 2019)
   match_specTable_HOSTVAR();
@@ -317,10 +317,11 @@ void initvar_HOSTLIB(void) {
 	  PATH_USER_INPUT, PATH_SNDATA_ROOT ); // Jul 14 2020
  
 
-  HOSTLIB.NFIELD_UNIQUE = 0 ;
+  HOSTLIB.NFIELD_UNIQUE   = 0 ;
+  HOSTLIB.OPT_FIELD_MATCH = 0 ;
   if ( strlen(INPUTS.HOSTLIB_FIELD_MAP) > 0 ) {
     if ( strcmp(INPUTS.HOSTLIB_FIELD_MAP,"DEFAULT") == 0 ) 
-      { HOSTLIB.OPT_FIELD_MATCH = 1; } // trivial one-to-one mapping betweeen SIMLIB and HOSTLIB field names
+      { HOSTLIB.OPT_FIELD_MATCH = 1; } // trivial 1-to-1 map between SIMLIB and HOSTLIB field names
     else
       { HOSTLIB.OPT_FIELD_MATCH = 2; } // non-trivial map
   }
@@ -1370,7 +1371,7 @@ void prep_HOSTLIB_WGTMAP(void){
   prep_SNVAR_HOSTLIB_WGTMAP();
 
 
-  /*
+  /* xxx mark delete ??? Oct 20 2026
   // check for optional WGTMAP_CHECK key to verify
   // WGTMAP interpolation.
   double TMPVAL[10];
@@ -1384,7 +1385,7 @@ void prep_HOSTLIB_WGTMAP(void){
     HOSTLIB_WGTMAP.CHECKLIST_SNMAG[N] = TMPVAL[2] ;
     HOSTLIB_WGTMAP.NCHECKLIST++ ;  
   }
-  */
+  xxxxxxx end mark xxxxxxxxx*/
 
   // - - - - - - -
 
@@ -2553,7 +2554,7 @@ void prep_head_HOSTLIB(void) {
 
   // Created Mar 28 2026
   // HOSTLIB VARNAMES have already been read by read_head_HOSTLIB;
-  // here to the preparation and lots of error checking.
+  // here do the one-time preparation and lots of error checking.
   //
   // Jul 16 2026: load IVAR_MAGOBS[_ERR] here instead of in init_GALMAG_HOSTLIB
 
@@ -2561,7 +2562,7 @@ void prep_head_HOSTLIB(void) {
   bool DO_RADEC = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_RADEC ) ;
   bool DO_SWAPZ = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SWAPZPHOT ) ;
 
-  int ivar, ivar_map, igal, IVAR_STORE, i, N, NVAR_WGTMAP, FOUND_SNPAR;
+  int ivar, ivar_map,  IVAR_STORE, i, N, NVAR_WGTMAP, FOUND_SNPAR;
   int MATCH, NVAR_STORE_SNPAR=0, USE, IS_SNPAR, VBOSE ;
   char *c_var_all, *c_var_opt, wd[20], ctmp[100];
   char *basename;
@@ -2597,7 +2598,7 @@ void prep_head_HOSTLIB(void) {
 	if ( strstr(c_var_all,"ZPHOT_Q") != NULL ) {  // legacy key
 	  int   N_Q = HOSTLIB.NQZPHOT ;
 	  int   percentile      = N_Q * N_Q;
-	  char *VARNAME         = HOSTLIB.VARNAME_QZPHOT[N_Q]; 
+	  char *VARNAME         = HOSTLIB.VARNAME_QZPHOT[N_Q];   // legacy
 	  sprintf(VARNAME, "ZPHOT_Q%3.3d", percentile);
 	  HOSTLIB.NQZPHOT++ ;
 	}
@@ -2616,10 +2617,14 @@ void prep_head_HOSTLIB(void) {
   } // end ivar loop over all variables
 
 
+
+  /* xxx mark delete Oct 6 2026; move this init to hostgal_to_SNLC()
   // xxx mark delete Oct 3 2026   if ( INPUTS.REFAC_DATA_FLAG == 701 ) {
+  int igal;
   for(igal=0; igal < MXHOSTGAL; igal++ ) 
     { SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal].NZ = HOSTLIB.NQZPHOT; }
   // xxx mark }
+  xxxxxxxxx end mark xxxxxxxx*/
 
   //-----------------------
   // sanity check on optioanl SNPARams
@@ -2700,7 +2705,11 @@ void prep_head_HOSTLIB(void) {
   HOSTLIB.IVAR_TRUE_MATCH   = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_TRUE_MATCH, 0, fnam) ; 
   HOSTLIB.IVAR_ZPHOT        = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT,      0, fnam) ; 
   HOSTLIB.IVAR_ZPHOT_ERR    = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_ZPHOT_ERR,  0, fnam);
-  HOSTLIB.IVAR_Q0ZPHOT      = IVAR_HOSTLIB_PREFIX("ZPHOT_Q", 0);
+
+  HOSTLIB.IVAR_Q0ZPHOT      = IVAR_HOSTLIB_PREFIX(PREFIX_QZPHOT, 0);
+  if ( HOSTLIB.IVAR_Q0ZPHOT < 0 ) 
+    { HOSTLIB.IVAR_Q0ZPHOT      = IVAR_HOSTLIB_PREFIX("ZPHOT_Q", 0); } // try legacy colname
+
   HOSTLIB.IVAR_VPEC         = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC,       0, fnam) ; 
   HOSTLIB.IVAR_VPEC_ERR     = IVAR_HOSTLIB_STORE(HOSTLIB_VARNAME_VPEC_ERR,   0, fnam);
   char c_var[200];
@@ -3257,6 +3266,13 @@ void read_gal_HOSTLIB(FILE *fp) {
   printf("\t Stored %d galaxies from HOSTLIB (from %d total, %d fail cuts). \n",
 	 HOSTLIB.NGAL_STORE, HOSTLIB.NGAL_READ, NCUT_FAIL );
 
+  if ( HOSTLIB.NGAL_STORE == 0 ) {
+    sprintf(c1err,"Invalid NGAL_STORE = %d", HOSTLIB.NGAL_STORE);
+    sprintf(c2err,"Check HOSTLIB cuts: redshift range, RA, DEC, FIELD ...");
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+
+  }
+
   if ( NPRIORITY > 0 ) {
     printf("\t   --> %d galaxies have priority (GALID between %lld and %lld)\n",
 	   NPRIORITY, GALID_MIN, GALID_MAX ); fflush(stdout);
@@ -3419,6 +3435,8 @@ int passCuts_HOSTLIB(double *XVAL, char *FIELD ) {
   }
 
   // Oct 2026: cut on FIELD using same cut as SIMLIB_FIELDLIST
+  //  when using HOSTLIB_FIELD_MAP, make sure that SIMLIB_FIELDLIST
+  //  includes HOSTLIB field names in addition to SIMLIB field names.
   if ( HOSTLIB.OPT_FIELD_MATCH ) {
     if ( SKIP_SIMLIB_FIELD(0,FIELD) )  // opt=0 -> ignore FIELD prescale
       { return 0; }
@@ -3868,38 +3886,44 @@ void sortz_HOSTLIB(void) {
   int MEMI  = (NGAL+1) * sizeof(int) ;
   int MEMD  = (NGAL+1) * sizeof(double) ;
   int MEMCp = (NGAL+1) * sizeof(char*) ;
-  double MEMTOT = 0.0 ;
+  int MEMS  = (NGAL+1) * sizeof(short int);
+  float MEMTOT = 0.0 ;
   
   // allocate memory for sort-pointers
-  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( MEMI ); MEMTOT += (double)MEMI ;
-  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( MEMI ); MEMTOT += (double)MEMI ;
+  HOSTLIB.LIBINDEX_UNSORT  = (int*)malloc( MEMI ); MEMTOT += (float)MEMI ;
+  HOSTLIB.LIBINDEX_ZSORT   = (int*)malloc( MEMI ); MEMTOT += (float)MEMI ;
 
   // allocate memory for sorted values
   for ( ival=0; ival < NVAR_STORE; ival++ )  {
     HOSTLIB.VALUE_ZSORTED[ival] = (double*)malloc(MEMD);
-    MEMTOT += (double)MEMD ;
+    MEMTOT += (float)MEMD ;
   }
 
   if ( DO_FIELD  ) {
+    MEMTOT += malloc_strlist(+1, NGAL+1, MXCHAR_FIELDNAME, &HOSTLIB.FIELD_ZSORTED);
+    if ( HOSTLIB.OPT_FIELD_MATCH )  {
+      init_string_dict( &HOSTLIB.INDEX_FIELD_DICT, "INDEX_FIELD", MXFIELD_HOSTLIB); 
+      HOSTLIB.INDEX_FIELD = (short int*)malloc(MEMS);      MEMTOT += (float)MEMS;
+    }
+
+    /* xxx mark del Oct 21 2026
     HOSTLIB.FIELD_ZSORTED = (char**)malloc( MEMCp );
     MEMC = MXCHAR_FIELDNAME * sizeof(char) ;
-
     for ( igal=0; igal <= NGAL; igal++ )  {
       HOSTLIB.FIELD_ZSORTED[igal] = (char*)malloc(MEMC) ;
-      MEMTOT += (double)MEMC ;
+      MEMTOT += (float)MEMC ;
     }
+    xxxxxxxxx end mark xxxxx*/
   }
 
   if ( DO_NBR ) {
     HOSTLIB.NBR_ZSORTED = (char**)malloc( MEMCp ) ;
-    MEMTOT += (double)MEMCp ;
-
+    MEMTOT += (float)MEMCp ;
   }
 
 
   // allocate memory and load ZSORT need for sorting routine
   ZSORT = (double*)malloc( (NGAL+1) * sizeof(double) ); 
-
 
   // - - - -
   printf("\t %s malloc-sum: %.2f MB \n", fnam, MEMTOT*1.0E-6);
@@ -3933,8 +3957,6 @@ void sortz_HOSTLIB(void) {
   HOSTLIB.VPEC_MIN = HOSTLIB.VPEC_MAX = 0.0 ;
   VSUM = VSUMSQ = 0.0;
 
-  if ( HOSTLIB.OPT_FIELD_MATCH ) 
-    { init_string_dict( &HOSTLIB.INDEX_FIELD_DICT, "INDEX_FIELD", MXFIELD_HOSTLIB); }
 
   // fill sorted array. 'igal' is the z-sorted index; 
   // 'unsort' is the  un-sorted index matching the original HOSTLIB order.
@@ -3950,15 +3972,26 @@ void sortz_HOSTLIB(void) {
     if ( DO_FIELD ) {
       ptr_UNSORT = HOSTLIB.FIELD_UNSORTED[unsort];
 
-      if ( HOSTLIB.OPT_FIELD_MATCH ) { 
+      if ( HOSTLIB.OPT_FIELD_MATCH ) {  // --> user input HOSTLIB_FIELD_MAP
 	index_field = (int)get_string_dict(0, ptr_UNSORT, &HOSTLIB.INDEX_FIELD_DICT );
-	if ( index_field < 0 ) { 
+	if ( index_field >= 0 ) { 
+	  HOSTLIB.INDEX_FIELD[igal] = index_field ;
+	}
+	else {
+	  HOSTLIB.INDEX_FIELD[igal] = nfield_unique ;
 	  VAL = (double)nfield_unique;
 	  load_string_dict(&HOSTLIB.INDEX_FIELD_DICT, ptr_UNSORT, VAL);
 
 	  HOSTLIB.FIELD_UNIQUE_LIST[nfield_unique] = (char*)malloc( MXCHAR_FIELDNAME*sizeof(char) );
 	  sprintf(HOSTLIB.FIELD_UNIQUE_LIST[nfield_unique],"%s", ptr_UNSORT) ;
 	  nfield_unique++ ;
+
+	  if ( nfield_unique >= MXFIELD_HOSTLIB ) {
+	    sprintf(c1err,"nfield_unique=%d exceeds bound MXFIELD_HOSTLIB=%d",
+		    nfield_unique, MXFIELD_HOSTLIB);
+	    sprintf(c2err,"Check FIELDs in HOSTLIB and SIMLIB");
+	    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 	  
+	  }
 	}
       }  // end HOSTLIB.OPT_FIELD_MATCH
 
@@ -4252,13 +4285,14 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   bool IS_SNVAR ;
   int  i, NDIM, ivar, ivar_STORE, NROW, ibin, istat ;
-  int  NGAL, igal, isparse, IVAL ;
+  int  NGAL, igal, isparse, IVAL, INDEX_FIELD = -9 ;
   short int I2MAG;
   bool LDMPWGT ;
 
   int N_SNVAR         = HOSTLIB_WGTMAP.N_SNVAR ;
   int NBTOT_SNVAR     = HOSTLIB_WGTMAP.NBTOT_SNVAR ;
   int IVAR_TRUE_MATCH = HOSTLIB.IVAR_TRUE_MATCH;
+  int OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH;
 
   double GAMMA_GRID_MIN = INPUTS.BIASCOR_SALT2GAMMA_GRID[0]; 
   double GAMMA_GRID_MAX = INPUTS.BIASCOR_SALT2GAMMA_GRID[1]; 
@@ -4271,7 +4305,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   long long GALID, GALID_CHECK ;
 
   double
-    VAL, VALMIN, VALMAX, WGT, WGTSUM, WGTSUM_LAST, SNMAGSHIFT
+    VAL, VALMIN, VALMAX, WGT, WGTSUM, WGTSUM_LAST=0.0 , MAGSHIFT
     ,VAL_WGTMAP[MXVAR_HOSTLIB], VAL_SNVAR[MXVAR_HOSTLIB]
     ,ZTRUE, ZTRUE_CHECK, ZDIF, TMPVAL[2]
     ;
@@ -4281,11 +4315,19 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
   // --------- BEGIN -----------
 
-  malloc_HOSTLIB_WGTMAP();
+  printf("\t Interpolate WGTMAP for each galaxy: \n" ) ;  fflush(stdout);
 
-  printf("\t Interpolate WGTMAP for each galaxy (%.2f MB) ... \n",
-	 HOSTLIB_WGTMAP.MEMTOT_MB ) ;  fflush(stdout);
+  if ( OPT_FIELD_MATCH == 0 )  { 
+    // nominal WGTSUM malloc with entire hostlib
+    malloc_HOSTLIB_WGTMAP(-9); 
+  }
+  else {
+    // malloc WGTSUM array for each FIELD
+    for(i = 0 ; i < HOSTLIB.NFIELD_UNIQUE; i++ ) { malloc_HOSTLIB_WGTMAP(i); }
+  }
 
+
+  // - - - - - - - - 
   NDIM = HOSTLIB_WGTMAP.GRIDMAP.NDIM ;
   NROW = HOSTLIB_WGTMAP.GRIDMAP.NROW ;
   NGAL = HOSTLIB.NGAL_STORE ;
@@ -4308,32 +4350,42 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
       { ISVAR_MAGOBS[ivar] = true; }
   }
 
-
-
   // - - - - - - - -
   for(ibin=0; ibin < NBTOT_SNVAR ; ibin++ ) {
 
     if ( N_SNVAR > 0 )  // fetch SN grid values
       { getVal_SNVAR_HOSTLIB_WGTMAP(ibin,VAL_SNVAR); }
+    
+    set_HOSTLIB_I2MAGSHIFT_POINTER(ibin);
 
-    WGTSUM_LAST = 0.0 ;
-    for ( igal=IGAL_START ; igal <= IGAL_END ; igal++ ) {  // loop over z-sorted igal
-	
+    //    ptrWGT = HOSTLIB_WGTMAP.ptr_WGTSUM ;
+
+    // xxx mark    WGTSUM_LAST = 0.0 ;
+    for ( igal=IGAL_START ; igal <= IGAL_END ; igal++ ) {  // loop over z-sorted igal	
+
       GALID  = get_GALID_HOSTLIB(igal);
       ZTRUE  = get_ZTRUE_HOSTLIB(igal);
-      
-      if ( NROW == 0 )  // if now WGTMAP, set all WGTs to 1 and skip to below
-	{  WGT = 1.0 ;  SNMAGSHIFT = 0.0 ;  goto WGTSUM ;    }
+    
+      if ( OPT_FIELD_MATCH ) { 
+	setDefault_HOSTLIB_WGTSUM_BY_FIELD(igal); // set all WGTSUM[igal] = WGTSUM[igal-1]
+	INDEX_FIELD = HOSTLIB.INDEX_FIELD[igal]; // only this field increments WGTSUM
+      }
+      set_HOSTLIB_WGTSUM_POINTER(ibin,INDEX_FIELD);  // set CDF pointer
+
+      if ( NROW == 0 )  // if no WGTMAP, set all WGTs to 1 and skip to below
+	{  WGT = 1.0 ;  MAGSHIFT = 0.0 ;  goto WGTSUM ;    }
       
       // May 2022: 
       // if TRUE column exists in HOSTLIB, set WGT=0.0 for TRUE_MATCH=0
       // so that these excluded hosts are used only for DLR-matching
-      // and not for true-host matches.
+      // and not for true-host matches. 
+      // Oct 20 2026: cannot remember motivation for this feature?
       if ( IVAR_TRUE_MATCH > 0 ) { 
 	IVAL  = get_VALUE_HOSTLIB(IVAR_TRUE_MATCH,igal); 
-	if ( IVAL == 0 ) { WGT = SNMAGSHIFT = 0.0; goto WGTSUM; }
+	if ( IVAL == 0 ) { WGT = MAGSHIFT = 0.0; goto WGTSUM; }
       }
 
+    
       // strip off variables used for weighting
       for ( ivar=0; ivar < NDIM; ivar++ ) {  // WGTMAP variables
 	IS_SNVAR     = HOSTLIB_WGTMAP.IS_SNVAR[ivar]; 
@@ -4356,13 +4408,12 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	  VAL = VALMAX - 0.001; 
 	}
 
-
 	VAL_WGTMAP[ivar] = VAL ;
 
       } // end ivar loop
       
 
-      // interpolate to get TMPVAL = WGT and SNMAGSHIFT
+      // interpolate to get TMPVAL = WGT and MAGSHIFT
       istat = interp_GRIDMAP(&HOSTLIB_WGTMAP.GRIDMAP, VAL_WGTMAP, fnam, TMPVAL ) ;
       
       if ( istat != SUCCESS ) {
@@ -4385,22 +4436,25 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
       
-      WGT        = TMPVAL[0] / HOSTLIB_WGTMAP.WGTMAX ;
-      SNMAGSHIFT = TMPVAL[1] ; 
+      WGT      = TMPVAL[0] / HOSTLIB_WGTMAP.WGTMAX ;
+      MAGSHIFT = TMPVAL[1] ; 
       
       if ( WGT > HOSTLIB_WGTMAP.WGTMAX_GAL ) { HOSTLIB_WGTMAP.WGTMAX_GAL = WGT; }
 
     WGTSUM:
-      
-      // check for random assignment of SNMAGSHIFT (for BiasCor)
+
+      // check for random assignment of MAGSHIFT (for BiasCor)
       if(USE_GAMMA_GRID) 
-	{ SNMAGSHIFT = snmagshift_salt2gamma_HOSTLIB(GALID); }
+	{ MAGSHIFT = snmagshift_salt2gamma_HOSTLIB(GALID); }
 
       // convert mag shift to 2-byte int to reduce memory
-      I2MAG = (short int)(SNMAGSHIFT*I2MAGSCALE_HOSTLIB);
+      I2MAG = (short int)(MAGSHIFT*I2MAGSCALE_HOSTLIB);
 
       // local sum
-      WGTSUM = WGTSUM_LAST + WGT;
+      WGTSUM_LAST = 0.0;
+      if(igal>0) { WGTSUM_LAST = HOSTLIB_WGTMAP.ptr_WGTSUM[igal-1]; }
+
+      WGTSUM = WGTSUM_LAST + WGT;  
       
       // print first 3 weights and last wgt
       if ( VBOSE && ibin==0 && (igal < 2 || igal == NGAL-1) ) {
@@ -4409,19 +4463,30 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 	fflush(stdout);
       }
 	
-      // load global array for each sum            
+      HOSTLIB_WGTMAP.ptr_WGTSUM[igal]     = WGTSUM;
+      HOSTLIB_WGTMAP.ptr_I2MAGSHIFT[igal] = I2MAG;
+      if ( HOSTLIB_WGTMAP.MALLOC_WGT ) { HOSTLIB_WGTMAP.WGT[igal] = WGT ;  }
+
+      /* xxxxxxxx mark del Oct 21 2026 xxxxxxxx
+      // load global array for each sum 
       if ( N_SNVAR > 0 ) {
-	HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin][igal]       = WGTSUM ;
-	HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin][igal] = I2MAG ;
+	if ( OPT_FIELD_MATCH == 0 ) 
+	  { HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin][igal] = WGTSUM ; }
+	else
+	  { HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[INDEX_FIELD][ibin][igal] = WGTSUM ; }
+	HOSTLIB_WGTMAP.I2MAGSHIFT_SNVAR[ibin][igal] = I2MAG ;
       }
       else {
-	HOSTLIB_WGTMAP.WGTSUM[igal]       = WGTSUM ; 
-	HOSTLIB_WGTMAP.I2SNMAGSHIFT[igal] = I2MAG ;
+	if ( OPT_FIELD_MATCH == 0 )
+	  { HOSTLIB_WGTMAP.WGTSUM[igal]     = WGTSUM ; }
+	else
+	  { HOSTLIB_WGTMAP.WGTSUM_BY_FIELD[INDEX_FIELD][igal] = WGTSUM ; }
+	HOSTLIB_WGTMAP.I2MAGSHIFT[igal] = I2MAG ;
 	if ( HOSTLIB_WGTMAP.MALLOC_WGT ) { HOSTLIB_WGTMAP.WGT[igal] = WGT ;  }
-  
       }
+      xxxxxxxxxx end mark xxxxx*/
 
-      WGTSUM_LAST  =  WGTSUM ; 
+      // xxx mark delete      WGTSUM_LAST  =  WGTSUM ; 
 	
       // store IGAL if this GALID is on the check-list
       
@@ -4450,7 +4515,7 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
   // verify interpolated WGTMAP values against optional list of 
   // exact WGT values specified by the WGTMAP_CHECK keys.
 
-  runCheck_HOSTLIB_WGTMAP();
+  // xxxx mark del Oct 2026  runCheck_HOSTLIB_WGTMAP();
   
   return ;
 
@@ -4458,52 +4523,132 @@ void init_HOSTLIB_WGTMAP(int OPT_INIT, int IGAL_START, int IGAL_END) {
 
 
 // =========================================
-void malloc_HOSTLIB_WGTMAP(void) {
+void malloc_HOSTLIB_WGTMAP(int index_field) {
 
   // Mar 15 2020
   // allocate memory (for each host gal) for wgt, snmagshift and 
   // cumulative weight-sum.
+  //
+  // Oct 20 2026: refactor to use index_field
+
+  bool FIRST_CALL  = index_field <= 0 ;
 
   int  NGAL        = HOSTLIB.NGAL_STORE ;
   int  N_SNVAR     = HOSTLIB_WGTMAP.N_SNVAR ;
   int  NBTOT_SNVAR = HOSTLIB_WGTMAP.NBTOT_SNVAR ;
-  int  MEMDD       = NBTOT_SNVAR * sizeof(double*);
-  int  MEMD2       = NGAL * sizeof(double);
-  int  MEMSS       = NBTOT_SNVAR * sizeof(short int*);
+  int  MEMD2       = NGAL * sizeof(double);            
   int  MEMS2       = NGAL * sizeof(short int);
 
-  int  ibin ;
-  double MEMTOT = 0.0 ;
+  int  MEMDD       = NBTOT_SNVAR * sizeof(double*);     (void)MEMDD ;
+  int  MEMSS       = NBTOT_SNVAR * sizeof(short int*);  (void)MEMSS ;
+
+  double **PTR_WGTSUM;      
+  double ***PTR_WGTSUM_SNVAR;
+  short int **PTR_I2MAGSHIFT       ;
+  short int ***PTR_I2MAGSHIFT_SNVAR;
+
+  int LDMP = 0 ;
+  float MEMTOT = 0.0 ;
+  char ctmp[60];
   char fnam[] = "malloc_HOSTLIB_WGTMAP" ;  (void)fnam;
 
   // --------------- BEGIN -----------
 
+  if(LDMP) { printf(" 1. xxx %s index_field = %d \n", fnam, index_field); fflush(stdout); }
+
+  if ( index_field < 0 ) {
+    // allocate single cumulative WGTSUMs
+    PTR_WGTSUM             = &HOSTLIB_WGTMAP.WGTSUM ;
+    PTR_WGTSUM_SNVAR       = &HOSTLIB_WGTMAP.WGTSUM_SNVAR;
+    sprintf(ctmp,"entire HOSTLIB");
+  }
+  else {
+    // allocate field-dependent WGTSUMs
+    PTR_WGTSUM             = &HOSTLIB_WGTMAP.WGTSUM_BY_FIELD[index_field] ;
+    PTR_WGTSUM_SNVAR       = &HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[index_field] ;
+    sprintf(ctmp,"FIELD=%s subset %d of HOSTLIB", 
+	    HOSTLIB.FIELD_UNIQUE_LIST[index_field], index_field );
+  }
+
+
+  // malloc MAGSHIFT array just once since we don't need FIELD-dependent arrays here
+  if ( FIRST_CALL ) {
+    PTR_I2MAGSHIFT         = &HOSTLIB_WGTMAP.I2MAGSHIFT ;
+    PTR_I2MAGSHIFT_SNVAR   = &HOSTLIB_WGTMAP.I2MAGSHIFT_SNVAR ;
+  }
+
+  if(LDMP) { printf(" 2. xxx %s \n", fnam); fflush(stdout); }
+
+  // - - - - -
   if ( N_SNVAR > 0 ) { 
 
+    if(LDMP) { printf(" 3. xxx %s for N_SNVAR=%d\n", fnam, N_SNVAR ); fflush(stdout); }
     
-    HOSTLIB_WGTMAP.WGTSUM_SNVAR       = (double    **) malloc(MEMDD); 
-    HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR = (short int **) malloc(MEMSS);
-    
+    MEMTOT += malloc_double2D(+1, NBTOT_SNVAR, NGAL, &(*PTR_WGTSUM_SNVAR) );
+
+    if ( FIRST_CALL ) 
+      { MEMTOT += malloc_shortint2D(+1, NBTOT_SNVAR, NGAL, &(*PTR_I2MAGSHIFT_SNVAR) );  }
+
+    /* xxxxxxxxxx mark del xxxxxxxxxxxx
+    *PTR_WGTSUM_SNVAR    = (double **) malloc(MEMDD);
     for(ibin=0; ibin < NBTOT_SNVAR; ibin++ ) {
-      HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin]       = (double   *) malloc(MEMD2); 
-      HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin] = (short int*) malloc(MEMS2);
+      (*PTR_WGTSUM_SNVAR)[ibin]     = (double *) malloc(MEMD2);
+      MEMTOT += MEMD2 ;
+    }
+    if ( FIRST_CALL ) { 
+      *PTR_I2MAGSHIFT_SNVAR  = (short int **) malloc(MEMSS); 
+      for(ibin=0; ibin < NBTOT_SNVAR; ibin++ ) 
+	{ (*PTR_I2MAGSHIFT_SNVAR)[ibin] = (short int*) malloc(MEMS2);  MEMTOT += MEMS2;  }  
+    }
+    xxxxxxx end mark */
+
+    if(LDMP) { printf(" 5. xxx %s \n", fnam); fflush(stdout); }
+   
+    /* xxxxxxxxxxxxxxxx mark del 
+    HOSTLIB_WGTMAP.WGTSUM_SNVAR       = (double    **) malloc(MEMDD); 
+    HOSTLIB_WGTMAP.I2MAGSHIFT_SNVAR = (short int **) malloc(MEMSS);
+
+    for(ibin=0; ibin < NBTOT_SNVAR; ibin++ ) {
+      HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin]     = (double   *) malloc(MEMD2); 
+      HOSTLIB_WGTMAP.I2MAGSHIFT_SNVAR[ibin] = (short int*) malloc(MEMS2);
       MEMTOT += (double)(MEMD2 + MEMS2);
     }
+    xxxxxxx end mark */
+
+
   }
   else {
     // HOSTLIB vars only
-    HOSTLIB_WGTMAP.WGTSUM       = (double    *)malloc(MEMD2); 
-    HOSTLIB_WGTMAP.I2SNMAGSHIFT = (short int *)malloc(MEMS2);
-    MEMTOT += (double)(MEMD2 + MEMS2) ;
+
+    *PTR_WGTSUM = (double *)malloc(MEMD2); // malloc each field
+    MEMTOT += (float)MEMD2 ;
+
+    if(LDMP) { printf(" 3. xxx %s \n", fnam); fflush(stdout); }
+
+    if ( FIRST_CALL ) {   // malloc just once
+      *PTR_I2MAGSHIFT  = (short int *)malloc(MEMS2); 
+      MEMTOT += (float)MEMS2; 
+    }  
+
+    if(LDMP) { printf(" 4. xxx %s \n", fnam); fflush(stdout); }
+
+    /* xxxxxxxxx mark del Oct 20 2026 xxxxxx
+       HOSTLIB_WGTMAP.WGTSUM       = (double    *)malloc(MEMD2); 
+       HOSTLIB_WGTMAP.I2MAGSHIFT = (short int *)malloc(MEMS2);
+       MEMTOT += (double)(MEMD2 + MEMS2) ;
+    xxxxxxxxx end mark */
+
 
     if ( HOSTLIB_WGTMAP.MALLOC_WGT ) { // Aug 18 2026: only for +HOSTSELECT option
       HOSTLIB_WGTMAP.WGT   = (double*)malloc(MEMD2);
-      MEMTOT              += (double )(MEMD2) ;
+      MEMTOT              += (float)(MEMD2) ;
     }
 
   }
 
-  HOSTLIB_WGTMAP.MEMTOT_MB = ( MEMTOT*1.0E-6 );
+  MEMTOT *= 1.0E-6;
+  printf("\t    Allocate %6.2f MB of CDF memory for %s \n", MEMTOT, ctmp);
+  fflush(stdout);
 
   return;
 
@@ -4513,6 +4658,8 @@ void malloc_HOSTLIB_WGTMAP(void) {
 // =========================================
 void runCheck_HOSTLIB_WGTMAP(void) {
 
+  // @@@@@@ MARK OBSOLETE OCT 10 2026 @@@@@@@@@@@@
+  //
   // Created Mar 11 2020   [moved code out of init_HOSTLIB_WGTMAP]
   // verify interpolated WGTMAP values against optional list of 
   // exact WGT values specified by the WGTMAP_CHECK keys.
@@ -4529,6 +4676,8 @@ void runCheck_HOSTLIB_WGTMAP(void) {
   WDIF_SUM = SQWDIF_SUM = WDIF_MAX = 0.0 ;
   igal_difmax = 0;
   NN = 0 ;
+
+  // @@@@@@ MARK OBSOLETE OCT 10 2026 @@@@@@@@@@@@
 
   for ( i=0; i <  NCHECK ; i++ ) {
     igal        = HOSTLIB_WGTMAP.CHECKLIST_IGAL[i] ;
@@ -4563,6 +4712,8 @@ void runCheck_HOSTLIB_WGTMAP(void) {
 	   GALID, WDIF_MAX );
     fflush(stdout);
   }
+
+  // @@@@@@ MARK OBSOLETE OCT 10 2026 @@@@@@@@@@@@
 
   return ;
 
@@ -4684,22 +4835,6 @@ void init_HOSTLIB_QUANTILE_ZPHOT(void) {
 
   }  // end USE_QGAUSS
 
-
-  /* xxxxxxx mark delete xxxxxxx
-  // list zphot quantiles
-  char STRING_Q[200], str_q[40];
-  sprintf(STRING_Q,"QUANTILE_ZPHOT: ");
-  for(q=0; q<N_Q; q++ ) {
-    percentile = HOSTLIB.PERCENTILE_QZPHOT[q] ;
-    sprintf(str_q,"%d ", percentile);
-    strcat(STRING_Q, str_q);
-  }
-
-  printf("\t %s\n", STRING_Q);
-  fflush(stdout);
-  xxxxxxx end mark */
-
-
   return;
 
 } // init_HOSTLIB_QUANTILE_ZPHOT
@@ -4791,6 +4926,8 @@ void init_GALMAG_HOSTLIB(void) {
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
 
+  HOSTLIB.NWARN_PSFMAX = 0;
+
   NR=0;  HOSTLIB.Aperture_PSFSIG[NR] = 0.0 ; 
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 0.03/2.35; // Added 9.28.2015 for WFIRST
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 0.07/2.35; // Added 5.22.2015 for WFIRST
@@ -4800,6 +4937,12 @@ void init_GALMAG_HOSTLIB(void) {
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 0.80/2.35; 
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 1.30/2.35;
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 2.10/2.35;
+
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 3.0/2.35; // Oct 21 2026 - for ATLAS
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 4.0/2.35; // idem
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 6.0/2.35; // idem
+  NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = 8.0/2.35; // idem
+
   NR++ ; HOSTLIB.Aperture_PSFSIG[NR] = PSFMAX_SNANA/2.35 ;
 
   if ( NR != NMAGPSF_HOSTLIB ) {
@@ -4861,7 +5004,7 @@ void init_FIELD_MAP_HOSTLIB(void) {
   // Motivation for this mapping is to get correct instrument magErr vs. field depth.
 
   int  OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH;
-  char *FIELD_MAP = INPUTS.HOSTLIB_FIELD_MAP;
+  char *FIELD_MAP      = INPUTS.HOSTLIB_FIELD_MAP;
   char **ptr_MAP, **ptr_FIELD ;
   int  NMAP, imap, NFIELD, ifield, index_field ;
   double DVAL;
@@ -4886,11 +5029,14 @@ void init_FIELD_MAP_HOSTLIB(void) {
   malloc_strlist(+1, MXFIELD_HOSTLIB, MXCHAR_FIELDNAME, &ptr_FIELD  );
 
   // split string by comma
-  splitString(FIELD_MAP, COMMA, fnam, MXFIELD_HOSTLIB,    // inputs                                             
-              &NMAP, ptr_MAP );                           // outputs                                                   
+  splitString(FIELD_MAP, COMMA, fnam, MXFIELD_HOSTLIB,    // inputs  
+              &NMAP, ptr_MAP );                           // outputs 
 
   char FIELD_HOSTLIB[MXCHAR_FIELDLIST], FIELDLIST_SIMLIB[MXCHAR_FIELDLIST];
   char FIELD_SIMLIB[MXCHAR_FIELDNAME];
+  bool DOCUT_FIELD = ( strstr(INPUTS.SIMLIB_FIELDLIST,"ALL") == NULL );
+
+  // xxx mark del  printf(" xxx %s: DOCUT_FIELD = %d \n", fnam, DOCUT_FIELD); fflush(stdout);
 
   for (imap=0; imap < NMAP; imap++ ) {
     sprintf(FIELD_HOSTLIB,"%s", ptr_MAP[imap] );
@@ -4900,26 +5046,55 @@ void init_FIELD_MAP_HOSTLIB(void) {
     splitString(FIELDLIST_SIMLIB, PLUS, fnam, MXFIELD_HOSTLIB,    // inputs 
 		&NFIELD, ptr_FIELD );  
 
-    // .xyz
     for ( ifield = 0; ifield < NFIELD; ifield++ ) {
       sprintf(FIELD_SIMLIB,"%s", ptr_FIELD[ifield]);
       DVAL        = get_string_dict(0, FIELD_HOSTLIB, &HOSTLIB.INDEX_FIELD_DICT );
-      index_field = (int)DVAL;
-      if (  index_field < 0 ) {
+      index_field = (int)DVAL;      
+      if (  index_field < 0 && !DOCUT_FIELD ) {
 	sprintf(c1err, "Undefined FIELD_HOSTLIB=%s in sim-input", FIELD_HOSTLIB);
 	sprintf(c2err, "HOSTLIB_FIELD_MAP: %.*s", MXCHAR_FIELDLIST, FIELD_MAP);
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
       }
-      load_string_dict(&HOSTLIB.FIELD_MAP_DICT, FIELD_SIMLIB, DVAL);
-      printf("\t\t Match SIMLIB FIELD=%s  to  HOSTLIB FIELD=%s (index=%d) \n",
-	     FIELD_SIMLIB, FIELD_HOSTLIB, index_field); 
-    }
-  }
+
+      if ( index_field >= 0 ) {
+	load_string_dict(&HOSTLIB.FIELD_MAP_DICT, FIELD_SIMLIB, DVAL);
+	printf("\t\t Match SIMLIB FIELD=%s  to  HOSTLIB FIELD=%s (index=%d) \n",
+	       FIELD_SIMLIB, FIELD_HOSTLIB, index_field); 
+      }
+
+    } // end ifield loop
+  } // end imap loop
 
   fflush(stdout);
   return ;
 
 } // end init_FIELD_MAP_HOSTLIB
+
+
+void setDefault_HOSTLIB_WGTSUM_BY_FIELD(int igal) {
+
+  // Created Oct 2026
+  // For each FIELD, set default WGTSUM equal to previous WGTSUM
+  int ifld;
+  double *ptr_WGTSUM ;
+  char fnam[] = "setDefault_HOSTLIB_WGTSUM_BY_FIELD" ;  (void)fnam;
+  // ------------ BEGIN ----------
+
+  if ( !HOSTLIB.OPT_FIELD_MATCH ) { return; }
+
+  // set default WGTSUM to previous WGTSUM ... 
+  // only the selected field for this event will have its WGTSUM updated later.
+  for(ifld=0; ifld < HOSTLIB.NFIELD_UNIQUE; ifld++ ) {
+    ptr_WGTSUM = HOSTLIB_WGTMAP.WGTSUM_BY_FIELD[ifld];
+    if(igal == 0 ) 
+      { ptr_WGTSUM[igal] = 0.0; }
+    else
+      { ptr_WGTSUM[igal] = ptr_WGTSUM[igal-1]; }
+  }
+
+  return;
+
+} // end setDefault_HOSTLIB_WGTSUM_BY_FIELD
 
 // =====================================
 void init_Gauss2d_Overlap(void) {
@@ -5029,7 +5204,7 @@ void init_Gauss2d_Overlap(void) {
 } // end of init_Gauss2d_Overlap
 
 // ======================================
-double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
+double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG, char *callFun ) {
  
   //
   // Return interpolated GALMAG for this 
@@ -5043,12 +5218,15 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
   //
   // Mar 23 2021: if PSF is outside range of map, bring PSF withing
   //    range instead of abort.
+  //
+  // Oct 21 2026: write WARNING if PSF exceeds PSFMAX_SNANA
 
   int NPSF ;
   double GALMAG, PSFSIGmin, PSFSIGmax, PSFSIG_local ;
   double *PTRGRID_GALMAG, *PTRGRID_PSF ;
-  char fnam[] = "interp_GALMAG_HOSTLIB" ;  (void)fnam;
 
+  char fnam[200];
+  concat_callfun_plus_fnam(callFun, "interp_GALMAG_HOSTLIB", fnam);
   // ------------- BEGIN -------------
   
   NPSF = NMAGPSF_HOSTLIB ;
@@ -5056,8 +5234,17 @@ double interp_GALMAG_HOSTLIB(int ifilt_obs, double PSFSIG ) {
   PSFSIGmax = HOSTLIB.Aperture_PSFSIG[NPSF] ;
 
   PSFSIG_local = PSFSIG;
-  if ( PSFSIG < PSFSIGmin ) { PSFSIG_local = PSFSIGmin + 0.0001; }
-  if ( PSFSIG > PSFSIGmax ) { PSFSIG_local = PSFSIGmax - 0.0001; }
+  if ( PSFSIG < PSFSIGmin ) 
+    { PSFSIG_local = PSFSIGmin + 0.0001; }
+
+  if ( PSFSIG > PSFSIGmax ) { 
+    PSFSIG_local = PSFSIGmax - 0.0001; 
+    HOSTLIB.NWARN_PSFMAX++ ;
+    if ( HOSTLIB.NWARN_PSFMAX < 20 ) {
+      printf("WARNING(%s): PSFSIG(%c)=%5.2f -> %5.2f to stay under PSFSIGmax \n",
+	     fnam, FILTERSTRING[ifilt_obs], PSFSIG, PSFSIG_local ); fflush(stdout);
+    }
+  }
 
   // note that the zero'th element is total aperture,
   // so ignore it for interpolatio.
@@ -5554,7 +5741,7 @@ void init_Sersic_integrals(int j) {
   // for Sersic profile with sparse index 'j', compute integral 
   // table as a function of reduced radius R/Re
   //
-  // The integrated flux contined in r < R is
+  // The integrated flux contained in r < R is
   //      Flux(R) = Re^2 * 2pi * integral[ x*exp[-bn*(x^(1/n)-1)] ]dx
   //
   // where x = R/Re is dimensionless. The integral above
@@ -5577,7 +5764,7 @@ void init_Sersic_integrals(int j) {
 
 
   // allocate memory for this cumulative integral table.  
-  MEM  = 8*SERSIC_TABLE.NBIN_reduced + 8;
+  MEM  = (SERSIC_TABLE.NBIN_reduced+1) * sizeof(double);
   SERSIC_TABLE.TABLEMEMORY    += MEM ;
   SERSIC_TABLE.INTEG_CUM[j]    = (double *)malloc(MEM);
   SERSIC_TABLE.INTEG_CUM[j][0] = 0.0 ; 
@@ -6190,7 +6377,8 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD, char *FIELD ) {
   LOAD_OUTVAR_HOSTLIB(IGAL); 
 
   // ---------------------------
-  STORE_SNHOST_MISC(IGAL,HOSTLIB_WGTMAP.ibin_SNVAR);
+  // xxx mark  STORE_SNHOST_MISC(IGAL,HOSTLIB_WGTMAP.ibin_SNVAR);
+  STORE_SNHOST_MISC(IGAL);
 
 
   // check debug-dump options
@@ -6208,27 +6396,53 @@ void GEN_SNHOST_DRIVER(double ZGEN_HELIO, double PEAKMJD, char *FIELD ) {
 void LOAD_FIELD_HOSTLIB(char *FIELD_SIMLIB) {
 
   // Created Oct 5 2026
-  // load the following globals:
+  // load the following globals for each event:
   //   + SNHOSTGAL.FIELD_SIMLIB = *FIELD_SIMLIB  # trivial
-  //   + SNHOSTGAL.FIELD_HOSTLIB depends on HOSTLIB.OPT_FIELD_MATCH
+  //   + SNHOSTGAL.FIELD_HOSTLIB        depends on HOSTLIB.OPT_FIELD_MATCH
   //
   // The latter is used to match FIELD, if sim-input HOSTLIB_FIELD_MAP key is set.
 
   int OPT_FIELD_MATCH = HOSTLIB.OPT_FIELD_MATCH ;
   int index_field = -9; (void)index_field ;
+  int LDMP = 0;
   char fnam[] = "LOAD_FIELD_HOSTLIB";  (void)fnam;
 
   // ----------- BEGIN ------------
+
   sprintf(SNHOSTGAL.FIELD_SIMLIB, "%s", FIELD_SIMLIB);
 
   if ( !OPT_FIELD_MATCH ) { return; }
 
   if ( OPT_FIELD_MATCH == 1 ) {
+    // 1-to-1 map between SIMLIB and HOSTLOB
+    index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.INDEX_FIELD_DICT );
+  }
+  else {
+    // translate FIELD names between SIMLIB and HOSTLIB
+    index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.FIELD_MAP_DICT );
+  }
+
+  if ( index_field < 0 ) {
+    sprintf(c1err,"Invalid index_field = %d for FIELD_SIMLIB=%s", index_field, FIELD_SIMLIB);
+    sprintf(c2err,"for CID=%d  OPT_FIELD_MATCH=%d", GENLC.CID, OPT_FIELD_MATCH );
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+ 
+  sprintf(SNHOSTGAL.FIELD_HOSTLIB,"%s", HOSTLIB.FIELD_UNIQUE_LIST[index_field] );
+  SNHOSTGAL.INDEX_FIELD = index_field ;
+
+  if ( LDMP ) {
+    printf(" xxx %s: FIELD_SIMLIB=%s -> FIELD_HOSTLIB=%s and INDEX_FIELD=%d \n", 
+	   fnam, FIELD_SIMLIB, SNHOSTGAL.FIELD_HOSTLIB, SNHOSTGAL.INDEX_FIELD);
+    fflush(stdout);
+  }
+
+  /* xxxxxxxxxxxxxxxxx mark del Oct 20 2026 xxxxxx
+  if ( OPT_FIELD_MATCH == 1 ) {
     sprintf(SNHOSTGAL.FIELD_HOSTLIB, "%s", FIELD_SIMLIB);  // default is trival one-to-one map
   }
   else if ( OPT_FIELD_MATCH == 2 ) {
     // non-trivial map
-    // .xyz
     index_field = (int)get_string_dict(0, FIELD_SIMLIB, &HOSTLIB.FIELD_MAP_DICT );
     sprintf(SNHOSTGAL.FIELD_HOSTLIB,"%s", HOSTLIB.FIELD_UNIQUE_LIST[index_field] );
   }
@@ -6237,6 +6451,7 @@ void LOAD_FIELD_HOSTLIB(char *FIELD_SIMLIB) {
     sprintf(c2err,"for CID=%d  and  FIELD_SIMLIB = %s", GENLC.CID, FIELD_SIMLIB );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
   }
+  xxxxxxx end mark xxxxxx */
 
   return;
 } // end LOAD_FIELD_HOSTLIB
@@ -6255,7 +6470,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // Dec 30 2021: minor refactor to make igal loops faster with binary search.
   // Aug 28 2026: check USE_SIMLIB_GALID
   // Aug 31 2206: fix minor bug using INPUTS.HOSTLIB_GALID_PRIORITY
-  // Oct 02 2026: check SELECT_BY_FIELD option
+  // Oct    2026: implement HOSTLIB_FIELD_MAP
 
   bool DO_SN2GAL_Z  = (INPUTS.HOSTLIB_MSKOPT & HOSTLIB_MSKOPT_SN2GAL_Z);
 
@@ -6267,19 +6482,21 @@ void GEN_SNHOST_GALID(double ZGEN) {
   double DZPTR          = DZPTR_HOSTLIB ;
   double FlatRan1_GALID = SNHOSTGAL.FlatRan1_GALID ;
   int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
+  // xxx mark delete  int OPT_FIELD_MATCH   = HOSTLIB.OPT_FIELD_MATCH;
 
   int NGROUPID = SIMLIB_HEADER.NGROUPID_HOSTLIB;
 
   int  IZ_CEN, IZ_TOLMIN, IZ_TOLMAX ;
   int  IGAL_SELECT, igal_start, igal_end, igal;
   int  igal0, igal1, igal_middle;
-  int  igal_start_init, igal_end_init ;
-  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, ibin_SNVAR=-9, USEHOST; 
+  int  igal_start_init, igal_end_init, igal_start_orig=0, igal_end_orig=0 ;
+  
+  int  NSKIP_WGT, NSKIP_USED, NGAL_CHECK, USEHOST; 
   long long int GALID = -9 ;
   double ZTRUE, LOGZGEN, LOGZTOLMIN, LOGZTOLMAX, LOGZDIF ;
   double WGT_start, WGT_end, WGT_dif, WGT_target, WGT_SELECT, WGT, *ptrWGT, CDF_target ;
   double ztol, dztol, z, z_start, z_end ;
-  bool   SELECT_BY_FIELD = 0;
+  // xxx mark del  bool   SELECT_BY_FIELD = 0;
   int  LDMP   =  (GENLC.CID == 548 && INPUTS.DEBUG_FLAG == 1002 );
   char fnam[] = "GEN_SNHOST_GALID" ;  (void)fnam;
 
@@ -6290,11 +6507,14 @@ void GEN_SNHOST_GALID(double ZGEN) {
   IGAL_SELECT = -9 ; 
   WGT_SELECT  = -9.0 ;
 
+  /* xxxxxxxxx mark del Oct 20 2026 xxxxxxxxx
   // Oct 2026: select by field if FIELD column exists in HOSTLIB;
   //   Perhaps later we may need a more selective test such as
   //   explicit request in the sim0-input file
-  if ( HOSTLIB.OPT_FIELD_MATCH )
+  if ( OPT_FIELD_MATCH )
     { SELECT_BY_FIELD = ( HOSTLIB.IVAR_FIELD >= 0 ); }
+  xxxxxxxx end mark xxxxxxxx */
+
 
   // compute zSN-zGAL tolerance for this ZGEN = zSN
   dztol = eval_GENPOLY(ZGEN, &INPUTS.HOSTLIB_GENPOLY_DZTOL, fnam) ;
@@ -6417,15 +6637,34 @@ void GEN_SNHOST_GALID(double ZGEN) {
   // igal_start and igal_end
   // - - - - - - - - - - - - - - 
 
+  if ( N_SNVAR > 0 ) { HOSTLIB_WGTMAP.ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP(); }
 
+  int ibin_SNVAR  = HOSTLIB_WGTMAP.ibin_SNVAR;
+  int INDEX_FIELD = SNHOSTGAL.INDEX_FIELD;
+  set_HOSTLIB_WGTSUM_POINTER(ibin_SNVAR,INDEX_FIELD); // set global HOSTLIB_WGTMAP.ptr_WGTSUM
+  set_HOSTLIB_I2MAGSHIFT_POINTER(ibin_SNVAR);
+  ptrWGT = HOSTLIB_WGTMAP.ptr_WGTSUM ;
+
+  /* xxxx mark delete Oct 20 2026
+  int INDEX_FIELD       = SNHOSTGAL.INDEX_FIELD;
+  int ibin_SNVAR = -9;
   if ( N_SNVAR > 0 ) {
     ibin_SNVAR = getBin_SNVAR_HOSTLIB_WGTMAP();
     HOSTLIB_WGTMAP.ibin_SNVAR = ibin_SNVAR ;
-    ptrWGT     = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR];
+
+    if ( OPT_FIELD_MATCH ) 
+      { ptrWGT  = HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[ibin_SNVAR][INDEX_FIELD]; }
+    else 
+      { ptrWGT  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR]; }
   }
   else {
-    ptrWGT     = HOSTLIB_WGTMAP.WGTSUM; // CDF vs. index (which is z-sorted) 
+    if ( OPT_FIELD_MATCH ) 
+      { ptrWGT  = HOSTLIB_WGTMAP.WGTSUM_BY_FIELD[INDEX_FIELD]; }
+    else
+      { ptrWGT  = HOSTLIB_WGTMAP.WGTSUM; } // CDF vs. index (which is z-sorted) 
   }
+  xxxxxxxxxx */
+
 
 
   // pick randomly from CDF between WGT_start and WGT_end
@@ -6527,15 +6766,18 @@ void GEN_SNHOST_GALID(double ZGEN) {
 
 
   // reset igal_start[end] for brute-force search below.
-  int igal_start_orig = igal_start;
-  int igal_end_orig   = igal_end;
+  igal_start_orig = igal_start;
+  igal_end_orig   = igal_end;
 
   NGAL_CHECK = 0 ;
   igal_start = igal0; // restrict igal search range based on binary search above
 
+  if ( !USEONCE ) { igal_end = igal1; } // Oct 20 2026
+
+  /* xxxxxxxxxxx mark delete Oct 20 2026 xxxxxxx
   bool PRESERVE_IGAL_END_ORIG = ( USEONCE || SELECT_BY_FIELD ) ;
   if ( !PRESERVE_IGAL_END_ORIG ) { igal_end = igal1; } 
-  // xxx mark delete Oct 3 2026 if ( SELECT_BY_FIELD ||  !USEONCE ) { igal_end = igal1; } // idem
+  xxxxxxxx end mark xxxxxx*/
 
   // - - - - - - - - - - - 
   // Brute force search, one igal at a time.
@@ -6564,7 +6806,8 @@ void GEN_SNHOST_GALID(double ZGEN) {
       if ( WGT <  WGT_target  )  { SKIP_WGT = true; }
     }
 
-    // - - - - - - -
+
+    /* xxxxxxxxxxxx mark del Oct 20 2026 xxxxxxxxxxx
     // Oct 2 2026: check field match
     if ( SELECT_BY_FIELD && !SKIP_WGT ) {  
       char *FIELD_HOSTLIB  = SNHOSTGAL.FIELD_HOSTLIB;      // desired field to match
@@ -6580,6 +6823,7 @@ void GEN_SNHOST_GALID(double ZGEN) {
       if ( strcmp(FIELD_HOSTLIB,FIELD_ZSORT) != 0 ) { SKIP_WGT = true; }
       //debugexit(fnam);
     }
+    xxxxxxxxxxxx end mark xxxxxxx */
     // - - - - - - 
 
     if ( SKIP_WGT ) { NSKIP_WGT++; continue; }
@@ -6726,7 +6970,8 @@ void init_event_SNHOSTGAL(void) {
   SNHOSTGAL.ZPHOT       = -9.0 ;
   SNHOSTGAL.ZPHOT_ERR   = -9.0 ;
   SNHOSTGAL.FIELD_SIMLIB[0]    = 0;
-  SNHOSTGAL.FIELD_HOSTLIB[0]   = 0;
+  // xxx mark  SNHOSTGAL.FIELD_HOSTLIB[0]   = 0;  // init'ed in snlc_sim
+  SNHOSTGAL.INDEX_FIELD        = -9;
 
   SNHOSTGAL.CDFWGT_TARGET = -9.0 ;
   SNHOSTGAL.CDFWGT_SELECT = -9.0 ;
@@ -8369,54 +8614,6 @@ bool snr_detect_HOSTLIB(int IGAL) {
 				NBAND_SNR_DETECT, INPUTS.HOSTLIB_SNR_DETECT, fnam );
   return detect ;
 
-    // xxxx mark delete   }
-
- 
-  /* xxxxxxxxx mark delete Oct 3 2026 xxxxxxx
-  // - - - - below is legacy - - - - -
-
-  // abort if there are fewer bands than needed to apply the SNR cut
-  if ( NBAND_EXIST < NBAND_SNR_DETECT ) {
-    sprintf(c1err,"NBAND_EXIST = %d but NBAND_SNR_EXIST==%d", 
-	    NBAND_EXIST, NBAND_SNR_DETECT);
-    sprintf(c2err,"Check <BAND>_OBS in HOSTLIB, "
-	    "and sim-input HOSTLIB_SNR_DETECT.");
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
-  }
-
-
-  // sort HOST mags by SNR, in decreasing order
-  int ORDER_SORT = -1; // decreasing order
-  int INDEX_SORT[MXFILTINDX];
-  sortDouble( NBAND_EXIST, SNR_LIST, ORDER_SORT, INDEX_SORT ) ;
-
-  // loop over SNR cut values and apply SNR cut in sorted space.
-  int icut, isort; 
-  for(icut=0; icut < NBAND_SNR_DETECT; icut++){
-    isort = INDEX_SORT[icut];
-    if ( SNR_LIST[isort] < INPUTS.HOSTLIB_SNR_DETECT[icut] ) {
-      detect = false;
-    }
-  }
-
-  int i, LDMP = 0;
-  int NNBR_ORIG = SNHOSTGAL.NNBR_ALL ;
-  if ( LDMP && NNBR_ORIG > 1 ) {
-    printf("XXX: ----------------------------------- \n");
-    printf("XXX: %s DUMP for CID=%d  GALID = %lld \n",
-	   fnam, GENLC.CID, GALID);
-    printf("XXX: SNR_LIST = ");
-    for(i=0; i < NBAND_EXIST; i++) { printf("%.3f  ",SNR_LIST[i]); }
-    printf("\nXXX: detect = %d  (CID=%d, zSN=%.3f  NNBR_ORIG=%d)\n", 
-	   detect, GENLC.CID, GENLC.REDSHIFT_CMB, NNBR_ORIG );
-    fflush(stdout);
-  }
-  
-  return detect ;
-
-  xxxxxxxxxxx end mark xxxxxxxx*/
-
-
 
 } // end snr_detect_HOSTLIB
 
@@ -9638,7 +9835,7 @@ void GEN_SNHOST_GALMAG(int IGAL) {
 
   for ( ifilt=0; ifilt < GENLC.NFILTDEF_OBS; ifilt++ ) {
     ifilt_obs  = GENLC.IFILTMAP_OBS[ifilt];
-    SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig ) ;
+    SB_MAG     = interp_GALMAG_HOSTLIB(ifilt_obs, psfsig, fnam ) ;
     SB_MAG    += 2.5*log10(AREA); // normalize to 1 sq-arcsec
     arg     = -0.4*(SB_MAG - INPUTS.ZP_FLUXCAL) ;
     SB_FLUXCAL = pow(10.0,arg) ;
@@ -9808,9 +10005,12 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
   // Mar 4 2015: fix aweful index bug setting FGAL_TOT.
   //             Bug affects only the host-noise contribution.
   //
+  // Oct 2026: fix another aweful index bug setting FGAL_TOT 
+  //            (found by J.Twedle & Claude).
+  //             Follow INPUTS.RESTORE_BUG_GALMAG.
 
   int    j ;
-  double a, b, w, n, bn, rexp, sqsum,  arg ;
+  double a, b, w, n, bn, inv_n, sqsum,  arg ;
   double reduced_R, xx, yy, FSUM_PROFILE, F, FGAL_TOT    ;
   char fnam[] = "get_GALFLUX_HOSTLIB" ;  (void)fnam;
 
@@ -9826,13 +10026,32 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
     n   = SNHOSTGAL.SERSIC.n[j] ;
     w   = SNHOSTGAL.SERSIC.w[j] ;
     bn  = SNHOSTGAL.SERSIC.bn[j] ;
-    rexp = 1./n ;
+    inv_n = 1./n ;
 
     // Flux normalization = total flux over galaxy.
     // The stored INTEG_SUM is integrated over the reduced radius;
     // the pre-factor a*b converts to the total flux over the 
     // physical galaxy size.
-    FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[NSERSIC_TABLE-1];
+    if ( INPUTS.RESTORE_BUG_GALMAG )  { 
+      FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[NSERSIC_TABLE-1];  
+    }
+    else {
+      // Oct 2026 fix bug identified by J.Twedle & Claude 
+      //   -> interpolate in INTEG_SUM rather than use j'th value
+      
+      FGAL_TOT = interp_1DFUN(OPT_INTERP_LINEAR, inv_n, NSERSIC_TABLE, 
+			      SERSIC_TABLE.inv_n, SERSIC_TABLE.INTEG_SUM, fnam );   
+
+      /* xxxxxxx mark delete Oct 26 2026 xxxxxxxxxxx
+      k     = (int)((inv_n - SERSIC_TABLE.INVINDEX_MIN) / SERSIC_TABLE.INVINDEX_BIN);
+      fbin  = (inv_n - SERSIC_TABLE.inv_n[k]) / SERSIC_TABLE.INVINDEX_BIN;
+      FGAL_TOT = (a*b) * ( SERSIC_TABLE.INTEG_SUM[k]
+			   + fbin*(SERSIC_TABLE.INTEG_SUM[k+1] - SERSIC_TABLE.INTEG_SUM[k]) );
+      FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[j];      // .xyz
+      //FGAL_TOT = (a*b) * TWOPI * n * exp(bn) * pow(bn, -2.0*n) * tgamma(2.0*n);
+      xxxxxxxxxxxxx end mark xxxxxxxxx */
+
+    }
 
     // get scale needed to move input xgal,ygal onto the
     // half-light ellipse; this scale is the reduced radius (R/Re)
@@ -9842,7 +10061,7 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
     reduced_R = sqrt(sqsum) ;
 
     // calculate Flux for this Sersic component
-    arg  = pow(reduced_R,rexp) - 1.0 ; 
+    arg  = pow(reduced_R,inv_n) - 1.0 ; 
     F    = (w/FGAL_TOT) * exp(-bn*arg) ;
 
     FSUM_PROFILE += F ;
@@ -9852,45 +10071,109 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
 
 } // end of get_GALFLUX_HOSTLIB
 
+// ==============================================
+void set_HOSTLIB_WGTSUM_POINTER(int ibin_SNVAR, int INDEX_FIELD) {
+
+  // Created Oct 20 2026
+  //
+  // Called once per event to  set WGTSUM pointers to relevant array 
+  // based on whether or not:
+  //   - SNVAR is used
+  //   - HOSTLIB_FIELD_MAP is used
+
+  int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
+  int OPT_FIELD_MATCH   = HOSTLIB.OPT_FIELD_MATCH;
+  char fnam[] = "set_HOSTLIB_WGTSUM_POINTER" ;  (void)fnam;
+
+  // ---------- BEGIN ---------- 
+
+  if ( N_SNVAR > 0 ) {
+
+    // xxx mark    ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;
+
+    if ( OPT_FIELD_MATCH ) 
+      { HOSTLIB_WGTMAP.ptr_WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR_BY_FIELD[INDEX_FIELD][ibin_SNVAR]; }
+    else 
+      { HOSTLIB_WGTMAP.ptr_WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR]; }
+  }
+
+  else {
+    if ( OPT_FIELD_MATCH ) 
+      { HOSTLIB_WGTMAP.ptr_WGTSUM = HOSTLIB_WGTMAP.WGTSUM_BY_FIELD[INDEX_FIELD]; }
+    else
+      { HOSTLIB_WGTMAP.ptr_WGTSUM = HOSTLIB_WGTMAP.WGTSUM; } // CDF vs. index (which is z-sorted) 
+  }
+
+  return ;
+
+} // end set_HOSTLIB_WGTSUM_POINTER
+
+// ==============================================
+void set_HOSTLIB_I2MAGSHIFT_POINTER(int ibin_SNVAR) {
+
+  int N_SNVAR           = HOSTLIB_WGTMAP.N_SNVAR ;
+  char fnam[] = "set_HOSTLIB_I2MAGSHIFT_POINTER" ; (void) fnam;
+
+  // ---------- BEGIN -----------
+  
+  if ( N_SNVAR > 0 ) {
+    // xxx mark dele    ibin_SNVAR = HOSTLIB_WGTMAP.ibin_SNVAR;
+    HOSTLIB_WGTMAP.ptr_I2MAGSHIFT = HOSTLIB_WGTMAP.I2MAGSHIFT_SNVAR[ibin_SNVAR]; 
+  }
+  else {
+    HOSTLIB_WGTMAP.ptr_I2MAGSHIFT = HOSTLIB_WGTMAP.I2MAGSHIFT; 
+  }
+
+  return;
+} // end set_HOSTLIB_I2MAGSHIFT_POINTER
+
+
 // =============================================
-void  STORE_SNHOST_MISC(int IGAL, int ibin_SNVAR) {
+void  STORE_SNHOST_MISC(int IGAL) {
 
   // Feb 11 2014.
   // store misc variables in SNHOSTGAL structure.
   // Needed to write to data file.
 
-  // Mar 27 2020: init I2SNMAGSHIFT=0 to fix crazy unitialized values.
+  // Mar 27 2020: init I2MAGSHIFT=0 to fix crazy unitialized values.
+  // Oct 20 2026: refactor using global pointers to avoid clumsy else-if logic
 
   int  NDIM           = HOSTLIB_WGTMAP.GRIDMAP.NDIM;
-  bool USE_SNVAR      = ( ibin_SNVAR >= 0 ) ;
-  bool USE_SNMAGSHIFT = ((INPUTS.HOSTLIB_MSKOPT&HOSTLIB_MSKOPT_SNMAGSHIFT)>0);
-  double  SNMAGSHIFT = 0.0, VAL, WGT, WGTSUM, WGTSUM_LAST ;
-  int ivar, IVAR_STORE ;
-  short int I2SNMAGSHIFT;
+  // xxxx mark   bool USE_SNVAR      = ( ibin_SNVAR >= 0 ) ;
+  bool      USE_SNMAGSHIFT = ((INPUTS.HOSTLIB_MSKOPT&HOSTLIB_MSKOPT_SNMAGSHIFT)>0);
+  double    SNMAGSHIFT = 0.0, VAL, WGT, WGTSUM=0.0, WGTSUM_LAST=0.0 ;
+  int       ivar, IVAR_STORE ;
+  short int I2MAGSHIFT = 0 ;
   char fnam[] = "STORE_SNHOST_MISC" ;  (void)fnam;
 
   // ------------ BEGIN ---------
 
-  WGTSUM = WGTSUM_LAST = 0.0 ;
-  I2SNMAGSHIFT = 0 ;
-  
+  WGTSUM = HOSTLIB_WGTMAP.ptr_WGTSUM[IGAL];
+  if ( IGAL > 0 ) {   WGTSUM_LAST = HOSTLIB_WGTMAP.ptr_WGTSUM[IGAL-1]; }
+
+  if ( USE_SNMAGSHIFT ) 
+    { I2MAGSHIFT = HOSTLIB_WGTMAP.ptr_I2MAGSHIFT[IGAL] ; }
+
+  /* xxxxxxxx mark delete xxxxxxxx
   // store wgt and SN mag shift for this host
   if ( USE_SNVAR ) {
     WGTSUM  = HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][IGAL];
     if(IGAL>0) {WGTSUM_LAST=HOSTLIB_WGTMAP.WGTSUM_SNVAR[ibin_SNVAR][IGAL-1];}
     if ( USE_SNMAGSHIFT ) 
-      { I2SNMAGSHIFT = HOSTLIB_WGTMAP.I2SNMAGSHIFT_SNVAR[ibin_SNVAR][IGAL];}
+      { I2MAGSHIFT = HOSTLIB_WGTMAP.I2MAGSHIFT_SNVAR[ibin_SNVAR][IGAL];}
   }
   else {
     WGTSUM  = HOSTLIB_WGTMAP.WGTSUM[IGAL] ; 
     if(IGAL>0) { WGTSUM_LAST = HOSTLIB_WGTMAP.WGTSUM[IGAL-1] ; }
     if ( USE_SNMAGSHIFT ) 
-      { I2SNMAGSHIFT = HOSTLIB_WGTMAP.I2SNMAGSHIFT[IGAL]; }
+      { I2MAGSHIFT = HOSTLIB_WGTMAP.I2MAGSHIFT[IGAL]; }
 
   }
+  xxxxxxxx end mark */
+
 
   WGT        = WGTSUM - WGTSUM_LAST ;
-  SNMAGSHIFT = (double)I2SNMAGSHIFT / I2MAGSCALE_HOSTLIB ;
+  SNMAGSHIFT = (double)I2MAGSHIFT / I2MAGSCALE_HOSTLIB ;
 
   /*
   printf(" xxx %s: CID=%2d   IGAL=%d, ibin=%d, WGT=%.4f \n",

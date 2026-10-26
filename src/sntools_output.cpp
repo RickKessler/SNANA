@@ -102,6 +102,11 @@
 #include "sntools_output_text.c"
 #endif
 
+#ifdef USE_NPZ
+#include "sntools_output_npz.c"
+#include "cnpy.cpp"
+#endif
+
 #ifdef USE_MARZ
 #include "sntools_output_marz.c"
 #endif
@@ -129,7 +134,7 @@ void TABLEFILE_INIT(void) {
   int o,t ;
   char *s ;
   char U[] = "UNKNOWN" ;
-  //  char fnam[] = "TABLEFILE_INIT" ;
+  char fnam[] = "TABLEFILE_INIT" ;  (void)fnam;
 
   // -------------- BEGIN --------------
 
@@ -169,6 +174,7 @@ void TABLEFILE_INIT(void) {
   s = STRING_TABLEFILE_TYPE[IFILETYPE_NULL]  ;  sprintf(s,"NULL");
   s = STRING_TABLEFILE_TYPE[IFILETYPE_ROOT]  ;  sprintf(s,"ROOT");
   s = STRING_TABLEFILE_TYPE[IFILETYPE_TEXT]  ;  sprintf(s,"TEXT");
+  s = STRING_TABLEFILE_TYPE[IFILETYPE_NPZ]   ;  sprintf(s,"NPZ");
 
   s = STRING_TABLEFILE_OPENFLAG[OPENFLAG_NULL]  ;  sprintf(s,"NULL");
   s = STRING_TABLEFILE_OPENFLAG[OPENFLAG_NEW]   ;  sprintf(s,"NEW" );
@@ -176,21 +182,23 @@ void TABLEFILE_INIT(void) {
 
   s = STRING_IDTABLE_SNANA[IFILETYPE_ROOT]  ; sprintf(s,"SNANA");
   s = STRING_IDTABLE_SNANA[IFILETYPE_TEXT]  ; sprintf(s,"SNANA");
+  s = STRING_IDTABLE_SNANA[IFILETYPE_NPZ]   ; sprintf(s,"SNANA");
 
-  // xxx   s = STRING_IDTABLE_FITRES[IFILETYPE_HBOOK] ; sprintf(s,"7788"  );
   s = STRING_IDTABLE_FITRES[IFILETYPE_ROOT]  ; sprintf(s,"FITRES");
   s = STRING_IDTABLE_FITRES[IFILETYPE_TEXT]  ; sprintf(s,"FITRES");
+  s = STRING_IDTABLE_FITRES[IFILETYPE_NPZ]   ; sprintf(s,"FITRES");
 
   s = STRING_IDTABLE_OUTLIER[IFILETYPE_ROOT]  ; sprintf(s,"OUTLIER");
   s = STRING_IDTABLE_OUTLIER[IFILETYPE_TEXT]  ; sprintf(s,"OUTLIER");
+  s = STRING_IDTABLE_OUTLIER[IFILETYPE_NPZ]   ; sprintf(s,"OUTLIER");
 
   // useful string for cast manipulations
   sprintf(CCAST_TABLEVAR," CISF---D-------L--" );
 
   // misc. for SNLCPAK & SPECPAK
 
-  SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = 0 ;  
-  SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = 0 ;
+  SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = SNLCPAK_USE_NPZ = 0 ;  
+  SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = SPECPAK_USE_NPZ = 0 ;
   SPECPAK_USE_MARZ  = 0;
 
   sprintf(SNLCPAK_OUTPUT.SURVEY,             "NULL" );
@@ -203,6 +211,9 @@ void TABLEFILE_INIT(void) {
   FILEPREFIX_TEXT[0] = 0 ;
 #endif
 
+#ifdef USE_NPZ
+#endif
+
 } // end of TABLEFILE_INIT
 
 void tablefile_init__(void) {  TABLEFILE_INIT();  }
@@ -210,12 +221,19 @@ void tablefile_init__(void) {  TABLEFILE_INIT();  }
 // =====================================
 int get_TABLEFILE_TYPE(char *FILENAME) {
 
+  // Oct 19 2026: fix ifdef around ISFILE_TEXT (bug found by Claude)
+
 #ifdef USE_ROOT
   if ( ISFILE_ROOT (FILENAME) ) { return IFILETYPE_ROOT ; }
 #endif
 
-#ifdef USE_ROOT
+  // xxxxxx mark del 10.19.2026   #ifdef USE_ROOT  // 
+#ifdef USE_TEXT
   if ( ISFILE_TEXT (FILENAME) ) { return IFILETYPE_TEXT ; }
+#endif
+
+#ifdef USE_NPZ
+  if ( ISFILE_NPZ (FILENAME) ) { return IFILETYPE_NPZ ; }
 #endif
 
 #ifdef USE_MARZ
@@ -257,6 +275,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
   // Oct 14 2014: call new function OPEN_TEXTFILE(...) for read-mode
   // Jul 13 2020: declare *ENV and *FMT (used if HBOOK is NOT defined)
   // Jun 27 2026: pass callFun and print fnam to show who calls this
+  // Oct 10 2026: check for npz
 
   int  OPEN_FLAG, TYPE_FLAG, OPT_Q, USE_CURRENT, IERR ;
   char *ptrtok, local_STRINGOPT[80], ctmp[20];
@@ -279,8 +298,9 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
   char key_q[]     = "q" ;
 
   // define extensions
-  char key_root[]  = "root";
-  char key_text[]  = "text" ;
+  char key_root[]  = "root"  ;
+  char key_text[]  = "text"  ;
+  char key_npz[]   = "npz"   ;
 
   sprintf(local_STRINGOPT,"%s", STRINGOPT);
   ptrtok = strtok(local_STRINGOPT," "); // split string
@@ -303,6 +323,9 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
     else if ( strcmp_ignoreCase(ctmp,key_text) == 0 ) 
       { TYPE_FLAG = IFILETYPE_TEXT ; }
 
+    else if ( strcmp_ignoreCase(ctmp,key_npz) == 0 ) 
+      { TYPE_FLAG = IFILETYPE_NPZ ; }
+
     else {
       sprintf(MSGERR1,"Invalid option '%s'", ctmp);
       sprintf(MSGERR2,"in STRINGOPT = '%s' ", STRINGOPT);
@@ -314,7 +337,7 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
 
 
   // make sure table file has some kind of extension (Jan 2020)
-  if ( TYPE_FLAG==IFILETYPE_ROOT  ||       TYPE_FLAG==IFILETYPE_MARZ ) {
+  if ( TYPE_FLAG == IFILETYPE_ROOT  ||  TYPE_FLAG==IFILETYPE_MARZ ) {
     if ( strchr(FILENAME,'.') == NULL ) {
       sprintf(MSGERR1,"Missing extension for FILENAME = '%s' ", FILENAME);
       sprintf(MSGERR2,"Add valid extension: "
@@ -327,7 +350,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
   // --------------------------------------------------
   // if file-type is not passed explicitly, then  analyze suffix.
 
-
   if ( TYPE_FLAG == 0 ) {   
 
 #ifdef USE_ROOT
@@ -339,6 +361,13 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
     // Oct 2014: this works for read-mode only because for writing
     // FILENAME is a prefix.
     if ( ISFILE_TEXT(FILENAME) )  {  TYPE_FLAG = IFILETYPE_TEXT ; }
+    if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
+#endif
+
+#ifdef USE_NPZ
+    // this works for read-mode only because for writing
+    // FILENAME is a prefix.
+    if ( ISFILE_NPZ(FILENAME) )  {  TYPE_FLAG = IFILETYPE_NPZ ; }
     if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
 #endif
 
@@ -438,6 +467,21 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
   }
 #endif
 
+
+#ifdef USE_NPZ
+  if ( TYPE_FLAG == IFILETYPE_NPZ ) {
+
+    if ( OPEN_FLAG == OPENFLAG_NEW ) {
+      npz_table_create(FILENAME); // move to _CREATE ...
+      NOPEN_TABLEFILE++ ;
+    }
+    else {
+      cnpy::npz_t  my_npz = cnpy::npz_load(FILENAME);  // placeholder ?? .xyz
+    }
+  }
+#endif
+
+
 #ifdef USE_MARZ
   if ( TYPE_FLAG == IFILETYPE_MARZ ) {
     OPEN_MARZFILE(FILENAME, &IERR);
@@ -467,12 +511,12 @@ int  tablefile_open__(char *FILENAME, char *STRINGOPT, char *callFun ) {
 void TABLEFILE_CLOSE(char *FILENAME) {
 
   // Apr 2014, R.Kessler
-  // Close file based on its type (book or root) and how it was 
+  // Close file based on its type (text or npz or root) and how it was 
   // opened (new or read).  Note that input FILENAME here must 
   // match the name used to open the file (otherwise ABORT).
   //
-  // Apr 2015: add CLOSE_TEXTFILE call.
-
+  // Oct 19 2026: FILENAME == 'TEXT' or 'NPZ'  instead of "NULL"
+  //
   int o, t, USE, NMATCH, OPEN_FLAG, TYPE_FLAG ;
   char fnam[] = "TABLEFILE_CLOSE" ;
 
@@ -493,8 +537,11 @@ void TABLEFILE_CLOSE(char *FILENAME) {
   }
 
   
-  if ( IGNOREFILE(FILENAME)  ) {
-    TYPE_FLAG = IFILETYPE_TEXT ;
+  if ( strcmp(FILENAME,"TEXT") == 0  ) {
+    TYPE_FLAG = IFILETYPE_TEXT ; 
+  }
+  else if ( strcmp(FILENAME,"NPZ") == 0 ) {
+    TYPE_FLAG = IFILETYPE_NPZ ;   // Oct 19 2026
   }
   else {
     if ( NMATCH != 1 ) {    
@@ -520,6 +567,12 @@ void TABLEFILE_CLOSE(char *FILENAME) {
 #ifdef USE_TEXT
   if(TYPE_FLAG == IFILETYPE_TEXT ) 
     { CLOSE_TEXTFILE(); }
+#endif
+
+#ifdef USE_NPZ
+  int h=0;  // ??? .xyz
+  if(TYPE_FLAG == IFILETYPE_NPZ ) 
+    { npz_table_close(h); }
 #endif
 
   
@@ -597,6 +650,10 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *PGNAME, char *TEXT_FORMAT) {
   if ( USE ) { SNTABLE_CREATE_TEXT(IDTABLE, NAME, PGNAME, TEXT_FORMAT);  } 
 #endif
 
+#ifdef USE_NPZ
+  //USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_NPZ] ;
+  //  if ( USE ) { ; }
+#endif
  
   fflush(stdout);
 
@@ -698,6 +755,17 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
   if ( USE && USE4TEXT ) 
     { SNTABLE_ADDCOL_TEXT(IDTABLE, PTRVAR, &ADDCOL_VARDEF); }
 #endif
+
+  /* xxx
+#ifdef USE_NPZ
+  USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_NPZ] ; 
+  if ( USE && USE4TEXT ) { 
+    //    int  npz_table_addcol (NTABLE_NPZ, char *varName, int icast, int strlen_max);
+    //    void npz_table_append (NTABLE_NPZ, int icol, void *ptr);
+  }
+
+#endif
+  xxx*/
 
   return;
 } // end of SNTABLE_ADDCOL
@@ -3755,6 +3823,20 @@ int ISFILE_TEXT(char *fileName) {
   return 0;
 
 } // end of ISFILE_TEXT
+
+// ==============================              
+int ISFILE_NPZ(char *fileName) {
+
+  // Created Oct 19 2026 
+  if ( strstr(".npz", fileName) != NULL ) { return 1;}
+  if ( strstr(".NPZ", fileName) != NULL ) { return 1;}
+
+  if ( strstr(".npy", fileName) != NULL ) { return 1;}
+  if ( strstr(".NPY", fileName) != NULL ) { return 1;}
+
+  return 0;
+
+} // end ISFILE_NPZ
 
 // ==============================              
 int ISFILE_MARZ(char *fileName) {

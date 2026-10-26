@@ -217,7 +217,7 @@
 #include "sntools_cosmology.h"
 #include "sntools_output.h"
 
-#include "sntools_npz.h"
+// xxx mark delete 10.19.2026  #include "sntools_npz.h"
 
 // ======== global params ==========
 

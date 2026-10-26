@@ -10,6 +10,10 @@
 #   - Single-executable builds supported: make snlc_sim, make wfit, etc.
 #
 # Aug 25 2026 RK - add sntools_cosmology dependence for SALT2mu
+# Oct 19 2026 RK - npz code is now in sntools_output_npz.c and included 
+#                   in sntools_output.cpp
+# Oct 20 2026 RK - CPPLIB += -lz to fix compile bug caught on Perlmutter, 
+#                  but not caught on Midway.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -65,7 +69,7 @@ IROOT  =
 MERGE_ROOT_PROGRAM = 
 endif
 
-CPPLIB = -lstdc++
+CPPLIB = -lstdc++ -lz
 
 # ---------------------------------------------------------------------------
 # Create obj/ and bin/ before anything is compiled
@@ -268,17 +272,20 @@ $(OBJ)/psnid.o: $(SRC)/psnid.F90
 # ---------------------------------------------------------------------------
 
 $(OBJ)/sntools_output.o: $(SRC)/sntools_output.cpp $(SRC)/sntools_output.h \
-	$(SRC)/sntools_output_marz.c $(SRC)/sntools_output_text.c
+	$(SRC)/sntools_output_marz.c $(SRC)/sntools_output_text.c  $(SRC)/sntools_output_npz.c
 	$(MKDIR_P) $(OBJ)
 	(cd $(OBJ); $(CXX) $(SNCXXFLAGS) $(IROOT) $(ICFITSIO) $(SRC)/sntools_output.cpp)
 
-$(OBJ)/sntools_npz.o: $(SRC)/sntools_npz.cpp
-	$(MKDIR_P) $(OBJ)
-	(cd $(OBJ); $(CXX) $(SNCXXFLAGS) -I$(CONDA_PREFIX)/include $(SRC)/sntools_npz.cpp)
+# xxxxxx mark delete Oct 19 2026 xxxxxxxx
+#$(OBJ)/sntools_npz.o: $(SRC)/sntools_npz.cpp
+#	$(MKDIR_P) $(OBJ)
+#	(cd $(OBJ); $(CXX) $(SNCXXFLAGS) -I$(CONDA_PREFIX)/include $(SRC)/sntools_npz.cpp)
+#
+#$(OBJ)/cnpy.o: $(SRC)/cnpy.cpp $(SRC)/cnpy.h
+#	$(MKDIR_P) $(OBJ)
+#	(cd $(OBJ); $(CXX) $(SNCXXFLAGS) -I$(CONDA_PREFIX)/include $(SRC)/cnpy.cpp)
+# xxxxxxxxxxxx end mark xxxxxxx
 
-$(OBJ)/cnpy.o: $(SRC)/cnpy.cpp $(SRC)/cnpy.h
-	$(MKDIR_P) $(OBJ)
-	(cd $(OBJ); $(CXX) $(SNCXXFLAGS) -I$(CONDA_PREFIX)/include $(SRC)/cnpy.cpp)
 
 # ---------------------------------------------------------------------------
 # C — core sntools
@@ -617,18 +624,16 @@ $(BIN)/snlc_sim.exe: $(OBJ_SIM)
 		$(LPY) $(LROOT) -lm $(CPPLIB)
 	cd $(OBJ); rm -f snlc_sim.o
 
-$(BIN)/wfit.exe: $(OBJ)/wfit.o $(OBJ)/cnpy.o $(OBJ)/sntools.o \
-	$(OBJ)/sntools_npz.o $(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
+$(BIN)/wfit.exe: $(OBJ)/wfit.o  $(OBJ)/sntools.o \
+	$(OBJ)/sntools_output.o $(OBJ)/sntools_cosmology.o
 	$(MKDIR_P) $(BIN)
 	$(CC) -o $@ $(SNLDFLAGS) \
 		$(OBJ)/wfit.o \
 		$(OBJ)/sntools.o \
 		$(OBJ)/sntools_output.o \
-		$(OBJ)/sntools_npz.o \
-		$(OBJ)/cnpy.o \
 		$(OBJ)/sntools_cosmology.o \
 		$(LROOT) $(CPPLIB) \
-		$(LCFITSIO) -lm $(LGSL) -lz
+		$(LCFITSIO) -lm $(LGSL)
 	cd $(OBJ); rm -f wfit.o
 
 $(BIN)/kcor.exe: $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o \

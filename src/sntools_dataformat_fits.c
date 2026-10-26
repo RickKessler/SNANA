@@ -1501,6 +1501,7 @@ void WR_SNFITSIO_UPDATE(void) {
   // ----------- START WITH HEADER --------------
   wr_snfitsio_update_head() ;
 
+
   // Now the photometry.  Note that NEPOCH includes peak values
   // (for sim) and epochs with undefined model-mags.
   // NOBS <= NPEOCH is the number of valid observations.
@@ -1918,7 +1919,7 @@ void wr_snfitsio_update_head(void) {
     
     HOSTGALz = &SNDATA.HOSTGALz_QUANTILE_ZPHOT[igal];
     wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
-    
+
     HOSTGALz = &SNDATA.HOSTGALz_LOGMASS[igal];
     wr_snfitsio_fillTable_HOSTGALz(&LOC, itype, HOSTGALz);
 
@@ -2498,7 +2499,8 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   // Created Apt 2026
   // load FITS table values with generic HOSTGALz info
   // (e.g., zphot quantiles, logmass-vs-z grid ...)
-
+  //
+  // Oct 7 2026: fix logic for when NZ=0; make sure that LOC increments for unfilled variables.
  
   int LOC = *COLNUM_INDX ;
   int NZ  = HOSTGALz->NZ ;
@@ -2512,8 +2514,7 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   WR_SNFITSIO_TABLEVAL[itype].value_I = HOSTGALz->NZ ;
   wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_NZ, itype );
 
-  if ( NZ == 0 &&  LEGACY_NZQ_NZM==0 ) { *COLNUM_INDX = LOC; return; }
-
+  // xxx mark del Oct 7 2026 if ( NZ == 0 &&  !LEGACY_NZQ_NZM ) { *COLNUM_INDX = LOC+2; return; } 
   /* xxxx mark delete oct 3 2026 xxxxxxx
   if ( REFAC_DATA_FLAG == 701 ) {
     if ( NZ == 0 ) {
@@ -2524,21 +2525,27 @@ void wr_snfitsio_fillTable_HOSTGALz(int *COLNUM_INDX, int itype, HOSTGALz_DEF *H
   xxxxxxxx end mark */
 
   LOC++ ; 
-  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->Z_LIST;
-  wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_Z, itype );  
+  if ( NZ > 0 ) {
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->Z_LIST;
+    wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_Z, itype );  
+  }
 
   LOC++ ;
-  ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-  WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL_LIST;
-  wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL, itype );
+  if ( NZ > 0 ) {
+    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+    WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL_LIST;
+    wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL, itype );
+  }
 
   // optional VAL2_LIST (e.g., uncertainties on VAL_LIST)
   if ( HOSTGALz->USE_VAL2 ) {
     LOC++ ;
-    ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-    WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL2_LIST;
-    wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL2, itype );
+    if ( NZ > 0 ) {
+      ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
+      WR_SNFITSIO_TABLEVAL[itype].list_E = HOSTGALz->VAL2_LIST;
+      wr_snfitsio_fillTable ( ptrColnum, HOSTGALz->VARNAME_VAL2, itype );
+    }
   }
 
   *COLNUM_INDX = LOC;
@@ -2579,15 +2586,6 @@ void wr_snfitsio_update_phot(int ep) {
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_I = (short int)SNDATA.DETNUM[ep] ;
       wr_snfitsio_fillTable ( ptrColnum, "DETNUM", itype );
-
-    /******** mark delete Aug 17 2026 xxxxxxx
-    // IMGNUM (Oct 2021)
-    if ( !SNFITSIO_SIMFLAG_SNANA ) {
-      LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
-      WR_SNFITSIO_TABLEVAL[itype].value_J = SNDATA.IMGNUM[ep] ;
-      wr_snfitsio_fillTable ( ptrColnum, "IMGNUM", itype );
-    }
-    xxxxxxxxx end mark xxxxx*/
 
       LOC++ ; ptrColnum = &WR_SNFITSIO_TABLEVAL[itype].COLNUM_LOOKUP[LOC] ;
       WR_SNFITSIO_TABLEVAL[itype].value_E = SNDATA.XPIX[ep] ;
@@ -3653,6 +3651,11 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 				 &SNDATA.HOSTGAL_NMATCH[1],
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
 
+    // Oct 22 2026: if NMATCH2 is not defined, set it equal to NMATCH
+    //  to avoid analysis confusion
+    if ( SNDATA.HOSTGAL_NMATCH[0] >= 0 && SNDATA.HOSTGAL_NMATCH[1] < 0 )
+      { SNDATA.HOSTGAL_NMATCH[1] = SNDATA.HOSTGAL_NMATCH[0]; }
+    
     j++ ;  NRD = RD_SNFITSIO_FLT(isn, "HOSTGAL_CONFUSION", 
 				 &SNDATA.HOSTGAL_CONFUSION,
 				 &SNFITSIO_READINDX_HEAD[j] ) ;
@@ -3753,7 +3756,10 @@ int RD_SNFITSIO_EVENT(int OPT, int isn) {
 	if (NRD > 0 ) { SNDATA.HOSTGAL_USEMASK |= 1; }
 
 	// older FITS files don't have NMATCH, so load it here.
-	if ( SNFITSIO_CODE_IVERSION <= 4 ) { SNDATA.HOSTGAL_NMATCH[0] = 1; }
+	if ( SNFITSIO_CODE_IVERSION <= 4 ) {
+	  SNDATA.HOSTGAL_NMATCH[0] = 1;
+	  SNDATA.HOSTGAL_NMATCH[1] = 1; // Oct 22 2026
+	}
       }
 
       for(ifilt=0; ifilt < NFILT; ifilt++ ) {
@@ -4453,9 +4459,10 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun) {
   // Jan 11, 2022: read optional NZPHOT_Q A. Gagliano
   // Jun 24, 2022: call rd_snfitsio_check_gzip() to abort if both
   //                unzip and gzip files exist.
-  // July 23 2025: read ZP_FLUXCAL
+  // Jul 23 2025: read ZP_FLUXCAL
   // Aug 26 2026: pass calFun for messages
-
+  // Oct 22 2026: print CODE_IVERSION
+  
   fitsfile *fp ;
   int istat, itype, istat_spec, hdutype, nrow, nmove = 1, FLAG  ;
   char keyname[60], comment[200], *ptrFile ;
@@ -4478,7 +4485,8 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun) {
   sprintf(c1err,"Open %s", rd_snfitsFile[ifile][itype] );
   snfitsio_errorCheck(c1err, istat);
 
-  if ( vbose ) { printf("   Open %s  \n",  rd_snfitsFile[ifile][itype] ); }
+  if( vbose )
+    { printf("   Open %s  \n",  rd_snfitsFile[ifile][itype] ); fflush(stdout); }
 
   fp = fp_rd_snfitsio[itype] ;
 
@@ -4491,6 +4499,9 @@ void rd_snfitsio_open(int ifile, int photflag_open, int vbose, char *callFun) {
   if ( istat ) { SNFITSIO_CODE_IVERSION = 1; } // no key -> default 
   istat = 0;  // reset in case CODE_IVERSION key does not exist.
 
+  if ( vbose )
+    { printf("\t [CODE_IVERSION = %d] \n", SNFITSIO_CODE_IVERSION); fflush(stdout); }
+  
   // - - - - - - - -
   // Oct 2020: read SNANA_VERSION in header
   // Jan 12 2021: if no SNANA_VERSION key, replace v10_30 with UNKNOWN
@@ -6364,7 +6375,7 @@ int RD_SNFITSIO_HOSTGALz(int isn, int igal, int *jcol, HOSTGALz_DEF *HOSTGALz) {
   // reading FITS file and also for OVERRIDE; pad -9 values are ignored.
   HOSTGALz->NZ = NZ_HOSTGALz(MXBIN, HOSTGALz->Z_LIST, SNDATA.CCID );
 
-  int LDMP = ( strcmp(SNDATA.CCID,"3488709") == 0 );
+  int LDMP = 0; // ( strcmp(SNDATA.CCID,"3488709") == 0 );
   if ( LDMP ) { dump_SNDATA_HOSTGALz(HOSTGALz, igal, fnam); }
   
   *jcol = j;

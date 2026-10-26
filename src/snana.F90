@@ -76,6 +76,7 @@
         ,FCNFLAG_FAST     = 91    &  ! go as fast as possible (no LAST if-block)
         ,FCNFLAG_PRIOR_ONLY = 92  & 
         ,FCNFLAG_SIGMA_ONLY = 93  & 
+        ,FCNFLAG_GRID       = 94  &  ! photoz course-grid: store per-epoch fluxes, skip LAST block
         ,FCNFLAG_USESIM     = 99    &  ! pass this IFLAG to use SIM params
         ,FCNFLAG_MAX        = 100  & 
         ,OPT_INTEGPDF_QUITCHI2 = 2   &  ! abort FCNSNLC if chi2 > quitchi2
@@ -411,6 +412,7 @@
     LOGICAL  & 
          USE_TABLEFILE_ROOT    &  ! write table in ROOT format
         ,USE_TABLEFILE_TEXT    &  ! write table in TEXT format
+        ,USE_TABLEFILE_NPZ     &  ! write table in NPZ  format
         ,USE_TABLEFILE_MARZ    &  ! write table in MARZ/FITS format
         ,USE_TABLEFILE         &  ! T if either any of the above are set
         ,WRTABLEFILE_IAUC      &  ! T-> add IAUC column(for writing tables)
@@ -1690,6 +1692,7 @@
          NMLFILE           &  ! name of input namelist file
         ,ROOTFILE_OUT      &  ! I: output filename for root for tables
         ,TEXTFILE_PREFIX   &  ! I: prefix for text file tables
+        ,NPZFILE_PREFIX    &  ! I: prefix for NPZ file tables (Oct 19 2026)
         ,MARZFILE_OUT      &  ! I: output FITS file for input to MARZ (spectra)
         ,SNTABLE_LIST      &  ! I: list of SNTABLEs to create; e.g., 'SNANA FITRES'
         ,SNTABLE_APPEND_VARNAME   &  ! I: add this varname to output tables
@@ -1889,7 +1892,7 @@
           , OPTSIM_LCWIDTH, OPT_REFORMAT_SPECTRA, OPT_REFORMAT_TEXT  & 
           , REFORMAT_KEYS, OPT_REFORMAT_FITS, ZP_FLUXCAL_REFORMAT  & 
           , SNMJD_LIST_FILE, SNMJD_OUT_FILE, MNFIT_PKMJD_LOGFILE  & 
-          , rootfile_out, textfile_prefix  & 
+          , rootfile_out, textfile_prefix, npzfile_prefix  & 
           , SNTABLE_LIST, SNTABLE_FILTER_REMAP, MARZFILE_OUT  & 
           , SNTABLE_APPEND_VARNAME, SNTABLE_APPEND_VALUE  & 
           , CALIB_FILE, KCOR_FILE, OVERRIDE_RESTLAM_BOUNDARY  & 
@@ -3660,8 +3663,6 @@
        C2ERR = 'KEY = ' // KEY
        CALL MADABORT(FNAM, C1ERR, C2ERR)
     ENDIF
-!       print*,' xxx FETCH_WRAP: ',cKEY, cSTRING
-
 
     LEN_STR   = INDEX(cSTRING,char(0)) - 1
     STRINGVAL = cSTRING(1:LEN_STR)
@@ -4270,7 +4271,10 @@
 ! May 11 2022: read ZPHOT_Q
 ! Dec 01 2025: read HOSTGAL_MAGERR
 ! Apr 08 2026: read HOSTGALz array(s)
-      
+! Oct 22 2026: abort on SNHOST_NMATCH2 < SNHOST_NMATCH only if NMATCH2>=0;
+!              i.e., do not abort if SNHOST_NMATCH2 is undefined in older data
+!     
+
     USE SNDATCOM
     USE SNLCINP_NML
     USE FILTCOM
@@ -4283,7 +4287,7 @@
     CHARACTER PREFIX*20, STRING*40, KEY*60, KEY_PREFIX*60
     REAL*8    DARRAY(MXFILT_OBS), SB, MAG
 
-! -------------- BEGIN ----------
+! -------------- BEGIN RDHEAD_HOSTGAL ----------
 
     CALL SET_HOSTGAL_PREFIX(IGAL,PREFIX,LENPRE)
 
@@ -4299,6 +4303,13 @@
        CALL FETCH_SNDATA_WRAPPER("HOSTGAL_NMATCH2",  & 
               ONE, STRING, DARRAY, OPT)
        SNHOST_NMATCH2 = INT(DARRAY(1))
+       
+       if ( SNHOST_NMATCH2 >= 0 .and. SNHOST_NMATCH2 < SNHOST_NMATCH ) then
+          write(C1ERR,601) SNHOST_NMATCH2, SNHOST_NMATCH, SNLC_CCID(1:ISNLC_LENCCID)
+601       format('Invalid HOST NMATCH2=',I2,' < NMATCH=',I2, ' for CID=',A )
+          C2ERR = 'SNHOST_NMATCH2 must be >= SNHOST_NMATCH; check data file construction'
+          CALL MADABORT("RDHEAD_HOSTGAL", C1ERR, C2ERR)  
+       endif
 
        KEY_PREFIX = "HOSTGAL_SB_FLUXCAL"
        CALL RDHEAD_FILTERLOOP(KEY_PREFIX, SNHOST_SBFLUXCAL, OPT)
@@ -4335,6 +4346,14 @@
     SNHOST_OBJID(igal)  = INT8(DARRAY(1))
     DSNHOST_OBJID(igal) = DARRAY(1)
 
+    ! xxxxxxxxx mark delete xxxxxxxxxx
+    !print*,' xxx ------------------------ '
+    !print*,' xxx SNID = ', SNLC_CID
+    !print*,' xxx NMATCH, NMATCH2 = ', SNHOST_NMATCH, SNHOST_NMATCH2
+    !print*,' xxx igal, DSNHOST_OBJID = ', igal, DSNHOST_OBJID(igal)  ! .xyz
+    !call flush(6)
+    ! xxxxxxxxx
+    
     KEY    = PREFIX(1:LENPRE)//'_FLAG'
     CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
     SNHOST_FLAG(igal)  = INT(DARRAY(1))
@@ -4615,7 +4634,7 @@
 ! functions
     INTEGER ISMODEL_SNIa
 
-! ----------- BEGIN ----------
+! ----------- BEGIN RDHEAD_SIM_SNANA ----------
 
     STRING  = 'DUMMY'
 
@@ -4635,6 +4654,11 @@
     CALL FETCH_SNDATA_WRAPPER("SIM_MODEL_INDEX",  & 
           ONE, STRING, DARRAY, OPT)
     SIM_MODEL_INDEX = INT(DARRAY(1))
+
+    if ( DEBUG_FLAG == 1006 ) then
+       print*,' xxx RDHEAD_SIM: SIM_MODEL_INDEX= ', SIM_MODEL_INDEX
+       call flush(6)
+    endif
 
       ! set TRUE_SNIa and NONIa  logicals (Apr 2024)
     LSIM_TRUE_SNIa = .FALSE.
@@ -5880,6 +5904,7 @@
 
     rootfile_out      = ' '
     textfile_prefix   = ' '
+    npzfile_prefix    = ' '
     MARZFILE_OUT      = ' '  ! May 2020
 
     SNCID_LIST_FILE   = ' '
@@ -6648,7 +6673,8 @@
 
     USE_TABLEFILE        = .FALSE.
     USE_TABLEFILE_ROOT   = .FALSE.
-    USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 (forgot init earlier)
+    USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 
+    USE_TABLEFILE_NPZ    = .FALSE.     ! Oct 19 2026
     USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
 
 ! MARZ (host spectra only)
@@ -6686,7 +6712,7 @@
        ENDIF
     ENDIF
 
-
+    ! - - - - -
     LENFILE   = INDEX(TEXTFILE_PREFIX,' ') - 1
     CFILE     = TEXTFILE_PREFIX(1:LENFILE) // char(0)
     IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
@@ -6699,6 +6725,24 @@
        IF ( IFILETYPE < 0 ) THEN
           C1ERR = 'Could not open TEXT table-files with PREFIX='
           C2ERR = TEXTFILE_PREFIX(1:LENFILE)
+          CALL  MADABORT(FNAM, C1ERR, C2ERR)
+       ENDIF
+    ENDIF
+
+
+    ! - - - - -  Oct 19 2026: add NPZ option - - - - - - - -
+    LENFILE   = INDEX(NPZFILE_PREFIX,' ') - 1
+    CFILE     = NPZFILE_PREFIX(1:LENFILE) // char(0)
+    IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
+       CALL ENVreplace(NPZFILE_PREFIX)
+       COPT          = "new npz" // char(0)
+       USE_TABLEFILE_NPZ  = .TRUE.
+       USE_TABLEFILE      = .TRUE.
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM, LENFILE, 20, 20)
+
+       IF ( IFILETYPE < 0 ) THEN
+          C1ERR = 'Could not open NPZ table-files with PREFIX='
+          C2ERR = NPZFILE_PREFIX(1:LENFILE)
           CALL  MADABORT(FNAM, C1ERR, C2ERR)
        ENDIF
     ENDIF
@@ -9874,7 +9918,13 @@
 ! Apr 18 2022: if no events were processed then there are no text files.
 !      In this case, create blank text-table file for each table
        IF ( N_SNLC_PROC == 0 ) CALL SNTABLE_CREATE_TEXT_EMPTY()
-       CALL TABLEFILE_CLOSE("NULL"//char(0),10)
+       ! xxx mark delete Oct 10 2026 CALL TABLEFILE_CLOSE("NULL"//char(0),10)
+       CALL TABLEFILE_CLOSE("TEXT"//char(0),10)
+    ENDIF
+
+    IF ( USE_TABLEFILE_NPZ ) THEN
+       ! protect empty file like text above ???
+       CALL TABLEFILE_CLOSE("NPZ"//char(0),10)
     ENDIF
 
     IF ( USE_TABLEFILE_MARZ ) THEN  ! April 2019
@@ -15092,7 +15142,7 @@
 ! init a few SNHOST arrays
 
     SNHOST_NMATCH            =  0
-    SNHOST_NMATCH2           =  0
+    SNHOST_NMATCH2           = -9
     SNHOST_CONFUSION         = -9.0
     do igal = 1, MXSNHOST
        SNHOST_FLAG(igal)        = 0
@@ -17804,7 +17854,7 @@
 
     WRITE(CCID_GALID, 50) SNLC_CCID(1:ISNLC_LENCCID), GALID
 50  FORMAT(A,'/', I12.12 )
-
+    call flush(6)
 
     INDEX_SPLINE = IND_OFF_SPLINE_QUANTILE_ZPHOT+IGAL
     
@@ -17820,8 +17870,11 @@
              print*,'   CCID_GALID   = ', CCID_GALID
              print*,'   IGAL, GALID = ', igal, GALID
              print*,'   NQZPHOT     = ', NQ
+             call DUMP_SNHOSTz(SNHOSTz_QUANTILE_ZPHOT(IGAL))
+
              write(C1ERR,61) q-1, q, QZPHOT(q-1), QZPHOT(q)
 61           format('QZPHOT(',I2,',',I2,') = ', 2F8.3 )
+             call flush(6)
              C2ERR = 'QZPHOT must be monotonically increasing'
              if ( ABORT_ON_BADQZPHOT ) then
                 CALL MADABORT(FNAM, c1err, c2err )
@@ -24685,6 +24738,11 @@
 ! This is for the SALT2 model with intinsic color (c) and
 ! external scatter (SIM_AV) from dust.
 ! Aug 2 2022: perform test only for SALT2 model.
+
+    if ( DEBUG_FLAG == 1006 ) then
+       print*,' xxx ADDCOL: SIM_MODEL_INDEX= ', SIM_MODEL_INDEX, SIMNAME_COLORPAR(1:20)
+       call flush(6)
+    endif
 
     if ( SIM_MODEL_INDEX .EQ. MODEL_SALT2 ) then
       if ( SIMNAME_COLORPAR(1:6) .NE. 'SIM_AV' ) then

@@ -224,7 +224,6 @@ void INIT_TEXTFILES(char *PREFIX) {
     OPEN_TEXTFILE_SPECLIST(PREFIX);
   }
 
-
 } // end of INIT_TEXTFILES
 
 
@@ -253,10 +252,6 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
   fflush(stdout);
 
   // construct file name from stored prefix and table name.
-
-  // xxx mark delete 6.25.2026 sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT, TBNAME, SUFFIX_TEXT);
-
-
   if ( strchr(FILEPREFIX_TEXT,'.') == NULL ) {   
     // no dot --> add on table and suffix to file name
     sprintf(FILENAME, "%s.%s.%s", FILEPREFIX_TEXT, TBNAME, SUFFIX_TEXT);
@@ -288,7 +283,7 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
   TABLEINFO_TEXT.NVAR[NTAB] = 0 ;
 
   // - - - - - - - - - - - -
-   // open text file  
+  // open text file  
   TABLEINFO_TEXT.FP[NTAB] = open_TEXTgz(FILENAME,TEXTMODE_wt, 0, &GZIPFLAG, fnam) ;
   if ( !TABLEINFO_TEXT.FP[NTAB] ) {
     sprintf(MSGERR1, "Could not open TEXT FILE = ");

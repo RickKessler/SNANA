@@ -435,7 +435,7 @@ class MagErrSampler:
         t = (np.asarray(mag, float) - self.mag_centers[0]) / self.dmag
         return np.clip(t, 0.0, len(self.mag_centers) - 1.0)
 
-    def _check_bin_means(self, band, mag, err, nsig):
+    def _check_bin_means(self, band, mag, err, nsig, nsig_noise=5.0):
         """Raise if, in any mag bin, |mean(err) - MEAN| / STDDEV > nsig.
 
         MEAN and STDDEV are the yaml's summary stats of the magerr data in that
@@ -460,14 +460,15 @@ class MagErrSampler:
             if not (np.isfinite(mu[j]) and np.isfinite(sd[j]) and sd[j] > 0):
                 continue
             z = (s[j] / n[j] - mu[j]) / sd[j]
-            if abs(z) > nsig:
+            limit = nsig + nsig_noise / np.sqrt(n[j]) # Helps when there's few events
+            if abs(z) > limit:
                 lo = self.bin_edges[j]
                 raise ValueError(
                     f"Mean of sampled errors is not consistent with error model "
                     f"mean in {band} band, mag bin {lo:.2f}-{lo + self.dmag:.2f}: "
                     f"sampled mean={s[j] / n[j]:.5g} (n={n[j]}), "
                     f"model MEAN={mu[j]:.5g}, STDDEV={sd[j]:.5g}, "
-                    f"|diff|/STDDEV={abs(z):.3g} > {nsig:g}")
+                    f"|diff|/STDDEV={abs(z):.3g} > {limit:g}")
 
     def sample(self, band, mag, rng=None, u=None, check_bin_means=None):
         """Draw one magerr per entry of `mag` for a single band.

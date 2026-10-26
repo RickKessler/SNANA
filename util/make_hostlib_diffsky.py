@@ -89,8 +89,7 @@ DIFFSKY_ANGLE_PREFIX = "psi"
 ADDCOL_PD_ERRMIN = [ 'obs_err_min', 'obs_err_min2', 'obs_err_min3' ]
 ADDCOL_PD_NAMES  = [ VARNAME_LOGSFR, VARNAME_FIELD ] + ADDCOL_PD_ERRMIN
 
-ABORT_EXCEPTION_LIST = [ 'serial', 'err', 'n_', 'D_A', 'Sersic' ] + ADDCOL_PD_NAMES
-    
+ABORT_EXCEPTION_LIST = [ 'serial', 'err', 'n_', 'D_A', 'Sersic', 'm5' ] + ADDCOL_PD_NAMES
 
 VARTYPE_DIFFSKY = "DIFFSKY"
 VARTYPE_HOSTLIB = "HOSTLIB"
@@ -439,6 +438,21 @@ def parse_config_varname_map(config):
     HOSTLIB_VARNAMES_LIST   = []
     FOUND_GALID = False
 
+    MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF,None)
+    if not MAGERR_PDF_DICT:
+        sys.exit(f"config does not contain {KEY_MAGERR_PDF}")
+
+    BANDMAP_INPUT = MAGERR_PDF_DICT['BANDMAP']  # user input map
+    b_diffsky_m5 = [] # [ '{survey}_{band}_m5' ]
+    b_hostlib_m5 = [] # [ '{band}_obs_m5' ]
+    for b_string in BANDMAP_INPUT:
+        diffsky_str = b_string.split()[0] # e.g., 'des_g'
+        diffsky_m5_str = diffsky_str + '_m5'
+        b_diffsky_m5.append(diffsky_m5_str)
+        hostlib_str = b_string.split()[1] # e.g., 'g'
+        hostlib_m5_str = hostlib_str + '_obs_m5'
+        b_hostlib_m5.append(hostlib_m5_str)
+    
     # if [band]_obs_err are defined as HOSTLIB vars, then automatically add
     # obs_err_min and obs_err_min2
     rownum_list_obs_err = get_rownums_substring(HOSTLIB_VARNAMES_MAP, '_obs_err')
@@ -448,7 +462,12 @@ def parse_config_varname_map(config):
         for i, addcol in enumerate(ADDCOL_PD_ERRMIN) :
             rownum_insert = rownum_last + 1 + i
             HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol}  {addcol}  6.3f')
-            # xxx mark delete Oct 6 2026   ADDCOL_PD_NAMES.append(addcol)                    
+            # xxx mark delete Oct 6 2026   ADDCOL_PD_NAMES.append(addcol)
+        #b_diffsky_m5  = [ 'des_g_m5', 'des_r_m5', 'des_i_m5', 'des_z_m5']
+        #b_hostlib_m5  = [ 'g_obs_m5', 'r_obs_m5', 'i_obs_m5', 'z_obs_m5']
+        for i, (addcol_diff, addcol_host) in enumerate(zip(b_diffsky_m5, b_hostlib_m5)) :
+            rownum_insert = rownum_last + 1 + i
+            HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{addcol_diff}  {addcol_host}  6.3f')
 
     if CONE_REGION:
         rownum_insert = len(HOSTLIB_VARNAMES_MAP)
@@ -796,6 +815,7 @@ def add_col_pd(df_cat, config):
     # RK - Jul 14 2026 - define wrapper to add mag errors
     t0     = time.time()    
     df_cat = add_col_magerr(df_cat, config)
+    df_cat = add_col_m5(df_cat, config) # Added Oct. 26 by J.Medoff
     df_cat = add_col_field(df_cat, config)
     
     print_proc_time(t0, "ADDCOL_MAGERR", None)
@@ -817,6 +837,23 @@ def add_col_field(df_cat, config):
 
     return df_cat
 
+def add_col_m5(df_cat, config):
+    # Added Oct. 26 by J.Medoff
+    # Determines m5 from magerr distribution around magerr = 0.217
+    # magerr at SNR 5 = 2.5/ln(10) / 5 = 0.217
+    band_list = config['band_magerr_list_diffsky']
+
+    for band in band_list:
+        mag     = df_cat[band]
+        band_err = band + '_err'
+        magerr  = df_cat[band_err]
+        magerr_cut = (magerr > 0.20) & (magerr < 0.235)
+        m5 = np.median(mag[magerr_cut])
+
+        band_m5 = band + '_m5'
+        df_cat[band_m5] = m5
+
+    return df_cat
 
 def add_col_magerr(df_cat, config):
 
@@ -891,6 +928,9 @@ def add_col_magerr_pdf(df_cat,config):
         #print(f'xxx band_pdfpar_yaml = {band_pdfpar_yaml}')
 
         mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
+        # check_bin_means is fragile for samples with few events; instead of being a fixed number,
+        # check_bin_means should depend on number of events
+        
         #mag_err = 0.01*mag   # test
         band_err = band + '_err'
         df_cat[band_err] = mag_err
@@ -1362,6 +1402,7 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
 
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
     exclude_var_list += [b + '_err' for b in config['band_magerr_list_diffsky'] ]
+    exclude_var_list += [b + '_m5' for b in config['band_magerr_list_diffsky'] ]
     
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet

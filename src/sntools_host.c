@@ -5741,7 +5741,7 @@ void init_Sersic_integrals(int j) {
   // for Sersic profile with sparse index 'j', compute integral 
   // table as a function of reduced radius R/Re
   //
-  // The integrated flux contined in r < R is
+  // The integrated flux contained in r < R is
   //      Flux(R) = Re^2 * 2pi * integral[ x*exp[-bn*(x^(1/n)-1)] ]dx
   //
   // where x = R/Re is dimensionless. The integral above
@@ -10005,11 +10005,12 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
   // Mar 4 2015: fix aweful index bug setting FGAL_TOT.
   //             Bug affects only the host-noise contribution.
   //
-  // Oct 9 2026: fix another aweful index bug setting FGAL_TOT (found by Claude).
+  // Oct 2026: fix another aweful index bug setting FGAL_TOT 
+  //            (found by J.Twedle & Claude).
   //             Follow INPUTS.RESTORE_BUG_GALMAG.
 
   int    j ;
-  double a, b, w, n, bn, rexp, sqsum,  arg ;
+  double a, b, w, n, bn, inv_n, sqsum,  arg ;
   double reduced_R, xx, yy, FSUM_PROFILE, F, FGAL_TOT    ;
   char fnam[] = "get_GALFLUX_HOSTLIB" ;  (void)fnam;
 
@@ -10025,7 +10026,7 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
     n   = SNHOSTGAL.SERSIC.n[j] ;
     w   = SNHOSTGAL.SERSIC.w[j] ;
     bn  = SNHOSTGAL.SERSIC.bn[j] ;
-    rexp = 1./n ;
+    inv_n = 1./n ;
 
     // Flux normalization = total flux over galaxy.
     // The stored INTEG_SUM is integrated over the reduced radius;
@@ -10035,9 +10036,20 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
       FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[NSERSIC_TABLE-1];  
     }
     else {
-      // Oct 9 2026 fix for bug identified by Claude 
-      FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[j];        
+      // Oct 2026 fix bug identified by J.Twedle & Claude 
+      //   -> interpolate in INTEG_SUM rather than use j'th value
+      
+      FGAL_TOT = interp_1DFUN(OPT_INTERP_LINEAR, inv_n, NSERSIC_TABLE, 
+			      SERSIC_TABLE.inv_n, SERSIC_TABLE.INTEG_SUM, fnam );   
+
+      /* xxxxxxx mark delete Oct 26 2026 xxxxxxxxxxx
+      k     = (int)((inv_n - SERSIC_TABLE.INVINDEX_MIN) / SERSIC_TABLE.INVINDEX_BIN);
+      fbin  = (inv_n - SERSIC_TABLE.inv_n[k]) / SERSIC_TABLE.INVINDEX_BIN;
+      FGAL_TOT = (a*b) * ( SERSIC_TABLE.INTEG_SUM[k]
+			   + fbin*(SERSIC_TABLE.INTEG_SUM[k+1] - SERSIC_TABLE.INTEG_SUM[k]) );
+      FGAL_TOT = (a*b) * SERSIC_TABLE.INTEG_SUM[j];      // .xyz
       //FGAL_TOT = (a*b) * TWOPI * n * exp(bn) * pow(bn, -2.0*n) * tgamma(2.0*n);
+      xxxxxxxxxxxxx end mark xxxxxxxxx */
 
     }
 
@@ -10049,7 +10061,7 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
     reduced_R = sqrt(sqsum) ;
 
     // calculate Flux for this Sersic component
-    arg  = pow(reduced_R,rexp) - 1.0 ; 
+    arg  = pow(reduced_R,inv_n) - 1.0 ; 
     F    = (w/FGAL_TOT) * exp(-bn*arg) ;
 
     FSUM_PROFILE += F ;

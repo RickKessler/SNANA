@@ -55,6 +55,7 @@
 #define TABLEID_FITRES     7788
 #define TABLEID_SNANA      7100
 #define TABLEID_MARZ       8100
+#define MXTABLE              10  // max number of tables declared
 
 char STRING_TABLEFILE_TYPE[MXTABLEFILETYPE][12] ;
 char STRING_TABLEFILE_OPENFLAG[MXOPENFLAG][12] ;
@@ -101,6 +102,16 @@ char    CCAST_TABLEVAR[MXCAST] ;  // see TABLEVAR_INIT().
 
 char  FILTERSTRING[MXFILTINDX] ;   // list of all filters
 
+
+typedef struct {
+
+  int    NTABLE ;
+  int    IDTABLE[MXTABLE] ;
+  char   TBNAME[MXTABLE][40] ;  // table name
+  char   PGNAME[MXTABLE][300] ; // call-program name to write into header for provenance
+  char   FILENAME[MXTABLE][MXCHAR_FILENAME] ;
+
+} TABLEINFO_PREFIX_DEF ; // ?????????
 
 // -------------------
 // define ADDCOL struct for creating table

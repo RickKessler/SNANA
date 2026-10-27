@@ -234,7 +234,7 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
   // File name is [PREFIX].[NAME].TEXT.
   // Store TEXT_FORMAT to be used when writing.
   //
-  // Jun 10 2026: add PGNAME arg for program name
+  // Jun 10 2026: add PGNAME arg for program name to be written into table header.
   //
   int  NTAB, ivar, OPT_FORMAT, GZIPFLAG ;
   char FILENAME[2*MXCHAR_FILENAME], comment[100];

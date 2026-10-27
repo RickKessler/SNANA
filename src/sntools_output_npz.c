@@ -5,11 +5,14 @@
 #define ISFILE_NPZ_COV        1
 #define ISFILE_NPZ_FACTORIZE  2
 
-int NTABLE_NPZ ;
 
 #ifdef __cplusplus
 extern"C" {
 #endif
+
+  void INIT_NPZFILES(char *PREFIX);
+  void OPEN_NPZFILE(char *FILENAME);
+  void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME);
 
   int read_npz_covmat(char *npz_file, double *array1d);
   int read_npz_factorized(char *npz_file, double **diag, double **U, int *K);
@@ -40,6 +43,7 @@ extern"C" {
 // from create_covariance.py.
 // Use package from https://github.com/rogersce/cnpy
 
+/*xxxx mark del xxxxxxxxxxxxx
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -47,11 +51,121 @@ extern"C" {
 #include <unistd.h>
 #include <time.h>
 #include <math.h>
-
-//#include "sntools_npz.h"
 #include "cnpy.h"
+xxxxxx end mark */
 
 
+
+// ============================================
+//           DECLARATIONS
+// ============================================
+
+int  NTABLE_NPZ ;
+char FILEPREFIX_NPZ[MXPATHLEN];
+
+#define SUFFIX_NPZ   "NPZ"   
+#define MXTABLE_NPZ 10
+
+struct TABLEINFO_NPZ {
+  int    NTABLE ;
+  int    IDTABLE[MXTABLE_NPZ] ;
+  char   TBNAME[MXTABLE_NPZ][40] ;  // table name; e.g., SNANA or FITRES or LCPLOT
+  char   PGNAME[MXTABLE_NPZ][300] ; 
+
+  char   FILENAME[MXTABLE_NPZ][MXCHAR_FILENAME] ;
+  int    NFILL[MXTABLE_NPZ] ; // number of fill calls per table
+
+} TABLEINFO_NPZ ;
+
+// ====================================
+void INIT_NPZFILES(char *PREFIX) {
+
+  // Oct 2026
+  // store prefix, and misc inits.
+  // Cannot open table file(s) here because we don't know
+  // which one(s). Table File(s) opened at SNTABLE_CREATE stage.
+
+  int LEN_PREFIX = strlen(PREFIX);
+  //  char *FMT, comment[200];
+
+  char fnam[] = "INIT_NPZFILES" ;  (void)fnam;
+
+  // --------- BEGIN -----------
+
+  if ( LEN_PREFIX >= MXPATHLEN ) {
+    print_preAbort_banner(fnam);
+    printf("  PREFIX = '%s' \n", PREFIX);
+    sprintf(MSGERR1, "LEN(PREFIX) = %d exceeds bound MXPATHLEN=%d", LEN_PREFIX, MXPATHLEN);
+    sprintf(MSGERR2, "Cannot copy to FILEPREFIX_NPZ");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  sprintf(FILEPREFIX_NPZ, "%s", PREFIX);
+
+  TABLEINFO_TEXT.NTABLE = 0 ;
+ 
+  return;
+
+} // end INIT_NPZFILES
+
+// ==============================================
+void OPEN_NPZFILE(char *FILENAME) {
+
+  char fnam[] = "OPEN_NPZFILE" ; (void)fnam;
+ 
+  // ----------- BEGIN --------
+
+  cnpy::npz_t  my_npz = cnpy::npz_load(FILENAME);  // placeholder ?? .xyz                         
+
+  return ;
+} // end OPEN_NPZFILE
+
+
+// ==============================================
+void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME) {
+
+  // Created Oct 2026
+  // IDTABLE = int table id
+  // NAME    = char table name (e.g., SNANA or FITRES) used to construct filename
+  // PGNAME  = name of calling program to be written to data header
+
+  int  NTAB = TABLEINFO_NPZ.NTABLE ;
+  char FILENAME[MXPATHLEN];
+  char fnam[] = "SNTABLE_CREATE_NPZ" ;  (void)fnam;
+
+  // ------------- BEGIN --------------
+
+  printf("  %s: init %s NPZ-table . \n", fnam, TBNAME); 
+  fflush(stdout);
+
+  // construct file name from stored prefix and table name.
+  if ( strchr(FILEPREFIX_NPZ,'.') == NULL ) {   
+    // no dot --> add on table and suffix to file name
+    sprintf(FILENAME, "%.*s.%s.%s", MXPATHLEN-20, FILEPREFIX_NPZ, TBNAME, SUFFIX_NPZ);
+  }
+  else {
+    // if there is a dot in the prefix, assume it's the full filename
+    sprintf(FILENAME, "%s", FILEPREFIX_NPZ);
+  }
+
+  // store other info (same as for TEXT format)
+  TABLEINFO_NPZ.IDTABLE[NTAB] = IDTABLE ;
+  TABLEINFO_NPZ.NFILL[NTAB]   = 0 ;
+  sprintf(TABLEINFO_NPZ.TBNAME[NTAB],   "%s", TBNAME);
+  sprintf(TABLEINFO_NPZ.PGNAME[NTAB],   "%s", PGNAME);
+  sprintf(TABLEINFO_NPZ.FILENAME[NTAB], "%s", FILENAME);
+  TABLEINFO_NPZ.NTABLE++ ;
+
+  // open table
+  npz_table_create(FILENAME); 
+ 
+  debugexit(fnam); // xxx REMOVE
+
+  return ;
+
+} // end SNTABLE_CREATE_NPZ
+
+// ==============================================
 int get_npz_filetype(char *npz_file) {
 
   // Created Sep 29 2026 by R.Kessler and Claude.

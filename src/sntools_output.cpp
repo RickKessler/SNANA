@@ -103,8 +103,9 @@
 #endif
 
 #ifdef USE_NPZ
-#include "sntools_output_npz.c"
 #include "cnpy.cpp"
+#include "cnpy.h"    
+#include "sntools_output_npz.c"
 #endif
 
 #ifdef USE_MARZ
@@ -458,7 +459,6 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
       char *PREFIX = FILENAME ;
       INIT_TEXTFILES(PREFIX) ; 
       NOPEN_TABLEFILE++ ;
-      IERR = 0 ;
     }
     else {
       char mode[] = "rt" ;
@@ -472,11 +472,12 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
   if ( TYPE_FLAG == IFILETYPE_NPZ ) {
 
     if ( OPEN_FLAG == OPENFLAG_NEW ) {
-      npz_table_create(FILENAME); // move to _CREATE ...
+      char *PREFIX = FILENAME ;
+      INIT_NPZFILES(PREFIX);
       NOPEN_TABLEFILE++ ;
     }
     else {
-      cnpy::npz_t  my_npz = cnpy::npz_load(FILENAME);  // placeholder ?? .xyz
+      OPEN_NPZFILE(FILENAME);
     }
   }
 #endif
@@ -612,13 +613,13 @@ void store_tablefile_comment__(char *comment)
 { STORE_TABLEFILE_COMMENT(comment); }
 
 // =============================================================
-void SNTABLE_CREATE(int IDTABLE, char *NAME, char *PGNAME, char *TEXT_FORMAT) {
+void SNTABLE_CREATE(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) {
 
   // Create/Initialize new table.
-  // *IDTABLE and *NAME are integer and character udentifiers.
+  // *IDTABLE and *TBNAME are integer and character udentifiers.
   // TEXT_FORMAT used only for TEXT: 'key', 'csv', 'col'
   //
-  // Jun 10 2026: pass PGNAME = program name
+  // Jun 10 2026: pass PGNAME = program name to write in table header for provenance
 
   int  USE ; 
   char fnam[] = "SNTABLE_CREATE" ;
@@ -627,7 +628,7 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *PGNAME, char *TEXT_FORMAT) {
 
   if ( NOPEN_TABLEFILE == 0 ) {
     char comment[60];
-    sprintf(comment, "Cannot init IDTABLE=%d(%s)", IDTABLE, NAME);
+    sprintf(comment, "Cannot init IDTABLE=%d(%s)", IDTABLE, TBNAME);
     TABLEFILE_notOpen_ABORT(fnam, comment );
   }
 
@@ -636,23 +637,23 @@ void SNTABLE_CREATE(int IDTABLE, char *NAME, char *PGNAME, char *TEXT_FORMAT) {
 #ifdef USE_MARZ
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_MARZ] ;
   if ( USE && IDTABLE == TABLEID_MARZ ) 
-    { SNTABLE_CREATE_MARZ(IDTABLE,NAME);  return; } 
+    { SNTABLE_CREATE_MARZ(IDTABLE,TBNAME);  return; } 
 #endif
   
 #ifdef USE_ROOT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_ROOT] ; 
-  if ( USE ) { SNTABLE_CREATE_ROOT(IDTABLE,NAME);  }
+  if ( USE ) { SNTABLE_CREATE_ROOT(IDTABLE,TBNAME);  }
 #endif
 
 
 #ifdef USE_TEXT
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_TEXT] ;
-  if ( USE ) { SNTABLE_CREATE_TEXT(IDTABLE, NAME, PGNAME, TEXT_FORMAT);  } 
+  if ( USE ) { SNTABLE_CREATE_TEXT(IDTABLE, TBNAME, PGNAME, TEXT_FORMAT);  } 
 #endif
 
 #ifdef USE_NPZ
-  //USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_NPZ] ;
-  //  if ( USE ) { ; }
+  USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_NPZ] ;
+  if ( USE ) { SNTABLE_CREATE_NPZ(IDTABLE, TBNAME, PGNAME); }
 #endif
  
   fflush(stdout);

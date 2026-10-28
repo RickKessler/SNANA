@@ -1,6 +1,6 @@
 // genmag_SIMSED.h
 
-#define FIX_SIZE_ARG_BINARY true  // False restores buggy size before -Wall compiliation
+#define FIX_RD_BINARY       true  // 10.28.2026: read binary file name using all bands
 
 // define OPTMASK bits for generating params
 #define OPTMASK_GEN_SIMSED_PARAM    1   // continuous interp
@@ -76,7 +76,8 @@ struct {
    Function Declarations
 **********************************************/
 
-int  init_genmag_SIMSED(char *version, char *PATH_BINARY, char *SURVEY, char *kcorFile, char *WGTMAP_FILE, int OPTMASK );
+int  init_genmag_SIMSED(char *version, char *PATH_BINARY, char *SURVEY, char *FILTERS,
+			char *kcorFile, char *WGTMAP_FILE, int OPTMASK );
 
 int read_SIMSED_INFO(char *PATHMODEL );
 int read_simsed_info__(char *PATHMODEL );

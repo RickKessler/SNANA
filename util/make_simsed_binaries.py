@@ -186,16 +186,35 @@ def get_simlib_info(info_dict):
     args=info_dict['args']
     SIM_KEYS=info_dict['config'][KEYNAME_SIM_KEYS]
     simlib_file_name = os.path.expandvars(SIM_KEYS['SIMLIB_FILE'])
-     
+    genfilters       = SIM_KEYS['GENFILTERS']
+
+    key_survey  = 'SURVEY:'
+    key_filters = 'FILTERS:'
+    simlib_survey  = None
+    simlib_filters = None
+
     with open(simlib_file_name) as s:
         for line in s:
-            if 'SURVEY:' in line:
-                survey=line.split()[1]
-            elif line[0:2]=='S:':
+            if key_survey in line:
+                before, match, after = line.partition(key_survey)
+                simlib_survey = after.split()[1]
+                # xxx mark survey = line.split()[1]
+            if key_filters in line:
+                before, match, after = line.partition(key_filters)
+                simlib_filters = after.split()[1]
+
+            if line[0:2]=='S:':
                 start_mjd=float(line.split()[1])
                 GENRANGE_PEAKMJD = f"{start_mjd+10.0}  {start_mjd+100.0}"
                 break
-    info_dict['survey']=survey
+
+    if genfilters != simlib_filters:
+        sys.exit(f"\n ERROR: config GENFILTERS = {genfilters} does not match " \
+                 "FILTERS={simlib_filters}\n" \
+                 "\t in SIMLIB_FILE = {simlib_file_name}")
+
+    info_dict['survey']  = simlib_survey
+    info_dict['filters'] = simlib_filters
     info_dict['GENRANGE_PEAKMJD'] = GENRANGE_PEAKMJD
     logging.info(f'\t Found survey: {survey}')
     logging.info(f'\t Determined MJD range: {GENRANGE_PEAKMJD}')

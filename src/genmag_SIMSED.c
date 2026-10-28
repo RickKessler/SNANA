@@ -56,6 +56,11 @@
  Mar 02 2022: fix bug so that UVLAM_EXTRAP works when reading binary file
               or original text files.
 
+ Oct 28 2028: always read binary-flux table based on SIMLIB FILTERS key rather
+              than user-defined FILTERS in sim-input file. Thus if BINARY file
+              includes ugriz, the sim can specify griz subset and still read
+              the BINARY with all 5 bands.
+
 *************************************/
 
 #include  <stdio.h> 
@@ -111,7 +116,8 @@ const char dual_bits_SIMSED[INTERP_SIMSED_MAX_DIM] =
 ****************************************************************/
 int init_genmag_SIMSED(char *VERSION      // SIMSED version
 		       ,char *PATH_BINARY // directory to write/read binaries
-		       ,char *SURVEY      // name of survey  
+		       ,char *SURVEY_NAME      // name of survey  
+		       ,char *SURVEY_FILTERS   // all survey filters passed from SIMLIB header
 		       ,char *kcorFile    // kcor filename 
 	               ,char *WGTMAP_FILE // WGTMAP filename
 		       ,int OPTMASK       // bit-mask of options
@@ -131,6 +137,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
   // Feb 05 2024: abort if PATH_BINARY is not a directory.
   // Jul 02 2025: new OPTMASK += 256 option
   // Jul 05 2026: write & read length of sedFile as first item in binary
+  // Oct 28 2926: pass SURVEY_FILTERS to check for binary with all bands
 
   int NZBIN, IZSIZE, ifilt, ifilt_obs, ised, istat, IS_DIR, LENF;
   int retval = SUCCESS ;
@@ -142,8 +149,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     BANNER[120]
     ,tmpFile[2*MXPATHLEN]
     ,sedFile[MXPATHLEN]
-    ,bin1File[2*MXPATHLEN]  // SED binary file
-    ,bin2File[2*MXPATHLEN]  // flux-table binary file
+    ,binFile_SED[2*MXPATHLEN]  // SED binary file
+    ,binFile_FLUX[2*MXPATHLEN]  // flux-table binary file
     ,sedcomment[40], version[60], kcorFile_gz[MXPATHLEN]
     ;
 
@@ -267,15 +274,19 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
-    sprintf(bin1File, "%s/%s", SIMSED_PATHMODEL, SIMSED_BINARY_FILENAME );
-    sprintf(bin2File,"%s/%s_%s-%s.BINARY", 
-	    PATH_BINARY, version, SURVEY, FILTLIST_SEDMODEL );
+    sprintf(binFile_SED, "%s/%s", SIMSED_PATHMODEL, SIMSED_BINARY_FILENAME );
 
-    open_SEDBINARY(bin1File, FORCE_SEDBINARY, &fpbin1, 
+    // ==> replacec FILTLIST_SEDMODEL here .xyz
+    char *F = SURVEY_FILTERS;
+    if ( !FIX_RD_BINARY ) {  *F = FILTLIST_SEDMODEL ; }  // restore legacy/buggy
+
+    sprintf(binFile_FLUX,"%s/%s_%s-%s.BINARY", PATH_BINARY, version, SURVEY_NAME, F );
+
+    open_SEDBINARY(binFile_SED, FORCE_SEDBINARY, &fpbin1, 
 		   &SIMSED_BINARY_INFO.RDFLAG_SED, 
 		   &SIMSED_BINARY_INFO.WRFLAG_SED);
 
-    open_TABBINARY(bin2File, FORCE_TABBINARY, &fpbin2,
+    open_TABBINARY(binFile_FLUX, FORCE_TABBINARY, &fpbin2,
 		   &SIMSED_BINARY_INFO.RDFLAG_FLUX, 
 		   &SIMSED_BINARY_INFO.WRFLAG_FLUX);
 
@@ -403,15 +414,8 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
       int LENF = strlen(tmpFile);
       
-      if ( FIX_SIZE_ARG_BINARY ) {
-	fret = fwrite( &LENF,     sizeof(int ),  1,        fpbin1 ) ;
-	fret = fwrite( tmpFile,   sizeof(char),  LENF,     fpbin1 ) ;
-      }
-      else {
-	// old/obsolete
-	fret = fwrite( tmpFile,     sizeof(tmpFile), 1,          fpbin1 ) ;
-      }
-
+      fret = fwrite( &LENF,     sizeof(int ),  1,        fpbin1 ) ;
+      fret = fwrite( tmpFile,   sizeof(char),  LENF,     fpbin1 ) ;
       fret = fwrite( &NSEDBINARY, sizeof(int  ),  1,          fpbin1 ) ;
       fret = fwrite( SEDBINARY,   sizeof(float),  NSEDBINARY, fpbin1 ) ;
     }
@@ -442,11 +446,11 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
     fret = fwrite(PTR_SEDMODEL_FLUXTABLE, ISIZE_SEDMODEL_FLUXTABLE,1,fpbin2);
     fclose(fpbin2);
     printf("\n  Write filter-integral flux-table to binary file: \n");
-    printf("\t %s \n\n", bin2File);
+    printf("\t %s \n\n", binFile_FLUX);
     fflush(stdout);
   }
   else if ( SIMSED_BINARY_INFO.RDFLAG_FLUX ) {
-    read_SIMSED_TABBINARY(fpbin2,bin2File, OPTMASK);
+    read_SIMSED_TABBINARY(fpbin2,binFile_FLUX, OPTMASK);
     fclose(fpbin2);
   }
 
@@ -509,19 +513,10 @@ void open_SEDBINARY(char *binFile, bool force_create,
     *RDFLAG = true ;
     printf("\n Read SED-BINARY file for quicker init: \n");
     printf("  %s\n", binFile ) ;
-    printf("\t  [FIX_SIZE_ARG_BINARY = %d] \n", FIX_SIZE_ARG_BINARY);
     
     IVERSION_SIMSED_BINARY = -9 ;
 
-    if ( FIX_SIZE_ARG_BINARY ) {
-      fret = fread(&IVERSION_SIMSED_BINARY, MEMI,  1, *fpbin);
-    }
-    else {
-      // hack for older SIMSED binarys;
-      long long I8TMP;
-      fret = fread(&I8TMP, sizeof(int*),  1, *fpbin); 
-      IVERSION_SIMSED_BINARY = (int)I8TMP;
-    }
+    fret = fread(&IVERSION_SIMSED_BINARY, MEMI,  1, *fpbin);
 
     printf("\t (read SED-binary format version=%d)\n", IVERSION_SIMSED_BINARY);
     printf("\n");
@@ -619,7 +614,9 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
   //
   // Mar 24 2021: improve error messaging with CTAG.
   // Jul 02 2025: check OPTMASK bit to check KCOR_FILE
-  
+  // Oct 28 2026: allow fewer requested filters compared to table; 
+  //               see VALID logic with NBIN_[TABLE,REQUEST]
+  //
   bool REQUIRE_KCOR_MATCH = ( OPTMASK & OPTMASK_INIT_SIMSED_SKIP_KCOR_MATCH) == 0 ;
   int NERR, idim, IZSIZE_RD, IZSIZE_ACTUAL;
   bool LZSAME, LZOK, LZBAD, LZMIN_OK, LZMAX_OK, LNZBIN_OK, MATCH_KCOR_FILE ;
@@ -705,13 +702,19 @@ void read_SIMSED_TABBINARY(FILE *fp, char *binFile, int OPTMASK ) {
 
 
   // check that NBIN matches for each dimension
+  bool VALID;
   if ( !LZBAD ) {
     for ( idim=1; idim <= NDIM_SEDMODEL_FLUXTABLE; idim++ ) {
-      if  ( NBINTMP[idim] != NBIN_SEDMODEL_FLUXTABLE[idim] ) {
-	printf(" ERROR: NBIN(%s)=%d from binary table, but request is %d \n"
-	       , VARNAME_SEDMODEL_FLUXTABLE[idim]
-	       , NBINTMP[idim]
-	       , NBIN_SEDMODEL_FLUXTABLE[idim] );
+      char *VARNAME    = VARNAME_SEDMODEL_FLUXTABLE[idim] ;
+      int NBIN_TABLE   = NBINTMP[idim];
+      int NBIN_REQUEST = NBIN_SEDMODEL_FLUXTABLE[idim];
+      VALID = ( NBIN_TABLE == NBIN_REQUEST );
+      if ( strstr(VARNAME,"FILT") != NULL ) 
+	{  VALID = ( NBIN_TABLE >= NBIN_REQUEST ); } // allow subset of filters, 10.28.2026
+
+      if  ( !VALID ) {
+	printf(" ERROR: NBIN(%s)=%d from binary table, but request is %d \n",
+	       VARNAME, NBIN_TABLE, NBIN_REQUEST );
 	NERR++ ;
 	sprintf(c1err,"Binary table mis-match => " ) ;
 	sprintf(c2err,"Try deleting %s", binFile );
@@ -1130,9 +1133,6 @@ void set_SIMSED_MXDAY(char *PATHMODEL, FILE *fpbin,
 
   int NDAY_PAD = 5; // allow for largest file to not have max NDAY
   int MEMI     = sizeof(int);
-
-  if ( !FIX_SIZE_ARG_BINARY ) 
-    { MEMI = sizeof(int*); }   // restore bug for older SIMSED binarys
 
   if ( RDFLAG_BINARY ) {
     fret = fread(&SEDMODEL.MXDAY, MEMI, 1, fpbin);  

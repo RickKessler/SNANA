@@ -24338,6 +24338,12 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
          *****  IMPORTANT(v12_02e) *****
 
          *****  USEFUL(v12_02e) *****
+   
+   genmag_SIMSED.c
+      + fixed binary read to always pick file based on full set of filters
+        rather than argument of GENFILTERS key. If binary file has ugriz,
+        sim can select subset (e.g., gri) using same binary.
+          https://github.com/RickKessler/SNANA/issues/1825
 
          *****  MISCELLANEOUS(v12_02e) *****
   

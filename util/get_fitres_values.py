@@ -36,6 +36,10 @@
 # Dec 01 2025: in print_info(), sort df by user cid list and user var list
 # May 21 2026: fix -v and -c inputs to work with space-sep or comma-sep list,
 #               so no longer need to type commas
+#
+# Oct 28 2026: read NPZ table (e.g., from snana.exe NPZFILE_PREFIX option)
+#              in addition to text format. NPZ format is auto-detected from
+#              file extension .npz or .NPZ; anything else is read as text.
 
 import os, sys, argparse, gzip, math
 import numpy as np
@@ -43,6 +47,8 @@ import pandas as pd
 
 
 KEYLIST_DOCANA = [ 'DOCUMENTATION:', 'DOCUMENTATION_END:' ]
+
+EXTENSION_NPZ       = '.npz'      # compared case-insensitively
 
 STRING_FORMAT_EAZY  = "eazy"
 ZP_nJy              = 31.4
@@ -55,7 +61,9 @@ MAGERR_DEFAULT      = 0.05
 def get_args():
     parser = argparse.ArgumentParser()
     
-    msg = "name of fitres file (automatically checks for .gz extension)"
+    msg = "name of fitres file in text or NPZ format " \
+          "(NPZ if extension is .npz or .NPZ; " \
+          "for text format, automatically checks for .gz extension)"
     parser.add_argument("-f", "--fitres_file", help=msg, type=str, default="")
 
     msg = "space-sep or comma sep list of CIDs for FITRES file"
@@ -101,7 +109,7 @@ def parse_inputs(args):
     # check fitres_file and fitres_file.gz
     msgerr_ff  = (f"fitres file {args.fitres_file} does not exist.")
     ff_list    = [ fitres_file ]
-    if ".gz" not in fitres_file:
+    if ".gz" not in fitres_file and not is_npz_file(fitres_file):
         ff_list.append(f"{fitres_file}.gz")
     
     n_ff = 0
@@ -205,6 +213,80 @@ def get_user_list(input_list):
     return user_list
 
 
+def is_npz_file(filename):
+    # Oct 28 2026: return True if filename has extension .npz or .NPZ
+    return os.path.splitext(filename)[1].lower() == EXTENSION_NPZ
+
+def get_var_list_reformat(reformat_option, varlist_all, var_list):
+    # Return var_list needed for reformat option; otherwise return
+    # input var_list.  varlist_all = all variables in the table.
+    if reformat_option and STRING_FORMAT_EAZY in reformat_option:
+        var_list = [ var for var in varlist_all if '_obs' in var ]
+    return var_list
+
+def read_npz_file(info_fitres, reformat_option):
+
+    # Created Oct 28 2026
+    # Read NPZ table into info_fitres['df'], same as read_fitres_file does
+    # for text format. Each npz array is one column, and the first
+    # column is the ID column (CID, GALID, ROW, ...).
+    #
+    # Numeric columns stay numeric. String columns are decoded to str.
+    # The ID column is always converted to str to match user-input id_list.
+
+    ff         = info_fitres['fitres_file']
+    var_list   = info_fitres['var_list']
+    nrow       = info_fitres['nrow']
+
+    with np.load(ff, allow_pickle=False) as npz:
+        varlist_all = list(npz.files)    # same order as VARNAMES in text table
+        if len(varlist_all) == 0:
+            sys.exit(f"\n ERROR: no columns found in {ff}")
+
+        keyname_id = varlist_all[0]
+        print(f"# Found keyname_id = {keyname_id} \n"
+              f"#\t (NPZ table has {len(varlist_all)} columns)")
+        info_fitres['keyname_id'] = keyname_id
+
+        var_list = get_var_list_reformat(reformat_option, varlist_all, var_list)
+        if reformat_option:
+            info_fitres['var_list'] = var_list
+
+        var_list_local = [ keyname_id ] + var_list
+        missing = [ v for v in var_list_local if v not in varlist_all ]
+        if len(missing) > 0:
+            sys.exit(f"\n ERROR: variable(s) {missing} not found in {ff}\n"
+                     f"   Available variables: {' '.join(varlist_all)}")
+
+        data = {}
+        for var in var_list_local:
+            if var in data: continue              # e.g., user asked for CID
+            arr = npz[var]
+            if nrow > 0 : arr = arr[:nrow]
+            data[var] = npz_array_to_column(arr)
+
+    df = pd.DataFrame(data)
+    df[keyname_id] = df[keyname_id].astype(str)
+    info_fitres['df'] = df
+    return
+    # end read_npz_file
+
+def npz_array_to_column(arr):
+
+    # Convert npz array to 1D array for data frame column.
+    # Byte-string (S) arrays are decoded to str.
+    # Also handle string columns written by older snana.exe that were
+    # (incorrectly) stored as 2D int8 arrays [nrow, strlen] of ascii codes.
+
+    if arr.ndim == 2 and arr.dtype.itemsize == 1:
+        arr = np.ascontiguousarray(arr).view(f"S{arr.shape[1]}")[:,0]
+
+    if arr.dtype.kind == 'S':
+        arr = np.char.decode(arr, 'utf-8', errors='replace')
+
+    return arr
+    # end npz_array_to_column
+
 def read_fitres_file(info_fitres, reformat_option):
 
     # strip inputs
@@ -213,6 +295,11 @@ def read_fitres_file(info_fitres, reformat_option):
     keyname_id = info_fitres['keyname_id']
  
     print(f"\n# Read {ff}")
+
+    # Oct 28 2026: NPZ format is auto-detected from file extension
+    if is_npz_file(ff):
+        read_npz_file(info_fitres, reformat_option)
+        return
 
     nrow_skip   = 0
     nrow_docana = 0
@@ -261,12 +348,8 @@ def read_fitres_file(info_fitres, reformat_option):
 
     # check reformat option(s) that require specific HOSTLIB variables
     if reformat_option:
-        if STRING_FORMAT_EAZY in reformat_option:
-            var_list = []
-            for var in VARLIST_ALL:
-                if '_obs' in var:
-                    var_list.append(var)
-            info_fitres['var_list'] = var_list
+        var_list = get_var_list_reformat(reformat_option, VARLIST_ALL, var_list)
+        info_fitres['var_list'] = var_list
 
     # - - - -
     var_list_local =  [ keyname_id ] + var_list

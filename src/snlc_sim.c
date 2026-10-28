@@ -722,6 +722,8 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_GALMAG     = true;   // Oct 9 2026
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
+  //   INPUTS.RESTORE_BUG_GALMAG = false; // xxx .xyz ???
+
   INPUTS.REFAC_DATA_FLAG        = 0; // 701 ;
   NLINE_RATE_INFO   = 0;
 

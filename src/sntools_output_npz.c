@@ -1,8 +1,10 @@
 // Created Apr 2025
 // Functions to read/write npz file used by python.
 //
-// Oct 27 2026:
-//    TO-DO: ask Claude why CID and FIELD (both strings) seem to be corrupted in NPZ table.
+// Oct 28 2026:
+//    Fix string columns (CID, FIELD): header was written as int8 2D array
+//    (cnpy maps char -> '|i1'), so python read back integers. Now write
+//    1D fixed-width byte-string header, dtype '|S<wsize>'.
 //
 
 #define MXTABLE_NPZ  10
@@ -53,18 +55,6 @@ extern"C" {
 // Initial use is for wfit.c to read npz-formatted covariance file 
 // from create_covariance.py.
 // Use package from https://github.com/rogersce/cnpy
-
-/*xxxx mark del xxxxxxxxxxxxx
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <time.h>
-#include <math.h>
-#include "cnpy.h"
-xxxxxx end mark */
-
 
 
 // ============================================
@@ -386,6 +376,8 @@ void CLOSE_NPZFILE(void) {
   int ITAB;
 
   for(ITAB=0; ITAB < TABLEINFO_NPZ.NTABLE; ITAB++ ) {
+    printf("   Close NPZ table file: %s \n", TABLEINFO_NPZ.FILENAME[ITAB]);
+    fflush(stdout);
     npz_table_close(ITAB);
   }
 
@@ -641,16 +633,30 @@ namespace {
     t.nbuf = 0;
   }
 
+  // Build .npy v1.0 header for a 1D fixed-width byte-string array, dtype '|S<wsize>'.
+  // cnpy has no string dtype (char maps to int8), so build it by hand.
+  std::vector<char> npy_header_str(size_t nrow, int wsize) {
+    std::string d = "{'descr': '|S" + std::to_string(wsize) +
+                    "', 'fortran_order': False, 'shape': (" +
+                    std::to_string(nrow) + ",), }";
+    size_t total = 10 + d.size() + 1;           // magic(6)+version(2)+len(2) + dict + '\\n'
+    d.append((64 - total % 64) % 64, ' ');      // pad so data starts 64-byte aligned
+    d.push_back('\n');
+    std::vector<char> h = { '\x93','N','U','M','P','Y', 1, 0 };
+    put16(h, (uint16_t)d.size());
+    putstr(h, d);
+    return h;
+  }
+
   std::vector<char> npy_header_for(int icast, size_t nrow, int wsize) {
     std::vector<size_t> s1 = { nrow };
-    std::vector<size_t> s2 = { nrow, (size_t)wsize };
     switch (icast) {
       case NPZ_ICAST_D: return cnpy::create_npy_header<double>(s1);
       case NPZ_ICAST_F: return cnpy::create_npy_header<float>(s1);
       case NPZ_ICAST_I: return cnpy::create_npy_header<int>(s1);
       case NPZ_ICAST_S: return cnpy::create_npy_header<short>(s1);
       case NPZ_ICAST_L: return cnpy::create_npy_header<long long>(s1);
-      default:          return cnpy::create_npy_header<char>(s2);   // fixed-width strings
+      default:          return npy_header_str(nrow, wsize);         // fixed-width strings
     }
   }
 
@@ -811,6 +817,8 @@ void npz_table_close(int h) {
   // On any failure, temp files and the partial .npz are removed, then the
   // exception propagates.
 
+  // ---------- BEGIN ----------
+
   NPZTab &t = NPZ_TAB[h];
   FILE *fz = NULL;
   // threshold at which zip64 records are used (compile with -DNPZ_ZIP64_LIMIT=<n> to test
@@ -948,4 +956,4 @@ void npz_table_close(int h) {
   }
 
   t = NPZTab();
-}
+} // end npz_table_close

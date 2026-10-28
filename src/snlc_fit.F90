@@ -18798,8 +18798,6 @@
 ! Apr 18 2022: pass ID and IFLAG args
 ! -----------------------------------------
 
-
-
     USE SNDATCOM
     USE SNFITCOM
 

@@ -116,7 +116,8 @@ extern"C" {
 
   void SNTABLE_FILL_TEXT(int IDTABLE);
 
-  int  ITABLE_TEXT(int IDTABLE, char *FUNNAM, int OPT_ABORT) ;
+  int  get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT );
+  // xxx mark   int  ITABLE_TEXT(int IDTABLE, char *FUNNAM, int OPT_ABORT) ;
 
   void formatFloat_TEXT(char *VARNAME, double VAL, char *CVAL); // return CVAL
 
@@ -344,7 +345,8 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
 
 
   // find sparse index ITAB for this IDTABLE
-  ITAB   = ITABLE_TEXT(IDTABLE,fnam, 0 );
+  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_TEXT.NTABLE, TABLEINFO_TEXT.IDTABLE, fnam, 0 );
+  // xxx mark delet  ITAB   = ITABLE_TEXT(IDTABLE,fnam, 0 );
   TBNAME = TABLEINFO_TEXT.TBNAME[ITAB] ;
 
   if ( ITAB < 0 ) {
@@ -413,6 +415,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
 } // end of SNTABLE_ADDCOL_TEXT
 
 
+/* xxxxxxxxxxxx mark delete Oct 27 2026 xxxxxxxxxx
 // =============================================
 int ITABLE_TEXT(int IDTABLE, char *FUNNAM, int OPT_ABORT ) {
 
@@ -421,6 +424,8 @@ int ITABLE_TEXT(int IDTABLE, char *FUNNAM, int OPT_ABORT ) {
  
   int i, ITAB;
   char fnam[] = "ITABLE_TEXT" ;
+
+  @@@@@@@@@2 OBSOLETE @@@@@@@@@@@@@@
 
   ITAB = -9 ;
   for(i=0; i < TABLEINFO_TEXT.NTABLE ; i++ ) {   
@@ -433,10 +438,13 @@ int ITABLE_TEXT(int IDTABLE, char *FUNNAM, int OPT_ABORT ) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);    
   }
 
+  @@@@@@@@@2 OBSOLETE @@@@@@@@@@@@@@
+
   return ITAB ;
 
 } // end of ITABLE_TEXT
 
+xxxxxxxxxxx end mark xxxxxxxxxxxxxxx*/
 
 // ==================================================
 void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
@@ -519,8 +527,9 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
   // ------------- BEGIN ------------
 
   // --------------------------------------------
-  // find sparse index ITAB for this IDTABLE
-  ITAB = ITABLE_TEXT(IDTABLE,fnam,1); // abort if no table.
+  // find sparse index ITAB for this IDTABLE; abort if no table
+  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_TEXT.NTABLE, TABLEINFO_TEXT.IDTABLE, fnam, 1 );
+  // xxx mark del ITAB = ITABLE_TEXT(IDTABLE,fnam,1); // abort if no table.
   
   FP         = TABLEINFO_TEXT.FP[ITAB]  ;
   NFILL      = TABLEINFO_TEXT.NFILL[ITAB];

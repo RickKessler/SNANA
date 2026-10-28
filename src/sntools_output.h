@@ -491,6 +491,8 @@ extern"C" {
   int  get_ICAST_READTBLE_POINTER(char *varName);
   int  ICAST_for_textVar(char *varName) ;
 
+  int get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT );
+
   // - - - autoStore utility functions - - - - 
   void SNTABLE_AUTOSTORE_RESET(void);
   void sntable_autostore_reset__(void);

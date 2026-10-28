@@ -228,7 +228,6 @@ int get_TABLEFILE_TYPE(char *FILENAME) {
   if ( ISFILE_ROOT (FILENAME) ) { return IFILETYPE_ROOT ; }
 #endif
 
-  // xxxxxx mark del 10.19.2026   #ifdef USE_ROOT  // 
 #ifdef USE_TEXT
   if ( ISFILE_TEXT (FILENAME) ) { return IFILETYPE_TEXT ; }
 #endif
@@ -622,9 +621,15 @@ void SNTABLE_CREATE(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) 
   // Jun 10 2026: pass PGNAME = program name to write in table header for provenance
 
   int  USE ; 
+  int  LDMP = 0 ;
   char fnam[] = "SNTABLE_CREATE" ;
 
   // -------- BEGIN ----------
+
+  if ( LDMP ) {
+    printf(" xxx %s: IDTABLE=%d  TBNAME=%s  PGNAME=%s  TEXT_FMT=%s \n",
+	   fnam, IDTABLE, TBNAME, PGNAME, TEXT_FORMAT); fflush(stdout);
+  }
 
   if ( NOPEN_TABLEFILE == 0 ) {
     char comment[60];
@@ -656,7 +661,9 @@ void SNTABLE_CREATE(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) 
   if ( USE ) { SNTABLE_CREATE_NPZ(IDTABLE, TBNAME, PGNAME); }
 #endif
  
+
   fflush(stdout);
+  return;
 
 } // end of SNTABLE_CREATE
 
@@ -673,7 +680,7 @@ void SNTABLE_FILL(int IDTABLE ) {
   // more row.
 
   int USE ;
-  //  char fnam[] = "SNTABLE_FILL" ;
+  char fnam[] = "SNTABLE_FILL" ;  (void)fnam;
   // -------- BEGIN ----------
        
 #ifdef USE_ROOT
@@ -687,11 +694,17 @@ void SNTABLE_FILL(int IDTABLE ) {
   if ( USE ) { SNTABLE_FILL_TEXT(IDTABLE); }
 #endif
 
+#ifdef USE_NPZ
+  USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_NPZ] ; 
+  if ( USE ) { SNTABLE_FILL_NPZ(IDTABLE); }
+#endif
+
+
+  return;
 
 } // end of SNTABLE_FILL
 
 void sntable_fill__(int *ID) {  SNTABLE_FILL(*ID);  }
-
 
 
 // ======================================================
@@ -757,16 +770,14 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
     { SNTABLE_ADDCOL_TEXT(IDTABLE, PTRVAR, &ADDCOL_VARDEF); }
 #endif
 
-  /* xxx
+
 #ifdef USE_NPZ
   USE = USE_TABLEFILE[OPENFLAG_NEW][IFILETYPE_NPZ] ; 
-  if ( USE && USE4TEXT ) { 
-    //    int  npz_table_addcol (NTABLE_NPZ, char *varName, int icast, int strlen_max);
-    //    void npz_table_append (NTABLE_NPZ, int icol, void *ptr);
-  }
+  if ( USE && USE4TEXT ) 
+    { SNTABLE_ADDCOL_NPZ(IDTABLE, PTRVAR, &ADDCOL_VARDEF); }
 
 #endif
-  xxx*/
+
 
   return;
 } // end of SNTABLE_ADDCOL
@@ -920,6 +931,8 @@ void parse_ADDCOL_VARLIST(char *VARLIST,
   }
 
   sprintf(ADDCOL_VARLIST_LAST,"%s", VARLIST); // for abort message only
+
+  return;
 
 } // end of parse_ADDCOL_VARLIST
 
@@ -1518,6 +1531,32 @@ void load_DUMPLINE(int OPT, char *LINE, double DVAL) {
 void load_DUMPLINE_STR(char *LINE, char *STRING) {
   strcat(LINE," "); strcat(LINE,STRING);
 }
+
+int get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT ) {
+
+  // Created Oct 2026
+  // Generalize original ITABLE_TEXT to work for both TEXT and NPZ format.
+  // Return sparse table index for IDTABLE
+  // On error, print calling function FUNNAM.
+
+  int i, ITAB;
+  char fnam[] = "get_ITABLE_SPARSE" ;
+
+  // ---------- BEGIN -------------
+  ITAB = -9 ;
+  for(i=0; i < NTAB ; i++ ) {
+    if ( IDTABLE == IDTAB[i] ) { ITAB = i ; }
+  }
+
+  if ( ITAB < 0 && OPT_ABORT > 0 ) {
+    sprintf(MSGERR1, "%s could not find table with ", FUNNAM );
+    sprintf(MSGERR2, "IDTABLE = %d", IDTABLE );
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  return ITAB ;
+
+} // end of get_ITABLE_SPARSE
 
 // ========================================
 int  get_ICAST_READTBLE_POINTER(char *varName) {

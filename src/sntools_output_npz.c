@@ -13,6 +13,12 @@ extern"C" {
   void INIT_NPZFILES(char *PREFIX);
   void OPEN_NPZFILE(char *FILENAME);
   void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME);
+  void SNTABLE_ADDCOL_NPZ(int IDTABLE, void *PTRVAR, 
+			  SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF) ;
+
+  void SNTABLE_FILL_NPZ(int IDTABLE);
+
+  int  get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT );
 
   int read_npz_covmat(char *npz_file, double *array1d);
   int read_npz_factorized(char *npz_file, double **diag, double **U, int *K);
@@ -129,13 +135,13 @@ void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME) {
   // NAME    = char table name (e.g., SNANA or FITRES) used to construct filename
   // PGNAME  = name of calling program to be written to data header
 
-  int  NTAB = TABLEINFO_NPZ.NTABLE ;
+  int  ITAB = TABLEINFO_NPZ.NTABLE ;
   char FILENAME[MXPATHLEN];
   char fnam[] = "SNTABLE_CREATE_NPZ" ;  (void)fnam;
 
   // ------------- BEGIN --------------
 
-  printf("  %s: init %s NPZ-table . \n", fnam, TBNAME); 
+  printf("  %s: init %s %s-table (ITAB=%d). \n", fnam, TBNAME, SUFFIX_NPZ, ITAB); 
   fflush(stdout);
 
   // construct file name from stored prefix and table name.
@@ -149,21 +155,63 @@ void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME) {
   }
 
   // store other info (same as for TEXT format)
-  TABLEINFO_NPZ.IDTABLE[NTAB] = IDTABLE ;
-  TABLEINFO_NPZ.NFILL[NTAB]   = 0 ;
-  sprintf(TABLEINFO_NPZ.TBNAME[NTAB],   "%s", TBNAME);
-  sprintf(TABLEINFO_NPZ.PGNAME[NTAB],   "%s", PGNAME);
-  sprintf(TABLEINFO_NPZ.FILENAME[NTAB], "%s", FILENAME);
+  TABLEINFO_NPZ.IDTABLE[ITAB] = IDTABLE ;
+  TABLEINFO_NPZ.NFILL[ITAB]   = 0 ;
+  sprintf(TABLEINFO_NPZ.TBNAME[ITAB],   "%s", TBNAME);
+  sprintf(TABLEINFO_NPZ.PGNAME[ITAB],   "%s", PGNAME);
+  sprintf(TABLEINFO_NPZ.FILENAME[ITAB], "%s", FILENAME);
   TABLEINFO_NPZ.NTABLE++ ;
 
   // open table
-  npz_table_create(FILENAME); 
- 
-  debugexit(fnam); // xxx REMOVE
+  int itab = npz_table_create(FILENAME); 
+  // abort if returned itab index does not match expected ITAB index
+  if ( itab != ITAB ) {
+    sprintf(MSGERR1, "Expect ITAB = %d", ITAB);
+    sprintf(MSGERR2, "but npz_table_create returns itab=%d", itab);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  //  debugexit(fnam); // xxx REMOVE
 
   return ;
 
 } // end SNTABLE_CREATE_NPZ
+
+
+// ==============================================
+void SNTABLE_ADDCOL_NPZ(int IDTABLE, void *PTRVAR, 
+			SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF) {
+
+  int ITAB;
+  char *TBNAME ;  (void)TBNAME;
+  //  char VARNAME[MXCHAR_VARNAME], *varList;
+  char fnam[] = "SNTABLE_ADDCOL_NPZ";
+
+  // ----------- BEGIN -----------
+
+  // find sparse index ITAB for this IDTABLE
+  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_NPZ.NTABLE, TABLEINFO_NPZ.IDTABLE, fnam, 0 );
+  TBNAME = TABLEINFO_NPZ.TBNAME[ITAB] ;
+
+  return;
+
+} // end  SNTABLE_ADDCOL_NPZ
+
+// ==============================================
+void SNTABLE_FILL_NPZ(int IDTABLE) {
+
+  int  ITAB, NFILL;     (void)NFILL;
+  char fnam[] = "SNTABLE_FILL_NPZ" ;
+
+  // ----------- BEGIN ------------
+
+  // find sparse index ITAB for this IDTABLE; abort if no table
+  ITAB     = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_NPZ.NTABLE, TABLEINFO_NPZ.IDTABLE, fnam,1); 
+  NFILL    = TABLEINFO_TEXT.NFILL[ITAB];
+
+  //  printf(" xxx %s: ITAB=%d  NFILL = %d \n", fnam, ITAB, NFILL );
+  return;
+
+} // end SNTABLE_FILL_NPZ
 
 // ==============================================
 int get_npz_filetype(char *npz_file) {
@@ -432,12 +480,21 @@ namespace {
 
 
 int npz_table_create(char *fileName) {
+
+  int LDMP = 1;
+  char fnam[] = "npz_table_create";
+
   for (int h=0; h < MXTABLE_NPZ; h++) {
     if ( !NPZ_TAB[h].used ) {
       NPZ_TAB[h] = NPZTab();  NPZ_TAB[h].used = true;  NPZ_TAB[h].file = fileName;
       const char *e;
-      if ( (e = getenv("SNANA_NPZ_NFLUSH")) && atoi(e) > 0 ) { NPZ_TAB[h].nflush = atoi(e); }
-      if ( (e = getenv("SNANA_NPZ_LEVEL"))  && atoi(e) >= 0 && atoi(e) <= 9 ) { NPZ_TAB[h].level = atoi(e); }
+      if ( (e = getenv("SNANA_NPZ_NFLUSH")) && atoi(e) > 0 ) 
+	{ NPZ_TAB[h].nflush = atoi(e); }
+      if ( (e = getenv("SNANA_NPZ_LEVEL"))  && atoi(e) >= 0 && atoi(e) <= 9 ) 
+	{ NPZ_TAB[h].level = atoi(e); }
+
+      if(LDMP) { printf(" xxx %s: create %s for h=%d \n", fnam, fileName, h); fflush(stdout); }
+
       return h;
     }
   }

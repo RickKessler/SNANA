@@ -570,9 +570,8 @@ void TABLEFILE_CLOSE(char *FILENAME) {
 #endif
 
 #ifdef USE_NPZ
-  int h=0;  // ??? .xyz
   if(TYPE_FLAG == IFILETYPE_NPZ ) 
-    { npz_table_close(h); }
+    { CLOSE_NPZFILE(); }
 #endif
 
   

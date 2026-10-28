@@ -807,7 +807,6 @@ void CLOSE_TEXTFILE(void) {
 
   for(itab=0; itab < TABLEINFO_TEXT.NTABLE; itab++ ) {
       FP   = TABLEINFO_TEXT.FP[itab] ;
-      // char *FNAM = TABLEINFO_TEXT.FILENAME[itab] ;
       if ( FP != NULL ) {  fclose(FP); }
   }
 

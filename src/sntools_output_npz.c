@@ -17,6 +17,7 @@ extern"C" {
 			  SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF) ;
 
   void SNTABLE_FILL_NPZ(int IDTABLE);
+  void CLOSE_NPZFILE(void);
 
   int  get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT );
 
@@ -81,6 +82,15 @@ struct TABLEINFO_NPZ {
   char   FILENAME[MXTABLE_NPZ][MXCHAR_FILENAME] ;
   int    NFILL[MXTABLE_NPZ] ; // number of fill calls per table
 
+  int    HANDLE[MXTABLE_NPZ] ;  // handle returned by npz_table_create
+
+  // per-column info, filled by SNTABLE_ADDCOL_NPZ (analog of TABLEINFO_TEXT)
+  int     NVAR[MXTABLE_NPZ];
+  char  **VARNAME[MXTABLE_NPZ];  // [ITAB][IVAR] column name
+  int    *ICAST[MXTABLE_NPZ] ;   // [ITAB][IVAR] ICAST_[D,F,I,S,L,C]
+  int    *ICOL[MXTABLE_NPZ] ;    // [ITAB][IVAR] column index from npz_table_addcol
+  void  **PTRVAR[MXTABLE_NPZ] ;  // [ITAB][IVAR] address of variable to write
+
 } TABLEINFO_NPZ ;
 
 // ====================================
@@ -108,7 +118,7 @@ void INIT_NPZFILES(char *PREFIX) {
 
   sprintf(FILEPREFIX_NPZ, "%s", PREFIX);
 
-  TABLEINFO_TEXT.NTABLE = 0 ;
+  TABLEINFO_NPZ.NTABLE = 0 ;
  
   return;
 
@@ -134,12 +144,26 @@ void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME) {
   // IDTABLE = int table id
   // NAME    = char table name (e.g., SNANA or FITRES) used to construct filename
   // PGNAME  = name of calling program to be written to data header
+  //
+  // Analog of SNTABLE_CREATE_TEXT. File name is [PREFIX].[TBNAME].NPZ.
+  // Register the table and allocate per-column storage; columns are
+  // defined later by SNTABLE_ADDCOL_NPZ. Unlike the text table, the file
+  // is not written until the table is closed (npz_table_close), so there
+  // is no file pointer to store here.
 
   int  ITAB = TABLEINFO_NPZ.NTABLE ;
+  int  ivar, MX = MXVAR_TABLE ;
   char FILENAME[MXPATHLEN];
   char fnam[] = "SNTABLE_CREATE_NPZ" ;  (void)fnam;
 
   // ------------- BEGIN --------------
+
+  // table arrays are fixed size; abort before indexing past them
+  if ( ITAB >= MXTABLE_NPZ ) {
+    sprintf(MSGERR1, "Cannot create table %s: too many tables", TBNAME);
+    sprintf(MSGERR2, "MXTABLE_NPZ = %d", MXTABLE_NPZ);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   printf("  %s: init %s %s-table (ITAB=%d). \n", fnam, TBNAME, SUFFIX_NPZ, ITAB); 
   fflush(stdout);
@@ -157,12 +181,13 @@ void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME) {
   // store other info (same as for TEXT format)
   TABLEINFO_NPZ.IDTABLE[ITAB] = IDTABLE ;
   TABLEINFO_NPZ.NFILL[ITAB]   = 0 ;
+  TABLEINFO_NPZ.NVAR[ITAB]    = 0 ;
   sprintf(TABLEINFO_NPZ.TBNAME[ITAB],   "%s", TBNAME);
   sprintf(TABLEINFO_NPZ.PGNAME[ITAB],   "%s", PGNAME);
   sprintf(TABLEINFO_NPZ.FILENAME[ITAB], "%s", FILENAME);
   TABLEINFO_NPZ.NTABLE++ ;
 
-  // open table
+  // open table (buffered writer; returns table handle)
   int itab = npz_table_create(FILENAME); 
   // abort if returned itab index does not match expected ITAB index
   if ( itab != ITAB ) {
@@ -170,7 +195,22 @@ void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME) {
     sprintf(MSGERR2, "but npz_table_create returns itab=%d", itab);
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
-  //  debugexit(fnam); // xxx REMOVE
+  TABLEINFO_NPZ.HANDLE[ITAB] = itab ;
+
+  // allocate memory for column names, casts, column indices and pointers
+  TABLEINFO_NPZ.VARNAME[ITAB] = (char**) malloc( MX * sizeof(char*) );
+  for(ivar=0; ivar < MX; ivar++ ) 
+    { TABLEINFO_NPZ.VARNAME[ITAB][ivar] = (char*)malloc(MXCHAR_VARNAME*sizeof(char)); }
+
+  TABLEINFO_NPZ.ICAST[ITAB]  = (int*)   malloc( MX * sizeof(int)   );
+  TABLEINFO_NPZ.ICOL[ITAB]   = (int*)   malloc( MX * sizeof(int)   );
+  TABLEINFO_NPZ.PTRVAR[ITAB] = (void**) malloc( MX * sizeof(void*) );
+
+  for(ivar=0; ivar < MX; ivar++ ) { 
+    TABLEINFO_NPZ.ICAST[ITAB][ivar]  = -9 ; 
+    TABLEINFO_NPZ.ICOL[ITAB][ivar]   = -9 ; 
+    TABLEINFO_NPZ.PTRVAR[ITAB][ivar] = NULL ; 
+  }
 
   return ;
 
@@ -181,16 +221,105 @@ void SNTABLE_CREATE_NPZ(int IDTABLE, char *TBNAME, char *PGNAME) {
 void SNTABLE_ADDCOL_NPZ(int IDTABLE, void *PTRVAR, 
 			SNTABLE_ADDCOL_VARDEF *ADDCOL_VARDEF) {
 
-  int ITAB;
-  char *TBNAME ;  (void)TBNAME;
-  //  char VARNAME[MXCHAR_VARNAME], *varList;
+  // Analog of SNTABLE_ADDCOL_TEXT.
+  // For each variable in ADDCOL_VARDEF, define a column in the npz table
+  // (npz_table_addcol) and store its name, cast, column index, and address.
+  // The address is read at each SNTABLE_FILL_NPZ call.
+  // All columns must be added before the first FILL.
+
+  int  ITAB, IVAR, ivar, ICAST, ICOL, HANDLE, STRLEN ;
+  char VARNAME[MXCHAR_VARNAME], *TBNAME ;
   char fnam[] = "SNTABLE_ADDCOL_NPZ";
 
   // ----------- BEGIN -----------
 
   // find sparse index ITAB for this IDTABLE
   ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_NPZ.NTABLE, TABLEINFO_NPZ.IDTABLE, fnam, 0 );
+
+  if ( ITAB < 0 ) {
+    print_preAbort_banner(fnam);
+    printf("   VARLIST_ORIG = '%s' \n", ADDCOL_VARDEF->VARLIST_ORIG);
+    printf("   NVAR = %d \n", ADDCOL_VARDEF->NVAR );
+    sprintf(MSGERR1, "Could not find npz table with ");
+    sprintf(MSGERR2, "IDTABLE = %d", IDTABLE ); 
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);    
+  }
+
   TBNAME = TABLEINFO_NPZ.TBNAME[ITAB] ;
+  HANDLE = TABLEINFO_NPZ.HANDLE[ITAB] ;
+
+  if ( TABLEINFO_NPZ.NFILL[ITAB] > 0 ) {
+    sprintf(MSGERR1, "Cannot add columns to %s table after rows are filled", TBNAME);
+    sprintf(MSGERR2, "VARLIST_ORIG = '%.*s'", MXCHAR_MSGERR-20, ADDCOL_VARDEF->VARLIST_ORIG);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  for(ivar=0 ; ivar < ADDCOL_VARDEF->NVAR; ivar++ ) {
+
+    IVAR = TABLEINFO_NPZ.NVAR[ITAB] ;   // global column counter for this table
+
+    // unlike TEXT (which silently skips), abort since npz columns must be consistent
+    if ( IVAR >= MXVAR_TABLE ) {
+      sprintf(MSGERR1, "NVAR exceeds bound of MXVAR_TABLE=%d for %s table", 
+	      MXVAR_TABLE, TBNAME);
+      sprintf(MSGERR2, "while adding VARNAME='%s'", ADDCOL_VARDEF->VARNAME[ivar]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+
+    sprintf(VARNAME, "%s", ADDCOL_VARDEF->VARNAME[ivar] );    
+
+    // replace CCID -> CID, same as for text file
+    if ( strcmp(VARNAME,"CCID") == 0 )  { sprintf(VARNAME,"CID") ; }
+
+    ICAST = ADDCOL_VARDEF->ICAST[ivar] ;
+
+    // string width in bytes (only used for ICAST_C)
+    STRLEN = 0 ;
+    if ( ICAST == ICAST_C ) {
+      STRLEN = ADDCOL_VARDEF->ISIZE[ivar] ;
+      if ( STRLEN <= 0 ) { STRLEN = MXCHAR_CCID ; }
+    }
+
+    // define column in the npz writer; returns column index
+    ICOL = npz_table_addcol(HANDLE, VARNAME, ICAST, STRLEN);
+    if ( ICOL < 0 ) {
+      sprintf(MSGERR1, "Invalid ICAST=%d for VARNAME='%s' (%s table)", 
+	      ICAST, VARNAME, TBNAME);
+      sprintf(MSGERR2, "Valid ICAST: D=%d F=%d I=%d S=%d L=%d C=%d", 
+	      ICAST_D, ICAST_F, ICAST_I, ICAST_S, ICAST_L, ICAST_C);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+
+    // npz column index must track our own counter; FILL relies on this
+    if ( ICOL != IVAR ) {
+      sprintf(MSGERR1, "Expect ICOL=%d for VARNAME='%s'", IVAR, VARNAME);
+      sprintf(MSGERR2, "but npz_table_addcol returns ICOL=%d", ICOL);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+
+    // store column info
+    sprintf(TABLEINFO_NPZ.VARNAME[ITAB][IVAR], "%s", VARNAME);
+    TABLEINFO_NPZ.ICAST[ITAB][IVAR] = ICAST ;
+    TABLEINFO_NPZ.ICOL[ITAB][IVAR]  = ICOL ;
+
+    // store pointer based on cast (same convention as SNTABLE_ADDCOL_TEXT):
+    // numeric PTRVAR is an array indexed by ivar; string PTRVAR is one char array.
+    if ( ICAST == ICAST_D ) 
+      { TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] = (void*)((double*)PTRVAR + ivar) ; }
+    else if ( ICAST == ICAST_F ) 
+      { TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] = (void*)((float*)PTRVAR + ivar) ; }
+    else if ( ICAST == ICAST_I ) 
+      { TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] = (void*)((int*)PTRVAR + ivar) ; }
+    else if ( ICAST == ICAST_S ) 
+      { TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] = (void*)((short int*)PTRVAR + ivar) ; }
+    else if ( ICAST == ICAST_L ) 
+      { TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] = (void*)((long long int*)PTRVAR + ivar) ; }
+    else if ( ICAST == ICAST_C ) 
+      { TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] = (void*)((char*)PTRVAR) ; }
+
+    TABLEINFO_NPZ.NVAR[ITAB]++ ;
+
+  } // end of ivar
 
   return;
 
@@ -199,20 +328,66 @@ void SNTABLE_ADDCOL_NPZ(int IDTABLE, void *PTRVAR,
 // ==============================================
 void SNTABLE_FILL_NPZ(int IDTABLE) {
 
-  int  ITAB, NFILL;     (void)NFILL;
+  // Analog of SNTABLE_FILL_TEXT.
+  // Append one row to the npz table for this IDTABLE: for each column,
+  // copy the current value (read from the stored pointer) into the
+  // column buffer, then mark the row complete. Compression and disk
+  // spill happen inside npz_table_endrow every nflush rows.
+  // Header is not needed here; npz_table_close writes the npy shapes.
+
+  int  ITAB, NFILL, NVAR, IVAR, ICAST, HANDLE;
+  char *VARNAME;
   char fnam[] = "SNTABLE_FILL_NPZ" ;
 
   // ----------- BEGIN ------------
 
   // find sparse index ITAB for this IDTABLE; abort if no table
-  ITAB     = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_NPZ.NTABLE, TABLEINFO_NPZ.IDTABLE, fnam,1); 
-  NFILL    = TABLEINFO_TEXT.NFILL[ITAB];
+  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_NPZ.NTABLE, TABLEINFO_NPZ.IDTABLE, fnam, 1); 
+  NFILL  = TABLEINFO_NPZ.NFILL[ITAB];
+  NVAR   = TABLEINFO_NPZ.NVAR[ITAB];
+  HANDLE = TABLEINFO_NPZ.HANDLE[ITAB];
 
-  //  printf(" xxx %s: ITAB=%d  NFILL = %d \n", fnam, ITAB, NFILL );
-  return;
+  if ( NVAR <= 0 ) {
+    sprintf(MSGERR1, "No columns defined for IDTABLE=%d (%s)", 
+	    IDTABLE, TABLEINFO_NPZ.TBNAME[ITAB]);
+    sprintf(MSGERR2, "Call SNTABLE_ADDCOL_NPZ before SNTABLE_FILL_NPZ");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  // exactly one append per column per row, then one endrow
+  for ( IVAR=0; IVAR < NVAR ; IVAR++ ) {
+    ICAST   = TABLEINFO_NPZ.ICAST[ITAB][IVAR] ;
+    VARNAME = TABLEINFO_NPZ.VARNAME[ITAB][IVAR] ;
+
+    if ( ICAST < 0 || TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] == NULL ) {
+      sprintf(MSGERR1, "Undefined ICAST/pointer for IVAR=%d (%s)  IDTABLE=%d", 
+	      IVAR, VARNAME, IDTABLE);
+      sprintf(MSGERR2, "Something is messed up."); 
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);    
+    }
+
+    npz_table_append(HANDLE, TABLEINFO_NPZ.ICOL[ITAB][IVAR], 
+		     TABLEINFO_NPZ.PTRVAR[ITAB][IVAR] );
+  }
+
+  npz_table_endrow(HANDLE);
+
+  // increment number of FILL calls
+  TABLEINFO_NPZ.NFILL[ITAB]++ ;  (void)NFILL;
 
 } // end SNTABLE_FILL_NPZ
 
+void CLOSE_NPZFILE(void) {
+
+  int ITAB;
+
+  for(ITAB=0; ITAB < TABLEINFO_NPZ.NTABLE; ITAB++ ) {
+    npz_table_close(ITAB);
+  }
+
+  return;
+
+} // end CLOSE_NPZFILE
 // ==============================================
 int get_npz_filetype(char *npz_file) {
 

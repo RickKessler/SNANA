@@ -1,5 +1,9 @@
 // Created Apr 2025
 // Functions to read/write npz file used by python.
+//
+// Oct 27 2026:
+//    TO-DO: ask Claude why CID and FIELD (both strings) seem to be corrupted in NPZ table.
+//
 
 #define MXTABLE_NPZ  10
 #define ISFILE_NPZ_COV        1

@@ -10039,8 +10039,8 @@ double get_GALFLUX_HOSTLIB(double xgal, double ygal) {
       // Oct 2026 fix bug identified by J.Twedle & Claude 
       //   -> interpolate in INTEG_SUM rather than use j'th value
       
-      FGAL_TOT = interp_1DFUN(OPT_INTERP_LINEAR, inv_n, NSERSIC_TABLE, 
-			      SERSIC_TABLE.inv_n, SERSIC_TABLE.INTEG_SUM, fnam );   
+      FGAL_TOT = (a*b) * interp_1DFUN(OPT_INTERP_LINEAR, inv_n, NSERSIC_TABLE, 
+				      SERSIC_TABLE.inv_n, SERSIC_TABLE.INTEG_SUM, fnam );   
 
       /* xxxxxxx mark delete Oct 26 2026 xxxxxxxxxxx
       k     = (int)((inv_n - SERSIC_TABLE.INVINDEX_MIN) / SERSIC_TABLE.INVINDEX_BIN);

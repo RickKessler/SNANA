@@ -42,7 +42,8 @@
 #define MXCHAR_MODELNAME 32  // max length of model name (e.g., SALT2.Guy10)
 
 #define MXVAR_TABLE      800  // max number of variables in 1 table
-#define MXLINE_TABLECOMMENT  20   // max number of user-passed comments
+#define MXLINE_TABLECOMMENT  50   // max number of user-passed comments
+#define MXKEY_TABLE_HEADER   20   // 10.29.2026
 
 #define OPENFLAG_NULL   0
 #define OPENFLAG_NEW    1
@@ -72,13 +73,16 @@ char NAME_TABLEFILE[MXOPENFLAG][MXTABLEFILETYPE][MXCHAR_FILENAME] ;
 // define USE-flag for each open-flag and file-type to make
 // sure that we don't open another.
 int  USE_TABLEFILE[MXOPENFLAG][MXTABLEFILETYPE]  ; 
-int  NOPEN_TABLEFILE ; // number of table files (should be >0)
+int  NOPEN_TABLEFILE ; // number of table files opened (should be >0)
 
 // logical flag for first call to root
 int  FIRSTCALL_TABLEFILE_OPEN[MXTABLEFILETYPE];
 
+
+// xxxxxx heading to become obsolete xxxxxxxxxxxxxxxxxxxx
 int  NLINE_TABLECOMMENT ;
 char LINE_TABLECOMMENT[MXLINE_TABLECOMMENT][MXCHAR_FILENAME];
+// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 // Aug 26 2026 define possible column identifiers in table; ROW has first priority, etc...
 #define VARNAME_TABLE_IDLIST { "ROW", "CID", "CCID", "SNID", "GALID", "HOSTGAL_OBJID" }
@@ -104,14 +108,20 @@ char  FILTERSTRING[MXFILTINDX] ;   // list of all filters
 
 
 typedef struct {
+  int N_ITEM;
+  char *KEY_STRING[MXKEY_TABLE_HEADER]; // malloc as needed
+  char *VAL_STRING[MXKEY_TABLE_HEADER]; // idem
+} TABLE_HEADER_DICT_DEF ;
 
+struct {
   int    NTABLE ;
-  int    IDTABLE[MXTABLE] ;
-  char   TBNAME[MXTABLE][40] ;  // table name
-  char   PGNAME[MXTABLE][300] ; // call-program name to write into header for provenance
-  char   FILENAME[MXTABLE][MXCHAR_FILENAME] ;
+  int    IDTABLE[MXTABLE]  ;
+  char  *TBNAME[MXTABLE]    ;  // table name
+  char  *PGNAME[MXTABLE]    ;   // calling-program name to write into header for provenance
 
-} TABLEINFO_PREFIX_DEF ; // ?????????
+  TABLE_HEADER_DICT_DEF HEADER_DICT[MXTABLE];
+
+} SNTABLE_CREATE_INFO ;
 
 // -------------------
 // define ADDCOL struct for creating table
@@ -401,8 +411,13 @@ extern"C" {
   void TABLEFILE_CLOSE(char *FILENAME) ;
   void tablefile_close__(char *FILENAME) ;
 
+  // xxxxxxx 10.29.2026  to become obsolete ...
   void STORE_TABLEFILE_COMMENT(char *comment) ;
   void store_tablefile_comment__(char *comment) ;
+  // xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+  void APPEND_TABLEFILE_HEADER(int IDTABLE, const char *KEY_STRING, char *VAL_STRING, char *callFun);
+  void append_tablefile_header__(int *IDTABLE, char *KEY_STRING, char *VAL_STRING, char *callFun);
 
   int  get_TABLEFILE_TYPE(char *FILENAME) ;
 
@@ -491,7 +506,7 @@ extern"C" {
   int  get_ICAST_READTBLE_POINTER(char *varName);
   int  ICAST_for_textVar(char *varName) ;
 
-  int get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT );
+  int get_ITABLE_SPARSE(int IDTABLE, char *FUNNAM, int OPT_ABORT );
 
   // - - - autoStore utility functions - - - - 
   void SNTABLE_AUTOSTORE_RESET(void);

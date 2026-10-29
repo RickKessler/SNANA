@@ -141,14 +141,16 @@ void TABLEFILE_INIT(void) {
 
   if ( CALLED_TABLEFILE_INIT == 740 ) { return ; } // Jan 11, 2017
   CALLED_TABLEFILE_INIT = 740 ; // anything but 0
-  NOPEN_TABLEFILE = 0 ;
-  NFILE_AUTOSTORE = 0 ;
-  NREAD_AUTOSTORE = 0 ;
+  NOPEN_TABLEFILE =  NFILE_AUTOSTORE =  NREAD_AUTOSTORE = 0 ;
+
+  SNTABLE_CREATE_INFO.NTABLE = 0 ;
+  for(t=0; t < MXTABLE; t++ ) { SNTABLE_CREATE_INFO.HEADER_DICT[t].N_ITEM = 0 ; }
   // -------------------------------
 
   // ------ misc inits -------
   OUTLIER_INFO.USEFLAG = 0 ;
   NLINE_TABLECOMMENT = 0 ;
+
 
   for(o=0; o < MXOPENFLAG; o++ ) {
     sprintf(STRING_TABLEFILE_OPENFLAG[o],"%s", U) ; 
@@ -213,6 +215,7 @@ void TABLEFILE_INIT(void) {
 #endif
 
 #ifdef USE_NPZ
+  FILEPREFIX_NPZ[0] = 0;
 #endif
 
 } // end of TABLEFILE_INIT
@@ -594,6 +597,46 @@ void TABLEFILE_CLOSE(char *FILENAME) {
 void tablefile_close__(char *FILENAME) { TABLEFILE_CLOSE(FILENAME); }
 
 
+
+void APPEND_TABLEFILE_HEADER(int IDTABLE, const char *KEY_STRING, char *VAL_STRING, char *callFun) {
+
+  // Created Oct 29 2026
+  // Update header dictionary.
+
+  int MEMC_KEY = (strlen(KEY_STRING) + 1 ) * sizeof(char);
+  int MEMC_VAL = (strlen(VAL_STRING) + 1 ) * sizeof(char);
+
+  TABLE_HEADER_DICT_DEF *HEADER_DICT ;
+  int ITAB, i_dict ;
+
+  char fnam[100];
+  char fnam0[] = "APPEND_TABLEFILE_HEADER" ;
+  concat_callfun_plus_fnam(callFun, fnam0, fnam);
+  // --------- BEGIN -------- 
+
+  ITAB =  get_ITABLE_SPARSE(IDTABLE, fnam, 1 );
+  HEADER_DICT = &SNTABLE_CREATE_INFO.HEADER_DICT[ITAB];
+
+  // bail if this key has already been stored:
+  for(i_dict = 0; i_dict < HEADER_DICT->N_ITEM; i_dict++ ) {
+    if ( strcmp(KEY_STRING,HEADER_DICT->KEY_STRING[i_dict]) == 0 ) { return; }
+  }
+
+  i_dict = HEADER_DICT->N_ITEM ;
+
+  HEADER_DICT->KEY_STRING[i_dict] = (char*) malloc(MEMC_KEY);
+  HEADER_DICT->VAL_STRING[i_dict] = (char*) malloc(MEMC_VAL);
+
+  sprintf(HEADER_DICT->KEY_STRING[i_dict], "%s", KEY_STRING);
+  sprintf(HEADER_DICT->VAL_STRING[i_dict], "%s", VAL_STRING);
+
+  HEADER_DICT->N_ITEM++ ;
+  return;
+} // end APPEND_TABLEFILE_HEADER
+
+void append_tablefile_header__(int *IDTABLE, char *KEY_STRING, char *VAL_STRING, char *callFun) 
+{ APPEND_TABLEFILE_HEADER(*IDTABLE, KEY_STRING,VAL_STRING, callFun); }
+
 // =============================================================
 void STORE_TABLEFILE_COMMENT(char *comment) {
 
@@ -619,6 +662,10 @@ void SNTABLE_CREATE(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) 
   //
   // Jun 10 2026: pass PGNAME = program name to write in table header for provenance
 
+  int  ITAB = SNTABLE_CREATE_INFO.NTABLE;
+  int  MEMC_TB = (strlen(TBNAME)+1)*sizeof(char) ;
+  int  MEMC_PG = (strlen(PGNAME)+1)*sizeof(char) ;
+    
   int  USE ; 
   int  LDMP = 0 ;
   char fnam[] = "SNTABLE_CREATE" ;
@@ -635,6 +682,19 @@ void SNTABLE_CREATE(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) 
     sprintf(comment, "Cannot init IDTABLE=%d(%s)", IDTABLE, TBNAME);
     TABLEFILE_notOpen_ABORT(fnam, comment );
   }
+
+  SNTABLE_CREATE_INFO.NTABLE++ ;
+  SNTABLE_CREATE_INFO.IDTABLE[ITAB] = IDTABLE;
+  SNTABLE_CREATE_INFO.TBNAME[ITAB]  = (char*)malloc(MEMC_TB);
+  SNTABLE_CREATE_INFO.PGNAME[ITAB]  = (char*)malloc(MEMC_PG);
+  sprintf(SNTABLE_CREATE_INFO.TBNAME[ITAB],"%s", TBNAME);
+  sprintf(SNTABLE_CREATE_INFO.PGNAME[ITAB],"%s", PGNAME);
+
+  // set default header elements to be stored at top of file
+  APPEND_TABLEFILE_HEADER(IDTABLE, "SNANA_VERSION", SNANA_VERSION, fnam); 
+  APPEND_TABLEFILE_HEADER(IDTABLE, "PROGRAM_NAME",  PGNAME, fnam); 
+  APPEND_TABLEFILE_HEADER(IDTABLE, "TABLE_NAME",    TBNAME, fnam); 
+
 
   NVAR_ADDCOL_TOT = 0; // Mar 28 2016
 
@@ -1531,20 +1591,22 @@ void load_DUMPLINE_STR(char *LINE, char *STRING) {
   strcat(LINE," "); strcat(LINE,STRING);
 }
 
-int get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT ) {
+int get_ITABLE_SPARSE(int IDTABLE, char *FUNNAM, int OPT_ABORT ) {
 
   // Created Oct 2026
   // Generalize original ITABLE_TEXT to work for both TEXT and NPZ format.
   // Return sparse table index for IDTABLE
   // On error, print calling function FUNNAM.
 
+  int  NTAB  = SNTABLE_CREATE_INFO.NTABLE;
+  int *IDPTR = SNTABLE_CREATE_INFO.IDTABLE;
   int i, ITAB;
   char fnam[] = "get_ITABLE_SPARSE" ;
 
   // ---------- BEGIN -------------
   ITAB = -9 ;
   for(i=0; i < NTAB ; i++ ) {
-    if ( IDTABLE == IDTAB[i] ) { ITAB = i ; }
+    if ( IDTABLE == IDPTR[i] ) { ITAB = i ; }
   }
 
   if ( ITAB < 0 && OPT_ABORT > 0 ) {

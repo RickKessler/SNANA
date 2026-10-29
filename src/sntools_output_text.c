@@ -71,10 +71,13 @@ char VARDEF_SNLC[MXEPVAR_TEXT][80] ; // short definition
 
 // structure for writing table.
 struct TABLEINFO_TEXT {
+
+  /* xxxxx mark del 10.29.2026 xxxxxxxx
   int    NTABLE ;
   int    IDTABLE[MXTABLE_TEXT] ;
   char   TBNAME[MXTABLE_TEXT][40] ;  // table name
-  char   PGNAME[MXTABLE_TEXT][300] ; // Jun 10 2026 program name
+  char   PGNAME[MXTABLE_TEXT][300] ; // program name
+  xxxxx end mark xxxxxx */
 
   FILE  *FP[MXTABLE_TEXT] ;
   char   FILENAME[MXTABLE_TEXT][MXCHAR_FILENAME] ;
@@ -116,8 +119,7 @@ extern"C" {
 
   void SNTABLE_FILL_TEXT(int IDTABLE);
 
-  int  get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT );
-  // xxx mark   int  ITABLE_TEXT(int IDTABLE, char *FUNNAM, int OPT_ABORT) ;
+  int  get_ITABLE_SPARSE(int IDTABLE, char *FUNNAM, int OPT_ABORT );
 
   void formatFloat_TEXT(char *VARNAME, double VAL, char *CVAL); // return CVAL
 
@@ -203,7 +205,7 @@ void INIT_TEXTFILES(char *PREFIX) {
 
   sprintf(FILEPREFIX_TEXT, "%s", PREFIX);
 
-  TABLEINFO_TEXT.NTABLE = 0 ;
+  // xxx mark   TABLEINFO_TEXT.NTABLE = 0 ;
   
   NVAR_LCPLOT = NVAR_LCPLOT_REQ = NVAR_SPECPLOT = 0 ; // for LCPLOT
 
@@ -237,16 +239,19 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
   //
   // Jun 10 2026: add PGNAME arg for program name to be written into table header.
   //
-  int  NTAB, ivar, OPT_FORMAT, GZIPFLAG ;
+
+  int  ITAB, ivar, OPT_FORMAT, GZIPFLAG ;
   char FILENAME[2*MXCHAR_FILENAME], comment[100];
   char fnam[] = "SNTABLE_CREATE_TEXT" ;
 
   // --------- BEGIN ---------
 
+  /* xxxx mark delete 
   NTAB = TABLEINFO_TEXT.NTABLE ;
-
-  // increment number of tables
   TABLEINFO_TEXT.NTABLE++ ;
+  xxxx end mark xxx */
+
+  ITAB = get_ITABLE_SPARSE(IDTABLE, fnam, 0 ); // sparse index
 
   printf("  %s: init %s TEXT-table in %s format. \n", 
 	 fnam, TBNAME, TEXT_FORMAT); fflush(stdout);
@@ -264,62 +269,58 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
 
 
   // store other info
-  TABLEINFO_TEXT.IDTABLE[NTAB] = IDTABLE ;
-  TABLEINFO_TEXT.NFILL[NTAB]   = 0 ;
-  sprintf(TABLEINFO_TEXT.TBNAME[NTAB],   "%s", TBNAME);
-  sprintf(TABLEINFO_TEXT.PGNAME[NTAB],   "%s", PGNAME);
-  sprintf(TABLEINFO_TEXT.FILENAME[NTAB], "%s", FILENAME);
-  sprintf(TABLEINFO_TEXT.FORMAT[NTAB],   "%s", TEXT_FORMAT);  
+  TABLEINFO_TEXT.NFILL[ITAB]   = 0 ;
+  sprintf(TABLEINFO_TEXT.FILENAME[ITAB], "%s", FILENAME);
+  sprintf(TABLEINFO_TEXT.FORMAT[ITAB],   "%s", TEXT_FORMAT);  
 
   sprintf(comment,"Called from %s with IDTABLE=%d (%s)", 
 	  fnam, IDTABLE, TBNAME);
   OPT_FORMAT = get_OPT_FORMAT(TEXT_FORMAT,comment);
-  TABLEINFO_TEXT.OPT_FORMAT[NTAB] = OPT_FORMAT ; 
+  TABLEINFO_TEXT.OPT_FORMAT[ITAB] = OPT_FORMAT ; 
 
   // if format = 'none', return here after defining this text-table
   // so that it can be skipped in the ADDCOL and FILL functions.
   if ( OPT_FORMAT == OPT_FORMAT_NONE ) { return ; }
 
   // init NVAR and VARNAMES list
-  TABLEINFO_TEXT.NVAR[NTAB] = 0 ;
+  TABLEINFO_TEXT.NVAR[ITAB] = 0 ;
 
   // - - - - - - - - - - - -
   // open text file  
-  TABLEINFO_TEXT.FP[NTAB] = open_TEXTgz(FILENAME,TEXTMODE_wt, 0, &GZIPFLAG, fnam) ;
-  if ( !TABLEINFO_TEXT.FP[NTAB] ) {
+  TABLEINFO_TEXT.FP[ITAB] = open_TEXTgz(FILENAME,TEXTMODE_wt, 0, &GZIPFLAG, fnam) ;
+  if ( !TABLEINFO_TEXT.FP[ITAB] ) {
     sprintf(MSGERR1, "Could not open TEXT FILE = ");
     sprintf(MSGERR2, "%.*s", MXCHAR_MSGERR, FILENAME);    
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
 
-  TABLEINFO_TEXT.VARLIST[NTAB] = (char*)malloc( MXCHAR_LINE*sizeof(char));
-  TABLEINFO_TEXT.VARLIST[NTAB][0] = 0 ;
+  TABLEINFO_TEXT.VARLIST[ITAB] = (char*)malloc( MXCHAR_LINE*sizeof(char));
+  TABLEINFO_TEXT.VARLIST[ITAB][0] = 0 ;
 
-  TABLEINFO_TEXT.VARNAME[NTAB] = (char**)malloc(MXVAR_TABLE * sizeof(char*));
+  TABLEINFO_TEXT.VARNAME[ITAB] = (char**)malloc(MXVAR_TABLE * sizeof(char*));
   for(ivar=0; ivar < MXVAR_TABLE; ivar++ ) {
-    TABLEINFO_TEXT.VARNAME[NTAB][ivar] = (char*)malloc(40 * sizeof(char));
+    TABLEINFO_TEXT.VARNAME[ITAB][ivar] = (char*)malloc(40 * sizeof(char));
   }
 
 
   // allocate memory for pointers
   int MX = MXVAR_TABLE ;
-  TABLEINFO_TEXT.ICAST[NTAB] = (int*)     malloc ( MX * sizeof(int )    );  
-  TABLEINFO_TEXT.ptr_I[NTAB] = (int**)    malloc ( MX * sizeof(int*)    );
-  TABLEINFO_TEXT.ptr_S[NTAB] = 
-    (short int**) malloc ( MX * sizeof(short int*)    );
-  TABLEINFO_TEXT.ptr_L[NTAB] = 
-    (long long int**) malloc( MX*sizeof(long long int*) );
-  TABLEINFO_TEXT.ptr_F[NTAB] = (float**)  malloc ( MX * sizeof(float*)  );
-  TABLEINFO_TEXT.ptr_D[NTAB] = (double**) malloc ( MX * sizeof(double*) );  
-  TABLEINFO_TEXT.ptr_C[NTAB] = (char**)   malloc ( MX * sizeof(char*)   );
+  TABLEINFO_TEXT.ICAST[ITAB] = (int*)     malloc ( MX * sizeof(int )    );  
+  TABLEINFO_TEXT.ptr_I[ITAB] = (int**)    malloc ( MX * sizeof(int*)    );
+  TABLEINFO_TEXT.ptr_S[ITAB] = (short int**) malloc ( MX * sizeof(short int*)    );
+  TABLEINFO_TEXT.ptr_L[ITAB] = (long long int**) malloc( MX*sizeof(long long int*) );
+  TABLEINFO_TEXT.ptr_F[ITAB] = (float**)  malloc ( MX * sizeof(float*)  );
+  TABLEINFO_TEXT.ptr_D[ITAB] = (double**) malloc ( MX * sizeof(double*) );  
+  TABLEINFO_TEXT.ptr_C[ITAB] = (char**)   malloc ( MX * sizeof(char*)   );
 
 
   int IVAR;
   for(IVAR=0; IVAR < MXVAR_TABLE; IVAR++ )
-    { TABLEINFO_TEXT.ICAST[NTAB][IVAR] = -9 ; }
+    { TABLEINFO_TEXT.ICAST[ITAB][IVAR] = -9 ; }
 
 
+  return ;
 } // end of SNTABLE_CREATE_TEXT
 
 void sntable_create_text__(int *IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) {
@@ -345,9 +346,13 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
 
 
   // find sparse index ITAB for this IDTABLE
-  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_TEXT.NTABLE, TABLEINFO_TEXT.IDTABLE, fnam, 0 );
-  // xxx mark delet  ITAB   = ITABLE_TEXT(IDTABLE,fnam, 0 );
-  TBNAME = TABLEINFO_TEXT.TBNAME[ITAB] ;
+  /* xxxxxxx mark  delete
+     ITAB= get_ITABLE_SPARSE(IDTABLE, TABLEINFO_TEXT.NTABLE, TABLEINFO_TEXT.IDTABLE,fnam,0);
+     TBNAME = TABLEINFO_TEXT.TBNAME[ITAB] ;
+  xxxxxxx end mark */
+
+  ITAB = get_ITABLE_SPARSE(IDTABLE, fnam, 0 );
+  TBNAME = SNTABLE_CREATE_INFO.TBNAME[ITAB];
 
   if ( ITAB < 0 ) {
     print_preAbort_banner(fnam);
@@ -528,7 +533,7 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
 
   // --------------------------------------------
   // find sparse index ITAB for this IDTABLE; abort if no table
-  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_TEXT.NTABLE, TABLEINFO_TEXT.IDTABLE, fnam, 1 );
+  ITAB   = get_ITABLE_SPARSE(IDTABLE, fnam, 1 );
   // xxx mark del ITAB = ITABLE_TEXT(IDTABLE,fnam,1); // abort if no table.
   
   FP         = TABLEINFO_TEXT.FP[ITAB]  ;
@@ -679,52 +684,65 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   // Sep 2025: avoid writing VERSION_PHOTOMETRY key twice to top of file.
   // Jun 2026: print program name (PGNAME)
 
-  int   NVAR, IVAR, OPT_FORMAT, IDTABLE ;
-  char *FORMAT, *VARLIST, *TBNAME, *PGNAME, *LINE ;
+  int   NVAR, IVAR, OPT_FORMAT, IDTABLE, j_item ;
+  char *FORMAT, *VARLIST, *TBNAME, *PGNAME, KEY[60], *VAL ;
   char fnam[] = "SNTABLE_WRITE_HEADER_TEXT" ;
   FILE *FP ;
+  int REFAC = 1;
+  int LEGACY = !REFAC ;
   // ------------- BEGIN --------------
 
   OPT_FORMAT = TABLEINFO_TEXT.OPT_FORMAT[ITAB] ;
   FORMAT     = TABLEINFO_TEXT.FORMAT[ITAB] ;
   NVAR       = TABLEINFO_TEXT.NVAR[ITAB] ;
   VARLIST    = TABLEINFO_TEXT.VARLIST[ITAB] ;
-  TBNAME     = TABLEINFO_TEXT.TBNAME[ITAB] ;
-  PGNAME     = TABLEINFO_TEXT.PGNAME[ITAB] ;
-  IDTABLE    = TABLEINFO_TEXT.IDTABLE[ITAB] ;
   FP         = TABLEINFO_TEXT.FP[ITAB] ; 
 
+  TBNAME     = SNTABLE_CREATE_INFO.TBNAME[ITAB] ;
+  PGNAME     = SNTABLE_CREATE_INFO.PGNAME[ITAB] ;
+  IDTABLE    = SNTABLE_CREATE_INFO.IDTABLE[ITAB] ;
+
+
   if ( NVAR >= MXVAR_TEXT ) {
-    sprintf(MSGERR1, "NVAR=%d exceeds bound of MXVAR_TEXT=%d",
-	    NVAR, MXVAR_TEXT);
-    sprintf(MSGERR2, "for IDTABLE=%d  TableName='%s' ",
-	    TABLEINFO_TEXT.IDTABLE[ITAB], TABLEINFO_TEXT.TBNAME[ITAB] ) ;
+    sprintf(MSGERR1, "NVAR=%d exceeds bound of MXVAR_TEXT=%d", NVAR, MXVAR_TEXT);
+    sprintf(MSGERR2, "for IDTABLE=%d  TableName='%s' ", IDTABLE, TBNAME ) ;
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
+  if ( REFAC ) {
+    TABLE_HEADER_DICT_DEF *HEADER_DICT = &SNTABLE_CREATE_INFO.HEADER_DICT[ITAB];
+    for(j_item=0; j_item < HEADER_DICT->N_ITEM; j_item++ ) {
+      sprintf(KEY,"%s:", HEADER_DICT->KEY_STRING[j_item]);
+      VAL = HEADER_DICT->VAL_STRING[j_item] ;
+      if (strlen(KEY) > 1 ) 
+	{ fprintf(FP,"# %-20.20s  %s \n", KEY, VAL); }
+      else
+	{ fprintf(FP,"# \n"); }
+    }
+    fprintf(FP,"\n"); fflush(FP);
+  } // end REFAC
+
+  // - - - - - - -
   // for KEY format, write comments at top
   if ( OPT_FORMAT == OPT_FORMAT_KEY ) {
-
-    // Oct 23 2014: print comment lines
-    int iline ; bool WROTE_VERSION_PHOTOMETRY = false;
-    for(iline=0; iline < NLINE_TABLECOMMENT; iline++ ) {
-      LINE = LINE_TABLECOMMENT[iline];
-      fprintf(FP, "# %s \n", LINE );
-      if ( strstr(LINE,KEYNAME_VERSION_PHOTOMETRY) != NULL ) { WROTE_VERSION_PHOTOMETRY = true; }
-      fflush(stdout);
-    }
-    fflush(FP);
-
-
-    if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 && !WROTE_VERSION_PHOTOMETRY) 
-      { fprintf(FP, "# %s %s \n", 
-		KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY) ; 
+  
+    if ( LEGACY ) {
+      char *LINE;
+      int iline ; bool WROTE_VERSION_PHOTOMETRY = false;
+      for(iline=0; iline < NLINE_TABLECOMMENT; iline++ ) {
+	LINE = LINE_TABLECOMMENT[iline];
+	fprintf(FP, "# %s \n", LINE );
+	if ( strstr(LINE,KEYNAME_VERSION_PHOTOMETRY) != NULL ) { WROTE_VERSION_PHOTOMETRY = true; }
+	fflush(stdout);
       }
-
-    fprintf(FP, "# SNANA_VERSION: %s \n", SNANA_VERSION) ;
-    fprintf(FP, "# PROGRAM:       %s \n", PGNAME);
-    fprintf(FP, "# TABLE_NAME:    %s \n", TBNAME);
-    fprintf(FP, "# \n" );
+      fflush(FP);
+      if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 && !WROTE_VERSION_PHOTOMETRY) 
+	{ fprintf(FP, "# %s %s \n",  KEYNAME_VERSION_PHOTOMETRY, SNTABLE_VERSION_PHOTOMETRY); }      
+      fprintf(FP, "# SNANA_VERSION: %s \n", SNANA_VERSION) ;
+      fprintf(FP, "# PROGRAM:       %s \n", PGNAME);
+      fprintf(FP, "# TABLE_NAME:    %s \n", TBNAME);
+      fprintf(FP, "# \n" );
+    }  // end LEGACY
 
     fprintf(FP, "VARNAMES: %s \n", VARLIST );
     fprintf(FP, "#\n" );
@@ -736,16 +754,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
     char CSVLIST[1000], *varName;
     for(IVAR=0; IVAR < NVAR ; IVAR++ ) {
       varName = TABLEINFO_TEXT.VARNAME[ITAB][IVAR] ;
-
       catVarList_with_comma(CSVLIST,varName);
-
-      /* xxxxx mark delete 4.28.2026 xxxxxxxxx
-      if ( IVAR == 0 ) 
-	{ sprintf(CSVLIST, "%s", varName ); }
-      else
-	{ sprintf(CSVLIST, "%s,%s", CSVLIST, varName ); }
-      xxxxxxxx end mark xxxxx*/
-
     }
 
     fprintf(FP,"%s\n", CSVLIST); 
@@ -761,6 +770,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);    
   }
 
+  return;
 
 } // end of SNTABLE_WRITE_HEADER_TEXT
 
@@ -805,7 +815,7 @@ void CLOSE_TEXTFILE(void) {
 
   // ------------- BEGIN -------------
 
-  for(itab=0; itab < TABLEINFO_TEXT.NTABLE; itab++ ) {
+  for(itab=0; itab < SNTABLE_CREATE_INFO.NTABLE; itab++ ) {
       FP   = TABLEINFO_TEXT.FP[itab] ;
       if ( FP != NULL ) {  fclose(FP); }
   }

@@ -278,7 +278,7 @@ int init_genmag_SIMSED(char *VERSION      // SIMSED version
 
     // ==> replacec FILTLIST_SEDMODEL here .xyz
     char *F = SURVEY_FILTERS;
-    if ( !FIX_RD_BINARY ) {  *F = FILTLIST_SEDMODEL ; }  // restore legacy/buggy
+    if ( !FIX_RD_BINARY ) { F = FILTLIST_SEDMODEL ; }  // restore legacy/buggy
 
     sprintf(binFile_FLUX,"%s/%s_%s-%s.BINARY", PATH_BINARY, version, SURVEY_NAME, F );
 

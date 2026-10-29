@@ -6560,7 +6560,6 @@
 ! ========================================
     SUBROUTINE  INIT_OUTFILES(NFIT_PER_SN)
 
-
 ! Created Feb 2012
 ! 
 ! Call appropriate init function for  root, etc ...
@@ -6611,14 +6610,15 @@
         ,CFILE*(MXCHAR_FILENAME)  & 
         ,TEXTFMT*20
 
-    INTEGER LENV1, LENV2, LENSRVY, LENFILT, LENFMT, LENC
+    INTEGER LENV1, LENV2, LENSRVY, LENFILT, LENFMT
+    ! xxx mark INTEGER LENC
     CHARACTER  & 
          SURVEY_forC*(MXCHAR_SURVEY)  & 
         ,VER_PHOT_forC*(MXCHAR_VERSION)  & 
         ,VER_SNANA_forC*40  & 
         ,FILTERS_forC*(MXFILT_OBS)  & 
-        ,TEXTFMT_forC*20  & 
-        ,COMMENT_forC*(MXCHAR_VERSION)
+        ,TEXTFMT_forC*20 
+        ! xxx mark del ,COMMENT_forC*(MXCHAR_VERSION)
 
 ! function
     INTEGER  IGNOREFILE, TABLEFILE_OPEN
@@ -6747,24 +6747,23 @@
        ENDIF
     ENDIF
 
-! ----------------------------------------
+! xxxxxxxxx mark delete Oct 29 2026 xxxxxxxxxx
 ! Oct 23, 2014: store global comments
-
-    LENC = MXCHAR_VERSION
-    COMMENT_forC = 'VERSION_PHOTOMETRY:  '//VER_PHOT_forC(1:LENC)
-    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
+!    LENC = MXCHAR_VERSION
+!    COMMENT_forC = 'VERSION_PHOTOMETRY:  '//VER_PHOT_forC(1:LENC)
+!    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
+! xxxxxxxxxx end mark xxxxxxx
 
 ! ----------------------------------------
 !     print warning message if there is no table file
     IF ( .not. USE_TABLEFILE ) THEN
        print*,' '
        write(6,60)
-       write(6,61)  & 
-           'no table-file specified for tables and light curves'
+       write(6,61)  'no table-file specified for tables and light curves'
        write(6,60)
        print*,' '
- 60      format(T3, 'WARNING: ', 30('<>') )
- 61      format(T3, 'WARNING: ', A)
+60     format(T3, 'WARNING: ', 30('<>') )
+61     format(T3, 'WARNING: ', A)
     ENDIF
 
     RETURN
@@ -7570,6 +7569,10 @@
        else if ( MATCH_NMLKEY('TEXTFILE_PREFIX',  & 
                    1, iArg, ARGLIST) ) then
          TEXTFILE_PREFIX = ARGLIST(1)(1:MXCHAR_FILENAME)
+
+       else if ( MATCH_NMLKEY('NPZFILE_PREFIX',  & 
+                   1, iArg, ARGLIST) ) then
+         NPZFILE_PREFIX = ARGLIST(1)(1:MXCHAR_FILENAME)
 
        else if ( MATCH_NMLKEY('MARZFILE_OUT',  & 
                    1, iArg, ARGLIST) ) then
@@ -23573,6 +23576,7 @@
 ! Jul 23 2024: add FITPROB_ITER1, FITCHI2RED_INI[2]
 ! Feb 05 2025: add LENSDMU[ERR]
 ! Feb 08 2026: add RA,DEC to TEXT file by default
+! Oct 29 2026: call APPEND_TABLEFILE_HEADER 
 ! -------------------------------------------------------------
 
 
@@ -23597,7 +23601,7 @@
 
     INTEGER  & 
          IFILT, IFILT_OBS, ITEXT, ITEXT2, ITEXT_NO, ITEXT_YES, IGAL  & 
-        ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
+        ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar, LEN_VERS
 
     LOGICAL LTMP, ADDCOL_SETPKMJD
     CHARACTER varlist*1000, CTMP*60, CBLOCK*40
@@ -23607,7 +23611,8 @@
         ,SNTABLE_ADDCOL_int  & 
         ,SNTABLE_ADDCOL_flt  & 
         ,SNTABLE_ADDCOL_dbl  & 
-        ,SNTABLE_ADDCOL_str
+        ,SNTABLE_ADDCOL_str  &
+        ,APPEND_TABLEFILE_HEADER 
 
 ! ---------------- BEGIN ------------
 
@@ -23631,6 +23636,15 @@
 
     LTMP = BTEST(OPT_SETPKMJD,OPTBIT_SETPKMJD_SAVEPAR)
     ADDCOL_SETPKMJD = ( LTMP .and. OPT_SETPKMJD > 0 )
+
+
+! - - - - - - pass few header elements - - - - - -
+    LEN_VERS = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
+    CALL APPEND_TABLEFILE_HEADER(ID,                  &
+         "VERSION_PHOTOMETRY"//char(0),               &
+         VERSION_PHOTOMETRY(1)(1:LEN_VERS) //char(0), &
+         FNAM//char(0),      &
+         20, MXCHAR_VERSION, 20 )
 
 ! - - - - - - ID variables - - - - - -
 
@@ -28841,14 +28855,14 @@
 
 ! plot variables
     INTEGER ID
-    CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, PGNAME*20, COMMENT_forC*80
+    CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, PGNAME*20, COMMENT_forC*80, FNAM*10
     REAL*8    PDF_MARG, PDF_NOMARG
-
+    LOGICAL LEGACY_COMMENT
 ! function
 
     REAL*8   FCNPDF
     EXTERNAL FCNPDF
-    EXTERNAL SNTABLE_CREATE, SNTABLE_FILL 
+    EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, APPEND_TABLEFILE_HEADER
 
 ! ----------------- BEGIN INTEGPDF------------
 
@@ -28870,6 +28884,7 @@
 
     NHDIM    = 1  ! 1D histo
 
+    FNAM = 'INGTEGPDF'
 ! =====================================
 2     CONTINUE
     NPASS = NPASS + 1
@@ -29224,31 +29239,50 @@
           CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_NOMARG, VARLIST,1,  3,20)
 
           ! - - - - -
-          CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
+          CALL APPEND_TABLEFILE_HEADER(ID, ""//char(0), ""//char(0), FNAM//char(0), 10, 2, 10)
 
-          COMMENT_forC = '  VARNAME:    name of fitted parameter' // char(0)
-          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+          CALL APPEND_TABLEFILE_HEADER(ID, "VARNAME"//char(0), &
+               "name of fitted parameter"//char(0),  &
+               FNAM//char(0),      10, 40, 10)
 
-          COMMENT_forC = '  VALUE:      marginalization-grid value of fitted parameter' // char(0)
-          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+          CALL APPEND_TABLEFILE_HEADER(ID, "VALUE"//char(0), &
+               "marginalization-grid value of fitted parameter"//char(0),  &
+               FNAM//char(0),      10, 60, 10)
 
-          COMMENT_forC = '  PDF_MARG:   1D marginalized PDF ' // char(0)
-          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+          CALL APPEND_TABLEFILE_HEADER(ID, "PDF_MARG"//char(0), &
+               "1D marginalized PDF"//char(0),  &
+               FNAM//char(0),      10, 40, 10)
 
-          COMMENT_forC = '  PDF_NOMARG: 1D naive PDF around best fit of other params' // char(0)
-          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+          CALL APPEND_TABLEFILE_HEADER(ID, "PDF_NOMARG"//char(0), &
+               "1D naive PDF around best fit of other params"//char(0),  &
+               FNAM//char(0),      10, 60, 10)
 
-          ! - - - -
-          COMMENT_forC = 'Example plot command; '  // char(0)
-          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+          CALL APPEND_TABLEFILE_HEADER(ID, "PLOT_EXAMPLE"//char(0),    &
+               "plot_table.py @@tfile <tfile> @V VALUE @W PDF_MARG " // &
+               "@@CUT 'VARNAME=zPHOT' & CID='72' "//char(0),  &
+               FNAM//char(0),      10, 100, 10)
 
-          COMMENT_forC = '  plot_table.py @@tfile <tfile> @V VALUE @W PDF_MARG  \\'
-          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 80)
-
-          COMMENT_forC = '       @@CUT "VARNAME=zPHOT" & CID="72" ' // char(0)
-          CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-
-          CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
+          ! ... finish APPEND_TABLEFILE_HEADER calls ...
+          LEGACY_COMMENT = .FALSE.
+          if ( LEGACY_COMMENT ) then
+             CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
+             COMMENT_forC = '  VARNAME:    name of fitted parameter' // char(0)
+             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+             COMMENT_forC = '  VALUE:      marginalization-grid value of fitted parameter' // char(0)
+             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+             COMMENT_forC = '  PDF_MARG:   1D marginalized PDF ' // char(0)
+             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+             COMMENT_forC = '  PDF_NOMARG: 1D naive PDF around best fit of other params' // char(0)
+             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+             ! - - - -
+             COMMENT_forC = 'Example plot command; '  // char(0)
+             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+             COMMENT_forC = '  plot_table.py @@tfile <tfile> @V VALUE @W PDF_MARG  \\'
+             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 80)
+             COMMENT_forC = '       @@CUT "VARNAME=zPHOT" & CID="72" ' // char(0)
+             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
+             CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
+          endif ! end LEGACY
 
        endif
 

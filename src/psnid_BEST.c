@@ -334,7 +334,9 @@ void psnid_best_init_sntable__(int *OPT, char *TEXTFORMAT, int *LSIM)
 { PSNID_BEST_INIT_SNTABLE(*OPT,TEXTFORMAT,*LSIM); }
 
 
-void PSNID_BEST_TABLEFILE_COMMENTS(void) ; // store comments for table
+void PSNID_BEST_TABLEFILE_HEADER(void);
+void PSNID_BEST_TABLEFILE_HEADER_LEGACY(void) ; // store comments for table
+// xxx mark void PSNID_BEST_TABLEFILE_COMMENTS(void) ; // store comments for table
 
 void PSNID_BEST_UPDATE_OUTPUT(char *CCID) ;
 void psnid_best_update_output__(char *CCID) {
@@ -5761,8 +5763,6 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   char NAME_SNANABLOCK[] = "SNANAVAR" ;
   char NAME_SIMBLOCK[]   = "SIMVAR" ;
 
-  PSNID_BEST_TABLEFILE_COMMENTS() ; // store comments for table
-
   SNTABLE_CREATE(ID_TABLE, NAME_TABLE, NAME_PROGRAM, TEXTFORMAT ) ;
 
   // include standard SNANA-analysis variables
@@ -5773,6 +5773,8 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   if ( LSIM ) {
     init_table_simvar__(&ID_TABLE, NAME_SIMBLOCK, strlen(NAME_SIMBLOCK) );
   }
+
+  PSNID_BEST_TABLEFILE_HEADER() ; // store comments for table
 
   // Aug 28 2017 KLUGE:
   // call function to set PSNID_NGRID[itype] so that table-init
@@ -5802,7 +5804,7 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
 
 
 // =============================================
-void  PSNID_BEST_TABLEFILE_COMMENTS(void) {
+void  PSNID_BEST_TABLEFILE_HEADER_LEGACY(void) {
 
   // Oct 23 2014
   // define comments to write at top of ascii file ...
@@ -5818,7 +5820,6 @@ void  PSNID_BEST_TABLEFILE_COMMENTS(void) {
     STORE_TABLEFILE_COMMENT(comment);
   }
 
-  
   // write unique keys for templates
   KEY = SNGRID_PSNID[TYPEINDX_SNIA_PSNID].UNIQUE_KEY ;
   if ( strlen(KEY) > 1 )  { 
@@ -5851,9 +5852,67 @@ void  PSNID_BEST_TABLEFILE_COMMENTS(void) {
   sprintf(comment, "MCMC_NSTEP: %d ", PSNID_INPUTS.MCMC_NSTEP );
   STORE_TABLEFILE_COMMENT(comment);
 
+  return ;
 
-} // end of PSNID_BEST_TABLEFILE_COMMENTS
+} // end of PSNID_BEST_TABLEFILE_HEADER_LEGACY
 
+
+// =============================================
+void  PSNID_BEST_TABLEFILE_HEADER(void) {
+
+  // Oct 2026
+  // define dictionary of comments to write at top of ascii file ...
+
+  int ID = PSNID_TABLE_ID;
+  int itype ;
+  char KEY_STRING[60], *VAL_STRING;
+  char fnam[] = "PSNID_BEST_TABLEFILE_HEADER";
+  // --------------- BEGIN ------------
+
+  for ( itype=0; itype < PSNID_NTYPES; itype++ ) {   
+    sprintf(KEY_STRING,"ITYPE(%2.2d)", itype);
+    VAL_STRING = PSNID_TYPE_NAME[itype] ;
+    APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+  }
+
+  // write unique keys for templates
+  VAL_STRING = SNGRID_PSNID[TYPEINDX_SNIA_PSNID].UNIQUE_KEY ;
+  if ( strlen(VAL_STRING) > 1 )  { 
+    sprintf(KEY_STRING,"GRIDKEY(TEMPLATES_SNIA)" ); 
+    APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+  }
+	  
+  VAL_STRING = SNGRID_PSNID[TYPEINDX_NONIA_PSNID].UNIQUE_KEY  ;
+  if ( strlen(VAL_STRING) > 1 )  { 
+    sprintf(KEY_STRING, "GRIDKEY(TEMPLATES_NONIA)" ); 
+    APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+  }
+	    
+  sprintf(KEY_STRING, "FILTLIST_FIT"); 
+  VAL_STRING = PSNID_INPUTS.CFILTLIST;
+  APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+  
+  sprintf(KEY_STRING, "OPT_ZPRIOR"); 
+  sprintf(VAL_STRING,"%d", PSNID_INPUTS.OPT_ZPRIOR);
+  APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+
+  sprintf(KEY_STRING, "COLOR_BINS");
+  sprintf(VAL_STRING,"%d  %6.3f  %6.3f", 
+	  PSNID_INPUTS.NCOLOR,  PSNID_INPUTS.COLOR_MIN, PSNID_INPUTS.COLOR_MAX );
+  APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+
+  sprintf(KEY_STRING, "DMU_BINS");
+  sprintf(VAL_STRING, "%d  %6.3f  %6.3f ", 
+	  PSNID_INPUTS.NDMU,  PSNID_INPUTS.DMU_MIN, PSNID_INPUTS.DMU_MAX);
+  APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+
+  sprintf(KEY_STRING, "MCMC_NSTEP");
+  sprintf(VAL_STRING, "%d ", PSNID_INPUTS.MCMC_NSTEP );
+  APPEND_TABLEFILE_HEADER(ID, KEY_STRING, VAL_STRING, fnam);
+
+  return ;
+
+} // end of PSNID_BEST_TABLEFILE_HEADER
 
 
 // ************************************
@@ -5899,6 +5958,8 @@ void  psnid_best_malloc_resids(void) {
   F_RESIDS_PSNID_DOFIT.DATAFLUX      = (float*)malloc( MEMF ) ;
   F_RESIDS_PSNID_DOFIT.DATAFLUX_ERR  = (float*)malloc( MEMF ) ;
   
+  return ;
+
 } // end of   psnid_best_malloc_resids
 
 
@@ -6010,7 +6071,7 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
   }
 
 
-  // ------ loop over types (Ia, Ibc, II ...)
+  // ------ loop overtypes (Ia, Ibc, II ...)
 
   for ( t=0 ; t < PSNID_NTYPES ; t++ ) {
 

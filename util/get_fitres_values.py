@@ -274,7 +274,9 @@ def read_npz_file(info_fitres, reformat_option):
 def npz_array_to_column(arr):
 
     # Convert npz array to 1D array for data frame column.
-    # Byte-string (S) arrays are decoded to str.
+    # Byte-string (S) arrays are decoded to str, and trailing blanks
+    # (e.g., Fortran space-padding) are trimmed from all string columns.
+    # (numpy already drops trailing NUL padding from S arrays.)
     # Also handle string columns written by older snana.exe that were
     # (incorrectly) stored as 2D int8 arrays [nrow, strlen] of ascii codes.
 
@@ -283,6 +285,9 @@ def npz_array_to_column(arr):
 
     if arr.dtype.kind == 'S':
         arr = np.char.decode(arr, 'utf-8', errors='replace')
+
+    if arr.dtype.kind == 'U':
+        arr = np.char.rstrip(arr)       # trim trailing spaces
 
     return arr
     # end npz_array_to_column

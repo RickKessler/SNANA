@@ -25,7 +25,7 @@ extern"C" {
   void SNTABLE_FILL_NPZ(int IDTABLE);
   void CLOSE_NPZFILE(void);
 
-  int  get_ITABLE_SPARSE(int IDTABLE, int NTAB, int *IDTAB, char *FUNNAM, int OPT_ABORT );
+  int  get_ITABLE_SPARSE(int IDTABLE, char *FUNNAM, int OPT_ABORT );
 
   int read_npz_covmat(char *npz_file, double *array1d);
   int read_npz_factorized(char *npz_file, double **diag, double **U, int *K);
@@ -228,7 +228,7 @@ void SNTABLE_ADDCOL_NPZ(int IDTABLE, void *PTRVAR,
   // ----------- BEGIN -----------
 
   // find sparse index ITAB for this IDTABLE
-  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_NPZ.NTABLE, TABLEINFO_NPZ.IDTABLE, fnam, 0 );
+  ITAB   = get_ITABLE_SPARSE(IDTABLE, fnam, 0 );
 
   if ( ITAB < 0 ) {
     print_preAbort_banner(fnam);
@@ -336,7 +336,7 @@ void SNTABLE_FILL_NPZ(int IDTABLE) {
   // ----------- BEGIN ------------
 
   // find sparse index ITAB for this IDTABLE; abort if no table
-  ITAB   = get_ITABLE_SPARSE(IDTABLE, TABLEINFO_NPZ.NTABLE, TABLEINFO_NPZ.IDTABLE, fnam, 1); 
+  ITAB   = get_ITABLE_SPARSE(IDTABLE, fnam, 1); 
   NFILL  = TABLEINFO_NPZ.NFILL[ITAB];
   NVAR   = TABLEINFO_NPZ.NVAR[ITAB];
   HANDLE = TABLEINFO_NPZ.HANDLE[ITAB];
@@ -666,7 +666,7 @@ namespace {
 
 int npz_table_create(char *fileName) {
 
-  int LDMP = 1;
+  int LDMP = 0;
   char fnam[] = "npz_table_create";
 
   for (int h=0; h < MXTABLE_NPZ; h++) {

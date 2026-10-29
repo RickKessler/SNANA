@@ -685,7 +685,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   // Jun 2026: print program name (PGNAME)
 
   int   NVAR, IVAR, OPT_FORMAT, IDTABLE, j_item ;
-  char *FORMAT, *VARLIST, *TBNAME, *PGNAME, KEY[60], *VAL ;
+  char *FORMAT, *VARLIST, *TBNAME, *PGNAME, KEY[MXCHAR_VARNAME+4], *VAL ;
   char fnam[] = "SNTABLE_WRITE_HEADER_TEXT" ;
   FILE *FP ;
   int REFAC = 1;
@@ -712,10 +712,11 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   if ( REFAC ) {
     TABLE_HEADER_DICT_DEF *HEADER_DICT = &SNTABLE_CREATE_INFO.HEADER_DICT[ITAB];
     for(j_item=0; j_item < HEADER_DICT->N_ITEM; j_item++ ) {
-      sprintf(KEY,"%s:", HEADER_DICT->KEY_STRING[j_item]);
+      snprintf(KEY, sizeof(KEY), "%s:", HEADER_DICT->KEY_STRING[j_item]); // was sprintf into KEY[60]
       VAL = HEADER_DICT->VAL_STRING[j_item] ;
+      if ( VAL == NULL ) { VAL = (char*)"" ; }
       if (strlen(KEY) > 1 ) 
-	{ fprintf(FP,"# %-20.20s  %s \n", KEY, VAL); }
+	{ fprintf(FP,"# %-20s  %s \n", KEY, VAL); }  // was %-20.20s: truncated long keys (lost the colon)
       else
 	{ fprintf(FP,"# \n"); }
     }
@@ -733,7 +734,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
 	LINE = LINE_TABLECOMMENT[iline];
 	fprintf(FP, "# %s \n", LINE );
 	if ( strstr(LINE,KEYNAME_VERSION_PHOTOMETRY) != NULL ) { WROTE_VERSION_PHOTOMETRY = true; }
-	fflush(stdout);
+	fflush(FP);
       }
       fflush(FP);
       if ( strlen(SNTABLE_VERSION_PHOTOMETRY) > 0 && !WROTE_VERSION_PHOTOMETRY) 
@@ -751,7 +752,7 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
 
   else if ( OPT_FORMAT == OPT_FORMAT_CSV ) {
 
-    char CSVLIST[1000], *varName;
+    char CSVLIST[MXCHAR_LINE], *varName;  CSVLIST[0] = 0;  // was uninitialized [1000]
     for(IVAR=0; IVAR < NVAR ; IVAR++ ) {
       varName = TABLEINFO_TEXT.VARNAME[ITAB][IVAR] ;
       catVarList_with_comma(CSVLIST,varName);

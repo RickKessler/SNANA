@@ -37,6 +37,7 @@ extern"C" {
   void npz_table_append (int h, int icol, void *ptr);
   void npz_table_endrow (int h);     // call once per row; triggers flush every NFLUSH rows
   void npz_table_close  (int h);
+  void npz_table_set_header(int h, const char *json); // JSON string -> HEADER_JSON.npy (0-d |S array)
 
   void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
   void  print_banner ( const char *banner ) ;
@@ -371,15 +372,68 @@ void SNTABLE_FILL_NPZ(int IDTABLE) {
 
 } // end SNTABLE_FILL_NPZ
 
+// ==============================================
+static void npz_json_escape(std::string &out, const char *s) {
+  // append s to out as a JSON string body (no surrounding quotes)
+  for ( ; *s; s++ ) {
+    unsigned char c = (unsigned char)*s;
+    if      ( c == '"'  ) { out += "\\\""; }
+    else if ( c == '\\' ) { out += "\\\\"; }
+    else if ( c == '\n' ) { out += "\\n"; }
+    else if ( c == '\t' ) { out += "\\t"; }
+    else if ( c == '\r' ) { out += "\\r"; }
+    else if ( c < 0x20  ) { char b[8]; sprintf(b,"\\u%04x",c); out += b; }
+    else                  { out += (char)c; }       // UTF-8 bytes pass through
+  }
+}
+
+std::string get_npz_header_json(int IDTABLE) {
+
+  // Oct 2026
+  // Return SNTABLE_CREATE_INFO.HEADER_DICT for this IDTABLE as a JSON object string.
+  // Same information that SNTABLE_WRITE_HEADER_TEXT writes to the text header
+  // (empty keys, which text writes as a blank '#' line, are skipped).
+  // Key order is preserved. Values are always strings.
+
+  char fnam[] = "get_npz_header_json" ;
+  int  ITAB_SPARSE = get_ITABLE_SPARSE(IDTABLE, fnam, 1);   // index into SNTABLE_CREATE_INFO
+  TABLE_HEADER_DICT_DEF *HEADER_DICT = &SNTABLE_CREATE_INFO.HEADER_DICT[ITAB_SPARSE];
+  std::string json = "{";
+  int j, nout = 0;
+
+  for(j=0; j < HEADER_DICT->N_ITEM; j++ ) {
+    const char *key = HEADER_DICT->KEY_STRING[j];
+    const char *val = HEADER_DICT->VAL_STRING[j];
+    if ( !key || strlen(key) == 0 ) { continue; }
+    if ( nout > 0 ) { json += ", "; }
+    json += "\""; npz_json_escape(json, key); json += "\": \"";
+    npz_json_escape(json, val ? val : ""); json += "\"";
+    nout++ ;
+  }
+  json += "}";
+  return json;
+
+} // end get_npz_header_json
+
 void CLOSE_NPZFILE(void) {
+
+  // Oct 2026: before closing each table, pass its header dictionary to the writer
+  //           (HEADER_JSON entry in the npz file).
 
   int ITAB;
 
   for(ITAB=0; ITAB < TABLEINFO_NPZ.NTABLE; ITAB++ ) {
+    int HANDLE = TABLEINFO_NPZ.HANDLE[ITAB];
+    std::string json = get_npz_header_json(TABLEINFO_NPZ.IDTABLE[ITAB]);
+    npz_table_set_header(HANDLE, json.c_str());
+
     printf("   Close NPZ table file: %s \n", TABLEINFO_NPZ.FILENAME[ITAB]);
     fflush(stdout);
-    npz_table_close(ITAB);
+    npz_table_close(HANDLE);        // was npz_table_close(ITAB): wrong if HANDLE != ITAB
   }
+
+  // reset so a second CLOSE call cannot re-close (and truncate) finished files
+  TABLEINFO_NPZ.NTABLE = 0 ;
 
   return;
 
@@ -577,7 +631,8 @@ namespace {
   struct NPZTab {
     std::string file;  std::vector<NPZCol> col;
     size_t nrow, nbuf, nflush;  int level;  bool used;
-    NPZTab() : nrow(0), nbuf(0), nflush(100), level(6), used(false) {}
+    std::string header_json;  bool has_header;   // table header dictionary, stored as JSON
+    NPZTab() : nrow(0), nbuf(0), nflush(100), level(6), used(false), has_header(false) {}
   };
   NPZTab NPZ_TAB[MXTABLE_NPZ];
 
@@ -648,6 +703,20 @@ namespace {
     return h;
   }
 
+  // Build .npy v1.0 header for a 0-d (scalar) byte-string array, dtype '|S<wsize>'.
+  // Used for the JSON header dictionary: python reads it with  npz['HEADER_JSON'][()]
+  std::vector<char> npy_header_str_scalar(int wsize) {
+    std::string d = "{'descr': '|S" + std::to_string(wsize) +
+                    "', 'fortran_order': False, 'shape': (), }";
+    size_t total = 10 + d.size() + 1;
+    d.append((64 - total % 64) % 64, ' ');
+    d.push_back('\n');
+    std::vector<char> h = { '\x93','N','U','M','P','Y', 1, 0 };
+    put16(h, (uint16_t)d.size());
+    putstr(h, d);
+    return h;
+  }
+
   std::vector<char> npy_header_for(int icast, size_t nrow, int wsize) {
     std::vector<size_t> s1 = { nrow };
     switch (icast) {
@@ -684,6 +753,14 @@ int npz_table_create(char *fileName) {
     }
   }
   return -1;
+}
+
+void npz_table_set_header(int h, const char *json) {
+  // Store header dictionary (as a JSON string) for table h.
+  // It is written as the first entry (HEADER_JSON.npy) when the table is closed.
+  if ( h < 0 || h >= MXTABLE_NPZ || !NPZ_TAB[h].used || !json ) { return; }
+  NPZ_TAB[h].header_json = json;
+  NPZ_TAB[h].has_header  = ( NPZ_TAB[h].header_json.size() > 0 );
 }
 
 int npz_table_addcol(int h, char *varName, int icast, int strlen_max) {
@@ -836,6 +913,40 @@ void npz_table_close(int h) {
     uint64_t offset = 0;                     // running offset in output file
     std::vector<char> cp(1<<20);
 
+    // ---- header dictionary: small STORED (uncompressed) zip entry, written first so
+    //      its offset is 0 and no zip64 handling is needed. It is a 0-d '|S<n>' npy
+    //      array holding a JSON string; python: json.loads(npz['HEADER_JSON'][()].decode())
+    if ( t.has_header ) {
+      const std::string &hs = t.header_json;
+      std::vector<char> pay = npy_header_str_scalar((int)hs.size());
+      putstr(pay, hs);
+      uint32_t crch  = (uint32_t)crc32(crc32(0L, Z_NULL, 0), (const Bytef*)pay.data(), (uInt)pay.size());
+      uint32_t psize = (uint32_t)pay.size();
+      std::string hname = "HEADER_JSON.npy";
+
+      std::vector<char> lh;
+      put32(lh, 0x04034b50);
+      put16(lh, 10);  put16(lh, 0);  put16(lh, 0);                       // method 0 = stored
+      put16(lh, 0);   put16(lh, 0);  put32(lh, crch);
+      put32(lh, psize);  put32(lh, psize);
+      put16(lh, (uint16_t)hname.size());  put16(lh, 0);
+      putstr(lh, hname);
+      if ( fwrite(lh.data(),  1, lh.size(),  fz) != lh.size()  ||
+           fwrite(pay.data(), 1, pay.size(), fz) != pay.size() )
+        { throw std::runtime_error("npz: write error " + t.file); }
+
+      put32(central, 0x02014b50);
+      put16(central, 20);  put16(central, 10);  put16(central, 0);
+      put16(central, 0);   put16(central, 0);   put16(central, 0);  put32(central, crch);
+      put32(central, psize);  put32(central, psize);
+      put16(central, (uint16_t)hname.size());  put16(central, 0);
+      put16(central, 0);  put16(central, 0);  put16(central, 0);  put32(central, 0);
+      put32(central, (uint32_t)offset);                                  // offset = 0
+      putstr(central, hname);
+
+      offset += lh.size() + pay.size();
+    }
+
     for (size_t i=0; i < t.col.size(); i++) {
       NPZCol &c = t.col[i];
 
@@ -915,7 +1026,7 @@ void npz_table_close(int h) {
     }
 
     // ---- end of central directory (zip64 records only if needed) ----
-    uint64_t cd_offset = offset,  cd_size = central.size(),  ncol = t.col.size();
+    uint64_t cd_offset = offset,  cd_size = central.size(),  ncol = t.col.size() + (t.has_header ? 1 : 0);
     bool eocd64 = ( cd_offset >= M32 || cd_size >= M32 || ncol >= 0xFFFF );
 
     std::vector<char> tail;

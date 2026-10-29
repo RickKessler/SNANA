@@ -603,8 +603,7 @@ void APPEND_TABLEFILE_HEADER(int IDTABLE, const char *KEY_STRING, char *VAL_STRI
   // Created Oct 29 2026
   // Update header dictionary.
 
-  int MEMC_KEY = (strlen(KEY_STRING) + 1 ) * sizeof(char);
-  int MEMC_VAL = (strlen(VAL_STRING) + 1 ) * sizeof(char);
+  int MEMC_KEY, MEMC_VAL ;
 
   TABLE_HEADER_DICT_DEF *HEADER_DICT ;
   int ITAB, i_dict ;
@@ -614,8 +613,19 @@ void APPEND_TABLEFILE_HEADER(int IDTABLE, const char *KEY_STRING, char *VAL_STRI
   concat_callfun_plus_fnam(callFun, fnam0, fnam);
   // --------- BEGIN -------- 
 
+  if ( KEY_STRING == NULL || VAL_STRING == NULL ) { return; }  // avoid strlen(NULL)
+  MEMC_KEY = (strlen(KEY_STRING) + 1 ) * sizeof(char);
+  MEMC_VAL = (strlen(VAL_STRING) + 1 ) * sizeof(char);
+
   ITAB =  get_ITABLE_SPARSE(IDTABLE, fnam, 1 );
   HEADER_DICT = &SNTABLE_CREATE_INFO.HEADER_DICT[ITAB];
+
+  if ( HEADER_DICT->N_ITEM >= MXKEY_TABLE_HEADER ) {   // bound was never checked
+    sprintf(MSGERR1, "Too many header keys (MXKEY_TABLE_HEADER=%d) for IDTABLE=%d",
+	    MXKEY_TABLE_HEADER, IDTABLE);
+    sprintf(MSGERR2, "while adding KEY='%s'", KEY_STRING);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   // bail if this key has already been stored:
   for(i_dict = 0; i_dict < HEADER_DICT->N_ITEM; i_dict++ ) {

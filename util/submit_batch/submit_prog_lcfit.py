@@ -1743,6 +1743,7 @@ class LightCurveFit(Program):
         # Thus NPZ is not treated the same as more generic TEXT or ROOT format.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
+        program          = os.path.expandvars(self.config_prep['program'])
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
         version          = version_fitopt_dict['version']
@@ -1767,7 +1768,7 @@ class LightCurveFit(Program):
 
                 # RK place-holder is to copy first split file to merged file;
                 # Matt can put in correct code later
-                cmd_merge       = f"cp {table_list[0]}  {out_table_file}"   # <=== MERGE command here
+                cmd_merge       = f"{program} --merge_systematics {' '.join(table_list)} --output {prefix}_{version_fitopt}"
                 
                 os.system(f"{cddir} ; {cmd_merge}")   
         

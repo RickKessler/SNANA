@@ -212,10 +212,17 @@ def coadd_single_band(t_band, colnames, tol_mjd, do_coadd):
                 photflag = reduce(ior, val_list)
                 t_coadd[col] = photflag
                 
-            elif col == key_photprob:
-                # average over observations; perhaps later can be wgted avg?
-                t_coadd[col]        = [ fscale*np.mean(val_list) ]
-                
+            elif col == key_photprob:  # reliability
+                # average over non-neg observations (i.e., ignore -9);
+                # perhaps later can be wgted avg?
+                non_negative = [x for x in val_list if x >= 0.0 ]
+                if len(non_negative) > 0:
+                    t_coadd[col] = [ fscale*np.mean(non_negative) ]
+                else:
+                    t_coadd[col] = -9.0
+                #if t_coadd[col] < 0.0 or len(non_negative)==0 :
+                #    sys.exit(f"\n xxx reliab = \n{val_list}")
+                    
             elif 'group_id' not in col:
                 t_coadd[col]  = [ val_list[0] ]  # no change
                     

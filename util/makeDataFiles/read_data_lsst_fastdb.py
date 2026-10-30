@@ -41,7 +41,7 @@ BAND_LIST_LSST  = list(FILTERLIST_LSST)
 
 # - - - -
 # hard wire key name map here for now, but should read from map SNANA <--> FASTDB
-KEYMAP = { # SNANA -> fastdb
+KEYMAP_SNANA2FDB = { # SNANA -> fastdb
 
     # header
     gpar.DATAKEY_SNID           : 'rootid',
@@ -51,7 +51,8 @@ KEYMAP = { # SNANA -> fastdb
 
     # PHOT
     gpar.DATAKEY_MJD         : 'mjd',
-    gpar.DATAKEY_PHOTFLAG    : 'photflag',  # temp dummy  
+    gpar.DATAKEY_PHOTFLAG    : 'photflag',  # temp dummy
+    gpar.DATAKEY_PHOTPROB    : 'reliability',
     gpar.DATAKEY_BAND        : 'band',
     gpar.DATAKEY_FLUXCAL     : 'flux',
     gpar.DATAKEY_FLUXCALERR  : 'fluxerr',    
@@ -67,14 +68,14 @@ TOL_MJD_NIGHT     = 0.4  # coadd obs withing this tolerance, days
 
 CUT_NOBS_COADD_RATIO = 0.4  # separates WFD and DDF
 
-DATAKEY_HEAD_LIST = [ DATAKEY_RA, DATAKEY_DEC ]
-DATAKEY_PHOT_LIST = [ DATAKEY_MJD, gpar.DATAKEY_PHOTFLAG,
-                      DATAKEY_BAND, DATAKEY_FLUXCAL, DATAKEY_FLUXCALERR ]
+DATAKEY_HEAD_LIST = [ gpar.DATAKEY_RA, gpar.DATAKEY_DEC ]
+DATAKEY_PHOT_LIST = [ gpar.DATAKEY_MJD, gpar.DATAKEY_PHOTFLAG, gpar.DATAKEY_PHOTPROB,
+                      gpar.DATAKEY_BAND, gpar.DATAKEY_FLUXCAL, gpar.DATAKEY_FLUXCALERR ]
 
-FASTDB_KEYNAME_ROOTID  = KEYMAP[gpar.DATAKEY_SNID]
-FASTDB_KEYNAME_OBJID   = KEYMAP[gpar.DATAKEY_NAME_TRNS]
+FASTDB_KEYNAME_ROOTID  = KEYMAP_SNANA2FDB[gpar.DATAKEY_SNID]
+FASTDB_KEYNAME_OBJID   = KEYMAP_SNANA2FDB[gpar.DATAKEY_NAME_TRNS]
 
-#FASTDB_KEYNAME_MJD  = KEYMAP[gpar.DATAKEY_MJD]
+#FASTDB_KEYNAME_MJD  = KEYMAP_SNANA2FDB[gpar.DATAKEY_MJD]
 
 FASTDB_ZP = 31.4  # nJy
 FLUXSCALE_SNANA = math.pow(10.0, (SNANA_ZP-FASTDB_ZP)/2.5 )
@@ -235,6 +236,7 @@ class data_lsst_fastdb(Program):
                                   'return_object_info':            True,
                                   'return_diaobject_positions':    True,
                                   'use_weighted_source_positions': True,
+                                  'include_reliability'          : 1,
                                   # 'which' : 'detections' or 'forced' or 'patch(default)',
                                   'nonevalue': -999
                           } )
@@ -328,7 +330,7 @@ class data_lsst_fastdb(Program):
         snana_head_raw[gpar.DATAKEY_SNTYPE]      = 0
         
         for key_snana in DATAKEY_HEAD_LIST:
-            key_fastdb = KEYMAP[key_snana]
+            key_fastdb = KEYMAP_SNANA2FDB[key_snana]
             if key_fastdb in dict_objinfo:                
                 snana_head_raw[key_snana]  = dict_objinfo[key_fastdb][evt]
 
@@ -343,7 +345,7 @@ class data_lsst_fastdb(Program):
         self.set_garbage_list(evt, rootid, None, [])  # init garbage counter
         
         for key_snana in DATAKEY_PHOT_LIST:
-            key_fastdb = KEYMAP.setdefault(key_snana,None)
+            key_fastdb = KEYMAP_SNANA2FDB.setdefault(key_snana,None)
             if key_fastdb in lc_dict :
                 val_list   = lc_dict[key_fastdb]
                     
@@ -355,7 +357,11 @@ class data_lsst_fastdb(Program):
                 
                 if key_snana == gpar.DATAKEY_PHOTFLAG:
                     val_list = [ args.photflag_detect * int(x) for x in lc_dict['isdet'] ]
-                
+
+                if key_snana == gpar.DATAKEY_PHOTPROB:
+                    val_list = [ max(-9,x) for x in lc_dict['reliability'] ]
+                    #print(f"\n xxx reliability = \n{val_list}")
+                    
                 snana_phot_raw[key_snana] = val_list
 
         
@@ -751,8 +757,6 @@ class data_lsst_fastdb(Program):
             mjd_list = [ mjd_for_season ]
             season_input_dict = { 'RA': ra_list, 'DEC': dec_list, 'MJD': mjd_list }
             season = season_index.get_season(season_input_dict, SURVEY_LSST, MJD_START)[0]
-
-        logging.info(f" xxx mjd_for_season={mjd_for_season:.3f}  -> season = {season}")
             
         #print(f" xxx mjd_detect = {mjd_detect_first}  {mjd_detect_second}  {mjd_detect_last} ")
         # store output
@@ -883,8 +887,11 @@ class data_lsst_fastdb(Program):
     def exclude_varlist_obs(self):
         # return list of PHOT columns to excude from output text files
         # see VARNAMES_OBS in makeDataFiles_params.py
-        return [ 'PSF_SIG1', 'ZEROPT',  'SKY_SIG', 'XPIX', 'YPIX', 'GAIN',
-                 'CCDNUM', 'IMGNUM' ]
+        return [ gpar.DATAKEY_PSF_SIG1, gpar.DATAKEY_ZEROPT, gpar.DATAKEY_SKY_SIG,
+                 gpar.DATAKEY_XPIX, gpar.DATAKEY_YPIX, gpar.DATAKEY_GAIN,
+                 gpar.DATAKEY_DETNUM, gpar.DATAKEY_IMGNUM ]
+
+# === END: =====
     
 
     

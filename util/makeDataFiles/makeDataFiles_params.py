@@ -80,33 +80,75 @@ DATAKEY_MJD         = "MJD"
 DATAKEY_BAND        = "BAND"
 DATAKEY_FIELD       = "FIELD"
 DATAKEY_PHOTFLAG    = "PHOTFLAG"
+DATAKEY_PHOTPROB    = "PHOTPROB"
 DATAKEY_FLUXCAL     = "FLUXCAL"
 DATAKEY_FLUXCALERR  = "FLUXCALERR"
+DATAKEY_XPIX        = "XPIX"
+DATAKEY_YPIX        = "YPIX"
+DATAKEY_DETNUM      = "DETNUM"
+DATAKEY_IMGNUM      = "IMGNUM"
+DATAKEY_GAIN        = "GAIN"
+DATAKEY_PSF_SIG1    = "PSF_SIG1"
+DATAKEY_SKY_SIG     = "SKY_SIG"
+DATAKEY_ZEROPT      = "ZEROPT"
 
-VARNAMES_OBS = f"{DATAKEY_MJD} {DATAKEY_BAND} {DATAKEY_FIELD} {DATAKEY_PHOTFLAG}  " \
-               f"XPIX YPIX CCDNUM IMGNUM GAIN " \
-               f"{DATAKEY_FLUXCAL} {DATAKEY_FLUXCALERR} " \
-               f" PSF_SIG1 ZEROPT SKY_SIG"
-
-VARNAMES_OBS_LIST = VARNAMES_OBS.split()
-
-# -----------------------------------------------------------------------------
-# define text format for each VARNAMES_OBS
-VARNAMES_FMT = "10.4f 2s   8s    5d      6.1f 6.1f  4d  6d   6.3f "\
-               "12.4e    12.4e    8.4f  6.3f 6.2f "
-
-VARNAMES_FMT_LIST = VARNAMES_FMT.split()
-# -----------------------------------------------------------------------------
 # define values for undefined variables
 # value set to VAL_ABORT will trigger abort because it is required.
 VAL_ABORT     = 666
 VAL_NULL      = -999
-VAL_NULL_LIST = [ -9, -99, -999, 999 ] # any of these is treated as no value
-VAL_UNDEFINED_LIST = [
-    VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG
-    VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL, VAL_NULL,
-    VAL_ABORT, VAL_ABORT, VAL_NULL, VAL_NULL, VAL_NULL
-]
+VAL_NULL_LIST = [ -9, -99, -999, 999 ]  # any of these is treated as no value
+ 
+VARNAMES_OBS_DICT = {
+    DATAKEY_MJD        : f"10.4f   {VAL_ABORT}",
+    DATAKEY_BAND       : f"2s      {VAL_ABORT}",
+    DATAKEY_FIELD      : f"8s      VOID",
+    DATAKEY_PHOTFLAG   : f"5d      0",
+    DATAKEY_PHOTPROB   : f"6.3f    {VAL_NULL}",
+    DATAKEY_XPIX       : f"6.1f    {VAL_NULL}",
+    DATAKEY_YPIX       : f"6.1f    {VAL_NULL}",
+    DATAKEY_DETNUM     : f"4d      {VAL_NULL}",
+    DATAKEY_IMGNUM     : f"6d      {VAL_NULL}",
+    DATAKEY_GAIN       : f"6.3f    {VAL_NULL}",
+    DATAKEY_FLUXCAL    : f"12.4e   {VAL_ABORT}",
+    DATAKEY_FLUXCALERR : f"12.4e   {VAL_ABORT}",    
+    DATAKEY_PSF_SIG1   : f"8.4f    {VAL_NULL}",
+    DATAKEY_SKY_SIG    : f"6.2f    {VAL_NULL}",
+    DATAKEY_ZEROPT     : f"6.3f    {VAL_NULL}"
+}
+
+VARNAMES_OBS_LIST  = list(VARNAMES_OBS_DICT.keys())
+TEMP_VAL_LIST      = list(VARNAMES_OBS_DICT.values())
+VARNAMES_FMT_LIST  = [ x.split()[0] for x in TEMP_VAL_LIST ]
+VAL_UNDEFINED_LIST = [ x.split()[1] for x in TEMP_VAL_LIST ]
+
+
+
+# xxxxxxxx mark delete Oct 30 2026 xxxxxxxxxx
+#print(f"\n xxx VARNAMES_OBS_LIST = \n{VARNAMES_OBS_LIST}")
+#print(f"\n xxx VARNAMES_FMT      = \n{VARNAMES_FMT_LIST}")
+#print(f"\n xxx VAL_UNDEFINED_LIST = \n{VAL_UNDEFINED_LIST}")
+#import sys
+#sys.exit("\n xxx BYE xxx")
+#
+#VARNAMES_OBS = f"{DATAKEY_MJD} {DATAKEY_BAND} {DATAKEY_FIELD} {DATAKEY_PHOTFLAG} {DATAKEY_PHOTPROB} " \
+#               f"XPIX YPIX CCDNUM IMGNUM GAIN " \
+#               f"{DATAKEY_FLUXCAL} {DATAKEY_FLUXCALERR} " \
+#               f" PSF_SIG1 ZEROPT SKY_SIG"
+# --------
+#VARNAMES_FMT = "10.4f 2s   8s    5d  6.3f     " \
+#    "6.1f 6.1f  4d  6d   6.3f " \
+#    "12.4e    12.4e    " \
+#    "8.4f  6.3f 6.2f "
+#VARNAMES_FMT_LIST = VARNAMES_FMT.split()
+
+# -----------------------------------------------------------------------------
+#VAL_UNDEFINED_LIST = [
+#    VAL_ABORT, VAL_ABORT, "VOID",  0,      # for MJD BAND FIELD PHOTFLAG
+#    VAL_NULL,  VAL_NULL,  VAL_NULL, VAL_NULL, VAL_NULL,
+#    VAL_ABORT, VAL_ABORT, VAL_NULL, VAL_NULL, VAL_NULL
+#]
+# xxxxxxxxxxxxxxxxxxxxxxx end mark xxxxxxxxxxxxxx 
+
 
 VAL_UNKNOWN = "UNKNOWN"
 

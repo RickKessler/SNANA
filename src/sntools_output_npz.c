@@ -6,7 +6,7 @@
 //    (cnpy maps char -> '|i1'), so python read back integers. Now write
 //    1D fixed-width byte-string header, dtype '|S<wsize>'.
 //
-
+// 
 #define MXTABLE_NPZ  10
 #define ISFILE_NPZ_COV        1
 #define ISFILE_NPZ_FACTORIZE  2
@@ -37,7 +37,7 @@ extern"C" {
   void npz_table_append (int h, int icol, void *ptr);
   void npz_table_endrow (int h);     // call once per row; triggers flush every NFLUSH rows
   void npz_table_close  (int h);
-  void npz_table_set_header(int h, const char *json); // JSON string -> HEADER_JSON.npy (0-d |S array)
+  void npz_table_set_header(int h, const char *json); // JSON string -> zip archive comment
 
   void  errmsg ( int isev, int iprompt, char *fnam, char *msg1, char *msg2 );
   void  print_banner ( const char *banner ) ;
@@ -394,6 +394,10 @@ std::string get_npz_header_json(int IDTABLE) {
   // Same information that SNTABLE_WRITE_HEADER_TEXT writes to the text header
   // (empty keys, which text writes as a blank '#' line, are skipped).
   // Key order is preserved. Values are always strings.
+  //
+  // read json header with python command:
+  //   hdr = json.loads(data.zip.comment.decode())
+  //
 
   char fnam[] = "get_npz_header_json" ;
   int  ITAB_SPARSE = get_ITABLE_SPARSE(IDTABLE, fnam, 1);   // index into SNTABLE_CREATE_INFO
@@ -418,7 +422,7 @@ std::string get_npz_header_json(int IDTABLE) {
 void CLOSE_NPZFILE(void) {
 
   // Oct 2026: before closing each table, pass its header dictionary to the writer
-  //           (HEADER_JSON entry in the npz file).
+  //           (stored as the zip archive comment).
 
   int ITAB;
 
@@ -703,20 +707,6 @@ namespace {
     return h;
   }
 
-  // Build .npy v1.0 header for a 0-d (scalar) byte-string array, dtype '|S<wsize>'.
-  // Used for the JSON header dictionary: python reads it with  npz['HEADER_JSON'][()]
-  std::vector<char> npy_header_str_scalar(int wsize) {
-    std::string d = "{'descr': '|S" + std::to_string(wsize) +
-                    "', 'fortran_order': False, 'shape': (), }";
-    size_t total = 10 + d.size() + 1;
-    d.append((64 - total % 64) % 64, ' ');
-    d.push_back('\n');
-    std::vector<char> h = { '\x93','N','U','M','P','Y', 1, 0 };
-    put16(h, (uint16_t)d.size());
-    putstr(h, d);
-    return h;
-  }
-
   std::vector<char> npy_header_for(int icast, size_t nrow, int wsize) {
     std::vector<size_t> s1 = { nrow };
     switch (icast) {
@@ -757,10 +747,16 @@ int npz_table_create(char *fileName) {
 
 void npz_table_set_header(int h, const char *json) {
   // Store header dictionary (as a JSON string) for table h.
-  // It is written as the first entry (HEADER_JSON.npy) when the table is closed.
+  // Zip comment length is a 16-bit field, so the JSON is limited to 65535 bytes.
+  // It is written as the zip archive comment (not a table column) when the table is closed.
   if ( h < 0 || h >= MXTABLE_NPZ || !NPZ_TAB[h].used || !json ) { return; }
   NPZ_TAB[h].header_json = json;
   NPZ_TAB[h].has_header  = ( NPZ_TAB[h].header_json.size() > 0 );
+  if ( NPZ_TAB[h].header_json.size() > 0xFFFF ) {
+    printf(" WARNING npz_table_set_header: header JSON is %lu bytes (max 65535); not written to %s\n",
+	   (unsigned long)NPZ_TAB[h].header_json.size(), NPZ_TAB[h].file.c_str());
+    NPZ_TAB[h].has_header = false;
+  }
 }
 
 int npz_table_addcol(int h, char *varName, int icast, int strlen_max) {
@@ -913,40 +909,6 @@ void npz_table_close(int h) {
     uint64_t offset = 0;                     // running offset in output file
     std::vector<char> cp(1<<20);
 
-    // ---- header dictionary: small STORED (uncompressed) zip entry, written first so
-    //      its offset is 0 and no zip64 handling is needed. It is a 0-d '|S<n>' npy
-    //      array holding a JSON string; python: json.loads(npz['HEADER_JSON'][()].decode())
-    if ( t.has_header ) {
-      const std::string &hs = t.header_json;
-      std::vector<char> pay = npy_header_str_scalar((int)hs.size());
-      putstr(pay, hs);
-      uint32_t crch  = (uint32_t)crc32(crc32(0L, Z_NULL, 0), (const Bytef*)pay.data(), (uInt)pay.size());
-      uint32_t psize = (uint32_t)pay.size();
-      std::string hname = "HEADER_JSON.npy";
-
-      std::vector<char> lh;
-      put32(lh, 0x04034b50);
-      put16(lh, 10);  put16(lh, 0);  put16(lh, 0);                       // method 0 = stored
-      put16(lh, 0);   put16(lh, 0);  put32(lh, crch);
-      put32(lh, psize);  put32(lh, psize);
-      put16(lh, (uint16_t)hname.size());  put16(lh, 0);
-      putstr(lh, hname);
-      if ( fwrite(lh.data(),  1, lh.size(),  fz) != lh.size()  ||
-           fwrite(pay.data(), 1, pay.size(), fz) != pay.size() )
-        { throw std::runtime_error("npz: write error " + t.file); }
-
-      put32(central, 0x02014b50);
-      put16(central, 20);  put16(central, 10);  put16(central, 0);
-      put16(central, 0);   put16(central, 0);   put16(central, 0);  put32(central, crch);
-      put32(central, psize);  put32(central, psize);
-      put16(central, (uint16_t)hname.size());  put16(central, 0);
-      put16(central, 0);  put16(central, 0);  put16(central, 0);  put32(central, 0);
-      put32(central, (uint32_t)offset);                                  // offset = 0
-      putstr(central, hname);
-
-      offset += lh.size() + pay.size();
-    }
-
     for (size_t i=0; i < t.col.size(); i++) {
       NPZCol &c = t.col[i];
 
@@ -1026,7 +988,7 @@ void npz_table_close(int h) {
     }
 
     // ---- end of central directory (zip64 records only if needed) ----
-    uint64_t cd_offset = offset,  cd_size = central.size(),  ncol = t.col.size() + (t.has_header ? 1 : 0);
+    uint64_t cd_offset = offset,  cd_size = central.size(),  ncol = t.col.size();
     bool eocd64 = ( cd_offset >= M32 || cd_size >= M32 || ncol >= 0xFFFF );
 
     std::vector<char> tail;
@@ -1044,7 +1006,10 @@ void npz_table_close(int h) {
     put16(tail, ncol >= 0xFFFF ? 0xFFFF : (uint16_t)ncol);
     put32(tail, cd_size   >= M32 ? 0xFFFFFFFFu : (uint32_t)cd_size);
     put32(tail, cd_offset >= M32 ? 0xFFFFFFFFu : (uint32_t)cd_offset);
-    put16(tail, 0);
+    // archive comment: header dictionary as JSON. Not a zip entry, so it never appears in npz.files.
+    // python: json.loads(np.load(f).zip.comment.decode())
+    if ( t.has_header ) { put16(tail, (uint16_t)t.header_json.size());  putstr(tail, t.header_json); }
+    else               { put16(tail, 0); }
 
     if ( fwrite(central.data(), 1, central.size(), fz) != central.size() ||
          fwrite(tail.data(),    1, tail.size(),    fz) != tail.size() )

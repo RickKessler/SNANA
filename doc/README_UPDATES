@@ -24337,6 +24337,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  IMPORTANT(v12_02e) *****
 
+   sntools_host (Oct 30 2026):
+     + release galflux fix in https://github.com/RickKessler/SNANA/issues/1815
+
          *****  USEFUL(v12_02e) *****
    
    genmag_SIMSED.c
@@ -24347,7 +24350,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_02e) *****
   
-     more NPZ devel
+    + lots NPZ table development 
+    + construct header dictionary that both TEXT and NPZ format uses. 
+
 END:
 
 

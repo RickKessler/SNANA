@@ -719,7 +719,7 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_HOSTLIB    = false; // Nov 2019
   INPUTS.RESTORE_BUG_FLUXERR    = false; // Jan 2020
   INPUTS.RESTORE_WRONG_VPEC     = false ; // Nov 2, 2020 (fix VPEC sign)
-  INPUTS.RESTORE_BUG_GALMAG     = true;   // Oct 9 2026
+  INPUTS.RESTORE_BUG_GALMAG     = false;   // Oct 9 2026 -> False Oct 30 2026
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
   //   INPUTS.RESTORE_BUG_GALMAG = false; // xxx .xyz ???

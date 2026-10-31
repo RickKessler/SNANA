@@ -192,6 +192,8 @@
 # Mar 24 2026 Rujuta P: col_iz = HD[VARNAME_iz] --> HD[VARNAME_iz].to_numpy()
 #
 # Oct 20 2026: change default to use factorized cov and Woodbury identity (see git issue #1812)
+# Oct 30 2026: add detcov_factorized_test() so factorized output still prints
+#   log|det(cov)| to stdout for regression tests.
 #
 # ===============================================
 
@@ -2442,6 +2444,10 @@ def write_covariance_factorized(path, diag_D, U, vec_labels):
     n, k = U.shape
     logging.info(f"Write to {file_base} (N={n}, K={k})")
 
+    # Oct 2026: write log|det(cov)| to stdout for regression test, same
+    # format as the dense writers (factorized is now the default output)
+    detcov_factorized_test(path, diag_D, U)
+
     # float64 throughout: U is only N x K (K ~ tens), negligibly small
     # compared to a dense N x N covariance even at full double precision,
     # so there is no reason to trade precision for size here the way the
@@ -2473,6 +2479,44 @@ def detcov_test(path,cov):
         logging.info(f"   skip det(cov) test for large cov");  # Nov 2024
 
     return
+
+def detcov_factorized_test(path, diag_D, U):
+
+    # Oct 2026: factorized analog of detcov_test, for cov = diag(D) + U U^T.
+    # Prints the same line as detcov_test so that the regression-test grep
+    #     grep det logFile | grep log
+    # still finds log|det(cov)|. Uses the matrix determinant lemma,
+    #     det(D + U U^T) = det(D) * det(I_K + U^T D^-1 U),
+    # so only a KxK matrix is factored (no NxN matrix is ever built).
+    # Same MAXROW_DETCOV_TEST cut as detcov_test so the stdout is the same
+    # as it was for the dense covariance.
+
+    file_base = os.path.basename(path)
+    nrow      = len(diag_D)
+    if nrow < MAXROW_DETCOV_TEST:
+        D = np.asarray(diag_D, dtype=np.float64)
+        U = np.asarray(U,      dtype=np.float64)
+        K = U.shape[1]
+
+        if np.all(D > 0.0):
+            logdet_D = np.sum(np.log(D))
+            if K > 0:
+                M = np.eye(K) + U.T @ (U / D[:,None])  # I_K + U^T D^-1 U
+                (sgn, logdet_M) = np.linalg.slogdet(M)
+            else:
+                logdet_M = 0.0
+            logcovdet = logdet_D + logdet_M
+        else:
+            # lemma needs invertible D; fall back to dense (small N only)
+            (sgn, logcovdet) = np.linalg.slogdet(np.diag(D) + U @ U.T)
+
+        logging.info(f"    {file_base}: size={nrow}  " \
+                     f"log|det(cov)| = {logcovdet:.1f}")
+    else:
+        logging.info(f"   skip det(cov) test for large cov")
+
+    return
+    # end detcov_factorized_test
 
 
 def get_label_cov_flatten(nwr, nrow, row_info_dict):

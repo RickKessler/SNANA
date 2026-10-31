@@ -300,7 +300,9 @@ tnow       = datetime.datetime.now()
 DATE_STAMP = ('%4.4d-%2.2d-%2.2d' % (tnow.year,tnow.month,tnow.day) )
 
 
-MAXROW_DETCOV_TEST = 1000  # compute and print det(cov) for regression tests if fewer than 1000 rows
+# compute and print det(cov) for regression tests if fewer than 1000 rows
+MAXROW_DETCOVDENSE_TEST = 1000   # for explicit dense cov
+MAXROW_DETCOVFAC_TEST   = 20000     # for factorized cov
 
 SOURCE_COV_MUDIF = "MUDIF"
 SOURCE_COV_FILE  = "FILE"
@@ -2471,7 +2473,7 @@ def detcov_test(path,cov):
 
     file_base      = os.path.basename(path)
     nrow           = cov.shape[0]
-    if nrow < MAXROW_DETCOV_TEST:
+    if nrow < MAXROW_DETCOVDENSE_TEST:
         (sgn, logcovdet)  = np.linalg.slogdet(cov)
         logging.info(f"    {file_base}: size={nrow}  " \
                      f"log|det(cov)| = {logcovdet:.1f}")
@@ -2488,12 +2490,12 @@ def detcov_factorized_test(path, diag_D, U):
     # still finds log|det(cov)|. Uses the matrix determinant lemma,
     #     det(D + U U^T) = det(D) * det(I_K + U^T D^-1 U),
     # so only a KxK matrix is factored (no NxN matrix is ever built).
-    # Same MAXROW_DETCOV_TEST cut as detcov_test so the stdout is the same
+    # Same MAXROW_DETCOVFAC_TEST cut as detcov_test so the stdout is the same
     # as it was for the dense covariance.
 
     file_base = os.path.basename(path)
     nrow      = len(diag_D)
-    if nrow < MAXROW_DETCOV_TEST:
+    if nrow < MAXROW_DETCOVFAC_TEST:
         D = np.asarray(diag_D, dtype=np.float64)
         U = np.asarray(U,      dtype=np.float64)
         K = U.shape[1]

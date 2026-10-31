@@ -48,6 +48,8 @@
 #
 # Jan 30 2026: To prepare for python 3.12, 
 #              replace a few .replace('/', '\/')   with  .replace(r'/', r'\/')
+#
+# Oct 30 2026: change default mem from 2GB -> 4GB
 # ===================================
 
 import os, sys, datetime, shutil, time, glob
@@ -72,7 +74,7 @@ RESULT_TASKS_FILE       = 'RESULTS_TASKS.DAT'
 RESULT_DIFF_FILE        = 'RESULTS_DIFF.DAT'
 SNANA_INFO_FILE         = 'SNANA.INFO'
 STOP_FILE               = f"{LOG_TOPDIR}/STOP"
-MEMORY                  = "2GB"  
+MEMORY                  = "4GB"  
 WALLTIME_MAX            = "02:00:00"    # 2 hr to allow queue delay
 
 # - - - - - -  - - - - - 

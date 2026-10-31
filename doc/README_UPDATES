@@ -24354,6 +24354,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     + lots NPZ table development 
     + construct header dictionary that both TEXT and NPZ format uses. 
 
+# =============================================================
+         v12_02f (Oct 30 2026) <--- start date of git tag
+
+         *****  IMPORTANT(v12_02f) *****
+
+         *****  USEFUL(v12_02f) *****
+   
+
+         *****  MISCELLANEOUS(v12_02f) *****
+
 END:
 
 

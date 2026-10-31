@@ -151,10 +151,12 @@ extern"C" {
   void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES);
 
   int  SNTABLE_READPREP_TEXT(void);
-  int  SNTABLE_READ_EXEC_TEXT(void);
+  int  SNTABLE_READ_EXEC_TEXT(int OPTMASK);
   void SNTABLE_CLOSE_TEXT(void) ;
 
   int validRowKey_TEXT(char *string) ;
+
+  void  store_read_comment_TEXT(char *comment);
 
   // misc. sntools functions
   void  readint(FILE *fp, int nint, int *list) ;
@@ -167,6 +169,7 @@ extern"C" {
   void  debugexit(char *string);
   void  snana_rewind(FILE *fp, char *FILENAME, int GZIPFLAG);
   void  snana_close(FILE *fp, char *FILENAME, int GZIPFLAG);
+
 #ifdef __cplusplus
 }
 #endif
@@ -710,9 +713,15 @@ void SNTABLE_WRITE_HEADER_TEXT(int ITAB) {
   }
 
   if ( REFAC ) {
+    char COLON[] = ":" ;
     TABLE_HEADER_DICT_DEF *HEADER_DICT = &SNTABLE_CREATE_INFO.HEADER_DICT[ITAB];
     for(j_item=0; j_item < HEADER_DICT->N_ITEM; j_item++ ) {
-      snprintf(KEY, sizeof(KEY), "%s:", HEADER_DICT->KEY_STRING[j_item]); // was sprintf into KEY[60]
+
+      snprintf(KEY, sizeof(KEY), "%s", HEADER_DICT->KEY_STRING[j_item]);
+
+      // append colon unless it's already there
+      if ( strstr(KEY,COLON) == NULL ) { strcat(KEY,COLON); }
+
       VAL = HEADER_DICT->VAL_STRING[j_item] ;
       if ( VAL == NULL ) { VAL = (char*)"" ; }
       if (strlen(KEY) > 1 ) 
@@ -1210,25 +1219,24 @@ int  SNTABLE_READPREP_TEXT(void) {
   READTABLE_POINTERS.NVAR_TOT = NVAR ;
 
   // close file and re-open because rewind does not work on gzipped files 
-
-  // xxx mark delete 7.03.2026  fclose(PTRFILE_TEXT);
-  // xxx mark dele  PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, 0, &GZIPFLAG, fnam);
-
   snana_close(PTRFILE_TEXT, FILENAME_TEXT, GZIPFLAG_TEXT);
   PTRFILE_TEXT = open_TEXTgz(FILENAME_TEXT, TEXTMODE_rt, 0, &GZIPFLAG_TEXT, fnam);
 
   free(VARLIST);
-  return NVAR;
+  return NVAR ;
 
 } // end of SNTABLE_READPREP_TEXT
 
 // ==============================================
-int SNTABLE_READ_EXEC_TEXT(void) {
+int SNTABLE_READ_EXEC_TEXT(int OPTMASK) {
 
   // Oct 2014:  
   // Execute ascii read over all rows and fill
   // pointers passed previously to SNTABLE_READPREP_VARDEF.
   // Functions returns number of rows read. 
+  //
+  // Input OPTMASK:
+  //    += 1 -> read and store header comments
   //
   // July 29 2016: abort on NVAR key with different value.
   // Dec  20 2017: use fgets to reduce read-time 
@@ -1236,12 +1244,14 @@ int SNTABLE_READ_EXEC_TEXT(void) {
   // Sep  07 2021: abort if ivar < NVAR_TOT 
   //    (e.g., if split jobs with different NVAR are merged)
   //
-  // Jul 3 2026: print Close file comment
+  // Jul  3 2026: print Close file comment
+  // Oct 30 2026: add OPTMASK arg.
 
+  bool STORE_TABLECOMMENT = (OPTMASK & 1) > 0 ;
   int NROW = 0 ;
   int i, ivar, isn, ICAST, nptr ;
 
-  char ctmp[MXCHAR_FILENAME], LINE[MXCHAR_LINE], *ptrtok, cvar[300];
+  char ctmp[MXCHAR_FILENAME], LINE[MXCHAR_LINE], tmpLINE[MXCHAR_LINE], *ptrtok, cvar[300];
   char KEYNAME_ID[80];
   long double DVAR[MXVAR_TABLE];
   char        CVAR[MXVAR_TABLE][60];
@@ -1253,21 +1263,23 @@ int SNTABLE_READ_EXEC_TEXT(void) {
 
   // ------------ BEGIN -----------    
 
-  /* xxx mark
-  FILE *fp_null = NULL;
-  printf(" xxx %s: receive PTRFILE_TEXT = %p   (fp_null=%p)\n", 
-	 fnam, (void*)PTRFILE_TEXT, (void*)fp_null ); fflush(stdout);
-  xxxxxxx */
-
   // get key name of ID varname such as CID, GALID, etc.
   sprintf(KEYNAME_ID,"%s", READTABLE_POINTERS.VARNAME[0] ); 
+
+  if ( STORE_TABLECOMMENT ) 
+    { READTABLE_POINTERS.NLINE_TABLECOMMENT = 0 ; }
 
   while ( fgets(LINE, MXCHAR_LINE, FP ) != NULL ) {
 
     // check first word in the line
-    ptrtok = strtok(LINE, " ");
+    sprintf(tmpLINE, "%s", LINE);
+    ptrtok = strtok(tmpLINE, " ");
     sprintf(ctmp, "%s", ptrtok);
-    if ( ctmp[0] == '#' ) { continue ; }  // skip comment lines
+
+    if ( ctmp[0] == '#' ) { 
+      if ( NROW == 0 && STORE_TABLECOMMENT ) { store_read_comment_TEXT(LINE); }
+      continue ;   // skip comment lines
+    }  
 
     if ( !validRowKey_TEXT(ctmp)  ) { continue ; }
 
@@ -1395,6 +1407,24 @@ void SNTABLE_CLOSE_TEXT(void) {
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
   USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT]     = 0;
 } 
+
+void store_read_comment_TEXT(char *comment) {
+
+  // Created Oct 30 2026
+  // store header comments reading table, and note that *comment incudes hash.
+  // in case these comments need be preserved elsewhere such as
+  // merged table file.
+
+  int NLINE = READTABLE_POINTERS.NLINE_TABLECOMMENT;
+  int MEMC  = (strlen(comment)+1) * sizeof(char);
+  char fnam[] = "store_read_comment_TEXT" ;  (void)fnam;
+  
+  READTABLE_POINTERS.TABLECOMMENT[NLINE] = (char*)malloc(MEMC);
+  sprintf(READTABLE_POINTERS.TABLECOMMENT[NLINE],"%s", comment);
+  READTABLE_POINTERS.NLINE_TABLECOMMENT++ ;
+
+  return;
+} // end store_read_comment_TEXT
 
 // =========================================
 int validRowKey_TEXT(char *string) {

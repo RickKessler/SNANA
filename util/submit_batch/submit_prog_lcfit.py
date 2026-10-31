@@ -104,15 +104,13 @@ LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 # - - - - - 
 # define output table-format info
 ITABLE_TEXT  = 0
-#xxx mark delete ITABLE_HBOOK = 1
 ITABLE_ROOT  = 1
-ITABLE_NPZ   = 2  # for new SYST table format from BayeSN
+ITABLE_NPZ   = 2  # Oct 2026
 TABLE_NAME_LIST    = [ SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF, SUFFIX_SYST ] # for TEXT format only
 
 FORMAT_TEXT  = 'TEXT'
-# xxx mark delete FORMAT_HBOOK = 'HBOOK'
 FORMAT_ROOT  = 'ROOT'
-FORMAT_NPZ   = 'NPZ'
+FORMAT_NPZ   = 'NPZ'  # Oct 2026
 
 # these globals will be updated in prep_subclass
 TABLE_INPKEY_LIST  = []   # input key per format
@@ -126,7 +124,7 @@ KEY_SUBCLASS_DICT = {
         LCFIT_SALT3  : None
     },
 
-    'jobsplit' :  {   # used to internal select independent subsets
+    'jobsplit' :  {   # used to internally select independent subsets
         LCFIT_SNANA  : 'JOBSPLIT',
         LCFIT_BAYESN : '--jobsplit',
         LCFIT_SALT3  : None
@@ -144,6 +142,7 @@ KEY_SUBCLASS_DICT = {
         LCFIT_BAYESN : '--outfile_prefix',
         LCFIT_SALT3  : None
     },
+
     'outfile_root' :  {
         LCFIT_SNANA  : 'ROOTFILE_OUT',
         LCFIT_BAYESN : None,
@@ -1783,8 +1782,7 @@ class LightCurveFit(Program):
         # to separate set of files, so here each table name is processed
         # separately. Usually only the FITRES table is requested, but 
         # sometimes other tables are included.
-        # ROOT don't have this issue because all tables
-        # reside in one file.
+        # CERN ROOT doesn't have this issue because all tables reside in one file.
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
@@ -1834,7 +1832,6 @@ class LightCurveFit(Program):
             cmd_all = f"{cmd_cat} ; {cmd_awk}"
             os.system(f"{cddir} ; {cmd_all}")
             util.print_elapse_time(tref,f"merge {n_job_split} table files")
-
 
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         util.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
@@ -2033,7 +2030,7 @@ class LightCurveFit(Program):
 
         Cprogram_path  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_BIN, Cprogram_SNTABLE_DUMP)
         found_Cprogram = util.program_exists(Cprogram_path, TMAX_EXE_WAIT_ABORT, True) 
-        
+
         istat = os.system(f"{cddir} ; {cmd_append} ")
         util.print_elapse_time(tref,SCRIPT_SNTABLE_DUMP)
 

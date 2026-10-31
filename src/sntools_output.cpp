@@ -647,6 +647,11 @@ void APPEND_TABLEFILE_HEADER(int IDTABLE, const char *KEY_STRING, char *VAL_STRI
 void append_tablefile_header__(int *IDTABLE, char *KEY_STRING, char *VAL_STRING, char *callFun) 
 { APPEND_TABLEFILE_HEADER(*IDTABLE, KEY_STRING,VAL_STRING, callFun); }
 
+
+void APPEND_READ_TABLECOMMENTS(void) {
+
+} 
+
 // =============================================================
 void STORE_TABLEFILE_COMMENT(char *comment) {
 
@@ -701,10 +706,13 @@ void SNTABLE_CREATE(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FORMAT) 
   sprintf(SNTABLE_CREATE_INFO.PGNAME[ITAB],"%s", PGNAME);
 
   // set default header elements to be stored at top of file
-  APPEND_TABLEFILE_HEADER(IDTABLE, "SNANA_VERSION", SNANA_VERSION, fnam); 
-  APPEND_TABLEFILE_HEADER(IDTABLE, "PROGRAM_NAME",  PGNAME, fnam); 
-  APPEND_TABLEFILE_HEADER(IDTABLE, "TABLE_NAME",    TBNAME, fnam); 
-
+  bool WRITE_HEADER = true;
+  if ( strstr(PGNAME,"combine") != NULL  ) { WRITE_HEADER = false; } // avoid combine_fitres
+  if ( WRITE_HEADER ) {
+    APPEND_TABLEFILE_HEADER(IDTABLE, "SNANA_VERSION", SNANA_VERSION, fnam); 
+    APPEND_TABLEFILE_HEADER(IDTABLE, "PROGRAM_NAME",  PGNAME, fnam); 
+    APPEND_TABLEFILE_HEADER(IDTABLE, "TABLE_NAME",    TBNAME, fnam); 
+  }
 
   NVAR_ADDCOL_TOT = 0; // Mar 28 2016
 
@@ -1653,12 +1661,17 @@ int  get_ICAST_READTBLE_POINTER(char *varName) {
 } // end get_ICAST_READTBLE_POINTER
 
 // ============================================
-int SNTABLE_READ_EXEC(void) {
+int SNTABLE_READ_EXEC(int OPTMASK) {
 
   // Oct 2014: 
   // execute table-read and fill arrays defined by
   // previous calls to SNTABLE_READPREP_VARDEF.
   // Function returns number of table rows read.
+  //
+  // input OPTMASK:
+  //     +=1  -> read & store header values along with table
+  //
+  // Oct 30 2026: add OPTMASK arg
 
   int IFILETYPE = READTABLE_POINTERS.IFILETYPE ;
   int NROW ;
@@ -1676,10 +1689,17 @@ int SNTABLE_READ_EXEC(void) {
 
 #ifdef USE_TEXT
   if ( IFILETYPE == IFILETYPE_TEXT ) {
-    NROW = SNTABLE_READ_EXEC_TEXT();
+    NROW = SNTABLE_READ_EXEC_TEXT(OPTMASK);
   }
 #endif
   
+#ifdef USE_NPZ
+  if ( IFILETYPE == IFILETYPE_TEXT ) {
+    //     NROW = SNTABLE_READ_EXEC_NPZ(OPTMASK); // need to create this function
+  }
+
+#endif
+
   // sanity check
   if ( NROW == -777 ) {
     sprintf(MSGERR1,"Unknown file type -> cannot exec table-read for");
@@ -1898,7 +1918,7 @@ int SNTABLE_DUMP_VALUES(char *FILENAME, char *TABLENAME,
 
 
   // do the read & write
-  NREAD = SNTABLE_READ_EXEC();
+  NREAD = SNTABLE_READ_EXEC(0);
 
   // close file that was read.
   TABLEFILE_CLOSE(FILENAME);
@@ -2299,7 +2319,7 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
 
 
   // read table and store values.
-  NROW = SNTABLE_READ_EXEC();
+  NROW = SNTABLE_READ_EXEC(0);
   SNTABLE_AUTOSTORE[NF].NROW = NROW ;
 
   // init LASTREAD quantities

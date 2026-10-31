@@ -31,6 +31,10 @@
 #   + Used program_exists to ensure exectuable exists.
 #
 # Sep 24 2026:  allow comma-sep or space sep varlist
+# Oct 30 2026: 
+#   +  add new arg --snana_dir to use private Cprog_dump and Cprog_combine
+#   +  append header comments before VARNAMES instead of at top of file.
+#
 # ===================
 
 import os, sys, argparse, yaml, datetime 
@@ -59,9 +63,13 @@ TABLE_NAME_MAP_ROOT  = {
 OUTFILE_PREFIX = "sntable_dump"
 OUTFILE_SUFFIX = "fitres"
 
-SNANA_DIR = os.getenv('SNANA_DIR')
-Cprogram_dump    = f"{SNANA_DIR}/bin/sntable_dump.exe"
-Cprogram_combine = f"{SNANA_DIR}/bin/combine_fitres.exe"
+SNANA_DIR_DEFAULT        = os.getenv('SNANA_DIR')
+Cprog_dump_base       = f"sntable_dump.exe"
+Cprog_combine_base    = f"combine_fitres.exe"
+
+Cprog_dump    = None
+Cprog_combine = None
+
 T_WAIT_MAX = 500.00 # Max time to wait for executable to exist
 
 # ===========
@@ -106,7 +114,15 @@ def get_args():
     msg = "Verbose mode"
     parser.add_argument("-V", "--VERBOSE", help=msg, action="store_true")
 
+    msg = f"SNANA_DIR for {Cprog_dump_base} and {Cprog_combine_base} " \
+          f"(default = $SNANA_DIR = {SNANA_DIR_DEFAULT})"
+    parser.add_argument("--snana_dir", help=msg, type=str, default=SNANA_DIR_DEFAULT)
+
     args = parser.parse_args()
+
+    global Cprog_dump, Cprog_combine
+    Cprog_dump    = f"{args.snana_dir}/bin/{Cprog_dump_base}"
+    Cprog_combine = f"{args.snana_dir}/bin/{Cprog_combine_base}"
 
     return args
     # end get_args
@@ -207,7 +223,7 @@ def make_command_sntable_dump(input_args,config):
     table_name   = config.table_name
     outfile      = config.outfile
 
-    command = f"{Cprogram_dump} {table_file} "
+    command = f"{Cprog_dump} {table_file} "
     
     if table_name is not None:
         command += f"{table_name} "
@@ -274,6 +290,7 @@ def program_exists(program_name, t_wait_max, abort_not_exists):
 def append_fitres(input_args,config):
 
     # combine args.append file with config.outfile
+    # Oct 30 2026: remove combine_arg=R
 
     input_table_file = input_args.input_table_file
     append_file      = input_args.append_file
@@ -284,41 +301,62 @@ def append_fitres(input_args,config):
     outfile_dump     = config.outfile
     table_name       = config.table_name
     Format           = config.Format
-    combine_arg      = Format[0]  # R for ROOT file
+    # xxx mark combine_arg      = ''  # Format[0]  # R for ROOT file
 
     tmp = append_file.split('.')
     outfile_prefix = f"sntable_append_{tmp[0]}"
     outfile        = f"{outfile_prefix}.text"
 
-    cmd = f"{Cprogram_combine} {append_file} {outfile_dump} {combine_arg} " \
+    cmd = f"{Cprog_combine} {append_file} {outfile_dump} " \
           f"-outprefix {outfile_prefix} " \
           f"t"   # <== write only text output; no ROOT 
 
-    # .xyz check that Cprogram_combine exists ...
-    program_exists(Cprogram_combine, T_WAIT_MAX, True)
+    # .check that Cprog_combine exists ...
+    program_exists(Cprog_combine, T_WAIT_MAX, True)
     
     os.system(cmd)
 
     if input_args.VERBOSE:
-        print(f" Finished {Cprogram_combine} with append mode.")
+        print(f" Finished {Cprog_combine} with append mode.")
         t0 = config.t0
         print_elapse_time(t0)
 
     # append comments at top of appended fitres file
     comment_list = []
-    comment_list.append(f"# Appended variables '{varlist}' ")
-    comment_list.append(f"# from {input_table_file}  (table {table_name})")
+    comment_list.append(f"# ")
+    comment_list.append(f"# APPEND_VARLIST:   {varlist} ")
+    comment_list.append(f"# APPEND_SOURCE:    {input_table_file} ")
+    comment_list.append(f"# APPEND_PROGRAM:   {Cprog_combine}")
     comment_list.append(f"# ")
 
-    comment_file = "tmp_comments_append.text"
-    with open(comment_file,"wt") as f:
-        for comment in comment_list:
-            f.write(f"{comment}\n")
-    
-    # catenate comments and append file
-    cmd_cat = f"cat {outfile} >> {comment_file} ; mv {comment_file} {outfile}"
-    os.system(cmd_cat)
+    sed_insert_text = ''
+    for i, comment in enumerate(comment_list):
+        if i == 0 :
+            sed_insert_text = f"i {comment} "
+        else:
+            sed_insert_text += f"\\n{comment} "
 
+    # Oct 30 2026: prepare unix sed command to insert comments before VARNAMES key
+    sed_insert_command = f"sed -i '/VARNAMES/{sed_insert_text}' {outfile}"
+
+    REFAC_INSERT_COMMENTS = True
+    if REFAC_INSERT_COMMENTS:
+        print(f"\n xxx sed_insert_command = \n{sed_insert_command}")
+        os.system(sed_insert_command)
+    else:
+        # xxxxxxxx mark delete Oct 30 2026 xxxxxxxx
+        # legacy comments that appear at the top of file
+        comment_file = "tmp_comments_append.text"
+        with open(comment_file,"wt") as f:
+            for comment in comment_list:
+                f.write(f"{comment}\n")
+    
+        # catenate comments and append file
+        cmd_cat = f"cat {outfile} >> {comment_file} ; mv {comment_file} {outfile}"
+        os.system(cmd_cat)
+        # xxxxxxxx end mark xxxxxxxx
+
+    # - - - - - - 
     if input_args.VERBOSE:
         print(f" Finished adding comments to top of appended file.")
         t0 = config.t0
@@ -339,6 +377,8 @@ if __name__ == "__main__":
     
     input_args   = get_args()
     config       = Namespace()
+
+    #sys.exit(f"\n xxx Cprog_dump = {Cprog_dump}")
 
     if input_args.VERBOSE :
         print(f"\n# =============== BEGIN =============== ")
@@ -375,7 +415,7 @@ if __name__ == "__main__":
         sys.stdout.flush()
 
     # .xyz check that Cprogram exists ...
-    program_exists(Cprogram_dump, T_WAIT_MAX, True)
+    program_exists(Cprog_dump, T_WAIT_MAX, True)
     
     istat = os.system(config.command)
 

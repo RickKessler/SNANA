@@ -1951,7 +1951,7 @@ void read_specTable_SNANA(char *spec_file, char *VARNAME_PREFIX) {
 
   // - - - - - -
   // read the entire table, and close it.
-  NBIN_READ = SNTABLE_READ_EXEC();  (void)NBIN_READ;
+  NBIN_READ = SNTABLE_READ_EXEC(0);  (void)NBIN_READ;
 
   HOSTSPEC.NBIN_WAVE =  NBIN_WAVE ;
 
@@ -5150,7 +5150,7 @@ void init_Gauss2d_Overlap(void) {
 
 
   // Read the Gauss2d table
-  HOSTLIB.NGauss2d = SNTABLE_READ_EXEC();
+  HOSTLIB.NGauss2d = SNTABLE_READ_EXEC(0);
 
   // decode binning for easy lookup
   rmin = 1.0E9; rmax = -1.0E9 ; rlast = -999. ;  rbin = 0.0 ;

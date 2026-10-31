@@ -1473,7 +1473,7 @@
          snlc_cutvar(NCUTBIT_SNLC)  & 
         ,snep_cutvar(CUTBIT_MJD_MARKER:NCUTBIT,MXEPOCH)  & 
         ,cutwin_var(2,NCUTBIT)  & 
-        ,cutwin_cid(2)            &  ! candidate id
+        ,cutwin_cid(2)            &  ! I: select integer window on CIDs
         ,cutwin_sntype(2)         &  !
         ,cutwin_redshift(2)       &  ! I: redshift cut
         ,cutwin_redshift_err(2)   &  ! I: cut on redshift uncertainty

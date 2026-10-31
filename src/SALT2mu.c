@@ -6895,7 +6895,7 @@ void read_data(void) {
     if ( INPUTS.cat_only ) 
       { NROW = NEVT[ifile]; SNTABLE_CLOSE_TEXT(); }
     else
-      { NROW = SNTABLE_READ_EXEC(); }    // read entire file; load arrays
+      { NROW = SNTABLE_READ_EXEC(0); }    // read entire file; load arrays
     TABLEVAR->NSN_ALL += NROW ;
 
     TABLEVAR->EVENT_RANGE[ifile][0] = ISTART ;
@@ -11781,7 +11781,7 @@ void  read_simFile_biasCor(void) {
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], 
 			      TABLEVAR);
 
-    NROW = SNTABLE_READ_EXEC(); // read entire file; load arrays
+    NROW = SNTABLE_READ_EXEC(0); // read entire file; load arrays
     TABLEVAR->NSN_ALL += NROW ;
 
     TABLEVAR->EVENT_RANGE[ifile][0] = ISTART ;
@@ -16978,7 +16978,7 @@ void  read_simFile_CCprior(void) {
     SNTABLE_READPREP_TABLEVAR(ifile, ISTART, NEVT[ifile], 
 			      &INFO_CCPRIOR.TABLEVAR);
 
-    NROW = SNTABLE_READ_EXEC();
+    NROW = SNTABLE_READ_EXEC(0);
 
     INFO_CCPRIOR.TABLEVAR.NSN_ALL += NROW ;
 

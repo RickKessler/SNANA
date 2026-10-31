@@ -111,6 +111,7 @@ typedef struct {
   int N_ITEM;
   char *KEY_STRING[MXKEY_TABLE_HEADER]; // malloc as needed
   char *VAL_STRING[MXKEY_TABLE_HEADER]; // idem
+  // xxx ???  int   PREPEND_READ ; 
 } TABLE_HEADER_DICT_DEF ;
 
 struct {
@@ -143,8 +144,13 @@ char ADDCOL_VARLIST_LAST[MXCHAR_VARLIST];
 // Oct 14 2014: define struct for storing pointers to read table
 struct READTABLE_POINTERS {
 
-  int   IFILETYPE ;      // store file type (HBOOK,ROOT, TEXT ...)
+  int   IFILETYPE ;      // store file type (HBOOK, ROOT, TEXT ...)
   char  TABLENAME[100];  // store name of table to read
+
+  // Oct 30 2026: keep track of comment lines in case they need to be
+  //   dumped into a merged or combined table file
+  int   NLINE_TABLECOMMENT; // number of comment lines read before VARNAMES key
+  char *TABLECOMMENT[MXLINE_TABLECOMMENT];
 
   // table-header info
   int    NVAR_TOT ; // total number of  variables
@@ -419,6 +425,8 @@ extern"C" {
   void APPEND_TABLEFILE_HEADER(int IDTABLE, const char *KEY_STRING, char *VAL_STRING, char *callFun);
   void append_tablefile_header__(int *IDTABLE, char *KEY_STRING, char *VAL_STRING, char *callFun);
 
+  void APPEND_READ_TABLECOMMENTS(void); 
+  
   int  get_TABLEFILE_TYPE(char *FILENAME) ;
 
   void TABLEFILE_noFile_ABORT(char *FUNNAME, char *FILENAME) ;
@@ -496,7 +504,7 @@ extern"C" {
     
   int sntable_readprep_vardef1(char *VARNAME_withCast, void *ptr, 
 			       int mxlen, int vboseflag, char *varName_noCast);
-  int SNTABLE_READ_EXEC(void);
+  int SNTABLE_READ_EXEC(int OPTMASK);
 
   int  IVAR_READTABLE_POINTER(char *varName) ;
   void load_READTABLE_POINTER(int IROW, int IVAR, double DVAL, char *CVAL) ;

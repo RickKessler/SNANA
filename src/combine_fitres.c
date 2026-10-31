@@ -186,7 +186,6 @@ int NWRITE_SNTABLE ;
 #define  TABLENAME_COMBINE TABLENAME_FITRES
 
 #define MATCHFLAG_ORIG       1 // original slow CID-matching
-//#define MATCHFLAG_HASH_LOCAL 3 // use hash table recommended by Sam
 #define MATCHFLAG_HASH_UTIL  5 // generical utility in sntools (Jun 2021)
 
 // inputs
@@ -658,15 +657,6 @@ void INIT_TABLEVAR(void) {
 // ==============================
 void ADD_FITRES(int ifile) {
 
-  // Jan 2011: set CTAG[1] =  VARNAMES_FITRES[0] so that either
-  //           CID or LIBID can be the first element.
-  //
-  // Dec 21, 2013: avoid too-small LEN_APPROX on 2nd file
-  // Oct 27, 2014: use refactored SNTABLE_XXX functions.
-  //               Beware that READTABLE_POINTERS uses C-like index from 0.
-  //
-  // Dec 1 2017: 
-  //   + use new function SNTABLE_NEVT_APPROX_TEXT to check for .gz file.
   //
   // May 2 2019: 
   //   + remove redundant call to TABLEFILE_CLOSE
@@ -678,7 +668,7 @@ void ADD_FITRES(int ifile) {
   
  
   int  ivar, ivarstr, j, isn, isn2, NMATCH2, isys ;
-  int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST ;
+  int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST, OPTMASK ;
   int  index=-9; (void)index;
   int REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
   char FFILE[2*MXPATHLEN];
@@ -845,7 +835,9 @@ void ADD_FITRES(int ifile) {
   } // end of ivar loop
 
   // read everything and close file.
-  NLIST = SNTABLE_READ_EXEC();
+  
+  if(ifile == 0 ) { OPTMASK=1; } else { OPTMASK=0; }
+  NLIST = SNTABLE_READ_EXEC(OPTMASK);
   NEVT_READ[ifile] = NLIST;
 
   if ( INPUTS.DO_ROWMATCH  ) { relabel_rownum(ifile); }
@@ -1523,11 +1515,40 @@ void  ADD_SNTABLE_COMMENTS(void) {
 
   // Call STORE_TABLEFILE_COMMENT(comment)
   // May 2 2019: [120] -> [MXPATHLEN]
-
-  int ifile ;
-  char comment[MXPATHLEN];
-
+  //
+  // Oct 30 2026: break each comment read from first file into
+  //              KEY and STRING and update HEADER dictionary for output.
+  
+  int  NLINE = READTABLE_POINTERS.NLINE_TABLECOMMENT;
+  int  iline, NWD, iwd ;
+  char *ptr_comment, KEY_STRING[60], VAL_STRING[MXPATHLEN], wd[MXPATHLEN] ;
+  char fnam[] = "ADD_SNTABLE_COMMENTS" ;  (void)fnam;
   // ------------ BEGIN ------------
+
+  for(iline=0; iline < NLINE; iline++ ) {
+    ptr_comment = READTABLE_POINTERS.TABLECOMMENT[iline];
+    printf(" xxx %s  %d : %s \n", fnam, iline, ptr_comment);
+
+    NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, ptr_comment, fnam);
+    
+    if ( NWD < 3 ) {
+      APPEND_TABLEFILE_HEADER(TABLEID_COMBINE, "", "", fnam);
+    }
+    else {
+      iwd = 1;
+      get_PARSE_WORD(0, iwd, KEY_STRING, fnam );
+      VAL_STRING[0] = 0;
+      for(iwd=2; iwd < NWD; iwd++ ) {
+	get_PARSE_WORD(0, iwd, wd, fnam );
+	catVarList_with_sep(VAL_STRING, wd, " ");
+      }
+      APPEND_TABLEFILE_HEADER(TABLEID_COMBINE, KEY_STRING, VAL_STRING, fnam);
+    }
+
+    fflush(stdout);
+  }
+
+  /* xxxxxxxx mark del Oct 30 2026 xxxxxxxxx
   sprintf(comment,"Created by combine_fitres.exe");
   STORE_TABLEFILE_COMMENT(comment) ;
 
@@ -1538,6 +1559,7 @@ void  ADD_SNTABLE_COMMENTS(void) {
     sprintf(comment,"   + %s", INPUTS.FFILE[ifile] );
     STORE_TABLEFILE_COMMENT(comment) ;
   }
+  xxxxxxxxxx end mark xxxxxxxxx */
 
   return;
 

@@ -1567,7 +1567,7 @@ void read_HD(int index_HD, char *inFile, HD_DEF *HD) {
 
   // - - - - - - - - - 
   // read table ; note that HD.NSN_ORIG = NROW
-  HD->NSN_ORIG = SNTABLE_READ_EXEC();
+  HD->NSN_ORIG = SNTABLE_READ_EXEC(0);
 
 
   // for MUDIF output from BBC, MU is actually MUDIF,

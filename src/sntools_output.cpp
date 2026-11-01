@@ -2259,14 +2259,10 @@ int SNTABLE_AUTOSTORE_INIT(char *fileName, char *tableName,
     strcat(varName_withCast,ctmp);
   }
 
-  // xxx mark  sprintf(varName_withCast,"ROW:C  CID:C  CCID:C  SNID:C  GALID:C HOSTGAL_OBJID:C");
+
   ivar = SNTABLE_READPREP_VARDEF(varName_withCast, 
 				 SNTABLE_AUTOSTORE[NF].CCID, NROW, 1);
 
-  /* xxxxxx mark delete xxxx
-  printf(" xxx %s: ivar=%d  for '%s'\n", fnam, ivar, varName_withCast);
-  debugexit(fnam); // xxx REMOVE
-  xxxxx  */
 
   if ( ivar < 0 ) {
     sprintf(MSGERR1,"Could not find required '%s'", varName_withCast);
@@ -2371,13 +2367,6 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
     // setup CCID for each row
     FMEMTOT += malloc_strlist(+1, NROW, MXCHAR_CCID, &SNTABLE_AUTOSTORE[IFILE].CCID );
 
-    /* xxx mark del Aug 26 2026 xxxxx
-    SNTABLE_AUTOSTORE[IFILE].CCID    = (char**)malloc( NROW*sizeof(char*) );
-    for(i=0; i < NROW; i++ ) { 
-      SNTABLE_AUTOSTORE[IFILE].CCID[i] =  (char*)malloc(MEMC*MXCHAR_CCID);  
-    }
-    xxxxxxxxx end mark xxxxxx */
-
     // set up char pointer for each variable (but not over rows)
     SNTABLE_AUTOSTORE[IFILE].CVAL  = (char***)malloc( NVAR_USR*sizeof(char**));
 
@@ -2387,16 +2376,7 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
   }
 
   else if ( OPT == ICAST_C) {
-
-    FMEMTOT += malloc_strlist(+1, NROW, MXCHAR_CCID, &SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR] );
-
-    /* xxx mark del Aug 26 2026 xxxxxx
-    SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR] = (char**)malloc(NROW*sizeof(char*)); 
-    for(i=0; i < NROW; i++ )  { 
-      SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR][i] = (char*)malloc(MEMC*MXCHAR_CCID);
-    }
-    xxxxxxxxx end mark xxxxxxx */
-    
+    FMEMTOT += malloc_strlist(+1, NROW, MXCHAR_CCID, &SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR] );    
   }
   else if ( OPT == ICAST_D ) {
     SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR] = (double*)malloc(NROW*MEMD); 
@@ -2405,10 +2385,6 @@ void  SNTABLE_AUTOSTORE_malloc(int OPT, int IFILE, int IVAR) {
   else if ( OPT == -ICAST_C ) {
 
     FMEMTOT = malloc_strlist(-11, NROW, MXCHAR_CCID, &SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR] );
-    /* xxx mark del Aug 26 2026 xxxxx
-    for(i=0; i<NROW; i++ ) { free(SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR][i]); }
-    free(SNTABLE_AUTOSTORE[IFILE].CVAL[IVAR]);
-    xxxxxxx */
   }
   else if ( OPT == -ICAST_D ) {
     free( SNTABLE_AUTOSTORE[IFILE].DVAL[IVAR] );
@@ -2510,8 +2486,6 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST, int *IFILE) {
   bool PRINT_LIST = ( strcmp(varName,"LIST") == 0 ) ;
   // ------- BEGIN ---------
 
-  // xxx mark PRINT_LIST = true; // xxx REMOVE
-
   *ICAST = *IFILE = -9;
 
   ifile = ivar_tot = 0;
@@ -2530,7 +2504,6 @@ int IVAR_VARNAME_AUTOSTORE(char *varName, int *ICAST, int *IFILE) {
       }
       if ( strcmp(varName_autostore,varName)==0 ) {
 	if ( EXIST ) { return(ivar) ; }
-	// xxx mark delete Sep 3 2026  if ( EXIST ) { return(ivar_tot) ; }
       }
       ivar_tot++ ;
     }
@@ -2667,8 +2640,6 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   int NROW_MATCH = 0;  
   int IVAR_READ, IFILE_READ, irow ;
   int NROW_TOT, ICAST, *PTR_IROW_SEARCH_AUTOSTORE,  IROW_SEARCH[2], IROW_MATCH[2] ;
-  // xxx mark int i, ivar, NVAR_USR;
-  // xxx mark char *tmpVar
   bool REQUIRE_FULLMATCH = true;
   int  LDMP = 0; // ( strstr(VARNAME,"MAGCOR") != NULL  && strcmp(CCID,"1341390-62472.348-Z")==0 );
   char fnam[] = "SNTABLE_AUTOSTORE_READ" ;
@@ -2681,19 +2652,6 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   *ISTAT = -1 ;       // default is that CCID is not found.
   IROW_MATCH[0] = IROW_MATCH[1] = -9 ;
   NREAD_AUTOSTORE++ ;
-
-  /* xxxx mark delete Sep 10 2026 xxxxxxxxxxxx
-  // search file and variable indices
-  IVAR_READ = IFILE_READ = -9 ;
-  for(i=0; i < NFILE_AUTOSTORE; i++ ) {
-    NVAR_USR = SNTABLE_AUTOSTORE[i].NVAR ;
-    for(ivar=0; ivar < NVAR_USR; ivar++ ) {
-      tmpVar = SNTABLE_AUTOSTORE[i].VARNAME[ivar] ;
-      if ( strcmp(tmpVar,VARNAME) == 0 ) 
-	{ IVAR_READ = ivar ; IFILE_READ = i ;  goto FIND_CCID; }   
-    }
-  }
-  xxxxxxxxx end mark xxxxxxx*/
 
 
   fetch_autostore_indices(VARNAME, &IFILE_READ, &IVAR_READ );
@@ -2756,25 +2714,6 @@ int SNTABLE_AUTOSTORE_READ(char *CCID, char *VARNAME, int *ISTAT,
   }
   get_autostore_irow(IFILE_READ, CCID, REQUIRE_FULLMATCH, IROW_SEARCH, IROW_MATCH);
 
-
-  /* xxx mark del Sep 10 2026 xxxxxxxx
-  // do slow loop over each row and do CCID string match each row.
-  char *tmpCCID;
-  for(irow=0; irow < NROW_TOT; irow++ ) {
-    tmpCCID = SNTABLE_AUTOSTORE[IFILE_READ].CCID[irow] ;
-    if ( tmpCCID[0]      != CCID[0]      ) { continue ; } // quick check first char
-    if ( strlen(tmpCCID) != strlen(CCID) ) { continue ; }
-    if ( strcmp(tmpCCID,CCID) == 0 )  {
-      if ( IROW_MATCH[0] < 0 ) { IROW_MATCH[0] = irow; } // first row
-      IROW_MATCH[1] = irow ;                       // last row
-      //goto SET_OUTVAL ; 
-    }
-    else if ( IROW_MATCH[0] >= 0 ) {
-      break; // if IROW is set and no CID match, then stop looking
-    }
-  }
-  xxxxxxxx end mark xxxxxxx */
-
   if ( IROW_MATCH[0] < 0 ) { return 0; } // could not find CCID
 
  SET_OUTVAL:
@@ -2836,7 +2775,6 @@ void get_autostore_irow(int IFILE, char *CCID, bool REQUIRE_FULLMATCH,
     else {
       // partial match to first n chars where n = strlen(CCID)
       MATCH = ( strncmp(tmpCCID, CCID, strlen(CCID) ) == 0 );
-      // xxx mark strstr(tmpCCID,CCID); // partial match
     }
 
     if ( MATCH )  {

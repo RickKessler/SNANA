@@ -71,14 +71,6 @@ char VARDEF_SNLC[MXEPVAR_TEXT][80] ; // short definition
 
 // structure for writing table.
 struct TABLEINFO_TEXT {
-
-  /* xxxxx mark del 10.29.2026 xxxxxxxx
-  int    NTABLE ;
-  int    IDTABLE[MXTABLE_TEXT] ;
-  char   TBNAME[MXTABLE_TEXT][40] ;  // table name
-  char   PGNAME[MXTABLE_TEXT][300] ; // program name
-  xxxxx end mark xxxxxx */
-
   FILE  *FP[MXTABLE_TEXT] ;
   char   FILENAME[MXTABLE_TEXT][MXCHAR_FILENAME] ;
   char   FORMAT[MXTABLE_TEXT][12] ;
@@ -207,8 +199,6 @@ void INIT_TEXTFILES(char *PREFIX) {
   }
 
   sprintf(FILEPREFIX_TEXT, "%s", PREFIX);
-
-  // xxx mark   TABLEINFO_TEXT.NTABLE = 0 ;
   
   NVAR_LCPLOT = NVAR_LCPLOT_REQ = NVAR_SPECPLOT = 0 ; // for LCPLOT
 
@@ -249,10 +239,6 @@ void SNTABLE_CREATE_TEXT(int IDTABLE, char *TBNAME, char *PGNAME, char *TEXT_FOR
 
   // --------- BEGIN ---------
 
-  /* xxxx mark delete 
-  NTAB = TABLEINFO_TEXT.NTABLE ;
-  TABLEINFO_TEXT.NTABLE++ ;
-  xxxx end mark xxx */
 
   ITAB = get_ITABLE_SPARSE(IDTABLE, fnam, 0 ); // sparse index
 
@@ -349,10 +335,6 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
 
 
   // find sparse index ITAB for this IDTABLE
-  /* xxxxxxx mark  delete
-     ITAB= get_ITABLE_SPARSE(IDTABLE, TABLEINFO_TEXT.NTABLE, TABLEINFO_TEXT.IDTABLE,fnam,0);
-     TBNAME = TABLEINFO_TEXT.TBNAME[ITAB] ;
-  xxxxxxx end mark */
 
   ITAB = get_ITABLE_SPARSE(IDTABLE, fnam, 0 );
   TBNAME = SNTABLE_CREATE_INFO.TBNAME[ITAB];
@@ -422,37 +404,6 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
 
 } // end of SNTABLE_ADDCOL_TEXT
 
-
-/* xxxxxxxxxxxx mark delete Oct 27 2026 xxxxxxxxxx
-// =============================================
-int ITABLE_TEXT(int IDTABLE, char *FUNNAM, int OPT_ABORT ) {
-
-  // return sparse table index for IDTABLE
-  // On error, print calling function FUNNAM.
- 
-  int i, ITAB;
-  char fnam[] = "ITABLE_TEXT" ;
-
-  @@@@@@@@@2 OBSOLETE @@@@@@@@@@@@@@
-
-  ITAB = -9 ;
-  for(i=0; i < TABLEINFO_TEXT.NTABLE ; i++ ) {   
-    if ( IDTABLE == TABLEINFO_TEXT.IDTABLE[i] ) { ITAB = i ; }
-  }
-
-  if ( ITAB < 0 && OPT_ABORT > 0 ) {
-    sprintf(MSGERR1, "%s could not find text table with ", FUNNAM );
-    sprintf(MSGERR2, "IDTABLE = %d", IDTABLE ); 
-    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);    
-  }
-
-  @@@@@@@@@2 OBSOLETE @@@@@@@@@@@@@@
-
-  return ITAB ;
-
-} // end of ITABLE_TEXT
-
-xxxxxxxxxxx end mark xxxxxxxxxxxxxxx*/
 
 // ==================================================
 void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
@@ -537,7 +488,6 @@ void SNTABLE_FILL_TEXT(int IDTABLE) {
   // --------------------------------------------
   // find sparse index ITAB for this IDTABLE; abort if no table
   ITAB   = get_ITABLE_SPARSE(IDTABLE, fnam, 1 );
-  // xxx mark del ITAB = ITABLE_TEXT(IDTABLE,fnam,1); // abort if no table.
   
   FP         = TABLEINFO_TEXT.FP[ITAB]  ;
   NFILL      = TABLEINFO_TEXT.NFILL[ITAB];
@@ -874,7 +824,6 @@ void OPEN_TEXTFILE_LCLIST(char *PREFIX) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
-  //  PTRFILE_LCPLOT = fopen(lcplotFile,"wt");
   PTRFILE_LCPLOT = open_TEXTgz(lcplotFile,TEXTMODE_wt, 0, &GZIPFLAG, fnam );
   if ( !PTRFILE_LCPLOT ) {
     sprintf(MSGERR1, "Could not open ascii LCPLOT file = ");
@@ -1035,7 +984,6 @@ int SNTABLE_NEVT_TEXT(char *FILENAME) {
 
   if ( LENF > 0 )  { 
     snana_close(fp, FILENAME_TEXT, GZIPFLAG_TEXT);    
-    // xxx mark delete 7.03.2026 if ( GZIPFLAG ) { pclose(fp); }   else { fclose(fp); }
   }
   else {
     snana_rewind(fp, FILENAME_TEXT, GZIPFLAG_TEXT);
@@ -1134,7 +1082,6 @@ void SNTABLE_VARNAMES_TEXT(char *FILENAME, char *VARNAMES) {
 
  DONE:
   snana_close(fp, FILENAME, GZIPFLAG);
-  // xxx mark delete 7.03 2026   fclose(fp);
 
   return;
 
@@ -1377,17 +1324,6 @@ int SNTABLE_READ_EXEC_TEXT(int OPTMASK) {
 
   char *FILENAME = NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT];
   snana_close(FP, FILENAME, GZIPFLAG_TEXT);
-
-  /* xxxxxxxxxx mark delet 7.03.2026 xxxxxxxx
-  if ( GZIPFLAG_TEXT ) { 
-    printf("   Close gzipped text file \n"); fflush(stdout);
-    pclose(FP); 
-  }
-  else {
-    printf("   Close unzipped text file \n"); fflush(stdout);
-    fclose(FP); 
-  }
-  xxxxxxxxxx end mark xxxxxxxx*/
 
   // May 2 2019: reset flags to allow opening another file.
   NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT][0] = 0 ;
@@ -1673,7 +1609,6 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
     {  LINE[0] = 0 ;  }
 
   strcat(LINE,SNLCPAK_OUTPUT.CCID);
-
   
   sprintf(CVAL,"%s %.4f",  sep, SNLCPAK_OUTPUT.MJD[FLAG][obs] );
   strcat(LINE,CVAL);
@@ -1765,14 +1700,12 @@ void snlcpak_textLine(FILE *fp, int FLAG, int obs, int ifilt, int OUTFLAG) {
       FLUX_REST  = SNLCPAK_OUTPUT.EPDATA[flag][obs];
       sprintf(CVAL,"%s %.5le", sep, FLUX_REST);
       strcat(LINE,CVAL);
-      //      fprintf(fp," %.5le ", FLUX_REST);
     }
     else {
       // no info for fit-function
       FLUX_REST  = -999. ;
       sprintf(CVAL,"%s %.0f", sep, FLUX_REST);
       strcat(LINE,CVAL);
-      //      fprintf(fp," %.0f ", FLUX_REST);
     } 
   }  // NOBS_REST
 

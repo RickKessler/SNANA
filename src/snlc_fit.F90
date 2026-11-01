@@ -18828,6 +18828,7 @@
 !               to protect strings for ROOT.
 ! 
 ! Apr 18 2022: pass ID and IFLAG args
+! Nov 01 2026: call SNTABLE_CREATE_FORTRAN to clean up local string mess
 ! -----------------------------------------
 
     USE SNDATCOM
@@ -18838,35 +18839,23 @@
     INTEGER ID, IFLAG  ! (I)
 
 ! local var
+    CHARACTER TEXTFMT*20
 
-    INTEGER LENTB, LENPG, LENFMT
-    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20
-
-! ----------------- BEGIN ------------------------
+! ----------------- BEGIN TABLE_SNFIT ------------------------
 
     IF ( IFLAG == IFLAG_INI ) THEN
 
-       TBNAME   = 'FITRES' // char(0)
-       LENTB    = INDEX(TBNAME,   ' ') - 1
-
-       LENPG    = 12
-       PGNAME   = PROGRAM_NAME_SNFIT(1:LENPG) // char(0)
-
        TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_FITRES)
-       LENFMT   = INDEX(TEXTFMT,' ') - 1
-       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
-
-       CALL SNTABLE_CREATE(ID, TBNAME, PGNAME, TEXTFMT_forC, LENPG, LENPG, LENFMT)  ! C fun
-
+       CALL SNTABLE_CREATE_FORTRAN(ID, "FITRES", PROGRAM_NAME, TEXTFMT)
        CALL INIT_TABLE_SNANAVAR(ID, 'SNANA', 2)
        CALL INIT_TABLE_SNFITVAR(ID, 'SNFIT'   )
 
-!         optional epoch-dependent par
+       !  optional epoch-dependent par (root table only ... obsolete ???)
         IF ( OPT_TABLE(ITABLE_FITRES) .EQ. 2 ) THEN
            CALL INIT_TABLE_SNFITEP(ID, 'SNFITEP')
         ENDIF
 
-!       for sims ...
+        !  for sims ...
         IF ( LSIM_SNANA ) THEN
           CALL INIT_TABLE_SIMVAR(ID, 'SIMVAR')
         ENDIF

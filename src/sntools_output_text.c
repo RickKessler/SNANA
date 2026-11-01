@@ -409,7 +409,7 @@ void SNTABLE_ADDCOL_TEXT(int IDTABLE, void *PTRVAR,
 void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
 
   // return VALSTRING formatted according to the input value VAL
-  // Feb 5 2015: write .6f for RA and DEC
+  // Nov 2026: fix format for TOBS, TREST, and *FLUX*
 
   char c1[4];
   long long int IVAL8 ;
@@ -441,14 +441,23 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
     // probably a redshift
     sprintf(VALSTRING, "%.5f", VAL);    
   }
+
+  else if ( strcmp(VARNAME,"TOBS") == 0  || strcmp(VARNAME,"TREST") == 0  ) {
+    sprintf(VALSTRING, "%7.2f", VAL);  
+  }
+
+  else if ( strstr(VARNAME,"FLUX") != NULL ) {
+    sprintf(VALSTRING, "%11.4le", VAL);
+  }
+
   else if ( (VAL - IVAL8) == 0.0 ) {
     // it's really an integer
     sprintf(VALSTRING, "%lld", IVAL8);  
   }
-  else if ( VAL > 1.0E10 ) {
+  else if ( fabs(VAL) > 1.0E10 ) {
     sprintf(VALSTRING, "%.4le", VAL);  // Aug 2019
   }
-  else if ( VAL > 0.1 ) {
+  else if ( fabs(VAL) > 0.1 ) {
     sprintf(VALSTRING, "%.5f", VAL);  // .4f -> .5f Nov 10 2018
   }
   else {

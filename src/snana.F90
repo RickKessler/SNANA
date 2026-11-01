@@ -479,10 +479,9 @@
         ,AREAFRAC              & 
         ,ZP, NEA, PSF, SKYSIG  & 
         ,NSIG, LOGSNR, SBMAG   & 
-        ,zHD, TREST                 ! for LC FIT only
+        ,zHD, TOBS, TREST, CHI2            ! for LC FIT or PKMJDINI
 
-       INTEGER  IFILTOBS, DETNUM, PHOTFLAG, IXPIX, IYPIX
-
+       INTEGER  IFILTOBS, DETNUM, PHOTFLAG, IXPIX, IYPIX, FLAG, NUMFIT
        CHARACTER BAND*2, FIELD*(MXCHAR_FIELDNAME)
 
     END TYPE EPTABLEVAR_DEF
@@ -7145,8 +7144,9 @@
     write(6,40) 'FITRES', OPT_TABLE(ITAB), TEXTFORMAT_TABLE(ITAB)
 
     ITAB = ITABLE_LCPLOT
-    write(6,41) 'LCPLOT', MXLC_PLOT, TEXTFORMAT_TABLE(ITAB)
+    write(6,40) 'LCPLOT', OPT_TABLE(ITAB), TEXTFORMAT_TABLE(ITAB)
 
+    ! - - - 
     ITAB = ITABLE_SNLCPAK
     write(6,41) 'SNLCPAK', MXLC_PLOT, TEXTFORMAT_TABLE(ITAB)
 
@@ -7162,11 +7162,11 @@
     ITAB = ITABLE_PRIOR
     write(6,40) 'PRIOR', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
 
- 40   format(T5,A9,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
- 41   format(T5,A9,'-table: MXLC_PLOT=',I8, 3x, 'TEXTFORMAT=',A4 )
+40  format(T5,A9,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
+41  format(T5,A9,'-table: MXLC_PLOT=',I8, 3x, 'TEXTFORMAT=',A4 )
 
     write(6,51) 'SNANA', CUTMASK_SNANA_TABLE
-51    format(T5,A9,'-table: select CUTFLAG_SNANA & ', I3 )
+51  format(T5,A9,'-table: select CUTFLAG_SNANA & ', I3 )
 
     if ( WRTABLEFILE_HOST_TEXT ) then
        print*,'   Include best-match HOSTGAL info in TEXT tables.'
@@ -7829,6 +7829,10 @@
        else if ( MATCH_NMLKEY('REFAC_DATA_FLAG',  & 
                    1, iArg, ARGLIST) ) then
          READ(ARGLIST(1),*) REFAC_DATA_FLAG
+
+       else if ( MATCH_NMLKEY('REFAC_LCPLOT',  & 
+                   1, iArg, ARGLIST) ) then
+         READ(ARGLIST(1),*) REFAC_LCPLOT
 
 ! - - - - -
        else if ( MATCH_NMLKEY('REQUIRE_DOCANA',  & 
@@ -9857,9 +9861,9 @@
 
 
 #if defined(SNANA)
-! pack the meta data
-    IF ( REFAC_LCPLOT > 0 .and. OPT_TABLE(ITABLE_SNLCPAK) > 0  ) THEN
-      CALL SNLCPAK_PHOT()       ! prepare light curves for csv table/plotting
+    ! pack the meta data
+    IF ( REFAC_LCPLOT == 0 .and. OPT_TABLE(ITABLE_SNLCPAK) > 0  ) THEN
+      CALL SNLCPAK_PHOT()    ! LEGACY: prepare light curves for csv table/plotting
     ENDIF
 #endif
 
@@ -20919,7 +20923,6 @@
 ! Driver for monitor tables.
 ! May 2 2020: add call to TABLE_MARZ
 
-
     USE SNDATCOM
     USE SNLCINP_NML
 
@@ -20939,7 +20942,7 @@
     IF ( MADE_LCPLOT )  N_SNLC_PLOT = N_SNLC_PLOT + 1
 ! ------------------------------------------------------
 
-! fill OUTLIER table first so that SNANA table can include summary info
+    ! fill OUTLIER table first so that SNANA table can include summary info
     IF ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) THEN
        CALL TABLE_OUTLIER(IDTABLE_OUTLIER,IFLAG)
     ENDIF
@@ -20947,7 +20950,6 @@
     IF ( OPT_TABLE(ITABLE_SNANA) > 0 ) THEN
        CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)
     ENDIF
-
 
     IF ( MARZFILE_OUT .NE. '' ) THEN
        CALL TABLE_MARZ(IDTABLE_MARZ,IFLAG)
@@ -22304,7 +22306,7 @@
     LOGICAL FUNCTION DOPLOT_SNLC()
 
 ! Created Aug 30 2013
-! Returns T to make light curve plot for this SN.
+! Returns T to make light curve table for this SN.
 ! 
 ! ----------
 
@@ -22320,8 +22322,11 @@
 
     DOPLOT = .FALSE.
 
-    if ( REFAC_LCPLOT > 0 )               goto 888  ! Oct 2026
-    if ( OPT_TABLE(ITABLE_SNLCPAK) == 0 ) goto 888  ! Sep 8 2014
+    if ( REFAC_LCPLOT > 0 ) then
+       if ( OPT_TABLE(ITABLE_LCPLOT) == 0 ) goto 888 
+    else
+       if ( OPT_TABLE(ITABLE_SNLCPAK) == 0 ) goto 888   ! legacy
+    endif
 
     if ( N_SNLC_PLOT < MXLC_PLOT ) THEN
        DOPLOT = .TRUE.
@@ -22340,12 +22345,13 @@
         GOTO 888
       endif
 
-100   CONTINUE
+100 ENDDO
 
-888   CONTINUE
-    DOPLOT_SNLC = DOPLOT
 
-    RETURN
+888 CONTINUE
+   DOPLOT_SNLC = DOPLOT
+
+   RETURN
   END FUNCTION DOPLOT_SNLC
 
 ! =============================
@@ -22887,6 +22893,8 @@
     ! fortran wrapper to call C function SNTABLE_CREATE and deal with
     ! the string mess.
 
+    IMPLICIT NONE
+
     INTEGER   IDTABLE
     CHARACTER TBNAME*(*)
     CHARACTER PGNAME*(*)
@@ -22912,6 +22920,37 @@
 
   END SUBROUTINE SNTABLE_CREATE_FORTRAN
 
+  SUBROUTINE APPEND_TBFILE_HEAD_FORTRAN(IDTABLE, KEY_STRING, VAL_STRING, CALLFUN)
+
+    ! Created Nov 1 2026
+    ! Wrapper to call C function APPEND_TABLEFILE_HEADER and take care of string mess
+
+    IMPLICIT NONE
+
+    ! inputs
+    INTEGER IDTABLE
+    CHARACTER KEY_STRING*(*), VAL_STRING*(*), CALLFUN*(*)
+
+    ! local var
+    INTEGER   LENKEY, LENVAL, LENFUN
+    CHARACTER KEY_forC*40, VAL_forC*200, FUN_forC*60
+    EXTERNAL APPEND_TABLEFILE_HEADER
+    ! ---------- BEGIN ---------
+    LENKEY = INDEX(KEY_STRING//' ',' ') - 1
+    LENVAL = INDEX(VAL_STRING//' ',' ', BACK=.TRUE.) - 1
+    LENFUN = INDEX(CALLFUN//' ',' ') - 1
+
+    KEY_forC = KEY_STRING(1:LENKEY) // char(0)
+    VAL_forC = VAL_STRING(1:LENVAL) // char(0)
+    FUN_forC = CALLFUN(1:LENFUN)    // char(0)
+
+    ! call the C function
+    CALL APPEND_TABLEFILE_HEADER(IDTABLE, KEY_forC, VAL_forC, FUN_forC, &
+         LENKEY, LENVAL, LENFUN)
+
+    RETURN
+  END SUBROUTINE APPEND_TBFILE_HEAD_FORTRAN
+
 #if defined(SNANA)
 ! ===========================================
   SUBROUTINE TABLE_LCPLOT(IDTABLE,IFLAG)
@@ -22932,12 +22971,124 @@
     INTEGER IFLAG
     
     ! local args
+    CHARACTER TBNAME*20, TEXTFMT*20
+    LOGICAL   DO_FILL
+    INTEGER   NEWMJD, EPMIN, EPMAX, EP
+
+    ! functions
+    LOGICAL DOPLOT_SNLC
 
     ! ----------- BEGIN -----------
+
+    IF ( IFLAG .EQ. IFLAG_INI ) THEN
+       TBNAME        = 'LCPLOT'
+       TEXTFMT       = TEXTFORMAT_TABLE(ITABLE_LCPLOT)
+       CALL SNTABLE_CREATE_FORTRAN(IDTABLE, TBNAME, PROGRAM_NAME, TEXTFMT)
+       CALL INIT_TABLE_LCPLOTVAR(IDTABLE, TBNAME)
+       RETURN
+    ENDIF
+
+    ! - - - - - - -  -
+    DO_FILL = DOPLOT_SNLC()
+
+    IF ( DO_FILL ) THEN
+       
+       !  terminate strings for C table-functions (snana.F90 routine)
+       CALL TABLE_STRING_TERMINATION(+1)
+
+       DO 200 NEWMJD = 1, ISNLC_NEWMJD_STORE
+          EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
+          EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
+          DO 201 EP = EPMIN, EPMAX
+             if ( ISNLC_SNRECON_USE(ep) == 0 ) goto 201
+             CALL LOAD_EPTABLEVAR(ep)            
+             CALL SNTABLE_FILL(IDTABLE)  ! generic C function
+201       ENDDO
+200    ENDDO
+
+       CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
+    ENDIF
 
     RETURN
 
   END SUBROUTINE  TABLE_LCPLOT
+
+
+
+  ! ------------------------------------------------
+  SUBROUTINE INIT_TABLE_LCPLOTVAR(ID, BLOCK)
+    
+    USE SNDATCOM
+    USE SNANAFIT
+    USE OUTLIERCOM
+    USE EPTABLECOM
+
+    ! subroutins args
+    INTEGER   ID      ! (I)
+    CHARACTER BLOCK*(*)  ! (I)
+
+    ! local var
+    INTEGER LENBLOCK, LENLIST
+    CHARACTER varlist*100, CBLOCK*40
+    CHARACTER FNAM*22
+    EXTERNAL  & 
+          SNTABLE_ADDCOL  & 
+         ,SNTABLE_ADDCOL_int  & 
+         ,SNTABLE_ADDCOL_flt  & 
+         ,SNTABLE_ADDCOL_dbl  & 
+         ,SNTABLE_ADDCOL_str
+
+! ------------ BEGIN ----------
+
+    FNAM = 'INIT_TABLE_LCPLOTVAR'
+
+    write(6,10) BLOCK, ID
+10  format(T6,'Create BLOCK = ',A,'  for TABLE ID = ', I5 )
+    call flush(6)
+
+    LENBLOCK     = INDEX(BLOCK//' ',' ') - 1
+    CBLOCK       = BLOCK(1:LENBLOCK) // char(0)
+    LENLIST      = LEN(VARLIST)
+
+    !  for CCID, use special variable SNLC_CCID_forC that has char(0)
+    !  termination so that parsing CCID with C code is easier.
+
+    VARLIST = 'CCID:C*20' // char(0)
+    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,  & 
+                         LENBLOCK, 20 )
+
+    VARLIST = 'MJD:D' // char(0)
+    CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, EPTABLEVAR_OUTLIER%MJD, VARLIST, 1,  & 
+         LENBLOCK, 20 )
+
+    VARLIST = 'TOBS:F' // char(0)
+    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_OUTLIER%TOBS, VARLIST, 1,  & 
+         LENBLOCK, 20 )
+
+    VARLIST = 'BAND:C*1' // char(0)
+    CALL SNTABLE_ADDCOL_str(ID, CBLOCK, EPTABLEVAR_OUTLIER%BAND, VARLIST,1,  & 
+         LENBLOCK, 20 )
+
+    
+    if ( LSIM_SNANA ) then
+       VARLIST = 'SIM_FLUXCAL:F' // char(0)
+       CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_OUTLIER%FLUXCAL_TRUE, VARLIST,1,  & 
+            LENBLOCK, 20 )
+    endif
+
+    VARLIST = 'FLUXCAL:F' // char(0)
+    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_OUTLIER%FLUXCAL_DATA, VARLIST,1,  & 
+         LENBLOCK, 20 )
+
+    VARLIST = 'FLUXCAL_ERR:F' // char(0)
+    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_OUTLIER%FLUXCAL_ERR_DATA, VARLIST,1,  & 
+         LENBLOCK, 20 )
+
+    RETURN
+
+  END SUBROUTINE INIT_TABLE_LCPLOTVAR
+
+
 #endif
 
 ! ===========================================
@@ -22979,16 +23130,14 @@
 
     FNAM = 'TABLE_OUTLIER'
 
-! for snana job, must be sim from either SNANA or FAKE
+    ! for snana job, must be sim from either SNANA or FAKE
     IF ( ISJOB_SNANA .and. (.NOT. ISJOB_SIM)  ) THEN
-       c1err = 'Cannot make OUTLIER table for ' //  & 
-                 'real data using snana.exe.'
+       c1err = 'Cannot make OUTLIER table for real data using snana.exe.'
        c2err = 'Process SIM or FAKES; or run LC fit on real data'
        CALL MADABORT(FNAM, c1err, c2err)
     ENDIF
 
-! FIT outliers work on real data or sim, so error check not needed.
-
+    ! FIT outliers work on real data or sim, so error check not needed.
 
     IF ( IFLAG .EQ. IFLAG_INI ) THEN
 
@@ -23052,7 +23201,7 @@
          if ( LCUT_NSIG .and. LCUT_FTRUE .and. LCUT_SBMAG ) then
             NEP_OUTLIER_TOT    = NEP_OUTLIER_TOT    + 1
             NEP_OUTLIER_PEREVT = NEP_OUTLIER_PEREVT + 1
-            CALL LOAD_OUTLIER_VAR(ep)
+            CALL LOAD_EPTABLEVAR(ep)
             CALL SNTABLE_FILL(IDTABLE) ! generic C function
             CALL COUNT_OUTLIERS(2,ep)
          endif
@@ -23170,7 +23319,6 @@
 ! =============================
   SUBROUTINE INIT_TABLE_OUTLIERVAR(ID, BLOCK)
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE OUTLIERCOM
@@ -23198,7 +23346,7 @@
     FNAM = 'INIT_TABLE_OUTLIERVAR'
 
     write(6,10) BLOCK, ID
- 10   format(T6,'Create BLOCK = ',A,'  for TABLE ID = ', I5 )
+10  format(T6,'Create BLOCK = ',A,'  for TABLE ID = ', I5 )
     call flush(6)
 
     LENBLOCK     = INDEX(BLOCK//' ',' ') - 1
@@ -23325,7 +23473,7 @@
 
 
 ! =============================
-  SUBROUTINE LOAD_OUTLIER_VAR(ep)
+  SUBROUTINE LOAD_EPTABLEVAR(ep)
 
 ! Created Mar 17 2021
 ! Load EPTABLEVAR_OUTLIER%XXX variables for epoch 'ep'.
@@ -23353,6 +23501,8 @@
     BAND        = filtdef_string(ifilt_obs:ifilt_obs)
 
     EPTABLEVAR_OUTLIER%MJD               = SNLC8_MJD(ep)
+    EPTABLEVAR_OUTLIER%TOBS              = SNLC_TOBS(ep)
+    EPTABLEVAR_OUTLIER%TREST             = SNLC_TREST(ep)
     EPTABLEVAR_OUTLIER%IFILTOBS          = IFILT_OBS
     EPTABLEVAR_OUTLIER%BAND              = BAND
     EPTABLEVAR_OUTLIER%FIELD             = SNLC_FIELD(ep)
@@ -23361,31 +23511,31 @@
     EPTABLEVAR_OUTLIER%FLUXCAL_DATA      = SNLC_FLUXCAL(ep)
     EPTABLEVAR_OUTLIER%FLUXCAL_ERR_DATA  = SNLC_FLUXCAL_ERRTOT(ep)
     EPTABLEVAR_OUTLIER%FLUXCAL_ERR_CALC  = SNLC_FLUXCAL_ERRCALC(ep)
-    EPTABLEVAR_OUTLIER%NSIG              = abs(SIM_EPPULL(ep))
     EPTABLEVAR_OUTLIER%ZP                = SNLC_ZEROPT(ep)
     EPTABLEVAR_OUTLIER%PSF               = SNLC_PSF_SIG1(ep)
     EPTABLEVAR_OUTLIER%SKYSIG            = SNLC_SKYSIG(ep)
+    EPTABLEVAR_OUTLIER%zHD               = SNLC_REDSHIFT
 
-    SNR  = EPTABLEVAR_OUTLIER%FLUXCAL_DATA/EPTABLEVAR_OUTLIER%FLUXCAL_ERR_DATA
-    EPTABLEVAR_OUTLIER%LOGSNR       = LOG10(max(0.1,SNR))
-
-    EPTABLEVAR_OUTLIER%SBMAG        = SNHOST_SBMAG(ifilt)
-
-    EPTABLEVAR_OUTLIER%IXPIX        = INT(SNLC_XPIX(ep))
-    EPTABLEVAR_OUTLIER%IYPIX        = INT(SNLC_YPIX(ep))
-    EPTABLEVAR_OUTLIER%AREAFRAC     = SNLC_AREAFRAC(ep)
-
-    EPTABLEVAR_OUTLIER%zHD         = SNLC_REDSHIFT
-    EPTABLEVAR_OUTLIER%TREST       = SNLC_TREST(ep)
+    if ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) then
+       EPTABLEVAR_OUTLIER%NSIG         = abs(SIM_EPPULL(ep))
+       SNR  = EPTABLEVAR_OUTLIER%FLUXCAL_DATA/EPTABLEVAR_OUTLIER%FLUXCAL_ERR_DATA
+       EPTABLEVAR_OUTLIER%LOGSNR       = LOG10(max(0.1,SNR))
+       EPTABLEVAR_OUTLIER%SBMAG        = SNHOST_SBMAG(ifilt)
+       EPTABLEVAR_OUTLIER%IXPIX        = INT(SNLC_XPIX(ep))
+       EPTABLEVAR_OUTLIER%IYPIX        = INT(SNLC_YPIX(ep))
+       EPTABLEVAR_OUTLIER%AREAFRAC     = SNLC_AREAFRAC(ep) 
+    endif
 
     IF ( ISJOB_SNANA ) THEN
        ! true flux from SIM_MAGOBS
        EPTABLEVAR_OUTLIER%FLUXCAL_TRUE      = SIM_EPFLUXCAL(ep)
     ELSE
        ! get model fit flux
+#if defined(SNFIT)
        EPTABLEVAR_OUTLIER%FLUXCAL_FIT        = SNLC_FLUXCAL_FIT(ep)
        EPTABLEVAR_OUTLIER%FLUXCAL_ERR_FIT    = SNLC_FLUXCAL_ERR_FIT(ep)
        EPTABLEVAR_OUTLIER%FLUXCAL_ERRTOT_FIT = SNLC_FLUXCAL_ERRTOT_FIT(ep)
+#endif
     ENDIF
 
 
@@ -23394,7 +23544,7 @@
     ENDIF
 
     RETURN
-  END SUBROUTINE LOAD_OUTLIER_VAR
+  END SUBROUTINE LOAD_EPTABLEVAR
 
 
 ! ===========================================
@@ -23637,7 +23787,7 @@
 
 ! check option to store MODEL-MAG on epoch grid (Feb 2019)
       IF ( OPT_TABLE(ITABLE_SNANA) .EQ. 4 ) THEN
-         CALL LOAD_TABLE_SIM_MAGOBS()
+         CALL LOAD_TABLEVAR_SIM_MAGOBS()
       ENDIF
 
       PS  = DBLE(PRESCALE_TABLE(ITABLE_SNANA))
@@ -23684,7 +23834,7 @@
 ! Jul 23 2024: add FITPROB_ITER1, FITCHI2RED_INI[2]
 ! Feb 05 2025: add LENSDMU[ERR]
 ! Feb 08 2026: add RA,DEC to TEXT file by default
-! Oct 29 2026: call APPEND_TABLEFILE_HEADER 
+! Oct 29 2026: call APPEND_TBFILE_HEAD_FORTRAN 
 ! -------------------------------------------------------------
 
 
@@ -23709,7 +23859,7 @@
 
     INTEGER  & 
          IFILT, IFILT_OBS, ITEXT, ITEXT2, ITEXT_NO, ITEXT_YES, IGAL  & 
-        ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar, LEN_VERS
+        ,LENBLOCK, LENLIST, LENNAME, LENV, ipar, ivar
 
     LOGICAL LTMP, ADDCOL_SETPKMJD
     CHARACTER varlist*1000, CTMP*60, CBLOCK*40
@@ -23719,8 +23869,7 @@
         ,SNTABLE_ADDCOL_int  & 
         ,SNTABLE_ADDCOL_flt  & 
         ,SNTABLE_ADDCOL_dbl  & 
-        ,SNTABLE_ADDCOL_str  &
-        ,APPEND_TABLEFILE_HEADER 
+        ,SNTABLE_ADDCOL_str 
 
 ! ---------------- BEGIN ------------
 
@@ -23747,12 +23896,8 @@
 
 
 ! - - - - - - pass few header elements - - - - - -
-    LEN_VERS = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
-    CALL APPEND_TABLEFILE_HEADER(ID,                  &
-         "VERSION_PHOTOMETRY"//char(0),               &
-         VERSION_PHOTOMETRY(1)(1:LEN_VERS) //char(0), &
-         FNAM//char(0),      &
-         20, MXCHAR_VERSION, 20 )
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "VERSION_PHOTOMETRY", VERSION_PHOTOMETRY(1), FNAM)
 
 ! - - - - - - ID variables - - - - - -
 
@@ -23956,7 +24101,7 @@
 
 ! - - - - -  pre-fit quantities to show for all events  - -  -
 
-! PKMJDINI (e.g., from max-flux clump method)
+    ! PKMJDINI (e.g., from max-flux clump method)
 
     VARLIST = 'PKMJDINI:F' // char(0)
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, SNLC_SEARCH_PEAKMJD,  & 
@@ -24600,7 +24745,7 @@
   END SUBROUTINE INIT_TABLE_SIM_MAGOBS
 
 ! =============================================
-    SUBROUTINE LOAD_TABLE_SIM_MAGOBS()
+    SUBROUTINE LOAD_TABLEVAR_SIM_MAGOBS()
 
 ! Feb 2019:
 !   load SIM_MODELGRID arrays for MODELMAG table.
@@ -24640,7 +24785,7 @@
     ENDDO
     NEP_SIM_MODELGRID = NEP
     RETURN
-  END SUBROUTINE LOAD_TABLE_SIM_MAGOBS
+  END SUBROUTINE LOAD_TABLEVAR_SIM_MAGOBS
 
 ! ===========================
     REAL FUNCTION SIM_MAGOBS_INTERP(IFILT,Tobs)
@@ -28963,14 +29108,14 @@
 
 ! plot variables
     INTEGER ID
-    CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, PGNAME*20, COMMENT_forC*80, FNAM*10
+    CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, FNAM*10
     REAL*8    PDF_MARG, PDF_NOMARG
-    LOGICAL LEGACY_COMMENT
+
 ! function
 
     REAL*8   FCNPDF
     EXTERNAL FCNPDF
-    EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, APPEND_TABLEFILE_HEADER
+    EXTERNAL SNTABLE_FILL
 
 ! ----------------- BEGIN INTEGPDF------------
 
@@ -29325,11 +29470,9 @@
        ID = IDTABLE_PDF
        if ( NCALL_INTEGPDF == 1 ) then ! create table
 
-          
-          CBLOCK = 'PDF' // char(0)
-          PGNAME = PROGRAM_NAME_SNFIT(1:12) // char(0)
+          CALL SNTABLE_CREATE_FORTRAN(ID, 'PDF', PROGRAM_NAME, 'key' )
 
-          CALL SNTABLE_CREATE(ID, CBLOCK, PGNAME, 'key'//char(0),  3, 12, 3)  ! create table
+          CBLOCK = 'PDF' // char(0)
 
           VARLIST = 'CID:C*20' // char(0)
           CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST, 1,  3,20)
@@ -29346,52 +29489,19 @@
           VARLIST = 'PDF_NOMARG:D' // char(0)
           CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, PDF_NOMARG, VARLIST,1,  3,20)
 
-          ! - - - - -
-          CALL APPEND_TABLEFILE_HEADER(ID, ""//char(0), ""//char(0), FNAM//char(0), 10, 2, 10)
-
-          CALL APPEND_TABLEFILE_HEADER(ID, "VARNAME"//char(0), &
-               "name of fitted parameter"//char(0),  &
-               FNAM//char(0),      10, 40, 10)
-
-          CALL APPEND_TABLEFILE_HEADER(ID, "VALUE"//char(0), &
-               "marginalization-grid value of fitted parameter"//char(0),  &
-               FNAM//char(0),      10, 60, 10)
-
-          CALL APPEND_TABLEFILE_HEADER(ID, "PDF_MARG"//char(0), &
-               "1D marginalized PDF"//char(0),  &
-               FNAM//char(0),      10, 40, 10)
-
-          CALL APPEND_TABLEFILE_HEADER(ID, "PDF_NOMARG"//char(0), &
-               "1D naive PDF around best fit of other params"//char(0),  &
-               FNAM//char(0),      10, 60, 10)
-
-          CALL APPEND_TABLEFILE_HEADER(ID, "PLOT_EXAMPLE"//char(0),    &
+          ! - - - - - define header comments/info - - - - - - 
+          CALL APPEND_TBFILE_HEAD_FORTRAN(ID, '', '', FNAM)
+          CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "VARNAME",  &
+               "name of fitted parameter", FNAM)
+          CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "VALUE"  ,  &
+               "marg-grid value of fitted par", FNAM)
+          CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "PDF_MARG",  &
+               "1D marginalized PDF", FNAM)
+          CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "PDF_NOMARG", &
+               "1D naive PDF around best fit of other params", FNAM)
+          CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "PLOT_EXAMPLE",  &
                "plot_table.py @@tfile <tfile> @V VALUE @W PDF_MARG " // &
-               "@@CUT 'VARNAME=zPHOT' & CID='72' "//char(0),  &
-               FNAM//char(0),      10, 100, 10)
-
-          ! ... finish APPEND_TABLEFILE_HEADER calls ...
-          LEGACY_COMMENT = .FALSE.
-          if ( LEGACY_COMMENT ) then
-             CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
-             COMMENT_forC = '  VARNAME:    name of fitted parameter' // char(0)
-             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-             COMMENT_forC = '  VALUE:      marginalization-grid value of fitted parameter' // char(0)
-             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-             COMMENT_forC = '  PDF_MARG:   1D marginalized PDF ' // char(0)
-             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-             COMMENT_forC = '  PDF_NOMARG: 1D naive PDF around best fit of other params' // char(0)
-             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-             ! - - - -
-             COMMENT_forC = 'Example plot command; '  // char(0)
-             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-             COMMENT_forC = '  plot_table.py @@tfile <tfile> @V VALUE @W PDF_MARG  \\'
-             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 80)
-             COMMENT_forC = '       @@CUT "VARNAME=zPHOT" & CID="72" ' // char(0)
-             CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-             CALL STORE_TABLEFILE_COMMENT('' //char(0), 3)
-          endif ! end LEGACY
-
+               "@@CUT 'VARNAME=zPHOT' & CID='72' " , FNAM )
        endif
 
        ! compute PDF_NOMAR for comparison to PDF_MARG

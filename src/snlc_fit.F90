@@ -11496,7 +11496,7 @@
     ! All priors are lumped into a single table and VARNAME defines which variable.
     ! Here the table is defined and loaded.
     !
-    ! Oct 29 2026: use APPEND_TABLEFILE_HEADER(..) instead of  STORE_TABLEFILE_COMMENT
+    ! Oct 29 2026: use APPEND_TBFILE_HEAD_FORTRAN(..) instead of  STORE_TABLEFILE_COMMENT
 
     USE SNDATCOM
     USE SNANAFIT
@@ -11523,8 +11523,7 @@
          ,SNTABLE_ADDCOL_int  & 
          ,SNTABLE_ADDCOL_flt  & 
          ,SNTABLE_ADDCOL_dbl  & 
-         ,SNTABLE_ADDCOL_str  &
-         ,APPEND_TABLEFILE_HEADER
+         ,SNTABLE_ADDCOL_str 
 
 ! ---------------- BEGIN MAKE_TABLE_PRIORS ------------
 
@@ -11563,61 +11562,31 @@
                   VARNAME(1:LENVAR) // '''" ' // char(0)
           endif
        endif
-40  continue
+40  ENDDO
 
-! store comments   
+    ! store comments   
 
-    CALL APPEND_TABLEFILE_HEADER(ID, "VARNAME"//char(0), &
-         "name of LC-fitted param with prior: "// VARLIST(1:LENTOT)//char(0),  &
-         FNAM//char(0),   10, LENTOT+30, 20)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, '', '', FNAM)
 
-    CALL APPEND_TABLEFILE_HEADER(ID, "VALGRID"//char(0), &
-         "param value on stored grid"//char(0),  &
-         FNAM//char(0),   10, 30, 20)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "VARNAME", &
+         "name of LC-fitted param with prior: "// VARLIST(1:LENTOT), FNAM)
 
-    CALL APPEND_TABLEFILE_HEADER(ID, "PROBGRID"//char(0), &
-         "prior-PROB value on grid"//char(0),  &
-         FNAM//char(0),   10, 30, 20)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "VALGRID", &
+         "param value on stored grid", FNAM)
+    
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "PROBGRID", &
+         "prior-PROB value on grid", FNAM)
 
-    CALL APPEND_TABLEFILE_HEADER(ID, "CHI2GRID"//char(0), &
-         "prior-chi2 value on grid [-2ln(PROBGRID)]"//char(0),  &
-         FNAM//char(0),   10, 50, 20)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "CHI2GRID", &
+         "prior-chi2 value on grid [-2ln(PROBGRID)]", FNAM)
 
-    CALL APPEND_TABLEFILE_HEADER(ID, "CHI2FUN"//char(0), &
-         "CHI2_PRIOR FUNCTION value (expect CHI2FUN=CHI2GRID)"//char(0),  &
-         FNAM//char(0),   10, 60, 20)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "CHI2FUN", &
+         "CHI2_PRIOR FUNCTION value (expect CHI2FUN=CHI2GRID)", FNAM)
 
-    CALL APPEND_TABLEFILE_HEADER(ID, "PLOT_EXAMPLE"//char(0), &
-         plot_example //char(0),  &
-         FNAM//char(0),   10, 90, 20)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "PLOT_EXAMPLE", plot_example, FNAM)
 
-    ! - - - - - - 
-    LEGACY_COMMENT = .FALSE.
-    if ( LEGACY_COMMENT ) then
-       CALL STORE_TABLEFILE_COMMENT(' '//char(0), 2)       
-       COMMENT_forC = 'Columns:' // char(0)
-       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 20)
-       COMMENT_forC = '  VARNAME:   name of LC-fitted param with prior: ' &
-            // VARLIST(1:LENTOT) // char(0)
-       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 80)
-       COMMENT_forC = '  VALGRID:   param value on stored grid' // char(0)
-       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-       COMMENT_forC = '  PROBGRID:  prior-PROB value on grid' // char(0)
-       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-
-       COMMENT_forC = '  CHI2GRID:  prior-chi2 value on grid [-2ln(PROBGRID)]' // char(0)
-       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-
-       COMMENT_forC = '  CHI2FUN:   CHI2_PRIOR FUNCTION value (expect CHI2FUN=CHI2GRID)' // char(0)
-       CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, 60)
-       
-       CALL STORE_TABLEFILE_COMMENT("Plot_example:"//char(0), 20)
-       CALL STORE_TABLEFILE_COMMENT(plot_example, 90)
-       
-       CALL STORE_TABLEFILE_COMMENT(' '//char(0), 2)
-    endif
-
-       ! - - - - 
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, '', '', FNAM)      
+    ! - - - - - - - - 
 
     write(6,10) CBLOCK, ID
  10   format(T6,'Create BLOCK(1:LENBL) = ',A,'  for TABLE ID = ', I5)
@@ -18903,7 +18872,7 @@
 ! 
 ! Mar 02 2022: add zPRIOR and zPRIOR_ERR
 ! Jan 10 2025: add FILTLIST_FIT_USE
-! Oct 29 2026: call APPEND_TABLEFILE_HEADER
+! Oct 29 2026: call APPEND_TBFILE_HEAD_FORTRAN
 ! --------------
 
     USE SNDATCOM
@@ -18924,7 +18893,7 @@
 ! local var
     INTEGER, PARAMETER :: IPAR_START=3   ! skip ISN and ITER for CWN
 
-    INTEGER IFILT, LENLIST, LENPKMJD, LENNAME, LENBLOCK, LENV
+    INTEGER IFILT, LENLIST, LENPKMJD, LENNAME, LENBLOCK
     INTEGER NTPAR_MIN, NTPAR_MAX, ipar, USE4TEXT
 
     CHARACTER varlist*1000, VARNAME*60, CBLOCK*40
@@ -18937,27 +18906,15 @@
          ,SNTABLE_ADDCOL_int  & 
          ,SNTABLE_ADDCOL_flt  & 
          ,SNTABLE_ADDCOL_dbl  & 
-         ,SNTABLE_ADDCOL_str  &
-         ,APPEND_TABLEFILE_HEADER
+         ,SNTABLE_ADDCOL_str 
 
 ! ---------------- BEGIN ------------
 
     FNAM = 'INIT_TABLE_SNFITVAR'
 
 ! - - - - - - pass few header elements - - - - - -
-    !LENV = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
-    !CALL APPEND_TABLEFILE_HEADER(IDTABLE_FITRES,       &
-    !     "VERSION_PHOTOMETRY"//char(0),                &
-    !     VERSION_PHOTOMETRY(1)(1:LENV) //char(0),      &
-    !     FNAM//char(0),      &
-    !     20, MXCHAR_VERSION,20 )  
 
-    LENV = INDEX(FITMODEL_VERSION,' ') - 1
-    CALL APPEND_TABLEFILE_HEADER(IDTABLE_FITRES,       &
-         "FITMODEL_NAME"//char(0),                &
-         FITMODEL_VERSION(1:LENV) //char(0),      &
-         FNAM//char(0),      &
-         20, MXCHAR_MODELNAME, 20 )  
+    CALL APPEND_TBFILE_HEAD_FORTRAN(IDTABLE_FITRES, "FITMODEL_NAME", FITMODEL_VERSION, FNAM)
 
 ! - - - - - - - - - - - - - - - - - - - 
 

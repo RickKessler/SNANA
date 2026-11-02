@@ -23203,7 +23203,9 @@
          IFILT      = IFILTDEF_INVMAP_SURVEY(IFILTOBS)
          if ( ISNLC_SNRECON_USE(ep) == 0 ) goto 201
 
-         CALL LOAD_EPTABLEVAR(ep) ! must be called before NSIG_OUTLIER_FIT
+         ! this is inefficient call for every obs so that 
+         ! NSIG_OUTLIER_FIT below has what it needs.
+         CALL LOAD_EPTABLEVAR(ep) 
 
          if ( ISJOB_SNANA ) then
             NSIG   = abs(SIM_EPPULL(ep))
@@ -23551,7 +23553,7 @@
     EPTABLEVAR_LCPLOT%ZP                = SNLC_ZEROPT(ep)
     EPTABLEVAR_LCPLOT%PSF               = SNLC_PSF_SIG1(ep)
     EPTABLEVAR_LCPLOT%SKYSIG            = SNLC_SKYSIG(ep)
-    EPTABLEVAR_LCPLOT%NSIG              = SNLC_SNR(ep)
+    EPTABLEVAR_LCPLOT%NSIG              = -999.0  
     EPTABLEVAR_LCPLOT%zHD               = SNLC_REDSHIFT
 
     EPTABLEVAR_LCPLOT%CHI2              = -9.0     ! null value; filled below

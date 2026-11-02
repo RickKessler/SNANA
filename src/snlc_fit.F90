@@ -19231,7 +19231,7 @@
     REAL*8  TMIN, TMAX, TBIN, xi, TOBS, WAVECOR, MJD, PEAKMJD
     REAL*8  FITFLUXCAL, FITFLUXCAL_ERR
     INTEGER NBT, t, IFILT, IFILTOBS, LENF
-    CHARACTER BAND*2
+    CHARACTER BAND*1
 
     ! functions
     REAL*8  GET_FLUX_FITFUN
@@ -19269,16 +19269,16 @@
           EPTABLEVAR_LCPLOT%FLUXCAL_ERR_DATA = SNGL(FITFLUXCAL_ERR)
           EPTABLEVAR_LCPLOT%CHI2             = 0.0  ! data-fit chi2 is not defined
           EPTABLEVAR_LCPLOT%FLAG             = 0    ! 0 -> not data
+
+          IF ( USE_TABLEFILE_ROOT ) THEN
+             EPTABLEVAR_LCPLOT%BAND = EPTABLEVAR_LCPLOT%BAND(1:1) // char(0)
+             LENF = INDEX(EPTABLEVAR_LCPLOT%FIELD,' ') - 1
+             EPTABLEVAR_LCPLOT%FIELD = EPTABLEVAR_LCPLOT%FIELD(1:LENF) // char(0)
+          ENDIF
           
           CALL SNTABLE_FILL(IDTABLE)  ! generic C function to update table row
 520    ENDDO
 510 ENDDO
-
-    IF ( USE_TABLEFILE_ROOT ) THEN
-       EPTABLEVAR_LCPLOT%BAND = EPTABLEVAR_LCPLOT%BAND(1:1) // char(0)
-       LENF = INDEX(EPTABLEVAR_LCPLOT%FIELD,' ') - 1
-       EPTABLEVAR_LCPLOT%FIELD = EPTABLEVAR_LCPLOT%FIELD(1:LENF) // char(0)
-    ENDIF
 
     RETURN
   END SUBROUTINE TABLE_LCPLOT_MODELFIT
@@ -20070,11 +20070,11 @@
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARNAME, 1,  & 
                          LENBLOCK, 20 )
 
-    VARNAME = 'FIELD:C*20' // char(0)
+    VARNAME = 'FIELD:C*32' // char(0)
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, TBLSPEC_FIELD, VARNAME, 1,  & 
                          LENBLOCK, 20 )
 
-    VARNAME = 'BAND:C*4' // char(0)
+    VARNAME = 'BAND:C*1' // char(0)
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, TBLSPEC_CFILT, VARNAME, 1,  & 
                          LENBLOCK, 4 )
 

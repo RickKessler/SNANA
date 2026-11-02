@@ -18432,7 +18432,7 @@
     REAL*8 GET_FLUX_FITFUN
     LOGICAL DOPLOT_SNLC
 
-! -------------------- BEGIN ---------------
+! -------------------- BEGIN SNLCPLOT ---------------
 
 ! check if plot should be made
     IF ( .NOT. DOPLOT_SNLC() ) RETURN
@@ -19196,9 +19196,11 @@
 
        DO 101 i   = 1, NFITDATA + NFITDATA_REJECT
           iep     = EPLIST_FIT(i)
-          CALL LOAD_EPTABLEVAR(iep)   ! .xyz
+          CALL LOAD_EPTABLEVAR(iep)   
           CALL SNTABLE_FILL(IDTABLE)  ! generic C function
 101    ENDDO
+
+       CALL TABLE_LCPLOT_MODELFIT(IDTABLE)   ! append smooth model fit curve with DATAFLAG=0
 
        CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
     ENDIF
@@ -19208,7 +19210,72 @@
   END SUBROUTINE TABLE_LCPLOT
 
 
+  SUBROUTINE TABLE_LCPLOT_MODELFIT(IDTABLE)
 
+    ! Created Nov 1 2026 as part of LCPLOT refactor to use standard table tools
+    ! and get rid of SNLCPAK.
+    ! Append LCPLOT table with smooth model fit in 2 day bins
+
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNFITVAR
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE EPTABLECOM
+
+    IMPLICIT NONE
+
+    INTEGER IDTABLE ! (I) integer table id
+
+    ! local args
+    REAL*8  TMIN, TMAX, TBIN, xi, TOBS, WAVECOR, MJD, PEAKMJD
+    REAL*8  FITFLUXCAL, FITFLUXCAL_ERR
+    INTEGER NBT, t, IFILT, IFILTOBS
+    CHARACTER BAND*2
+
+    ! functions
+    REAL*8  GET_FLUX_FITFUN
+
+    ! -------------- BEGIN TABLE_LCPLOT_MODELFIT ----------
+
+    TMIN = -60.0
+    TMAX = 140.0
+    TBIN = DTOBS_MODEL_PLOT
+    NBT  = int( (TMAX-TMIN+1.0E-6)/TBIN )
+    WAVECOR = 0.0
+    PEAKMJD = LCVAL_STORE(IPAR_PEAKMJD)
+
+    DO 510 IFILT = 1, NFILTDEF_SURVEY
+
+       IFILTOBS = IFILTDEF_MAP_SURVEY(ifilt)
+       if ( .not. USE_FILT(IFILTOBS) ) goto 510
+
+       BAND      = FILTDEF_STRING(IFILTOBS:IFILTOBS)
+
+       DO 520 t  = 1, NBT
+          xi      = float(t) - 0.5
+          TOBS    = TMIN + TBIN * xi
+          MJD             = TOBS + PEAKMJD + MJDOFF
+          FITFLUXCAL      = GET_FLUX_FITFUN(IFILTOBS, TOBS,  WAVECOR,  0)
+          FITFLUXCAL_ERR  = GET_FLUX_FITFUN(IFILTOBS, TOBS,  WAVECOR, 60)
+
+          ! load EPTABLEVAR as if this were real data, 
+          ! except for FLAG=0 to indicate smooth fitted flux
+          EPTABLEVAR_LCPLOT%MJD              = MJD
+          EPTABLEVAR_LCPLOT%TOBS             = SNGL(TOBS)
+          EPTABLEVAR_LCPLOT%BAND             = BAND
+          EPTABLEVAR_LCPLOT%FLUXCAL_TRUE     = 0.0 
+          EPTABLEVAR_LCPLOT%FLUXCAL_DATA     = SNGL(FITFLUXCAL)
+          EPTABLEVAR_LCPLOT%FLUXCAL_ERR_DATA = SNGL(FITFLUXCAL_ERR)
+          EPTABLEVAR_LCPLOT%CHI2             = 0.0  ! data-fit chi2 is not defined
+          EPTABLEVAR_LCPLOT%FLAG             = 0    ! 0 -> not data
+
+          CALL SNTABLE_FILL(IDTABLE)  ! generic C function to update table row
+520    ENDDO
+510 ENDDO
+
+    RETURN
+  END SUBROUTINE TABLE_LCPLOT_MODELFIT
 
 ! =====================================
     LOGICAL FUNCTION SKIPTABLE_FITPAR(VARNAME)

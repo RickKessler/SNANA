@@ -1542,7 +1542,6 @@
 ! but before the fit is performed.
 ! 
 ! 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -1585,6 +1584,10 @@
 
     IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
        CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_INI)
+    ENDIF
+
+    IF ( REFAC_LCPLOT>0  .and. OPT_TABLE(ITABLE_LCPLOT) > 0 ) THEN
+       CALL TABLE_LCPLOT(IDTABLE_LCPLOT, IFLAG_INI)  ! Nov 1 2026
     ENDIF
 
     if ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
@@ -1827,7 +1830,7 @@
           endif
         
 ! - - - - - - -
-          LDMP_MASK = 0  ! .xyz
+          LDMP_MASK = 0  
           if ( LDMP_MASK > 0 ) then
              print*,' xxx --------------------------------------'
              print*,' xxx DUMP for FITPAR_PREP   ITER=', ITER
@@ -2265,12 +2268,7 @@
 ! check for special variable computation for SIMSED models;
     CALL SIMSED_RECON()
 
-! ------------------------------------------------------
-! compute SIMCHI2 on last iteration
-!       IF ( LSIM_SNANA .and. LAST ) then
-!  4.22.2019: disable because of problem with wrong host redshift
-!          CALL GET_SIMCHI2_CHEAT()
-!       ENDIF
+
 
 ! -------------------------------------------------
     DOLC_PLOT = DOPLOT_SNLC()
@@ -2343,7 +2341,7 @@
 ! ---------------------------------------------------------
 ! book plots for this SN; all plots are vs. relative epoch
 
-    IF ( DOLC_PLOT ) THEN
+    IF ( DOLC_PLOT .and. REFAC_LCPLOT == 0 ) THEN
 
        CCID = SNLC_CCID(1:LCID) // char(0)
        CALL MAKEDIR_OUTPUT(CCID,SNLC_CID,LCID)
@@ -2362,6 +2360,10 @@
     IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
         CALL PREP_FITRES_TABLEVAR()
         CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_ANA)
+    ENDIF
+
+    IF ( REFAC_LCPLOT > 0 .and. OPT_TABLE(ITABLE_LCPLOT) > 0 ) THEN
+       CALL TABLE_LCPLOT(IDTABLE_LCPLOT, IFLAG_ANA)  ! Nov 1 2026
     ENDIF
 
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
@@ -6321,13 +6323,24 @@
     RETURN
   END SUBROUTINE FITMODEL_INI
 
+  DOUBLE PRECISION FUNCTION GET_FITPEAKMJD()
+    ! interface or snana.exe to fetch final-fitted PEAKMJD
+    USE SNDATCOM
+    USE SNANAFIT
+    GET_FITPEAKMJD = LCVAL_STORE(IPAR_PEAKMJD)
+    RETURN
+
+  END FUNCTION GET_FITPEAKMJD
+
+
 ! ========================
-    SUBROUTINE GET_FITFLUX(ep, FIT_FLUXCAL, FIT_FLUXCAL_ERR, REJECT)
+    SUBROUTINE GET_FITFLUX(ep, FIT_FLUXCAL, FIT_FLUXCAL_ERR, CHI2, REJECT)
 
 ! Created Mar 17 2021
 ! Interface for snana to fetch fitted FLUXCAL and error;
 ! e.g., for OUTLIER table.
-
+!
+! Nov 1 2026: return CHI2 arg
 
     USE SNDATCOM
     USE SNANAFIT
@@ -6336,12 +6349,14 @@
     IMPLICIT NONE
 
     INTEGER EP                         ! (I) epoch index
-    REAL FIT_FLUXCAL, FIT_FLUXCAL_ERR  ! (O) fitted flux and erro
+    REAL FIT_FLUXCAL, FIT_FLUXCAL_ERR  ! (O) fitted flux and error
+    REAL CHI2                          ! (O) fit delchi2
     LOGICAL  REJECT                    ! (O) T -> epoch rejected
 
 !  -------------- BEGIN ------------
     FIT_FLUXCAL       = R4EP_ALL(ep,JEP_MODELFLUX)
     FIT_FLUXCAL_ERR   = R4EP_ALL(ep,JEP_MODELFLUX_ERR)
+    CHI2              = R4EP_ALL(ep,JEP_DELCHI2)
 
     REJECT =  & 
         ( I4EP_ALL(ep,IEP_REJECT)  > 0 ) .or.  & 
@@ -6351,8 +6366,7 @@
   END SUBROUTINE GET_FITFLUX
 
 ! ========================================================
-    DOUBLE PRECISION FUNCTION GET_FLUX_FITFUN  & 
-                          ( ifilt_obs, Tobs, wavecor, opt )
+    DOUBLE PRECISION FUNCTION GET_FLUX_FITFUN ( ifilt_obs, Tobs, wavecor, opt )
 ! 
 ! Wrapper to call USRFUN with final "FITVAL" arguments.
 ! Call this after fit to get function value; do NOT use
@@ -11510,10 +11524,9 @@
     INTEGER   ID, LENBL, LENPG, LENVAR, LENFMT, LENTOT, IPAR, ibin, NVAR_PRIOR
 
     ! define variables for plot table
-    CHARACTER VARNAME*20, COMMENT_forC*100, plot_example*100, FNAM*20
+    CHARACTER VARNAME*20, plot_example*100, FNAM*20
     REAL*8    DVALGRID, DPROBGRID, DCHI2GRID, DCHI2FUN, dmin, dbin
     INTEGER   ROWNUM
-    LOGICAL LEGACY_COMMENT
 
     ! functions
 
@@ -13217,7 +13230,6 @@
 ! 
 ! --------------------------------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -13252,7 +13264,7 @@
 
     EXTERNAL SORTFLOAT
 
-! -------------------- BEGIN ---------------
+! -------------------- BEGIN FITANA_STORE ---------------
 
     CALL FLUSH(6)
 
@@ -13263,55 +13275,54 @@
           NFITPAR(ifilt)  = 0
           XEPOCH_FIT(ifilt) = FLOAT( NEPOCH_FIT(ifilt) )
        endif
-       NFITDOF(ifilt)  = NEPOCH_FIT(ifilt)  & 
-                         - NFITPAR(ifilt)
+       NFITDOF(ifilt)  = NEPOCH_FIT(ifilt)  - NFITPAR(ifilt)
        XNFITDOF(ifilt)   = float ( NFITDOF(ifilt) )
     END DO
 
-! re-evaluate Trest-related variables
-
-! set global redshift variable & local peakmjd
+    ! re-evaluate Trest-related variables
+    
+    ! set global redshift variable & local peakmjd
     REDSHIFT_FIT = LCVAL_STORE(IPAR_zPHOT)
     z1 = 1. + REDSHIFT_FIT
 
     PEAKMJD      = LCVAL_STORE(IPAR_PEAKMJD)
 
-! loop over epochs used in fit: rejected epochs are excluded here.
+    ! loop over epochs used in fit: rejected epochs are excluded here.
 
     NTLIST = 0
     DO 100 ifitdata = 1, NFITDATA
-        iep       = EPLIST_FIT(ifitdata)
-        MJD       = SNGL(SNLC8_MJD(iep))
-        Tobs      = MJD - SNGL(PEAKMJD + MJDOFF)
-        Trest     = Tobs / z1
-        NTLIST    = NTLIST + 1
-        TLIST(NTLIST) = Trest
-        FLIST(NTLIST) = I4EP_ALL(iep,IEP_IFILT_OBS)
-        SNRLIST(NTLIST) = SNLC_SNR(iep)
-100   CONTINUE
+       iep       = EPLIST_FIT(ifitdata)
+       MJD       = SNGL(SNLC8_MJD(iep))
+       Tobs      = MJD - SNGL(PEAKMJD + MJDOFF)
+       Trest     = Tobs / z1
+       NTLIST    = NTLIST + 1
+       TLIST(NTLIST) = Trest
+       FLIST(NTLIST) = I4EP_ALL(iep,IEP_IFILT_OBS)
+       SNRLIST(NTLIST) = SNLC_SNR(iep)
+100 ENDDO
 
     CALL GET_TRESTVAR (  & 
-              NTLIST, TLIST, FLIST, SNRLIST      &  ! (I) Trest   IFILT arrays
-             ,FITANA_CUTWIN_TREST                &  ! (I) user cutwin
-             ,FITANA_CUTWIN_TRESTMIN             &  ! (I) idem
-             ,FITANA_CUTWIN_TRESTMAX             &  ! (I) idem
-             ,FITANA_CUTWIN_TREST2               &  ! (I) idem
-             ,NFILT                              &  ! (O) Nfilt
-             ,TRESTMIN_FIT, TRESTMAX_FIT         &  ! (O) Trestmin,max after fit
-             ,NFILT_TRESTMIN_FIT                 &  ! (O)
-             ,NFILT_TRESTMAX_FIT                 &  ! (O)
-             ,NFILT_TREST2_FIT                   &  ! (O)
-             ,TGAPMAX_FIT, T0GAPMAX_FIT          &  ! (O)
-             ,SNRSUM_FIT   )                    ! (O)
-
+         NTLIST, TLIST, FLIST, SNRLIST      &  ! (I) Trest   IFILT arrays
+         ,FITANA_CUTWIN_TREST                &  ! (I) user cutwin
+         ,FITANA_CUTWIN_TRESTMIN             &  ! (I) idem
+         ,FITANA_CUTWIN_TRESTMAX             &  ! (I) idem
+         ,FITANA_CUTWIN_TREST2               &  ! (I) idem
+         ,NFILT                              &  ! (O) Nfilt
+         ,TRESTMIN_FIT, TRESTMAX_FIT         &  ! (O) Trestmin,max after fit
+         ,NFILT_TRESTMIN_FIT                 &  ! (O)
+         ,NFILT_TRESTMAX_FIT                 &  ! (O)
+         ,NFILT_TREST2_FIT                   &  ! (O)
+         ,TGAPMAX_FIT, T0GAPMAX_FIT          &  ! (O)
+         ,SNRSUM_FIT   )                    ! (O)
+    
     TRESTRANGE_FIT = TRESTMAX_FIT - TRESTMIN_FIT
     TOBSMIN_FIT = TRESTMIN_FIT * z1
     TOBSMAX_FIT = TRESTMAX_FIT * z1
 
-! -------------------------------------------------
-! get peakmags in obs and rest frames.
-! Make sure to get ALL of the rest-frame filters,
-! even if there is no obs filter than maps on
+    ! -------------------------------------------------
+    ! get peakmags in obs and rest frames.
+    ! Make sure to get ALL of the rest-frame filters,
+    ! even if there is no obs filter than maps on
 
     if ( LTRACE ) CALL DMPTRACE("CALLING PEAKMAG_CALC(OBS)")
 
@@ -14001,7 +14012,7 @@
     DOFIT_PHOTOZ_HOST   =  .FALSE.
     DOFIT_PHOTOZ_noHOST =  .FALSE.
 
-    LDMP = 0  ! .xyz
+    LDMP = 0  
 ! -------------------------------
 
     IF ( DOFIT_PHOTOZ ) THEN
@@ -15770,9 +15781,9 @@
 ! print one-line summary.
 
        write(6,50) SNLC_CCID(1:ISNLC_LENCCID),  & 
-                FILTER_FITMAGDIF(1:1), FITMAGDIF, FITERRDIF
- 50      format(T5,'FITMAGDIF(CCID=',A,') : ', A,'(pred-meas) = ',  & 
-               F6.3, ' +- ', F6.3,' mag ')
+            FILTER_FITMAGDIF(1:1), FITMAGDIF, FITERRDIF
+50     format(T5,'FITMAGDIF(CCID=',A,') : ', A,'(pred-meas) = ',  & 
+            F6.3, ' +- ', F6.3,' mag ')
 
     ENDIF
 
@@ -16722,7 +16733,7 @@
     REAL*8  GET_DIST8
     LOGICAL DOPLOT_SNLC
 
-! ----------- BEGIN -----------
+! ----------- BEGIN FITRESTMAG_CALC -----------
 
     IF ( NFILTDEF_FITRESTMAG .LE. 0       ) RETURN
     IF ( ITER .LE. NFIT_ITERATION_ALLFILT ) RETURN
@@ -18368,7 +18379,6 @@
 ! 
 ! ---------------------------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNFITCOM
@@ -19137,6 +19147,66 @@
     RETURN
   END SUBROUTINE INIT_TABLE_SNFITVAR
 
+  SUBROUTINE TABLE_LCPLOT(IDTABLE,IFLAG)
+
+    ! Created Nov 1 2026
+    ! init LCPLOT table [intended to replace ancient SNLCPAK]
+
+    USE SNDATCOM
+    USE SNANAFIT
+    USE SNFITVAR
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE EPTABLECOM
+
+    ! subroutine inputs
+    INTEGER IDTABLE  ! integer table ID
+    INTEGER IFLAG
+ 
+    ! local args
+    CHARACTER TBNAME*20, TEXTFMT*20
+    LOGICAL   DO_FILL
+    INTEGER   i, iep
+
+    REAL*8  GET_FITPEAKMJD, PEAKMJD8 ! xxx debug only
+    ! functions
+    LOGICAL DOPLOT_SNLC
+
+    ! -------------- BEGIN ------------
+
+    IF ( IFLAG .EQ. IFLAG_INI ) THEN
+       TBNAME        = 'LCPLOT'
+       TEXTFMT       = TEXTFORMAT_TABLE(ITABLE_LCPLOT)
+       CALL SNTABLE_CREATE_FORTRAN(IDTABLE, TBNAME, PROGRAM_NAME, TEXTFMT)
+       CALL INIT_TABLE_LCPLOTVAR(IDTABLE, TBNAME)
+       RETURN
+    ENDIF
+
+    DO_FILL = DOPLOT_SNLC()
+
+    IF ( DO_FILL ) THEN
+
+       PEAKMJD8 =  GET_FITPEAKMJD()
+       print*,' xxx PEAKMJD8= ', PEAKMJD8 ; call flush(6)
+
+       ! terminate strings for C table-functions (snana.F90 routine)
+       CALL TABLE_STRING_TERMINATION(+1)
+
+       DO 101 i   = 1, NFITDATA + NFITDATA_REJECT
+          iep     = EPLIST_FIT(i)
+          CALL LOAD_EPTABLEVAR(iep)   ! .xyz
+          CALL SNTABLE_FILL(IDTABLE)  ! generic C function
+101    ENDDO
+
+       CALL TABLE_STRING_TERMINATION(-1)  ! remove termination
+    ENDIF
+    
+    return
+
+  END SUBROUTINE TABLE_LCPLOT
+
+
+
 
 ! =====================================
     LOGICAL FUNCTION SKIPTABLE_FITPAR(VARNAME)
@@ -19750,6 +19820,9 @@
 ! Sep 23 2026: 
 !    + change table name from SPECTRA to MODELSPEC;
 !    + abort if no ROOTFILE
+!
+! Nov 01 2026: cleanup a little using SNTABLE_CREATE_FORTRAN
+
 ! -------------------------------
 
     USE SNDATCOM
@@ -19764,12 +19837,12 @@
 
 ! local var
 
-    INTEGER ID, i, ep, LENTB, LENPG, LENFMT
+    INTEGER ID, i, ep
     INTEGER IFILT, IFILTOBS, IFILTOBS_TMP
     REAL    Tobs, z, x0, x1, c, MWEBV
     REAL*8  FLUX8, FLUXERR8, MAG8, MAGERR8, KCOR8
-    CHARACTER TBNAME*40, PGNAME*20, TEXTFMT*20, TEXTFMT_forC*20, FNAM*24
-    
+    CHARACTER TEXTFMT*20, FNAM*24
+
 ! function
     INTEGER  getSpec_band_SALT2
     EXTERNAL getSpec_band_SALT2
@@ -19781,26 +19854,14 @@
 ! ----------------------------------
 
     IF ( ISN .EQ. 0 ) THEN
-
        if ( .not. USE_TABLEFILE_ROOT ) then
           C1ERR = 'MODELSPEC table requires ROOT file output;'
           C2ERR = 'Must specify ROOTFILE_OUT in &SNLCINP'
           CALL MADABORT(FNAM, C1ERR, C2ERR)          
        endif
 
-       ! xxx mark delete 9.23.2026  TBNAME   = 'SPECTRA' // char(0)
-       TBNAME   = 'MODELSPEC' // char(0)  
-       LENTB    = INDEX(TBNAME,   ' ') - 1
-
-       LENPG    = 12
-       PGNAME   = PROGRAM_NAME_SNFIT(1:LENPG) // char(0)
-
        TEXTFMT  = TEXTFORMAT_TABLE(ITABLE_FITRES)
-       LENFMT   = INDEX(TEXTFMT,' ') - 1
-       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
-
-       CALL SNTABLE_CREATE(ID, TBNAME, PGNAME, TEXTFMT_forC, LENTB, LENPG, LENFMT)  ! C fun
-
+       CALL SNTABLE_CREATE_FORTRAN(ID, "MODELSPEC", PROGRAM_NAME_SNFIT, TEXTFMT )
        CALL INIT_TABLE_MODELSPECVAR(ID, 'MODELSPEC' )
 
       RETURN
@@ -19816,7 +19877,7 @@
         ep   = EPLIST_FIT(i)
         IFILTOBS = I4EP_ALL(ep,IEP_IFILT_OBS)
 
-        TBLSPEC_MJD         = R4EP_ALL(ep,JEP_MJD) + SNGL(MJDOFF)
+        TBLSPEC_MJD               = R4EP_ALL(ep,JEP_MJD) + SNGL(MJDOFF)
         TBLSPEC8_MJD              = R8EP_MJD(i)  ! note different index
         TBLSPEC_TREST             = R4EP_ALL(ep,JEP_TREST)
         TBLSPEC_TOBS              = R4EP_ALL(ep,JEP_TOBS)
@@ -19830,8 +19891,7 @@
         TBLSPEC_FLUXCAL_MODEL     = R4EP_ALL(ep,JEP_MODELFLUX)
         TBLSPEC_FLUXCAL_MODEL_ERR = R4EP_ALL(ep,JEP_MODELFLUX_ERR)
         TBLSPEC_FIELD             = SNLC_FIELD(ep)
-        TBLSPEC_CFILT             =  & 
-              filtdef_string(IFILTOBS:IFILTOBS) // char(0)
+        TBLSPEC_CFILT             = filtdef_string(IFILTOBS:IFILTOBS) // char(0)
 
 ! Mar21 2022: compute model mag for every band at every MJD
         DO ifilt = 1, NFILTDEF_SURVEY
@@ -19857,7 +19917,7 @@
 
         IF ( NBLAM_TBLSPEC > MXLAM_TBLSPEC ) THEN
           write(C1ERR,661) NBLAM_TBLSPEC, MXLAM_TBLSPEC
-661         format('NBLAM=',I5,' exceeds bound of ', I5)
+661       format('NBLAM=',I5,' exceeds bound of ', I5)
           c2err = 'Check MXLAM_TBLSPEC'
           CALL MADABORT(FNAM, C1ERR, C2ERR)
         ENDIF

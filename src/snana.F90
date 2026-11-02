@@ -483,7 +483,8 @@
 
        INTEGER  IFILTOBS, DETNUM, PHOTFLAG, IXPIX, IYPIX, FLAG, NUMFIT
        CHARACTER BAND*2, FIELD*(MXCHAR_FIELDNAME)
-
+       LOGICAL   REJECT   ! T if this epochs was rejected in fit
+ 
     END TYPE EPTABLEVAR_DEF
 
     TYPE(EPTABLEVAR_DEF) :: EPTABLEVAR_LCPLOT
@@ -2418,11 +2419,11 @@
         ,IPAR_FILT   = 2   &  ! fixed param
         ,IPAR_MJDMIN = 3   &  ! fixed param (May 2019)
         ,IPAR_MJDMAX = 4   &  ! fixed param (May 2019)
-        ,IPAR_T0     = 5  & 
-        ,IPAR_TRISE  = 6  & 
-        ,IPAR_TFALL  = 7  & 
-        ,IPAR_A0     = 8  & 
-        ,IPAR_A1     = 9  & 
+        ,IPAR_T0     = 5   & 
+        ,IPAR_TRISE  = 6   & 
+        ,IPAR_TFALL  = 7   & 
+        ,IPAR_A0     = 8   & 
+        ,IPAR_A1     = 9   & 
         ,IPAR_A2     = 10 
 
      REAL, PARAMETER ::  SNRMIN_forFLUXMAX  = 3.0   ! min SNR to consider for fluxmax
@@ -4376,14 +4377,6 @@
     CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
     SNHOST_OBJID(igal)  = INT8(DARRAY(1))
     DSNHOST_OBJID(igal) = DARRAY(1)
-
-    ! xxxxxxxxx mark delete xxxxxxxxxx
-    !print*,' xxx ------------------------ '
-    !print*,' xxx SNID = ', SNLC_CID
-    !print*,' xxx NMATCH, NMATCH2 = ', SNHOST_NMATCH, SNHOST_NMATCH2
-    !print*,' xxx igal, DSNHOST_OBJID = ', igal, DSNHOST_OBJID(igal)  ! .xyz
-    !call flush(6)
-    ! xxxxxxxxx
     
     KEY    = PREFIX(1:LENPRE)//'_FLAG'
     CALL FETCH_SNDATA_WRAPPER(KEY, ONE, STRING, DARRAY, OPT)
@@ -11213,17 +11206,9 @@
           CALL OPEN_REFORMAT_FILE(LUNTMP, 'DUMP', DUMP_FILE_OUT); CLOSE(LUNTMP)  ! close 
           CMD = 'zcat  '  // trim(DUMP_FILE_ORIG)  // ' >> '  // trim(DUMP_FILE_OUT)
           print*,'  Create ', trim(DUMP_FILE_OUT) ; call flush(6)
-
-          ! xxxx mark delete 
-          !print*,' xxx SIMGEN_DUMP_ORIG = ', DUMP_FILE_ORIG
-          !print*,' xxx DUMP_FILE_OUT    = ', DUMP_FILE_OUT(1:LEN_DUMP)
-          !print*,' xxx CMD = ', CMD
-          ! xxx end mark 
-
           CALL SYSTEM(CMD)
        endif
 
-       ! .xyz
     ENDDO ! end loop over README catenation
 
 
@@ -15193,8 +15178,8 @@
 
     SNLC_MWEBV         =   0.0
     SNLC_MWEBV_ERR     =   0.0
-    SNLC_SEARCH_PEAKMJD    =  -9.0
-    SNLC_SNANAFIT_PEAKMJD = -9.0
+    SNLC_SEARCH_PEAKMJD    = -9.0
+    SNLC_SNANAFIT_PEAKMJD  = -9.0
     ISNLC_TYPE         =  0
 
     SNLC_PHOTPROB_MIN = 1.0
@@ -22611,8 +22596,7 @@
 
         if ( OVMODEL_ANYFUN ) then
           do ipar = 1, NPAR_ANYLC
-            XVAL8(ipar) =  & 
-              SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
+            XVAL8(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
           enddo
 
           FLUX_MODEL  = ANYLCFUN(MJD,XVAL8)
@@ -23012,12 +22996,14 @@
     RETURN
 
   END SUBROUTINE  TABLE_LCPLOT
-
+#endif
 
 
   ! ------------------------------------------------
   SUBROUTINE INIT_TABLE_LCPLOTVAR(ID, BLOCK)
     
+    ! Created Nov 1 2026
+
     USE SNDATCOM
     USE SNANAFIT
     USE OUTLIERCOM
@@ -23050,9 +23036,6 @@
     CBLOCK       = BLOCK(1:LENBLOCK) // char(0)
     LENLIST      = LEN(VARLIST)
 
-    !  for CCID, use special variable SNLC_CCID_forC that has char(0)
-    !  termination so that parsing CCID with C code is easier.
-
     VARLIST = 'CCID:C*20' // char(0)
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,  & 
                          LENBLOCK, 20 )
@@ -23084,12 +23067,22 @@
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_OUTLIER%FLUXCAL_ERR_DATA, VARLIST,1,  & 
          LENBLOCK, 20 )
 
+#if defined(SNFIT)
+
+    VARLIST = 'CHI2:F' // char(0)
+    CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_OUTLIER%CHI2, VARLIST,1,  & 
+         LENBLOCK, 20 )
+    
+    VARLIST = 'DATAFLAG:I' // char(0)
+    CALL SNTABLE_ADDCOL_int(ID, CBLOCK, EPTABLEVAR_OUTLIER%FLAG, VARLIST,1,  & 
+         LENBLOCK, 20 )
+
+#endif
+
     RETURN
 
   END SUBROUTINE INIT_TABLE_LCPLOTVAR
 
-
-#endif
 
 ! ===========================================
   SUBROUTINE TABLE_OUTLIER(IDTABLE,IFLAG)
@@ -23353,9 +23346,6 @@
     CBLOCK       = BLOCK(1:LENBLOCK) // char(0)
     LENLIST      = LEN(VARLIST)
 
-!  for CCID, use special variable SNLC_CCID_forC that has char(0)
-!  termination so that parsing CCID with C code is easier.
-
     VARLIST = 'CCID:C*20' // char(0)
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1,  & 
                          LENBLOCK, 20 )
@@ -23492,17 +23482,22 @@
 
     INTEGER IFILT_OBS, IFILT
     CHARACTER BAND*2
-    REAL SNR
+    REAL SNR, FLUXCAL_FIT, FLUXCAL_ERR_FIT, FLUXCAL_ERRTOT_FIT, CHI2
+    REAL ERR1, ERR2, TOBS, TREST
+    REAL*8  MJD8
+    LOGICAL REJECT
 
+    ! functions
+    REAL*8  GET_FITPEAKMJD
 ! ---------- BEGIN ---------
 
     IFILT_OBS   = ISNLC_IFILT_OBS(ep)
     IFILT       = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
     BAND        = filtdef_string(ifilt_obs:ifilt_obs)
-
-    EPTABLEVAR_OUTLIER%MJD               = SNLC8_MJD(ep)
-    EPTABLEVAR_OUTLIER%TOBS              = SNLC_TOBS(ep)
-    EPTABLEVAR_OUTLIER%TREST             = SNLC_TREST(ep)
+    MJD8        = SNLC8_MJD(ep)
+    TOBS        = SNLC_TOBS(ep)  ! based on PKMJDINI estimate
+    TREST       = SNLC_TREST(ep) ! idem
+    EPTABLEVAR_OUTLIER%MJD               = MJD8
     EPTABLEVAR_OUTLIER%IFILTOBS          = IFILT_OBS
     EPTABLEVAR_OUTLIER%BAND              = BAND
     EPTABLEVAR_OUTLIER%FIELD             = SNLC_FIELD(ep)
@@ -23526,18 +23521,42 @@
        EPTABLEVAR_OUTLIER%AREAFRAC     = SNLC_AREAFRAC(ep) 
     endif
 
-    IF ( ISJOB_SNANA ) THEN
-       ! true flux from SIM_MAGOBS
-       EPTABLEVAR_OUTLIER%FLUXCAL_TRUE      = SIM_EPFLUXCAL(ep)
-    ELSE
-       ! get model fit flux
-#if defined(SNFIT)
-       EPTABLEVAR_OUTLIER%FLUXCAL_FIT        = SNLC_FLUXCAL_FIT(ep)
-       EPTABLEVAR_OUTLIER%FLUXCAL_ERR_FIT    = SNLC_FLUXCAL_ERR_FIT(ep)
-       EPTABLEVAR_OUTLIER%FLUXCAL_ERRTOT_FIT = SNLC_FLUXCAL_ERRTOT_FIT(ep)
-#endif
-    ENDIF
+    ! true flux from SIM_MAGOBS (SIM or fakes overlaid on real data)
+    EPTABLEVAR_OUTLIER%FLUXCAL_TRUE   = SIM_EPFLUXCAL(ep)
 
+#if defined(SNFIT)
+    ! get model fit flux 
+    CALL GET_FITFLUX(ep, FLUXCAL_FIT, FLUXCAL_ERR_FIT, CHI2, REJECT)
+    ERR1   = SNLC_FLUXCAL_ERRTOT(ep)
+    ERR2   = MAX(0.000001,FLUXCAL_ERR_FIT)
+    FLUXCAL_ERRTOT_FIT = SQRT(ERR1*ERR1 + ERR2*ERR2)
+    
+    EPTABLEVAR_OUTLIER%FLUXCAL_FIT        = FLUXCAL_FIT
+    EPTABLEVAR_OUTLIER%FLUXCAL_ERR_FIT    = FLUXCAL_ERR_FIT
+    EPTABLEVAR_OUTLIER%FLUXCAL_ERRTOT_FIT = FLUXCAL_ERRTOT_FIT
+    EPTABLEVAR_OUTLIER%CHI2               = CHI2
+    EPTABLEVAR_OUTLIER%REJECT             = REJECT
+    
+    if ( REJECT ) then
+       EPTABLEVAR_OUTLIER%FLAG = -1  ! real data rejected in fit
+    else
+       EPTABLEVAR_OUTLIER%FLAG = +1  ! real data used in fit
+    endif
+    
+    TOBS   = SNGL(MJD8 - GET_FITPEAKMJD() )   ! overwrite
+    TREST  = TOBS/(1.0+SNLC_REDSHIFT)  ! xxx doesn't work for zPHOT ???
+
+    ! xxxxx mark delete xxxxx
+    !EPTABLEVAR_OUTLIER%FLUXCAL_FIT        = SNLC_FLUXCAL_FIT(ep)
+    !EPTABLEVAR_OUTLIER%FLUXCAL_ERR_FIT    = SNLC_FLUXCAL_ERR_FIT(ep)
+    !EPTABLEVAR_OUTLIER%FLUXCAL_ERRTOT_FIT = SNLC_FLUXCAL_ERRTOT_FIT(ep)
+    ! xxxx end mark 
+    
+#endif
+
+    ! store TOBS & TREST using either PKMJDINI or best fit PEAKMJD
+    EPTABLEVAR_OUTLIER%TOBS               = TOBS    ! overwrite
+    EPTABLEVAR_OUTLIER%TREST              = TREST   ! overwrite
 
     IF ( USE_TABLEFILE_ROOT ) THEN
        EPTABLEVAR_OUTLIER%BAND = EPTABLEVAR_OUTLIER%BAND(1:1) // char(0)
@@ -23566,35 +23585,39 @@
     INTEGER  ep  ! (I) epoch index
 
     REAL  FLUXCAL_FIT, FLUXCAL_ERR_FIT
-    REAL  FLUXCAL_DATA, FLUXCAL_ERR_DATA, SQERR, ERRTOT, NSIG
-    LOGICAL REJECT
+    REAL  FLUXCAL_DATA, FLUXCAL_ERR_DATA, ERRTOT, NSIG
+
+    ! xxx mark  REAL  SQERR, CHI2
+    ! xxx mark LOGICAL REJECT
 ! --------- BEGIN ---------
 
     NSIG = 0.0
 
-    CALL GET_FITFLUX(ep, FLUXCAL_FIT, FLUXCAL_ERR_FIT,REJECT)
+    ! get model error needed for ERRTOT
+    ! xxx mark CALL GET_FITFLUX(ep, FLUXCAL_FIT, FLUXCAL_ERR_FIT, CHI2, REJECT)
 
     FLUXCAL_DATA     = SNLC_FLUXCAL(ep)
     FLUXCAL_ERR_DATA = SNLC_FLUXCAL_ERRTOT(ep)
 
     IF ( FLUXCAL_ERR_FIT > 0.00001 ) THEN
-       SQERR = (FLUXCAL_ERR_FIT  * FLUXCAL_ERR_FIT) +  & 
-                 (FLUXCAL_ERR_DATA * FLUXCAL_ERR_DATA)
+       !SQERR = &
+       !     (FLUXCAL_ERR_FIT  * FLUXCAL_ERR_FIT) +  & 
+       !     (FLUXCAL_ERR_DATA * FLUXCAL_ERR_DATA)
+       !ERRTOT = SQRT(SQERR)
 
-       ERRTOT = SQRT(SQERR)
+       ERRTOT = EPTABLEVAR_OUTLIER%FLUXCAL_ERRTOT_FIT   ! computed in LOAD_EPTABLEVAR
        NSIG   = abs(FLUXCAL_DATA-FLUXCAL_FIT) / ERRTOT
     ELSE
        ERRTOT = FLUXCAL_ERR_DATA
        NSIG   = -9.0  ! epoch not used
     ENDIF
 
-!      print*,' xxx ep, DIF/ERR = ',
-!     &    ep, (FLUXCAL_DATA-FLUXCAL_FIT), '/', ERRTOT, NSIG
-
-! load fit flux info to global so that it can be used elsewhere
-    SNLC_FLUXCAL_FIT(ep)        = FLUXCAL_FIT
-    SNLC_FLUXCAL_ERR_FIT(ep)    = FLUXCAL_ERR_FIT
-    SNLC_FLUXCAL_ERRTOT_FIT(ep) = ERRTOT
+    ! xxxxxxxx mark del Nov 1 2026 xxxxxxxx
+    ! load fit flux info to global so that it can be used elsewhere
+    ! SNLC_FLUXCAL_FIT(ep)        = FLUXCAL_FIT
+    ! SNLC_FLUXCAL_ERR_FIT(ep)    = FLUXCAL_ERR_FIT
+    ! SNLC_FLUXCAL_ERRTOT_FIT(ep) = ERRTOT
+    ! xxxxxxx end mark xxxxxxxx
 
 ! set function value
     NSIG_OUTLIER_FIT = NSIG
@@ -23904,8 +23927,6 @@
     VARLIST = 'CID:I' // char(0)
     CALL SNTABLE_ADDCOL_int(ID, CBLOCK, SNLC_CID, VARLIST,0, LENBLOCK, 20 )
 
-!  for CCID, use special variable SNLC_CCID_forC that has char(0)
-!  termination so that parsing CCID with C code is easier.
 
     VARLIST = 'CCID:C*20' // char(0)
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_CCID, VARLIST,1, LENBLOCK, 20)
@@ -23915,7 +23936,7 @@
       CALL SNTABLE_ADDCOL_str(ID, CBLOCK, SNLC_NAME_IAUC, VARLIST,1, LENBLOCK, 20 )
     endif
 
-! Aug 2022: check optional user-column; e.g., to tag magshift value
+    ! Aug 2022: check optional user-column; e.g., to tag magshift value
     if ( SNTABLE_APPEND_VARNAME .NE. '' ) then
        LENV = INDEX(SNTABLE_APPEND_VARNAME,' ') - 1
        VARLIST = SNTABLE_APPEND_VARNAME(1:LENV) // ':F' // char(0)
@@ -27909,7 +27930,6 @@
 ! Jan 9, 2012: fix bug : use IFILT in SNLC_SNANAFIT_PEAKMJD_FITPAR
 ! -------------------------------
 
-
     USE SNDATCOM
     USE SNANAFIT
     USE SNLCINP_NML
@@ -28525,8 +28545,7 @@
        endif
 
 ! set bad-error flag of fit-value has not moved from initial value.
-       LBADERR = LBADERR .or.  & 
-                  ( INIVAL(ipar) .EQ. FITVAL(ipar,iter) )
+       LBADERR = LBADERR .or.  ( INIVAL(ipar) .EQ. FITVAL(ipar,iter) )
 
        if ( FLOATPAR(ipar) .and. LBADERR ) then
           FITERR_PLUS(ipar,iter)  = +INISTP(ipar)
@@ -28711,12 +28730,12 @@
 
     ENDIF
 
-! write par value into string using format
+    ! write par value into string using format
     WRITE(STRING_VAL,211) VAL
 211   FORMAT(G11.5)
     IF ( VAL > 1.0E4 ) THEN  ! this is PEAKMJD
-      WRITE(STRING_VAL,212) VAL
-212     FORMAT(F11.3)
+       WRITE(STRING_VAL,212) VAL
+212    FORMAT(F11.3)
     ENDIF
 
     LL = INDEX(CCID,' ') - 1
@@ -29061,7 +29080,7 @@
 
     IMPLICIT NONE
 
-! function aarguments
+    ! function arguments
 
     INTEGER  & 
          OPT            &  ! (I) option
@@ -29072,7 +29091,7 @@
 
     REAL*8  NSIGMA   ! (I) integrate +- NSIGMA in each dimension
 
-! local args
+    ! local args
     INTEGER, PARAMETER :: &
           MXPAR   = 10    &  ! max number of fit paramters/dimensions
          ,MXGRID  = 30  
@@ -29106,18 +29125,18 @@
 
     LOGICAL  LPDFZERO, LREDO, LREDO_ALL, LDMP_DEBUG
 
-! plot variables
+    ! plot variables
     INTEGER ID
     CHARACTER VARLIST*40, VARNAME*20, CBLOCK*8, FNAM*10
     REAL*8    PDF_MARG, PDF_NOMARG
 
-! function
+    ! function
 
     REAL*8   FCNPDF
     EXTERNAL FCNPDF
     EXTERNAL SNTABLE_FILL
 
-! ----------------- BEGIN INTEGPDF------------
+! ----------------- BEGIN INTEGPDF ------------
 
     NEVAL    = 0  ! init output arg
     IERR     = 0
@@ -29526,7 +29545,6 @@
           PDF1D_NOMARG(igrid,ipar) = MAX(PDFMIN, PDF_NOMARG)
        ENDDO
 461    CONTINUE
-
 
        ! load variables for table
        DO 700 idim  = 1, NDIM

@@ -450,6 +450,10 @@ void formatFloat_TEXT(char *VARNAME, double VAL, char *VALSTRING) {
     sprintf(VALSTRING, "%11.4le", VAL);
   }
 
+  else if ( strstr(VARNAME,"CHI2") != NULL ) {
+    sprintf(VALSTRING, "%6.2f", VAL);
+  }
+
   else if ( (VAL - IVAL8) == 0.0 ) {
     // it's really an integer
     sprintf(VALSTRING, "%lld", IVAL8);  

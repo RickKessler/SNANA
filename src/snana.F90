@@ -23203,6 +23203,8 @@
          IFILT      = IFILTDEF_INVMAP_SURVEY(IFILTOBS)
          if ( ISNLC_SNRECON_USE(ep) == 0 ) goto 201
 
+         CALL LOAD_EPTABLEVAR(ep) ! must be called before NSIG_OUTLIER_FIT
+
          if ( ISJOB_SNANA ) then
             NSIG   = abs(SIM_EPPULL(ep))
             FTRUE  = SIM_EPFLUXCAL(ep)
@@ -23227,7 +23229,7 @@
          if ( LCUT_NSIG .and. LCUT_FTRUE .and. LCUT_SBMAG ) then
             NEP_OUTLIER_TOT    = NEP_OUTLIER_TOT    + 1
             NEP_OUTLIER_PEREVT = NEP_OUTLIER_PEREVT + 1
-            CALL LOAD_EPTABLEVAR(ep)
+            ! xxxx CALL LOAD_EPTABLEVAR(ep)
             CALL SNTABLE_FILL(IDTABLE) ! generic C function
             CALL COUNT_OUTLIERS(2,ep)
          endif
@@ -23641,6 +23643,7 @@
 
     FLUXCAL_DATA     = SNLC_FLUXCAL(ep)
     FLUXCAL_ERR_DATA = SNLC_FLUXCAL_ERRTOT(ep)
+    FLUXCAL_ERR_FIT  = EPTABLEVAR_LCPLOT%FLUXCAL_ERR_FIT  ! already set
 
     IF ( FLUXCAL_ERR_FIT > 0.00001 ) THEN
        !SQERR = &

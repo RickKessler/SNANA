@@ -78,6 +78,8 @@ char TEMPLATETYPE_PSNID[MXTYPEINDX_PSNID+1][8] ;   // vs. TYPEINDX
 
 char PATH_TEMPLATES_PSNID[MXPATHLEN+50];
 
+int REFAC_LCPLOT; // temp flag for LCPLOT refactor and removal of SNLCPAK
+
 // define structure of inputs that are passed to psnid during init stage
 struct  PSNID_INPUTS  {
 

@@ -110,6 +110,7 @@ void PSNID_USER_INPUT(int NVAR, double *input_array, char *input_string ) {
 
   ivar++ ; dval = input_array[ivar];
   PSNID_INPUTS.DEBUG_FLAG = (int)dval ;
+  REFAC_LCPLOT = (PSNID_INPUTS.DEBUG_FLAG == 1102);
 
   // load &PSNIDINP doubles ...
   ivar++ ; dval = input_array[ivar];

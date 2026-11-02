@@ -69,11 +69,6 @@ void SNLCPLOT_PSNID_BEST2(int iplot) ;    // standard LC+fit plots
 void snlcplot_psnid_best2__(int *iplot) 
 {  SNLCPLOT_PSNID_BEST2(*iplot); }
 
-void MONPLOT_PSNID_BEST2(int iplot) ;    // arbitrary monitor plots
-void monplot_psnid_best2__(int *iplot)
-{ MONPLOT_PSNID_BEST2(*iplot); }
-
-
 
 // ===================================================
 // ========= BEGIN FUNCTIONS =========================
@@ -147,16 +142,6 @@ int PSNID_BEST2_GET_BESTTYPE(void) {
   return(TYPE);
 
 } // end PSNID_BEST2_GET_BESTTYPE
-
-
-void MONPLOT_PSNID_BEST2(int iplot) {
-
-  //  char fnam[] = "MONPLOT_PSNID_BEST2";
-  // ----------- BEGIN -------------
-
-  return ;
-
-} // end MONPLOT_PSNID_BEST2
 
 
 void SNLCPLOT_PSNID_BEST2(int iplot) {

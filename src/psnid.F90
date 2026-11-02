@@ -77,12 +77,12 @@
 
     INTEGER  & 
          NOBSMIN           &  ! I: min NOBS to process
-        ,OPT_ZPRIOR        &  ! I: 0,1,2 -> FLAT, ZSPEC, Zphot(host)
-        ,OPT_RATEPRIOR     &  ! I: use rate prior; default=0 --> no rate prior
-        ,OPT_SIMCHEAT      &  ! I: 0 --> don't allow same PSNID template as in sim
-        ,MCMC_NSTEP        &  ! I: number of MCMC steps (set to <=0 to turn off)
-        ,NCOLOR, NDMU      &  ! I: number of color and delta-mu bins in grid search
-        ,NREJECT_OUTLIER  ! I: max number of outliers points to reject
+         ,OPT_ZPRIOR        &  ! I: 0,1,2 -> FLAT, ZSPEC, Zphot(host)
+         ,OPT_RATEPRIOR     &  ! I: use rate prior; default=0 --> no rate prior
+         ,OPT_SIMCHEAT      &  ! I: 0 --> don't allow same PSNID template as in sim
+         ,MCMC_NSTEP        &  ! I: number of MCMC steps (set to <=0 to turn off)
+         ,NCOLOR, NDMU      &  ! I: number of color and delta-mu bins in grid search
+         ,NREJECT_OUTLIER      ! I: max number of outliers points to reject
 
     CHARACTER  & 
          METHOD_NAME*60                 &  ! I: pick method name/acronym
@@ -392,26 +392,26 @@
     USE SNPAR
     USE CTRLCOM
     USE PSNIDCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
     INTEGER IERR ! (O) 0=> ok
 
-! local args
+    ! local args
+    CHARACTER C1ERR*80, C2ERR*80, FMT*20, FMT_forC*20, FNAM*10
 
-    CHARACTER  & 
-        C1ERR*80, C2ERR*80, FMT*20, FMT_forC*20, FNAM*10
+    INTEGER LEN_FMT, OPT_FITRES, OPT_LCPLOT
 
-    INTEGER LEN_FMT, OPT
-
-! external functions
+    ! external functions
     EXTERNAL  PSNID_BEST_INIT_SNTABLE
 
 ! ----------- BEGIN ---------
     IERR = 0
     FNAM = 'PSNIDINI2'
 
-    OPT      = OPT_TABLE(ITABLE_FITRES)
+    OPT_FITRES  = OPT_TABLE(ITABLE_FITRES)
+    OPT_LCPLOT  = OPT_TABLE(ITABLE_LCPLOT)
     FMT      = TEXTFORMAT_TABLE(ITABLE_FITRES)
     LEN_FMT  = INDEX(FMT,' ') - 1
     FMT_forC = FMT(1:LEN_FMT) // char(0)
@@ -421,14 +421,18 @@
 
     IF ( METHOD_NAME .EQ. 'BEST' ) THEN
 
-      CALL PSNID_BEST_INIT_SNTABLE(OPT,FMT_forC,LSIM_SNANA,LEN_FMT)
+       CALL INIT_TABLE_PSNID_FITRES(OPT_FITRES, FMT_forC, LSIM_SNANA, LEN_FMT)
+       
+       if ( REFAC_LCPLOT > 0 ) then
+          CALL INIT_TABLE_PSNID_LCPLOT(OPT_FITRES, FMT_forC, LSIM_SNANA, LEN_FMT)
+       endif
+
+       ! xxx CALL PSNID_BEST_INIT_SNTABLE(OPT,FMT_forC,LSIM_SNANA,LEN_FMT)
 
 ! ------------
     ELSE IF ( METHOD_NAME .EQ. 'BEST2' ) THEN
 
-      CALL PSNID_BEST2_INIT_SNTABLE(OPT,FMT_forC,LSIM_SNANA,LEN_FMT)
-
-
+       ! xxx mark CALL PSNID_BEST2_INIT_SNTABLE(OPT,FMT_forC,LSIM_SNANA,LEN_FMT)
 
 !      ELSE IF ( METHOD_NAME .EQ. 'SOFT' ) THEN
 ! ccccccccccc PLACE-HOLDER
@@ -442,6 +446,8 @@
 
     RETURN
   END SUBROUTINE PSNIDINI2
+
+
 ! ===========================================
     SUBROUTINE PSNIDANA(IERR)
 ! 
@@ -1077,6 +1083,7 @@
     NVAR = NVAR + 1
     INPUT_ARRAY(NVAR) = W0_REF(1)
 
+    if ( REFAC_LCPLOT > 0 ) DEBUG_FLAG = 1102  ! pass flag to C code
     NVAR = NVAR + 1
     INPUT_ARRAY(NVAR) = DBLE(DEBUG_FLAG)
 
@@ -1255,6 +1262,7 @@
 
     USE SNDATCOM
     USE PSNIDCOM
+    USE SNLCINP_NML
 
     IMPLICIT NONE
 
@@ -1267,26 +1275,28 @@
 ! external functions (declared external Aug 17 2014)
     EXTERNAL  & 
          MAKEDIR_OUTPUT, CDTOPDIR_OUTPUT  & 
-        ,SNLCPLOT_PSNID_BEST,  MONPLOT_PSNID_BEST, DOPLOT_PSNID  & 
-        ,SNLCPLOT_PSNID_BEST2, MONPLOT_PSNID_BEST2
+         ,FILL_TABLE_PSNID_LCPLOT, DOPLOT_PSNID
+
+    EXTERNAL SNLCPLOT_PSNID_BEST_LEGACY, SNLCPLOT_PSNID_BEST2
 
 ! ---------------- BEGIN -------------
 
     IF ( .NOT. DOPLOT_SNLC() ) RETURN
 
-! determine max number of fit-functions to generate
+    ! determine max number of fit-functions to generate
     MXFUNPLOT = PSNID_GET_NFIT()
 
-! ---------------------------------------
+    ! ---------------------------------------
 
-! figure out how many plots to make
+    ! figure out how many plots to make
     NFUNPLOT = 0
     DO iplot = 0, MXFUNPLOT-1
        IF ( DOPLOT_PSNID(iplot) > 0 ) NFUNPLOT=NFUNPLOT+1
     ENDDO
-    CALL SNLCPAK_NFIT(NFUNPLOT)      ! store
 
-! - - - - - - - - -
+    CALL SNLCPAK_NFIT(NFUNPLOT)   
+
+    ! - - - - - - - - -
     DO 3000 iplot = 0, MXFUNPLOT-1
 
        IF ( DOPLOT_PSNID(iplot) .EQ. 0 ) GOTO 3000
@@ -1294,11 +1304,16 @@
        CALL MAKEDIR_OUTPUT(CCID_forC, SNLC_CID, ISNLC_LENCCID)
 
        IF ( METHOD_PSNID .EQ. METHOD_BEST ) THEN
-          CALL SNLCPLOT_PSNID_BEST(iplot)  ! tables for light curve plots
-          CALL MONPLOT_PSNID_BEST(iplot)   ! misc plots
+
+          if ( REFAC_LCPLOT > 0 ) then
+             CALL FILL_TABLE_PSNID_LCPLOT(iplot)    ! uses standard table
+          else
+             CALL SNLCPLOT_PSNID_BEST_LEGACY(iplot)  ! uses legacy SNLCPAK
+          endif
+
        ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
-          CALL SNLCPLOT_PSNID_BEST2(iplot)  ! tables for light curve plots
-          CALL MONPLOT_PSNID_BEST2(iplot)   ! misc plots
+          ! xxx mark delete CALL SNLCPLOT_PSNID_BEST2(iplot)  
+
        ELSE
 
        ENDIF
@@ -1363,7 +1378,6 @@
 
 ! Basic monitoring of PSNID; results are reported in PSNID_MONEND
 ! at end of job.
-
 
     USE SNDATCOM
     USE PSNIDCOM

@@ -329,15 +329,21 @@ void psnid_best_init__(void) {
 }
 
 
+void INIT_TABLE_PSNID_FITRES(int OPT, char *TEXTFORMAT, int LSIM) ;
+void init_table_psnid_fitres__(int *OPT, char *TEXTFORMAT, int *LSIM) 
+{ INIT_TABLE_PSNID_FITRES(*OPT, TEXTFORMAT, *LSIM); }
+
+void INIT_TABLE_PSNID_LCPLOT(int OPT, char *TEXTFORMAT, int LSIM) ;
+void init_table_psnid_lcplot__(int *OPT, char *TEXTFORMAT, int *LSIM) 
+{ INIT_TABLE_PSNID_LCPLOT(*OPT, TEXTFORMAT, *LSIM); }
+
+/* xxxxxx mark delete
 void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) ;
 void psnid_best_init_sntable__(int *OPT, char *TEXTFORMAT, int *LSIM) 
 { PSNID_BEST_INIT_SNTABLE(*OPT,TEXTFORMAT,*LSIM); }
-
+xxxx */
 
 void PSNID_BEST_TABLEFILE_HEADER(void);
-void PSNID_BEST_TABLEFILE_HEADER_LEGACY(void) ; // store comments for table
-// xxx mark void PSNID_BEST_TABLEFILE_COMMENTS(void) ; // store comments for table
-
 void PSNID_BEST_UPDATE_OUTPUT(char *CCID) ;
 void psnid_best_update_output__(char *CCID) {
   PSNID_BEST_UPDATE_OUTPUT(CCID) ;
@@ -695,6 +701,9 @@ double psnid_best_mwxtmag(int ifilt) ;
 
 void SNLCPLOT_PSNID_BEST(int iplot) ;    // standard LC+fit plots
 void snlcplot_psnid_best__(int *iplot);  // (RK Feb 8 2013)
+
+void FILL_TABLE_PSNID_LCPLOT(int iplot);
+void fill_table_psnid_lcplot__(int *iplot);
 
 void MONPLOT_PSNID_BEST(int iplot) ;    // arbitrary monitor plots
 void monplot_psnid_best__(int *iplot);  // (RK Mar 10 2013)
@@ -1319,7 +1328,7 @@ int psnid_strTypeMatch(int itype, char *string, int optDebug ) {
   ISTAT = 0;  // default = FALSE
   sprintf(cList,"%s", PSNID_CHARTYPE_LISTS[itype] ) ;
   
-  // .xyz
+  
   // check each sub-string separated by blank space
   ptrtok = strtok(cList," ");
 
@@ -3449,8 +3458,24 @@ void psnid_best_store_fitResids(int itype, int **obsflag) {
 } // end of psnid_best_store_fitResids
 
 
+//*********************************************
+void FILL_TABLE_PSNID_LCPLOT(int iplot) {
+
+  char fnam[] = "FILL_TABLE_PSNID_LCPLOT" ;  (void)fnam;
+
+  // ---------- BEGIN -------------
+
+
+  return;
+
+} // end FILL_TABLE_PSNID_LCPLOT
+
+void fill_table_psnid_lcplot__(int *iplot)
+  { FILL_TABLE_PSNID_LCPLOT(*iplot); }
+
+
 /*************************************************************/
-void SNLCPLOT_PSNID_BEST(int iplot) {
+void SNLCPLOT_PSNID_BEST_LEGACY(int iplot) {
 /**************************************************************/
 
   // Created Feb 9 2013 by R.Kessler
@@ -3480,11 +3505,10 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
     ;
 
   char  *CCID ;
-  char   fnam[]  = "SNLCPLOT_PSNID_BEST" ;
+  char   fnam[]  = "SNLCPLOT_PSNID_BEST_LEGACY" ;
 
   // ------------ BEGIN -------------
 
-    
   // get CCID from stored data structure
   CCID     = DATA_PSNID_DOFIT.CCID ;
 
@@ -3744,65 +3768,12 @@ void SNLCPLOT_PSNID_BEST(int iplot) {
 
   return ;
   
-} // end of  SNLCPLOT_PSNID_BEST
+} // end of  SNLCPLOT_PSNID_BEST_LEGACY
 
-void snlcplot_psnid_best__(int *iplot) {
-  SNLCPLOT_PSNID_BEST(*iplot) ;
+void snlcplot_psnid_best_legacy__(int *iplot) {
+  SNLCPLOT_PSNID_BEST_LEGACY(*iplot) ;
 }
 
-
-/*************************************************************/
-void MONPLOT_PSNID_BEST(int iplot) {
-
-  // create arbitrary 1D and 2D plots.
-  // These plots are stored in SN-specifid subdirs named
-  // SN[CCID]_FIT[iplot]
-
-  int    NDIM, NB[2], HID, i0, i1 ;
-  double XMIN[2], XMAX[2], X[2], WGT ;
-  char   CHTIT[80];
-  //  char   fnam[] = "MONPLOT_PSNID_BEST" ;
-
-  // ----------- BEGIN ----------
-
-  NDIM = 1 ;  // 1D hist
-  HID  = 801 ; // pick arbitrary number
-  sprintf(CHTIT,"Example 1D histogram");
-  NB[0] = 10; XMIN[0]=0.0; XMAX[0]=10.0 ;
-  SNHIST_INIT(NDIM, HID, CHTIT, NB, XMIN, XMAX ) ;
-
-  // now fill histogram
-  for(i0=0; i0<NB[0]; i0++ ) {
-    X[0] = (double)i0 + 0.5 ; WGT = X[0];
-    SNHIST_FILL(NDIM, HID, X, WGT );
-  }
-
-
-  // now make and fill a 2D plot
-  NDIM = 2 ;  // 2D hist
-  HID  = 802 ; // pick arbitrary number
-  sprintf(CHTIT,"Example 2D histogram");
-  NB[0] = 10; XMIN[0]=0.0; XMAX[0]=10.0 ;
-  NB[1] = 20; XMIN[1]=0.0; XMAX[1]=20.0 ;
-  SNHIST_INIT(NDIM, HID, CHTIT, NB, XMIN, XMAX ) ;
-
-  // now fill histogram
-  for(i0=0; i0<NB[0]; i0++ ) {
-    for(i1=0; i1<NB[1]; i1++ ) {
-      X[0] = (double)i0  + 0.5 ;  // horizont axis
-      X[1] = (double)i1  + 0.5 ;  // vertical axis
-      WGT = X[0] * X[1];
-      SNHIST_FILL(NDIM, HID, X, WGT );
-    }
-  }
-
-  return ;
-  
-} // end of MONPLOT_PSNID_BEST
-
-void monplot_psnid_best__(int *iplot) {
-  MONPLOT_PSNID_BEST(*iplot) ;
-}
 
 
 /**************************************************************/
@@ -5727,7 +5698,7 @@ void PSNID_BEST_INIT(void) {
 
 
 // *****************************************************
-void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
+void INIT_TABLE_PSNID_FITRES(int OPT, char *TEXTFORMAT, int LSIM) {
 
   // Created May 19 2014
   // Init output TABLE based on &SNLCINP namelist string SNTABLE_LIST.
@@ -5741,7 +5712,7 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   //
   // May 20 2019: abort if   PSNID_MAXNL_NONIA exceeds bound.
 
-  char fnam[] = "PSNID_BEST_INIT_SNTABLE" ;
+  char fnam[] = "INIT_TABLE_PSNID_FITRES" ;
 
   // ------------ BEGIN --------------
 
@@ -5753,7 +5724,7 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   // allocate memory to store best fit residuals
   psnid_best_malloc_resids();
 
-  if ( OPT == 0 ) { return ; }
+  if ( OPT == 0 ) { return ; } // no tables
   // ----------------------------------
 
   int  ID_TABLE     = PSNID_TABLE_ID;
@@ -5780,8 +5751,7 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   // call function to set PSNID_NGRID[itype] so that table-init
   // knows which types to include.
   int nonia_types[PSNID_NONIA_MXTYPES] ;
-  PSNID_MAXNL_NONIA  = 
-    SNGRID_PSNID[TYPEINDX_NONIA_PSNID].NBIN[IPAR_GRIDGEN_SHAPEPAR];
+  PSNID_MAXNL_NONIA  = SNGRID_PSNID[TYPEINDX_NONIA_PSNID].NBIN[IPAR_GRIDGEN_SHAPEPAR];
 
   if ( PSNID_MAXNL_NONIA > PSNID_NONIA_MXTYPES ) {
     sprintf(c1err,"PSNID_MAXNL_NONIA=%d exceeds bound.", PSNID_MAXNL_NONIA);
@@ -5800,61 +5770,7 @@ void PSNID_BEST_INIT_SNTABLE(int OPT, char *TEXTFORMAT, int LSIM) {
   printf("\n"); fflush(stdout);
   return ;
 
-} // end of void PSNID_BEST_INIT_SNTABLE
-
-
-// =============================================
-void  PSNID_BEST_TABLEFILE_HEADER_LEGACY(void) {
-
-  // Oct 23 2014
-  // define comments to write at top of ascii file ...
-  // maybe later will aslo go into global header
-  // for hbook or root file.
-
-  int itype ;
-  char comment[120], *KEY;
-  // --------------- BEGIN ------------
-
-  for ( itype=0; itype < PSNID_NTYPES; itype++ ) {   
-    sprintf(comment,"ITYPE = %2d --> '%s' ", itype, PSNID_TYPE_NAME[itype]);
-    STORE_TABLEFILE_COMMENT(comment);
-  }
-
-  // write unique keys for templates
-  KEY = SNGRID_PSNID[TYPEINDX_SNIA_PSNID].UNIQUE_KEY ;
-  if ( strlen(KEY) > 1 )  { 
-    sprintf(comment,"GRIDKEY(TEMPLATES_SNIA)  = %.80s", KEY); 
-    STORE_TABLEFILE_COMMENT(comment);
-  }
-	  
-  KEY = SNGRID_PSNID[TYPEINDX_NONIA_PSNID].UNIQUE_KEY  ;
-  if ( strlen(KEY) > 1 )  { 
-    sprintf(comment, "GRIDKEY(TEMPLATES_NONIA) = %.80s", KEY ); 
-    STORE_TABLEFILE_COMMENT(comment);
-  }
-	  
-
-  sprintf(comment, "FILTLIST_FIT:  %s", PSNID_INPUTS.CFILTLIST );
-  STORE_TABLEFILE_COMMENT(comment);
-
-  sprintf(comment, "OPT_ZPRIOR: %d", PSNID_INPUTS.OPT_ZPRIOR );
-  STORE_TABLEFILE_COMMENT(comment);
-
-  sprintf(comment, "COLOR_BINS: %d  %6.3f  %6.3f ", 
-	  PSNID_INPUTS.NCOLOR,  
-	  PSNID_INPUTS.COLOR_MIN, PSNID_INPUTS.COLOR_MAX );
-	  STORE_TABLEFILE_COMMENT(comment);
-
-  sprintf(comment, "DMU_BINS: %d  %6.3f  %6.3f ", 
-	  PSNID_INPUTS.NDMU,  PSNID_INPUTS.DMU_MIN, PSNID_INPUTS.DMU_MAX);
-  STORE_TABLEFILE_COMMENT(comment) ;
-
-  sprintf(comment, "MCMC_NSTEP: %d ", PSNID_INPUTS.MCMC_NSTEP );
-  STORE_TABLEFILE_COMMENT(comment);
-
-  return ;
-
-} // end of PSNID_BEST_TABLEFILE_HEADER_LEGACY
+} // end of INIT_TABLE_PSNID_FITRES
 
 
 // =============================================
@@ -6292,6 +6208,17 @@ void psnid_best_define_TableRESIDS(void) {
   return ;
 
 } // end of  psnid_best_define_TableRESIDS
+
+
+// **********************************************
+void INIT_TABLE_PSNID_LCPLOT(int OPT, char *TEXTFORMAT, int LSIM) {
+
+  char fnam[] = "INIT_TABLE_PSNID_LCPLOT" ;  (void)fnam;
+
+  // ------------ BEGIN ----------
+
+  return;
+} // end INIT_TABLE_PSNID_LCPLOT
 
 
 // *****************************************************

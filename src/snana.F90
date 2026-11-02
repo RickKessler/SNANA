@@ -23050,7 +23050,7 @@
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_LCPLOT%FLUXCAL_ERR_DATA, VARLIST,1,  & 
          LENBLOCK, 20 )
 
-#if defined(SNFIT)
+#if defined(SNFIT) || defined(PSNID)
 
     VARLIST = 'CHI2:F' // char(0)
     CALL SNTABLE_ADDCOL_flt(ID, CBLOCK, EPTABLEVAR_LCPLOT%CHI2, VARLIST,1,  & 
@@ -23059,8 +23059,58 @@
     VARLIST = 'DATAFLAG:I' // char(0)
     CALL SNTABLE_ADDCOL_int(ID, CBLOCK, EPTABLEVAR_LCPLOT%FLAG, VARLIST,1,  & 
          LENBLOCK, 20 )
-
 #endif
+
+#if defined(PSNID)
+    ! NUMFIT labels which PSNID template class
+    VARLIST = 'NUMFIT:I' // char(0)
+    CALL SNTABLE_ADDCOL_int(ID, CBLOCK, EPTABLEVAR_LCPLOT%NUMFIT, VARLIST,1,  &
+         LENBLOCK, 20 )    
+#endif
+
+    ! ------------------------------------------
+    ! - - - - - -  add header comments - - - - -
+    ! ------------------------------------------
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "", "", FNAM )
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "CID", &
+         "candidate ID", FNAM)
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "MJD", &
+         "time of observation", FNAM)
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "TOBS",  &
+         "MJD - PEAKMJD", FNAM)
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "BAND", &
+         "filter band", FNAM)
+
+    if ( LSIM_SNANA ) then
+       CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "SIM_FLUXCAL", &
+            "true flux (SIM or overlaid flux)", FNAM)
+    endif
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "FLUXCAL", &
+         "calibrated flux (nJy)", FNAM)
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "FLUXCAL_ERR", &
+         "calibrated flux uncertainty (nJy)", FNAM)
+
+#if defined(SNFIT) || defined(PSNID)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "CHI2", &
+         "data-fit chi2" , FNAM )
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "DATAFLAG", &
+         "1=>data used in fit, -1=>data rejected in fit, 0=bestFit curve  ", FNAM)
+#endif
+
+#if defined(PSNID)
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "NUMFIT", &
+         "indicates template class fit", FNAM)
+#endif
+
+    CALL APPEND_TBFILE_HEAD_FORTRAN(ID, "", "", FNAM )
 
     RETURN
 

@@ -9813,17 +9813,17 @@
           CALL  MADABORT(FNAM, C1ERR, C2ERR )
        ENDIF
 
-!  store fit results
+       !  store fit results
        CALL MNFIT_STOREPAR(iter,IERR)
 
-! analyze results: returns ERRFLAG_FIT
-!  =  0 => OK; keep SN
-!  >  0 => discard fit
-!  = -1 => decrement ITER and try again (e.g., for photoZ spike)
-
+       ! analyze results: returns ERRFLAG_FIT
+       !  =  0 => OK; keep SN
+       !  >  0 => discard fit
+       !  = -1 => decrement ITER and try again (e.g., for photoZ spike)
+       
         CALL FITPAR_ANA ( isn_proc, iter, ERRFLAG_FIT )
 
-! check ERRFLAG_FIT
+        ! check ERRFLAG_FIT
         CALL SNANA_ERRFLAG_FIT(iter,ERRFLAG_FIT)
         if ( ERRFLAG_FIT > 0 ) REJECT_FIT = .TRUE.
 
@@ -28563,12 +28563,12 @@
        INIVAL_STORE(ipar)    = SNGL(INIVAL(ipar))
        ERRTYPE_STORE(ipar)   = ERRTYPE(ipar)
 
-! store FITVCAL in 'LC' array (might get over-written later by PDFVAL
+       ! store FITVCAL in 'LC' array (might get over-written later by PDFVAL
 
        LCVAL_STORE(ipar) = FITVAL_STORE(ipar)
        LCERR_STORE(ipar) = MIN(99.9,FITERR_STORE(ipar))
 
-! print results for floated parameters only
+       ! print results for floated parameters only
 
        if ( FLOATPAR(ipar)  & 
            .or. NFIXPAR .EQ. NFITPAR_MN  & 

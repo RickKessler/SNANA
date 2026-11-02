@@ -6324,9 +6324,12 @@
   END SUBROUTINE FITMODEL_INI
 
   DOUBLE PRECISION FUNCTION GET_FITPEAKMJD()
+    ! Created Nov 2 2026
     ! interface or snana.exe to fetch final-fitted PEAKMJD
     USE SNDATCOM
     USE SNANAFIT
+    USE SNFITPAR
+    IMPLICIT NONE
     GET_FITPEAKMJD = LCVAL_STORE(IPAR_PEAKMJD)
     RETURN
 
@@ -19187,7 +19190,6 @@
     IF ( DO_FILL ) THEN
 
        PEAKMJD8 =  GET_FITPEAKMJD()
-       print*,' xxx PEAKMJD8= ', PEAKMJD8 ; call flush(6)
 
        ! terminate strings for C table-functions (snana.F90 routine)
        CALL TABLE_STRING_TERMINATION(+1)

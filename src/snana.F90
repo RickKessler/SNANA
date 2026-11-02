@@ -23391,7 +23391,7 @@
     CALL SNTABLE_ADDCOL_int(ID, CBLOCK, NEP_OUTLIER_TOT, VARLIST,1,  & 
                          LENBLOCK, 20 )
 
-    VARLIST = 'FIELD:C*MXCHAR_FIELDNAME' // char(0)
+    VARLIST = 'FIELD:C*32' // char(0)  ! beware fragile size 
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, EPTABLEVAR_LCPLOT%FIELD, VARLIST,1,  & 
                          LENBLOCK, 30)
 
@@ -23399,7 +23399,7 @@
     CALL SNTABLE_ADDCOL_dbl(ID, CBLOCK, EPTABLEVAR_LCPLOT%MJD, VARLIST,1,  & 
                          LENBLOCK, 20 )
 
-    VARLIST = 'BAND:C*2' // char(0)
+    VARLIST = 'BAND:C*1' // char(0)
     CALL SNTABLE_ADDCOL_str(ID, CBLOCK, EPTABLEVAR_LCPLOT%BAND, VARLIST,1,  & 
                          LENBLOCK, 20 )
 
@@ -23515,7 +23515,7 @@
 
     INTEGER  ep  ! (I) epoch index to load
 
-    INTEGER IFILT_OBS, IFILT
+    INTEGER IFILT_OBS, IFILT, LENF
     CHARACTER BAND*2
     REAL*4  SNR, TOBS, TREST
     REAL*8  MJD8
@@ -23551,10 +23551,15 @@
     EPTABLEVAR_LCPLOT%ZP                = SNLC_ZEROPT(ep)
     EPTABLEVAR_LCPLOT%PSF               = SNLC_PSF_SIG1(ep)
     EPTABLEVAR_LCPLOT%SKYSIG            = SNLC_SKYSIG(ep)
+    EPTABLEVAR_LCPLOT%NSIG              = SNLC_SNR(ep)
     EPTABLEVAR_LCPLOT%zHD               = SNLC_REDSHIFT
 
     EPTABLEVAR_LCPLOT%CHI2              = -9.0     ! null value; filled below
     EPTABLEVAR_LCPLOT%FLAG              = -999     ! null value; filled below
+    EPTABLEVAR_LCPLOT%NUMFIT            = 1
+
+    EPTABLEVAR_LCPLOT%REJECT            = .FALSE.
+    EPTABLEVAR_LCPLOT%NEA               = -9.0
 
     if ( OPT_TABLE(ITABLE_OUTLIER) > 0 ) then
        EPTABLEVAR_LCPLOT%NSIG         = abs(SIM_EPPULL(ep))
@@ -23604,7 +23609,10 @@
     EPTABLEVAR_LCPLOT%TREST              = TREST   ! overwrite
 
     IF ( USE_TABLEFILE_ROOT ) THEN
+       ! gotta be a better way; this is ugly
        EPTABLEVAR_LCPLOT%BAND = EPTABLEVAR_LCPLOT%BAND(1:1) // char(0)
+       LENF = INDEX(EPTABLEVAR_LCPLOT%FIELD,' ') - 1
+       EPTABLEVAR_LCPLOT%FIELD = EPTABLEVAR_LCPLOT%FIELD(1:LENF) // char(0)
     ENDIF
 
     RETURN
@@ -23643,8 +23651,9 @@
 
     FLUXCAL_DATA     = SNLC_FLUXCAL(ep)
     FLUXCAL_ERR_DATA = SNLC_FLUXCAL_ERRTOT(ep)
+    FLUXCAL_FIT      = EPTABLEVAR_LCPLOT%FLUXCAL_FIT
     FLUXCAL_ERR_FIT  = EPTABLEVAR_LCPLOT%FLUXCAL_ERR_FIT  ! already set
-
+    
     IF ( FLUXCAL_ERR_FIT > 0.00001 ) THEN
        !SQERR = &
        !     (FLUXCAL_ERR_FIT  * FLUXCAL_ERR_FIT) +  & 

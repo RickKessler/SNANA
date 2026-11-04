@@ -29,6 +29,8 @@
 #
 # Sep 11 2026 R.Kessler and J.Medoff: begin add new MAGERR_MODELPAR
 # Oct 06 2026: RK and JM: write FIELD column if CONE_REGIONS is used
+# Nov 04 2026: R.Chen: new MAGERR_PDF keys ADD_NOISE_TO_MAGS and NOISE_SEED to add Gaussian
+#                      flux noise to mags; magerr is then drawn at the noised mag.
 #
 # ===================================================================
 
@@ -57,6 +59,8 @@ KEY_MAGERR_SNR5          = "MAGERR_SNR5"    # compute magerr using mag at SNR=5
 KEY_MAGERR_SNR           = "MAGERR_SNR"     # compute magerr using 2 mags at 2 SNR values
 KEY_MAGERR_PDF           = "MAGERR_PDF"     # draw magerr from double Gauss PDF (J.Medoff)
 KEY_MAGERR_DUMMY         = "MAGERR_DUMMY"   # test writing to header
+KEY_ADD_NOISE_TO_MAGS    = "ADD_NOISE_TO_MAGS"  # (in MAGERR_PDF) add Gaussian flux noise to mags
+KEY_NOISE_SEED           = "NOISE_SEED"         # (in MAGERR_PDF) random seed for noise
 KEY_HOSTLIB_GALID        = "GALID"
 KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
 KEY_OVERRIDE_COL         = "OVERRIDE_COLUMNS"
@@ -68,6 +72,10 @@ REF_DICT = {
 }
 
 NULL_VAL = -999
+
+# values for noised flux <= 0 (ADD_NOISE_TO_MAGS)
+MAG_NODETECT    = 99.0   # SNANA host code treats MAG >= 98 as undefined
+MAGERR_NODETECT =  9.0   # MAGERR_UNDEFINED in sntools.h
 
 # hard-wire sersic indices for each galaxy component
 SERSIC_INDEX_DICT = {  'n_disk_Sersic': 1.0,    'n_bulge_Sersic': 4.0 }
@@ -188,6 +196,10 @@ HOSTLIB_VARNAMES_MAP:
 
 #    ...or ...
 {KEY_MAGERR_PDF}:   <yml file with fitted model params>
+  {KEY_ADD_NOISE_TO_MAGS}: True  # optional: add Gaussian flux noise to mags (default=False)
+  {KEY_NOISE_SEED}:        12345 # required with {KEY_ADD_NOISE_TO_MAGS}; use different seed for each cone
+     # noise uses magerr drawn at true mag; written magerr is drawn at noised mag.
+     # noised flux <= 0 -> mag={MAG_NODETECT}, magerr={MAGERR_NODETECT}
 
 
 OVERRIDE_FILE: <filename> # Optional read synthetic mags from external file instead of from OpenCosmo
@@ -635,6 +647,16 @@ def parse_config_magerr_pdf(config):
     #sys.exit(f"\n xxx MAGERR_MODELPAR_DICT = \n{MAGERR_MODELPAR_DICT}\n xxx ERRMAP_DICT = \n{ERRMAP_DICT}")    
     MAGERR_PDF_DICT['BANDMAP_DICT'] = BANDMAP_DICT
 
+    # Nov 4 2026 R.Chen: check optional noise keys; NOISE_NOTE is added only when noise is
+    # added to mags, so that the DOCUMENTATION block is unchanged by default.
+    if MAGERR_PDF_DICT.get(KEY_ADD_NOISE_TO_MAGS, False) :
+        if KEY_NOISE_SEED not in MAGERR_PDF_DICT :
+            sys.exit(f"\n ERROR: {KEY_MAGERR_PDF} with {KEY_ADD_NOISE_TO_MAGS} requires {KEY_NOISE_SEED}")
+        MAGERR_PDF_DICT['NOISE_NOTE'] = \
+            f"Gaussian flux noise added to mags using magerr drawn at true mag; " \
+            f"written magerr drawn at noised mag; noised flux <= 0 -> " \
+            f"mag={MAG_NODETECT}, magerr={MAGERR_NODETECT}; mag={NULL_VAL} is unchanged"
+
     config[KEY_MAGERR_PDF] = MAGERR_PDF_DICT
     config['band_magerr_list_diffsky'] = list(BANDMAP_DICT.keys())
     
@@ -922,20 +944,91 @@ def add_col_magerr_pdf(df_cat,config):
     band_list = config['band_magerr_list_diffsky']
     rng = np.random.default_rng(42) # Setting rng to make it repeatable
     
+    # Nov 4 2026 R.Chen: optional noise on mags; separate rng so that the magerr draws are unchanged
+    add_noise = MAGERR_PDF_DICT.get(KEY_ADD_NOISE_TO_MAGS, False)
+    if add_noise :
+        noise_seed = int(MAGERR_PDF_DICT[KEY_NOISE_SEED])
+        rng_noise  = np.random.default_rng(noise_seed)
+        logging.info(f"  {KEY_ADD_NOISE_TO_MAGS}: add noise to mags with {KEY_NOISE_SEED} = {noise_seed}")
+
     for band in band_list:
         mag     = df_cat[band]
         band_pdfpar_yaml = MAGERR_PDF_DICT['BANDMAP_DICT'][band]
         #print(f'xxx band_pdfpar_yaml = {band_pdfpar_yaml}')
 
-        mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
+        # draw percentile explicitly (same draw as inside sampler) so that magerr
+        # values are unchanged whether or not noise is added to the mags.
+        u_ran   = rng.random(len(mag))
+        mag_err = sampler.sample(band_pdfpar_yaml, mag, u=u_ran, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
         # check_bin_means is fragile for samples with few events; instead of being a fixed number,
         # check_bin_means should depend on number of events
         
         #mag_err = 0.01*mag   # test
         band_err = band + '_err'
+        if add_noise :
+            mag_noised, mag_err = add_noise_to_mags(sampler, band_pdfpar_yaml, mag.values,
+                                                    mag_err, u_ran, rng_noise)
+            n_nodetect = int( ((mag_noised == MAG_NODETECT) & (mag.values != MAG_NODETECT)).sum() )
+            n_skip     = int( ((mag.values <= 0.0) | (mag.values >= MAG_NODETECT)).sum() )
+            logging.info(f"\t {band}: noised mags; {n_nodetect} of {len(mag)} with flux <= 0 " \
+                         f"-> mag={MAG_NODETECT}, err={MAGERR_NODETECT}; " \
+                         f"{n_skip} without valid mag are unchanged")
+            df_cat[band] = mag_noised
         df_cat[band_err] = mag_err
     
     return df_cat 
+
+def add_noise_to_mags(sampler, band_pdfpar_yaml, mag_true, err_true, u_ran, rng):
+
+    # Created Nov 4 2026 by R.Chen
+    # Add Gaussian flux noise to mags for one band, with
+    #   sigma_flux = flux * err_true / FAC_DFDM
+    # where err_true is the magerr drawn at the true mag. The returned magerr is drawn at
+    # the noised mag with the same percentile u_ran, because the magerr model was fit to
+    # measured (i.e., noised) mags.
+    #
+    # Noised flux <= 0 -> mag = MAG_NODETECT and magerr = MAGERR_NODETECT.
+    # Only valid mags (0 < mag < MAG_NODETECT, magerr finite and >= 0) are noised;
+    # others (e.g., NULL_VAL for galaxies with no OVERRIDE_FILE match) are unchanged.
+    # A Gaussian random is drawn for every row so that the randoms do not depend on
+    # which rows are valid.
+    #
+    # Inputs:
+    #   sampler           : MagErrSampler object
+    #   band_pdfpar_yaml  : band name in magerr-model yaml
+    #   mag_true          : array of true mags
+    #   err_true          : array of magerr drawn at true mags
+    #   u_ran             : array of percentiles used to draw err_true
+    #   rng               : random generator for noise
+    #
+    # Returns mag_noised, magerr_noised (numpy arrays)
+
+    FAC_DFDM = 2.5 / math.log(10.0)   # = 1.0857; dmag/(dflux/flux)
+
+    mag_true  = np.asarray(mag_true, dtype=float)
+    err_true  = np.asarray(err_true, dtype=float)
+    gauran    = rng.normal(loc=0.0, scale=1.0, size=len(mag_true))
+    valid     = (mag_true > 0.0) & (mag_true < MAG_NODETECT) & \
+                np.isfinite(err_true) & (err_true >= 0.0)
+
+    flux        = np.pow(10.0, -0.4 * np.where(valid, mag_true, 0.0))
+    sigma_flux  = flux * np.where(valid, err_true, 0.0) / FAC_DFDM
+    flux_noised = flux + gauran * sigma_flux
+    detect      = valid & (flux_noised > 0.0)
+    nodetect    = valid & ~detect
+
+    mag_noised           = mag_true.copy()
+    mag_noised[detect]   = -2.5 * np.log10(flux_noised[detect])
+    mag_noised[nodetect] = MAG_NODETECT
+
+    magerr_noised           = err_true.copy()
+    magerr_noised[nodetect] = MAGERR_NODETECT
+    if detect.any() :
+        magerr_noised[detect] = sampler.sample(band_pdfpar_yaml, mag_noised[detect], u=u_ran[detect])
+
+    return mag_noised, magerr_noised
+
+# end add_noise_to_mags
 
 def add_col_magerr_snr(df_cat,config):
 

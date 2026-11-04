@@ -408,6 +408,31 @@ extern void init_table_simvar__(int *ID_TABLE, char *BLOCK, int len);
 #define PSNID_TABLE_ID    7788     // RK - for SNTABLE
 #define PSNID_TABLE_NAME "FITRES"  // idem
 
+// Nov 2026: LCPLOT table (REFAC_LCPLOT > 0) replaces legacy SNLCPAK
+#define PSNID_LCPLOT_TABLE_ID    7800       // same as IDTABLE_LCPLOT in snana.F90
+#define PSNID_LCPLOT_TABLE_NAME  "LCPLOT"
+#define PSNID_LCPLOT_BLOCK_NAME  "LCPLOTVAR"
+#define PSNID_LCPLOT_DATAFLAG_FIT      0    // best-fit curve (not data)
+#define PSNID_LCPLOT_DATAFLAG_USED     1    // data used in fit
+#define PSNID_LCPLOT_DATAFLAG_REJECT  -1    // data rejected in fit
+
+// Global epoch-dependent variables for LCPLOT table; analog of 
+// EPTABLEVAR_LCPLOT in snana.F90. Table columns are bound to the
+// addresses of these variables in INIT_TABLE_PSNID_LCPLOT(), and 
+// they are loaded and incremented for each epoch before calling SNTABLE_FILL.
+// Strings are null-terminated for the C table functions.
+typedef struct {
+  char    CCID[40] ;
+  double  MJD ;
+  float   TOBS, FLUXCAL_TRUE, FLUXCAL_DATA, FLUXCAL_ERR_DATA, CHI2 ;
+  char    BAND[4] ;
+  int     IFILTOBS, FLAG, NUMFIT ;
+} EPTABLEVAR_PSNID_DEF ;
+
+EPTABLEVAR_PSNID_DEF  EPTABLEVAR_PSNID_LCPLOT ;
+int  LCPLOT_PSNID_OPT  = 0 ;   // >0 -> LCPLOT table is created
+int  LCPLOT_PSNID_LSIM = 0 ;   // 1 -> simulation; include SIM_FLUXCAL
+
 #define H0_PSNID 72.0/(1.e6*PC_km) // Sep 2013 RK
 
 #define PSNID_MINOBS 2   // July 25 2018
@@ -704,6 +729,8 @@ void snlcplot_psnid_best__(int *iplot);  // (RK Feb 8 2013)
 
 void FILL_TABLE_PSNID_LCPLOT(int iplot);
 void fill_table_psnid_lcplot__(int *iplot);
+void PSNID_BEST_LCPLOT_TABLEFILE_HEADER(void);
+void psnid_best_load_eptable_lcplot(int obs, int iplot, int FLAG);
 
 void MONPLOT_PSNID_BEST(int iplot) ;    // arbitrary monitor plots
 void monplot_psnid_best__(int *iplot);  // (RK Mar 10 2013)
@@ -3461,14 +3488,143 @@ void psnid_best_store_fitResids(int itype, int **obsflag) {
 //*********************************************
 void FILL_TABLE_PSNID_LCPLOT(int iplot) {
 
+  // Created Nov 2026
+  // Fill LCPLOT table for fit-function 'iplot' (iplot = ITYPE + NTYPES*IZPRIOR).
+  // Replaces SNLCPLOT_PSNID_BEST_LEGACY, which used SNLCPAK_XXX functions.
+  // Called from PSNID_SNLCPLOT (psnid.F90) when REFAC_LCPLOT > 0.
+  //
+  // The global EPTABLEVAR_PSNID_LCPLOT is loaded and incremented for 
+  // each epoch before calling the standard table-fill function SNTABLE_FILL. 
+  // Rows are written in two groups for each fit-function:
+  //   1. every data epoch with DATAFLAG = +1 (used in fit) or
+  //      -1 (rejected in fit), with CHI2 of the data-fit residual.
+  //   2. best-fit curve on a smooth time grid (DATAFLAG=0), where FLUXCAL
+  //      and FLUXCAL_ERR are the model flux and model error.
+  //
+  // Per-band NDOF, CHI2 and PKMJD that were passed to SNLCPAK are not 
+  // stored; they can be computed from the DATAFLAG!=0 rows (sum CHI2 over 
+  // DATAFLAG=+1) and PKMJD = MJD-TOBS. Template, color, shape, and z are 
+  // in the FITRES table.
+
+  int  ID = PSNID_LCPLOT_TABLE_ID ;
+  int  izprior, itype, NOBS, obs, IFILT, NFILT, IFILTOBS, USE, i, NBT ;
+  double TMIN = -60.0, TMAX = 140.0, TBIN = 2.0 ;
+  double PKMJD, TOBS, MJD, xi, MAG, MAG_ERR, FITFLUX, FITFLUX_ERR ;
+  int    ONE = 1 ;
+  EPTABLEVAR_PSNID_DEF *EP = &EPTABLEVAR_PSNID_LCPLOT ;
   char fnam[] = "FILL_TABLE_PSNID_LCPLOT" ;  (void)fnam;
 
   // ---------- BEGIN -------------
 
+  if ( LCPLOT_PSNID_OPT == 0 ) { return ; }
+
+  psnid_best_get_plotind(iplot, &izprior, &itype);
+  if ( itype < 0 || izprior < 0 )     { return ; }
+  if ( PSNID_NGRID[itype] == 0 )      { return ; }
+
+  NOBS  = DATA_PSNID_DOFIT.NOBS ;
+  NFILT = PSNID_INPUTS.NFILT ;
+
+  // ---------------------------------------------------
+  // part 1: data epochs
+  for ( obs=0; obs < NOBS; obs++ ) {
+    if ( RESIDS_PSNID_DOFIT[itype].REJECT[obs] > 0.5 ) 
+      { psnid_best_load_eptable_lcplot(obs, iplot, PSNID_LCPLOT_DATAFLAG_REJECT); }
+    else
+      { psnid_best_load_eptable_lcplot(obs, iplot, PSNID_LCPLOT_DATAFLAG_USED);   }
+
+    SNTABLE_FILL(ID);   // generic C function
+  }
+
+  // ---------------------------------------------------
+  // part 2: best-fit function in TBIN-day bins for smooth curve overlay.
+  // Use template grid if its Trest GRID is less than 1 day (Aug 2017).
+  if ( PSNID_TBIN < 1.0 )
+    { TBIN = PSNID_TBIN ;  TMIN/=2.0;  TMAX/=2.0; }
+
+  PKMJD = PSNID_BEST_RESULTS.FINAL_PARVAL[izprior][itype][PSNID_PARAM_TMAX];
+  NBT   = (int)((TMAX - TMIN + 1.0E-6)/TBIN) ;
+
+  sprintf(EP->CCID, "%.39s", DATA_PSNID_DOFIT.CCID);
+  EP->NUMFIT           = iplot ;
+  EP->FLAG             = PSNID_LCPLOT_DATAFLAG_FIT ;
+  EP->FLUXCAL_TRUE     = 0.0 ;    // no true flux for fit function
+  EP->CHI2             = 0.0 ;
+
+  for ( IFILT=0; IFILT < NFILT; IFILT++ ) {
+
+    USE = RESIDS_PSNID_DOFIT[itype].USE_FILT[IFILT] ;
+    if ( USE == 0 ) { continue ; }
+
+    IFILTOBS  = PSNID_INPUTS.IFILTLIST[IFILT]; // absolute index
+
+    for ( i=0; i < NBT; i++ ) {
+      xi   = (double)i + 0.5 ;
+      TOBS = TMIN + (TBIN * xi) ;
+      MJD  = TOBS + PKMJD ;
+
+      PSNID_BEST_GET_FITFUN(EP->CCID, iplot, 
+			    IFILT, ONE,          // (I) ifilt, Nepoch
+			    &TOBS,               // (I) Tobs
+			    &MAG, &MAG_ERR ) ;   // (O) best-fit mag and error
+
+      if ( MAG_ERR > 90.0 ) { continue ; }  // model is not defined here
+
+      psnid_pogson2fluxcal(MAG, MAG_ERR, &FITFLUX, &FITFLUX_ERR);
+
+      // load global epoch variables and fill one row
+      EP->MJD               = MJD ;
+      EP->TOBS              = (float)TOBS ;
+      EP->IFILTOBS          = IFILTOBS ;
+      sprintf(EP->BAND, "%c", FILTERSTRING[IFILTOBS] );
+      EP->FLUXCAL_DATA      = (float)FITFLUX ;
+      EP->FLUXCAL_ERR_DATA  = (float)FITFLUX_ERR ;
+
+      SNTABLE_FILL(ID);
+    }
+  } // end IFILT
 
   return;
 
 } // end FILL_TABLE_PSNID_LCPLOT
+
+
+// =====================================================
+void psnid_best_load_eptable_lcplot(int obs, int iplot, int FLAG) {
+
+  // Created Nov 2026
+  // Load global EPTABLEVAR_PSNID_LCPLOT for data epoch 'obs' and 
+  // fit-function 'iplot'. FLAG = DATAFLAG (+1=used, -1=rejected).
+
+  int  izprior, itype, IFILTOBS ;
+  EPTABLEVAR_PSNID_DEF *EP = &EPTABLEVAR_PSNID_LCPLOT ;
+
+  // ------------ BEGIN ------------
+
+  psnid_best_get_plotind(iplot, &izprior, &itype);
+
+  IFILTOBS = DATA_PSNID_DOFIT.IFILTOBS[obs] ;
+
+  sprintf(EP->CCID, "%.39s", DATA_PSNID_DOFIT.CCID);
+  EP->MJD               = DATA_PSNID_DOFIT.MJD[obs] ;
+  EP->TOBS              = (float)RESIDS_PSNID_DOFIT[itype].TOBS[obs] ;
+  EP->IFILTOBS          = IFILTOBS ;
+  sprintf(EP->BAND, "%c", FILTERSTRING[IFILTOBS] );
+
+  if ( LCPLOT_PSNID_LSIM && DATA_PSNID_DOFIT.FLUXSIM != NULL ) 
+    { EP->FLUXCAL_TRUE = (float)DATA_PSNID_DOFIT.FLUXSIM[obs] ; }
+  else
+    { EP->FLUXCAL_TRUE = 0.0 ; }
+
+  EP->FLUXCAL_DATA      = (float)DATA_PSNID_DOFIT.FLUXDATA[obs] ;
+  EP->FLUXCAL_ERR_DATA  = (float)DATA_PSNID_DOFIT.FLUXERR[obs] ;
+  EP->CHI2              = (float)RESIDS_PSNID_DOFIT[itype].CHI2[obs] ;
+  EP->FLAG              = FLAG ;
+  EP->NUMFIT            = iplot ;
+
+  return ;
+
+} // end psnid_best_load_eptable_lcplot
 
 void fill_table_psnid_lcplot__(int *iplot)
   { FILL_TABLE_PSNID_LCPLOT(*iplot); }
@@ -6213,12 +6369,121 @@ void psnid_best_define_TableRESIDS(void) {
 // **********************************************
 void INIT_TABLE_PSNID_LCPLOT(int OPT, char *TEXTFORMAT, int LSIM) {
 
+  // Created Nov 2026
+  // Init LCPLOT table using standard table functions (same as FITRES table)
+  // so that legacy SNLCPAK functions can eventually be removed.
+  // Called only if REFAC_LCPLOT > 0.
+  // Table columns are bound to global EPTABLEVAR_PSNID_LCPLOT; 
+  // see FILL_TABLE_PSNID_LCPLOT.
+  //
+  // Inputs:
+  //   OPT        --> 0 = no table, >0 = create LCPLOT table
+  //   TEXTFORMAT --> format of text file (TEXTFORMAT='' --> no text file)
+  //   LSIM       --> 1 = simulation, so include SIM_FLUXCAL
+  //
+  // Columns match INIT_TABLE_LCPLOTVAR in snana.F90 (PSNID branch):
+  //   CCID MJD TOBS BAND [SIM_FLUXCAL] FLUXCAL FLUXCAL_ERR CHI2 DATAFLAG NUMFIT
+
+  int  ID_TABLE = PSNID_LCPLOT_TABLE_ID ;
+  char NAME_TABLE[]   = PSNID_LCPLOT_TABLE_NAME ;
+  char NAME_PROGRAM[] = "psnid.exe" ;
+  char CBLOCK[]       = PSNID_LCPLOT_BLOCK_NAME ;
+  char VARLIST[60] ;
+  int  USE4TEXT = 1 ;
+  EPTABLEVAR_PSNID_DEF *EP = &EPTABLEVAR_PSNID_LCPLOT ;
   char fnam[] = "INIT_TABLE_PSNID_LCPLOT" ;  (void)fnam;
 
   // ------------ BEGIN ----------
 
+  // store flags in globals
+  LCPLOT_PSNID_OPT  = OPT ;
+  LCPLOT_PSNID_LSIM = LSIM ;
+
+  if ( OPT == 0 ) { return ; }  // no table
+
+  memset(EP, 0, sizeof(EPTABLEVAR_PSNID_DEF));
+
+  SNTABLE_CREATE(ID_TABLE, NAME_TABLE, NAME_PROGRAM, TEXTFORMAT ) ;
+
+  printf("     Create BLOCK = %s for TABLE ID = %d \n", CBLOCK, ID_TABLE);
+  fflush(stdout);
+
+  sprintf(VARLIST,"CCID:C*20");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, EP->CCID, VARLIST, USE4TEXT);
+
+  sprintf(VARLIST,"MJD:D");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->MJD, VARLIST, USE4TEXT);
+
+  sprintf(VARLIST,"TOBS:F");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->TOBS, VARLIST, USE4TEXT);
+
+  sprintf(VARLIST,"BAND:C*1");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, EP->BAND, VARLIST, USE4TEXT);
+
+  if ( LSIM ) {
+    sprintf(VARLIST,"SIM_FLUXCAL:F");
+    SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->FLUXCAL_TRUE, VARLIST, USE4TEXT);
+  }
+
+  sprintf(VARLIST,"FLUXCAL:F");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->FLUXCAL_DATA, VARLIST, USE4TEXT);
+
+  sprintf(VARLIST,"FLUXCAL_ERR:F");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->FLUXCAL_ERR_DATA, VARLIST, USE4TEXT);
+
+  sprintf(VARLIST,"CHI2:F");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->CHI2, VARLIST, USE4TEXT);
+
+  sprintf(VARLIST,"DATAFLAG:I");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->FLAG, VARLIST, USE4TEXT);
+
+  sprintf(VARLIST,"NUMFIT:I");
+  SNTABLE_ADDCOL(ID_TABLE, CBLOCK, &EP->NUMFIT, VARLIST, USE4TEXT);
+
+  PSNID_BEST_LCPLOT_TABLEFILE_HEADER();
+
+  printf("\n"); fflush(stdout);
   return;
+
 } // end INIT_TABLE_PSNID_LCPLOT
+
+
+// =============================================
+void PSNID_BEST_LCPLOT_TABLEFILE_HEADER(void) {
+
+  // Created Nov 2026
+  // Comments for LCPLOT table header; same keys as INIT_TABLE_LCPLOTVAR.
+
+  int  ID = PSNID_LCPLOT_TABLE_ID ;
+  char fnam[] = "PSNID_BEST_LCPLOT_TABLEFILE_HEADER" ;
+  char KEY[60], COMMENT[200] ;
+  int  i ;
+
+  const char *LIST[][2] = {
+    { "CCID",        "candidate ID" },
+    { "MJD",         "time of observation" },
+    { "TOBS",        "MJD - PKMJD(fit)" },
+    { "BAND",        "filter band" },
+    { "SIM_FLUXCAL", "true flux (SIM or overlaid flux)" },
+    { "FLUXCAL",     "calibrated flux (nJy); best-fit flux if DATAFLAG=0" },
+    { "FLUXCAL_ERR", "calibrated flux uncertainty (nJy); model error if DATAFLAG=0" },
+    { "CHI2",        "data-fit chi2" },
+    { "DATAFLAG",    "1=>data used in fit, -1=>data rejected in fit, 0=bestFit curve" },
+    { "NUMFIT",      "fit-function index = ITYPE + NTYPES*IZPRIOR (see ITYPE in FITRES table)" }
+  } ;
+  int NLIST = sizeof(LIST)/sizeof(LIST[0]);
+
+  // ----------- BEGIN ------------
+  for ( i=0; i < NLIST; i++ ) {
+    if ( strcmp(LIST[i][0],"SIM_FLUXCAL") == 0 && LCPLOT_PSNID_LSIM == 0 ) 
+      { continue ; }
+    sprintf(KEY,     "%s", LIST[i][0] );
+    sprintf(COMMENT, "%s", LIST[i][1] );
+    APPEND_TABLEFILE_HEADER(ID, KEY, COMMENT, fnam);
+  }
+
+  return;
+} // end PSNID_BEST_LCPLOT_TABLEFILE_HEADER
 
 
 // *****************************************************

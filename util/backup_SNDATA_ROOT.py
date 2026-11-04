@@ -17,6 +17,7 @@
 # (e.g., zenodo) must be done manually, or with another script.
 # 
 # Nov 3 2020: add SURVEY.DEF to TAR_SUBDIR_LIST
+# Nov 1 2026: add spectrograph_tables to public list
 # ================================================
 
 import os, sys, yaml, datetime
@@ -33,7 +34,7 @@ BACKUP_LOGFILE = f"{BACKUP_LOGDIR}/{backup_logfile}"
 # explicitly define directories to include in backup tar file
 TAR_SUBDIR_LIST = \
     'filters kcor lcmerge models MWDUST sample_input_files ' \
-    'SIM simlib snsed standards  SURVEY.DEF'
+    'SIM simlib snsed standards spectrograph_tables SURVEY.DEF'
 
 # specify content to exclude from tar file
 EXCLUDE_FROM_TAR = [ 'SIM/*' ]

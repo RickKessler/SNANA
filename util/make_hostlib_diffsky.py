@@ -199,7 +199,16 @@ HOSTLIB_VARNAMES_MAP:
 - lsst_y  25
 
 #    ...or ...
+
+{KEY_MAGERR_SNR}:
+- [band]  [m0] [snr0]   [m1] [snr1]  [sig_m]
+
+#    ...or ...
+
 {KEY_MAGERR_PDF}:   <yml file with fitted model params>
+  INPUT_FILE: [input yml]
+  BANDMAP:
+    - [diffsky_band_name] [hostlib_band_name]
 
 # options for noise on mags (apply to any of the magerr options above)
 {KEY_ADD_NOISE_TO_MAGS}:  True   # default=True: add Gaussian flux noise to mags using the magerr at the true mag;

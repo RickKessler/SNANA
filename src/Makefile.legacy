@@ -349,6 +349,8 @@ OBJ_SIM	 = 	\
 SNTOOLS_OUTPUT = \
 	$(SRC)/sntools_output.cpp \
 	$(SRC)/sntools_output.h \
+	$(SRC)/sntools_hpak_legacy.cpp \
+	$(SRC)/sntools_hpak_legacy.h \
 	$(SRC)/sntools_output_marz.c \
 	$(SRC)/sntools_output_text.c \
 	$(SNTOOLS_ROOT)

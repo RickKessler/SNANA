@@ -24368,6 +24368,17 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
        + fix bug double-counting MWXT_FRAC for spectral noise;
          see https://github.com/RickKessler/SNANA/issues/1833
 
+     sntools_output.*  install Claude-generated code from:
+        in https://github.com/RickKessler/SNANA/blob/master/src/
+        I would like to prepare for removing all of the SNLCPAK
+        and SPECPAK function in sntools_output.*. As a first step,
+        extract all of these functions and global declarations into a
+        new set of files:
+           sntools_hpak_legacy.cpp    sntools_hpak_legacy.h
+        and include these as include files in sntools_output.cpp.
+        This step is a refactor with code re-organization but no 
+        functional changes.
+
 END:
 
 

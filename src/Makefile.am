@@ -272,6 +272,7 @@ $(OBJ)/psnid.o: $(SRC)/psnid.F90
 # ---------------------------------------------------------------------------
 
 $(OBJ)/sntools_output.o: $(SRC)/sntools_output.cpp $(SRC)/sntools_output.h \
+	$(SRC)/sntools_hpak_legacy.cpp $(SRC)/sntools_hpak_legacy.h \
 	$(SRC)/sntools_output_marz.c $(SRC)/sntools_output_text.c  $(SRC)/sntools_output_npz.c
 	$(MKDIR_P) $(OBJ)
 	(cd $(OBJ); $(CXX) $(SNCXXFLAGS) $(IROOT) $(ICFITSIO) $(SRC)/sntools_output.cpp)

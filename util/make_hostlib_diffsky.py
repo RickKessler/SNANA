@@ -29,11 +29,14 @@
 #
 # Sep 11 2026 R.Kessler and J.Medoff: begin add new MAGERR_MODELPAR
 # Oct 06 2026: RK and JM: write FIELD column if CONE_REGIONS is used
+# Nov 05 2026: R.Chen: add Gaussian flux noise to mags for any magerr option (MAGERR_SNR5, MAGERR_SNR,
+#                      MAGERR_PDF); default ADD_NOISE_TO_MAGS = True; magerr is evaluated at the noised mag.
+#                      Optional NOISE_SEED (default from CONE_REGIONS name) and APPEND_TRUE_MAGS.
 #
 # ===================================================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
-import re, yaml, sys, gzip, math, subprocess
+import re, yaml, sys, gzip, math, subprocess, zlib
 import pandas as pd
 
 #import opencosmo as oc
@@ -57,6 +60,9 @@ KEY_MAGERR_SNR5          = "MAGERR_SNR5"    # compute magerr using mag at SNR=5
 KEY_MAGERR_SNR           = "MAGERR_SNR"     # compute magerr using 2 mags at 2 SNR values
 KEY_MAGERR_PDF           = "MAGERR_PDF"     # draw magerr from double Gauss PDF (J.Medoff)
 KEY_MAGERR_DUMMY         = "MAGERR_DUMMY"   # test writing to header
+KEY_ADD_NOISE_TO_MAGS    = "ADD_NOISE_TO_MAGS"  # add Gaussian flux noise to mags (default True)
+KEY_NOISE_SEED           = "NOISE_SEED"         # random seed for noise (default from cone name)
+KEY_APPEND_TRUE_MAGS     = "APPEND_TRUE_MAGS"   # also write true (noise-free) mags (default False)
 KEY_HOSTLIB_GALID        = "GALID"
 KEY_OVERRIDE_FILE        = "OVERRIDE_FILE"
 KEY_OVERRIDE_COL         = "OVERRIDE_COLUMNS"
@@ -68,6 +74,12 @@ REF_DICT = {
 }
 
 NULL_VAL = -999
+
+# mag noise (ADD_NOISE_TO_MAGS)
+MAG_NODETECT    = 99.0      # mag for noised flux <= 0; SNANA host code treats MAG >= 98 as undefined
+MAGERR_NODETECT =  9.0      # magerr for noised flux <= 0; MAGERR_UNDEFINED in sntools.h
+NOISE_SEED_BASE = 1000000   # default seed = NOISE_SEED_BASE + crc32(cone name) % 1000000
+SUFFIX_TRUE     = '_true'   # suffix for true-mag columns (APPEND_TRUE_MAGS)
 
 # hard-wire sersic indices for each galaxy component
 SERSIC_INDEX_DICT = {  'n_disk_Sersic': 1.0,    'n_bulge_Sersic': 4.0 }
@@ -188,6 +200,13 @@ HOSTLIB_VARNAMES_MAP:
 
 #    ...or ...
 {KEY_MAGERR_PDF}:   <yml file with fitted model params>
+
+# options for noise on mags (apply to any of the magerr options above)
+{KEY_ADD_NOISE_TO_MAGS}:  True   # default=True: add Gaussian flux noise to mags using the magerr at the true mag;
+                          #   written magerr is evaluated at the noised mag.
+                          #   noised flux <= 0 -> mag={MAG_NODETECT}, magerr={MAGERR_NODETECT}
+{KEY_NOISE_SEED}:         12345  # optional; default = {NOISE_SEED_BASE} + crc32({KEY_CONE} name) % 1000000
+{KEY_APPEND_TRUE_MAGS}:   False  # default=False: True -> also write true mags as [band]_obs{SUFFIX_TRUE}
 
 
 OVERRIDE_FILE: <filename> # Optional read synthetic mags from external file instead of from OpenCosmo
@@ -365,6 +384,7 @@ def parse_config_driver(args, config):
 
     config = parse_config_cones(args, config)
     config = parse_config_magerr(args, config) # Needs to come after parse_config_cones
+    config = parse_config_mag_noise(config)    # Needs magerr band list and cones
     
     logging.info(f"")
     
@@ -400,6 +420,57 @@ def parse_config_magerr(args, config):
         
     return config
 
+def parse_config_mag_noise(config):
+
+    # Created Nov 5 2026 by R.Chen
+    # Parse options to add noise to mags (applies to any magerr option):
+    #   ADD_NOISE_TO_MAGS (default True; only if mag errors are computed),
+    #   NOISE_SEED (default from CONE_REGIONS name, so that each cone gets different randoms),
+    #   APPEND_TRUE_MAGS (default False; auto-insert [band]_obs_true rows in HOSTLIB_VARNAMES_MAP).
+
+    add_noise   = bool(config.get(KEY_ADD_NOISE_TO_MAGS, True)) and config['add_magerr']
+    append_true = bool(config.get(KEY_APPEND_TRUE_MAGS, False)) and add_noise
+    config['add_noise_to_mags']       = add_noise
+    config['append_true_mags']        = append_true
+    config['true_mag_varlist_diffsky'] = []
+    if not add_noise :
+        return config
+
+    if KEY_NOISE_SEED in config :
+        noise_seed = int(config[KEY_NOISE_SEED])
+    else:
+        cone_dict = config.get(KEY_CONE, None)
+        if cone_dict :
+            cone_name  = list(cone_dict)[0]
+            noise_seed = NOISE_SEED_BASE + zlib.crc32(cone_name.encode()) % 1000000
+        else:
+            noise_seed = NOISE_SEED_BASE
+    config['noise_seed'] = noise_seed
+
+    config['noise_note'] = \
+        f"Gaussian flux noise added to mags using magerr at true mag; " \
+        f"written magerr evaluated at noised mag; noised flux <= 0 -> " \
+        f"mag={MAG_NODETECT}, magerr={MAGERR_NODETECT}; mags <= 0 (e.g. {NULL_VAL}) are unchanged"
+    logging.info(f"  {KEY_ADD_NOISE_TO_MAGS} = True with {KEY_NOISE_SEED} = {noise_seed}; " \
+                 f"{KEY_APPEND_TRUE_MAGS} = {append_true}")
+
+    if append_true :
+        # insert [band]_true row after each band row, then rebuild varname dictionaries
+        HOSTLIB_VARNAMES_MAP = config[KEY_HOSTLIB_VARNAMES_MAP]
+        hostlib_varname_dict = config['hostlib_varname_dict']
+        hostlib_format_dict  = config['hostlib_format_dict']
+        for band in config['band_magerr_list_diffsky']:
+            if band not in hostlib_varname_dict : continue
+            irow = [ row.split()[0] for row in HOSTLIB_VARNAMES_MAP ].index(band)
+            band_true    = band + SUFFIX_TRUE
+            hostlib_true = hostlib_varname_dict[band] + SUFFIX_TRUE
+            HOSTLIB_VARNAMES_MAP.insert(irow+1, f'{band_true}  {hostlib_true}  {hostlib_format_dict[band]}')
+            config['true_mag_varlist_diffsky'].append(band_true)
+        config = load_varname_dicts(config, HOSTLIB_VARNAMES_MAP)
+
+    return config
+# end parse_config_mag_noise
+
 
 def parse_config_cones(args, config):
     cones = config.setdefault(KEY_CONE, None)
@@ -430,13 +501,6 @@ def parse_config_varname_map(config):
 
     if not HOSTLIB_VARNAMES_MAP:
         sys.exit(f"\n ERROR: config file is missing required {KEY_HOSTLIB_VARNAMES_MAP}")
-        
-    hostlib_varname_dict = {}
-    hostlib_format_dict  = {}
-
-    HOSTLIB_VARNAMES_STRING = ''
-    HOSTLIB_VARNAMES_LIST   = []
-    FOUND_GALID = False
 
     MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF,None)
     if not MAGERR_PDF_DICT:
@@ -473,6 +537,22 @@ def parse_config_varname_map(config):
         rownum_insert = len(HOSTLIB_VARNAMES_MAP)
         HOSTLIB_VARNAMES_MAP.insert(rownum_insert, f'{VARNAME_FIELD}       {VARNAME_FIELD}  10s')
     
+    config = load_varname_dicts(config, HOSTLIB_VARNAMES_MAP)
+
+    return config
+# end parse_config_varname_map
+
+def load_varname_dicts(config, HOSTLIB_VARNAMES_MAP):
+
+    # Nov 5 2026 R.Chen: moved here from parse_config_varname_map so that the dictionaries
+    # can be rebuilt after rows are auto-inserted later (APPEND_TRUE_MAGS).
+    hostlib_varname_dict = {}
+    hostlib_format_dict  = {}
+
+    HOSTLIB_VARNAMES_STRING = ''
+    HOSTLIB_VARNAMES_LIST   = []
+    FOUND_GALID = False
+
     for row in HOSTLIB_VARNAMES_MAP:
         logging.info(f"\t {row}")
         tmp_list = row.split()
@@ -495,7 +575,7 @@ def parse_config_varname_map(config):
     config['FOUND_GALID']             = FOUND_GALID
     
     return config
-# end parse_config_varname_map
+# end load_varname_dicts
 
 
 
@@ -858,6 +938,7 @@ def add_col_m5(df_cat, config):
 def add_col_magerr(df_cat, config):
 
     add_magerr = False
+    config['magerr_eval'] = {}   # band -> function(mag, rows) returning magerr; filled by each magerr option
     
     m5sig_dict      = config['m5sig_dict']
     if len(m5sig_dict) > 0:
@@ -874,6 +955,11 @@ def add_col_magerr(df_cat, config):
     if config[KEY_MAGERR_PDF]:
         df_cat = add_col_magerr_pdf(df_cat,config)
         add_magerr = True
+
+    # Nov 5 2026 R.Chen: add noise to mags (default); must come before add_col_magerr_min
+    # because magerr is re-evaluated at the noised mags.
+    if add_magerr and config['add_noise_to_mags'] :
+        df_cat = fluctuate_col_mag(df_cat, config)
 
     # - - - - - - -  -
     # add auto-computed columns for min and 2nd min error among bands
@@ -927,15 +1013,85 @@ def add_col_magerr_pdf(df_cat,config):
         band_pdfpar_yaml = MAGERR_PDF_DICT['BANDMAP_DICT'][band]
         #print(f'xxx band_pdfpar_yaml = {band_pdfpar_yaml}')
 
-        mag_err = sampler.sample(band_pdfpar_yaml, mag, rng=rng, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
+        # Nov 5 2026 R.Chen: draw percentile explicitly (same draw as inside sampler) so that
+        # magerr can be re-evaluated at the noised mag with the same percentile (fluctuate_col_mag).
+        u_ran   = rng.random(len(mag))
+        mag_err = sampler.sample(band_pdfpar_yaml, mag, u=u_ran, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
         # check_bin_means is fragile for samples with few events; instead of being a fixed number,
         # check_bin_means should depend on number of events
         
         #mag_err = 0.01*mag   # test
         band_err = band + '_err'
         df_cat[band_err] = mag_err
+        config['magerr_eval'][band] = \
+            lambda m, rows, b=band_pdfpar_yaml, u=u_ran: sampler.sample(b, m, u=u[rows])
     
     return df_cat 
+
+def fluctuate_col_mag(df_cat, config):
+
+    # Created Nov 5 2026 by R.Chen
+    # Add Gaussian flux noise to the mags of each band in band_magerr_list_diffsky, for any
+    # magerr option (MAGERR_SNR5, MAGERR_SNR, MAGERR_PDF), with
+    #   sigma_flux = flux * err_true / FAC_DFDM
+    # where err_true is the magerr already computed at the true mag. The written magerr is then
+    # re-evaluated at the noised mag with config['magerr_eval'][band] (same percentile for
+    # MAGERR_PDF, same per-galaxy m5/zp draw for MAGERR_SNR5/MAGERR_SNR), as for measured mags.
+    #
+    # Noised flux <= 0 -> mag = MAG_NODETECT and magerr = MAGERR_NODETECT.
+    # Only valid mags (0 < mag < MAG_NODETECT, magerr finite and >= 0) are noised;
+    # others (e.g., NULL_VAL for galaxies with no OVERRIDE_FILE match) are unchanged.
+    # A Gaussian random is drawn for every row so that the randoms do not depend on
+    # which rows are valid. If APPEND_TRUE_MAGS, the true mags are kept in [band]_true.
+    #
+    # Inputs:
+    #   df_cat : pandas catalog with [band] and [band]_err columns
+    #   config : uses band_magerr_list_diffsky, magerr_eval, noise_seed, append_true_mags
+    #
+    # Returns df_cat with noised [band] and re-evaluated [band]_err columns
+
+    FAC_DFDM = 2.5 / math.log(10.0)   # = 1.0857; dmag/(dflux/flux)
+
+    band_list   = config['band_magerr_list_diffsky']
+    magerr_eval = config['magerr_eval']
+    rng         = np.random.default_rng(config['noise_seed'])
+    logging.info(f"  Add noise to mags with {KEY_NOISE_SEED} = {config['noise_seed']}")
+
+    for band in band_list:
+        band_err  = band + '_err'
+        mag_true  = df_cat[band].values.astype(float)
+        err_true  = df_cat[band_err].values.astype(float)
+        if config['append_true_mags'] :
+            df_cat[band + SUFFIX_TRUE] = mag_true
+
+        gauran    = rng.normal(loc=0.0, scale=1.0, size=len(mag_true))
+        valid     = (mag_true > 0.0) & (mag_true < MAG_NODETECT) & \
+                    np.isfinite(err_true) & (err_true >= 0.0)
+
+        flux        = np.pow(10.0, -0.4 * np.where(valid, mag_true, 0.0))
+        sigma_flux  = flux * np.where(valid, err_true, 0.0) / FAC_DFDM
+        flux_noised = flux + gauran * sigma_flux
+        detect      = valid & (flux_noised > 0.0)
+        nodetect    = valid & ~detect
+
+        mag_noised           = mag_true.copy()
+        mag_noised[detect]   = -2.5 * np.log10(flux_noised[detect])
+        mag_noised[nodetect] = MAG_NODETECT
+
+        magerr_noised           = err_true.copy()
+        magerr_noised[nodetect] = MAGERR_NODETECT
+        if detect.any() :
+            magerr_noised[detect] = magerr_eval[band](mag_noised[detect], detect)
+
+        df_cat[band]     = mag_noised
+        df_cat[band_err] = magerr_noised
+        logging.info(f"\t {band}: noised mags; {nodetect.sum()} of {len(mag_true)} with flux <= 0 " \
+                     f"-> mag={MAG_NODETECT}, err={MAGERR_NODETECT}; " \
+                     f"{(~valid).sum()} without valid mag are unchanged")
+
+    return df_cat
+
+# end fluctuate_col_mag
 
 def add_col_magerr_snr(df_cat,config):
 
@@ -993,6 +1149,12 @@ def add_col_magerr_snr(df_cat,config):
         band_err   = band + '_err'  # key name to add
         df_cat[band_err] = np.clip(magerr, a_min=None, a_max=5.0)
         
+        # Nov 5 2026 R.Chen: same formula with this galaxy's zp and covsky, for magerr at noised mag
+        def eval_magerr_snr(m, rows, zp=zp, covsky=covsky):
+            f = np.pow(10.0, -0.4*(m - zp[rows]))
+            return np.clip(1.086 * np.sqrt(covsky[rows] + f)/f, a_min=None, a_max=5.0)
+        config['magerr_eval'][band] = eval_magerr_snr
+        
     #sys,exit(f"\n xxx bye from add_col_magerr_snr")
     return df_cat
 
@@ -1037,6 +1199,11 @@ def add_col_magerr_snr5(df_cat,config):
         powm5            = FAC_DFDM * SNR5_INV * np.pow(10.0, -0.4 * m5sig_noisy)
         err_values       = powm5 * np.power(10.0, 0.4 * df_cat[band].values)
         df_cat[band_err] = np.clip(err_values, a_min=None, a_max=MXMAGERR)
+
+        # Nov 5 2026 R.Chen: same formula with this galaxy's m5sig draw, for magerr at noised mag
+        def eval_magerr_snr5(m, rows, powm5=np.broadcast_to(powm5, (len_df,))):
+            return np.clip(powm5[rows] * np.power(10.0, 0.4 * m), a_min=None, a_max=MXMAGERR)
+        config['magerr_eval'][band] = eval_magerr_snr5
 
 
     return df_cat
@@ -1187,6 +1354,9 @@ def check_diffsky_columns(config, ds):
     # if OVERRIDE_FILE is configured,  columns are not in HDF5 — skip them
     if KEY_OVERRIDE_FILE in config:
         exception_list    += config['override_varlist_diffsky']
+
+    # Nov 5 2026 R.Chen: true-mag columns (APPEND_TRUE_MAGS) are computed, not in catalog
+    exception_list = exception_list + config['true_mag_varlist_diffsky']
 
     nerr = 0
     for varname in list(hostlib_varname_dict):
@@ -1346,6 +1516,15 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
             if isinstance(d,dict):
                 for key, item in d.items():
                     fp.write(f"    {key}: {item} \n")
+
+    # Nov 5 2026 R.Chen: document noise on mags (only written when noise is added)
+    if config['add_noise_to_mags'] :
+        fp.write(f"\n")
+        fp.write(f"  MAG_NOISE: \n")
+        fp.write(f"    {KEY_ADD_NOISE_TO_MAGS}: True \n")
+        fp.write(f"    {KEY_NOISE_SEED}: {config['noise_seed']} \n")
+        fp.write(f"    {KEY_APPEND_TRUE_MAGS}: {config['append_true_mags']} \n")
+        fp.write(f"    NOTE: {config['noise_note']} \n")
     # - - - - -  -
     SNANA_VERSION = get_snana_version()
     fp.write(f"\n")
@@ -1403,6 +1582,7 @@ def convert_galaxy_cat_to_pandas(galaxy_cat, config):
     # Always exclude mag error columns — not in HDF5, computed in add_col_pd
     exclude_var_list += [b + '_err' for b in config['band_magerr_list_diffsky'] ]
     exclude_var_list += [b + '_m5' for b in config['band_magerr_list_diffsky'] ]
+    exclude_var_list += config['true_mag_varlist_diffsky']   # APPEND_TRUE_MAGS (Nov 5 2026 R.Chen)
     
     if KEY_OVERRIDE_FILE in config:
         # Also exclude raw mag band columns — not in HDF5, will be injected from parquet

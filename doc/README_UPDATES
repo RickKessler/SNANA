@@ -24364,6 +24364,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  MISCELLANEOUS(v12_02f) *****
 
+     genmag_SALT2.c
+       + fix bug double-counting MWXT_FRAC for spectral noise;
+         see https://github.com/RickKessler/SNANA/issues/1833
+
 END:
 
 

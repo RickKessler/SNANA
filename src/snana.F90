@@ -3156,7 +3156,7 @@
     WR_SIMLIB_OUTFILE = (.not. IGNOREFILE_fortran(SIMLIB_OUTFILE) )
 
     LRDFLAG_SPEC   = (REFORMAT_LOCAL .or. USE_TABLEFILE_MARZ .or.  & 
-                        WR_SIMLIB_OUTFILE) 
+         WR_SIMLIB_OUTFILE) 
 
     ! check reasons to suppress reading SPEC
     if ( DEBUG_FLAG == -333 ) LRDFLAG_SPEC = .FALSE.  
@@ -6995,15 +6995,13 @@
              OPT_TABLE(ITAB) = 1
           ENDIF
 
-       else if ( TBname(1:8) .EQ. 'specplot' ) then
-          ITAB = ITABLE_SPECPAK  ! spectra in the data files
+       ! xxx mark del Nov 2026 else if ( TBname(1:4) .EQ. 'specplot' ) then
+       else if ( TBname(1:4) .EQ. 'spec' ) then
+          ITAB = ITABLE_SPECPAK    ! spectra in the data files
           OPT_TABLE(ITAB) = 1
 
        else if ( TBname(1:9) .EQ. 'modelspec' ) then
           ITAB = ITABLE_MODELSPEC  ! SALT2 model spec
-          OPT_TABLE(ITAB) = 1
-       else if ( TBname(1:7) .EQ. 'spectra' ) then
-          ITAB = ITABLE_MODELSPEC  ! legacy key for SALT2 model spec
           OPT_TABLE(ITAB) = 1
 
        else if ( TBname(1:8) .EQ. 'nosimvar' ) then ! option, not a table
@@ -10418,9 +10416,9 @@
 
     LINE = '========================================'  & 
             // '================== '
-    WRSPEC_FLAM = BTEST(OPT_REFORMAT_SPECTRA,0)
-    WRSPEC_FLUX = BTEST(OPT_REFORMAT_SPECTRA,1)
-    WRSPEC_KEY  = BTEST(OPT_REFORMAT_SPECTRA,2)
+    WRSPEC_FLAM      = BTEST(OPT_REFORMAT_SPECTRA,0)
+    WRSPEC_FLUX      = BTEST(OPT_REFORMAT_SPECTRA,1)
+    WRSPEC_KEY       = BTEST(OPT_REFORMAT_SPECTRA,2)
     WRSPEC_SNID_SAGE = BTEST(OPT_REFORMAT_SPECTRA,3)
 
     write(6,120)  & 
@@ -10495,7 +10493,7 @@
        USECOL_SPEC_TABLE(ivar) = .TRUE.
     ENDDO
 
-! Now remove columns based on output format option
+    ! Now remove columns based on output format option
     IF ( WRSPEC_SNID_SAGE ) THEN
        USECOL_SPEC_TABLE(IVAR_SPEC_MJD)   = .FALSE.
        USECOL_SPEC_TABLE(IVAR_SPEC_TOBS)  = .FALSE.
@@ -10504,10 +10502,8 @@
        USECOL_SPEC_TABLE(IVAR_SPEC_SUBTYPE) = .FALSE.
     ENDIF
 
-! 
-
-! ---------------------------------------------------------
-! open table list file to give one per spectrum summary
+    ! ---------------------------------------------------------
+    ! open table list file to give one per spectrum summary
 
     SPEC_TABLE_FILE = 'SPEC.LIST'
     print*,' Open ', SPEC_TABLE_FILE
@@ -10515,8 +10511,8 @@
     OPEN (UNIT=LUNTMP, FILE=SPEC_TABLE_FILE, STATUS='UNKNOWN' )
     WRITE(LUNTMP,700) LINE
 
-! construct list of varnames based on USECOL_SPEC_TABLE list of logicals
-! Also write comment to SPEC_TABLE_FILE for each used variable
+    ! construct list of varnames based on USECOL_SPEC_TABLE list of logicals
+    ! Also write comment to SPEC_TABLE_FILE for each used variable
     VARNAMES_LIST = ''
     LL = 0
     DO ivar = 1, NVAR
@@ -10535,7 +10531,7 @@
 
     WRITE(LUNTMP,700) LINE
     WRITE(LUNTMP,701) VARNAMES_LIST  ! avoid blank space
-701   FORMAT(A)
+701 FORMAT(A)
 
     CLOSE(LUNTMP)  ! 7.26.2026 found by Claude
 
@@ -10905,8 +10901,9 @@
 ! File name is
 !   [version]-snid[snid]-mjd[mjd].spec
 ! 
-! Iniitial code writes only one format, but later this could be expanded
-! to write different formats.
+! The standard sntools_output table functions are NOT used here;
+! instead, this subroutine writes out custom formats suited to
+! non-SNANA analysis codes. 
 ! 
 ! Mar 20 2025: update output to include SIM_FLAM for all options
 !              (instead of only KEY option)
@@ -10922,7 +10919,7 @@
 
     INTEGER IVERS ! (I)
 
-! local args
+    ! local args
 
     INTEGER LENV, LENC, LENROW, LENF, LENT, LENTT
     INTEGER ispec, NLAMBIN, ilam, ISDATA_REAL
@@ -10930,11 +10927,10 @@
     CHARACTER SPEC_FILE*(MXCHAR_FILENAME), MSG*80, MSGTMP*80
     CHARACTER VERS*(MXCHAR_FILENAME), TYPE*20,SUBTYPE*20
 
-! ------------- BEGIN -----------
+! ------------- BEGIN WR_SPECTRA -----------
 
-! open table list file to give summary info for each spectrum
-    OPEN (UNIT=LUNTMP, FILE=SPEC_TABLE_FILE, STATUS='UNKNOWN',  & 
-             ACCESS='APPEND' )
+    ! open table list file to give summary info for each spectrum
+    OPEN (UNIT=LUNTMP, FILE=SPEC_TABLE_FILE, STATUS='UNKNOWN',  ACCESS='APPEND' )
 
     VERS = VERSION_PHOTOMETRY(IVERS)
     LENV = INDEX(VERS,' ') - 1
@@ -10982,7 +10978,7 @@
                   A, 2x, A, 2x, E9.3, 2x,  & 
                   F8.1, I3)
        else
-!             write few more columns for generic SNANA SPEC table
+          !   write few more columns for generic SNANA SPEC table
          WRITE(LUNTMP,710)  & 
               SNLC_CCID(1:LENC), SPEC_FILE(1:LENF),  & 
               TYPE(1:LENT), z,  & 
@@ -22748,22 +22744,29 @@
     EXTERNAL SPECPAK_DATA
 ! ----------------- BEGIN ---------------
 
+    print*,' 0. xxx  ------------------------------------- '
+    print*,' 1. xxx SPECPAK_DATA CID = ', SNLC_CCID(1:12) ; call flush(6)
+
 ! check if we should make the plot
     IF ( .NOT. DOPLOT_SPEC() ) RETURN
 
     IF ( MARZFILE_OUT .NE. '' ) RETURN
 
+    print*,' 2. xxx SPECPAK_DATA  NSPECTRUM=', NSPECTRUM ; call flush(6)
+
     LENCCID = ISNLC_LENCCID
     CCID_forC = SNLC_CCID(1:LENCCID) // char(0)
 
     write(6,10) SNLC_CCID(1:LENCCID)
- 10   format(T8,'SPECPLOT: pack CID=',A,' for plotting.')
+10  format(T8,'SPECPLOT: pack CID=',A,' for plotting.')
     call flush(6)
 
-! load each spectrum into SPECPAK C-function util
+    ! load each spectrum into SPECPAK C-function util
 
     DO 100 ispec = 1, NSPECTRUM
        CALL RDSPEC_DRIVER(ispec)  ! Apr 5 2021
+
+       print*,' 3. xxx SPECPAK_DATA ispec=', ispec ; call flush(6)
 
        CALL SPECPAK_DATA(  & 
                CCID_forC  & 
@@ -22777,9 +22780,9 @@
              , FLAM_SPECTRUM  & 
              , FLAMERR_SPECTRUM  & 
              , LENCCID )
- 100     CONTINUE
+100 ENDDO
 
-! write out spectrum to TEXT table (ROOT not enabled)
+    ! write out spectrum to TEXT table (ROOT not enabled)
     IF ( NSPECTRUM > 0 ) then
        CALL SPECPAK_FILL(CCID_forC, LENCCID)
     ENDIF
@@ -27056,7 +27059,6 @@
 ! May 05, 2020: implement OPT_SETPKMJD_SIM option
 ! -------------------------------------------------------------
 
-
     USE SNDATCOM
     USE SNLCINP_NML
     USE FILTCOM
@@ -27102,7 +27104,7 @@
 ! function
     EXTERNAL init_obs_atFLUXMAX, get_obs_atFLUXMAX
 
-! ---------------- BEGIN ----------------
+! ---------------- BEGIN SET_PEAKMJD ----------------
 
     if ( OPT_SETPKMJD <= 0 ) RETURN
 
@@ -27353,7 +27355,7 @@
        CALL MNFIT_PKMJD(IFILT_OBS, FITWIN_MJD8, F8, MJD8,    &  ! inputs
                     PKMJD8, PKMJD8ERR, PKFLUX8, PKFLUX8ERR)   ! return args
 
-! store result for each filter.
+       ! store result for each filter.
 
          PKFLUX_FIT(ifilt_obs) = SNGL(PKFLUX8)
          PKFLUX_ERR(ifilt_obs) = SNGL(PKFLUX8ERR)
@@ -27362,7 +27364,7 @@
          PKMJD_ERR(ifilt_obs) = SNGL(PKMJD8ERR)
          NPKMJD = NPKMJD + 1
 
-! check option to interpolate flux
+         ! check option to interpolate flux
          CALL SNMJD_INTERP_ANYLC(ifilt_obs)
 
 200   CONTINUE

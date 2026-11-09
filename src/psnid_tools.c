@@ -1216,6 +1216,7 @@ void psnid_store_data(char *CCID, int NOBS, int *IFILT,
 {
 
   int obs, i, MEM_D, MEM_I ;
+  char fnam[] = "psnid_store_data" ;
 
   // ----------- BEGIN ----------
 
@@ -1261,6 +1262,17 @@ void psnid_store_data(char *CCID, int NOBS, int *IFILT,
     DATA_PSNID_DOFIT.FLUXSIM[obs]   = FLUXSIM[obs] ;
     DATA_PSNID_DOFIT.DUMERR0[obs]   = 0.0 ;
     DATA_PSNID_DOFIT.IFILT[obs]     = IFILT[obs] ;
+
+    // guard against IFILT outside 0 to NFILT-1 (band not in FILTLIST_FIT);
+    // otherwise IFILTLIST[IFILT] is an out-of-bounds read
+    if ( IFILT[obs] < 0 || IFILT[obs] >= PSNID_INPUTS.NFILT ) {
+      sprintf(c1err,"Invalid IFILT=%d for obs=%d (CCID=%s)", 
+	      IFILT[obs], obs, CCID);
+      sprintf(c2err,"Band is not in FILTLIST_FIT='%s'",
+	      PSNID_INPUTS.CFILTLIST);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err );
+    }
+
     DATA_PSNID_DOFIT.IFILTOBS[obs]  = 
       PSNID_INPUTS.IFILTLIST[IFILT[obs]]; // absolute index
   }

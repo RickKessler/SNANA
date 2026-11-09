@@ -543,6 +543,12 @@
        IFILT_OBS   = ISNLC_IFILT_OBS(ep)
        IFILT       = IFILTDEF_INVMAP_SURVEY(IFILT_OBS)
 
+! Skip epochs in bands that are not in FILTLIST_FIT. For these bands
+! IFILTINV_PSNID = -9, which would be used as an array index in the
+! C code (IFILTLIST[-9]) and give an undefined absolute filter index
+! (blank BAND in LCPLOT table, with DATAFLAG=-1).
+       IF ( .NOT. USEFILT_PSNID(IFILT_OBS) ) GOTO 102
+
        NOBS            = NOBS + 1
        MJD8(NOBS)      = SNLC8_MJD(ep)
        FLUXDATA8(NOBS) = DBLE( SNLC_FLUXCAL(ep) )

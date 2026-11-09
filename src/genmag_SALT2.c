@@ -3529,10 +3529,10 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   //   Tobs     : T - Tpeak, obs frame (scalar, not array)
   //
   // Output:
-  //   *GENFLUX_LIST : flux vs. wavelength bin.
+  //   *GENFLUX_LIST : true flux vs. wavelength bin.
   //                   flux=0 outside SALT2 model range (no aborts).
   //
-  //   *GENMAG_LIST :  mag
+  //   *GENMAG_LIST :  true mag
   //
   // Note that output arrays have length NBLAM (see below)
   //
@@ -3554,6 +3554,14 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   //
   // Jul 29 2024: replace a few pow(x,2) with x*x (for speed)
   //
+  // Nov 09 2026: fix MWXT_FRAC bug identified by M.Dai+Claude 
+  //        https://github.com/RickKessler/SNANA/issues/1833
+  //        INTEG_zSED_SALT2(...) applies MWXT_FRAC, so applying this same
+  //        factor here was double-counting. 
+  //        To restore bug, set RESTORE_MWXT_BUG = 1 (not tested).
+  //        Note that fill_TABLE_MWXT_SEDMODEL() remains here in case
+  //        all passbands are outside SALT2 model range and thus
+  //        fill_TABLE_MWXT_SEDMODEL would not have been called.
   // ------------------------------------------
 
   int    NBLAM      = SPECTROGRAPH_SEDMODEL.NBLAM_TOT ;
@@ -3578,6 +3586,7 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   double FTMP_DAYMAX, MAG_DAYMAX ;
   int    LDMP;
   int DUMPFLAG = 0 ;
+  int RESTORE_MWXT_BUG = 0 ;
   char fnam[] = "genSpec_SALT2" ;
 
   // -------------- BEGIN --------------
@@ -3597,13 +3606,12 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   // note that DAYMIN_EXTRAP ~ 45 days, which is inside the nominal
   // SALT2 DAYMAX ~ 50 days.
   if ( EXTRAP_METHOD_MAG && Trest > DAYMIN_EXTRAP ) { // legacy; should be deleted
-      Tobs_SED        = DAYMIN_EXTRAP * (1.0+z); 
-      DO_EXTRAP_LOCAL = true;
+    Tobs_SED        = DAYMIN_EXTRAP * (1.0+z); 
+    DO_EXTRAP_LOCAL = true;
   } 
   
   // - - - - -  
       
-
   INTEG_zSED_SALT2(1, JFILT_SPECTROGRAPH, z, Tobs_SED, wavecor,
 		   parList_SN, parList_HOST, DUMPFLAG,
 		   &Finteg, &Finteg_errPar,  GENFLUX_LIST ) ;
@@ -3614,12 +3622,20 @@ void genSpec_SALT2(double *parList_SN, double *parList_HOST, double mwebv,
   for(ilam=0; ilam < NBLAM; ilam++ ) { 
     GENFLUX_LIST[ilam] *= FSCALE_ZP ;  // Mar 29 2019
 
-    MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[JFILT_SPECTROGRAPH][ilam] ;
+
     GENFLUX = GENFLUX_LIST[ilam] ;
     LAM     = SPECTROGRAPH_SEDMODEL.LAMAVG_LIST[ilam] ;
     ZP      = SPECTROGRAPH_SEDMODEL.ZP_LIST[ilam] ;
-    FTMP    = (LAM/hc) * GENFLUX * MWXT_FRAC;
+    // xxx mark delete Nov 9 2026 FTMP    = (LAM/hc) * GENFLUX * MWXT_FRAC; 
+    FTMP    = (LAM/hc) * GENFLUX ;  
     
+    // xxxxxxxxx mark delete Nov 9 2026 xxxxxxxx
+    if ( RESTORE_MWXT_BUG ) { 
+      MWXT_FRAC  = SEDMODEL_TABLE_MWXT_FRAC[JFILT_SPECTROGRAPH][ilam] ;
+      FTMP *= MWXT_FRAC ;
+    }
+    // xxxxxxxx end mark xxxxxxxx
+
     /*xxxx
     printf(" xxx %s: ilam=%d LAM=%.1f ZP=%.3f  GENFLUX=%le\n",
 	   fnam, ilam, LAM, ZP, GENFLUX); fflush(stdout);

@@ -2672,7 +2672,6 @@ void fill_TABLE_MWXT_SEDMODEL(double RV, double mwebv) {
       SEDMODEL_TABLE_MWXT_FRAC[ifilt]  = (double*)malloc(I8*NLAMFILT); 
     }
 
-
     // check optional ifilt=0 for spectrograph
     NBSPEC =  FILTER_SEDMODEL[JFILT_SPECTROGRAPH].NLAM ;
     if ( NBSPEC > 0 ) {

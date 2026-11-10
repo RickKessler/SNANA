@@ -199,7 +199,16 @@ HOSTLIB_VARNAMES_MAP:
 - lsst_y  25
 
 #    ...or ...
+
+{KEY_MAGERR_SNR}:
+- [band]  [m0] [snr0]   [m1] [snr1]  [sig_m]
+
+#    ...or ...
+
 {KEY_MAGERR_PDF}:   <yml file with fitted model params>
+  INPUT_FILE: [input yml]
+  BANDMAP:
+    - [diffsky_band_name] [hostlib_band_name]
 
 # options for noise on mags (apply to any of the magerr options above)
 {KEY_ADD_NOISE_TO_MAGS}:  True   # default=True: add Gaussian flux noise to mags using the magerr at the true mag;
@@ -502,18 +511,31 @@ def parse_config_varname_map(config):
     if not HOSTLIB_VARNAMES_MAP:
         sys.exit(f"\n ERROR: config file is missing required {KEY_HOSTLIB_VARNAMES_MAP}")
 
-    MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF,None)
-    if not MAGERR_PDF_DICT:
-        sys.exit(f"config does not contain {KEY_MAGERR_PDF}")
-
-    BANDMAP_INPUT = MAGERR_PDF_DICT['BANDMAP']  # user input map
+    # Added Nov 9 by J.Medoff to avoid reliance on MAGERR_PDF
+    #BANDMAP_INPUT = config['band_magerr_list_diffsky']
+    #BANDMAP_INPUT = ['des_g', 'des_r', 'des_i', 'des_z']
+    MAGERR_PDF_check = config.get(KEY_MAGERR_PDF)
+    MAGERR_SNR_check = config.get(KEY_MAGERR_SNR)
+    MAGERR_SNR5_check = config.get(KEY_MAGERR_SNR5)
+    if MAGERR_PDF_check:
+        BANDMAP_DICT = MAGERR_PDF_check['BANDMAP']
+        BANDMAP_INPUT = [b.split()[0] for b in BANDMAP_DICT]
+    elif MAGERR_SNR_check:
+        BANDMAP_INPUT =	[b.split()[0] for b in MAGERR_SNR_check]
+    elif MAGERR_SNR5_check:
+        BANDMAP_INPUT = [b.split()[0] for b in MAGERR_SNR5_check]
+    else:
+        # No error model given
+        sys.exit("No MAGERR given in config: either MAGERR_PDF, MAGERR_SNR, or MAGERR_SNR5")   
+    #print(f'xxx BANDMAP_INPUT = {BANDMAP_INPUT}')
+    
     b_diffsky_m5 = [] # [ '{survey}_{band}_m5' ]
     b_hostlib_m5 = [] # [ '{band}_obs_m5' ]
-    for b_string in BANDMAP_INPUT:
-        diffsky_str = b_string.split()[0] # e.g., 'des_g'
-        diffsky_m5_str = diffsky_str + '_m5'
+    for b_str in BANDMAP_INPUT:
+        #diffsky_str = b_str.split()[0] # e.g., 'des_g'
+        diffsky_m5_str = b_str + '_m5'
         b_diffsky_m5.append(diffsky_m5_str)
-        hostlib_str = b_string.split()[1] # e.g., 'g'
+        hostlib_str = b_str.split('_')[1] # e.g., 'g'
         hostlib_m5_str = hostlib_str + '_obs_m5'
         b_hostlib_m5.append(hostlib_m5_str)
     

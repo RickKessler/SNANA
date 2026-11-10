@@ -4916,57 +4916,86 @@ int strcmp_ignoregz_basic(char *str1, char *str2) {
 
 
 // ==================================================
-int is_symlink(char *fileName) {
+char *resolve_path_symlinks(char *path) {
 
-  // Return 1 if fileName is a symbolic link; 0 otherwise
-  // (including if fileName does not exist).
+  // Return malloc'ed canonical path of input *path, with symbolic links
+  // resolved in ANY component (directory or file name). Caller must free.
+  // Works even if the file itself does not exist (e.g., user gives name
+  // without .gz but only the .gz file exists): in this case the directory
+  // part is resolved and the base name is appended unchanged.
+  // Returns NULL if the path cannot be resolved at all.
 
-  struct stat st;
-  if ( lstat(fileName, &st) != 0 ) { return 0; }
-  return ( S_ISLNK(st.st_mode) ? 1 : 0 ) ;
+  char *real_full, *real_dir, *dir, *base, *result;
+  char *last_slash;
+  size_t len;
 
-} // end of is_symlink
+  // --------- BEGIN ----------
+
+  // first try the full path (works if file exists, and resolves
+  // a link in the file name itself)
+  real_full = realpath(path, NULL);
+  if ( real_full != NULL ) { return real_full; }
+
+  // full path failed; resolve directory part and append base name
+  last_slash = strrchr(path, '/');
+  if ( last_slash == NULL ) {
+    dir  = strdup(".");
+    base = strdup(path);
+  }
+  else if ( last_slash == path ) {
+    dir  = strdup("/");
+    base = strdup(last_slash+1);
+  }
+  else {
+    len  = (size_t)(last_slash - path);
+    dir  = (char*) malloc(len+1);
+    strncpy(dir, path, len);  dir[len] = 0;
+    base = strdup(last_slash+1);
+  }
+
+  real_dir = realpath(dir, NULL);
+  result   = NULL;
+  if ( real_dir != NULL ) {
+    len    = strlen(real_dir) + strlen(base) + 2;
+    result = (char*) malloc(len);
+    if ( strcmp(real_dir,"/") == 0 ) { snprintf(result, len, "/%s", base); }
+    else                             { snprintf(result, len, "%s/%s", real_dir, base); }
+    free(real_dir);
+  }
+
+  free(dir);  free(base);
+  return result;
+
+} // end of resolve_path_symlinks
 
 
 // ==================================================
 int strcmp_ignoregz(char *str1, char *str2) {
 
   // Compare strings after stripping out possible .gz extension.
-  // If strings do not match, check if either string (file) is a
-  // symbolic link; if so, resolve the link(s) and compare again.
-  // Return 0 for match, non-zero otherwise (same convention as strcmp).
+  // If strings do not match, resolve symbolic links in the full path
+  // (directory components and/or file name) of each string, and compare
+  // again. Return 0 for match, non-zero otherwise (same as strcmp).
 
-  int LDMP = 1;
+  int LDMP = 0 ;
   char fnam[] = "strcmp_ignoregz";
   // ---------- BEGIN -------------
 
   int jcmp = strcmp_ignoregz_basic(str1, str2);
   if ( jcmp == 0 ) { return jcmp; }
 
-  // strings don't match; check for symbolic links
-  int islink1 = is_symlink(str1);
-  int islink2 = is_symlink(str2);
+  // strings don't match; resolve symbolic links anywhere in the paths.
+  // If a path cannot be resolved, use the original string.
+  char *real1 = resolve_path_symlinks(str1);
+  char *real2 = resolve_path_symlinks(str2);
 
   if ( LDMP ) {
     printf(" xxx ----------------------------------- \n");
     printf(" xxx %s DUMP for symlink check \n", fnam);
-    printf(" xxx   str1 = %s \n", str1);
-    printf(" xxx   str2 = %s \n", str2);
-    printf(" xxx   islink[1,2] = %d %d \n", islink1, islink2 );
-    fflush(stdout);
-  }
-
-  if ( !islink1 && !islink2 ) { return jcmp; }
-
-  // Resolve both names to canonical paths so that a resolved link
-  // can be compared to a plain (possibly relative) file name.
-  // If realpath fails (e.g., dangling link), use the original string.
-  char *real1 = realpath(str1, NULL);
-  char *real2 = realpath(str2, NULL);
-
-  if ( LDMP ) {
-    printf(" xxx  real1 = %s \n", real1 );
-    printf(" xxx  real2 = %s \n", real2 );
+    printf(" xxx   str1  = %s \n", str1);
+    printf(" xxx   str2  = %s \n", str2);
+    printf(" xxx   real1 = %s \n", real1 ? real1 : "(null)" );
+    printf(" xxx   real2 = %s \n", real2 ? real2 : "(null)" );
     fflush(stdout);
   }
 

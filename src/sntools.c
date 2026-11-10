@@ -4887,9 +4887,10 @@ int strcmp_ignoreCase(char *str1, char *str2) {
 
 
 // ==================================================
-int strcmp_ignoregz(char *str1, char *str2) {
+int strcmp_ignoregz_basic(char *str1, char *str2) {
 
   // Nov 2023: compare strings after stripping out possible .gz extension.
+  // (basic comparison, no symbolic-link resolution)
 
   int len1 = strlen(str1) ;
   int len2 = strlen(str2) ;
@@ -4910,7 +4911,75 @@ int strcmp_ignoregz(char *str1, char *str2) {
   free(str1_nogz); free(str2_nogz);
 
   return jcmp;
-  
+
+} // end of strcmp_ignoregz_basic
+
+
+// ==================================================
+int is_symlink(char *fileName) {
+
+  // Return 1 if fileName is a symbolic link; 0 otherwise
+  // (including if fileName does not exist).
+
+  struct stat st;
+  if ( lstat(fileName, &st) != 0 ) { return 0; }
+  return ( S_ISLNK(st.st_mode) ? 1 : 0 ) ;
+
+} // end of is_symlink
+
+
+// ==================================================
+int strcmp_ignoregz(char *str1, char *str2) {
+
+  // Compare strings after stripping out possible .gz extension.
+  // If strings do not match, check if either string (file) is a
+  // symbolic link; if so, resolve the link(s) and compare again.
+  // Return 0 for match, non-zero otherwise (same convention as strcmp).
+
+  int LDMP = 1;
+  char fnam[] = "strcmp_ignoregz";
+  // ---------- BEGIN -------------
+
+  int jcmp = strcmp_ignoregz_basic(str1, str2);
+  if ( jcmp == 0 ) { return jcmp; }
+
+  // strings don't match; check for symbolic links
+  int islink1 = is_symlink(str1);
+  int islink2 = is_symlink(str2);
+
+  if ( LDMP ) {
+    printf(" xxx ----------------------------------- \n");
+    printf(" xxx %s DUMP for symlink check \n", fnam);
+    printf(" xxx   str1 = %s \n", str1);
+    printf(" xxx   str2 = %s \n", str2);
+    printf(" xxx   islink[1,2] = %d %d \n", islink1, islink2 );
+    fflush(stdout);
+  }
+
+  if ( !islink1 && !islink2 ) { return jcmp; }
+
+  // Resolve both names to canonical paths so that a resolved link
+  // can be compared to a plain (possibly relative) file name.
+  // If realpath fails (e.g., dangling link), use the original string.
+  char *real1 = realpath(str1, NULL);
+  char *real2 = realpath(str2, NULL);
+
+  if ( LDMP ) {
+    printf(" xxx  real1 = %s \n", real1 );
+    printf(" xxx  real2 = %s \n", real2 );
+    fflush(stdout);
+  }
+
+  char *cmp1 = ( real1 != NULL ) ? real1 : str1 ;
+  char *cmp2 = ( real2 != NULL ) ? real2 : str2 ;
+
+  jcmp = strcmp_ignoregz_basic(cmp1, cmp2);
+
+  if ( real1 != NULL ) { free(real1); }
+  if ( real2 != NULL ) { free(real2); }
+
+  return jcmp;
+
 } // end of strcmp_ignoregz
 
 // ==================================================

@@ -2341,6 +2341,7 @@
 ! ---------------------------------------------------------
 ! book plots for this SN; all plots are vs. relative epoch
 
+#if defined(HPAK_LEGACY)
     IF ( DOLC_PLOT .and. REFAC_LCPLOT == 0 ) THEN
 
        CCID = SNLC_CCID(1:LCID) // char(0)
@@ -2353,6 +2354,7 @@
       CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
 
     ENDIF
+#endif
 
 ! ---------------------------------
 
@@ -18371,16 +18373,17 @@
     RETURN
   END SUBROUTINE TEST_TRANSFORM
 
-! ===========================
-    SUBROUTINE SNLCPLOT()
+#if defined(HPAK_LEGACY)
+  ! ===========================
+  SUBROUTINE SNLCPLOT()
 
-! ---------------------------------------------
-! Created Feb 2013 by R.Kessler
-! 
-! Pack light curve & best-fit function for snlc_fit.exe.
-! Also pack optional info such as marginalized distributions.
-! 
-! ---------------------------------------------
+    ! ---------------------------------------------
+    ! Created Feb 2013 by R.Kessler
+    ! 
+    ! Pack light curve & best-fit function for snlc_fit.exe.
+    ! Also pack optional info such as marginalized distributions.
+    ! 
+    ! ---------------------------------------------
 
     USE SNDATCOM
     USE SNANAFIT
@@ -18657,11 +18660,10 @@
     RETURN
   END SUBROUTINE SNLCPLOT
 
-! ============================================
-    SUBROUTINE SNLCPAK_DISPLAYTEXT_FIT()
+  ! ============================================
+  SUBROUTINE SNLCPAK_DISPLAYTEXT_FIT()
 
-! Create strings and pass them to generic wrapper SNLCPAK_DISPLAYTEXT()
-! 
+    ! Create strings and pass them to generic wrapper SNLCPAK_DISPLAYTEXT()
 
 
     USE SNDATCOM
@@ -18788,6 +18790,7 @@
     RETURN
   END SUBROUTINE SNLCPAK_DISPLAYTEXT_FIT
 
+#endif
 
 
 ! =====================================================

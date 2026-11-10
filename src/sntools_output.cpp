@@ -1,21 +1,12 @@
 /************************************************
  Created Feb 2013, R.Kessler
 
-
- Interface tools for snana output
-  SNTABLE:  store table structure(s), e.g., hbook ntuple, root tree, etc ..
-  SNHIST:   1D and 2D histograms
-  SNLCPAK:  pack SN ligthcurve and best-fit model(s) for plotting
-  SPECPAK:  pack spectra (4/2019)
-
  Function tree, where MAIN refers to main program
  calling functions in this file.
 
  MAIN  (see SNFILE_OUT_INIT in snana.car)
    --> TABLEFILE_INIT()     ! required
-   --> SNLCPAK_INIT(...)    ! required for SNLCPAK
    --> TABLEFILE_OPEN(...)  ! required
-   --> SNLCPAK_SURVEY()     ! required for SNLCPAK
 
        The above routines are called only from snana.car
 
@@ -23,25 +14,6 @@
   The following CCID loop is written specific to each program
   (snana.exe, snlc_fit.exe, psnid.exe)
 
-  foreach CCID {
-     SNLCPAK_NFIT(NFIT) ;  // only for multiple fits per SN
-     MAKEDIR_OUTPUT(CCID);
-
-     (fill STRING arrays and [DATA] arrays)
-
-     SNLCPAK_DISPLAYTEXT(STRING1) ;  // text to display avove plots
-     SNLCPAK_DISPLAYTEXT(STRING2) ;
-     SNLCPAK_DISPLAYTEXT(STRING3) ;
-     
-     SNLCPAK_DATA(CCID, [DATA], SNLCPAK_EPFLAG_FLUXDATA );  // data array
-     SNLCPAK_DATA(CCID, [DATA], SNLCPAK_EPFLAG_REJECT );  // exluded from fit
-     SNLCPAK_DATA(CCID, [DATA], SNLCPAK_EPFLAG_CHI2   );  // data-fit chi2
-     SNLCPAK_DATA(CCID, [DATA], SNLCPAK_EPFLAG_FITFUN );  // smooth fit-fun
-
-     SNLCPAK_FILL();  // store [DATA] in output file(s).
-
-     CDTOPDIR_OUTPUT();
-  }
 
  To make an optional table (ntuple-like object)
      SNTABLE_CREATE(ID, NAME);
@@ -51,9 +23,6 @@
      SNTABLE_ADDCOL(ID, BLOCK, ptrVar_N, VARNAMES_N );
      SNTABLE_FILL(ID); 
 
-  To make histogram,
-     SNHIST_INIT(...)
-     SNHIST_FILL(...)
 
 
   HISTORY
@@ -77,7 +46,7 @@
               suppress output for long batch jobs.
 
  Nov 09 2026: refactor only (no functional change): move all SNLCPAK and
-              SPECPAK functions to sntools_hpak_legacy.cpp, and their
+   [Claude]   SPECPAK functions to sntools_hpak_legacy.cpp, and their
               declarations to sntools_hpak_legacy.h, in preparation for removal.
 
 ************************************************/
@@ -95,7 +64,10 @@
 // #include "sntools.h"
 #include "sndata.h"
 #include "sntools_output.h"
+
+#ifdef HPAK_LEGACY
 #include "sntools_hpak_legacy.h"   // SNLCPAK/SPECPAK decl (also pulled in by sntools_output.h; guarded)
+#endif
 
 // include the package-specific code(s) here.
 
@@ -118,15 +90,6 @@
 #endif
 
 
-// ===============================================
-void SNTABLE_DEBUG_DUMP(char *fnam, int idump) {
-  printf(" xxx DEBUG_DUMP(%s , %d): SNLCPAK_USE_[TEXT,ROOT]=%d/%d \n",
-	 fnam, idump, SNLCPAK_USE_TEXT, SNLCPAK_USE_ROOT);
-  fflush(stdout);
-} // end of   void SNTABLE_DEBUG_DUMP
-void sntable_debug_dump__(char *fnam, int *idump) 
-{ SNTABLE_DEBUG_DUMP(fnam,*idump); }
- 
 
 // ===============================================
 void TABLEFILE_INIT(void) {
@@ -203,17 +166,11 @@ void TABLEFILE_INIT(void) {
   // useful string for cast manipulations
   sprintf(CCAST_TABLEVAR," CISF---D-------L--" );
 
-  // misc. for SNLCPAK & SPECPAK
+  // global init for for SNLCPAK & SPECPAK
+#ifdef HPAK_LEGACY
+  HPAK_INIT(); 
+#endif
 
-  SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = SNLCPAK_USE_NPZ = 0 ;  
-  SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = SPECPAK_USE_NPZ = 0 ;
-  SPECPAK_USE_MARZ  = 0;
-
-  sprintf(SNLCPAK_OUTPUT.SURVEY,             "NULL" );
-  sprintf(SNLCPAK_OUTPUT.VERSION_PHOTOMETRY, "NULL" );
-  sprintf(SNLCPAK_OUTPUT.VERSION_SNANA,      "NULL" );
-  sprintf(SNLCPAK_OUTPUT.SURVEY_FILTERS,     "NULL" );
-  SNLCPAK_OUTPUT.TEXT_FORMAT[0] = 0;
 
 #ifdef USE_TEXT
   FILEPREFIX_TEXT[0] = 0 ;
@@ -3173,7 +3130,9 @@ void cdtopdir_output__ (int *VBOSE) {
 //   Legacy SNLCPAK and SPECPAK functions (moved Nov 09 2026)
 // ==========================================
 
+#ifdef HPAK_LEGACY
 #include "sntools_hpak_legacy.cpp"
+#endif
 
 // ===============================================
 char *replace_str(char *st, const char *orig, const char *repl) {

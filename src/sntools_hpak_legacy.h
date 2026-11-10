@@ -150,6 +150,8 @@ extern "C" {
 
   // SNLCPAK functions
 
+  void HPAK_INIT(void);  // one-time global init
+
   void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
 		    char *SURVEY_FILTERS, int SIMFLAG, 
 		    int NFIT, char *TEXT_FORMAT );

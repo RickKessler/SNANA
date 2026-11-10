@@ -1340,51 +1340,6 @@
   END SUBROUTINE PSNID_SNLCPLOT
 
 
-! =======================
-    INTEGER FUNCTION PSNID_GET_NFIT()
-
-! Return number of separate PSNID fits to be
-! performed for each SN.
-! 
-
-    USE SNPAR
-    USE PSNIDCOM
-
-    IMPLICIT NONE
-
-    INTEGER   NFIT
-    CHARACTER C1ERR*80, C2ERR*80
-
-! functions
-    INTEGER  PSNID_BEST_GET_NFIT
-    EXTERNAL PSNID_BEST_GET_NFIT
-
-! ---------- BEGIN -----------
-
-! set NFIT using default method so that valid NFIT is
-! returned before initialization. This will be a problem
-! if a future psnid option has a different NFIT.
-    NFIT = PSNID_BEST_GET_NFIT()
-
-! determine how many fit-function to generate
-    IF ( METHOD_PSNID .EQ. METHOD_BEST ) THEN
-       NFIT = PSNID_BEST_GET_NFIT()
-    ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
-       NFIT = PSNID_BEST_GET_NFIT()  ! same as for BEST method
-    ELSE
-
-    ENDIF
-
-    IF ( NFIT .EQ. 0 ) THEN
-       C1ERR = 'NFIT = 0 ??'
-       C2ERR = 'Check why there are no fits'
-       CALL MADABORT('PSNID_GET_NFIT', C1ERR, C2ERR)
-    ENDIF
-
-    PSNID_GET_NFIT = NFIT
-
-    RETURN
-  END FUNCTION PSNID_GET_NFIT
 
 ! ==============================
     SUBROUTINE PSNID_MONANA()
@@ -1526,4 +1481,56 @@
 
     RETURN
   END SUBROUTINE PSNID_MONEND
+
+
+  ! ============================================================
+  !    HPAK_LEGACY functions (Nov 9 2026); prep for removal
+  ! ============================================================
+
+#if defined(HPAK_LEGACY)
+  INTEGER FUNCTION PSNID_GET_NFIT()
+
+    ! Return number of separate PSNID fits to be
+    ! performed for each SN.
+    ! 
+
+    USE SNPAR
+    USE PSNIDCOM
+
+    IMPLICIT NONE
+
+    INTEGER   NFIT
+    CHARACTER C1ERR*80, C2ERR*80
+
+    ! functions
+    INTEGER  PSNID_BEST_GET_NFIT
+    EXTERNAL PSNID_BEST_GET_NFIT
+
+    ! ---------- BEGIN -----------
+
+    ! set NFIT using default method so that valid NFIT is
+    ! returned before initialization. This will be a problem
+    ! if a future psnid option has a different NFIT.
+    NFIT = PSNID_BEST_GET_NFIT()
+
+    ! determine how many fit-function to generate
+    IF ( METHOD_PSNID .EQ. METHOD_BEST ) THEN
+       NFIT = PSNID_BEST_GET_NFIT()
+    ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
+       NFIT = PSNID_BEST_GET_NFIT()  ! same as for BEST method
+    ELSE
+
+    ENDIF
+
+    IF ( NFIT .EQ. 0 ) THEN
+       C1ERR = 'NFIT = 0 ??'
+       C2ERR = 'Check why there are no fits'
+       CALL MADABORT('PSNID_GET_NFIT', C1ERR, C2ERR)
+    ENDIF
+
+    PSNID_GET_NFIT = NFIT
+
+    RETURN
+  END FUNCTION PSNID_GET_NFIT
+#endif
 

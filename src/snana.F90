@@ -6,6 +6,8 @@
 ! May 6 2026: define MARK_USED macro to suppress "unused argument" with -Wall compile flag
 #define MARK_USED(FOO) IF(.FALSE.)THEN;DO;IF(SIZE(SHAPE(FOO))==-1) EXIT;ENDDO;ENDIF
 
+#define HPAK_LEGACY  ! Nov 9 2026
+
 ! =====================================================================
   MODULE SNPAR
     IMPLICIT NONE
@@ -2493,11 +2495,15 @@
     IMPLICIT NONE
 
     INTEGER*8 JDIFF
-    INTEGER   IERR, IVERS, NFIT_PER_SN
+    INTEGER   IERR, IVERS
 
+#if defined(HPAK_LEGACY)
+    INTEGER NFIT_PER_SN
+#endif
+   
 ! funtions
 
-#if defined(SNANA)
+#if defined(SNANA) && defined (HPAK_LEGACY)
     INTEGER SNANA_GET_NLCPLOT
 #endif
 
@@ -2598,15 +2604,27 @@
 ! --------------------------------------------
 ! init output file; set OPTFIT based on program.
 #if defined(SNANA)
+
+#if defined(HPAK_LEGACY)
     NFIT_PER_SN = SNANA_GET_NLCPLOT()
+#endif
+
     ISJOB_SNANA = .TRUE.
     CALL MNDUMMY()   ! just to require minuit library.
 #elif defined(SNFIT)
+
+#if defined(HPAK_LEGACY)
     NFIT_PER_SN = 1  ! only 1 fit per SN
+#endif
+
     ISJOB_SNFIT = .TRUE.
     CALL MNDUMMY()   ! just to require minuit library.
 #elif defined(PSNID)
+
+#if defined(HPAK_LEGACY)
     NFIT_PER_SN = PSNID_GET_NFIT()
+#endif
+
     ISJOB_SNFIT = .TRUE.
     ISJOB_PSNID = .TRUE.
     IF ( OPT_SETPKMJD == 0 ) THEN  ! if default, then ...
@@ -2614,7 +2632,13 @@
     ENDIF
 #endif
 
-    CALL INIT_OUTFILES(NFIT_PER_SN)
+    !xxxx mark delete 11.09.2026   CALL INIT_OUTFILES_LEGACY(NFIT_PER_SN)
+
+    CALL INIT_OUTPUT_TABLEFILES()
+
+#if defined(HPAK_LEGACY)
+    CALL INIT_HPAK_LEGACY(NFIT_PER_SN)
+#endif
 
 ! Mar 2013, create subdir for monitor-init (CDTOPDIR below)
     CALL MAKEDIR_OUTPUT("MONINIT"//char(0), -1, 7 )
@@ -2637,18 +2661,19 @@
     CALL PSNIDINI(IERR)
 #endif
 
-! -------------------------------------------------
-! Let user initialize their stuff before SN are selected
-! Aug 14 2014: move after CDTOPDIR call.
+    ! -------------------------------------------------
+    ! Let user initialize their stuff before SN are selected
+    ! Aug 14 2014: move after CDTOPDIR call.
 
-       IF ( IERR .NE. 0 ) GOTO 666
+    IF ( IERR .NE. 0 ) GOTO 666
 
-! check command-line args after all inits
+    ! check command-line args after all inits
     CALL CHECK_LINE_ARGS()
 
-! pak global survey info after all initialization (Mar 24 2013)
+#if defined(HPAK_LEGACY)    
+    ! pak global survey info after all initialization (Mar 24 2013)
     IF ( USE_TABLEFILE .and. NFIT_PER_SN>0 ) CALL SNLCPAK_SURVEY()
-
+#endif
 
 ! ######################################################
 ! 
@@ -6057,9 +6082,15 @@
     RESTORE_MWEBV_ERR_BUG = .FALSE. ! Jul 2022
     RESTORE_DES5YR        = .FALSE. ! May 28 2025
     REFAC_DATA_FLAG       = 0   ! set to 701 for writing NZ bins of HOSTGALz 
-    REFAC_LCPLOT          = 0   ! Oct 31 2026
+
+#if defined(HPAK_LEGACY)
+    REFAC_LCPLOT       = 0   ! Oct 31 2026
+#else
+    REFAC_LCPLOT       = 1
+#endif
 
     REQUIRE_DOCANA     =  0       ! use integer to match sim usage
+
 
     USE_HOSTGAL_PHOTOZ = .FALSE.
     USE_SNHOST_ZPHOT   = .FALSE.
@@ -6565,117 +6596,39 @@
   END SUBROUTINE NMLCHECK_SNCCID
 
 
-! ========================================
-    SUBROUTINE  INIT_OUTFILES(NFIT_PER_SN)
 
-! Created Feb 2012
-! 
+! ========================================
+  SUBROUTINE  INIT_OUTPUT_TABLEFILES()
+
+! Created Nov 2026
+! Move table-init code from original INIT_OUTFILES to here,
+! and remove obsolete SNLCPAK and SPECPAK calls.
+!
 ! Call appropriate init function for  root, etc ...
 ! Note that multiple output files can be initialized
 ! corresponding to different formats.
 ! If no files are opened, print warning message but do not abort.
 ! 
-! Note that NFIT_PER_SN is the max number of expected fits per SN.
-! 
-! Apr 26 2014: replace HFILE_OPEN and ROOTFILE_OPEN with generic
-!              wrapper TABLEFILE_OPEN.
-! 
-! May  3, 2014: call SNLCPAK_INIT only if NFIT_PER_SN > 0
-! May 12, 2014: overhaul the ascii format; see TEXTFILE_PREFIX.
-!               rename SNFILE_OUT_INIT -> INIT_OUTFILES
-! 
-! Sep 07, 2014: pass TEXTFORMAT to SNLCPAK_INIT()
-! 
-! Dec 10 2017: if NFILT_REMAP_TABLE>0, pass REMAP list of filters
-!              to SNLCPAK_INIT
-! 
-! Dec 19 2019: pass SIMFLAG to SNLCPAK_INIT.
-! 
-! Apr 03 2020: add call to  ENVreplace(TEXTFILE_PREFIX)
-! 
-! May 02 2020: begin MARZFILE_OUT (to store WFIRST host spectra for MARZ)
-! 
-! Mar 19 2021: use IGNOREFILE to check usage; e.g., allows
-!                ROOTFILE_OUT NONE
-! 
-! Sep 21 2023: fix mistaken 1:40 truncation of VER_PHOT_forC
-! 
 ! ------------------------------------------------------
-
 
     USE SNDATCOM
     USE SNLCINP_NML
 
     IMPLICIT NONE
+    INTEGER LENFILE,  IFILETYPE
+    CHARACTER  FNAM*24, COPT*20, CFILE*(MXCHAR_FILENAME) 
 
-    INTEGER NFIT_PER_SN ! (I) max number of fits to plot per SN
-
-    INTEGER LENFILE,  IFILETYPE, SIMFLAG
-
-    CHARACTER  & 
-         FNAM*20  & 
-        ,COPT*20  & 
-        ,CFILE*(MXCHAR_FILENAME)  & 
-        ,TEXTFMT*20
-
-    INTEGER LENV1, LENV2, LENSRVY, LENFILT, LENFMT
-    CHARACTER  & 
-         SURVEY_forC*(MXCHAR_SURVEY)  & 
-        ,VER_PHOT_forC*(MXCHAR_VERSION)  & 
-        ,VER_SNANA_forC*40  & 
-        ,FILTERS_forC*(MXFILT_OBS)  & 
-        ,TEXTFMT_forC*20 
-
-! function
+    ! function
     INTEGER  IGNOREFILE, TABLEFILE_OPEN
     EXTERNAL IGNOREFILE, TABLEFILE_OPEN
 
-! --------------- BEGIN -------------
+    ! --------------- BEGIN -------------
 
-    FNAM = 'INIT_OUTFILES'
+    FNAM = 'INIT_OUTPUT_TABLEFILES'
 
-    CALL TABLEFILE_INIT();  ! 4/26/2014
+    CALL TABLEFILE_INIT()
 
-! -----------------------------------------
-! set strings needed for the SNLCPAK_INIT functio
-
-    LENSRVY      = INDEX(SURVEY_NAME,' ') - 1
-    SURVEY_forC  = SURVEY_NAME(1:LENSRVY) // char(0)
-
-    LENV1         = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
-    VER_PHOT_forC = VERSION_PHOTOMETRY(1)(1:LENV1) // char(0)
-
-    LENV2         = INDEX(SNANA_VERSION,' ') - 1
-    VER_SNANA_forC = SNANA_VERSION(1:LENV2) // char(0)
-
-    LENFILT      = INDEX(SURVEY_FILTERS,' ') - 1
-    FILTERS_forC = SURVEY_FILTERS(1:LENFILT) // char(0)
-    if ( NFILT_REMAP_TABLE > 0 ) then  ! Dec 2017
-       LENFILT      = INDEX(FILTLIST_REMAP_TABLE,' ') - 1
-       FILTERS_forC = FILTLIST_REMAP_TABLE(1:LENFILT) // char(0)
-    endif
-
-    TEXTFMT      = TEXTFORMAT_TABLE(ITABLE_SNLCPAK)
-    LENFMT       = INDEX(TEXTFMT,' ') - 1
-    TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
-
-    IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0 .and. REFAC_LCPLOT == 0 ) THEN
-       SIMFLAG = 0
-       IF ( ISJOB_SIM ) SIMFLAG=1
-       CALL SNLCPAK_INIT(SURVEY_forC, VER_PHOT_forC, VER_SNANA_forC,  & 
-              FILTERS_forC, SIMFLAG, NFIT_PER_SN, TEXTFMT_forC,  & 
-              LENSRVY, LENV1, LENV2, LENFILT, LENFMT )
-    ENDIF
-
-    IF ( OPT_TABLE(ITABLE_SPECPAK) > 0 ) THEN
-       TEXTFMT      = TEXTFORMAT_TABLE(ITABLE_SPECPAK)
-       LENFMT       = INDEX(TEXTFMT,' ') - 1
-       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
-       CALL SPECPAK_INIT(SURVEY_forC, VER_PHOT_forC, TEXTFMT_forC,  & 
-                LENSRVY, LENV1, LENFMT )
-    ENDIF
-
-! -------------------------------------------
+    ! -------------------------------------------
 
     USE_TABLEFILE        = .FALSE.
     USE_TABLEFILE_ROOT   = .FALSE.
@@ -6683,7 +6636,7 @@
     USE_TABLEFILE_NPZ    = .FALSE.     ! Oct 19 2026
     USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
 
-! MARZ (host spectra only)
+    ! MARZ (host spectra only)
 
     LENFILE   = INDEX(MARZFILE_OUT,' ') - 1
     CFILE     = MARZFILE_OUT(1:LENFILE) // char(0)
@@ -6753,15 +6706,9 @@
        ENDIF
     ENDIF
 
-! xxxxxxxxx mark delete Oct 29 2026 xxxxxxxxxx
-! Oct 23, 2014: store global comments
-!    LENC = MXCHAR_VERSION
-!    COMMENT_forC = 'VERSION_PHOTOMETRY:  '//VER_PHOT_forC(1:LENC)
-!    CALL STORE_TABLEFILE_COMMENT(COMMENT_forC, LENC)
-! xxxxxxxxxx end mark xxxxxxx
 
-! ----------------------------------------
-!     print warning message if there is no table file
+    ! ----------------------------------------
+    !  print warning message if there is no table file
     IF ( .not. USE_TABLEFILE ) THEN
        print*,' '
        write(6,60)
@@ -6773,7 +6720,7 @@
     ENDIF
 
     RETURN
-  END SUBROUTINE  INIT_OUTFILES
+  END SUBROUTINE  INIT_OUTPUT_TABLEFILES
 
 
 ! ================================================
@@ -9834,17 +9781,16 @@
     CALL FLUSH(6)
 
 
-#if defined(SNANA)
+#if defined(SNANA) && defined (HPAK_LEGACY)
     ! pack the meta data
     IF ( REFAC_LCPLOT == 0 .and. OPT_TABLE(ITABLE_SNLCPAK) > 0  ) THEN
       CALL SNLCPAK_PHOT()    ! LEGACY: prepare light curves for csv table/plotting
     ENDIF
-#endif
 
     IF ( OPT_TABLE(ITABLE_SPECPAK) > 0  ) THEN
       CALL SPECPLOT()       ! prepare spectra for plotting (Apr 2019)
     ENDIF
-
+#endif
 
 ! Beware that SNANA table gets filled after FITRES table.
     CALL MON_SNANA(IFLAG_ANA)     ! monitor-driver
@@ -20915,9 +20861,11 @@
        CALL TABLE_SNANA(IDTABLE_SNANA,IFLAG)
     ENDIF
 
+#if defined(SNANA) && defined(HPAK_LEGACY)
     IF ( MARZFILE_OUT .NE. '' ) THEN
        CALL TABLE_MARZ(IDTABLE_MARZ,IFLAG)
     ENDIF
+#endif
 
 #if defined(SNANA)
     if ( OPT_TABLE(ITABLE_LCPLOT) > 0 .and. REFAC_LCPLOT > 0 ) THEN
@@ -22365,430 +22313,8 @@
     RETURN
   END FUNCTION DOPLOT_SPEC
 
-! -----------------------------------------
-#if defined(SNANA)
-    INTEGER FUNCTION SNANA_GET_NLCPLOT()
 
-! Created May 17 2014 by R.Kessler
-! Return NFIT_PER_SN = 0 or 1 based on SNLCINP options.
-! For snana.exe job only.
-! Sep 7 2014: use OPT_TABLE.
 
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-
-    IMPLICIT NONE
-
-    INTEGER NLCPLOT, OPT
-! --------------- BEGIN ------------
-    SNANA_GET_NLCPLOT = 0
-
-    if ( REFAC_LCPLOT > 0 ) RETURN
-
-    NLCPLOT = 0  ! default -> no LC plotted
-    OPT = OPT_TABLE(ITABLE_SNLCPAK)
-    if ( OPT > 0 ) NLCPLOT = 1
-
-! return function value
-    SNANA_GET_NLCPLOT = NLCPLOT
-
-    RETURN
-  END FUNCTION SNANA_GET_NLCPLOT
-#endif
-
-! ==============================
-#if defined(SNANA)
-    SUBROUTINE SNLCPAK_PHOT()
-
-! Created Feb 2013 by R.Kessler
-! Prepare SNLC PHOT table in csv format (e.g., for plotting)
-!
-! 
-! Apr 11 2019:  MXEP_SNLCPAK -> 4*MXEPOCH (was 10*MXEPOCH)
-! Jan 16 2020:  pass sim fluxes (see VSIMFLUX)
-! Feb 08 2026:  if SIM_COMPACT_noFLUXCAL, do not skip FLUXCAL<0
-!               Rename subroutine SNLCPLOT --> SNLCPAK_PHOT
-! ---------------------------------------------------------------------
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-    USE FILTCOM
-    USE SNANAFIT
-    USE PKMJDCOM
-
-    IMPLICIT NONE
-
-    CHARACTER  CCID*(MXCHAR_CCID), TEXT_forC*80
-
-    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS)
-    INTEGER  & 
-         LENCCID, LENTEXT, NEWMJD, EPMIN, EPMAX, EP  & 
-        ,IFILT_OBS, IFILT, ipar, NBT, i, NFILT
-
-    REAL*8  & 
-          Z, Z1, Tobs, Trest, MJD  & 
-         ,FLUX_DATA,  FLUXERR_DATA, FLUX_MODEL  & 
-         ,SQDIF, SQERR, CHI2, TMIN, TMAX, DT  & 
-         ,XVAL8(NPAR_ANYLC)
-
-! SNLCPAK arrays
-
-    INTEGER, PARAMETER :: MXEP_SNLCPAK = 4*MXEPOCH 
-
-    REAL*8  & 
-         VMJD(MXEP_SNLCPAK)  & 
-        ,VTOBS(MXEP_SNLCPAK)        & 
-        ,VFLUX(MXEP_SNLCPAK)        & 
-        ,VFLUX_ERR(MXEP_SNLCPAK)    & 
-        ,VSIMFLUX(MXEP_SNLCPAK)     & 
-        ,VCHI2(MXEP_SNLCPAK)        & 
-        ,VREJECT(MXEP_SNLCPAK)      & 
-        ,VERRCALC(MXEP_SNLCPAK)     & 
-        ,VDUMERR(MXEP_SNLCPAK)      &  ! all zeros
-! 
-        ,VBAND_NDOF(MXFILT_OBS)  & 
-        ,VBAND_CHI2(MXFILT_OBS)  & 
-        ,VBAND_PKFLUX(MXFILT_OBS)  & 
-        ,VBAND_PKFLUX_ERR(MXFILT_OBS)  & 
-        ,VBAND_PKMJD(MXFILT_OBS)  & 
-        ,VBAND_PKMJD_ERR(MXFILT_OBS)
-
-    INTEGER  & 
-         NOBS  & 
-        ,VFILTOBS(MXEP_SNLCPAK)
-
-! functions
-    EXTERNAL  ANYLCFUN
-    REAL*8    ANYLCFUN
-
-    LOGICAL DOPLOT_SNLC
-
-! ---------------- BEGIN --------------
-
-! check if we should make the plot
-    IF ( .NOT. DOPLOT_SNLC() ) RETURN
-
-    LENCCID = ISNLC_LENCCID
-    CCID = SNLC_CCID(1:LENCCID) // char(0)
-
-    OVMODEL_ANYFUN = (SNLC_SNANAFIT_PEAKMJD > 10.0) !show best peak-MJD fit
-    NFILT   = NFILTDEF_SURVEY
-
-    write(6,10) SNLC_CCID(1:LENCCID)
- 10   format(T8,'SNLCPAK_PHOT: pack CID=',A,' for plotting.')
-    call flush(6)
-
-! create subdir
-    CALL MAKEDIR_OUTPUT(CCID, SNLC_CID, LENCCID)
-
-! prepare text string(s) to display on plot
-    LENTEXT = LEN(TEXT_forC)
-
-
-    write(TEXT_forC,20) ISNLC_TYPE, SNLC_REDSHIFT, char(0)
- 20   format('TYPE = ', I3, 3x,'z=',F5.3, 3x, A )
-    CALL SNLCPAK_DISPLAYTEXT(CCID, TEXT_forC, LENCCID, LENTEXT )
-
-    IF ( OVMODEL_ANYFUN ) THEN
-       TEXT_forC = 'Fit  ANYFUN  to estimate peak MJD' // char(0)
-       CALL SNLCPAK_DISPLAYTEXT(CCID, TEXT_forC, LENCCID, LENTEXT )
-    ENDIF
-
-! flag which filter(s) to plot
-    DO IFILT = 1, NFILT
-      VBAND_NDOF(ifilt)   = 0.0           ! init this array
-      VBAND_CHI2(ifilt)   = 0.0           ! init this array
-      VBAND_PKFLUX(ifilt) = 0.0
-      VBAND_PKMJD(ifilt)  = 0.0
-
-      DOPLOT_FILT(IFILT) = .TRUE.  ! default is all
-      IFILT_OBS = IFILTDEF_MAP_SURVEY(ifilt)
-      LTMP = ( PKMJD_FIT(ifilt_obs) .GT. 100.0 )
-      IF ( OVMODEL_ANYFUN .and. .NOT. LTMP ) then
-        DOPLOT_FILT(IFILT) = .FALSE.
-      ENDIF
-
-! set default PKMJD
-      VBAND_PKMJD(IFILT)     = SNLC_SEARCH_PEAKMJD
-      VBAND_PKMJD_ERR(IFILT) = 0.0
-
-    ENDDO
-
-! -------------------------------
-    Z    = SNLC_REDSHIFT
-    Z1   = 1 + Z
-! -----------------------------
-
-    NOBS = 0
-    DO 200 NEWMJD = 1, ISNLC_NEWMJD_STORE
-
-      EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
-      EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
-
-      MJD   = SNLC8_MJD(EPMIN)
-      Tobs  = MJD - SNLC_SEARCH_PEAKMJD
-      Trest = Tobs / Z1
-
-      DO 201 EP = EPMIN, EPMAX
-
-        FLUX_DATA     = SNLC_FLUXCAL(ep)
-        FLUXERR_DATA  = SNLC_FLUXCAL_ERRTOT(ep)
-        if ( .NOT. SIM_COMPACT_noFLUXCAL .and. FLUXERR_DATA .LE. 0.0 ) GOTO 201
-
-        IFILT_OBS = ISNLC_IFILT_OBS(ep)
-        IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
-
-        IF ( .NOT. DOPLOT_FILT(IFILT) ) GOTO 201
-
-        VBAND_NDOF(ifilt) = VBAND_NDOF(ifilt) + 1.0 ! note this is real*8
-        NOBS = NOBS + 1
-
-        IF ( NOBS .GT. MXEP_SNLCPAK ) THEN
-          write(C1ERR,661) NOBS, MXEP_SNLCPAK
- 661        format('NOBS=',I5,' exceeds bound of MXEP_SNLCMAX=',I5)
-          c2err = 'Increase bound for data array.'
-          CALL MADABORT('SNLCPAK_PHOT(SNANA)', C1ERR, C2ERR)
-        ENDIF
-
-        VMJD(NOBS)      = MJD
-        VTOBS(NOBS)     = TOBS
-        VFLUX(NOBS)     = SNLC_FLUXCAL(ep)
-        VFLUX_ERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
-        VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
-        VSIMFLUX(NOBS)  = SIM_EPFLUXCAL(ep)   ! Jan 2020
-
-! Sep 7 2022: check options to fold LC within a single cylce.
-        if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then
-           DT = MJD - VMJD(1) - MJDSHIFT_PLOT
-           VMJD(NOBS)  = MOD(DT,MJDPERIOD_PLOT) + VMJD(1)
-
-           DT = TOBS - VTOBS(1) - MJDSHIFT_PLOT
-           VTOBS(NOBS) = MOD(DT,MJDPERIOD_PLOT) + VTOBS(1)
-        endif
-
-        VFILTOBS(NOBS)  = IFILT_OBS
-        VREJECT(NOBS)   = DBLE( 1 - ISNLC_SNRECON_USE(ep) )
-        VDUMERR(NOBS)   = 0.0  ! dummy arguments
-
-! fetch model value and VCHI2 (if we fit the "ANYLC" function)
-
-        if ( OVMODEL_ANYFUN ) then
-          do ipar = 1, NPAR_ANYLC
-            XVAL8(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
-          enddo
-
-          FLUX_MODEL  = ANYLCFUN(MJD,XVAL8)
-          SQDIF       = (FLUX_DATA - FLUX_MODEL)**2
-          SQERR       = FLUXERR_DATA**2
-          CHI2        = SQDIF/SQERR
-          VCHI2(NOBS) = CHI2
-          VBAND_CHI2(IFILT) = VBAND_CHI2(IFILT) + CHI2
-
-! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-          if ( ifilt_obs == 4 .and. MJD < 56600. ) then
-             write(6,621) MJD, TOBS, FLUX_DATA,  & 
-                   FLUX_MODEL, FLUXERR_DATA
- 621           format(' xxx MJD=',F9.3, '  TOBS=',F6.1,  & 
-                   '  FLUX(D,M)=',2G10.3, '  FLUX_ERR=', G8.3 )
-          endif
-! xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-
-        endif  ! end of OVMODEL
-
-201     CONTINUE  ! EP
-200   CONTINUE   ! NEWMJD
-
-! ------------------------------------------
-
-! store data fluxes
-    CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR,  & 
-           VFILTOBS, SNLCPAK_EPFLAG_FLUXDATA, LENCCID)
-
-! store REJECT flags
-    CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VREJECT, VDUMERR,  & 
-           VFILTOBS, SNLCPAK_EPFLAG_REJECT, LENCCID)
-
-! store data-FITFUN chi2
-    IF ( OVMODEL_ANYFUN ) THEN
-      CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VCHI2, VDUMERR,  & 
-           VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
-    ENDIF
-
-! check for sim fluxes (Jan 2020)
-    IF ( ISJOB_SIM ) THEN
-      CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS,  & 
-           VSIMFLUX, VFLUX_ERR,  & 
-           VFILTOBS, SNLCPAK_EPFLAG_FLUXSIM, LENCCID)
-    ENDIF
-
-
-! ------------------------------------------
-    IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
-! ------------------------------------------
-
-! plot smooth best-fit ANYFUN function in 2-day bins.
-
-    TMIN = -40.0
-    TMAX = 140.0
-    NBT  = int( (TMAX-TMIN) / DTOBS_MODEL_PLOT )
-    DT   = (TMAX - TMIN) / float(NBT)
-    NOBS = 0
-
-    DO 300 ifilt = 1, NFILT
-       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
-
-       VBAND_PKFLUX(ifilt)     = DBLE( PKFLUX_FIT(ifilt_obs) )
-       VBAND_PKFLUX_ERR(ifilt) = DBLE( PKFLUX_ERR(ifilt_obs) )
-
-       IF ( .not. EXIST_FILT(ifilt) ) GOTO 300
-
-       DO 320 i = 1, NBT
-          Tobs  = TMIN + dT * ( float(i) - 0.5 )
-          MJD   = Tobs + SNLC_SEARCH_PEAKMJD
-          do ipar = 1, NPAR_ANYLC
-             XVAL8(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
-          enddo
-
-          NOBS = NOBS + 1
-
-          IF ( NOBS .GT. MXEP_SNLCPAK ) THEN
-             write(C1ERR,661) NOBS, MXEP_SNLCPAK
-             c2err = 'Increase bound for best-fit (ANYFUN) array.'
-             CALL MADABORT('SNLCPAK_PHOT(SNANA)', C1ERR, C2ERR)
-          ENDIF
-
-          FLUX_MODEL       = ANYLCFUN(MJD,XVAL8)
-
-! avoid plotting artifacts with very small numbers (Oct 29 2014)
-          IF( FLUX_MODEL < 1.0E-20 ) FLUX_MODEL = 0.0
-
-          VMJD(NOBS)       = MJD
-          VTOBS(NOBS)      = TOBS
-          VFLUX(NOBS)      = FLUX_MODEL
-          VFLUX_ERR(NOBS)  = 0.0
-          VFILTOBS(NOBS)   = IFILT_OBS
-
-320     CONTINUE  ! epoch-bin
-
-300   CONTINUE  ! ifilt
-
-
-! -------------------------------------------------
-
-! store best-fit function on MJD grid
-
-    CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR,  & 
-           VFILTOBS, SNLCPAK_EPFLAG_FITFUN, LENCCID)
-
-! store filter-dependent quantities.
-    VMJD(1)  = -9999.0
-    VTOBS(1) = -9999.0  ! dummy for unused TOBS arg
-
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS, &
-         VBAND_NDOF, VDUMERR,  & 
-         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_NDOF, LENCCID)
-
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD,VTOBS,   &
-         VBAND_CHI2, VDUMERR,  & 
-         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_CHI2, LENCCID)
-
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,   & 
-         VBAND_PKFLUX, VBAND_PKFLUX_ERR,  & 
-         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKFLUX, LENCCID)
-
-
-! --------------------------------------------------
-! fill output structure with above; here iy goes to a disk file.
-
- 500  CONTINUE
-
-    CALL SNLCPAK_NFIT(1)      ! move from abvove, Oct 23 2025
-
-    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,  & 
-          VBAND_PKMJD ,VBAND_PKMJD_ERR,  & 
-          IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKMJD, LENCCID)
-
-    CALL SNLCPAK_FILL(CCID, LENCCID)
-
-! back to topdir
-    CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)
-
-! set global flag.
-    MADE_LCPLOT = .TRUE.
-
-    RETURN
-  END SUBROUTINE SNLCPAK_PHOT
-#endif
-
-
-! ==============================================
-    SUBROUTINE SPECPLOT()
-
-! Apr 2019
-! Prepare spectra table for plotting (analog of SNLCPLOT)
-! Works only for TEXT output; not for ROOT
-! 
-
-    USE SNDATCOM
-    USE SNLCINP_NML
-    USE SPECCOM
-
-    IMPLICIT NONE
-
-    INTEGER LENCCID, ispec
-    CHARACTER  CCID_forC*(MXCHAR_CCID)
-    LOGICAL DOPLOT_SPEC
-
-    EXTERNAL SPECPAK_DATA
-! ----------------- BEGIN ---------------
-
-    print*,' 0. xxx  ------------------------------------- '
-    print*,' 1. xxx SPECPAK_DATA CID = ', SNLC_CCID(1:12) ; call flush(6)
-
-! check if we should make the plot
-    IF ( .NOT. DOPLOT_SPEC() ) RETURN
-
-    IF ( MARZFILE_OUT .NE. '' ) RETURN
-
-    print*,' 2. xxx SPECPAK_DATA  NSPECTRUM=', NSPECTRUM ; call flush(6)
-
-    LENCCID = ISNLC_LENCCID
-    CCID_forC = SNLC_CCID(1:LENCCID) // char(0)
-
-    write(6,10) SNLC_CCID(1:LENCCID)
-10  format(T8,'SPECPLOT: pack CID=',A,' for plotting.')
-    call flush(6)
-
-    ! load each spectrum into SPECPAK C-function util
-
-    DO 100 ispec = 1, NSPECTRUM
-       CALL RDSPEC_DRIVER(ispec)  ! Apr 5 2021
-
-       print*,' 3. xxx SPECPAK_DATA ispec=', ispec ; call flush(6)
-
-       CALL SPECPAK_DATA(  & 
-               CCID_forC  & 
-             , ID_SPECTRUM(ispec)  & 
-             , MJD_SPECTRUM(ispec)  & 
-             , TOBS_SPECTRUM(ispec)     &  ! May 7 2019
-             , TEXPOSE_SPECTRUM(ispec)  & 
-             , NLAMBIN_SPECTRUM(ispec)  & 
-             , LAMMIN_SPECTRUM  &  ! array of LAMMIN in each bin
-             , LAMMAX_SPECTRUM  &  ! array of LAMMAX in each bin
-             , FLAM_SPECTRUM  & 
-             , FLAMERR_SPECTRUM  & 
-             , LENCCID )
-100 ENDDO
-
-    ! write out spectrum to TEXT table (ROOT not enabled)
-    IF ( NSPECTRUM > 0 ) then
-       CALL SPECPAK_FILL(CCID_forC, LENCCID)
-    ENDIF
-
-    RETURN
-  END SUBROUTINE SPECPLOT
 
 
 ! ==============================================
@@ -25448,121 +24974,6 @@
 
     RETURN
   END SUBROUTINE TABLE_STRING_TERMINATION
-
-! ===========================================
-    SUBROUTINE TABLE_MARZ(IDTABLE,IFLAG)
-! 
-! Created May 2020 by R.Kessler
-! Driver for MARZ table with host-galaxy spectra.
-! 
-! May 3 2021: include GALID as part of NAME
-! Nov 16 2023: update text to handle 12 digit GALID instead of 9 digits
-! ------------------------------
-
-    USE SNPAR
-    USE SNCUTS
-    USE CTRLCOM
-    USE SNLCCOM
-    USE SNLCINP_NML
-    USE SNFILECOM
-    USE SPECCOM
-    USE SNSIMCOM
-
-    IMPLICIT NONE
-
-    INTEGER IDTABLE  ! (I) table ID
-    INTEGER IFLAG    ! (I) see IFLAG_XXX params
-
-! local var
-
-    LOGICAL   DO_FILL
-    INTEGER   LENTB, LENPG, LENFMT, ISPEC, LENCCID, LENz, LENGALID
-    CHARACTER FNAM*12, TBNAME*40,  PGNAME*20, TEXTFMT_forC*20
-    CHARACTER CCID_forC*40, cGALID*24, cz*20
-    REAL      z
-    INTEGER*8 GALID
-    EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, SPECPAK_DATA
-
-! -------------------- BEGIN -----------------
-    FNAM = 'TABLE_MARZ'
-
-#if defined(SNFIT) || defined(PSNID)
-    c1err = 'Cannot write MARZ spectra file with fit code'
-    c2err = 'MARZFILE_OUT works only with snana.exe '
-    CALL MADABORT(FNAM, c1err, c2err)
-#endif
-
-    IF ( IFLAG .EQ. IFLAG_INI ) THEN
-       TBNAME   = 'MARZ' // char(0)
-       LENTB    = INDEX(TBNAME,    ' ') - 1
-
-       LENPG  = INDEX(PROGRAM_NAME,' ') - 1
-       PGNAME = PROGRAM_NAME(1:LENPG) // char(0)
-
-       TEXTFMT_forC = 'FITS' // char(0)
-       LENFMT       =  4
-       CALL SNTABLE_CREATE(IDTABLE, TBNAME, PGNAME, TEXTFMT_forC,  & 
-                LENTB, LENPG, LENFMT)  ! C fun
-
-       RETURN
-    ENDIF
-
-! --------------------------
-! fill table.
-
-    DO_FILL = LSNCUTS
-    IF ( DO_FILL ) THEN
-       ISPEC = 1
-       LENCCID   = ISNLC_LENCCID
-       CCID_forC = SNLC_CCID(1:LENCCID)
-       if ( LSIM_SNANA ) then
-          z      = SIM_REDSHIFT_HELIO
-          GALID  = SIM_HOSTLIB_GALID
-          cGALID ='GALID=None'
-
-          write(cz,41) z
- 41         format('z=',F5.3)
-          if ( SIM_HOSTLIB_GALID > 0 ) then
-             write(cGALID,44) SIM_HOSTLIB_GALID
- 44            format('GALID=', I12.12 )
-          endif
-
-          LENz     = INDEX(cz,' ') - 1
-          LENGALID = INDEX(cGALID,' ') - 1
-
-          write(CCID_forC,40) SNLC_CCID(1:LENCCID),  & 
-                cz(1:LENz), cGALID(1:LENGALID)
-40          format(A, '[', A, ',', A, ']' )
-          LENCCID = LENCCID + LENz + LENGALID + 3
-
-
-       endif
-
-       write(6,10) CCID_forC(1:LENCCID)
- 10      format(T8,'SPECPLOT: pack CID=',A,' for MARZ table.')
-
-       CCID_forC = CCID_forC(1:LENCCID) // char(0)
-
-       CALL RDSPEC_DRIVER(ISPEC)  ! Apr 5 2021
-
-       CALL SPECPAK_DATA(  & 
-               CCID_forC  & 
-             , ID_SPECTRUM(ispec)  & 
-             , MJD_SPECTRUM(ispec)  & 
-             , TOBS_SPECTRUM(ispec)     &  ! May 7 2019
-             , TEXPOSE_SPECTRUM(ispec)  & 
-             , NLAMBIN_SPECTRUM(ispec)  & 
-             , LAMMIN_SPECTRUM  & 
-             , LAMMAX_SPECTRUM  & 
-             , FLAM_SPECTRUM  & 
-             , FLAMERR_SPECTRUM  & 
-             , LENCCID )
-
-        CALL SPECPAK_FILL(CCID_forC, LENCCID)
-    ENDIF
-
-    RETURN
-  END SUBROUTINE TABLE_MARZ
 
 
 ! =============================================
@@ -30060,6 +29471,827 @@
   END SUBROUTINE FITVAL_FLOAT
 
 #endif
+
+
+! =============================================================
+!
+!         HPAK_LEGACY (isolate subroutines to remove)
+!
+! =============================================================
+
+#if defined(HPAK_LEGACY)
+
+! ========================================
+  SUBROUTINE  INIT_OUTFILES_LEGACY(NFIT_PER_SN)
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+    ! 
+    ! ------------------------------------------------------
+
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+    INTEGER NFIT_PER_SN ! (I) max number of fits to plot per SN
+
+    INTEGER LENFILE,  IFILETYPE, SIMFLAG
+
+    CHARACTER  & 
+         FNAM*30  & 
+        ,COPT*20  & 
+        ,CFILE*(MXCHAR_FILENAME)  & 
+        ,TEXTFMT*20
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+    INTEGER LENV1, LENV2, LENSRVY, LENFILT, LENFMT
+    CHARACTER  & 
+         SURVEY_forC*(MXCHAR_SURVEY)  & 
+        ,VER_PHOT_forC*(MXCHAR_VERSION)  & 
+        ,VER_SNANA_forC*40  & 
+        ,FILTERS_forC*(MXFILT_OBS)  & 
+        ,TEXTFMT_forC*20 
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+    ! function
+    INTEGER  IGNOREFILE, TABLEFILE_OPEN
+    EXTERNAL IGNOREFILE, TABLEFILE_OPEN
+
+! --------------- BEGIN -------------
+
+    FNAM = 'INIT_OUTFILES_LEGACY'
+
+    CALL TABLEFILE_INIT();  ! 4/26/2014
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+! -----------------------------------------
+! set strings needed for the SNLCPAK_INIT functio
+
+    LENSRVY      = INDEX(SURVEY_NAME,' ') - 1
+    SURVEY_forC  = SURVEY_NAME(1:LENSRVY) // char(0)
+
+    LENV1         = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
+    VER_PHOT_forC = VERSION_PHOTOMETRY(1)(1:LENV1) // char(0)
+
+    LENV2         = INDEX(SNANA_VERSION,' ') - 1
+    VER_SNANA_forC = SNANA_VERSION(1:LENV2) // char(0)
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+    LENFILT      = INDEX(SURVEY_FILTERS,' ') - 1
+    FILTERS_forC = SURVEY_FILTERS(1:LENFILT) // char(0)
+    if ( NFILT_REMAP_TABLE > 0 ) then  ! Dec 2017
+       LENFILT      = INDEX(FILTLIST_REMAP_TABLE,' ') - 1
+       FILTERS_forC = FILTLIST_REMAP_TABLE(1:LENFILT) // char(0)
+    endif
+
+    TEXTFMT      = TEXTFORMAT_TABLE(ITABLE_SNLCPAK)
+    LENFMT       = INDEX(TEXTFMT,' ') - 1
+    TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+    IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0 .and. REFAC_LCPLOT == 0 ) THEN
+       SIMFLAG = 0
+       IF ( ISJOB_SIM ) SIMFLAG=1
+       CALL SNLCPAK_INIT(SURVEY_forC, VER_PHOT_forC, VER_SNANA_forC,  & 
+              FILTERS_forC, SIMFLAG, NFIT_PER_SN, TEXTFMT_forC,  & 
+              LENSRVY, LENV1, LENV2, LENFILT, LENFMT )
+    ENDIF
+
+    IF ( OPT_TABLE(ITABLE_SPECPAK) > 0 ) THEN
+       TEXTFMT      = TEXTFORMAT_TABLE(ITABLE_SPECPAK)
+       LENFMT       = INDEX(TEXTFMT,' ') - 1
+       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+       CALL SPECPAK_INIT(SURVEY_forC, VER_PHOT_forC, TEXTFMT_forC,  & 
+                LENSRVY, LENV1, LENFMT )
+    ENDIF
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+! -------------------------------------------
+
+    USE_TABLEFILE        = .FALSE.
+    USE_TABLEFILE_ROOT   = .FALSE.
+    USE_TABLEFILE_TEXT   = .FALSE.     ! May 2 2020 
+    USE_TABLEFILE_NPZ    = .FALSE.     ! Oct 19 2026
+    USE_TABLEFILE_MARZ   = .FALSE.     ! May 2 2020 (new table)
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+! MARZ (host spectra only)
+
+    LENFILE   = INDEX(MARZFILE_OUT,' ') - 1
+    CFILE     = MARZFILE_OUT(1:LENFILE) // char(0)
+    IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
+       COPT          = "new" // char(0)
+       CALL ENVreplace(MARZFILE_OUT)
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM,   LENFILE, 20, 20)
+
+       USE_TABLEFILE_MARZ = .TRUE.
+       USE_TABLEFILE      = .TRUE.
+
+       IF ( IFILETYPE < 0 ) THEN
+          C1ERR = 'Could not open MARZ fits-file'
+          C2ERR = MARZFILE_OUT(1:LENFILE)
+          CALL  MADABORT(FNAM, C1ERR, C2ERR)
+       ENDIF
+    ENDIF
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+    LENFILE   = INDEX(ROOTFILE_OUT,' ') - 1
+    CFILE     = ROOTFILE_OUT(1:LENFILE) // char(0)
+    IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
+       COPT          = "new root" // char(0)
+       USE_TABLEFILE_ROOT = .TRUE.
+       USE_TABLEFILE      = .TRUE.
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM, LENFILE, 20, 20)
+
+       IF ( IFILETYPE < 0 ) THEN
+          C1ERR = 'Could not open ROOT table-file'
+          C2ERR = ROOTFILE_OUT(1:LENFILE)
+          CALL  MADABORT(FNAM, C1ERR, C2ERR)
+       ENDIF
+    ENDIF
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+    ! - - - - -
+    LENFILE   = INDEX(TEXTFILE_PREFIX,' ') - 1
+    CFILE     = TEXTFILE_PREFIX(1:LENFILE) // char(0)
+    IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
+       CALL ENVreplace(TEXTFILE_PREFIX)
+       COPT          = "new text" // char(0)
+       USE_TABLEFILE_TEXT = .TRUE.
+       USE_TABLEFILE      = .TRUE.
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM, LENFILE, 20, 20)
+
+       IF ( IFILETYPE < 0 ) THEN
+          C1ERR = 'Could not open TEXT table-files with PREFIX='
+          C2ERR = TEXTFILE_PREFIX(1:LENFILE)
+          CALL  MADABORT(FNAM, C1ERR, C2ERR)
+       ENDIF
+    ENDIF
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+    ! - - - - -  Oct 19 2026: add NPZ option - - - - - - - -
+    LENFILE   = INDEX(NPZFILE_PREFIX,' ') - 1
+    CFILE     = NPZFILE_PREFIX(1:LENFILE) // char(0)
+    IF ( IGNOREFILE(cFILE,LENFILE) == 0 ) THEN
+       CALL ENVreplace(NPZFILE_PREFIX)
+       COPT          = "new npz" // char(0)
+       USE_TABLEFILE_NPZ  = .TRUE.
+       USE_TABLEFILE      = .TRUE.
+       IFILETYPE = TABLEFILE_OPEN(CFILE, COPT, FNAM, LENFILE, 20, 20)
+
+       IF ( IFILETYPE < 0 ) THEN
+          C1ERR = 'Could not open NPZ table-files with PREFIX='
+          C2ERR = NPZFILE_PREFIX(1:LENFILE)
+          CALL  MADABORT(FNAM, C1ERR, C2ERR)
+       ENDIF
+    ENDIF
+
+    ! @@@@@@@@@@ OBSOLETE @@@@@@@@@@@@
+
+! ----------------------------------------
+!     print warning message if there is no table file
+    IF ( .not. USE_TABLEFILE ) THEN
+       print*,' '
+       write(6,60)
+       write(6,61)  'no table-file specified for tables and light curves'
+       write(6,60)
+       print*,' '
+60     format(T3, 'WARNING: ', 30('<>') )
+61     format(T3, 'WARNING: ', A)
+    ENDIF
+
+    RETURN
+  END SUBROUTINE  INIT_OUTFILES_LEGACY
+
+  ! ========================================
+  SUBROUTINE  INIT_HPAK_LEGACY(NFIT_PER_SN)
+
+    ! Created Feb 2012
+    ! 
+    ! Call appropriate init function for  root, etc ...
+    ! Note that multiple output files can be initialized
+    ! corresponding to different formats.
+    ! If no files are opened, print warning message but do not abort.
+    ! 
+    ! Note that NFIT_PER_SN is the max number of expected fits per SN.
+    ! 
+    ! 
+    ! Apr 03 2020: add call to  ENVreplace(TEXTFILE_PREFIX)
+    ! 
+    ! May 02 2020: begin MARZFILE_OUT (to store WFIRST host spectra for MARZ)
+    ! 
+    ! Mar 19 2021: use IGNOREFILE to check usage; e.g., allows
+    !                ROOTFILE_OUT NONE
+    ! 
+    ! Sep 21 2023: fix mistaken 1:40 truncation of VER_PHOT_forC
+    ! 
+    ! ------------------------------------------------------
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+
+    INTEGER NFIT_PER_SN ! (I) max number of fits to plot per SN
+
+    INTEGER SIMFLAG
+
+    CHARACTER  & 
+         FNAM*30  & 
+        ,TEXTFMT*20
+
+    INTEGER LENV1, LENV2, LENSRVY, LENFILT, LENFMT
+    CHARACTER  & 
+         SURVEY_forC*(MXCHAR_SURVEY)  & 
+        ,VER_PHOT_forC*(MXCHAR_VERSION)  & 
+        ,VER_SNANA_forC*40  & 
+        ,FILTERS_forC*(MXFILT_OBS)  & 
+        ,TEXTFMT_forC*20 
+
+    ! function
+    !!INTEGER  IGNOREFILE, TABLEFILE_OPEN
+    !EXTERNAL IGNOREFILE, TABLEFILE_OPEN
+
+! --------------- BEGIN -------------
+
+    FNAM = 'INIT_HPAK_LEGACY'
+
+    CALL TABLEFILE_INIT();  ! 4/26/2014
+
+    ! -----------------------------------------
+    ! set strings needed for the SNLCPAK_INIT functio
+
+    LENSRVY      = INDEX(SURVEY_NAME,' ') - 1
+    SURVEY_forC  = SURVEY_NAME(1:LENSRVY) // char(0)
+
+    LENV1         = INDEX(VERSION_PHOTOMETRY(1),' ') - 1
+    VER_PHOT_forC = VERSION_PHOTOMETRY(1)(1:LENV1) // char(0)
+
+    LENV2         = INDEX(SNANA_VERSION,' ') - 1
+    VER_SNANA_forC = SNANA_VERSION(1:LENV2) // char(0)
+
+    LENFILT      = INDEX(SURVEY_FILTERS,' ') - 1
+    FILTERS_forC = SURVEY_FILTERS(1:LENFILT) // char(0)
+    if ( NFILT_REMAP_TABLE > 0 ) then  ! Dec 2017
+       LENFILT      = INDEX(FILTLIST_REMAP_TABLE,' ') - 1
+       FILTERS_forC = FILTLIST_REMAP_TABLE(1:LENFILT) // char(0)
+    endif
+
+    TEXTFMT      = TEXTFORMAT_TABLE(ITABLE_SNLCPAK)
+    LENFMT       = INDEX(TEXTFMT,' ') - 1
+    TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+
+    IF ( OPT_TABLE(ITABLE_SNLCPAK) > 0 .and. REFAC_LCPLOT == 0 ) THEN
+       SIMFLAG = 0
+       IF ( ISJOB_SIM ) SIMFLAG=1
+       CALL SNLCPAK_INIT(SURVEY_forC, VER_PHOT_forC, VER_SNANA_forC,  & 
+              FILTERS_forC, SIMFLAG, NFIT_PER_SN, TEXTFMT_forC,  & 
+              LENSRVY, LENV1, LENV2, LENFILT, LENFMT )
+    ENDIF
+
+    IF ( OPT_TABLE(ITABLE_SPECPAK) > 0 ) THEN
+       TEXTFMT      = TEXTFORMAT_TABLE(ITABLE_SPECPAK)
+       LENFMT       = INDEX(TEXTFMT,' ') - 1
+       TEXTFMT_forC = TEXTFMT(1:LENFMT) // char(0)
+       CALL SPECPAK_INIT(SURVEY_forC, VER_PHOT_forC, TEXTFMT_forC,  & 
+                LENSRVY, LENV1, LENFMT )
+    ENDIF
+
+
+    RETURN
+  END SUBROUTINE  INIT_HPAK_LEGACY
+#endif
+
+
+#if defined(SNANA) && defined(HPAK_LEGACY)
+
+  ! ===========================================
+  SUBROUTINE TABLE_MARZ(IDTABLE,IFLAG)
+    ! 
+    ! Created May 2020 by R.Kessler
+    ! Driver for MARZ table with host-galaxy spectra.
+    ! 
+    ! May 3 2021: include GALID as part of NAME
+    ! Nov 16 2023: update text to handle 12 digit GALID instead of 9 digits
+    ! ------------------------------
+
+    USE SNPAR
+    USE SNCUTS
+    USE CTRLCOM
+    USE SNLCCOM
+    USE SNLCINP_NML
+    USE SNFILECOM
+    USE SPECCOM
+    USE SNSIMCOM
+
+    IMPLICIT NONE
+
+    INTEGER IDTABLE  ! (I) table ID
+    INTEGER IFLAG    ! (I) see IFLAG_XXX params
+
+    ! local var
+
+    LOGICAL   DO_FILL
+    INTEGER   LENTB, LENPG, LENFMT, ISPEC, LENCCID, LENz, LENGALID
+    CHARACTER FNAM*12, TBNAME*40,  PGNAME*20, TEXTFMT_forC*20
+    CHARACTER CCID_forC*40, cGALID*24, cz*20
+    REAL      z
+    INTEGER*8 GALID
+    EXTERNAL SNTABLE_CREATE, SNTABLE_FILL, SPECPAK_DATA
+
+    ! -------------------- BEGIN -----------------
+    FNAM = 'TABLE_MARZ'
+
+#if defined(SNFIT) || defined(PSNID)
+    c1err = 'Cannot write MARZ spectra file with fit code'
+    c2err = 'MARZFILE_OUT works only with snana.exe '
+    CALL MADABORT(FNAM, c1err, c2err)
+#endif
+
+    IF ( IFLAG .EQ. IFLAG_INI ) THEN
+       TBNAME   = 'MARZ' // char(0)
+       LENTB    = INDEX(TBNAME,    ' ') - 1
+
+       LENPG  = INDEX(PROGRAM_NAME,' ') - 1
+       PGNAME = PROGRAM_NAME(1:LENPG) // char(0)
+
+       TEXTFMT_forC = 'FITS' // char(0)
+       LENFMT       =  4
+       CALL SNTABLE_CREATE(IDTABLE, TBNAME, PGNAME, TEXTFMT_forC,  & 
+                LENTB, LENPG, LENFMT)  ! C fun
+
+       RETURN
+    ENDIF
+
+    ! --------------------------
+    ! fill table.
+
+    DO_FILL = LSNCUTS
+    IF ( DO_FILL ) THEN
+       ISPEC = 1
+       LENCCID   = ISNLC_LENCCID
+       CCID_forC = SNLC_CCID(1:LENCCID)
+       if ( LSIM_SNANA ) then
+          z      = SIM_REDSHIFT_HELIO
+          GALID  = SIM_HOSTLIB_GALID
+          cGALID ='GALID=None'
+
+          write(cz,41) z
+ 41         format('z=',F5.3)
+          if ( SIM_HOSTLIB_GALID > 0 ) then
+             write(cGALID,44) SIM_HOSTLIB_GALID
+ 44            format('GALID=', I12.12 )
+          endif
+
+          LENz     = INDEX(cz,' ') - 1
+          LENGALID = INDEX(cGALID,' ') - 1
+
+          write(CCID_forC,40) SNLC_CCID(1:LENCCID),  & 
+                cz(1:LENz), cGALID(1:LENGALID)
+40          format(A, '[', A, ',', A, ']' )
+          LENCCID = LENCCID + LENz + LENGALID + 3
+
+
+       endif
+
+       write(6,10) CCID_forC(1:LENCCID)
+ 10      format(T8,'SPECPLOT: pack CID=',A,' for MARZ table.')
+
+       CCID_forC = CCID_forC(1:LENCCID) // char(0)
+
+       CALL RDSPEC_DRIVER(ISPEC)  ! Apr 5 2021
+
+       CALL SPECPAK_DATA(  & 
+               CCID_forC  & 
+             , ID_SPECTRUM(ispec)  & 
+             , MJD_SPECTRUM(ispec)  & 
+             , TOBS_SPECTRUM(ispec)     &  ! May 7 2019
+             , TEXPOSE_SPECTRUM(ispec)  & 
+             , NLAMBIN_SPECTRUM(ispec)  & 
+             , LAMMIN_SPECTRUM  & 
+             , LAMMAX_SPECTRUM  & 
+             , FLAM_SPECTRUM  & 
+             , FLAMERR_SPECTRUM  & 
+             , LENCCID )
+
+        CALL SPECPAK_FILL(CCID_forC, LENCCID)
+    ENDIF
+
+    RETURN
+  END SUBROUTINE TABLE_MARZ
+
+
+  ! ==============================================
+  SUBROUTINE SPECPLOT()
+
+    ! Apr 2019
+    ! Prepare spectra table for plotting (analog of SNLCPLOT)
+    ! Works only for TEXT output; not for ROOT
+    ! 
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE SPECCOM
+
+    IMPLICIT NONE
+
+    INTEGER LENCCID, ispec
+    CHARACTER  CCID_forC*(MXCHAR_CCID)
+    LOGICAL DOPLOT_SPEC
+
+    EXTERNAL SPECPAK_DATA
+    ! ----------------- BEGIN ---------------
+    ! check if we should make the plot
+    IF ( .NOT. DOPLOT_SPEC() ) RETURN
+
+    IF ( MARZFILE_OUT .NE. '' ) RETURN
+
+    LENCCID = ISNLC_LENCCID
+    CCID_forC = SNLC_CCID(1:LENCCID) // char(0)
+
+    write(6,10) SNLC_CCID(1:LENCCID)
+10  format(T8,'SPECPLOT: pack CID=',A,' for plotting.')
+    call flush(6)
+
+    ! load each spectrum into SPECPAK C-function util
+
+    DO 100 ispec = 1, NSPECTRUM
+       CALL RDSPEC_DRIVER(ispec)  ! Apr 5 2021
+
+       CALL SPECPAK_DATA(  & 
+               CCID_forC  & 
+             , ID_SPECTRUM(ispec)  & 
+             , MJD_SPECTRUM(ispec)  & 
+             , TOBS_SPECTRUM(ispec)     &  ! May 7 2019
+             , TEXPOSE_SPECTRUM(ispec)  & 
+             , NLAMBIN_SPECTRUM(ispec)  & 
+             , LAMMIN_SPECTRUM  &  ! array of LAMMIN in each bin
+             , LAMMAX_SPECTRUM  &  ! array of LAMMAX in each bin
+             , FLAM_SPECTRUM  & 
+             , FLAMERR_SPECTRUM  & 
+             , LENCCID )
+100 ENDDO
+
+    ! write out spectrum to TEXT table (ROOT not enabled)
+    IF ( NSPECTRUM > 0 ) then
+       CALL SPECPAK_FILL(CCID_forC, LENCCID)
+    ENDIF
+
+    RETURN
+  END SUBROUTINE SPECPLOT
+
+
+  SUBROUTINE SNLCPAK_PHOT()
+
+! Created Feb 2013 by R.Kessler
+! Prepare SNLC PHOT table in csv format (e.g., for plotting)
+!
+! 
+! Apr 11 2019:  MXEP_SNLCPAK -> 4*MXEPOCH (was 10*MXEPOCH)
+! Jan 16 2020:  pass sim fluxes (see VSIMFLUX)
+! Feb 08 2026:  if SIM_COMPACT_noFLUXCAL, do not skip FLUXCAL<0
+!               Rename subroutine SNLCPLOT --> SNLCPAK_PHOT
+! ---------------------------------------------------------------------
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+    USE FILTCOM
+    USE SNANAFIT
+    USE PKMJDCOM
+
+    IMPLICIT NONE
+
+    CHARACTER  CCID*(MXCHAR_CCID), TEXT_forC*80
+
+    LOGICAL  OVMODEL_ANYFUN, LTMP, DOPLOT_FILT(MXFILT_OBS)
+    INTEGER  & 
+         LENCCID, LENTEXT, NEWMJD, EPMIN, EPMAX, EP  & 
+        ,IFILT_OBS, IFILT, ipar, NBT, i, NFILT
+
+    REAL*8  & 
+          Z, Z1, Tobs, Trest, MJD  & 
+         ,FLUX_DATA,  FLUXERR_DATA, FLUX_MODEL  & 
+         ,SQDIF, SQERR, CHI2, TMIN, TMAX, DT  & 
+         ,XVAL8(NPAR_ANYLC)
+
+! SNLCPAK arrays
+
+    INTEGER, PARAMETER :: MXEP_SNLCPAK = 4*MXEPOCH 
+
+    REAL*8  & 
+         VMJD(MXEP_SNLCPAK)  & 
+        ,VTOBS(MXEP_SNLCPAK)        & 
+        ,VFLUX(MXEP_SNLCPAK)        & 
+        ,VFLUX_ERR(MXEP_SNLCPAK)    & 
+        ,VSIMFLUX(MXEP_SNLCPAK)     & 
+        ,VCHI2(MXEP_SNLCPAK)        & 
+        ,VREJECT(MXEP_SNLCPAK)      & 
+        ,VERRCALC(MXEP_SNLCPAK)     & 
+        ,VDUMERR(MXEP_SNLCPAK)      &  ! all zeros
+! 
+        ,VBAND_NDOF(MXFILT_OBS)  & 
+        ,VBAND_CHI2(MXFILT_OBS)  & 
+        ,VBAND_PKFLUX(MXFILT_OBS)  & 
+        ,VBAND_PKFLUX_ERR(MXFILT_OBS)  & 
+        ,VBAND_PKMJD(MXFILT_OBS)  & 
+        ,VBAND_PKMJD_ERR(MXFILT_OBS)
+
+    INTEGER  & 
+         NOBS  & 
+        ,VFILTOBS(MXEP_SNLCPAK)
+
+! functions
+    EXTERNAL  ANYLCFUN
+    REAL*8    ANYLCFUN
+
+    LOGICAL DOPLOT_SNLC
+
+! ---------------- BEGIN --------------
+
+! check if we should make the plot
+    IF ( .NOT. DOPLOT_SNLC() ) RETURN
+
+    LENCCID = ISNLC_LENCCID
+    CCID = SNLC_CCID(1:LENCCID) // char(0)
+
+    OVMODEL_ANYFUN = (SNLC_SNANAFIT_PEAKMJD > 10.0) !show best peak-MJD fit
+    NFILT   = NFILTDEF_SURVEY
+
+    write(6,10) SNLC_CCID(1:LENCCID)
+10  format(T8,'SNLCPAK_PHOT: pack CID=',A,' for plotting.')
+    call flush(6)
+
+! create subdir
+    CALL MAKEDIR_OUTPUT(CCID, SNLC_CID, LENCCID)
+
+! prepare text string(s) to display on plot
+    LENTEXT = LEN(TEXT_forC)
+
+
+    write(TEXT_forC,20) ISNLC_TYPE, SNLC_REDSHIFT, char(0)
+20  format('TYPE = ', I3, 3x,'z=',F5.3, 3x, A )
+    CALL SNLCPAK_DISPLAYTEXT(CCID, TEXT_forC, LENCCID, LENTEXT )
+
+    IF ( OVMODEL_ANYFUN ) THEN
+       TEXT_forC = 'Fit  ANYFUN  to estimate peak MJD' // char(0)
+       CALL SNLCPAK_DISPLAYTEXT(CCID, TEXT_forC, LENCCID, LENTEXT )
+    ENDIF
+
+! flag which filter(s) to plot
+    DO IFILT = 1, NFILT
+      VBAND_NDOF(ifilt)   = 0.0           ! init this array
+      VBAND_CHI2(ifilt)   = 0.0           ! init this array
+      VBAND_PKFLUX(ifilt) = 0.0
+      VBAND_PKMJD(ifilt)  = 0.0
+
+      DOPLOT_FILT(IFILT) = .TRUE.  ! default is all
+      IFILT_OBS = IFILTDEF_MAP_SURVEY(ifilt)
+      LTMP = ( PKMJD_FIT(ifilt_obs) .GT. 100.0 )
+      IF ( OVMODEL_ANYFUN .and. .NOT. LTMP ) then
+        DOPLOT_FILT(IFILT) = .FALSE.
+      ENDIF
+
+! set default PKMJD
+      VBAND_PKMJD(IFILT)     = SNLC_SEARCH_PEAKMJD
+      VBAND_PKMJD_ERR(IFILT) = 0.0
+
+    ENDDO
+
+! -------------------------------
+    Z    = SNLC_REDSHIFT
+    Z1   = 1 + Z
+! -----------------------------
+
+    NOBS = 0
+    DO 200 NEWMJD = 1, ISNLC_NEWMJD_STORE
+
+      EPMIN = ISNLC_EPOCH_RANGE_NEWMJD(1,NEWMJD)
+      EPMAX = ISNLC_EPOCH_RANGE_NEWMJD(2,NEWMJD)
+
+      MJD   = SNLC8_MJD(EPMIN)
+      Tobs  = MJD - SNLC_SEARCH_PEAKMJD
+      Trest = Tobs / Z1
+
+      DO 201 EP = EPMIN, EPMAX
+
+        FLUX_DATA     = SNLC_FLUXCAL(ep)
+        FLUXERR_DATA  = SNLC_FLUXCAL_ERRTOT(ep)
+        if ( .NOT. SIM_COMPACT_noFLUXCAL .and. FLUXERR_DATA .LE. 0.0 ) GOTO 201
+
+        IFILT_OBS = ISNLC_IFILT_OBS(ep)
+        IFILT     = IFILTDEF_INVMAP_SURVEY(ifilt_obs)
+
+        IF ( .NOT. DOPLOT_FILT(IFILT) ) GOTO 201
+
+        VBAND_NDOF(ifilt) = VBAND_NDOF(ifilt) + 1.0 ! note this is real*8
+        NOBS = NOBS + 1
+
+        IF ( NOBS .GT. MXEP_SNLCPAK ) THEN
+          write(C1ERR,661) NOBS, MXEP_SNLCPAK
+ 661        format('NOBS=',I5,' exceeds bound of MXEP_SNLCMAX=',I5)
+          c2err = 'Increase bound for data array.'
+          CALL MADABORT('SNLCPAK_PHOT(SNANA)', C1ERR, C2ERR)
+        ENDIF
+
+        VMJD(NOBS)      = MJD
+        VTOBS(NOBS)     = TOBS
+        VFLUX(NOBS)     = SNLC_FLUXCAL(ep)
+        VFLUX_ERR(NOBS) = SNLC_FLUXCAL_ERRTOT(ep)
+        VERRCALC(NOBS)  = SNLC_FLUXCAL_ERRCALC(ep)
+        VSIMFLUX(NOBS)  = SIM_EPFLUXCAL(ep)   ! Jan 2020
+
+        ! Sep 7 2022: check options to fold LC within a single cylce.
+        if ( MJDPERIOD_PLOT > .01 .and. NOBS > 1 ) then
+           DT = MJD - VMJD(1) - MJDSHIFT_PLOT
+           VMJD(NOBS)  = MOD(DT,MJDPERIOD_PLOT) + VMJD(1)
+
+           DT = TOBS - VTOBS(1) - MJDSHIFT_PLOT
+           VTOBS(NOBS) = MOD(DT,MJDPERIOD_PLOT) + VTOBS(1)
+        endif
+
+        VFILTOBS(NOBS)  = IFILT_OBS
+        VREJECT(NOBS)   = DBLE( 1 - ISNLC_SNRECON_USE(ep) )
+        VDUMERR(NOBS)   = 0.0  ! dummy arguments
+
+        ! fetch model value and VCHI2 (if we fit the "ANYLC" function)
+
+        if ( OVMODEL_ANYFUN ) then
+          do ipar = 1, NPAR_ANYLC
+            XVAL8(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
+          enddo
+
+          FLUX_MODEL  = ANYLCFUN(MJD,XVAL8)
+          SQDIF       = (FLUX_DATA - FLUX_MODEL)**2
+          SQERR       = FLUXERR_DATA**2
+          CHI2        = SQDIF/SQERR
+          VCHI2(NOBS) = CHI2
+          VBAND_CHI2(IFILT) = VBAND_CHI2(IFILT) + CHI2
+        endif  ! end of OVMODEL
+
+201     CONTINUE  ! EP
+200   CONTINUE   ! NEWMJD
+
+! ------------------------------------------
+
+! store data fluxes
+    CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR,  & 
+           VFILTOBS, SNLCPAK_EPFLAG_FLUXDATA, LENCCID)
+
+! store REJECT flags
+    CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VREJECT, VDUMERR,  & 
+           VFILTOBS, SNLCPAK_EPFLAG_REJECT, LENCCID)
+
+! store data-FITFUN chi2
+    IF ( OVMODEL_ANYFUN ) THEN
+      CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VCHI2, VDUMERR,  & 
+           VFILTOBS, SNLCPAK_EPFLAG_CHI2, LENCCID)
+    ENDIF
+
+! check for sim fluxes (Jan 2020)
+    IF ( ISJOB_SIM ) THEN
+      CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS,  & 
+           VSIMFLUX, VFLUX_ERR,  & 
+           VFILTOBS, SNLCPAK_EPFLAG_FLUXSIM, LENCCID)
+    ENDIF
+
+
+! ------------------------------------------
+    IF ( .NOT. OVMODEL_ANYFUN ) GOTO 500
+! ------------------------------------------
+
+    ! plot smooth best-fit ANYFUN function in 2-day bins.
+
+    TMIN = -40.0
+    TMAX = 140.0
+    NBT  = int( (TMAX-TMIN) / DTOBS_MODEL_PLOT )
+    DT   = (TMAX - TMIN) / float(NBT)
+    NOBS = 0
+
+    DO 300 ifilt = 1, NFILT
+       ifilt_obs = IFILTDEF_MAP_SURVEY(ifilt)
+
+       VBAND_PKFLUX(ifilt)     = DBLE( PKFLUX_FIT(ifilt_obs) )
+       VBAND_PKFLUX_ERR(ifilt) = DBLE( PKFLUX_ERR(ifilt_obs) )
+
+       IF ( .not. EXIST_FILT(ifilt) ) GOTO 300
+
+       DO 320 i = 1, NBT
+          Tobs  = TMIN + dT * ( float(i) - 0.5 )
+          MJD   = Tobs + SNLC_SEARCH_PEAKMJD
+          do ipar = 1, NPAR_ANYLC
+             XVAL8(ipar) = SNLC_SNANAFIT_PEAKMJD_FITPAR(ifilt,ipar)
+          enddo
+
+          NOBS = NOBS + 1
+
+          IF ( NOBS .GT. MXEP_SNLCPAK ) THEN
+             write(C1ERR,661) NOBS, MXEP_SNLCPAK
+             c2err = 'Increase bound for best-fit (ANYFUN) array.'
+             CALL MADABORT('SNLCPAK_PHOT(SNANA)', C1ERR, C2ERR)
+          ENDIF
+
+          FLUX_MODEL       = ANYLCFUN(MJD,XVAL8)
+
+! avoid plotting artifacts with very small numbers (Oct 29 2014)
+          IF( FLUX_MODEL < 1.0E-20 ) FLUX_MODEL = 0.0
+
+          VMJD(NOBS)       = MJD
+          VTOBS(NOBS)      = TOBS
+          VFLUX(NOBS)      = FLUX_MODEL
+          VFLUX_ERR(NOBS)  = 0.0
+          VFILTOBS(NOBS)   = IFILT_OBS
+
+320     CONTINUE  ! epoch-bin
+
+300   CONTINUE  ! ifilt
+
+
+! -------------------------------------------------
+
+! store best-fit function on MJD grid
+
+    CALL SNLCPAK_DATA(CCID, NOBS, VMJD, VTOBS, VFLUX, VFLUX_ERR,  & 
+           VFILTOBS, SNLCPAK_EPFLAG_FITFUN, LENCCID)
+
+! store filter-dependent quantities.
+    VMJD(1)  = -9999.0
+    VTOBS(1) = -9999.0  ! dummy for unused TOBS arg
+
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS, &
+         VBAND_NDOF, VDUMERR,  & 
+         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_NDOF, LENCCID)
+
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD,VTOBS,   &
+         VBAND_CHI2, VDUMERR,  & 
+         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_CHI2, LENCCID)
+
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,   & 
+         VBAND_PKFLUX, VBAND_PKFLUX_ERR,  & 
+         IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKFLUX, LENCCID)
+
+
+! --------------------------------------------------
+! fill output structure with above; here iy goes to a disk file.
+
+ 500  CONTINUE
+
+    CALL SNLCPAK_NFIT(1)      ! move from abvove, Oct 23 2025
+
+    CALL SNLCPAK_DATA(CCID, NFILT, VMJD, VTOBS,  & 
+          VBAND_PKMJD ,VBAND_PKMJD_ERR,  & 
+          IFILTDEF_MAP_SURVEY, SNLCPAK_BANDFLAG_PKMJD, LENCCID)
+
+    CALL SNLCPAK_FILL(CCID, LENCCID)
+
+! back to topdir
+    CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)
+
+! set global flag.
+    MADE_LCPLOT = .TRUE.
+
+    RETURN
+  END SUBROUTINE SNLCPAK_PHOT
+
+
+  INTEGER FUNCTION SNANA_GET_NLCPLOT()
+
+! Created May 17 2014 by R.Kessler
+! Return NFIT_PER_SN = 0 or 1 based on SNLCINP options.
+! For snana.exe job only.
+! Sep 7 2014: use OPT_TABLE.
+
+
+    USE SNDATCOM
+    USE SNLCINP_NML
+
+    IMPLICIT NONE
+
+    INTEGER NLCPLOT, OPT
+! --------------- BEGIN ------------
+    SNANA_GET_NLCPLOT = 0
+
+    if ( REFAC_LCPLOT > 0 ) RETURN
+
+    NLCPLOT = 0  ! default -> no LC plotted
+    OPT = OPT_TABLE(ITABLE_SNLCPAK)
+    if ( OPT > 0 ) NLCPLOT = 1
+
+! return function value
+    SNANA_GET_NLCPLOT = NLCPLOT
+
+    RETURN
+  END FUNCTION SNANA_GET_NLCPLOT
+#endif
+
+
 
 ! END:
 

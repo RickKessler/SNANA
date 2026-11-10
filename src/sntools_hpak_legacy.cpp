@@ -20,6 +20,23 @@
 //    SNLCPAK functions
 // ==========================================
 
+void HPAK_INIT(void) {
+  // Created Nov 9 2026
+  // one-time global init 
+
+  SNLCPAK_USE_ROOT = SNLCPAK_USE_TEXT = SNLCPAK_USE_NPZ = 0 ;
+  SPECPAK_USE_ROOT = SPECPAK_USE_TEXT = SPECPAK_USE_NPZ = 0 ;
+  SPECPAK_USE_MARZ  = 0;
+
+  sprintf(SNLCPAK_OUTPUT.SURVEY,             "NULL" );
+  sprintf(SNLCPAK_OUTPUT.VERSION_PHOTOMETRY, "NULL" );
+  sprintf(SNLCPAK_OUTPUT.VERSION_SNANA,      "NULL" );
+  sprintf(SNLCPAK_OUTPUT.SURVEY_FILTERS,     "NULL" );
+  SNLCPAK_OUTPUT.TEXT_FORMAT[0] = 0;
+  
+} // end HPAK_INIT
+
+
 void SNLCPAK_INIT(char *SURVEY, char *VERSION_PHOT, char *VERSION_SNANA,
 		  char *SURVEY_FILTERS, int SIMFLAG, 
 		  int NFIT_PER_SN, char *TEXT_FORMAT) {

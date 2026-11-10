@@ -24379,6 +24379,14 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         This step is a refactor with code re-organization but no 
         functional changes.
 
+    snana.F90 and sntools_output.h:
+      + both have preproc "#define HPAK_LEGACY" to call SNLCPAK and SPECPAK.
+        Comment these out to test SNANA without these legacy codes.
+        Compilation status without these preproc flags:
+           snana.F90    Yes
+           snlc_fit.F90 No
+           psnid.F90    No
+
 END:
 
 

@@ -28,6 +28,8 @@
 #define USE_MARZ  // always leave this on
 #define USE_NPZ   // always leave this on (Oct 19 2026)
 
+#define HPAK_LEGACY // Nov 9 2026 - use legacy SNLCPAK and SPECPAK
+
 // ---------------------------------------
 // flags to identify TABLEFILE_TYPE 
 
@@ -342,9 +344,6 @@ extern"C" {
   int  sntable_nevt__(char *FILENAME, char *TABLENAME);
 
   void SNTABLE_VARNAMES(char *FILENAME, char *VARNAMES);
-
-  void SNTABLE_DEBUG_DUMP  (char *fnam, int idump);
-  void sntable_debug_dump__(char *fnam, int *idump);
 
   // ---------------------
   // TABLE-write wrappers

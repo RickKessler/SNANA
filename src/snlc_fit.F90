@@ -2089,40 +2089,40 @@
 
 
 ! ===================================================
-    SUBROUTINE FITPAR_ANA ( isn, iter, ERRFLAG )
-! 
-! User-routine to analyze fit results after each SN.
-! Includes incrementing histograms, statistics, etc ...
-! 
-! Fit results are in
-! 
-!   FITPAR(1:NFITPAR)
-!   FITERR(1:NFITERR)
-! 
-! Recommend making (REAL*8) equivalence to local
-! variables with more appropriate names.
-! 
-! Returns ERRFLAG as follows:
-!  =  0 => OK; keep SN
-!  = >0 => discard fit (call CDTOPDIR)
-!  = -1 => decrement ITER and try again (e.g., for photoZ spike)
-! 
-! 
-!       HISTORY
-! 
-! Feb 28 2020:
-!   set ERRFLAG = -1 (repeat iter) if both ITER1_MAXFRAC and
-!   DELCHI2_REJECT are set. Fixes long-standing bug.
-! 
-! Aug 28 2020: if ERRFLAG=0 then set CUTFLAG_SNANA += 2 so that
-!              correct CUTFLAG_SNANA shows up in FITRES table.
-! 
-! May 18 2021: skip crazyflux check of OPT_SNCID_LIST > 0
-! Jul 23 2024: apply user defined 1st-iteration cuts on FITPROB, shape, color;
-!              see FITWIN_[FITPROB,SHAPE,COLOR]_ITER1
-! 
-! Dec 7 2024: check CRAZYFITERR even if OPT_SNCID_LIST > 0
-! -------------------------------------------------------------
+  SUBROUTINE FITPAR_ANA ( isn, iter, ERRFLAG )
+
+    ! User-routine to analyze fit results after each SN.
+    ! Includes incrementing histograms, statistics, etc ...
+    ! 
+    ! Fit results are in
+    ! 
+    !   FITPAR(1:NFITPAR)
+    !   FITERR(1:NFITERR)
+    ! 
+    ! Recommend making (REAL*8) equivalence to local
+    ! variables with more appropriate names.
+    ! 
+    ! Returns ERRFLAG as follows:
+    !  =  0 => OK; keep SN
+    !  = >0 => discard fit (call CDTOPDIR)
+    !  = -1 => decrement ITER and try again (e.g., for photoZ spike)
+    ! 
+    ! 
+    !       HISTORY
+    ! 
+    ! Feb 28 2020:
+    !   set ERRFLAG = -1 (repeat iter) if both ITER1_MAXFRAC and
+    !   DELCHI2_REJECT are set. Fixes long-standing bug.
+    ! 
+    ! Aug 28 2020: if ERRFLAG=0 then set CUTFLAG_SNANA += 2 so that
+    !              correct CUTFLAG_SNANA shows up in FITRES table.
+    ! 
+    ! May 18 2021: skip crazyflux check of OPT_SNCID_LIST > 0
+    ! Jul 23 2024: apply user defined 1st-iteration cuts on FITPROB, shape, color;
+    !              see FITWIN_[FITPROB,SHAPE,COLOR]_ITER1
+    ! 
+    ! Dec 7 2024: check CRAZYFITERR even if OPT_SNCID_LIST > 0
+    ! -------------------------------------------------------------
 
     USE SNDATCOM
     USE SNANAFIT
@@ -2139,17 +2139,17 @@
         ,iter   &  ! (I) fit iteration: 1,2, ... NFIT_ITERATION
         ,ERRFLAG  ! (O)
 
-! local var
+    ! local var
 
     INTEGER CID, LCID, i, IERR_MARG
     LOGICAL DOLC_PLOT, LFITOK,  FIRST, LAST, DO_REFIT, CRAZY
     REAL FRACERRDIF, FITPROB, SHAPE, COLOR
     character ccid*(MXCHAR_CCID)
 
-! function
+    ! function
     LOGICAL CRAZYFITERR, DOPLOT_SNLC
 
-! -------------------- BEGIN ---------------
+    ! -------------------- BEGIN ---------------
 
     ERRFLAG  = 0   ! init output to "accept"
     LAST     = ITER .EQ. NFIT_ITERATION
@@ -2159,8 +2159,8 @@
     CCID  = SNLC_CCID
     LCID  = ISNLC_LENCCID
 
-! ------------------------------------------------------
-! check cuts on 1st-iteration FITPROB and fit pars
+    ! ------------------------------------------------------
+    ! check cuts on 1st-iteration FITPROB and fit pars
     IF ( ITER==1 ) THEN
        FITPROB = FITPROBCHI2_STORE(1)
        SHAPE   = SNGL(FITVAL(IPAR_SHAPE,ITER))
@@ -2180,11 +2180,10 @@
        if ( ERRFLAG > 0 ) RETURN
     ENDIF
 
-! 
-! transfer I4/R4EP_ALL arrays to sparse I4/R4EP_FIT arrays (Jan 25 2014)
+    ! transfer I4/R4EP_ALL arrays to sparse I4/R4EP_FIT arrays (Jan 25 2014)
     CALL LOAD_EPFIT()
 
-! for photoz fit, check for repeat iteration or discard fit
+    ! for photoz fit, check for repeat iteration or discard fit
     IF ( DOFIT_PHOTOZ ) THEN
        CALL PHOTOZ_ANA(1,iter,ERRFLAG)
        IF ( LAST ) THEN
@@ -2193,8 +2192,8 @@
        ENDIF
     ENDIF
 
-! --------------------------------------------
-! Jan 2016: fit iteration again if cov matrix has not converged
+    ! --------------------------------------------
+    ! Jan 2016: fit iteration again if cov matrix has not converged
 
     DO_REFIT =  & 
            OPT_MNSTAT_COV > 0 .and.   &  ! user option
@@ -2212,8 +2211,8 @@
        RETURN
     ENDIF
 
-! --------------------------------------------
-! May 2018 check option to repeat entire fit with MINOS
+    ! --------------------------------------------
+    ! May 2018 check option to repeat entire fit with MINOS
 
     FRACERRDIF = LCFRACERRDIF_STORE(IPAR_COLOR)
     DO_REFIT =  & 
@@ -2224,57 +2223,56 @@
 
     IF ( DO_REFIT ) THEN
        write(6,48) FRACERRDIF, CCID(1:12)
- 48      format(T5,'Unstable c-error: cFRACERRDIF=',F6.2,  & 
-                    '-> repeat fit with MINOS, CID=',A12 )
+48     format(T5,'Unstable c-error: cFRACERRDIF=',F6.2,  & 
+            '-> repeat fit with MINOS, CID=',A12 )
        ERRFLAG = ERRFLAG_REPEAT_MINOS  ! -2
        RETURN
     ENDIF
 
-! set default of NFIT=1 to plot (before calling FITRESTMAG or FITMAGDIF)
-! This call is not needed, but avoids confusion with NFIT=0 inside the
-! sntools_output routines.
+#if defined(HPAK_LEGACY)    
+    ! set default of NFIT=1 to plot (before calling FITRESTMAG or FITMAGDIF)
+    ! This call is not needed, but avoids confusion with NFIT=0 inside the
+    ! sntools_output routines.
     IF ( ITER .EQ. 1 ) THEN
-      CALL SNLCPAK_NFIT(1)   ! 5/01/2014
+       CALL SNLCPAK_NFIT(1)   ! 5/01/2014
     ENDIF
+#endif
 
-! check optional rest-mag  (Feb 2012)
+    ! check optional rest-mag  (Feb 2012)
     CALL FITRESTMAG_CALC(ITER)
 
-! check optional magdif test (Mar 2013)
+    ! check optional magdif test (Mar 2013)
     CALL FITMAGDIF_CALC(ITER)
 
-! check optional IDEAL fit with FLUX=TRUEFLUX (Aug 2017)
+    ! check optional IDEAL fit with FLUX=TRUEFLUX (Aug 2017)
     CALL SIMFIT_IDEAL_CALC(ITER)
-
-
-! -------------------------------------------------
-! check for crazy errors, unless:
-!   + plotchi2-debugger is on, or
+    
+    ! -------------------------------------------------
+    ! check for crazy errors, unless:
+    !   + plotchi2-debugger is on, or
 
     CRAZY = CRAZYFITERR(iter)
 
     IF ( CRAZY ) THEN
       write(6,222) CCID(1:LCID)
-222     format(T15,'CRAZY ERROR for CID=', A,' ==> SKIP ' )
+222   format(T15,'CRAZY ERROR for CID=', A,' ==> SKIP ' )
       ERRFLAG = ERRFLAG_FIT_CRAZYERR
       RETURN
     ENDIF
 
-! ---------------------------------------
+    ! ---------------------------------------
     IF ( ITER < NFIT_ITERATION ) RETURN
 
-! ----- BELOW IS LAST ITERATION -------
+    ! ----- BELOW IS LAST ITERATION -------
 
-! check for special variable computation for SIMSED models;
+    ! check for special variable computation for SIMSED models;
     CALL SIMSED_RECON()
 
-
-
-! -------------------------------------------------
+    ! -------------------------------------------------
     DOLC_PLOT = DOPLOT_SNLC()
 
-! ---------------------------------------
-! check option to marginalize
+    ! ---------------------------------------
+    ! check option to marginalize
 
     if ( LTRACE ) CALL DMPTRACE("CALLING FITANA_MARG")
 
@@ -2288,32 +2286,32 @@
     ! New call FITANA_LOGMASS May,2026
     CALL FITANA_LOGMASS()
 
-! ---------------------------------------
-! store fit results for plotting
+    ! ---------------------------------------
+    ! store fit results for plotting
 
     if ( LTRACE ) CALL DMPTRACE("CALLING FITANA_STORE")
 
     CALL FITANA_STORE()
 
-! ---------------------------------------
-! Use fitted flux to update ERROR CALC from ZPT,PSF and SKY
+    ! ---------------------------------------
+    ! Use fitted flux to update ERROR CALC from ZPT,PSF and SKY
 
     if ( LTRACE ) CALL DMPTRACE("CALLING UPD_FLUXERRCALC")
     CALL UPD_FLUXERRCALC()
 
-! -------------------------------
-! Nov 2018: Check option to fix non-invertible COV(mB,x1,c)
+    ! -------------------------------
+    ! Nov 2018: Check option to fix non-invertible COV(mB,x1,c)
     CALL FIX_COVAR_LCFIT()
 
-! ----------------------
-! check option to compute Zmax for 1/Vmax method
-! (after FITANA_STORE ad before SNTABLE calls)
+    ! ----------------------
+    ! check option to compute Zmax for 1/Vmax method
+    ! (after FITANA_STORE ad before SNTABLE calls)
     do i = 1, NFILT_VMAX
        CALL VMAX_ANA(i)
     enddo
 
-! ----------------------------------------
-! on last iteration, check if fit is OK
+    ! ----------------------------------------
+    ! on last iteration, check if fit is OK
 
     if ( LTRACE ) CALL DMPTRACE("CALLING FITANA_CUTS")
     CALL FITANA_CUTS(isn,LFITOK)    ! returns LFITOK
@@ -2329,17 +2327,17 @@
  333  CONTINUE
 
     IF ( ERRFLAG .NE. 0 ) THEN
-! back to topdir
+       ! back to topdir
         CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)
         RETURN
     ENDIF
 
-! - - - - - - -
-! Aug 28 2020: if we get here, set CUTFLAG_SNANA bit for fit success.
+    ! - - - - - - -
+    ! Aug 28 2020: if we get here, set CUTFLAG_SNANA bit for fit success.
     CUTFLAG_SNANA  = IBSET(CUTFLAG_SNANA,1) ! for SNANA tree
 
-! ---------------------------------------------------------
-! book plots for this SN; all plots are vs. relative epoch
+    ! ---------------------------------------------------------
+    ! book plots for this SN; all plots are vs. relative epoch
 
 #if defined(HPAK_LEGACY)
     IF ( DOLC_PLOT .and. REFAC_LCPLOT == 0 ) THEN
@@ -2356,12 +2354,11 @@
     ENDIF
 #endif
 
-! ---------------------------------
-
-! check tables to fill
+    ! ---------------------------------
+    ! check tables to fill
     IF ( OPT_TABLE(ITABLE_FITRES) > 0 ) THEN
-        CALL PREP_FITRES_TABLEVAR()
-        CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_ANA)
+       CALL PREP_FITRES_TABLEVAR()
+       CALL TABLE_SNFIT(IDTABLE_FITRES,IFLAG_ANA)
     ENDIF
 
     IF ( REFAC_LCPLOT > 0 .and. OPT_TABLE(ITABLE_LCPLOT) > 0 ) THEN
@@ -2379,8 +2376,8 @@
        CALL DMP_DICTFILE(1)
     ENDIF
 
-! check for single-epoch dump of FLUX & MAG at specified MJD
-! See input namelist "SNMJD_LIST_FILE"
+    ! check for single-epoch dump of FLUX & MAG at specified MJD
+    ! See input namelist "SNMJD_LIST_FILE"
 
     IF ( N_INTERP_MJDLIST > 0 ) THEN
       CALL DMP_SNMJD_INTERP(1,1)  ! evaluate at MJD from LIST file
@@ -15415,12 +15412,11 @@
 
 
 ! ================================================
-    SUBROUTINE FITMAGDIF_INI
-! 
-! Created Mar 2013
-! Prepare fits for 1-filter only, all other filters,
-! and all filters.
-
+  SUBROUTINE FITMAGDIF_INI
+    
+    ! Created Mar 2013
+    ! Prepare fits for 1-filter only, all other filters,
+    ! and all filters.
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -15431,17 +15427,19 @@
 
     IMPLICIT NONE
 
-    LOGICAL    L0, L1
-    INTEGER  & 
-         iter, IFLAG, NFILT, NFILT_ALL  & 
-        ,IFILTDEF, IFILT, NFIT_PER_SN
+    LOGICAL  L0, L1
+    INTEGER  iter, IFLAG, NFILT, NFILT_ALL, IFILTDEF, IFILT
 
     CHARACTER  FILTLIST*(MXFILT_ALL), CTMP*28
 
-! function
+#if defined(HPAK_LEGACY)
+    INTEGER NFIT_PER_SN
+#endif
+
+    ! function
     INTEGER FILTINDX
 
-! ------------------ BEGIN -----------
+    ! ------------------ BEGIN -----------
 
     IF ( FILTER_FITMAGDIF .EQ. '' ) RETURN
 
@@ -15450,10 +15448,12 @@
 
     CALL PRBANNER ( GLOBAL_BANNER(1:60) )
 
+#if defined(HPAK_LEGACY)
     NFIT_PER_SN = 3
     CALL SNLCPAK_NFIT_PER_SN(NFIT_PER_SN)   ! see sntools_output.c
+#endif
 
-! get filter index (absolute and sparse) for test filter.
+    ! get filter index (absolute and sparse) for test filter.
     IFILTDEF  = FILTINDX(FILTER_FITMAGDIF)
     IFILT     = IFILTDEF_INVMAP_SURVEY(IFILTDEF)
     IFILTOBS_FITMAGDIF = IFILTDEF
@@ -15466,7 +15466,7 @@
       CALL MADABORT('FITMAGDIF_INI', c1err, c2err)
     ENDIF
 
-! --------
+    ! --------
     NFIT_ITERATION_ALLFILT = NFIT_ITERATION
     NFIT_ITERATION  =  & 
           NFIT_ITERATION_ALLFILT    &  ! nominal, fix t0,c,shape
@@ -15682,12 +15682,12 @@
 
 
 ! =====================================
-    SUBROUTINE FITMAGDIF_CALC(ITER)
+  SUBROUTINE FITMAGDIF_CALC(ITER)
 
-! Computations for stored quantities.
-! May 8 2013: compute and store FITPROB_1FILT & FITPROB_XFILT
-! Feb 20 2017: load PEAKMAG_OBS_MODEL array using sparse IFILT
-! 
+    ! Computations for stored quantities.
+    ! May 8 2013: compute and store FITPROB_1FILT & FITPROB_XFILT
+    ! Feb 20 2017: load PEAKMAG_OBS_MODEL array using sparse IFILT
+    ! 
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -15698,71 +15698,77 @@
 
     IMPLICIT NONE
 
-! subroutine args
+    ! subroutine args
 
     INTEGER ITER ! (I) SN index and fit iteration
 
-! local var
+    ! local var
 
-    LOGICAL DO_MAGDIF, DO_LCPLOT
-    INTEGER IFLAG, IFILTOBS, LCID, NFUNPLOT, NDOF, IFILT
+    LOGICAL DO_MAGDIF
+    INTEGER IFLAG, IFILTOBS, NDOF, IFILT
     REAL    ERR1, ERR2
     REAL*8  CHI8, PROB8
 
+
+#if defined(HPAK_LEGACY)
     CHARACTER CCID*40
-
-! function
-    REAL*8  PROB_CHI2NDOF
+    LOGICAL DO_LCPLOT
+    INTEGER NFUNPLOT, LCID
     LOGICAL DOPLOT_SNLC
+#endif
 
-! ------------ BEGIN -------------
+    ! function
+    REAL*8  PROB_CHI2NDOF
 
-! check global flag
+    ! ------------ BEGIN -------------
+
+    ! check global flag
     IF ( FILTER_FITMAGDIF .EQ. '' ) RETURN
 
-! bail on the nominal ALLFILT interations
+    ! bail on the nominal ALLFILT interations
     IF ( ITER .LE. NFIT_ITERATION_ALLFILT ) RETURN
     IF ( ITER .EQ. NFIT_ITERATION         ) RETURN
 
-! bail if test filter is not part of fit.
+    ! bail if test filter is not part of fit.
     IF ( .not. USE_ALLFILT(IFILTOBS_FITMAGDIF)  ) RETURN
 
-! strip off useful info
+    ! strip off useful info
     IFLAG    = IFLAG_FITMAGDIF(ITER)
     IFILTOBS = IFILTOBS_FITMAGDIF
     IFILT    = IFILTDEF_INVMAP_SURVEY(IFILTOBS) ! sparse index
 
-! store peakMag
+    ! store peakMag
 
     CALL PEAKMAG_CALC(IFILTOBS, 'OBS')
 
-! compute fit prob for each iteration (May 2013)
+    ! compute fit prob for each iteration (May 2013)
     NDOF     = NEPOCH_FIT(0) - NFITPAR(0)
     CHI8     = DBLE( FCN_FITCHI2(0) )
     PROB8    = PROB_CHI2NDOF(CHI8, NDOF)
 
     IF ( IFLAG .EQ. IFLAG_FITMAGDIF_1FILT ) THEN
-! fit only this 1 filter.
+       ! fit only this 1 filter.
        FITMAG_1FILT    = PEAKMAG_OBS_MODEL(IFILT)
        FITMAGERR_1FILT = PEAKMAG_OBS_MODEL_ERR(IFILT)
        FITPROB_1FILT   = SNGL(PROB8)
     ELSE IF ( IFLAG .EQ. IFLAG_FITMAGDIF_XFILT ) THEN
-!  with filter Xcluded.
+       !  with filter Xcluded.
        FITMAG_XFILT    = PEAKMAG_OBS_MODEL(IFILT)
        FITMAGERR_XFILT = PEAKMAG_OBS_MODEL_ERR(IFILT)
        FITPROB_XFILT   = SNGL(PROB8)
     ENDIF
 
-! ----
-    DO_LCPLOT = ( ITER < NFIT_ITERATION  ) .and.  & 
-                  ( DOPLOT_SNLC() )
+    ! ----
+#if defined(HPAK_LEGACY)
+    DO_LCPLOT = ( ITER < NFIT_ITERATION  ) .and.  ( DOPLOT_SNLC() )
 
     IF ( DO_LCPLOT ) THEN
+
        IF ( IFLAG .EQ. IFLAG_FITMAGDIF_1FILT ) THEN
           NFUNPLOT = 3
           CALL SNLCPAK_NFIT(NFUNPLOT)  ! store NFIT
        ENDIF
-
+     
        LCID = ISNLC_LENCCID
        CCID = SNLC_CCID(1:LCID) // char(0)
        CALL MAKEDIR_OUTPUT(CCID,SNLC_CID,LCID)
@@ -15770,6 +15776,7 @@
        CALL SNLCPLOT()
        CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
     ENDIF
+#endif
 
 ! after both fits, compute mag difference & error.
 
@@ -16059,17 +16066,16 @@
   END SUBROUTINE SIMFIT_IDEAL_CALC
 
 ! ================================================
-    SUBROUTINE FITRESTMAG_INI
+  SUBROUTINE FITRESTMAG_INI
 
-! Created Feb 10, 2012
-! 
-! One-time init.
-! if FITLTER_RESTMAG is set, then add this filter
-! to suryey-filter list and re-init kcor file to
-! include this filter. Called only once.
-! 
-! --------
-
+    ! Created Feb 10, 2012
+    ! 
+    ! One-time init.
+    ! if FITLTER_RESTMAG is set, then add this filter
+    ! to suryey-filter list and re-init kcor file to
+    ! include this filter. Called only once.
+    ! 
+    ! --------
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -16080,13 +16086,16 @@
 
     IMPLICIT NONE
 
-    INTEGER  NFILT, NTMP, IERR, IFILT, IFILTDEF, i, ITER, NPLOT_PER_SN
+    INTEGER  NFILT, NTMP, IERR, IFILT, IFILTDEF, i, ITER
     CHARACTER CFILT*2
 
-! function
+#if defined(HPAK_LEGACY)    
+    INTEGER NPLOT_PER_SN
+#endif    
+    ! function
     INTEGER FILTINDX
 
-! ----------------- BEGIN -----------
+    ! ----------------- BEGIN -----------
 
     IFILTOBS_BRACKET(1) = -999  ! flag that it's NOT a 2-band fit
     IFILTOBS_BRACKET(2) = -999
@@ -16102,10 +16111,12 @@
 
     CALL PRBANNER ( GLOBAL_BANNER(1:60) )
 
-! -------------
-! init number of LC plots per SN to prepare SNLCPAK utility
+#if defined(HPAK_LEGACY)    
+    ! -------------
+    ! init number of LC plots per SN to prepare SNLCPAK utility
     NPLOT_PER_SN = NFILTDEF_FITRESTMAG + 1    ! each filter, and total
     CALL SNLCPAK_NFIT_PER_SN(NPLOT_PER_SN)   ! see sntools_output.c
+#endif
 
 ! ------------
 
@@ -16116,9 +16127,9 @@
        IFILTDEF_FITRESTMAG(i) = FILTINDX(CFILT)
        IFILTDEF               = IFILTDEF_FITRESTMAG(i)
 
-! add FILTLIST_FITRESTMAG to list of SURVEY_FILTERS
+       ! add FILTLIST_FITRESTMAG to list of SURVEY_FILTERS
 
-! skip this filter if it is already defined as a survey filter.
+       ! skip this filter if it is already defined as a survey filter.
        IFILT     = IFILTDEF_INVMAP_SURVEY(IFILTDEF)
        IF ( IFILT .GT. 0 ) THEN
          write(6,20) CFILT
@@ -16138,33 +16149,33 @@
       IFILTDEF_INVMAP_SURVEY(IFILTDEF)     = NFILTDEF_SURVEY
       IFILTDEF_MAP_SURVEY(NFILTDEF_SURVEY) = IFILTDEF
 
-100   CONTINUE
+100 ENDDO
 
 
-! -------- adjust NFIT_ITERATION ----------------
+   ! -------- adjust NFIT_ITERATION ----------------
 
-! add NFIT_ITERATION for each new filter
-    NFIT_ITERATION_ALLFILT = NFIT_ITERATION
-    NFIT_ITERATION      =  & 
-             NFIT_ITERATION_ALLFILT         &  ! nominal fit, all bands
-           + NFIT_ITER_FITRESTMAG*NFILT     &  ! 2-band fits
-           + 1                              &  ! nominal again
-           + 1                             ! nominal again (Dec 11 2014)
+   ! add NFIT_ITERATION for each new filter
+   NFIT_ITERATION_ALLFILT = NFIT_ITERATION
+   NFIT_ITERATION      =  & 
+        NFIT_ITERATION_ALLFILT         &  ! nominal fit, all bands
+        + NFIT_ITER_FITRESTMAG*NFILT     &  ! 2-band fits
+        + 1                              &  ! nominal again
+        + 1                             ! nominal again (Dec 11 2014)
+   
 
-
-    IF ( NFIT_ITERATION .GT. MXITER ) THEN
+   IF ( NFIT_ITERATION .GT. MXITER ) THEN
       write(c1err,661) NFIT_ITERATION
-661     format('NFIT_ITERATION = ', I2,' exceeds bound.')
+661   format('NFIT_ITERATION = ', I2,' exceeds bound.')
       write(c2err,662) MXITER
-662     format('MXITER = ', I2)
+662   format('MXITER = ', I2)
       CALL MADABORT("FITRESTMAG_INI", c1err, c2err )
-    ENDIF
+   ENDIF
 
-    write(6,40) NFIT_ITERATION_ALLFILT, NFIT_ITERATION
-40    format(T8,'NFIT_ITERATION = ',I2, ' -> ', I2 )
+   write(6,40) NFIT_ITERATION_ALLFILT, NFIT_ITERATION
+40 format(T8,'NFIT_ITERATION = ',I2, ' -> ', I2 )
 
-! load IFILTDEF_ITER_FITRESTMAG array to store which filter
-! to process for each fit-iteration
+   ! load IFILTDEF_ITER_FITRESTMAG array to store which filter
+   ! to process for each fit-iteration
 
     ITER     = NFIT_ITERATION_ALLFILT
     DO ifilt = 1, NFILT
@@ -16175,21 +16186,21 @@
        IFILTDEF_ITER_FITRESTMAG(ITER) = IFILTDEF
        IFILTSP_ITER_FITRESTMAG(ITER)  = IFILT
        write(6,42) ITER, CFILT
-42       format(T12,'Fit-iteration ', I2,' -> ', A )
+42     format(T12,'Fit-iteration ', I2,' -> ', A )
 
        ITERLAST_FITRESTMAG(ifilt) = ITER
     ENDDO
     ENDDO
 
-! avoid annoying aborts
+    ! avoid annoying aborts
     ABORT_ON_NOEPOCHS = .FALSE.  ! Mar 20, 2012
 
-! -------------------------
-! print misc info
+    ! -------------------------
+    ! print misc info
 
-! check for legacy variable
+    ! check for legacy variable
     if ( LUMIFIX_FITRESTMAG < 998.0 ) THEN
-      SHAPEFIX_FITRESTMAG = LUMIFIX_FITRESTMAG
+       SHAPEFIX_FITRESTMAG = LUMIFIX_FITRESTMAG
     endif
     if ( SHAPEFIX_FITRESTMAG .LT. 900.0 ) then
        write(6,51) 'SHAPEFIX',  SHAPEFIX_FITRESTMAG
@@ -16198,29 +16209,29 @@
        write(6,51) 'COLORFIX', COLORFIX_FITRESTMAG
     endif
 
-51       format(T8,'Evaluate RestMags for ',A,' = ' , F9.3)
+51  format(T8,'Evaluate RestMags for ',A,' = ' , F9.3)
 
     write(6,54) LAMEXTRAP_FITRESTMAG
- 54   format(T8,'Allow rest-wavelength extrapolation of +- ',  & 
-                F5.0,' A ')
+54  format(T8,'Allow rest-wavelength extrapolation of +- ',  & 
+         F5.0,' A ')
 
     write(6,55) DLAMTOL_FITRESTMAG
- 55   format(T8,'Include obs bands within ', F5.0,  & 
-                ' A of closest bands.')
+55  format(T8,'Include obs bands within ', F5.0,  & 
+         ' A of closest bands.')
 
     write(6,58)       NFILTDEF_SURVEY_ORIG, NFILTDEF_SURVEY
- 58   format(T8,'NFILTDEF_SURVEY = ',I3,' -> ', I3)
+58  format(T8,'NFILTDEF_SURVEY = ',I3,' -> ', I3)
 
-! -------------------------------------------------
-! re-read KCOR file to include FILTLIST_FITRESTMAG
-! (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
+    ! -------------------------------------------------
+    ! re-read KCOR file to include FILTLIST_FITRESTMAG
+    ! (user must make sure that FILTLIST_FITRESTMAG is in the kcor file)
 
     CALL READ_CALIB_WRAPPER(IERR)
 
     CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
 
-! check that added filter(s) are all in the KCOR file.
-! Abort if any filter is missing.
+    ! check that added filter(s) are all in the KCOR file.
+    ! Abort if any filter is missing.
 
     DO 200 i = 1, NFILT
        CFILT          = FILTLIST_FITRESTMAG(i:i)
@@ -16231,12 +16242,12 @@
          c2err = 'Check ' // CALIB_FILE(1:80)
          CALL MADABORT("FITRESTMAG_INI", c1err, c2err )
        ENDIF
-200   CONTINUE
+200 ENDDO
 
-! set flag so that SURVEY_FILTERS are NOT re-read
-! if another version header is read.
+    ! set flag so that SURVEY_FILTERS are NOT re-read
+    ! if another version header is read.
     FREEZE_SURVEY_FILTERS = .TRUE.
-
+    
     RETURN
   END SUBROUTINE FITRESTMAG_INI
 
@@ -16696,18 +16707,17 @@
   END FUNCTION BRACKET_FILTERLIST 
 
 ! =====================================
-    SUBROUTINE FITRESTMAG_CALC(ITER)
-! 
-! Feb 2012:
-! If ITER corresponds to the last iteration for a rest-filter,
-! compute and fill global FITRESTMAG and FITRESTMAG_IERR
-! 
-! Sep 19 2013: call SNLCPAK to show each single-band fit
-! 
-! Dec 11, 2014: return if ITER > ITERLAST_2BAND to allow more
-!                than 1 fit after the 2-band fits.
-! ----------------------------------
-
+  SUBROUTINE FITRESTMAG_CALC(ITER)
+    ! 
+    ! Feb 2012:
+    ! If ITER corresponds to the last iteration for a rest-filter,
+    ! compute and fill global FITRESTMAG and FITRESTMAG_IERR
+    ! 
+    ! Sep 19 2013: call SNLCPAK to show each single-band fit
+    ! 
+    ! Dec 11, 2014: return if ITER > ITERLAST_2BAND to allow more
+    !                than 1 fit after the 2-band fits.
+    ! ----------------------------------
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -16718,27 +16728,28 @@
 
     IMPLICIT NONE
 
-! subroutine args
+    ! subroutine args
 
-    INTEGER ITER ! (I) SN index and fit iteration
+    INTEGER ITER ! (I)  fit iteration
 
-! local var
+    ! local var
 
-    INTEGER  & 
-         IFILTDEF, IFILT, NFUNPLOT, ITERLAST_2BAND  & 
-        ,LCHAR_CCID, LCHAR_SHAPE, LCHAR_COLOR
+    INTEGER IFILTDEF, IFILT, ITERLAST_2BAND, LCHAR_CCID, LCHAR_SHAPE, LCHAR_COLOR
 
-    REAL*8  & 
-         SHAPE_FIT, COLOR_FIT, Z, x0, x0err, x0ref  & 
-        ,SHAPE, COLOR, MAGCOR
+    REAL*8 SHAPE_FIT, COLOR_FIT, Z, x0, x0err, x0ref, SHAPE, COLOR, MAGCOR
 
-    CHARACTER CFILT*2, CCID*(MXCHAR_CCID)
+    CHARACTER CFILT*2
 
-! function
+    ! function
     REAL*8  GET_DIST8
-    LOGICAL DOPLOT_SNLC
 
-! ----------- BEGIN FITRESTMAG_CALC -----------
+#if defined(HPAK_LEGACY)
+    INTEGER    NFUNPLOT
+    CHARACTER  CCID*(MXCHAR_CCID)
+    LOGICAL DOPLOT_SNLC
+#endif
+    
+    ! ----------- BEGIN FITRESTMAG_CALC -----------
 
     IF ( NFILTDEF_FITRESTMAG .LE. 0       ) RETURN
     IF ( ITER .LE. NFIT_ITERATION_ALLFILT ) RETURN
@@ -16746,12 +16757,12 @@
     ITERLAST_2BAND = ITERLAST_FITRESTMAG(NFILTDEF_FITRESTMAG)
     IF ( ITER > ITERLAST_2BAND ) RETURN
 
-! get absolute filter index of rest-frame filter
+    ! get absolute filter index of rest-frame filter
     IFILTDEF = IFILTDEF_ITER_FITRESTMAG(ITER)
     IFILT    = IFILTSP_ITER_FITRESTMAG(ITER)
 
-! ---------------------------------------
-! sanity check on filter indices
+    ! ---------------------------------------
+    ! sanity check on filter indices
 
     IF (     IFILTDEF .LE. 0  & 
          .or.  IFILTDEF .GT. MXFILT_ALL  & 
@@ -16759,21 +16770,21 @@
          .or.  IFILT    .GT. MXFILT_FITRESTMAG  & 
            ) THEN
        write(c1err,611) IFILTDEF, IFILT
-611        format('Invalid  IFILTDEF=', I5, 3x,'IFILT=',I3)
+611    format('Invalid  IFILTDEF=', I5, 3x,'IFILT=',I3)
        write(c2err,612) SNLC_CCID, ITER
-612        format('for CID=', A8, 3x, 'and ITER=' ,I2)
+612    format('for CID=', A8, 3x, 'and ITER=' ,I2)
        CALL MADABORT('FITRESTMAG_CALC', C1ERR, C2ERR)
     ENDIF
-! ---------------------------------------
 
-! proceed with calc only on last iteration for this filter.
+    ! ---------------------------------------
+    ! proceed with calc only on last iteration for this filter.
     IF ( ITER .NE. ITERLAST_FITRESTMAG(ifilt) ) RETURN
 
-! save fitted SHAPEPAR in case we use a fixed SHAPEPAR for restMag
+    ! save fitted SHAPEPAR in case we use a fixed SHAPEPAR for restMag
     SHAPE_FIT  = LCVAL_STORE(IPAR_SHAPE)
     COLOR_FIT  = LCVAL_STORE(IPAR_COLOR)
 
-! set LCVAL_STORE to get rest-frame mag
+    ! set LCVAL_STORE to get rest-frame mag
 
     IF ( SHAPEFIX_FITRESTMAG .LT. 990.0 ) THEN
       LCVAL_STORE(IPAR_SHAPE) = SHAPEFIX_FITRESTMAG
@@ -16782,38 +16793,38 @@
       LCVAL_STORE(IPAR_COLOR) = COLORFIX_FITRESTMAG
     ENDIF
 
-! store fit-info in local variables (before they get restored!)
+    ! store fit-info in local variables (before they get restored!)
     CFILT   = FILTDEF_STRING(IFILTDEF:IFILTDEF)
     SHAPE   = DBLE( LCVAL_STORE(IPAR_SHAPE) )
     COLOR   = DBLE( LCVAL_STORE(IPAR_COLOR)   )
 
-! put this filter on the 'EVAL' list
+    ! put this filter on the 'EVAL' list
     CALL FILTBSET(IFILT_OBS_EVAL_MASK(1,ifiltdef), ifiltdef )
 
-! compute peakmag
+    ! compute peakmag
     CALL PEAKMAG_CALC(ifiltdef, 'REST')
 
-! restore nominal values
+    ! restore nominal values
     LCVAL_STORE(IPAR_SHAPE)   = SNGL(SHAPE_FIT)
     LCVAL_STORE(IPAR_COLOR)   = SNGL(COLOR_FIT)
 
-! PEAKMAG_REST was evaluated for the best-fit model assuming
-! DLMAG=0 or x0=1. But we need the standardization part of x0.
-! WARNING: Below is hard-wired for SALT2 ... need to fix for mlcs/snoopy.
+    ! PEAKMAG_REST was evaluated for the best-fit model assuming
+    ! DLMAG=0 or x0=1. But we need the standardization part of x0.
+    ! WARNING: Below is hard-wired for SALT2 ... need to fix for mlcs/snoopy.
 
     Z      = DBLE(REDSHIFT_FIT)
     x0     = LCVAL_STORE(IPAR_DLMAG)     ! from fit with SHAPE floated
     x0err  = LCERR_STORE(IPAR_DLMAG)     ! idem
     x0ref  = GET_DIST8(Z,SHAPE_FIT,COLOR_FIT,ONE8)
     MAGCOR = -2.5*log10(x0/x0ref)
-!       print*,' xxx MAGCOR = ', MAGCOR,'  for CID=', SNLC_CCID
+    !       print*,' xxx MAGCOR = ', MAGCOR,'  for CID=', SNLC_CCID
 
-! save fitted rest mag and error
+    ! save fitted rest mag and error
     FITRESTMAG(IFILT)     = SNGL(PEAKMAG_REST_MODEL(ifiltdef)  + MAGCOR)
     FITRESTMAG_ERR(IFILT) = SNGL(1.0857*x0err/x0)
 
-! ------------------------
-! print one-line summary.
+    ! ------------------------
+    ! print one-line summary.
 
     LCHAR_CCID  = ISNLC_LENCCID
     LCHAR_SHAPE = INDEX(PARNAME_STORE(IPAR_SHAPE),' ') - 1
@@ -16826,26 +16837,27 @@
          ,PARNAME_STORE(IPAR_SHAPE)(1:LCHAR_SHAPE),  SHAPE  & 
          ,PARNAME_STORE(IPAR_COLOR)(1:LCHAR_COLOR),  COLOR
 
-20    format(T5,'FitRestMag-',A,'(',A,') = ', F8.3,' +- ' , F6.3,  & 
+20  format(T5,'FitRestMag-',A,'(',A,') = ', F8.3,' +- ' , F6.3,  & 
          3x, '(',A,'=',F6.3,  2x,  A,'=',F6.3, ')'   )
 
 
-! -----------------------------------------------------
-! for SALT2, get K-corrected FLUX_REST (Jan 2014)
+    ! -----------------------------------------------------
+    ! for SALT2, get K-corrected FLUX_REST (Jan 2014)
 
     IF ( FITMODEL_INDEX .EQ. MODEL_SALT2 ) THEN
        CALL SALT2_FLUXREST(IFILTDEF,SHAPE,COLOR)
     ENDIF
 
-! --------------------------
-! check option for single-band plot (Sep 2013)
+    ! --------------------------
+    ! check option for single-band plot (Sep 2013)
 
+#if defined(HPAK_LEGACY)        
     IF ( DOPLOT_SNLC() ) THEN
 
        NLCPLOT_FITRESTMAG = NLCPLOT_FITRESTMAG + 1
        IF ( NLCPLOT_FITRESTMAG .EQ. 1 ) THEN
-! problem: if next fit fails we have already committed
-!          to NFUNPLOT plots ???
+          ! problem: if next fit fails we have already committed
+          !          to NFUNPLOT plots ???
           NFUNPLOT = NFILTDEF_FITRESTMAG + 1
           CALL SNLCPAK_NFIT(NFUNPLOT)  ! store NFIT
        ENDIF
@@ -16856,6 +16868,7 @@
        CALL SNLCPLOT()
        CALL CDTOPDIR_OUTPUT(STDOUT_UPDATE)  ! back to topdir
     ENDIF
+#endif
 
     RETURN
   END SUBROUTINE FITRESTMAG_CALC

@@ -2507,7 +2507,7 @@
     INTEGER SNANA_GET_NLCPLOT
 #endif
 
-#if defined(PSNID)
+#if defined(PSNID) && defined(HPAK_LEGACY)
     INTEGER PSNID_GET_NFIT
 #endif
 
@@ -3224,22 +3224,22 @@
 
     N_SNLC_VERS(IVERS) = NSN_VERS
 
-! read SNDATA struct and tranfer global info to fortran variables
+    ! read SNDATA struct and tranfer global info to fortran variables
     if ( LRDFLAG_GLOBAL .OR. IVERS > 1 ) then
        CALL RDGLOBAL_DRIVER()
        CALL INIT_SURVEY(NSN_VERS)     ! init a few things
        IF ( LRDFLAG_GLOBAL ) RETURN
     endif
 
-! - - - - - - - -
-! if we get here, read & process events
-
-! strip off info for SPLITTING jobs among multiple CPUs.
+    ! - - - - - - - -
+    ! if we get here, read & process events
+    
+    ! strip off info for SPLITTING jobs among multiple CPUs.
     NJOBTOT = JOBSPLIT(2)    ! total number of split jobs
     IJOB    = JOBSPLIT(1)    ! do IJOB of NJOBTOT
     IF ( NJOBTOT .GT. 1 ) THEN
       write(6,20) JOBSPLIT
-20      format(T5,'Process SPLIT-JOB ',I3,' of ', I3 )
+20    format(T5,'Process SPLIT-JOB ',I3,' of ', I3 )
     ENDIF
 
 ! ------------------------------------------------------
@@ -7068,11 +7068,13 @@
     write(6,40) 'LCPLOT', OPT_TABLE(ITAB), TEXTFORMAT_TABLE(ITAB)
 
     ! - - - 
+#if defined(HPAK_LEGACY)
     ITAB = ITABLE_SNLCPAK
     write(6,41) 'SNLCPAK', MXLC_PLOT, TEXTFORMAT_TABLE(ITAB)
 
     ITAB = ITABLE_SPECPAK
     write(6,41) 'SPECPAK', MXLC_PLOT, TEXTFORMAT_TABLE(ITAB)
+#endif
 
     ITAB = ITABLE_MODELSPEC
     write(6,40) 'MODELSPEC', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
@@ -9054,11 +9056,11 @@
 
     CALL END_MAGCOR()  ! check for warnings
 
-! ----------------------------------------------
-! Start with Npasscut vs. ICUT, and for each type.
+    ! ----------------------------------------------
+    ! Start with Npasscut vs. ICUT, and for each type.
     CALL PRINT_NPASSCUTS()
 
-! Aug 7 2020: for batch job, write stats to separate YAML file for easy parsing
+    ! Aug 7 2020: for batch job, write stats to separate YAML file for easy parsing
     CALL PRINT_JOBSPLIT_OUT()
 
 ! ------------------------
@@ -9315,16 +9317,16 @@
   END SUBROUTINE PRINT_NPASSCUTS
 
 ! =========================
-    SUBROUTINE PRINT_CPU_REMAIN(ISN)
-! 
-! Created Apr 4 2024
-! Print fraction of total events processed, elapsed time,
-! and estimate time remaining:
-! 
-!   Processed ~12% of events in mm minutes -> mm minutes remaining.
-! 
-! Used only for BATCH mode.
-! ----------------
+  SUBROUTINE PRINT_CPU_REMAIN(ISN)
+    ! 
+    ! Created Apr 4 2024
+    ! Print fraction of total events processed, elapsed time,
+    ! and estimate time remaining:
+    ! 
+    !   Processed ~12% of events in mm minutes -> mm minutes remaining.
+    ! 
+    ! Used only for BATCH mode.
+    ! ----------------
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -9336,17 +9338,17 @@
     INTEGER*8 JTDIF
     INTEGER NSN_TOT, JTIME, PERCENT
     REAL FRAC, T_ELAPSE, T_REMAIN
-! ------------ BEGIN ---------
+    ! ------------ BEGIN ---------
 
     if ( .NOT. STDOUT_UPDATE ) RETURN
 
-! bail for subset option for which this update makes no sense
+    ! bail for subset option for which this update makes no sense
     if ( .NOT. ISJOB_BATCH     ) RETURN
     if ( NCID_LIST > 0         ) RETURN
     if ( MXEVT_PROCESS < 10000 ) RETURN
 
     NSN_TOT = N_SNLC_VERS(1)
-    FRAC = FLOAT(ISN) / FLOAT(NSN_TOT)
+    FRAC    = FLOAT(ISN) / FLOAT(NSN_TOT)
     PERCENT = INT(FRAC*100.0 + 0.5)
 
     JTIME = TIME()
@@ -9354,11 +9356,11 @@
     T_ELAPSE = FLOAT(JTDIF)/60.0
     T_REMAIN = T_ELAPSE * ( 1.0/FRAC - 1.0 )  ! prediction
 
-    if ( T_ELAPSE < 1.0 ) RETURN  ! avoid printing crazy predictions
+    if ( T_ELAPSE < 1.0 ) RETURN  ! require at least 1 minute until updates
 
     write(6,20) PERCENT, T_ELAPSE, T_REMAIN
-20    format(T6,'Processed ', I3,'% of events in ',  & 
-           F6.1, ' minutes -> ', F6.1,' minutes remaining.')
+20  format(T6,'Processed ', I3,'% of events in ',  & 
+         F6.1, ' minutes -> ', F6.1,' minutes remaining.')
     call flush(6)
 
     RETURN
@@ -9537,26 +9539,27 @@
 
 
 ! ======================================
-    SUBROUTINE SNANA_DRIVER(ISN_ALL, ISN_PROC, IVERS )
+  SUBROUTINE SNANA_DRIVER(ISN_ALL, ISN_PROC, IVERS )
 
-! Created May 18, 2012 by R.Kessler
-! 
-! Analysis driver for SN with
-!   ISN_ALL  = absolute index for all events, regardless of cuts
-!   ISN_PROC = sparse index of processed events (after cuts)
-!   IVERS    = index of VERSION_PHOTOMETRY (added Oct 2025)
-! 
-!
-! Move code from MAIN to here so that each SN is fit
-! right after it is read.
-! 
-! Jun 21 2018:
-!   if ERRFLAG_FIT > 0 on any iteraton, REJECT fit immediately
-!   See REJECT_FIT logical.
-! 
-! Dec 19 2024: print CPU time per event in stdout update
-! Jan 08 2026: replace USE_MINOS arg with OPT_MNFIT arg
-! ----------------------
+    ! Created May 18, 2012 by R.Kessler
+    ! 
+    ! Analysis driver for SN with
+    !   ISN_ALL  = absolute index for all events, regardless of cuts
+    !   ISN_PROC = sparse index of processed events (after cuts)
+    !   IVERS    = index of VERSION_PHOTOMETRY (added Oct 2025)
+    ! 
+    !
+    ! Move code from MAIN to here so that each SN is fit
+    ! right after it is read.
+    ! 
+    !     HISTORY
+    ! Jun 21 2018:
+    !   if ERRFLAG_FIT > 0 on any iteraton, REJECT fit immediately
+    !   See REJECT_FIT logical.
+    ! 
+    ! Dec 19 2024: print CPU time per event in stdout update
+    ! Jan 08 2026: replace USE_MINOS arg with OPT_MNFIT arg
+    ! ----------------------
 
 
     USE SNDATCOM
@@ -9577,7 +9580,7 @@
     REAL t_start
     CHARACTER FNAM*14
 
-! ----------------- BEGIN -------------
+    ! ----------------- BEGIN -------------
 
     MARK_USED(ISN_ALL)
 
@@ -9586,43 +9589,43 @@
     if ( STDOUT_UPDATE ) CALL CPU_TIME(t_start)
 
     if ( ISN_PROC > MXSNLC-1 ) THEN
-      write(c1err,666) N_SNLC_PROC
-666     format('ISN_PROC=',I8,' exceeds MXSNLC array bound.')
-      c2err = 'Try splitting job into multiple jobs with CID-ranges'
-      CALL MADABORT(FNAM, c1err, c2err)
+       write(c1err,666) N_SNLC_PROC
+666    format('ISN_PROC=',I8,' exceeds MXSNLC array bound.')
+       c2err = 'Try splitting job into multiple jobs with CID-ranges'
+       CALL MADABORT(FNAM, c1err, c2err)
     endif
 
-! - - - - - - - - - - -
+    ! - - - - - - - - - - -
     NCALL_SNANA_DRIVER  = NCALL_SNANA_DRIVER  + 1
 
-! one-time init after first event is read.
+    ! one-time init after first event is read.
 
     IF ( NCALL_SNANA_DRIVER .EQ. 1 )  THEN
 
-      CALL MON_SNANA(IFLAG_INI)     ! book 1d distributions
+       CALL MON_SNANA(IFLAG_INI)     ! book 1d distributions
 
 #if defined(SNFIT)
-      CALL FITPAR_INI2(IERR)
+       CALL FITPAR_INI2(IERR)
 #endif
 
 #if defined(PSNID)
-      CALL PSNIDINI2(IERR)
+       CALL PSNIDINI2(IERR)
 #endif
 
-        if ( IERR .NE. 0 ) then
+       if ( IERR .NE. 0 ) then
           c1err = 'Problem with 2nd init when NCALL_SNANA_DRIVER=1'
           c2err = 'CID = ' // SNLC_CCID
           CALL  MADABORT(FNAM, C1ERR, C2ERR )
-        endif
+       endif
     ENDIF
 
 
 #if defined(SNFIT)
-! check for SN-dependent filter response
+    ! check for SN-dependent filter response
     CALL FILTER_UPDATE_DRIVER()
 #endif
 
-! compute quantities, apply AB offsets, set cut-mask
+    ! compute quantities, apply AB offsets, set cut-mask
     CALL SNRECON()       ! compute variables, apply AB offsets
 
     CALL U3BAND()        ! special U-band test
@@ -9630,14 +9633,14 @@
     CALL SET_CUTMASK()   ! set cutmask
 
 #if defined(SNFIT)
-! check option to include IDEAL fit, after SNRECON (Aug 29 2017)
+    ! check option to include IDEAL fit, after SNRECON (Aug 29 2017)
     CALL SIMFIT_IDEAL_PREP(0)
 #endif
 
-! set default to use minimized fitpar unless user calls MARG_DRIVER
+    ! set default to use minimized fitpar unless user calls MARG_DRIVER
     USEPDF_MARG = .FALSE.
 
-! check dump-option for SN that fail cuts.
+    ! check dump-option for SN that fail cuts.
 
     IF ( .not. LSNCUTS ) THEN
        if ( STDOUT_UPDATE ) write(6,41) SNLC_CCID
@@ -9650,24 +9653,24 @@
 
     IF ( STDOUT_UPDATE ) THEN
       write(6,42) isn_proc  & 
-              , SNLC_CCID  & 
-              , ISNLC_NEWMJD_STORE  & 
-              , ISNLC_NEWMJD_CUTS
+           , SNLC_CCID  & 
+           , ISNLC_NEWMJD_STORE  & 
+           , ISNLC_NEWMJD_CUTS
       call flush(6)
     ENDIF
+42  format(T8,'Analyze ISN=',I8, 2x, 'for CID=',A14,' NOBS(store,cuts)=', I4, '->', I4 )
 
     CALL EXEC_REFORMAT(IVERS)
 
 #if defined(SNFIT)
 
-! do the fit
-
+    ! do the fit
      ITER          = 0
      LREPEAT_ITER  = .FALSE.
      LREPEAT_MINOS = .FALSE.
      REJECT_FIT    = .FALSE.
      NCALL_MNFIT   = 0
-
+     
      N_SNLC_FIT = N_SNLC_FIT + 1
      DO i = 1, FCNFLAG_MAX
        NCALL_FCNFLAG(i) = 0
@@ -9696,21 +9699,21 @@
 40        format(T5,'FITPAR_PREP PROBLEM => SKIP FIT-ITER=',  & 
                I2,'  for  CID=',A )
           GOTO 410          ! bad init => skip fit-iteration
-        endif
+       endif
 
-        if ( STDOUT_UPDATE ) THEN
+       if ( STDOUT_UPDATE ) THEN
           WRITE(GLOBAL_BANNER,44) ISN_PROC,  & 
                SNLC_CCID(1:ISNLC_LENCCID), NFITPAR_MN, ITER
           CALL PRBANNER(GLOBAL_BANNER)
-44          format(T5,'CALL MNFIT_DRIVER for ISN_PROC=',I5,  & 
-                 3x,'CID=',A, 3x, 'NFITPAR=',I3, 3x,'iter=',I1 )
-        endif
+44        format(T5,'CALL MNFIT_DRIVER for ISN_PROC=',I5,  & 
+               3x,'CID=',A, 3x, 'NFITPAR=',I3, 3x,'iter=',I1 )
+       endif
 
 ! call main driver for fitter.
 ! Note that all returned output from MNFIT_DRIVER goes to common blocks.
 
-        CALL MNFIT_DRIVER (  & 
-             SNLC_CCID, NFITPAR_MN                 &  ! (I)
+       CALL MNFIT_DRIVER (  & 
+            SNLC_CCID, NFITPAR_MN                 &  ! (I)
             ,INIVAL, INISTP, INIBND                &  ! (I)
             ,PARNAME_STORE                         &  ! (I)
             ,OPT_MNFIT                             &  ! (I)
@@ -9722,16 +9725,16 @@
             ,NFIXPAR, ERRTYPE                      &  ! (O)
             ,MNSTAT_COV                            &  ! (O)
             ,IERR                                  &  ! (O)
-                  )
+            )
 
-! bail on error
+       ! bail on error
        IF ( IERR > 90 ) THEN  ! May 2024
           ERRFLAG_FIT = IERR
           REJECT_FIT = .TRUE.
           GOTO 410
        ENDIF
-
-! avoid infinite loop with MNFIT calls ...
+       
+       ! avoid infinite loop with MNFIT calls ...
        NCALL_MNFIT = NCALL_MNFIT + 1
        IF  ( NCALL_MNFIT .GT. 2*MXITER ) THEN
           write(c1err,641) 2*MXITER, SNLC_CCID
@@ -9755,48 +9758,42 @@
         CALL SNANA_ERRFLAG_FIT(iter,ERRFLAG_FIT)
         if ( ERRFLAG_FIT > 0 ) REJECT_FIT = .TRUE.
 
-410     CONTINUE  ! end of iteration loop
+410  ENDDO  ! end of iteration loop
 
-      if ( STDOUT_UPDATE ) THEN
+     ! - - - - - - - 
+     if ( STDOUT_UPDATE ) THEN
         CALL CPU_TIME(t_end)
         write(6,450) SNLC_CCID(1:ISNLC_LENCCID), t_end-t_start
-450     format(T5,'Finished fitting CID = ', A12,  & 
-             ' in ', F6.3,' seconds')
-        CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Apr 4 2024
+450     format(T5,'Finished fitting CID = ', A12, ' in ', F6.3,' seconds')
         call flush(6)
-      endif
+     endif
 #endif
 
 
 #if defined(PSNID)
-    CALL PSNIDANA(IERR)
-    if ( STDOUT_UPDATE ) THEN
-        CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Nov 2025
-    endif
+     CALL PSNIDANA(IERR)
 #endif
 
-
-42    format(T8,'Analyze ISN=',I8, 2x,  & 
-          'for CID=',A14,' NOBS(store,cuts)=', I4, '->', I4 )
-    CALL FLUSH(6)
+#if defined(SNFIT) || defined(PSNID)
+     CALL PRINT_CPU_REMAIN(ISN_ALL)     ! Nov 2025
+#endif
 
 
 #if defined(SNANA) && defined (HPAK_LEGACY)
     ! pack the meta data
     IF ( REFAC_LCPLOT == 0 .and. OPT_TABLE(ITABLE_SNLCPAK) > 0  ) THEN
-      CALL SNLCPAK_PHOT()    ! LEGACY: prepare light curves for csv table/plotting
+       CALL SNLCPAK_PHOT()    ! LEGACY: prepare light curves for csv table/plotting
     ENDIF
 
     IF ( OPT_TABLE(ITABLE_SPECPAK) > 0  ) THEN
-      CALL SPECPLOT()       ! prepare spectra for plotting (Apr 2019)
+       CALL SPECPLOT()       ! prepare spectra for plotting (Apr 2019)
     ENDIF
 #endif
 
-! Beware that SNANA table gets filled after FITRES table.
+    ! Beware that SNANA table gets filled after FITRES table.
     CALL MON_SNANA(IFLAG_ANA)     ! monitor-driver
 
     CALL MAKE_SIMLIB_FILE(2)   ! update SIMLIB Feb 2016
-
 
     RETURN
   END SUBROUTINE SNANA_DRIVER
@@ -9859,14 +9856,14 @@
 #endif
 
 ! ======================================
-    SUBROUTINE SNANA_END
+  SUBROUTINE SNANA_END()
 
-! Created MAy 2012 by R.Kessler
-! 
-! Shell to call functions after all SN have been processed.
-! 
-! Nov 10 2018: move call to PRINT_SNSTATS() to end of SNANA_END
-! 
+    ! Created May 2012 by R.Kessler
+    ! Shell to call functions after all SN have been processed.
+    ! 
+    ! Nov 10 2018: move call to PRINT_SNSTATS() to end of SNANA_END
+    ! Nov 11 2026: call PRINT_CPU_REMAIN to show line with 0 minutes remaining
+    !
     USE SNDATCOM
     USE SNLCINP_NML
     USE SNANAFIT
@@ -9876,9 +9873,14 @@
     INTEGER LENF, IERR
     EXTERNAL write_epoch_list_summary
 
-! ----------------- BEGIN -------------
+    ! ----------------- BEGIN -------------
 
     IERR = 0
+
+#if defined(SNFIT) || defined(PSNID)
+    STDOUT_UPDATE = .TRUE.
+    CALL PRINT_CPU_REMAIN(N_SNLC_VERS(1))    ! Nov 2026
+#endif
 
 #if defined(SNFIT)
     CALL PRBANNER ( "CALL FITPAR_END" )
@@ -9898,8 +9900,8 @@
 
     IF ( USE_TABLEFILE_TEXT ) THEN  ! April 2019
 
-! Apr 18 2022: if no events were processed then there are no text files.
-!      In this case, create blank text-table file for each table
+       ! Apr 18 2022: if no events were processed then there are no text files.
+       !      In this case, create blank text-table file for each table
        IF ( N_SNLC_PROC == 0 ) CALL SNTABLE_CREATE_TEXT_EMPTY()
        CALL TABLEFILE_CLOSE("TEXT"//char(0),10)
     ENDIF
@@ -9918,9 +9920,7 @@
 
     CALL WARN_OLDINPUTS("list"//char(0), 0);
 
-    ! xxx mark CALL END_MAGCOR()  ! check for warnings
-
-! - - - - - -
+    ! - - - - - -
     CALL PRINT_SNSTATS()
 
     IF ( OUT_EPOCH_IGNORE_FILE .NE. '' ) then
@@ -18229,10 +18229,9 @@
     ! even though NMATCH2 can be > 2.
     ! If 3rd host has no OBJID, then set NMATCH2=2 to avoid NaN from log(DDLR=0)
     ! Beware that more recent sims will have all 3 hosts.
-    if ( NMATCH2 > 2 .and. SNHOST_OBJID(3) == 0 ) THEN
-       write(6,26) NMATCH2, SNLC_CCID(1:ISNLC_LENCCID)
-26     format(/, 'HOST_CONFUSION WARNING: NMATCH2=',I2, &
-            ' but only 2 HOSTS recorded for CID=',A,/)
+    if ( NMATCH2 > 2 .and. SNHOST_OBJID(3) == 0  ) THEN
+       if(STDOUT_UPDATE)  write(6,26) NMATCH2, SNLC_CCID(1:ISNLC_LENCCID)
+26     format('HOST_CONFUSION WARNING: NMATCH2=',I2, ' but only 2 HOSTS recorded for CID=',A)
        NMATCH2 = 2  ! hack protection
     endif
 
@@ -22170,24 +22169,24 @@
 
 ! -------------- BEGIN ---------------
 
-! set default for non-split jobs.
+    ! set default for non-split jobs.
     IPLOT = NPLOT
 
-! check for internal split (mainly for FITS format)
+    ! check for internal split (mainly for FITS format)
     NJOBTOT = JOBSPLIT(2) ! total number of split jobs
     IJOB    = JOBSPLIT(1) ! do IJOB of NJOBTOT
     IF ( NJOBTOT .GT. 1 ) THEN
       IPLOT = (NPLOT-1) * NJOBTOT + IJOB
     ENDIF
 
-! check for text-format where SPLIT has been done externally
+    ! check for text-format where SPLIT has been done externally
     NJOBTOT = JOBSPLIT_EXTERNAL(2) ! total number of split jobs
     IJOB    = JOBSPLIT_EXTERNAL(1) ! do IJOB of NJOBTOT
     IF ( NJOBTOT .GT. 1 ) THEN
       IPLOT = (NPLOT-1) * NJOBTOT + IJOB
     ENDIF
 
-! load output
+    ! load output
     IPLOT_JOBSPLIT = IPLOT
 
     RETURN
@@ -22215,12 +22214,12 @@
 
 
 ! =============================
-    LOGICAL FUNCTION DOPLOT_SNLC()
+  LOGICAL FUNCTION DOPLOT_SNLC()
 
-! Created Aug 30 2013
-! Returns T to make light curve table for this SN.
-! 
-! ----------
+    ! Created Aug 30 2013
+    ! Returns T to make light curve table for this SN.
+    ! 
+    ! ----------
 
     USE SNDATCOM
     USE SNLCINP_NML
@@ -22230,7 +22229,7 @@
     INTEGER i, LENTMP
     LOGICAL DOPLOT
 
-! ------------ BEGIN -------------
+    ! ------------ BEGIN -------------
 
     DOPLOT = .FALSE.
 
@@ -22245,7 +22244,7 @@
        GOTO 888
     endif
 
-! check list of CCIDs to plot
+    ! check list of CCIDs to plot
 
     DO 100 i = 1, NCCID_PLOT
       LENTMP = INDEX( SNCCID_PLOT(i)//' ', ' ') - 1

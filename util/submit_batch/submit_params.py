@@ -118,6 +118,9 @@ SUFFIX_SYST   = "SYST"
 MERGE_LOG_FILE         = "MERGE.LOG"
 MERGE_wfit_LOG_FILE    = "MERGE_wfit.LOG"  # only for BBC's wfit afterburner
 SUBMIT_INFO_FILE  = "SUBMIT.INFO"
+
+TASK_PROGRESS_LOG_FILE = "TASK_PROGRESS_STATUS.LOG"  # Nov 2026 
+
 TABLE_SPLIT       = "SPLIT"  # yaml table in MERGE.LOG
 TABLE_MERGE       = "MERGE"  # yaml table in MERGE.LOG
 TABLE_EXTRA       = "EXTRA"  # do global overwrite on this name

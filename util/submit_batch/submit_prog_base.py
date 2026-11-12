@@ -41,8 +41,8 @@
 #              so that both iterations are stopped and produce STOP in ALL.DONE file.
 #
 # Mar 25 2026: new key BATCH_ENV_SETUP to change env in slurm; initially for BayeSN GPU fitter
-#
-# ============================================
+# Nov 11 2026: write SNANA_DIR and JOBNAME to SUBMIT.INFO file
+# ==================================================================
 
 #import argparse
 import os, sys, shutil, yaml, re
@@ -157,8 +157,14 @@ class Program:
         raise NotImplementedError()
 
     @abstractmethod
+    def task_progress_status(self, OPT, MERGE_INFO_CONTENTS):  # Nov 2026: initially for LCFIT
+        pass  # optional
+
+    @abstractmethod
     def check_abort(self):
         print(f"\n WARNING: not implemented.")
+
+    # ---------------------------------------------
 
     def prep_check_abort(self,config_yaml):
 
@@ -992,6 +998,7 @@ class Program:
         script_dir       = self.config_prep['script_dir']
         done_stamp_list  = self.config_prep['done_stamp_list']
         submit_mode      = self.config_prep['submit_mode']
+        program          = self.config_prep['program']
         Nsec             = seconds_since_midnight
         time_now         = time_submit_start
 
@@ -1007,9 +1014,9 @@ class Program:
         f.write("\n# Required info \n")
 
         f.write(f"CWD:         {CWD}\n")
-
+        
         arg_string = " ".join(sys.argv[1:])
-        f.write(f"ARG_LIST:    {arg_string}\n")
+        f.write(f"ARG_LIST:    {arg_string}    # arg for submit_batch_jobs.sh \n")
 
         comment = "submit time; Nsec since midnight"
         f.write(f"TIME_STAMP_NSEC:   {Nsec}    # {comment}\n")
@@ -1059,8 +1066,12 @@ class Program:
         f.write(f"FORCE_ABORT_MERGE:   {force_abort_merge}\n")
 
         snana_version = util.get_snana_version()
+        snana_dir     = args.snana_dir or SNANA_DIR
         f.write(f"SNANA_VERSION:    {snana_version}\n")
-  
+        f.write(f"SNANA_DIR:        {snana_dir} \n")
+        f.write(f"JOBNAME:          {program} \n")
+
+        # .xyz
         # append program-specific information
         f.write("\n")
         self.append_info_file(f)
@@ -1439,6 +1450,9 @@ class Program:
         output_dir               = self.override_output_dir_name(output_dir)
         self.config_prep['output_dir']  = output_dir
 
+        task_progress_log  = f"{output_dir}/{TASK_PROGRESS_LOG_FILE}"
+        self.config_prep['task_progress_log'] = task_progress_log
+
         # read SUBMIT.INFO passed from original submit job... 
         # this info never changes
         if verbose_flag:
@@ -1591,6 +1605,9 @@ class Program:
         if verbose_flag:
             logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
 
+        # Nov 2026: write optional/temporary task-progress log for humans (not used by code)
+        self.task_progress_status(+1, MERGE_INFO_CONTENTS)
+
         # Feb 2024: check kill_on_fail here in addition to check in CPU*.CMD
         if n_fail > 0 and submit_info_yaml['KILL_ON_FAIL'] :
             args.kill = True   # set flag as if -k were comman-line arg
@@ -1606,10 +1623,13 @@ class Program:
                 self.append_merge_file(misc_info+proctime_info)
 
             if nfail_tot == 0 :
-                logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
-                             f"BEGIN FINAL CLEANUP ")
                 cleanup_flag  = submit_info_yaml['CLEANUP_FLAG']
-                if cleanup_flag:  self.merge_cleanup_final()  
+                logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
+                             f"BEGIN FINAL CLEANUP  with cleanup_flag={cleanup_flag}")
+                if cleanup_flag:
+                    self.task_progress_status(-1, [])  # -1 -> remove task-progress log
+                    self.merge_cleanup_final()  
+
                 STRING_STATUS = STRING_SUCCESS
             else:
                 STRING_STATUS = STRING_FAIL
@@ -1622,8 +1642,10 @@ class Program:
 
         # remove busy lock file
         self.set_merge_busy_lock(-1,t_merge_start)
-    
+
+        # final exit
         self.merge_driver_exit(t_merge_start,False)
+
         return
         # end merge_driver
 
@@ -1646,12 +1668,12 @@ class Program:
 
         args             = self.config_yaml['args']
         debug_mode = (args.devel_flag == 829)
+        if args.devel_flag == -999 : return  # needed to debug TASK_PROGRESS
 
         KEY_FATAL_LIST = [ 'FAIL', 'KILL', 'ERROR', 'CANCEL', 
                            'fail', 'kill', 'error' ]      # leave out 'cancel' to avoid conflict with scancel
 
         KEY_VETO_FATAL_LIST = [ 'TMPDIR' ]  # wacky hack, Jan 26 2026
-
 
         # add this TEST0 key for debugging on regression test with
         #   cd $SNANA_TESTS/inputs_submit_batch

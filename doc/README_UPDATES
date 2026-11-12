@@ -24384,8 +24384,24 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         Comment these out to test SNANA without these legacy codes.
         Compilation status without these preproc flags:
            snana.F90    Yes
-           snlc_fit.F90 No
-           psnid.F90    No
+           snlc_fit.F90 Yes
+           psnid.F90    Yes
+           --> regression test (code and submit_batch_jobs) passes !
+        Restore HPAK_LEGACY.
+
+      + in SNANA_END(), call PRINT_CPU_REMAIN to show line with 0 minutes remaining
+
+    sntools.c/strcmp_ignoregz(...)
+     + Used by SIMSED class in sim, add Claude-update to check symbolic links.
+       Example :
+         str1=/project2/rkessler/PRODUCTS/SNDATA_ROOT/kcor/ROMAN/20210614/calib_ROMAN.fits.gz 
+         str2=/project2/rkessler/SURVEYS/ROMAN/ROOT/kcor/20210614/calib_ROMAN.fits 
+       For the latter, the subdir 20210614 is a symbolic link to str1, and this
+       now correctly matches.
+
+   submit_batch/submit_prob_base.py
+     + write SNANA_DIR and JOBNAME to SUBMIT.INFO
+     + for LCFIT class, write new TASK_PROGRESS_STATUS.LOG file
 
 END:
 

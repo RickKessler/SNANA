@@ -741,6 +741,7 @@ int psnid_best_get_nfit__(void) {
   return PSNID_BEST_GET_NFIT();
 }
 
+
 void PSNID_BEST_GET_FITPAR(char *CCID, int ind,
 			   double *redshift, double *shapepar, double *colorpar,
 			   double *colorlaw, double *pkmjd, double *dmu,
@@ -3630,6 +3631,7 @@ void fill_table_psnid_lcplot__(int *iplot)
   { FILL_TABLE_PSNID_LCPLOT(*iplot); }
 
 
+#ifdef HPAK_LEGACY
 /*************************************************************/
 void SNLCPLOT_PSNID_BEST_LEGACY(int iplot) {
 /**************************************************************/
@@ -3930,9 +3932,11 @@ void snlcplot_psnid_best_legacy__(int *iplot) {
   SNLCPLOT_PSNID_BEST_LEGACY(*iplot) ;
 }
 
+#endif
 
 
 /**************************************************************/
+
 
 /**********************************************************************/
 int PSNID_BEST_GET_NFIT(void)

@@ -23,6 +23,32 @@ from   submit_params import *
 
 # =================================================
 
+def last_lineMatch_list(wildcard, word_match):
+
+    # Created Nov 2026
+    # for files in wildcard list, search lines in each file for word_match;
+    # Return 
+    #   list of files examined
+    #   list of last line matching word_match (None if no match)
+    #
+    # Motivation is that codes tend to write repeated updates on stats
+    # to log file, and only the last update is relevant.
+
+    file_list = sorted(glob.glob(wildcard))
+    line_list = []
+
+    for path in file_list:
+        last = None
+        with open(path,"rt") as f:
+            for line in f:
+                if word_match in line:
+                    last = line.strip()
+                    #last = line.rstrip("\n")
+
+        line_list.append(last)
+    return file_list, line_list
+    # end last_lineMatch_list
+
 def glob_wrapper(wildcard, search_dir):
 
     # created Jun 27 2026
@@ -906,7 +932,6 @@ def copy_input_files(infile_copy_list,output_dir,list_file):
             done_copy_list.append(infile)
 
             infile_nopath = os.path.basename(infile)
-            # xxx infile_nopath = ntpath.split(infile)[1]
             if infile_nopath in done_copy_list_nopath:
                 j = done_copy_list_nopath.index(infile_nopath)
                 msgerr.append(f"Cannot define duplicate input/include file names")

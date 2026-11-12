@@ -1262,16 +1262,15 @@
 
 
 ! =================================
-    SUBROUTINE PSNID_SNLCPLOT()
+  SUBROUTINE PSNID_SNLCPLOT()
 
-! Created Feb 2013 by R.Kessler
-! Determine how many best-fit functions,
-! create subdir for each best-fit, and then
-! call method-specific SNLCPLOT_PSNID_[METHOD]
-! to make the plots
-! 
-! Aug 28 2017: use function DOPLOT_PSNID to determine which IPLOT to do
-
+    ! Created Feb 2013 by R.Kessler
+    ! Determine how many best-fit functions,
+    ! create subdir for each best-fit, and then
+    ! call method-specific SNLCPLOT_PSNID_[METHOD]
+    ! to make the plots
+    ! 
+    ! Aug 28 2017: use function DOPLOT_PSNID to determine which IPLOT to do
 
     USE SNDATCOM
     USE PSNIDCOM
@@ -1281,16 +1280,16 @@
 
     INTEGER MXFUNPLOT, NFUNPLOT, iplot
 
-! functions
+    ! functions
     INTEGER  PSNID_GET_NFIT, DOPLOT_PSNID
     LOGICAL  DOPLOT_SNLC
 
-! external functions (declared external Aug 17 2014)
-    EXTERNAL  & 
-         MAKEDIR_OUTPUT, CDTOPDIR_OUTPUT  & 
-         ,FILL_TABLE_PSNID_LCPLOT, DOPLOT_PSNID
+    ! external functions (declared external Aug 17 2014)
+    EXTERNAL MAKEDIR_OUTPUT, CDTOPDIR_OUTPUT, FILL_TABLE_PSNID_LCPLOT, DOPLOT_PSNID
 
+#ifdef HPAK_LEGACY
     EXTERNAL SNLCPLOT_PSNID_BEST_LEGACY, SNLCPLOT_PSNID_BEST2
+#endif
 
 ! ---------------- BEGIN -------------
 
@@ -1307,7 +1306,9 @@
        IF ( DOPLOT_PSNID(iplot) > 0 ) NFUNPLOT=NFUNPLOT+1
     ENDDO
 
+#ifdef HPAK_LEGACY
     CALL SNLCPAK_NFIT(NFUNPLOT)   
+#endif
 
     ! - - - - - - - - -
     DO 3000 iplot = 0, MXFUNPLOT-1
@@ -1321,7 +1322,9 @@
           if ( REFAC_LCPLOT > 0 ) then
              CALL FILL_TABLE_PSNID_LCPLOT(iplot)    ! uses standard table
           else
+#ifdef HPAK_LEGACY
              CALL SNLCPLOT_PSNID_BEST_LEGACY(iplot)  ! uses legacy SNLCPAK
+#endif
           endif
 
        ELSE IF ( METHOD_PSNID .EQ. METHOD_BEST2 ) THEN
@@ -1483,16 +1486,10 @@
   END SUBROUTINE PSNID_MONEND
 
 
-  ! ============================================================
-  !    HPAK_LEGACY functions (Nov 9 2026); prep for removal
-  ! ============================================================
-
-#if defined(HPAK_LEGACY)
   INTEGER FUNCTION PSNID_GET_NFIT()
 
     ! Return number of separate PSNID fits to be
     ! performed for each SN.
-    ! 
 
     USE SNPAR
     USE PSNIDCOM
@@ -1532,5 +1529,5 @@
 
     RETURN
   END FUNCTION PSNID_GET_NFIT
-#endif
+
 

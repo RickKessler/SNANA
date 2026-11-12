@@ -83,6 +83,8 @@ import datetime, time, subprocess
 import submit_util as util
 import pandas as pd
 
+#xxx mark from datetime import datetime
+
 try:
     import f90nml
 except:
@@ -1568,6 +1570,130 @@ class LightCurveFit(Program):
 
         # end merge_update_state
 
+    def task_progress_status(self, OPT, MERGE_INFO_CONTENTS): 
+
+        # Created Nov 2026
+        #
+        # OPT > 0 :
+        #  Write/update temp TASK_PROGRESS log indicating status of still-running jobs.
+        #  This log exists only during execution and is removed if/when 
+        #  all tasks complete successfully.
+        #
+        # OPT < 0:
+        #    remove TASK_PROGRESS log
+        #
+        # Here a TASK refers to a single row in MERGE.LOG, which consists of multiple SPLIT jobs.
+        #
+        # WARNING: this method interogates stdout from snlc_fit, which can be fragile.
+        # 
+        
+        # proceed only for SNANA fitting code ... maybe later for BayeSN ?
+
+        logging.info(f" xxxx task_progress_status: OPT={OPT}  LCFIT_SUBCLASS = {LCFIT_SUBCLASS} ")
+        if LCFIT_SUBCLASS != LCFIT_SNANA: return
+    
+        submit_info_yaml   = self.config_prep['submit_info_yaml']
+        output_dir         = self.config_prep['output_dir']
+        task_progress_log  = self.config_prep['task_progress_log']
+        script_dir         = submit_info_yaml['SCRIPT_DIR']
+        n_job_split        = submit_info_yaml['N_JOB_SPLIT']  # n_split per task
+        n_job_tot          = submit_info_yaml['N_JOB_TOT']    # total number of expected split jobs
+
+        TASK_LIST          = MERGE_INFO_CONTENTS[TABLE_MERGE]
+        n_task             = len(TASK_LIST)
+
+        if OPT < 0:
+            log_base = os.path.basename(task_progress_log)
+            logging.info(f"Remove {log_base}")
+            os.remove(task_progress_log)
+            return
+
+        #word_match = 'Open' # for testing on jobs too short to have 'remain' update
+        word_match = 'remain'  # nominal check
+            
+        # count number of rows in MERGE_INFO_CONTENTS and how many are DONE .xyz
+        n_task_tot      = 0
+        n_task_done     = 0
+        n_job_wait_tot  = 0
+        REMAIN_LOG_DICT = {}
+        t_remain_list_all   = []
+
+        for row  in TASK_LIST:
+            state       = row[COLNUM_LCFIT_MERGE_STATE]
+            version     = row[COLNUM_LCFIT_MERGE_VERSION]
+            fitopt_num  = row[COLNUM_LCFIT_MERGE_FITOPT]  # e.g., FITOPT001
+            n_job_wait  = 0
+            n_task_tot += 1
+            if state == SUBMIT_STATE_DONE: 
+                n_task_done += 1
+            else:
+                prefix        = f"{version}_{fitopt_num}"
+                wildcard_log  = f"{script_dir}/{prefix}*.LOG"
+ 
+                log_list, line_list = util.last_lineMatch_list(wildcard_log, word_match)
+                done_list = [ s.split('.LOG')[0] + '.DONE' for s in log_list ]
+
+                n_job_wait      = n_job_split - len(log_list)
+                n_job_wait_tot += n_job_wait
+
+                # keep list of remaining time per log file
+                t_remain_list   = []
+                for line in line_list:
+                    if line:
+                        t_remain = self.parse_time_remaining(line)                        
+                    else: 
+                        t_remain = 0.0
+                    t_remain_list.append(t_remain)
+                    t_remain_list_all.append(t_remain)
+
+                REMAIN_LOG_DICT[prefix] = (log_list, line_list, n_job_wait, t_remain_list )
+        # - - - - - -
+        if len(t_remain_list_all) > 0:
+            t_remain_max = max(t_remain_list_all)
+        else:
+            t_remain_max = 0
+
+        t_now = time.strftime("%Y-%m-%d  %H:%M:%S")
+        #now = datetime.now()
+        #str_now = now.strftime("%Y-%m-%d %H:%M:%S")
+
+        with open(task_progress_log,"wt") as t:
+            t.write(f"LOCAL_TIME:    {t_now} \n")
+            t.write(f"NTASK_TOT:     {n_task_tot:3d}    " \
+                    f"# number of rows in MERGE.LOG\n")
+            t.write(f"NTASK_DONE:    {n_task_done:3d}    " \
+                    f"# number of MERGE.LOG rows labelled DONE\n")
+            t.write(f"TMAX_REMAIN: {t_remain_max:6.1f}   " \
+                    f"# estimated max remaining time (minutes) among SPLIT-jobs runnng now.\n")
+            t.write(f"NJOB_WAIT_TOT:  {n_job_wait_tot:3d}   " \
+                    f"# total number of SPLIT-jobs that have NOT yet started \n")
+
+            for prefix, info in REMAIN_LOG_DICT.items():
+                log_list      = info[0]
+                line_list     = info[1]
+                n_job_wait    = info[2]
+                t_remain_list = info[3]
+                t.write(f"\n{prefix}:\n")
+                for log, line, t_remain in zip(log_list, line_list, t_remain_list):
+                    # strip off the SPLIT part of LOG file name
+                    log   = os.path.basename(log).split('.LOG')[0]
+                    split = log.split(prefix+'_')[1]
+                    if t_remain <= 0.001: line = 'DONE'
+                    t.write(f"  {split}:  {line} \n")
+                t.write(f"  N_JOB_WAIT:   {n_job_wait}   # number of split-jobs not yet started\n")
+        # - - - -
+        return
+
+    def parse_time_remaining(self,line):
+        # Created Nov 2026
+        # parse time remaining from stdout line extracted from snlc_fit
+        wdlist            = line.split()
+        index_str_remain  = next((i for i, s in enumerate(wdlist) if "remain" in s), -1)
+        index_time_remain = index_str_remain - 2  # beware fragile !!!
+        t_remain          = float(wdlist[index_time_remain])  # minutes
+
+        return t_remain
+
     def merge_job_wrapup(self, irow, MERGE_INFO_CONTENTS):
 
         # irow is the row to wrapup in MERGE_INFO_CONTENTS
@@ -2394,8 +2520,6 @@ class LightCurveFit(Program):
         os.system(cmd_gzip)
 
         self.merge_cleanup_script_dir() 
-
-        # xxx nothing to write to? logging.info(f" FIT cleanup: Done.")
 
         # end merge_cleanup_final
 

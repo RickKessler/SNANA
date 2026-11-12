@@ -1589,12 +1589,18 @@ class LightCurveFit(Program):
         
         # proceed only for SNANA fitting code ... maybe later for BayeSN ?
 
-        logging.info(f" xxxx task_progress_status: OPT={OPT}  LCFIT_SUBCLASS = {LCFIT_SUBCLASS} ")
         if LCFIT_SUBCLASS != LCFIT_SNANA: return
     
         submit_info_yaml   = self.config_prep['submit_info_yaml']
         output_dir         = self.config_prep['output_dir']
         task_progress_log  = self.config_prep['task_progress_log']
+        base_task_progress_log = os.path.basename(task_progress_log)
+
+        if OPT < 0:
+            logging.info(f"Remove {base_task_progress_log}")
+            os.remove(task_progress_log)
+            return
+
         script_dir         = submit_info_yaml['SCRIPT_DIR']
         n_job_split        = submit_info_yaml['N_JOB_SPLIT']  # n_split per task
         n_job_tot          = submit_info_yaml['N_JOB_TOT']    # total number of expected split jobs
@@ -1602,11 +1608,6 @@ class LightCurveFit(Program):
         TASK_LIST          = MERGE_INFO_CONTENTS[TABLE_MERGE]
         n_task             = len(TASK_LIST)
 
-        if OPT < 0:
-            log_base = os.path.basename(task_progress_log)
-            logging.info(f"Remove {log_base}")
-            os.remove(task_progress_log)
-            return
 
         #word_match = 'Open' # for testing on jobs too short to have 'remain' update
         word_match = 'remain'  # nominal check

@@ -29,10 +29,17 @@
 #
 # Sep 11 2026 R.Kessler and J.Medoff: begin add new MAGERR_MODELPAR
 # Oct 06 2026: RK and JM: write FIELD column if CONE_REGIONS is used
-# Nov 05 2026: R.Chen: add Gaussian flux noise to mags for any magerr option (MAGERR_SNR5, MAGERR_SNR,
-#                      MAGERR_PDF); default ADD_NOISE_TO_MAGS = True; magerr is evaluated at the noised mag.
-#                      Optional NOISE_SEED (default from CONE_REGIONS name) and APPEND_TRUE_MAGS.
+# Nov 05 2026: R.Chen:
+#   add Gaussian flux noise to mags for any magerr option (MAGERR_SNR5, MAGERR_SNR,
+#   MAGERR_PDF); default ADD_NOISE_TO_MAGS = True; magerr is evaluated at the noised mag.
+#   Optional NOISE_SEED (default from CONE_REGIONS name) and APPEND_TRUE_MAGS.
 #
+# Nov 12 2026 R.Kesler
+#   In apply_cuts(), call set_cutvar_list(CUTWIN) to parse cut windows and force
+#   redshift cut to be first on the list.
+#   If redshift cut is applied, use memory-efficient cat_out.with_redshift_range()
+#   while other cuts use .filter mask.
+#   
 # ===================================================================
 
 import os, argparse, logging, shutil, datetime, time, glob, random
@@ -84,6 +91,7 @@ SUFFIX_TRUE     = '_true'   # suffix for true-mag columns (APPEND_TRUE_MAGS)
 # hard-wire sersic indices for each galaxy component
 SERSIC_INDEX_DICT = {  'n_disk_Sersic': 1.0,    'n_bulge_Sersic': 4.0 }
 
+VARNAME_REDSHIFT = 'redshift_true'
 VARNAME_VPEC     = "VPEC"
 VARLIST_FOR_VPEC = [ 'vx', 'vy', 'vz', 'ra', 'dec' ] # needed to compute VPEC
 VARNAME_RA       = 'ra'
@@ -482,7 +490,7 @@ def parse_config_mag_noise(config):
 
 
 def parse_config_cones(args, config):
-    cones = config.setdefault(KEY_CONE, None)
+    cones       = config.setdefault(KEY_CONE, None)
     select_cone = args.select_cone
     if select_cone:
         if not cones:
@@ -1354,8 +1362,9 @@ def read_galaxy_cat(args, config):
     logging.info(f"Read {n_file} galaxy catalog files from {cat_dir}")
 
     ds = oc.open(*catalog_files, synth_cores=True)
-    
+
     n_row = len(ds)
+        
     logging.info(f"Done reading dataset with {n_row:,} rows")
     print_proc_time(t0,"READ_CATALOG", n_row)
         
@@ -1398,6 +1407,8 @@ def check_diffsky_columns(config, ds):
 
 def apply_cuts(cat_inp, config):
 
+    # cat_inp is returned earlier from oc.open(*catalog_files, synth_cores=True)
+    
     t0 = time.time()
     cat_out = cat_inp
 
@@ -1410,25 +1421,22 @@ def apply_cuts(cat_inp, config):
     if not  APPLY_CUTS:
         return cat_out
 
+    # fetch list of cut-var names to quickly check what's in it
+    cutvar_list, cutwin_list = set_cutvar_list(CUTWIN)  # .xyz
+
+    # xxx mark xxx
+    #has_redshift = VARNAME_REDSHIFT  in cutvar_list
+    #sys.exit(f" xxx cutvar_list = {cutvar_list} \n xxx cutwin_list = {cutwin_list}")
+    # xxxxxx
+    
     logging.info(f"")
     logging.info(f"Apply cuts:")
-
-    if len(CUTWIN) > 0:
-        for row in CUTWIN:
-            cutvar = row.split()[0]
-            cutmin = float(row.split()[1])
-            cutmax = float(row.split()[2])
-            logging.info(f"   Apply cut {cutmin} < {cutvar} < {cutmax} ")
-            cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
-            n_row_out = len(cat_out)
-            logging.info(f"\t n_row after {cutvar} cut: {n_row_out:,} ")
 
     # Aug 2026: check for cone regions (e.g., Roman)
     # Sep 2026: Updated by J.Medoff to account for new CONE_REGIONS format
 
     if CONE_REGIONS:
         for field, row in CONE_REGIONS.items():
-            #print(f"xxx field = {field}, row = {row}")
             ra_cen       = float(row.split()[0])
             dec_cen      = float(row.split()[1])
             radius_cone  = float(row.split()[2])
@@ -1441,8 +1449,22 @@ def apply_cuts(cat_inp, config):
             logging.info(f"\t n_galaxies in cone : {n:,} ")
             if n == 0 : continue
         cat_out = cat_cone
-        
 
+    # - - - - -
+    for cutvar, cutwin in zip(cutvar_list, cutwin_list):
+        cutmin = cutwin[0]
+        cutmax = cutwin[1]
+        logging.info(f"   Apply cut {cutmin} < {cutvar} < {cutmax} ")
+
+        if cutvar == VARNAME_REDSHIFT:
+            # specialized "with_redshift_range" is more efficient than general .filter
+            cat_out = cat_out.with_redshift_range(cutmin,cutmax) 
+        else:
+            cat_out = cat_out.filter(oc.col(cutvar)<cutmax).filter(oc.col(cutvar)>cutmin)
+            
+        n_row_out = len(cat_out)
+        logging.info(f"\t n_row after {cutvar} cut: {n_row_out:,} ")
+        
     # - - - - - - - 
     n_row_out = len(cat_out)
     logging.info('')
@@ -1454,6 +1476,25 @@ def apply_cuts(cat_inp, config):
     print_proc_time(t0, "APPLY_CUTS", None)
     
     return cat_out   # end apply_cuts
+
+def set_cutvar_list(CUTWIN):
+    cutvar_list = []
+    cutwin_list = []
+    for row in CUTWIN:
+        cutvar = row.split()[0]
+        cutmin = float(row.split()[1])
+        cutmax = float(row.split()[2])
+        cutvar_list.append(cutvar)
+        cutwin_list.append( (cutmin,cutmax) )
+
+    # if redshift is not first cutvar, re-sort so that redshift is
+    # first on the list ... it is more efficient for applying cuts.
+    k = cutvar_list.index(VARNAME_REDSHIFT)
+    if k > 0:  # skip if k==0 since redshift is already first on the list
+        cutvar_list = [cutvar_list[k]] + sorted(cutvar_list[:k] + cutvar_list[k+1:] )
+        cutwin_list = [cutwin_list[k]] + sorted(cutwin_list[:k] + cutwin_list[k+1:] )
+        
+    return cutvar_list, cutwin_list
 
 def print_columns(substring, column_list, descript_list):
 
@@ -1807,13 +1848,13 @@ def write_hostlib_files(args, config, df_cat):
         write_hostlib_header(fp, hlib_file, ngal, config)
     # - - - -
 
-    
-    logging.info(f"  Start writing GAL rows to HOSTLIB(s) ... ")
+    n_row_tot = len(df_cat)
+    logging.info(f"  Start writing {n_row_tot:,} GAL rows to HOSTLIB(s) ... ")
     nrow = -1
     nrow_wr = 0
 
     CHUNK = n_update_stdout   # read in small-ish chunks to reduce memory (Claude's suggestion)
-    for start in range(0, len(df_cat), CHUNK):
+    for start in range(0, n_row_tot, CHUNK):
         chunk = df_cat.iloc[start:start + CHUNK]
         for hlib_file, hlib_dict in hostlib_dict.items():
             mask  = row_mask[hlib_file].iloc[start:start + CHUNK]

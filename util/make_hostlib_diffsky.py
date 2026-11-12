@@ -139,6 +139,9 @@ def get_args():
 
     msg = "Select one of the defined cone regions"
     parser.add_argument("--select_cone", help=msg, type=str, default=None)
+
+    msg = "disable magerr scatter; use only mean magerr per mag bin"
+    parser.add_argument("--disable_magerr_scatter", help=msg, action="store_true")
     
     # parse it
     args = parser.parse_args()
@@ -148,7 +151,10 @@ def get_args():
 
     if args.config_file is None:
         sys.exit(f"\n ERROR: missing config_file input")
-        
+
+    # define a postive-logical for internal use (hopefully less confusion)
+    args.do_magerr_scatter = (not args.disable_magerr_scatter)
+    
     return args
     # end get_args
 
@@ -199,12 +205,12 @@ HOSTLIB_VARNAMES_MAP:
 
 
 {KEY_MAGERR_SNR5}:
-- lsst_u  25       # use this 5 sigma depth to compute [band]_err columns
-- lsst_g  27  .2   # apply optional 0.2 mag dispersion to m5sig depth
-- lsst_r  27
-- lsst_i  27
-- lsst_z  26
-- lsst_y  25
+- lsst_u  25  0.3   # 5 sigma depth and .3 mag dispersion to compute [band]_err columns
+- lsst_g  27  0.2   
+- lsst_r  27  0.2
+- lsst_i  27  0.2
+- lsst_z  26  0.25
+- lsst_y  25  0.30
 
 #    ...or ...
 
@@ -391,9 +397,9 @@ def parse_config_driver(args, config):
     
     # check options to compute mag errors    # xxx config['magerr_bands'] = []
     config['band_magerr_list_diffsky'] = []
-    config = parse_config_magerr_snr5(config)
-    config = parse_config_magerr_snr(config)
-    config = parse_config_magerr_pdf(config)
+    config = parse_config_magerr_snr5(args,config)
+    config = parse_config_magerr_snr(args,config)
+    config = parse_config_magerr_pdf(args,config)
     config['add_magerr']   = len(config['band_magerr_list_diffsky']) > 0
 
     # prepare area-frac and ra,dec ranges for each hostlib (but do not open)
@@ -401,7 +407,7 @@ def parse_config_driver(args, config):
 
     config = parse_config_cones(args, config)
     config = parse_config_magerr(args, config) # Needs to come after parse_config_cones
-    config = parse_config_mag_noise(config)    # Needs magerr band list and cones
+    config = parse_config_mag_noise(args, config)    # Needs magerr band list and cones
     
     logging.info(f"")
     
@@ -437,7 +443,7 @@ def parse_config_magerr(args, config):
         
     return config
 
-def parse_config_mag_noise(config):
+def parse_config_mag_noise(args, config):
 
     # Created Nov 5 2026 by R.Chen
     # Parse options to add noise to mags (applies to any magerr option):
@@ -464,6 +470,8 @@ def parse_config_mag_noise(config):
             noise_seed = NOISE_SEED_BASE
     config['noise_seed'] = noise_seed
 
+    config['do_magerr_scatter'] = args.do_magerr_scatter
+    
     config['noise_note'] = \
         f"Gaussian flux noise added to mags using magerr at true mag; " \
         f"written magerr evaluated at noised mag; noised flux <= 0 -> " \
@@ -727,7 +735,7 @@ def get_vartype(varname, config):
     return None, (None,None)
 
 
-def parse_config_magerr_pdf(config):
+def parse_config_magerr_pdf(args,config):
 
     MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF,None)
     if not MAGERR_PDF_DICT:
@@ -752,7 +760,7 @@ def parse_config_magerr_pdf(config):
     
     return config
 
-def parse_config_magerr_snr(config):
+def parse_config_magerr_snr(args,config):
 
     # Created Jul 14 2026
     # parse MAG_SNR block if the form
@@ -761,8 +769,10 @@ def parse_config_magerr_snr(config):
     # - ... etc
 
     MAGERR_SNR = config.get(KEY_MAGERR_SNR, [])
+    MAGERR_SNR_USE = []
     magerr_snr_dict = {}
 
+    
     for row in MAGERR_SNR:
         words = row.split()
         band  = words[0]
@@ -772,20 +782,33 @@ def parse_config_magerr_snr(config):
         
         mag_list = [ float(words[1]), float(words[3]) ]
         snr_list = [ float(words[2]), float(words[4]) ]
-        std_mag  = float(words[5])
-        magerr_snr_dict[band_diffsky] = { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
+
+        if args.do_magerr_scatter:
+            std_mag  = float(words[5])
+            row_use = row
+        else:
+            std_mag  = 0.0
+            row_use = row.replace(words[5],'0')
+            
+        magerr_snr_dict[band_diffsky] = \
+            { 'mag_list': mag_list, 'snr_list':snr_list, 'std_mag': std_mag }
         config['band_magerr_list_diffsky'].append(band_diffsky)
-        
+
+        MAGERR_SNR_USE.append(row_use)
+
+    # - - - - - - 
     config['magerr_snr_dict'] = magerr_snr_dict
+    config[KEY_MAGERR_SNR]    = MAGERR_SNR_USE
     
     return config
 #end parse_config_magerr_snr
 
-def parse_config_magerr_snr5(config):    
+def parse_config_magerr_snr5(args,config):    
     """ parse and load m5sig dictionaries and m5sig_bands list to config.
     """
     MAGERR_SNR5 = config.get(KEY_MAGERR_SNR5, [])
-
+    MAGERR_SNR5_USE = []
+        
     m5sig_dict     = {}
     m5sig_std_dict = {}
 
@@ -794,7 +817,8 @@ def parse_config_magerr_snr5(config):
         band  = words[0]
         mag   = words[1]
         std   = 0.0
-        if len(words) > 2:  std = words[2]
+        if len(words) > 2 and args.do_magerr_scatter:
+            std = words[2]
 
         # if user defines HOSTLIB mag names, convert back to diffksy mag names
         vartype, (band_diffsky, band_hostlib) = get_vartype(band, config)
@@ -803,11 +827,14 @@ def parse_config_magerr_snr5(config):
         m5sig_std_dict[band_diffsky] = float(std)
         config['band_magerr_list_diffsky'].append(band_diffsky)
 
+        row_use = f"{band}  {mag}  {std}"
+        MAGERR_SNR5_USE.append(row_use)
+        
     # - - - - 
     config['m5sig_dict']     = m5sig_dict
     config['m5sig_std_dict'] = m5sig_std_dict
     config['m5sig_bands']    = list(m5sig_dict.keys())  # to become obsolete
-
+    config[KEY_MAGERR_SNR5]  = MAGERR_SNR5_USE  # in case disable_magerr_scatter override
     
     return config
 #end parse_config_magerr_snr
@@ -1221,7 +1248,7 @@ def add_col_magerr_snr5(df_cat,config):
         if m5sig_std > 0 :
             m5sig_noisy = rng.normal(loc=m5sig, scale=m5sig_std, size=len_df)
         else:
-            m5sig_noisy = m5sig   # xxx mark np.full(len_df, m5sig)
+            m5sig_noisy = m5sig  
             
         #m5sig_noisy = np.random.normal(m5sig, m5_err)
 
@@ -1491,9 +1518,11 @@ def set_cutvar_list(CUTWIN):
     # first on the list ... it is more efficient for applying cuts.
     k = cutvar_list.index(VARNAME_REDSHIFT)
     if k > 0:  # skip if k==0 since redshift is already first on the list
-        cutvar_list = [cutvar_list[k]] + sorted(cutvar_list[:k] + cutvar_list[k+1:] )
-        cutwin_list = [cutwin_list[k]] + sorted(cutwin_list[:k] + cutwin_list[k+1:] )
-        
+        cutvar_list = [cutvar_list[k]] + cutvar_list[:k] + cutvar_list[k+1:]
+        cutwin_list = [cutwin_list[k]] + cutwin_list[:k] + cutwin_list[k+1:] 
+
+    #sys.exit(f"\n xxx cutvar_list = {cutvar_list} \n xxx cutwin_list = \n{cutwin_list}")
+    
     return cutvar_list, cutwin_list
 
 def print_columns(substring, column_list, descript_list):
@@ -1524,7 +1553,7 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     hostlib_dict            =  config['hostlib_dict']
     HOSTLIB_VARNAMES_STRING =  config['HOSTLIB_VARNAMES_STRING'] 
     HOSTLIB_VARNAMES_MAP    =  config[KEY_HOSTLIB_VARNAMES_MAP]
-
+    do_magerr_scatter       =  config['do_magerr_scatter']
     
     cat_dir      = config[KEY_CAT_DIR]
     cat_dir_base = os.path.basename(cat_dir)
@@ -1560,7 +1589,8 @@ def write_hostlib_header(fp, hlib_file, ngal, config):
     fp.write(f"    NGAL:       {ngal} \n")
     fp.write(f"    RA_RANGE:   {str_ra}      # degrees \n")
     fp.write(f"    DEC_RANGE:  {str_dec}     # degrees \n")
-
+    fp.write(f"    MAGERR_SCATTER:  {do_magerr_scatter} \n")
+    
     if config['USE_SERIAL_TAG'] :
         fp.write("#   WARNING: GALID is sequential number unrelated to diffsky cat\n")
 

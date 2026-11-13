@@ -2075,11 +2075,27 @@ S: 56256.033  1007  J  4.0  160.0  282.14  1.16 0.0  0.0    31.99  0.010  99.
 
 
 % ----------------------------------------------------------
-%   \clearpage
-   \subsection{Simulating Multiple Seasons}
-   \label{subsec:multi_seasons}
+   \clearpage
+   \subsection{Simulating PEAKMJD and MJD Ranges}
+   \label{subsec:mjd_ranges}
 % ----------------------------------------------------------
 
+\begin{verbatim}
+  GENRANGE_PEAKMJD:          <MIN>  <MAX>   # generate in this range
+  GENRANGE_PEAKMJD_EXCLUDE:  <min>  <max>   # ... exclude this region
+
+  GENRANGE_MJD:           <MIN>  <MAX>    # include this MJD range
+  GENRANGE_MJD_EXCLUDE:   <min>  <max>    # but exclude this region
+
+  PERIODIC_MJD_EXCLUDE:  <MJD_START>  <TIME_ALIVE>  <TIME_EXCLUDE>
+        # period = TIME_ALIVE + TIME_EXCLUDE
+        # Example: PERIODIC_MJD_EXCLUDE = 60000 20 10    -->
+        # accept MJD in ranges 60000-60020, 60030-60050, 60060-60080, etc ...
+\end{verbatim}
+
+
+\subsubsection{Simulating Multiple Seasons}
+\label{subsec:multi_seasons}
 Multiple seasons can be simulated with a separate \simlib\ file
 for each season, but this strategy requires multiple generations
 and bookkeeping to generate a full multi-season sample. 
@@ -10471,7 +10487,7 @@ There are three {\tt \&SNLCINP} {\tt CUTWIN} parameters to define
 MJD ranges:
 \begin{Verbatim}[frame=single]
    CUTWIN_MJD         = 53600, 53700  ! use obs only in this MJD range
-   CUTWIN_MJD_EXCLUDE = 53622, 53628  ! excluce obs in this MJD range
+   CUTWIN_MJD_EXCLUDE = 53622, 53628  ! excluce obs in this MJD range   
    CUTWIN_MJD_INCLUDE = 53630, 53660  ! require at least 1 MJD in this range
 \end{Verbatim}
 The first two {\tt CUTWIN} parameters define epochs to select.

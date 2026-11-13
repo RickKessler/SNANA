@@ -859,6 +859,9 @@ void set_user_defaults(void) {
   INPUTS.GENRANGE_MJD[1]   = 80000.0 ;
   INPUTS.GENRANGE_MJD_EXCLUDE[0]   = 0 ;
   INPUTS.GENRANGE_MJD_EXCLUDE[1]   = 0 ;
+  INPUTS.MJD_MASK[0]     = 0.0 ;  // period (days); 0 -> no mask
+  INPUTS.MJD_MASK[1]     = 0.0 ;  // masked time per period (days)
+  INPUTS.MJD_MASK_START  = 0.0 ;   // RP 11/2026
   INPUTS.NEWMJD_DIF  = 0.007 ; // default: same "epoch" for obs within 10'
 
   INPUTS.GENRANGE_TREST[0]   = 0.0 ;
@@ -2220,6 +2223,21 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1,"GENRANGE_MJD_EXCLUDE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD_EXCLUDE[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD_EXCLUDE[1] );
+  }
+  else if ( keyMatchSim(1,"MJD_MASK", WORDS[0],keySource) ) {
+    // RP Nov 2026: periodic MJD mask, e.g. Roman decontamination:
+    //   MJD_MASK: 20 3.2  -> every 20 days, mask out 3.2 days
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.MJD_MASK[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.MJD_MASK[1] );
+    if ( INPUTS.MJD_MASK[0] <= 0.0 || INPUTS.MJD_MASK[1] <= 0.0 ||
+	 INPUTS.MJD_MASK[1] >= INPUTS.MJD_MASK[0] ) {
+      sprintf(c1err,"Invalid MJD_MASK: %s %s", WORDS[1], WORDS[2] );
+      sprintf(c2err,"Need 0 < mask < period (days)");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
+    }
+  }
+  else if ( keyMatchSim(1,"MJD_MASK_START", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.MJD_MASK_START );
   }
 
   else if ( keyMatchSim(1,"GENRANGE_PEAKMJD", WORDS[0],keySource) ) {
@@ -19850,6 +19868,13 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	KEEP_MJD =  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
 	if ( MJD > INPUTS.GENRANGE_MJD_EXCLUDE[0] && 
 	     MJD < INPUTS.GENRANGE_MJD_EXCLUDE[1] ) { KEEP_MJD = 0; }
+	
+	// RP  11/2026
+	if ( INPUTS.MJD_MASK[0] > 0.0 ) {  // Nov 2026: periodic mask (decon)
+	  double dT = fmod(MJD - INPUTS.MJD_MASK_START, INPUTS.MJD_MASK[0]);
+	  if ( dT < 0.0 ) { dT += INPUTS.MJD_MASK[0]; }
+	  if ( dT < INPUTS.MJD_MASK[1] ) { KEEP_MJD = 0; }
+	}
  
 	// code aborts below if ISTORE is too big, but to avoid corrupting
 	// abort messages, don't exceed array bound here.

@@ -722,8 +722,6 @@ void set_user_defaults(void) {
   INPUTS.RESTORE_BUG_GALMAG     = false;   // Oct 9 2026 -> False Oct 30 2026
   INPUTS.RESTORE_DES5YR         = 0 ; // May 28 2025
 
-  //   INPUTS.RESTORE_BUG_GALMAG = false; // xxx .xyz ???
-
   INPUTS.REFAC_DATA_FLAG        = 0; // 701 ;
   NLINE_RATE_INFO   = 0;
 
@@ -859,9 +857,9 @@ void set_user_defaults(void) {
   INPUTS.GENRANGE_MJD[1]   = 80000.0 ;
   INPUTS.GENRANGE_MJD_EXCLUDE[0]   = 0 ;
   INPUTS.GENRANGE_MJD_EXCLUDE[1]   = 0 ;
-  INPUTS.MJD_MASK[0]     = 0.0 ;  // period (days); 0 -> no mask
-  INPUTS.MJD_MASK[1]     = 0.0 ;  // masked time per period (days)
-  INPUTS.MJD_MASK_START  = 0.0 ;   // RP 11/2026
+  INPUTS.PERIODIC_MJD_EXCLUDE[0]     = 0.0 ;  // MJD start
+  INPUTS.PERIODIC_MJD_EXCLUDE[1]     = 0.0 ;  // unmasked time (day)
+  INPUTS.PERIODIC_MJD_EXCLUDE[2]     = 0.0 ;  // masked time (days); cyle time = sum of both
   INPUTS.NEWMJD_DIF  = 0.007 ; // default: same "epoch" for obs within 10'
 
   INPUTS.GENRANGE_TREST[0]   = 0.0 ;
@@ -2224,20 +2222,19 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD_EXCLUDE[0] );
     N++;  sscanf(WORDS[N], "%le", &INPUTS.GENRANGE_MJD_EXCLUDE[1] );
   }
-  else if ( keyMatchSim(1,"MJD_MASK", WORDS[0],keySource) ) {
-    // RP Nov 2026: periodic MJD mask, e.g. Roman decontamination:
-    //   MJD_MASK: 20 3.2  -> every 20 days, mask out 3.2 days
-    N++;  sscanf(WORDS[N], "%le", &INPUTS.MJD_MASK[0] );
-    N++;  sscanf(WORDS[N], "%le", &INPUTS.MJD_MASK[1] );
-    if ( INPUTS.MJD_MASK[0] <= 0.0 || INPUTS.MJD_MASK[1] <= 0.0 ||
-	 INPUTS.MJD_MASK[1] >= INPUTS.MJD_MASK[0] ) {
-      sprintf(c1err,"Invalid MJD_MASK: %s %s", WORDS[1], WORDS[2] );
-      sprintf(c2err,"Need 0 < mask < period (days)");
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ;
-    }
-  }
-  else if ( keyMatchSim(1,"MJD_MASK_START", WORDS[0],keySource) ) {
-    N++;  sscanf(WORDS[N], "%le", &INPUTS.MJD_MASK_START );
+  else if ( keyMatchSim(1,"PERIODIC_MJD_EXCLUDE", WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.PERIODIC_MJD_EXCLUDE[0] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.PERIODIC_MJD_EXCLUDE[1] );
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.PERIODIC_MJD_EXCLUDE[2] );
+
+    // apply sanity checks here in case user accidentally swaps MJD_STRART with
+    // one of the other two
+    checkval_D("PERIODIC_MJD_EXCLUDE[START]", 1, &INPUTS.PERIODIC_MJD_EXCLUDE[0],
+	       20000.0, 99000.0, fnam );
+    checkval_D("PERIODIC_MJD_EXCLUDE[UNMASKED]", 1, &INPUTS.PERIODIC_MJD_EXCLUDE[1],
+	       1.0, 100.0, fnam );
+    checkval_D("PERIODIC_MJD_EXCLUDE[MASKED]", 1, &INPUTS.PERIODIC_MJD_EXCLUDE[1],
+	       0.0, 100.0, fnam );
   }
 
   else if ( keyMatchSim(1,"GENRANGE_PEAKMJD", WORDS[0],keySource) ) {
@@ -19864,18 +19861,24 @@ void  SIMLIB_readNextCadence_TEXT(void) {
 	//read MJD into scalar to see if it is within GENRANGE_MJD
 	IWD++; sscanf(WDLIST[IWD], "%le", &MJD  ); 
 	MJD += INPUTS.SIMLIB_MJD_SHIFT;  // Feb 20 2026
-       
+
+	KEEP_MJD =  keep_SIMLIB_MJD(MJD); // return bool
+
+	/* xxxxxxxx mark delete Nov 13 2026 xxxxxxxx
 	KEEP_MJD =  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
 	if ( MJD > INPUTS.GENRANGE_MJD_EXCLUDE[0] && 
 	     MJD < INPUTS.GENRANGE_MJD_EXCLUDE[1] ) { KEEP_MJD = 0; }
 	
+
 	// RP  11/2026
 	if ( INPUTS.MJD_MASK[0] > 0.0 ) {  // Nov 2026: periodic mask (decon)
 	  double dT = fmod(MJD - INPUTS.MJD_MASK_START, INPUTS.MJD_MASK[0]);
 	  if ( dT < 0.0 ) { dT += INPUTS.MJD_MASK[0]; }
 	  if ( dT < INPUTS.MJD_MASK[1] ) { KEEP_MJD = 0; }
 	}
- 
+	xxxxxxxxx end mark xxxxxxxx*/
+
+
 	// code aborts below if ISTORE is too big, but to avoid corrupting
 	// abort messages, don't exceed array bound here.
 	if ( KEEP_MJD &&  ISTORE < MXOBS_SIMLIB ) {
@@ -20086,6 +20089,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   return ;
 
 } // end SIMLIB_readNextCadence_TEXT
+
 
 
 // ==============================================
@@ -21230,6 +21234,54 @@ void get_SPECTROGRAPH_ZPTPSFSKY(int OBSRAW, int ifilt,
 } // end get_SPECTROGRAPH_ZPTPSFSKY
 
 
+bool keep_SIMLIB_MJD(double MJD) {
+
+  // Created Nov 2026 by R.Kessler and R.Pirohit
+  // Check if SIMLIB MJD value should be kept for storage.
+  // Note that keep_SIMLIB_OBS below makes a more refined cut based on obs properties.
+
+  bool KEEP_MJD ;
+  char fnam[] = "keep_SIMLIB_MJD" ;  (void)fnam;
+
+  // ---------- BEGIN ------------
+
+  // start with big MJD window
+  KEEP_MJD =  (MJD >= INPUTS.GENRANGE_MJD[0] && MJD <= INPUTS.GENRANGE_MJD[1]) ;
+  if ( !KEEP_MJD ) { return KEEP_MJD; } // assumes below we can only reject; not recover
+
+  // check specialized exclusion; a hole in the middle
+  if ( MJD > INPUTS.GENRANGE_MJD_EXCLUDE[0] && 
+       MJD < INPUTS.GENRANGE_MJD_EXCLUDE[1] ) { KEEP_MJD = 0; }
+  
+  // RP  11/2026 - check periodic exlusions 
+  // Original motivation is Roman decons
+  // Example: MJD_START = 60000, TIME[UNMASKED,MASK] = 20, 10
+  //  -> KEEP_MJD = true for 60000 < MJD < 60020
+  //                         60030 < MJD < 60050
+  //                         60060 < MJD < 60080
+  //                         etc ...
+  if ( INPUTS.PERIODIC_MJD_EXCLUDE[0] > 0.0 ) {  // 
+    double MJD_START, TIME_UNMASKED, TIME_MASKED, PERIOD, dT, MJD_LOCAL ;
+    MJD_START     = INPUTS.PERIODIC_MJD_EXCLUDE[0];
+    TIME_UNMASKED = INPUTS.PERIODIC_MJD_EXCLUDE[1] ; // use this MJD window
+    TIME_MASKED   = INPUTS.PERIODIC_MJD_EXCLUDE[2] ; (void)TIME_MASKED;  // exclude this window 
+    PERIOD        = INPUTS.PERIODIC_MJD_EXCLUDE[1] + INPUTS.PERIODIC_MJD_EXCLUDE[2] ;
+    MJD_LOCAL     = MJD;
+    if ( MJD_LOCAL < MJD_START ) {
+      // add enough PERIOD value so that MJD_LOCAL > MJD_START
+      int N_PERIOD = (int)( (MJD_START-MJD_LOCAL)/PERIOD ) + 1 ;
+      MJD_LOCAL += PERIOD * (N_PERIOD + 1 );
+    }
+    
+    dT  = fmod(MJD_LOCAL - MJD_START, PERIOD);
+    // xxx mark delete    if ( dT < 0.0 ) { dT += INPUTS.MJD_MASK[0]; }
+    if ( dT > TIME_UNMASKED ) { KEEP_MJD = false ; }
+  }
+
+  return KEEP_MJD ;
+
+} // end keep_SIMLIB_MJD
+
 // =================================================
 bool keep_SIMLIB_OBS(int OBS) {
 
@@ -21252,7 +21304,6 @@ bool keep_SIMLIB_OBS(int OBS) {
 
   // ------------ BEGIN --------------
 
-  
   if (LTRACE) {
     printf(" xxx ---------------------------- \n");
     printf(" xxx 0 OBS = %d  \n", OBS); 
@@ -21262,14 +21313,17 @@ bool keep_SIMLIB_OBS(int OBS) {
   MJD   = SIMLIB_OBS_RAW.MJD[OBS] ;
 
 
+  // this MJD cut could include only Trest range, or entire season or entire survey.
   if ( MJD < GENLC.MJD_RANGE[0] ) { return(NOKEEP); }
   if ( MJD > GENLC.MJD_RANGE[1] ) { return(NOKEEP); }
 
   if (LTRACE) {printf(" xxx 1 pass explicit MJD cut\n"); fflush(stdout); }
 
+  /* xxxxxxx mark obsolete Nov 13 2026 xxxxxxxxx
   if ( !keep_SIMLIB_MJD(OBS) ) { return(NOKEEP); }
-
   if (LTRACE) {printf(" xxx 2 pass keep_SIMLIB_MJD \n"); fflush(stdout); }
+  xxxxxxxxxxx end mark xxxxxxxxx*/
+
 
   // check option to skip field 
   if ( SKIP_SIMLIB_FIELD(1,FIELD) ) { return(NOKEEP); }
@@ -21314,7 +21368,8 @@ bool keep_SIMLIB_OBS(int OBS) {
 } // end keep_SIMLIB_OBS
 
 // ==============================================
-bool keep_SIMLIB_MJD(int OBS) {
+bool keep_SIMLIB_MJD_OBSOLETE(int OBS) {
+  // @@@@@@@@@ MARK OBSOLETE Nov 13 2026  @@@@@@@@@@@
 
   // Created Oct 1 2023
   // Check prescale to select MJDs
@@ -21324,9 +21379,10 @@ bool keep_SIMLIB_MJD(int OBS) {
   double zCMB    = GENLC.REDSHIFT_CMB ;
   double PEAKMJD = GENLC.PEAKMJD ;
 
+  // @@@@@@@@@ MARK OBSOLETE Nov 13 2026  @@@@@@@@@@@
   int    i, PRESCALE;
   double MJD, MJD_LAST, TRESTMIN, TREST;
-  char fnam[] = "keep_SIMLIB_MJD" ;  (void)fnam;
+  char fnam[] = "keep_SIMLIB_MJD_OBSOLETE" ;  (void)fnam;
 
   // ---------- BEGIN -----------
 
@@ -21337,6 +21393,8 @@ bool keep_SIMLIB_MJD(int OBS) {
   MJD       = SIMLIB_OBS_RAW.MJD[OBS] ;
   TREST     = (MJD - PEAKMJD) / ( 1.0 + zCMB );
 
+  // @@@@@@@@@ MARK OBSOLETE Nov 13 2026  @@@@@@@@@@@
+
   // increment number of unique MJDs
   if ( MJD - MJD_LAST > 1.0E-6 ) 
     {  NMJD++ ; SIMLIB_NSKIPMJD.NMJD_EVENT_UNIQUE = NMJD; }
@@ -21346,6 +21404,8 @@ bool keep_SIMLIB_MJD(int OBS) {
     TRESTMIN = (double)SIMLIB_NSKIPMJD.TRESTMIN[i];
     if ( TREST >= TRESTMIN ) { PRESCALE = SIMLIB_NSKIPMJD.PRESCALE[i]; }
   }
+
+  // @@@@@@@@@ MARK OBSOLETE Nov 13 2026  @@@@@@@@@@@
 
   if ( PRESCALE == 1 ) 
     { return true; }
@@ -21358,6 +21418,8 @@ bool keep_SIMLIB_MJD(int OBS) {
     xxx */
     return KEEP;
   }
+
+  // @@@@@@@@@ MARK OBSOLETE Nov 13 2026  @@@@@@@@@@@
 
 } // end keep_SIMLIB_MJD
 

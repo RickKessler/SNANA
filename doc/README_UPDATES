@@ -24439,6 +24439,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         only, and is not used by submit_batch .... however, the information might be used
         later to auto-stop jobs that have obvious severe problem.
 
+    snlc_sim.c
+     + new sim-input key MJD_MASK (motivated by Roman decon)
+       Post PR:
+         - regression test
+         - snana manual
+         - MJD_MASK[2] => MJD_MASK[3] and drop other key
+         - appply checks on all values to catch dumb mistakes
+         - do all MJD-exclusion under 1 function
+
+
 END:
 
 

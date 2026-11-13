@@ -35,6 +35,10 @@
 #   +  add new arg --snana_dir to use private Cprog_dump and Cprog_combine
 #   +  append header comments before VARNAMES instead of at top of file.
 #
+# Nov 13 2026:
+#   replace temp file "sntable_dump.fitres" with more unique name that
+#   includes base name of input table file. See method get_outfile_name().
+#
 # ===================
 
 import os, sys, argparse, yaml, datetime 
@@ -61,7 +65,8 @@ TABLE_NAME_MAP_ROOT  = {
 }
 
 OUTFILE_PREFIX = "sntable_dump"
-OUTFILE_SUFFIX = "fitres"
+# xxx mark OUTFILE_SUFFIX = "fitres"
+OUTFILE_SUFFIX = "TEXT"
 
 SNANA_DIR_DEFAULT        = os.getenv('SNANA_DIR')
 Cprog_dump_base       = f"sntable_dump.exe"
@@ -190,13 +195,39 @@ def check_table_name(table_name_orig,Format):
 
 def get_outfile_name(input_args,config):
 
+    inpfile    = input_args.input_table_file
+    outfile    = input_args.outfile
+    table_name = config.table_name 
+  
+    if outfile :  return outfile
+
+    inpbase  = os.path.basename(inpfile).split('.')[0]
+    prefix   = f"{OUTFILE_PREFIX}_{inpbase}"
+    suffix   = f"{table_name}.{OUTFILE_SUFFIX}"
+
+    prefix_append_flag_list = [ input_args.OBS, input_args.outlier_fit, input_args.outlier_sim ]
+    prefix_append_str_list  = [ 'obs', 'outlier_fit', 'outlier_sim' ]
+
+    for flag, prefix_append in zip(prefix_append_flag_list,prefix_append_str_list):
+        if flag: prefix += f"_{prefix_append}"
+            
+    # default name is based on name of table
+    outfile = f"{prefix}.{suffix}"  # .xyz
+
+    return outfile
+
+def get_outfile_name_legacy(input_args,config):
+
+    # @@@@@@@@@@@ MARK OBSOLETE Nov 13 2026   @@@@@@@@@@@@@
     outfile    = input_args.outfile
     table_name = config.table_name 
   
     if outfile :  return outfile
 
     # default name is based on name of table
-    outfile = f"{OUTFILE_PREFIX}_{table_name}.{OUTFILE_SUFFIX}"
+    outfile = f"{OUTFILE_PREFIX}_{table_name}.{OUTFILE_SUFFIX}"  
+
+    # @@@@@@@@@@@ MARK OBSOLETE Nov 13 2026   @@@@@@@@@@@@@
 
     if input_args.OBS:
         outfile = f"{OUTFILE_PREFIX}_obs.{OUTFILE_SUFFIX}"
@@ -207,6 +238,7 @@ def get_outfile_name(input_args,config):
     if input_args.outlier_sim:
         outfile = f"{OUTFILE_PREFIX}_outlier_sim.{OUTFILE_SUFFIX}"
 
+    # @@@@@@@@@@@ MARK OBSOLETE Nov 13 2026   @@@@@@@@@@@@@
     return outfile
 
     # end get_outfile_name
@@ -295,13 +327,11 @@ def append_fitres(input_args,config):
     input_table_file = input_args.input_table_file
     append_file      = input_args.append_file
 
-    # xxx mark varlist          = (input_args.varlist).replace(',',' ')
     varlist          = ' '.join(input_args.varlist).replace(',',' ')
 
     outfile_dump     = config.outfile
     table_name       = config.table_name
     Format           = config.Format
-    # xxx mark combine_arg      = ''  # Format[0]  # R for ROOT file
 
     tmp = append_file.split('.')
     outfile_prefix = f"sntable_append_{tmp[0]}"
@@ -339,22 +369,7 @@ def append_fitres(input_args,config):
     # Oct 30 2026: prepare unix sed command to insert comments before VARNAMES key
     sed_insert_command = f"sed -i '/VARNAMES/{sed_insert_text}' {outfile}"
 
-    REFAC_INSERT_COMMENTS = True
-    if REFAC_INSERT_COMMENTS:
-        print(f"\n xxx sed_insert_command = \n{sed_insert_command}")
-        os.system(sed_insert_command)
-    else:
-        # xxxxxxxx mark delete Oct 30 2026 xxxxxxxx
-        # legacy comments that appear at the top of file
-        comment_file = "tmp_comments_append.text"
-        with open(comment_file,"wt") as f:
-            for comment in comment_list:
-                f.write(f"{comment}\n")
-    
-        # catenate comments and append file
-        cmd_cat = f"cat {outfile} >> {comment_file} ; mv {comment_file} {outfile}"
-        os.system(cmd_cat)
-        # xxxxxxxx end mark xxxxxxxx
+    os.system(sed_insert_command)
 
     # - - - - - - 
     if input_args.VERBOSE:

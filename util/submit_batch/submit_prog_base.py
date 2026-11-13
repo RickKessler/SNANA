@@ -157,7 +157,7 @@ class Program:
         raise NotImplementedError()
 
     @abstractmethod
-    def task_progress_status(self, OPT, MERGE_INFO_CONTENTS):  # Nov 2026: initially for LCFIT
+    def task_progress_status(self, MERGE_INFO_CONTENTS):  # Nov 2026: initially for LCFIT
         pass  # optional
 
     @abstractmethod
@@ -300,19 +300,6 @@ class Program:
         if batch_single_node:
             config_prep['batch_command']  += f" -n {n_core}"
 
-        # xxx mark delete Mar 25 2026 xxxxx
-        #
-        # if 'BATCH_MEM' in CONFIG :            memory = str(CONFIG['BATCH_MEM'])
-        # check optional walltime (Jan 6 2021)
-        # if 'BATCH_WALLTIME' in CONFIG :            walltime = CONFIG['BATCH_WALLTIME']
-        # if 'BATCH_NTHREADS' in CONFIG : nthreads = CONFIG['BATCH_NTHREADS']
-        # option to run everything on one node
-        #if 'BATCH_SINGLE_NODE' in CONFIG :
-        #    batch_single_node = CONFIG['BATCH_SINGLE_NODE']
-        #    config_prep['batch_command']  += f" -n {n_core}"
-        #
-        # xxxxxxxx end mark xxxxxxxx
-
         sys.stdout.flush()
 
         config_prep['n_core']      = n_core 
@@ -428,7 +415,6 @@ class Program:
             f.write(f"  because \n")
             f.write(f"  {comment}\n")
 
-        # xxx mark util.write_done_stamp(output_dir, done_list, STRING_STOP)
         util.write_done_stamp(output_dir, done_list, STRING_FAIL)
 
         # - - - - - - - - - 
@@ -474,7 +460,6 @@ class Program:
         cpunum_last = -9;  job_name_last = ''
         if self.config_yaml['args'].cpunum is not None :
             cpunum_last = self.config_yaml['args'].cpunum
-            # xxx mark del cpunum_last = self.config_yaml['args'].cpunum[0]
 
         SBATCH_LIST  = submit_info_yaml['SBATCH_LIST'] 
         njob_kill    = len(SBATCH_LIST)
@@ -1354,12 +1339,6 @@ class Program:
 
         args        = self.config_yaml['args']
         args_debug  = None
-
-        # xxx mark delete Apr 21 2205 xxxxxxx
-        #if args.refac_cid_unique :
-        #    args_debug = '--refac_cid_unique'
-        # xxxxxxxxxxx
-
         return args_debug
 
         # end get_args_debug
@@ -1473,7 +1452,6 @@ class Program:
         nomerge          = args.nomerge
         merge_background = args.merge_background
         cpunum           = args.cpunum
-        # xxx mark delete cpunum           = args.cpunum[0]
         check_abort      = args.check_abort 
         verbose_flag     = not check_abort
 
@@ -1644,8 +1622,9 @@ class Program:
         if verbose_flag:
             logging.info(f"# {fnam}: finished {n_wrapup} wrapup tasks ")
 
+
         # Nov 2026: write optional/temporary task-progress log for humans (not used by code)
-        self.task_progress_status(+1, MERGE_INFO_CONTENTS)
+        self.task_progress_status(MERGE_INFO_CONTENTS)
 
         # Feb 2024: check kill_on_fail here in addition to check in CPU*.CMD
         if n_fail > 0 and submit_info_yaml['KILL_ON_FAIL'] :
@@ -1666,7 +1645,7 @@ class Program:
                 logging.info(f"\n# {fnam}: ALL JOBS DONE -> " \
                              f"BEGIN FINAL CLEANUP  with cleanup_flag={cleanup_flag}")
                 if cleanup_flag:
-                    self.task_progress_status(-1, [])  # -1 -> remove task-progress log
+                    self.remove_task_progress_log()
                     self.merge_cleanup_final()  
 
                 STRING_STATUS = STRING_SUCCESS
@@ -1687,6 +1666,15 @@ class Program:
 
         return
         # end merge_driver
+        
+    def remove_task_progress_log(self):
+        is_base = type(self).task_progress_status is Program.task_progress_status
+        if is_base : return  
+
+        task_progress_log = self.config_prep['task_progress_log']
+        if os.path.exists(task_progress_log):
+            os.remove(task_progress_log)
+        return
 
     def check_for_slurm_failure(self):
 
@@ -2011,7 +1999,6 @@ class Program:
         submit_info_yaml    = self.config_prep['submit_info_yaml'] 
         input_file          = args.input_file
 
-        #xxx mark output_dir_path = os.path.dirname(output_dir)
         output_dir_path = output_dir + '/..'
         output_dir_base = os.path.basename(output_dir)
         input_file_base = os.path.basename(input_file.split('.')[0])
@@ -2066,7 +2053,6 @@ class Program:
         # Beware that after this task, nothing more can be written
         # to the CPU*LOG files.
 
-        # xxx mark del cpunum            = self.config_yaml['args'].cpunum[0]
         cpunum            = self.config_yaml['args'].cpunum
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         script_dir        = submit_info_yaml['SCRIPT_DIR'] 
@@ -2103,7 +2089,6 @@ class Program:
 
         if self.config_yaml['args'].cpunum :
             cpunum = self.config_yaml['args'].cpunum # passed from script
-            # xxx mark delete cpunum = self.config_yaml['args'].cpunum[0] # passed from script
         else:
             return 
 
@@ -2118,7 +2103,6 @@ class Program:
                       f"{busy_list[0]} --> skip merge process."
                 logging.info(msg)
                 self.merge_driver_exit(t_merge_start, True)
-                # xxx mark sys.exit(msg)  
             else: 
                 if merge_force :
                     while n_busy > 0:
@@ -2145,7 +2129,6 @@ class Program:
                           f"{busy_list[0]} --> skip merge process."
                     logging.info(msg)
                     self.merge_driver_exit(t_merge_start, True)
-                    # xxx mark sys.exit(msg)  
 
         elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
             if verbose_flag:
@@ -2228,10 +2211,8 @@ class Program:
             return
 
         # time_stamp and cpunum args are given only in the CPU*CMD files
-        # xxx mark delete time_stamp_merge  = self.config_yaml['args'].t[0]
         time_stamp_merge  = self.config_yaml['args'].t
         cpunum            = self.config_yaml['args'].cpunum
-        # xxx mark cpunum            = self.config_yaml['args'].cpunum[0]
 
         if time_stamp_submit != time_stamp_merge :
             stop_file = f"{output_dir}/STOP_CPU{cpunum:04d}_{Nsec_now}.INFO"
@@ -2366,18 +2347,6 @@ class Program:
 
         # end get_proctime_info
 
-    # xxxxxxxxxxx mark delete; use util.check_file_exists() xxxxxxxx
-    #def check_file_exists(self,file_name,msg_user):
-    #    # abort if file does not exist and use self.log_assert
-    #    # that writes error message to MERGE.LOG and FAIL to done stamp
-    #    exist = os.path.isfile(file_name)
-    #    if not exist:
-    #        msgerr = [ f"Cannot find file:", f"\t {file_name}" ]
-    #        for msg in msg_user:
-    #            msgerr.append(msg)
-    #        self.log_assert(exist, msgerr)
-    # end check_file_exists
-    # xxxxxxxxxxxxxxxxxxxxxxx
 
     def check_for_code_failure(self, log_file, nevt, bad_output, isplit):
 

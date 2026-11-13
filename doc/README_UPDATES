@@ -24361,6 +24361,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v12_02f) *****
    
+    New features to release:
+      + submit_batch_jobs call self.task_progress_status() to produce TASK_PROGRESS_STATUS.LOG
+      - produce TASK_PROGRESS_STATUS.LOG after few minutes on cpu=0; use --delay feature
+      - remove HPAK_LEGACY preproc flags in sntools_output.h and snana.F90 (refac only)
 
          *****  MISCELLANEOUS(v12_02f) *****
 
@@ -24403,6 +24407,16 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + write SNANA_DIR and JOBNAME to SUBMIT.INFO
      + for LCFIT class, write new TASK_PROGRESS_STATUS.LOG file
 
+     + if self.task_progress_status is NOT from base class,
+       call merge process from cpu=0 with delay so that we get
+       TASK_PROGRESS_STATUS.LOG near beginning with remaining 
+       time estimate. Currently works only with --devel_flag 1112
+
+   sntable_dump.py:
+     + alter intermediate table-file name "sntable_dump.fitres" 
+       to be more unique by include base name of input table.
+
+   
 END:
 
 

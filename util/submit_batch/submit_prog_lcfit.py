@@ -83,8 +83,6 @@ import datetime, time, subprocess
 import submit_util as util
 import pandas as pd
 
-#xxx mark from datetime import datetime
-
 try:
     import f90nml
 except:
@@ -223,7 +221,6 @@ FITOPT_STRING_NOREJECT = "NOREJECT"
 
 # key to use FITOPT000 sample for all other FITOPTs; for CONFIG and snlc_fit
 #                        pippin/submit key       snlc_fit key name
-# xxx mark delete KEY_OPT_SNCID_LIST        = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
 KEYLIST_FLAG_USE_SAME_EVENTS  = [ 'FLAG_USE_SAME_EVENTS', 'OPT_SNCID_LIST' ]
 
 # ====================================================
@@ -370,11 +367,9 @@ class LightCurveFit(Program):
         # is part of FITOPT label, ignore OPT_SNCID_LIST.
 
         CONFIG         = self.config_yaml['CONFIG']
-        # xxx mark del opt_sncid_list = self.config_prep['opt_sncid_list']  
         opt_same_events = self.config_prep['opt_same_events']  
         key_same_events = self.config_prep['key_same_events']  
 
-        # xxx mark delete KEY_OPT  = KEYLIST_FLAG_USE_SAME_EVENTS[1]   # key for snlc_fit
         KEY_FILE = 'SNCID_LIST_FILE'       # key for snlc_fit
         argdict_same_sncid = {}
 
@@ -595,7 +590,6 @@ class LightCurveFit(Program):
 
                     validate,msg_status = \
                         self.fit_validate_VERSION(opt_validate, folder, version)
-                        # xxx mark self.fit_validate_VERSION(opt_validate, path, version)
 
                     msg = f"   Found VERSION {version}    {msg_status}"
                     logging.info(f"{msg}")
@@ -766,7 +760,6 @@ class LightCurveFit(Program):
 
         # check for OPT_SNCID_LIST ... just store it here for later
         # Check multiple key-options
-        # xxx mark opt_sncid_list = 0
         opt_same_events = 0
         key_same_events = None
         for key in KEYLIST_FLAG_USE_SAME_EVENTS:
@@ -830,7 +823,6 @@ class LightCurveFit(Program):
         version_list     = self.config_prep['version_list']
         fitopt_arg_list  = self.config_prep['fitopt_arg_list']
         n_core           = self.config_prep['n_core']
-        # xxx mark delete opt_sncid_list   = self.config_prep['opt_sncid_list']
         opt_same_events  = self.config_prep['opt_same_events']
         do_dump = True
 
@@ -881,7 +873,6 @@ class LightCurveFit(Program):
                     isplit_list.append(isplit)
                     size_sparse_list += 1  # n_job(proc+links)
 
-        # xxx mark del self.config_prep['size_sparse_list'] = size_sparse_list
         self.config_prep['n_job_tot']     = n_job_tot  # excluded symLinks
         self.config_prep['n_done_tot']    = size_sparse_list # proc+links
         self.config_prep['n_job_split']   = n_job_split
@@ -1007,12 +998,10 @@ class LightCurveFit(Program):
         # Function returns number of jobs for this cpu 
 
         # loop over version, fitopt
-        # xxx mark size_sparse_list = self.config_prep['size_sparse_list'] 
         n_job_tot        = self.config_prep['n_job_tot']  # does NOT include symlinks
         iver_list        = self.config_prep['iver_list']
         iopt_list        = self.config_prep['iopt_list']
         isplit_list      = self.config_prep['isplit_list']
-        # xxx mark del opt_sncid_list   = self.config_prep['opt_sncid_list']
         opt_same_events  = self.config_prep['opt_same_events']
 
         n_version        = self.config_prep['n_version']
@@ -1032,7 +1021,6 @@ class LightCurveFit(Program):
             }  
             n_job_local += 1
 
-            # xxx mark delete Mar 28 2025  if self.is_sym_link(fitopt_arg_list[iopt]) : 
             if opt_same_events == 0 and self.is_sym_link(fitopt_arg_list[iopt]) : 
                 continue
 
@@ -1070,7 +1058,6 @@ class LightCurveFit(Program):
         # The goal is to run each data version on only a few cores to ensure
         # that they finish if cluster does not run all NCORE core simultaneously.
 
-        # xxx mark del opt_sncid_list   = self.config_prep['opt_sncid_list']
         opt_same_events   = self.config_prep['opt_same_events']
         if opt_same_events <= 0 : return
 
@@ -1230,7 +1217,6 @@ class LightCurveFit(Program):
         arg_list.append(f"{fitopt_arg}")
 
         # Jan 8, 2021: option to use CID list from FITOPT000
-        # xxx mark del opt_sncid_list  = self.config_prep['opt_sncid_list']
         opt_same_events = self.config_prep['opt_same_events']
 
         if args.check_abort: 
@@ -1349,7 +1335,6 @@ class LightCurveFit(Program):
         use_table_format  = self.config_prep['use_table_format']
         ignore_fitopt     = self.config_yaml['args'].ignore_fitopt
         private_data_path = self.config_prep['private_data_path']
-        # xxx mark del opt_sncid_list    = self.config_prep['opt_sncid_list']
         opt_same_events   = self.config_prep['opt_same_events']
         key_same_events   = self.config_prep['key_same_events']
 
@@ -1570,17 +1555,9 @@ class LightCurveFit(Program):
 
         # end merge_update_state
 
-    def task_progress_status(self, OPT, MERGE_INFO_CONTENTS): 
+    def task_progress_status(self, MERGE_INFO_CONTENTS): 
 
         # Created Nov 2026
-        #
-        # OPT > 0 :
-        #  Write/update temp TASK_PROGRESS log indicating status of still-running jobs.
-        #  This log exists only during execution and is removed if/when 
-        #  all tasks complete successfully.
-        #
-        # OPT < 0:
-        #    remove TASK_PROGRESS log
         #
         # Here a TASK refers to a single row in MERGE.LOG, which consists of multiple SPLIT jobs.
         #
@@ -1596,10 +1573,6 @@ class LightCurveFit(Program):
         task_progress_log  = self.config_prep['task_progress_log']
         base_task_progress_log = os.path.basename(task_progress_log)
 
-        if OPT < 0:
-            logging.info(f"Remove {base_task_progress_log}")
-            os.remove(task_progress_log)
-            return
 
         script_dir         = submit_info_yaml['SCRIPT_DIR']
         n_job_split        = submit_info_yaml['N_JOB_SPLIT']  # n_split per task
@@ -2041,7 +2014,6 @@ class LightCurveFit(Program):
                 varnames_ref = varnames
                 break
 
-        # xxx mark varnames_ref = varnames_list[0] # this is a comma-sep string
         nerr = 0
         for varnames,tb_file in zip(varnames_list, table_list):
             is_empty = (varnames == VARNAMES_EMPTY)
@@ -2155,15 +2127,12 @@ class LightCurveFit(Program):
                      f"-v '{varlist_append}' " \
                      f"-a {text_table_file} > {append_log_file} 2>/dev/null"
 
-
         # abort if required C program exe is not found within 10 minutes        
-
         Cprogram_path  = util.get_SNANA_program_path(snana_dir, SNANA_SUBDIR_BIN, Cprogram_SNTABLE_DUMP)
         found_Cprogram = util.program_exists(Cprogram_path, TMAX_EXE_WAIT_ABORT, True) 
 
         istat = os.system(f"{cddir} ; {cmd_append} ")
         util.print_elapse_time(tref,SCRIPT_SNTABLE_DUMP)
-
 
         if istat != 0 :
             msgerr.append(f"Failed to apppend variables with command")
@@ -2174,6 +2143,15 @@ class LightCurveFit(Program):
         # replace table file with append file, 
         # and remove sntable* junk files
 
+        # xxx mark del xxx
+        temp_debug = False
+        if temp_debug:
+            found_app_file = os.path.isfile(f"{script_dir}/{append_out_file}")
+            logging.info(f" xxx found_app_file = {found_app_file} for ")
+            logging.info(f" xxx {script_dir}/{append_out_file}")
+            sys.exit(f"\n xxx debug exit  xxx \n")
+        # xxxxxxxxxxxxxx
+
         tref = datetime.datetime.now()
         if os.path.isfile(f"{script_dir}/{append_out_file}") :
             cmd_mv = f"mv {append_out_file} {text_table_file}"
@@ -2181,14 +2159,15 @@ class LightCurveFit(Program):
             cmd    = f"{cddir}; {cmd_mv} ; {cmd_rm}"
             os.system(cmd)
         else : 
-            msgerr.append(f"Append {table_name} table failed with command")
+            msgerr.append(f"Failed to find append_out_file: {append_out_file} .")
+            msgerr.append(f"Append {table_name} table may have failed with command")
             msgerr.append(f"{cmd_append}")
             msgerr.append(f"Check if these variables are all valid:")
             msgerr.append(f"    {varlist_append}")
             self.log_assert(False,msgerr) 
 
         # finally, make sure that the number of rows still matches nevt_expect
-        OUT_TABLE_FILE = f"{script_dir}/{text_table_file}"
+        OUT_TABLE_FILE   = f"{script_dir}/{text_table_file}"
         nevt_find, n_nan = util.nrow_table_TEXT(OUT_TABLE_FILE,"SN:")
 
         if n_nan > 0 :
@@ -2428,7 +2407,6 @@ class LightCurveFit(Program):
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
         table_wildcard   = f"{PREFIX_MERGE}_*"
-        # xxx mark table_list       = glob.glob1(script_dir,table_wildcard)
         table_list       = util.glob_wrapper(table_wildcard,script_dir)
 
         cmd = f"cd {script_dir} ; "
@@ -2583,7 +2561,6 @@ class LightCurveFit(Program):
                      f"{SUBDIR_SCRIPTS_LCFIT}")
         for wildcard in wildcard_script_dir :
             if len(wildcard) < 2: continue  # avoid accidental rm *
-            # xxx mark if len(glob.glob1(script_dir,wildcard)) > 0 :
             if len(util.glob_wrapper(wildcard,script_dir)) > 0 :
                 cmd_rm = f"rm {script_dir}/{wildcard}"
                 print(f"\t Remove {wildcard} ")
@@ -2593,7 +2570,6 @@ class LightCurveFit(Program):
         logging.info(f"  {fnam}: remove misc junk files from {output_base}")
         for wildcard in wildcard_output_dir :
             if len(wildcard) < 2: continue  # avoid accidental rm *
-            # xxx mark if len(glob.glob1(output_dir,wildcard)) > 0 :
             if len(util.glob_wrapper(wildcard,output_dir)) > 0 :
                 cmd_rm = f"rm {output_dir}/{wildcard}"
                 print(f"\t Remove {wildcard}  ")
@@ -2601,7 +2577,6 @@ class LightCurveFit(Program):
                 
         # - - - - -
         # Sep 2025: check to untar PIP*.tar.gz files
-        # xxx mark tar_list = glob.glob1(script_dir,"PIP*.tar.gz")
         tar_list = util.glob_wrapper("PIP*.tar.gz",script_dir)
         for tar in tar_list:
             logging.info(f"\t untar {tar}")
@@ -2656,7 +2631,6 @@ class LightCurveFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
 
-        # xxx mark delete opt_sncid_list = 0 
         opt_same_events = 0 
         for key in KEYLIST_FLAG_USE_SAME_EVENTS :
             if key in submit_info_yaml :

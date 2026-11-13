@@ -752,6 +752,8 @@ struct INPUTS {
 
   double GENRANGE_MJD[2];         // range of MJD: allows rigid end
   double GENRANGE_MJD_EXCLUDE[2]; // exclude this MJD region (6/2025)
+  double MJD_MASK[2];       // [period, mask] days: periodic MJD mask (RP 11/2026)
+  double MJD_MASK_START;    // MJD of first mask window (RP 11/2026)
   double GENRANGE_PEAKMJD[2];     // range of PEAKMJD to generate
   double GENRANGE_PEAKMJD_EXCLUDE[2]; // exclude this PEAKMJD region (4/2026)
   double MJD_EXPLODE ;          // define explosion time for NON1A or SIMSED

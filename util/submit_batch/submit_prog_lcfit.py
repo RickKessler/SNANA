@@ -1643,7 +1643,8 @@ class LightCurveFit(Program):
                     if line:
                         t_remain = self.parse_time_remaining(line)                        
                     else: 
-                        t_remain = 0.0
+                        t_remain = -9  # no "remain" values in log file
+
                     t_remain_list.append(t_remain)
                     t_remain_list_all.append(t_remain)
 
@@ -1679,7 +1680,9 @@ class LightCurveFit(Program):
                     # strip off the SPLIT part of LOG file name
                     log   = os.path.basename(log).split('.LOG')[0]
                     split = log.split(prefix+'_')[1]
-                    if t_remain <= 0.001: line = 'DONE'
+                    if abs(t_remain) <= 0.001 : line = 'DONE'
+                    if t_remain <= -9         : line = 'Did not find remaining time estimate in stdout.'
+
                     t.write(f"  {split}:  {line} \n")
                 t.write(f"  N_JOB_WAIT:   {n_job_wait}   # number of split-jobs not yet started\n")
         # - - - -

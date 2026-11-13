@@ -473,7 +473,8 @@ class Program:
         # if cpunum is an argument, this cpu is kill last.
         cpunum_last = -9;  job_name_last = ''
         if self.config_yaml['args'].cpunum is not None :
-            cpunum_last = self.config_yaml['args'].cpunum[0]
+            cpunum_last = self.config_yaml['args'].cpunum
+            # xxx mark del cpunum_last = self.config_yaml['args'].cpunum[0]
 
         SBATCH_LIST  = submit_info_yaml['SBATCH_LIST'] 
         njob_kill    = len(SBATCH_LIST)
@@ -614,9 +615,11 @@ class Program:
                     f.write(f"export PATH={path_list}\n" )
 
                 f.write(f"echo SNANA_DIR = $SNANA_DIR \n")
-                f.write(f"echo PATH      = $PATH \n")
+                # xxx mark delete f.write(f"echo PATH      = $PATH \n")
                 f.write(f"python --version \n")  # Dec 2023
                 f.write(f"echo \n" )
+
+                self.append_delayed_first_merge(args, icpu, f)
 
                 if STOP_ALL_ON_MERGE_ERROR :
                     f.write(f"set -e \n") 
@@ -685,7 +688,43 @@ class Program:
         if args.force_crash_prep :
             printf(" xxx force batch-prep crash with C-like printf xxx \n")
 
+        return 
         # end write_script_driver
+
+    def append_delayed_first_merge(self, args, icpu, f):
+
+        # Created Nov 12 2026
+        # If task_progress_status is define outside the base class,
+        # write a merge process with delay so that we get prelim task update
+        # before any job finishes. Goal is to help humans anticipate total
+        # process time, particularly for biasCor LCFIT.
+
+        is_base = type(self).task_progress_status is Program.task_progress_status  
+        do_merge = ( icpu == 0 and not is_base and  args.devel_flag == 1112 )
+
+        DELAY_MERGE = 66  # seconds
+
+        if not do_merge: return
+        # .xyz
+
+        script_dir         = self.config_prep['script_dir']
+        output_dir         = self.config_prep['output_dir']
+        #task_progress_log  = f"{output_dir}/{TASK_PROGRESS_LOG_FILE}"
+
+        merge_script   = sys.argv[0]  # $path/submit_batch_jobs
+        merge_args = f"{args.input_file} --merge   -t {seconds_since_midnight} " \
+                     f"--cpunum {icpu} --delay {DELAY_MERGE}"
+
+        f.write(f'\n')
+        f.write(f"# ---------------------------------------------------- \n")
+        f.write(f"echo 'Launch delayed background merge process to enable " \
+                f"estimating proc-time remaining'\n")
+        f.write(f'echo \n')
+        f.write(f"cd {CWD}\n")
+        f.write(f"{merge_script} {merge_args} &\n")
+
+        return
+
 
     def write_script_merge_background(self):
 
@@ -1071,7 +1110,6 @@ class Program:
         f.write(f"SNANA_DIR:        {snana_dir} \n")
         f.write(f"JOBNAME:          {program} \n")
 
-        # .xyz
         # append program-specific information
         f.write("\n")
         self.append_info_file(f)
@@ -1434,7 +1472,8 @@ class Program:
         MERGE_LAST       = args.MERGE_LAST
         nomerge          = args.nomerge
         merge_background = args.merge_background
-        cpunum           = args.cpunum[0]
+        cpunum           = args.cpunum
+        # xxx mark delete cpunum           = args.cpunum[0]
         check_abort      = args.check_abort 
         verbose_flag     = not check_abort
 
@@ -2027,7 +2066,8 @@ class Program:
         # Beware that after this task, nothing more can be written
         # to the CPU*LOG files.
 
-        cpunum            = self.config_yaml['args'].cpunum[0]
+        # xxx mark del cpunum            = self.config_yaml['args'].cpunum[0]
+        cpunum            = self.config_yaml['args'].cpunum
         submit_info_yaml  = self.config_prep['submit_info_yaml']
         script_dir        = submit_info_yaml['SCRIPT_DIR'] 
 
@@ -2062,7 +2102,8 @@ class Program:
         fnam = "merge_driver"
 
         if self.config_yaml['args'].cpunum :
-            cpunum = self.config_yaml['args'].cpunum[0] # passed from script
+            cpunum = self.config_yaml['args'].cpunum # passed from script
+            # xxx mark delete cpunum = self.config_yaml['args'].cpunum[0] # passed from script
         else:
             return 
 
@@ -2187,8 +2228,10 @@ class Program:
             return
 
         # time_stamp and cpunum args are given only in the CPU*CMD files
-        time_stamp_merge  = self.config_yaml['args'].t[0]
-        cpunum            = self.config_yaml['args'].cpunum[0]
+        # xxx mark delete time_stamp_merge  = self.config_yaml['args'].t[0]
+        time_stamp_merge  = self.config_yaml['args'].t
+        cpunum            = self.config_yaml['args'].cpunum
+        # xxx mark cpunum            = self.config_yaml['args'].cpunum[0]
 
         if time_stamp_submit != time_stamp_merge :
             stop_file = f"{output_dir}/STOP_CPU{cpunum:04d}_{Nsec_now}.INFO"
@@ -2218,7 +2261,6 @@ class Program:
         # append extra keys to merge log file
         # Each info line is of the form
         #   "KEY: VALUE"
-
         args                = self.config_yaml['args']
         output_dir          = self.config_prep['output_dir']
         MERGE_LOG_PATHFILE  = f"{output_dir}/{MERGE_LOG_FILE}"

@@ -157,21 +157,24 @@ def get_args():
 
     msg = "INTERNAL: time stamp (Nsec since midnight) to verify" \
            " merge process examines correct output_dir"
-    parser.add_argument('-t', nargs='+', help=msg, type=int )
+    parser.add_argument('-t', help=msg, type=int, default=-9 )
 
     msg = "INTERNAL: cpu number for BUSY-merge file-name"
-    parser.add_argument('--cpunum', nargs='+', help=msg, type=int )
+    parser.add_argument('--cpunum', help=msg, type=int, default=None )
+    # xxx mark parser.add_argument('--cpunum', nargs='+', help=msg, type=int )
 
     msg = "INTERNAL:  2nd iteration"
     parser.add_argument("--iter2", help=msg, action="store_true")
 
+    msg = "INTERNAL:  delay (sec) before taking action"
+    parser.add_argument("--delay", help=msg, type=int, default=0 )
 
     args = parser.parse_args()
 
     # internally set prescale arg
     args.prescale = 1
-    if args.fast   : args.prescale = FASTFAC
-    if args.faster : args.prescale = FASTFAC2
+    if args.fast       : args.prescale = FASTFAC
+    if args.faster     : args.prescale = FASTFAC2
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -266,7 +269,8 @@ def set_merge_flag(config):
     set_cpunum0 = args.merge_reset or args.MERGE_LAST
     cpunum      = args.cpunum
     if cpunum is None and set_cpunum0 :
-        args.cpunum = [ 0 ]
+        args.cpunum = 0
+        # xxx mark delete  args.cpunum = [ 0 ]
 
     if args.merge_background:
         args.nomerge = True
@@ -477,13 +481,23 @@ def run_merge_driver(program,args):
             exit(0)
     except Exception as e:
         logging.exception(e, exc_info=True)
-        cpunum   = args.cpunum[0]
+        cpunum   = args.cpunum
+        # xxx mark cpunum   = args.cpunum[0]
         cpu_file = f"CPU{cpunum:04d}*.LOG"
         print(f"{e}")
         msg      = [ f"Check {cpu_file} for merge crash" ]
         program.log_assert(False, msg )
     
     # end run_merge_driver
+
+def delay_execution(config_yaml):
+    args = config_yaml['args']
+    what = ''
+    if args.merge_flag:
+        what = "MERGE process"
+    logging.info(f"Delay {args.delay} sec before executing {what}")
+    time.sleep(args.delay)
+    return
 
 def dumtest():
     
@@ -535,6 +549,9 @@ if __name__ == "__main__":
     config_yaml['args'].merge_flag   = set_merge_flag(config_yaml)
 
     logging.debug(config_yaml)  # ???
+
+    if args.delay > 0  :
+        delay_execution(config_yaml)
 
     # - - - - - -
     # determine which program class (sim, fit, bbc, train ...)

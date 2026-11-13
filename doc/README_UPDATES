@@ -24361,11 +24361,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          *****  USEFUL(v12_02f) *****
    
-    New features to release:
+    New feature to release:
       + submit_batch_jobs call self.task_progress_status() to produce TASK_PROGRESS_STATUS.LOG
-      - produce TASK_PROGRESS_STATUS.LOG after few minutes on cpu=0; use --delay feature
-      - remove HPAK_LEGACY preproc flags in sntools_output.h and snana.F90 (refac only)
 
+    submit_batch_jobs BUSY logic has been updated by Claude
+      
          *****  MISCELLANEOUS(v12_02f) *****
 
      genmag_SALT2.c
@@ -24387,11 +24387,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + both have preproc "#define HPAK_LEGACY" to call SNLCPAK and SPECPAK.
         Comment these out to test SNANA without these legacy codes.
         Compilation status without these preproc flags:
-           snana.F90    Yes
-           snlc_fit.F90 Yes
-           psnid.F90    Yes
+           snana.F90     Yes
+           snlc_fit.F90  Yes
+           psnid.F90     Yes
            --> regression test (code and submit_batch_jobs) passes !
-        Restore HPAK_LEGACY.
+        Restore HPAK_LEGACY for this tag.
 
       + in SNANA_END(), call PRINT_CPU_REMAIN to show line with 0 minutes remaining
 
@@ -24416,7 +24416,29 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
      + alter intermediate table-file name "sntable_dump.fitres" 
        to be more unique by include base name of input table.
 
-   
+
+
+# =============================================================
+         v12_02g (Nov 13 2026) <--- start date of git tag
+
+         ***** IMPORTANT(v12_02g) *****
+
+         *****  USEFUL(v12_02g) *****
+         
+         *****  MISCELLANEOUS(v12_02g) *****
+
+     sntools_output.h, snana.F90:
+        Comment out HPAK_LEGACY preproc flags (refac only);
+        Perhaps in a few weeks the unused code will be removed.
+
+     submit_prog_base.py:
+      - use --delay feature produce TASK_PROGRESS_STATUS.LOG after few minutes on cpu=0.
+        This gives very early/prelim estimate of remaining run time, hopefully enabling
+        human inspection to identify bad cores or jobs that will exceed wall time
+        (e.g., large BiasCor LCFIT with photo-z fit). This feature is for human-inspection
+        only, and is not used by submit_batch .... however, the information might be used
+        later to auto-stop jobs that have obvious severe problem.
+
 END:
 
 

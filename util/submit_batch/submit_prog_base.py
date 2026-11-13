@@ -50,12 +50,23 @@ import logging
 #import coloredlogs
 import datetime, time, subprocess
 import getpass, ntpath, glob
+import socket, json, signal, atexit   # for merge BUSY lock
 
 #from   datetime import datetime
 from   abc import ABC, abstractmethod
 from   submit_params import *
 
 import submit_util as util
+
+# BUSY-lock parameters for merge processes (see set_merge_busy_lock).
+# The lock is a single file created atomically with O_CREAT|O_EXCL, so at
+# most one merge process can hold it. The name still matches the
+# BUSY_MERGE_CPU*.LOCK wildcard used by get_busy_list and cleanup code.
+BUSY_LOCK_FILE   = f"{BUSY_FILE_PREFIX}.{BUSY_FILE_SUFFIX}"
+BUSY_POLL_SEC    = 1       # poll interval while waiting for a lock to clear
+BUSY_STALE_SEC   = int(os.environ.get('SNANA_BUSY_STALE_SEC', 6*3600))
+                           # lock older than this is stale unless its owner
+                           # is known to be alive on this host
 
 
 # ======================================
@@ -685,16 +696,14 @@ class Program:
         # process time, particularly for biasCor LCFIT.
 
         is_base = type(self).task_progress_status is Program.task_progress_status  
-        do_merge = ( icpu == 0 and not is_base and  args.devel_flag == 1112 )
+        do_merge = ( icpu == 0 and not is_base )  # xxx and  args.devel_flag == 1112 )
 
-        DELAY_MERGE = 66  # seconds
+        DELAY_MERGE = 200  # seconds .xyz what happens if all jobs finish earlier ???
 
         if not do_merge: return
-        # .xyz
 
         script_dir         = self.config_prep['script_dir']
         output_dir         = self.config_prep['output_dir']
-        #task_progress_log  = f"{output_dir}/{TASK_PROGRESS_LOG_FILE}"
 
         merge_script   = sys.argv[0]  # $path/submit_batch_jobs
         merge_args = f"{args.input_file} --merge   -t {seconds_since_midnight} " \
@@ -1414,6 +1423,16 @@ class Program:
 
 
     def merge_driver(self):
+        # Wrapper: guarantee that the merge BUSY lock is released on any
+        # exit path (exceptions, exit(), log_assert, etc.). A leftover lock
+        # would block all later merges, and make the -M wait loop hang.
+        try:
+            self.merge_driver_core()
+        finally:
+            self.release_busy_lock(verbose=False)
+        # end merge_driver
+
+    def merge_driver_core(self):
 
         # Called when -m or -M argument is passed to submit_batch_jobs.
         # Read & write MERGE.LOG file with SPLIT and MERGE tables
@@ -1665,7 +1684,7 @@ class Program:
         self.merge_driver_exit(t_merge_start,False)
 
         return
-        # end merge_driver
+        # end merge_driver_core
         
     def remove_task_progress_log(self):
         is_base = type(self).task_progress_status is Program.task_progress_status
@@ -1972,11 +1991,14 @@ class Program:
         # - - - - - - - - - -  -
         time.sleep(1)
 
-        # sleep until there are no more busy files.
+        # sleep until there are no more busy files; remove stale locks
+        # (dead owner or very old) so that a crashed merge cannot hang us.
+        self.clear_stale_busy_locks()
         n_busy,busy_list = self.get_busy_list()
         while n_busy > 0 :
             logging.info(f"\t Wait for {busy_list} to clear")
             time.sleep(5)
+            self.clear_stale_busy_locks()
             n_busy,busy_list = self.get_busy_list()
 
         logging.info("")
@@ -2068,79 +2090,216 @@ class Program:
 
         # merge_cleanup_script_dir
 
-    def set_merge_busy_lock(self,flag, t_merge_start):
+    def set_merge_busy_lock(self, flag, t_merge_start):
 
         # Inputs:
-        #   flag > 0 --> create BUSY LOCK file
-        #   flag < 0 --> remove it
+        #   flag > 0 --> acquire BUSY LOCK file (atomic create)
+        #   flag < 0 --> release it (only if this process owns it)
         #
         #   t_merge_start : used to print process time upon exit
+        #
+        # Rewritten Nov 2026 to fix problems in the original logic:
+        #  + cpunum=0 was skipped by a truthiness test (never locked)
+        #  + check-then-create race, and 'lowest name wins' tie-break
+        #    that was not stable once the winner had started merging
+        #  + stale lock from a crashed/killed merge blocked all merges
+        #  + --merge_force and --MERGE_LAST could skip instead of waiting
+        #
+        # Normal merge (--merge):  skip merge if lock is held elsewhere.
+        # --merge_force/--MERGE_LAST:  wait until the lock can be acquired.
 
-        Nsec  = seconds_since_midnight  # current Nsec, not from submit info
-        t_msg = f"T_midnight={Nsec}"
-        output_dir   = self.config_prep['output_dir']
         args         = self.config_yaml['args']
-        check_abort  = args.check_abort
-        merge_force  = args.merge_force  # wait for BUSY to clear
-
-        merge_normal = not merge_force # exit if BUSY elsewhere
+        cpunum       = args.cpunum        # passed from script; 0 is valid
         verbose_flag = not args.check_abort
-        fnam = "merge_driver"
+        wait_flag    = args.merge_force or args.MERGE_LAST
+        fnam         = "merge_driver"
 
-        if self.config_yaml['args'].cpunum :
-            cpunum = self.config_yaml['args'].cpunum # passed from script
-        else:
-            return 
+        if cpunum is None:
+            return
 
-        busy_file     = f"{BUSY_FILE_PREFIX}{cpunum:04d}.{BUSY_FILE_SUFFIX}"
-        BUSY_FILE     = f"{output_dir}/{busy_file}"
-        n_busy,busy_list = self.get_busy_list()
+        if flag < 0 :
+            self.release_busy_lock(verbose=verbose_flag)
+            return
 
-        if flag > 0 :
-            # check for other busy files to avoid conflict
-            if merge_normal and n_busy > 0 :
-                msg = f"\n# {fnam}: Found existing " \
-                      f"{busy_list[0]} --> skip merge process."
+        n_wait = 0
+        while True:
+            got_lock, holder = self.try_acquire_busy_lock(cpunum)
+            if got_lock:  break
+
+            if not wait_flag :
+                msg = f"\n# {fnam}: Found existing {holder} " \
+                      f"--> skip merge process."
                 logging.info(msg)
-                self.merge_driver_exit(t_merge_start, True)
-            else: 
-                if merge_force :
-                    while n_busy > 0:
-                        t_now = datetime.datetime.now()
-                        msg = f"# {fnam}: \t merge_force -> " \
-                              f"wait for BUSY to clear ({t_now})."
-                        logging.info(msg)
-                        time.sleep(1)
-                        n_busy, busy_list = self.get_busy_list()
+                self.merge_driver_exit(t_merge_start, True)   # calls exit(0)
+                return
 
-                msg = f"# {fnam}: \t Create {busy_file} for {t_msg}"
-                if verbose_flag: logging.info(msg)
-                with open(BUSY_FILE,"w") as f:
-                    f.write(f"{Nsec}\n")  # maybe useful for debug situation
+            if n_wait % 30 == 0 :
+                t_now = datetime.datetime.now()
+                logging.info(f"# {fnam}: \t wait for {holder} to clear "
+                             f"({t_now}).")
+            n_wait += 1
+            time.sleep(BUSY_POLL_SEC)
 
-                # check for simultaneously created busy file(s);
-                # --> avoid conflict by keeping only first one in sort list
-                time.sleep(1)
-                n_busy,busy_list = self.get_busy_list()
-                if n_busy > 1 and busy_file != busy_list[0] :
-                    cmd_rm = f"rm {BUSY_FILE}"
-                    os.system(cmd_rm)
-                    msg = f"\n# {fnam}: Found simultaneous " \
-                          f"{busy_list[0]} --> skip merge process."
-                    logging.info(msg)
-                    self.merge_driver_exit(t_merge_start, True)
-
-        elif len(BUSY_FILE)>5 and os.path.exists(BUSY_FILE):  # avoid rm *
-            if verbose_flag:
-                logging.info(f"# {fnam}: " \
-                             f"\t Remove {busy_file} for {t_msg}")
-            cmd_rm = f"rm {BUSY_FILE}"
-            os.system(cmd_rm)
-
+        if verbose_flag:
+            Nsec = seconds_since_midnight
+            logging.info(f"# {fnam}: \t Create {BUSY_LOCK_FILE} "
+                         f"for cpunum={cpunum} T_midnight={Nsec}")
+        return
         # end set_merge_busy_lock
 
+    def try_acquire_busy_lock(self, cpunum):
+        # Try once to take the merge lock. Return (got_lock, holder_name).
+        # Atomicity comes from O_CREAT|O_EXCL: exactly one process can
+        # create the file, so no sleep/re-check/tie-break is needed.
+
+        output_dir = self.config_prep['output_dir']
+        lock_path  = f"{output_dir}/{BUSY_LOCK_FILE}"
+
+        self.clear_stale_busy_locks()
+
+        # any BUSY file blocks us, including legacy BUSY_MERGE_CPU[nnnn].LOCK
+        n_busy, busy_list = self.get_busy_list()
+        if n_busy > 0 :
+            return False, busy_list[0]
+
+        host  = socket.gethostname()
+        pid   = os.getpid()
+        t_now = time.time()
+        token = f"{host}:{pid}:{cpunum}:{t_now:.3f}"
+        info  = { 'token':token, 'host':host, 'pid':pid, 'cpunum':cpunum,
+                  'time':t_now, 'Nsec':seconds_since_midnight }
+
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        except FileExistsError:
+            return False, BUSY_LOCK_FILE
+
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(json.dumps(info) + "\n")
+        except Exception:
+            try: os.remove(lock_path)
+            except OSError: pass
+            raise
+
+        self.busy_lock_token = token
+        self.busy_lock_path  = lock_path
+        self.install_busy_lock_cleanup()
+        return True, BUSY_LOCK_FILE
+        # end try_acquire_busy_lock
+
+    def release_busy_lock(self, verbose=False):
+        # Remove the lock only if this process owns it (token matches),
+        # so we never delete a lock that another merge process now holds.
+        # Safe to call repeatedly or when no lock was acquired.
+
+        token = getattr(self, 'busy_lock_token', None)
+        if token is None:  return
+        path  = self.busy_lock_path
+        self.busy_lock_token = None
+
+        info = self.read_busy_lock(path)
+        if info is not None and info.get('token') == token :
+            try:
+                os.remove(path)
+                if verbose:
+                    logging.info(f"# merge_driver: \t Remove {BUSY_LOCK_FILE}")
+            except FileNotFoundError:
+                pass
+        else:
+            logging.info(f"# merge_driver: WARNING: {BUSY_LOCK_FILE} is "
+                         f"missing or no longer owned by this process; "
+                         f"leave it alone.")
+        # end release_busy_lock
+
+    def install_busy_lock_cleanup(self):
+        # Release lock on normal interpreter exit and on common
+        # termination signals (scancel/walltime send SIGTERM).
+        # SIGKILL cannot be caught; stale-lock detection covers that case.
+        if getattr(self, 'busy_cleanup_installed', False):  return
+        self.busy_cleanup_installed = True
+        atexit.register(self.release_busy_lock)
+        for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            try:
+                signal.signal(sig, self.busy_signal_handler)
+            except (ValueError, OSError):   # not main thread, etc.
+                pass
+        # end install_busy_lock_cleanup
+
+    def busy_signal_handler(self, signum, frame):
+        self.release_busy_lock()
+        sys.exit(128 + signum)
+
+    def read_busy_lock(self, path):
+        # return dict from lock file, or None if missing/empty/legacy format
+        try:
+            with open(path, "r") as f:
+                info = json.loads(f.read())
+            return info if isinstance(info, dict) else None
+        except (OSError, ValueError):
+            return None
+
+    def pid_is_alive(self, pid):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        return True
+
+    def busy_lock_is_stale(self, path, info):
+        # Stale if
+        #  (a) owner is on this host and its pid no longer exists, or
+        #  (b) lock file is older than BUSY_STALE_SEC (owner on another
+        #      host, unknown, or legacy lock file without owner info).
+        # A just-created lock whose content is not yet written has a fresh
+        # mtime, so it is not stale.
+        try:
+            age = time.time() - os.path.getmtime(path)
+        except OSError:
+            return False           # vanished; nothing to clear
+        if info is not None and info.get('host') == socket.gethostname():
+            pid = info.get('pid')
+            if isinstance(pid, int) and not self.pid_is_alive(pid):
+                return True
+        return age > BUSY_STALE_SEC
+        # end busy_lock_is_stale
+
+    def clear_stale_busy_locks(self):
+        output_dir = self.config_prep['output_dir']
+        n_busy, busy_list = self.get_busy_list()
+        for busy_file in busy_list:
+            path = f"{output_dir}/{busy_file}"
+            info = self.read_busy_lock(path)
+            if self.busy_lock_is_stale(path, info):
+                self.remove_stale_busy_lock(path, info)
+        # end clear_stale_busy_locks
+
+    def remove_stale_busy_lock(self, path, info):
+        # os.rename is atomic: if several processes find the same stale
+        # lock, only one rename succeeds. Verify that what we moved is
+        # what we inspected; if a live lock slipped in, put it back
+        # (os.link never overwrites an existing file).
+        stale_path = f"{path}.STALE.{socket.gethostname()}.{os.getpid()}"
+        try:
+            os.rename(path, stale_path)
+        except OSError:
+            return
+        if self.read_busy_lock(stale_path) != info :
+            try: os.link(stale_path, path)
+            except OSError: pass
+            logging.info(f"# merge_driver: WARNING: restored live "
+                         f"{os.path.basename(path)}")
+        else:
+            logging.info(f"# merge_driver: Remove stale "
+                         f"{os.path.basename(path)} ({info})")
+        try: os.remove(stale_path)
+        except OSError: pass
+        # end remove_stale_busy_lock
+
     def get_busy_list(self):
-        # return numbrer of busy files,  and sorted list of busy files.
+        # return number of busy files,  and sorted list of busy files.
         output_dir      = self.config_prep['output_dir']
         busy_wildcard   = f"{BUSY_FILE_PREFIX}*.{BUSY_FILE_SUFFIX}"
         busy_list  = sorted(glob.glob1(output_dir,busy_wildcard))

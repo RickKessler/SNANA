@@ -6,7 +6,7 @@
 ! May 6 2026: define MARK_USED macro to suppress "unused argument" with -Wall compile flag
 #define MARK_USED(FOO) IF(.FALSE.)THEN;DO;IF(SIZE(SHAPE(FOO))==-1) EXIT;ENDDO;ENDIF
 
-#define HPAK_LEGACY  ! Nov 9 2026
+!#define HPAK_LEGACY  ! Nov 9 2026; commented out Nov 13 2026
 
 ! =====================================================================
   MODULE SNPAR
@@ -7074,6 +7074,9 @@
 
     ITAB = ITABLE_SPECPAK
     write(6,41) 'SPECPAK', MXLC_PLOT, TEXTFORMAT_TABLE(ITAB)
+
+41  format(T5,A9,'-table: MXLC_PLOT=',I8, 3x, 'TEXTFORMAT=',A4 )
+
 #endif
 
     ITAB = ITABLE_MODELSPEC
@@ -7086,7 +7089,6 @@
     write(6,40) 'PRIOR', OPT_TABLE(ITAB),TEXTFORMAT_TABLE(ITAB)
 
 40  format(T5,A9,'-table: USE=',I1,       3x, 'TEXTFORMAT=',A4 )
-41  format(T5,A9,'-table: MXLC_PLOT=',I8, 3x, 'TEXTFORMAT=',A4 )
 
     write(6,51) 'SNANA', CUTMASK_SNANA_TABLE
 51  format(T5,A9,'-table: select CUTFLAG_SNANA & ', I3 )

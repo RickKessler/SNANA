@@ -17,6 +17,8 @@
  Nov 09 2026: move SNLCPAK/SPECPAK declarations to sntools_hpak_legacy.h
               (refactor only)
 
+ Nov 13 2026: comment out HPAK_LEGACY preproc flag ... hopefully forever.
+
 *******************************************/
 
 
@@ -28,7 +30,7 @@
 #define USE_MARZ  // always leave this on
 #define USE_NPZ   // always leave this on (Oct 19 2026)
 
-#define HPAK_LEGACY // Nov 9 2026 - use legacy SNLCPAK and SPECPAK
+// #define HPAK_LEGACY // Nov 9 2026 - use legacy SNLCPAK and SPECPAK
 
 // ---------------------------------------
 // flags to identify TABLEFILE_TYPE 

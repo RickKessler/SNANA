@@ -50,6 +50,9 @@
 #              replace a few .replace('/', '\/')   with  .replace(r'/', r'\/')
 #
 # Oct 30 2026: change default mem from 2GB -> 4GB
+#
+# Nov 14 2026: monitor status line includes number of failed tasks
+#              (ABORT, BLANK, or TEST result != REF result).
 # ===================================
 
 import os, sys, datetime, shutil, time, glob
@@ -1192,6 +1195,42 @@ def make_tarfiles(LOGDIR):
         os.system(cmd_all)
 
 # ========================================
+def count_failed_tasks(LOGDIR, donefile_list, REF_RESULT_DICT, FAIL_DICT):
+
+    # Return number of failed tasks among the finished tasks.
+    # A task fails if its DONE-file result contains ABORT or BLANK,
+    # or (TEST mode) if the result differs from the REF result.
+    # FAIL_DICT caches the verdict so that each DONE file is read once.
+
+    for donefile in donefile_list:
+        if donefile in FAIL_DICT : continue
+
+        try:
+            with open(f"{LOGDIR}/{donefile}", 'rt') as f:
+                line = f.readline().rstrip()
+        except OSError:
+            continue    # try again next time
+        if len(line) == 0 :
+            continue    # file created but not yet written; try again later
+
+        # same parsing as get_RESULTS_TASKS: word[0]=TASKnnn_NAME, then colon
+        words  = line.split()
+        result = ' '.join(words[2:])
+        failed = ("ABORT" in line) or ("BLANK" in line)
+
+        if not failed and REF_RESULT_DICT :
+            try:
+                TASKNUM = int(words[0][4:7])
+                if TASKNUM in REF_RESULT_DICT :
+                    failed = (result != REF_RESULT_DICT[TASKNUM])
+            except ValueError:
+                pass
+
+        FAIL_DICT[donefile] = failed
+
+    return sum(1 for d in donefile_list if FAIL_DICT.get(d, False))
+
+# ========================================
 def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     t_start = time.time()
@@ -1211,14 +1250,27 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
     print(f"\n Begin monitor of {NTASK} {REFTEST} tasks")
     sys.stdout.flush()
 
+    # for TEST mode, map REF TASKNUM -> REF result string so that
+    # failures can be counted while the jobs are running.
+    REF_RESULT_DICT = {}
+    if DOTEST and RESULTS_INFO_REF:
+        for num, res in zip(RESULTS_INFO_REF["TASKNUM_LIST"],
+                            RESULTS_INFO_REF["TASKRESULT_LIST"]):
+            REF_RESULT_DICT[num] = res
+
+    FAIL_DICT = {}   # DONE file -> True/False (failed); each file read once
+
     NDONE = 0
     while ( NDONE < NTASK ) :
-        NDONE = len(glob.glob1(LOGDIR,"*.DONE"))
+        donefile_list = glob.glob1(LOGDIR,"*.DONE")
+        NDONE         = len(donefile_list)
+        NFAIL         = count_failed_tasks(LOGDIR, donefile_list,
+                                           REF_RESULT_DICT, FAIL_DICT)
         # track total run time
         t_now  = time.time()
         t_proc = (t_now-t_start)/60.0  # time in minutes
-        print(f" Found {NDONE} of {NTASK} done files  " \
-              f"({t_proc:0.1f} minutes elapsed).")
+        print(f" Found {NDONE:3d} of {NTASK:3d} done files  " \
+              f"({NFAIL:3d} failed; {t_proc:.1f} minutes elapsed).")
         sys.stdout.flush()
         if os.path.isfile(STOP_FILE) :
             cmd_cp = f"cp {STOP_FILE} {LOGDIR}"

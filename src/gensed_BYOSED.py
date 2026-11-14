@@ -7,7 +7,7 @@
 
 
 import numpy as np	
-import os,six,abc,math
+import os,sys,abc,math
 import optparse
 import configparser
 import pandas

@@ -2689,7 +2689,7 @@ def get_version_photomety(BBC_DIR):
         if key_version_phot in line:
             if len(wdlist) < 3:
                 sys.exit(f"\n ERROR: missing argument for '{line.rstrip()}' \n" \
-                         f"\t in BBC output file \n\y{FF}") 
+                         f"\t in BBC output file \n\t {FF}") 
             key = wdlist[1].replace(':','')
             val = wdlist[2]
             version_phot_dict[key] = val

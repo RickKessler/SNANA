@@ -406,7 +406,7 @@ def parse_config_driver(args, config):
     config  = parse_config_hostlib_info(config)
 
     config = parse_config_cones(args, config)
-    config = parse_config_magerr(args, config) # Needs to come after parse_config_cones
+    config = parse_config_magerr_pdf_params(args, config) # Needs to come after parse_config_cones
     config = parse_config_mag_noise(args, config)    # Needs magerr band list and cones
     
     logging.info(f"")
@@ -415,7 +415,9 @@ def parse_config_driver(args, config):
 
 # end parse_config_driver
 
-def parse_config_magerr(args, config):
+def parse_config_magerr_pdf_params(args, config):
+    # This function could be combined with parse_config_magerr_pdf(),
+    # but it requires parse_config_cones() to have been run first
     
     MAGERR_PDF_DICT = config.setdefault(KEY_MAGERR_PDF, None)
     if not MAGERR_PDF_DICT:
@@ -427,19 +429,20 @@ def parse_config_magerr(args, config):
         sys.exit(f"\n ERROR: config file is missing {KEY_CONE} key that is required for {KEY_MAGERR_PDF} ")
         
     field     = list(cone_dict)[0] # Fragile alert; ignores multuple cones if/when that option exists
+    pdfpar_yaml_file  = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
+    sampler = MagErrSampler(pdfpar_yaml_file, field=field, repair_bad_bins=False)
 
-    if MAGERR_PDF_DICT:
-        pdfpar_yaml_file  = os.path.expandvars(MAGERR_PDF_DICT['INPUT_FILE'])
-        sampler = MagErrSampler(pdfpar_yaml_file, field=field, repair_bad_bins=False)
-        config["sampler_pdf"] = sampler
-        # Do error checking (is everything I need in the sampler)
-        # config['band_magerr_list_diffsky'] defined prior in parse_config_driver
-        band_list = config['band_magerr_list_diffsky']
-        for band in band_list:
-            if band not in MAGERR_PDF_DICT['BANDMAP_DICT']:
-                sys.exit(f"ERROR:  {band} band not in MAGERR_PDF_DICT['BANDMAP_DICT']: " \
-                         f"{MAGERR_PDF_DICT['BANDMAP_DICT']}")
-    config[KEY_MAGERR_PDF] = MAGERR_PDF_DICT
+    config["MAGERR_PDF_FIELD"] = field
+    config["MAGERR_PDF_PAR_FILE"] = pdfpar_yaml_file
+    config["MAGERR_PDF_SAMPLER"] = sampler
+
+    # Equivalent code is already run in parse_config_magerr_pdf()
+    #band_list = config["band_magerr_list_diffsky"]
+    #for band in band_list:
+    #    if band not in MAGERR_PDF_DICT['BANDMAP_DICT']:
+    #        sys.exit(f"ERROR:  {band} band not in MAGERR_PDF_DICT['BANDMAP_DICT']: " \
+    #                 f"{MAGERR_PDF_DICT['BANDMAP_DICT']}")
+    #config[KEY_MAGERR_PDF] = MAGERR_PDF_DICT
         
     return config
 
@@ -542,6 +545,7 @@ def parse_config_varname_map(config):
         BANDMAP_INPUT = [b.split()[0] for b in MAGERR_SNR5_check]
     else:
         # No error model given
+        #BANDMAP_INPUT = []
         sys.exit("No MAGERR given in config: either MAGERR_PDF, MAGERR_SNR, or MAGERR_SNR5")   
     #print(f'xxx BANDMAP_INPUT = {BANDMAP_INPUT}')
     
@@ -1056,12 +1060,10 @@ def add_col_magerr_pdf(df_cat,config):
         return
 
     # sampler created in parse_config_magerr and already has field information
-    sampler = config["sampler_pdf"]
+    sampler = config["MAGERR_PDF_SAMPLER"]
+    field = config["MAGERR_PDF_FIELD"]
+    pdfpar_yaml_file = config["MAGERR_PDF_PAR_FILE"]
 
-    #with open(pdfpar_yaml_file) as f:
-    #    pdfpar_yaml_contents = yaml.safe_load(f.read())
-    #print(f"\n xxx pdfpar_yaml_contents = {pdfpar_yaml_contents}")
-    
     band_list = config['band_magerr_list_diffsky']
     rng = np.random.default_rng(42) # Setting rng to make it repeatable
     
@@ -1070,18 +1072,38 @@ def add_col_magerr_pdf(df_cat,config):
         band_pdfpar_yaml = MAGERR_PDF_DICT['BANDMAP_DICT'][band]
         #print(f'xxx band_pdfpar_yaml = {band_pdfpar_yaml}')
 
-        # Nov 5 2026 R.Chen: draw percentile explicitly (same draw as inside sampler) so that
-        # magerr can be re-evaluated at the noised mag with the same percentile (fluctuate_col_mag).
-        u_ran   = rng.random(len(mag))
-        mag_err = sampler.sample(band_pdfpar_yaml, mag, u=u_ran, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
-        # check_bin_means is fragile for samples with few events; instead of being a fixed number,
-        # check_bin_means should depend on number of events
+        if args.do_magerr_scatter:
+            # Nov 5 2026 R.Chen: draw percentile explicitly (same draw as inside sampler) so that
+            # magerr can be re-evaluated at the noised mag with the same percentile (fluctuate_col_mag).
+            u_ran   = rng.random(len(mag))
+            mag_err = sampler.sample(band_pdfpar_yaml, mag, u=u_ran, check_bin_means=0.5) # band string needs to match pdfpar_yaml_file
+            # check_bin_means is fragile for samples with few events; instead of being a fixed number,
+            # check_bin_means should depend on number of events
+            config['magerr_eval'][band] = \
+                lambda m, rows, b=band_pdfpar_yaml, u=u_ran: sampler.sample(b, m, u=u[rows])
+        else:
+            with open(pdfpar_yaml_file) as f:
+                pdfpar_yaml_contents = yaml.safe_load(f.read())
+            median_err = np.array(pdfpar_yaml_contents[field][band_pdfpar_yaml]['MEDIAN'])
+            mag_min, mag_max, binsize = pdfpar_yaml_contents['MAG_BINS']
+            n_bins = int(np.ceil((mag_max - mag_min) / binsize))
+            # Turning these last few lines into a function so it's compatible with config['magerr_eval'][band]
+            #mag = np.asarray(mag)
+            #bin_index = ((mag - mag_min) // binsize).astype(int)
+            #bin_index = np.clip(bin_index, 0, n_bins - 1)
+            #mag_err = median_err[bin_index]
+            def median_magerr(m, rows=None, median_err=median_err, mag_min=mag_min,
+                              binsize=binsize, n_bins=n_bins):
+                m = np.asarray(m)
+                bin_index = ((m - mag_min) // binsize).astype(int)
+                bin_index = np.clip(bin_index, 0, n_bins - 1)
+                return median_err[bin_index]
+            mag_err = median_magerr(mag)
+            config['magerr_eval'][band] = median_magerr
         
         #mag_err = 0.01*mag   # test
         band_err = band + '_err'
         df_cat[band_err] = mag_err
-        config['magerr_eval'][band] = \
-            lambda m, rows, b=band_pdfpar_yaml, u=u_ran: sampler.sample(b, m, u=u[rows])
     
     return df_cat 
 

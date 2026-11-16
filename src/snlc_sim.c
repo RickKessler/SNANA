@@ -19632,6 +19632,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   double PIXSIZE, TEXPOSE_S, MJD, MAG;
   double ZPT, ZPTAVG_BY_FIELD[MXFIELD_OVP], ZPTSUM_BY_FIELD[MXFIELD_OVP] ;
   int  NOBS_BY_FIELD[MXFIELD_OVP];
+  int  NOBS_FOUND_SPEC = 0 ; // Nov 2026: number of SPECTROGRAPH lines (#1837)
   char wd0[MXCHAR_LINE_SIMLIB], wd1[MXCHAR_LINE_SIMLIB];
   char ctmp[200], *BAND, cline[MXCHAR_LINE_SIMLIB], *pos ;
   char WDLIST[MXWDLIST_SIMLIB][MXCHAR_LINE_SIMLIB];
@@ -19963,7 +19964,7 @@ void  SIMLIB_readNextCadence_TEXT(void) {
       }
       else if ( OPTLINE == OPTLINE_SIMLIB_SPECTROGRAPH  )  { 
 	
-	NOBS_FOUND++ ;
+	NOBS_FOUND++ ;  NOBS_FOUND_SPEC++ ;   // count separately for NOBS check
 	GENLC.NKEYTOT_SIMLIB_SPECTROGRAPH++ ;
 
 	KEEP_MJD = ( INPUTS.USE_SIMLIB_SPECTROGRAPH > 0 ) ; // May 30 2025
@@ -20073,12 +20074,20 @@ void  SIMLIB_readNextCadence_TEXT(void) {
   SIMLIB_OBS_RAW.NOBS_READ = ISTORE ;     // won't change for this cadence
 
 	
+  // Nov 16 2026 (issue #1837)
+  // Header NOBS may or may not include SPECTROGRAPH lines. If it doesn't
+  // match NOBS_FOUND (S + SPECTROGRAPH), also accept NOBS_FOUND without
+  // SPECTROGRAPH lines instead of aborting.
   NOBS_EXPECT -= NOBS_SKIP ;
+  if ( NOBS_EXPECT != NOBS_FOUND && NOBS_EXPECT == (NOBS_FOUND-NOBS_FOUND_SPEC) )
+    { NOBS_FOUND -= NOBS_FOUND_SPEC ; }
+
   if ( NOBS_EXPECT != NOBS_FOUND ) {
     sprintf(c1err,"Found %d observations in LIBID %d", 
 	    NOBS_FOUND,  SIMLIB_HEADER.LIBID );
-    sprintf(c2err,"But expected NOBS = %d from simlib header (NOBS_SKIP=%d)", 
-	    NOBS_EXPECT, NOBS_SKIP );
+    sprintf(c2err,"But expected NOBS = %d from simlib header (NOBS_SKIP=%d, "
+	    "N_SPECTROGRAPH_LINES=%d)", 
+	    NOBS_EXPECT, NOBS_SKIP, NOBS_FOUND_SPEC );
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err ) ; 
   }
 

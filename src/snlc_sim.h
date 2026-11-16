@@ -69,7 +69,7 @@
 #define  MXGENSKIP_PEAKMJD_SIMLIB  10
 #define  MXSEASON_SIMLIB  30      // max number of seasons
 #define  MXFLUXERR_COR_SIMLIB 100  // max number of FLUXERR_COR keys in header
-#define  TGAP_SEASON_SIMLIB 90.0  // gap (days) to define new season
+// xxx mark delete #define  TGAP_SEASON_SIMLIB 90.0  // gap (days) to define new season
 #define  GENRANGE_TOBS_PAD  0.1   // Tobs padding for MJD-selection
 #define  SIMLIB_ID_REWIND -7   // rewind flag
 #define  ISOURCE_PEAKMJD_RANDOM 1 // PEAKMJD is randomly generated
@@ -552,6 +552,7 @@ struct INPUTS {
   int  SIMLIB_NREPEAT ;  // repeat each ID this many times (for less reading)
   int  SIMLIB_MXREPEAT ; // used only with BPOLY Galactic rate model
   double SIMLIB_MINSEASON ; // min season length (days); default=0
+  double SIMLIB_TGAPMIN_SEASON ; // min time between season gaps (days)
   double SIMLIB_MJD_SHIFT ; // shift every MJD in simlib (e.g. to overlap real images)
   int    SIMLIB_IDSKIP[MXREAD_SIMLIB]; // list of SIMLIB IDs to skip
   int    NSKIP_SIMLIB ;       // number of SIMLIB_IDSKIP values read

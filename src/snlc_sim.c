@@ -1126,10 +1126,11 @@ void set_user_defaults(void) {
   INPUTS.SIMLIB_NSKIPMJD_STRING[0] = 0 ;
   INPUTS.SIMLIB_PRESCALE  =  1 ;
   
-  INPUTS.SIMLIB_NREPEAT  =  1 ;
-  INPUTS.NSKIP_SIMLIB    =  0 ;
-  INPUTS.SIMLIB_MINSEASON = 0.0 ;
-  INPUTS.SIMLIB_MJD_SHIFT = 0.0 ;
+  INPUTS.SIMLIB_NREPEAT    =  1 ;
+  INPUTS.NSKIP_SIMLIB      =  0 ;
+  INPUTS.SIMLIB_MINSEASON  = 0.0 ;
+  INPUTS.SIMLIB_TGAPMIN_SEASON = 90.0; // days
+  INPUTS.SIMLIB_MJD_SHIFT  = 0.0 ;
 
   INPUTS.SIMLIB_CADENCEFOM_ANGSEP     = 0.0 ; // (deg); default is all calc.
   INPUTS.SIMLIB_CADENCEFOM_PARLIST[0] = 0.0 ; // 1st param and parList flag
@@ -3808,6 +3809,9 @@ int parse_input_SIMLIB(char **WORDS, int keySource ) {
   }
   else if ( keyMatchSim(1, "SIMLIB_MINSEASON",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_MINSEASON );
+  }
+  else if ( keyMatchSim(1, "SIMLIB_TGAPMIN_SEASON",  WORDS[0],keySource) ) {
+    N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_TGAPMIN_SEASON );
   }
   else if ( keyMatchSim(1, "SIMLIB_MJD_SHIFT",  WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%le", &INPUTS.SIMLIB_MJD_SHIFT );
@@ -21595,6 +21599,9 @@ void store_SIMLIB_SEASONS(void) {
 
   // Compute and store SIMLIB_HEADER.[seasonInfo]
   //
+  // Nov 2026:
+  //    + Replace parameter TGAP_SEASON_SIMLIB with user 
+  //      input INPUTS.SIMLIB_TGAPMIN_SEASON.
  
   double MJD, MJD_LAST;
   int    isort, NLINE_MJD, NLINE, ISEASON, ISGAP, FIRST ;  
@@ -21624,7 +21631,7 @@ void store_SIMLIB_SEASONS(void) {
     SIMLIB_HEADER.MJDRANGE_SURVEY[1]             = MJD; 
 
     // check for large time-gap which defines new season
-    ISGAP = ( MJD - MJD_LAST > TGAP_SEASON_SIMLIB ) ;
+    ISGAP = ( MJD - MJD_LAST > INPUTS.SIMLIB_TGAPMIN_SEASON ) ;
     
     if ( FIRST==0 && ISGAP ) { 
       SIMLIB_HEADER.NSEASON++ ; 

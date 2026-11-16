@@ -187,6 +187,9 @@ def parse_args():
     msg = "debug"
     parser.add_argument("--debug", help=msg, action="store_true")
 
+    msg = "ignore TESTENV key"
+    parser.add_argument("--ignore_testenv", help=msg, action="store_true")
+
     args = parser.parse_args()
 
     # - - - - -
@@ -480,7 +483,7 @@ def parse_list_file(INPUTS, RESULTS_INFO_REF):
     # end parse_list_file
 
 # ============================================
-def parse_taskfile(TASKFILE):
+def parse_taskfile(TASKFILE, INPUTS):
 
     # parse user TASKFILE (read from listFile) and 
     # return dictionary of contents
@@ -501,13 +504,23 @@ def parse_taskfile(TASKFILE):
             CONTENTS[key] = arg_string.split()
         else:
             CONTENTS[key] = arg_string.split(split_char)
+        
+    # Nov 2026: check option to ignore TESTENV key;
+    # initial use is to test scone in python 3.12 without special env.
+    if INPUTS.ignore_testenv and CONTENTS[TASKKEY_TESTENV] :
+        print(f'')
+        print(f"\t ************************************")
+        print(f"\t ******** IGNORE TESTENV KEY ********")
+        print(f"\t ************************************")
+        print(f'')
+        CONTENTS[TASKKEY_TESTENV] = None
 
     return CONTENTS
     # end parse_taskfile
 
 
 # =======================================
-def check_listfile_contents(LIST_FILE_INFO):
+def check_listfile_contents(LIST_FILE_INFO, INPUTS):
 
     # run sanity checks on contents of list file, and abort
     # if anything is clearly going to fail later.
@@ -548,7 +561,7 @@ def check_listfile_contents(LIST_FILE_INFO):
             sys.stdout.flush()
 
         # parse TASKFILE contents, and make sure things exist.
-        CONTENTS_TASK = parse_taskfile(TASKFILE)
+        CONTENTS_TASK = parse_taskfile(TASKFILE, INPUTS)
 
         TESTINPUT            = CONTENTS_TASK[TASKKEY_TESTINPUT]
         TASKNAME_DEPEND_LIST = CONTENTS_TASK[TASKKEY_DEPENDENCY]
@@ -567,14 +580,6 @@ def check_listfile_contents(LIST_FILE_INFO):
                 NOTFOUND_DEPEND += 1 ; ABORT_FLAG = True
                 print(f"\t--> ERROR: DEPENDENCY-Task {TASKNAME_DEPEND} "\
                       f"not defined. ")   
-
-        # xxx mark dele
-        #if TASKNAME_DEPEND is not None :
-        #    if TASKNAME_DEPEND not in TASKNAME_LIST :
-        #        NOTFOUND_DEPEND += 1 ; ABORT_FLAG = True
-        #        print(f"\t--> ERROR: DEPENDENCY-Task {TASKNAME_DEPEND} "\
-        #              f"not defined. ")   
-        # xxxxx
 
         # check for duplicates 
         NFIND = TASKNAME_LIST.count(TASKNAME)
@@ -734,11 +739,10 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
     # if done file already exists bail
     if os.path.isfile(DONEFILE)  :        return 0
 
-    CONTENTS_TASK = parse_taskfile(TASKFILE)
+    CONTENTS_TASK = parse_taskfile(TASKFILE, INPUTS)
 
     # check dependency 
     TASK_DEPEND_LIST = CONTENTS_TASK[TASKKEY_DEPENDENCY]
-    # xxx mark if TASK_DEPEND is not None  :  
     for task_depend in TASK_DEPEND_LIST:
         itask_depend    = CPU_TASKLIST["TASK"].index(task_depend)
         DONEFILE_DEPEND = CPU_TASKLIST["DONEFILE"][itask_depend]
@@ -762,6 +766,8 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
     GREP_WD0      = int( WORDNUM[0] )
     GREP_WD1      = int( WORDNUM[1] ) + 1
 
+    #sys.exit(f"\n xxx INPUTS = \n{INPUTS}")
+
     # copy input file(s) to output log dir, and append PREFIX to input name
     # return arg 'input_copy' includes TASK[nnn] PREFIX.
     infile_copy = copy_input_files(INPUTS,PREFIX,*TESTINPUT)
@@ -770,7 +776,6 @@ def execute_task(itask, CPU_TASKLIST, INPUTS) :
 
     # Dec 19 2025: check for special env
     if TESTENV:
-        # xxx print(f" xxx yo TESTENV = {TESTENV}")
         job_plus_args = f"{TESTENV} ; "
 
     # construct job name with arguments
@@ -850,7 +855,7 @@ def runTasks_driver(INPUTS):
             if os.path.isfile(STOP_FILE) :
                 sys.exit()
             if  CPUNUM[itask] == CPUNUM_REQ  :
-                NDONE_REQ += execute_task(itask,CPU_TASKLIST,INPUTS)
+                NDONE_REQ += execute_task( itask, CPU_TASKLIST, INPUTS)
                 time.sleep(2)
 
     return
@@ -928,7 +933,8 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     SSH_NODES      = LIST_FILE_INFO["SSH_NODES"]
     NCPU           = LIST_FILE_INFO["NCPU"]
     LOGDIR         = SUBMIT_INFO["LOGDIR"]
-
+    arg_ignore_testenv = '--ignore_testenv' if INPUTS.ignore_testenv else ''
+    
     # loop over CPUs and launch each SSH job
     for cpunum in range(0,NCPU) :
 
@@ -937,7 +943,7 @@ def submitTasks_SSH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
 
         cmd_ssh   = f"ssh -x {node}"
         cmd_cd    = f"cd {LOGDIR}"
-        cmd_job   = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  " \
+        cmd_job   = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  {arg_ignore_testenv}  " \
                     f"--logdir {LOGDIR} > {logfile_cpu}"
  
         # on first job, run snana.exe to leave version info
@@ -971,11 +977,11 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     BATCH_INFO     = LIST_FILE_INFO[LISTKEY_BATCH_INFO]
     NCPU           = LIST_FILE_INFO[LISTKEY_NCPU]
     LOGDIR         = SUBMIT_INFO["LOGDIR"]
+    arg_ignore_testenv = '--ignore_testenv' if INPUTS.ignore_testenv else ''
 
     BATCH_SUBMIT_COMMAND = BATCH_INFO[0]
     BATCH_TEMPLATE_FILE  = BATCH_INFO[1]
 
-    # xxx mark delete SNANA_SETUP_forSed = SNANA_SETUP.replace('/','\/')
     SNANA_SETUP_forSed = SNANA_SETUP.replace(r'/', r'\/')
 
     if len(SNANA_SETUP_forSed) == 0:
@@ -984,7 +990,6 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
     # Jun 2021: check user snana_dir
     snana_dir = os.path.expandvars(INPUTS.snana_dir)
     if snana_dir != SNANA_DIR :
-        # xxx mark path_list = f"{snana_dir}/bin:{snana_dir}/util:\$PATH"
         path_list = f"{snana_dir}/bin:{snana_dir}/util:\\$PATH"
 
         SNANA_SETUP_forSed = f"export SNANA_DIR={snana_dir} ; " \
@@ -997,7 +1002,7 @@ def submitTasks_BATCH(INPUTS,LIST_FILE_INFO,SUBMIT_INFO) :
         batch_logfile = f"RUNJOBS_CPU{cpunum:03d}.BATCH-LOG"
         BATCH_RUNFILE = f"{LOGDIR}/{batch_runfile}"
 
-        cmd_job  = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  " \
+        cmd_job  = f"{SCRIPTNAME} {reftest} --cpunum {cpunum}  {arg_ignore_testenv} " \
                    f"--logdir {LOGDIR}"
         cmd_job  = cmd_job.replace(r'/',r'\/')
 
@@ -1243,7 +1248,6 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 
     # July 2021: write login HOST in case we forget later
     host_info_file = f"{LOGDIR}/HOST_MONITOR.INFO"
-    # xxx mark HOSTNAME         = os.environ['HOSTNAME']
     with open(host_info_file,"wt") as f:
         f.write(f"HOST: {HOSTNAME}    # monitor task runs here\n")
 
@@ -1316,12 +1320,6 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
     f.write(f"WALL_TIME:     {t_proc:0.1f} minutes  \n")
     f.write(f"  \n")
 
-    # xxxxxxx mark delete Dec 19 2025 xxxxxx
-    #f.write(f" Total process time for {NTASK} tasks: {t_proc:0.1f} minutes\n")
-    #f.write(f" Number of jobs with ABORT output: {NABORT} \n")
-    #f.write(f" Number of jobs with BLANK output: {NBLANK} \n")
-    # xxxxxxxxx
-
     f.close()
 
     if DOTEST is True :
@@ -1342,7 +1340,6 @@ def monitorTasks_driver(INPUTS,SUBMIT_INFO,RESULTS_INFO_REF):
 # ===================================
 
 if __name__ == "__main__":
-
 
     # parse input arguments
     INPUTS = parse_args()
@@ -1366,7 +1363,7 @@ if __name__ == "__main__":
             RESULTS_INFO_REF = []
 
         LIST_FILE_INFO = parse_list_file(INPUTS, RESULTS_INFO_REF)
-        check_listfile_contents(LIST_FILE_INFO)
+        check_listfile_contents(LIST_FILE_INFO, INPUTS)
 
         #sys.exit("\n xxx DEBUG STOP xxx \n")
 

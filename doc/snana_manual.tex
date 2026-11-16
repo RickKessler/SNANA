@@ -1468,12 +1468,13 @@ etc ...
   SIMLIB_IDSKIP:  nn2     # ignore LIBID nn2 (add as many as you want)  
   SIMLIB_DUMP:      1     # dump summary of simlib 
   SIMLIB_NREPEAT:  nn     # repeat each LIBID nn times (for speed)
-  SIMLIB_FIELDLIST xyz    # plus-separated list of field-substrings
-  SIMLIB_MINSEASON nn     # remove seasons less than nn day duration
-  SIMLIB_MJD_SHIFT x.y     # shift every MJD; e.g., to overlap range of real images
-  USE_SIMLIB_PEAKMJD:  1  # use peakMJD in header (if there)
-  USE_SIMLIB_REDSHIFT: 1  # use redshift in header (if there)
-  USE_SIMLIB_DISTANCE: 1  # use lumi-distance in header (invert to get zCMB)
+  SIMLIB_FIELDLIST:  xyz       # plus-separated list of field-substrings
+  SIMLIB_MINSEASON:   nn       # remove seasons less than nn day duration
+  SIMLIB_TGAPMIN_SEASON: nn    # min gap with no obs between seasons (default=90 days)
+  SIMLIB_MJD_SHIFT:   x.y      # shift every MJD; e.g., to overlap range of real images
+  USE_SIMLIB_PEAKMJD:   1      # use peakMJD in header (if there)
+  USE_SIMLIB_REDSHIFT:  1      # use redshift in header (if there)
+  USE_SIMLIB_DISTANCE:  1      # use lumi-distance in header (invert to get zCMB)
   USE_SIMLIB_TAKE_SPECTRUM: 1  # use TAKE_SPECTRUM keys in header 
   USE_SIMLIB_SPECTROGRAPH:  1  # use SPECTROGRAPH keys under each LIBID
   USE_SIMLIB_SALT2:         1  # use SALT2c & SALT2x1 keys in header

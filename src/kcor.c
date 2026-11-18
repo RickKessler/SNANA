@@ -5047,7 +5047,7 @@ void wr_fits_ZPT(fitsfile *fp) {
   char 
      LABEL_FILT[]               = "Filter Name"
     ,LABEL_PRIMARY_NAME[]       = "Primary Name"
-    ,LABEL_PRIMARY_MAG_INSTR[]  = "Primary instrument mag"
+    ,LABEL_PRIMARY_MAG_INSTR[]  = "Primary Mag"  // "Primary instrument mag"
     ,LABEL_ZPOFF_REF[]          = "ZPoff(Primary)"  // used here, but not in snana
     ,LABEL_ZPOFF_SN[]           = "ZPoff(SNpot)"    // ignore here, used in snana
     ,LABEL_PRIMARY_MAG_SYN[]    = "Primary synthetic mag"  // 10.02.2026

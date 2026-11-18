@@ -1763,23 +1763,24 @@ class LightCurveFit(Program):
         # these temp files remain. After NEVT validation,
         # each temp file is moved to {version}/{fitopt}.{suffix}
 
-        # only SNANA has root 
-        if LCFIT_SUBCLASS == LCFIT_SNANA:
-            if use_table_format[ITABLE_ROOT] :
-                self.merge_table_ROOT(version_fitopt_dict) # all table inside 1 root file
+        if use_table_format[ITABLE_ROOT] :
+            self.merge_table_ROOT(version_fitopt_dict) # all table inside 1 root file
 
-        # only BAYESN has SYST tables (Oct 7 2026) .xyz
-        if LCFIT_SUBCLASS == LCFIT_BAYESN :
-            self.merge_table_SYST(version_fitopt_dict)
-
-
-        # all subclass must have TEXT format.
-        # Process TEXT format after ROOT to allow for append feature
-        if use_table_format[ITABLE_TEXT] :
-            for table_name in TABLE_NAME_LIST :
+        # xxxxxxxxxxx mark delete xxxxxxxxxxx
+        # only BAYESN has SYST tables (Oct 7 2026) 
+        #if LCFIT_SUBCLASS == LCFIT_BAYESN :
+        #    self.merge_table_SYST(version_fitopt_dict)
+        # xxxxxxxxx end mark xxxxxxxxx
+        
+        for table_name in TABLE_NAME_LIST :
+            if use_table_format[ITABLE_TEXT] :
                 self.merge_table_TEXT(table_name, version_fitopt_dict) # separate TEXT file per table
 
+            if use_table_format[ITABLE_NPZ] :
+                self.merge_table_NPZ(table_name, version_fitopt_dict) # separate TEXT file per table 
 
+
+        # - - - - -
         # move MERGE files, and remove 'MERGE_' prefix
         self.move_merge_table_files(version_fitopt_dict)
 
@@ -1900,8 +1901,21 @@ class LightCurveFit(Program):
         #sys.exit("\n xxx DEBUG STOP to see what goin on ... ")
         return
 
-    def merge_table_TEXT(self, table_name, version_fitopt_dict):
+    def merge_table_NPZ(self, table_name, version_fitopt_dict):
+        # Created Nov 18 2026
+        # Analog of merge_table_TEXT, but for NPZ table format.
 
+        # Ask Claude to fill in the nominal part here ?
+
+        # only BAYESN produces SYST files
+        if LCFIT_SUBCLASS == LCFIT_BAYESN and table_name == SUFFIX_SYST:
+            self.merge_table_SYST(version_fitopt_dict)
+            
+        return
+    
+    
+    def merge_table_TEXT(self, table_name, version_fitopt_dict):
+        
         # Input table_name is either 'FITRES', 'SNANA', or 'LCPLOT'.
         # Problem with TEXT tables is that each table must be written
         # to separate set of files, so here each table name is processed

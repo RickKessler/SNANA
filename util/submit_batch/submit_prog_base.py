@@ -1038,7 +1038,7 @@ class Program:
         cleanup_flag = 1     # default
         if 'CLEANUP_FLAG' in CONFIG :
             cleanup_flag = CONFIG['CLEANUP_FLAG']  # override default
-
+        
         logging.info(f"  Create {SUBMIT_INFO_FILE}")
         INFO_PATHFILE  = f"{output_dir}/{SUBMIT_INFO_FILE}"
         f = open(INFO_PATHFILE, 'w') 

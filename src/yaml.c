@@ -17,6 +17,8 @@
 #include <limits.h>
 #include <stddef.h>
 
+#pragma GCC diagnostic ignored "-Wunused-value"  // avoid warnings (Claude)
+
 /*
  * Memory management.
  */

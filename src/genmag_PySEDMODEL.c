@@ -831,17 +831,22 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   PyTuple_SetItem(pargs,2,PyLong_FromLong(EXTERNAL_ID));
   PyTuple_SetItem(pargs,3,PyLong_FromLong(NEWEVT_FLAG));
 
-  for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
+  // xxx mark delete for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
+  int N_HOSTPAR_LIST = sizeof(HOSTPAR_LIST) / sizeof(double*) ; // Claude fix, Nov 18 2026
+  for(ihost=0; ihost < N_HOSTPAR_LIST; ihost++ ){
     PyTuple_SetItem(pargs2,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
   }
   PyTuple_SetItem(pargs,4,pargs2);
   
-  pLAM   = PyEval_CallObject(plammeth, NULL);
+  // xxx mark delete   pLAM  = PyEval_CallObject(plammeth, NULL);
+  pLAM  = PyObject_CallObject(plammeth, NULL); // Claude, Nov 18 2026
+
   // doesn't work ?  pLAM   = PyEval_Call(plammeth, NULL);
   handle_python_exception(fnam, "calling _fetchSED_LAM method");
 
-  pFLUX  = PyEval_CallObject(pmeth, pargs);
-  // doesn't work ? pFLUX  = PyEval_Call(pmeth, pargs);
+  // xxx mark delete pFLUX = PyEval_CallObject(pmeth, pargs);
+  pFLUX = PyObject_CallObject(pmeth, pargs); // Claude, Nov 18 2026
+
   handle_python_exception(fnam, "calling _fetchSED method");
 
   Py_DECREF(pmeth);

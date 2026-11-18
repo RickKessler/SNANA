@@ -1360,6 +1360,12 @@ Returns :
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
     }
 
+    if ( Nk < 4 ) {
+      sprintf(c1err,"Invalid Nk=%d < 4", Nk);
+      sprintf(c2err,"Sorry, but not sure who called this function");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+    }
+
     int j, q; //indexes
     double A, B, C, D; //coefficients
     double deltax, deltax2; // gap between bounding knots
@@ -5225,8 +5231,9 @@ float ** ccarray_rebuild_
       pSpace  = (float *)malloc(sizeof(float ) * nRow * nCol);
       ppArray = (float**)malloc(sizeof(float*) * nRow);
    } else {
-      ppArray = (float**)realloc(ppOldArray, sizeof(float*) * nRow);
-      pSpace  = (float *)realloc(ppOldArray[0],sizeof(float ) * nRow * nCol);
+     float *pOld0 = ppOldArray[0]; (void)pOld0; // Claude fix to prevent compile warning
+     ppArray = (float**)realloc(ppOldArray, sizeof(float*) * nRow);
+     pSpace  = (float *)realloc(ppOldArray[0],sizeof(float ) * nRow * nCol);
    }
 
    for (iRow = 0; iRow < nRow; iRow++) {
@@ -5254,16 +5261,17 @@ double ** ccdarray_rebuild_
    double ** ppArray;
 
    if (ppOldArray == NULL) {
-      pSpace  = (double *)malloc(sizeof(double ) * nRow * nCol);
-      ppArray = (double**)malloc(sizeof(double*) * nRow);
+     pSpace  = (double *)malloc(sizeof(double ) * nRow * nCol);
+     ppArray = (double**)malloc(sizeof(double*) * nRow);
    } else {
-      ppArray = (double**)realloc(ppOldArray, sizeof(double*) * nRow);
-      pSpace  = (double *)realloc(ppOldArray[0],sizeof(double ) * nRow * nCol);
+     double *pOld0 = ppOldArray[0]; (void)pOld0; // claude suggestion remove compile warnings
+     ppArray = (double**)realloc(ppOldArray, sizeof(double*) * nRow);
+     pSpace  = (double *)realloc(ppOldArray[0],sizeof(double ) * nRow * nCol);
    }
 
    for (iRow = 0; iRow < nRow; iRow++) {
-      /* Quantity (iRow*nCol) scales by sizeof(double) */
-      ppArray[iRow] = pSpace + (iRow * nCol);
+     /* Quantity (iRow*nCol) scales by sizeof(double) */
+     ppArray[iRow] = pSpace + (iRow * nCol);
    }
 
    return ppArray;
@@ -5286,11 +5294,12 @@ int ** cciarray_rebuild_
    int   ** ppArray;
 
    if (ppOldArray == NULL) {
-      pSpace  = (int *)malloc(sizeof(int ) * nRow * nCol);
-      ppArray = (int**)malloc(sizeof(int*) * nRow);
+     pSpace  = (int *)malloc(sizeof(int ) * nRow * nCol);
+     ppArray = (int**)malloc(sizeof(int*) * nRow);
    } else {
-      ppArray = (int**)realloc(ppOldArray, sizeof(int*) * nRow);
-      pSpace  = (int *)realloc(ppOldArray[0],sizeof(int ) * nRow * nCol);
+     int *pOld0 = ppOldArray[0]; (void)pOld0;  // claude suggestion remove compile warnings
+     ppArray = (int**)realloc(ppOldArray, sizeof(int*) * nRow);
+     pSpace  = (int *)realloc(ppOldArray[0],sizeof(int ) * nRow * nCol);
    }
 
    for (iRow = 0; iRow < nRow; iRow++) {

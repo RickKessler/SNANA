@@ -4163,7 +4163,7 @@ void PSNID_BEST_GET_FITFUN(char *CCID, int ind,
   if (itype == PSNID_ITYPE_SNIA) {
     this_type = TYPEINDX_SNIA_PSNID;
   }
-  else if ( itype > PSNID_ITYPE_SNIA && itype <= PSNID_NTYPES ) {
+  else if ( itype > PSNID_ITYPE_SNIA && itype < PSNID_NTYPES ) {
     this_type = TYPEINDX_NONIA_PSNID;
   }
 

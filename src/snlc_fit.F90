@@ -9111,7 +9111,7 @@
     CALL FCNSNLC(NFITPAR_MN, GRAD, CHI2, INIVAL, IFLAG, USRFUN)
 
     write(6,20) SNLC_CCID(1:ISNLC_LENCCID), CHI2
-20  format(T5,' xxx TEST CHI2(',A,') = ', 2x F9.2 )
+20  format(T5,' xxx TEST CHI2(',A,') = ', 2x, F9.2 )
     call flush(6)
     
     ! restore INIVAL
@@ -17956,7 +17956,7 @@
             R8EP_MJD(irow), R8EP_MJD(icol)
 660      format(T3,'COVMAT[ ', F6.2, '(', A1, ')'  ,  & 
                 F6.2, '(', A1, ') ] = ', F15.6 ,  & 
-                4x,'MJD=', F9.3,','F9.3  & 
+                4x,'MJD=', F9.3,',', F9.3  & 
            )
 
 302    CONTINUE
@@ -18064,8 +18064,7 @@
 
       WRITE(LUNINTERP,40) 'Interpolation Results at MJD_INTERP'
       WRITE(LUNINTERP,402)
-402     FORMAT('VARNAMES: CID BAND MJD_INTERP MAG MAGERR '  & 
-                         'FLUX FLUXERR TOBS TREST' )
+402   FORMAT('VARNAMES: CID BAND MJD_INTERP MAG MAGERR FLUX FLUXERR TOBS TREST' )
 
       RETURN
 

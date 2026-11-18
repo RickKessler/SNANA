@@ -16126,7 +16126,7 @@
        print*,' xxx ------------------------------------- '
        write(6,666) EP, CFILT, LFILT,  & 
                  MJD, PROB, NOBS_EARLYLC, NNIGHT_EARLYLC
-666      format(T2, 'xxx EP=',I3'-',A1, '(',L1,')', 2x,  & 
+666      format(T2, 'xxx EP=',I3, '-', A1, '(',L1,')', 2x,  & 
                'MJD=',F9.3, 2x, 'PROB=',F5.2, 2x,  & 
                'N[OBS,NITE]=',2I3 )
 

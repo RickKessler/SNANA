@@ -24423,6 +24423,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          ***** IMPORTANT(v12_02g) *****
 
+    SALT2mu.c:  CCprior bug fixes; see #1839
+
          *****  USEFUL(v12_02g) *****
          
          *****  MISCELLANEOUS(v12_02g) *****
@@ -24442,8 +24444,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     snlc_sim.c
      + new sim-input PERIODIC_MJD_EXCLUDE (for Roman DECONs)
      + new sim-input key SIMLIB_TGAPMIN_SEASON (for ATLAS)
-     + fix #1837
+     + fix #1837, #1839
 
+    kcor.c
+      + new input ADDCOL_MAGSYN (=1 by defalt, but set to 0 to suppress for saltshaker)
+        Input can be in config input file, or command line.
 
 END:
 

@@ -111,7 +111,7 @@
  Mar 28 2025; allow command-line override for SPECTROGRAPH
 
  Oct 02 2026: add MAG_SYN as last column in ZOPOFF table (HDU 1)
-
+ Nov 18 2026: bew command-line input 'ADDCOL_MAGSYN 0' to disable MAGSYN column (for saltshaker)
 ****************************************************/
 
 #include "fitsio.h"
@@ -264,6 +264,8 @@ void  print_kcor_help(void) {
     "AV_RANGE:   -6.0  6.0 " , 
     "AV_BINSIZE:  0.5    # increase for faster kcor generation ",
     "AV_OPTION:   2      # 2->proper integration over filter",
+    "",
+    "ADDCOR_MAGSYN:  0   # suppresss MAGSYN column in HDU 1 (for saltshaker)",
     0
   };
 
@@ -404,7 +406,8 @@ int rd_input(void) {
 
   INPUTS.TREF_EXPLODE = -19.0 ;
 
-  INPUTS.NLAMBIN_FT = 0;
+  INPUTS.NLAMBIN_FT    = 0;
+  INPUTS.ADDCOL_MAGSYN = 1 ;
 
   for ( ifilt=0; ifilt < MXFILTDEF; ifilt++ ) {
     FILTER[ifilt].MASKFRAME   = 0;
@@ -464,6 +467,10 @@ int rd_input(void) {
 
     if ( strcmp(c_get,"NLAMBIN_FT:")==0 )  {
       readint ( fp_input, 1, &INPUTS.NLAMBIN_FT );
+    }  
+
+    if ( strcmp(c_get,"ADDCOL_MAGSYN:")==0 )  {
+      readint ( fp_input, 1, &INPUTS.ADDCOL_MAGSYN );  // Nov 18 2026
     }  
 
     if ( strcmp(c_get,"SN_TYPE:")==0 )  {
@@ -1327,6 +1334,9 @@ void kcor_input_override(int OPT) {
     }
     // ----------
 
+    if ( strcmp( ARGV_LIST[i],"ADDCOL_MAGSYN") == 0 ) {
+      i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.ADDCOL_MAGSYN ); 
+    }
 
     if ( strcmp( ARGV_LIST[i], "DUMP_SNMAG" ) == 0 ) {
       i++ ; sscanf(ARGV_LIST[i] , "%d", &INPUTS.DUMP_SNMAG ); 
@@ -5025,7 +5035,9 @@ void wr_fits_ZPT(fitsfile *fp) {
   // instead they are stored so that snana can use them.
   //
   // Oct 2 2026: add primary synthetic mag as 6th (last) column
-  //
+  // Nov 18 2026: check INPUTS.ADDCOL_MAGSYN to add MAGSYN column
+
+  int ADDCOL_MAGSYN = INPUTS.ADDCOL_MAGSYN;
 
   int istat, ncol, icol, ifilt ;
   int firstrow, firstelem, nrow, INDX_INPUT ;
@@ -5049,14 +5061,15 @@ void wr_fits_ZPT(fitsfile *fp) {
   printf("\t %s: write ZPT info \n", fnam );
   fflush(stdout);
 
-  ncol = 6 ; istat = 0 ;
-
+  ncol = 5 ; istat = 0 ;
   STRFITS.tName[0] = LABEL_FILT ;
   STRFITS.tName[1] = LABEL_PRIMARY_NAME ;
   STRFITS.tName[2] = LABEL_PRIMARY_MAG_INSTR ;
   STRFITS.tName[3] = LABEL_ZPOFF_REF ;
   STRFITS.tName[4] = LABEL_ZPOFF_SN ;
-  STRFITS.tName[5] = LABEL_PRIMARY_MAG_SYN ;
+
+  if ( ADDCOL_MAGSYN ) 
+    { STRFITS.tName[ncol] = LABEL_PRIMARY_MAG_SYN ;     ncol++ ;   }
 
   for(icol=0; icol < ncol; icol++ ) {
     STRFITS.tForm[icol] = STRFITS.F4 ;
@@ -5094,7 +5107,6 @@ void wr_fits_ZPT(fitsfile *fp) {
     zptoff_filt     = FILTER[ifilt].MAGFILTER_ZPOFF;    // stored AB  offset
 
     INDX_INPUT      = FILTER[ifilt].MAGSYSTEM_INDX_INPUT;
-    printf(" xxx %s: INDX_INPUT=%d  ifilt=%d  \n", fnam, INDX_INPUT, ifilt);
     mag_prim_syn    = PRIMARYSED[INDX_INPUT].SYNMAG[ifilt] ; //.xyz
 
     icol++;     
@@ -5128,12 +5140,13 @@ void wr_fits_ZPT(fitsfile *fp) {
     wr_fits_errorCheck(c1err, istat) ;  
 
     // Oct 2 2026: add synth mag
-    icol++ ;     
-    fits_write_col(fp, TFLOAT, icol, firstrow, firstelem, nrow,
-		   &mag_prim_syn, &istat);
-    sprintf(c1err,"write MAG_PRIM_SYN into %s", TBLname );
-    wr_fits_errorCheck(c1err, istat) ;  
-
+    if ( ADDCOL_MAGSYN ) {
+      icol++ ;     
+      fits_write_col(fp, TFLOAT, icol, firstrow, firstelem, nrow,
+		     &mag_prim_syn, &istat);
+      sprintf(c1err,"write MAG_PRIM_SYN into %s", TBLname );
+      wr_fits_errorCheck(c1err, istat) ;  
+    }
   }
 
   return ;

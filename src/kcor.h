@@ -141,6 +141,9 @@ struct INPUTS {
 
   int NLAMBIN_FT; // Number of Fourier Transform bins (must be power of 2)
 
+  // Nov 18 2026: option to drop magsyn column for SALTshaker
+  int ADDCOL_MAGSYN;
+
 } INPUTS ;
 
 

@@ -1364,6 +1364,7 @@ Returns :
       sprintf(c1err,"Invalid Nk=%d < 4", Nk);
       sprintf(c2err,"Sorry, but not sure who called this function");
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+      return 0.0 ;  // fool compiler that Nk is safe
     }
 
     int j, q; //indexes
@@ -5231,9 +5232,9 @@ float ** ccarray_rebuild_
       pSpace  = (float *)malloc(sizeof(float ) * nRow * nCol);
       ppArray = (float**)malloc(sizeof(float*) * nRow);
    } else {
-     float *pOld0 = ppOldArray[0]; (void)pOld0; // Claude fix to prevent compile warning
+     float *pOld0 = ppOldArray[0]; // save before realloc(ppOldArray) may free it
      ppArray = (float**)realloc(ppOldArray, sizeof(float*) * nRow);
-     pSpace  = (float *)realloc(ppOldArray[0],sizeof(float ) * nRow * nCol);
+     pSpace  = (float *)realloc(pOld0,sizeof(float ) * nRow * nCol);
    }
 
    for (iRow = 0; iRow < nRow; iRow++) {
@@ -5264,9 +5265,9 @@ double ** ccdarray_rebuild_
      pSpace  = (double *)malloc(sizeof(double ) * nRow * nCol);
      ppArray = (double**)malloc(sizeof(double*) * nRow);
    } else {
-     double *pOld0 = ppOldArray[0]; (void)pOld0; // claude suggestion remove compile warnings
+     double *pOld0 = ppOldArray[0]; // save before realloc(ppOldArray) may free it
      ppArray = (double**)realloc(ppOldArray, sizeof(double*) * nRow);
-     pSpace  = (double *)realloc(ppOldArray[0],sizeof(double ) * nRow * nCol);
+     pSpace  = (double *)realloc(pOld0,sizeof(double ) * nRow * nCol);
    }
 
    for (iRow = 0; iRow < nRow; iRow++) {
@@ -5297,9 +5298,9 @@ int ** cciarray_rebuild_
      pSpace  = (int *)malloc(sizeof(int ) * nRow * nCol);
      ppArray = (int**)malloc(sizeof(int*) * nRow);
    } else {
-     int *pOld0 = ppOldArray[0]; (void)pOld0;  // claude suggestion remove compile warnings
+     int *pOld0 = ppOldArray[0]; // save before realloc(ppOldArray) may free it
      ppArray = (int**)realloc(ppOldArray, sizeof(int*) * nRow);
-     pSpace  = (int *)realloc(ppOldArray[0],sizeof(int ) * nRow * nCol);
+     pSpace  = (int *)realloc(pOld0,sizeof(int ) * nRow * nCol);
    }
 
    for (iRow = 0; iRow < nRow; iRow++) {

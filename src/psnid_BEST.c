@@ -4133,6 +4133,11 @@ void PSNID_BEST_GET_FITFUN(char *CCID, int ind,
   
   psnid_best_get_plotind(ind, &izprior, &itype); // return izprior and itype
 
+  // Nov 2026: psnid_best_get_plotind returns -9 if ind is not found;
+  // avoid out-of-bounds access to MINCHISQ_IND below.
+  if ( izprior < 0 || izprior >= PSNID_NZPRIOR ||
+       itype   < 0 || itype   >= PSNID_NTYPES )  { return ; }
+
   // bail if there are no templates for this type (Feb 2017)
   // Make sure to bail BEFORE malloc.
   if ( PSNID_NGRID[itype] == 0 ) { return ; } 

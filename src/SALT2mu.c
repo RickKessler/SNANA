@@ -829,7 +829,8 @@ typedef struct {
   // MEAN and RMS of DMU in each z-bin, to approximate Gaussian
   double DMUAVG[MXNUM_SAMPLE][MX3DMAP_CCPRIOR] ;
   double DMURMS[MXNUM_SAMPLE][MX3DMAP_CCPRIOR] ;
-  
+  bool   ISPRIOR_FLAT[MXNUM_SAMPLE][MX3DMAP_CCPRIOR];
+
   // CC params used in Hlozek 2011
   double H11_fitpar[10] ;  
 } MUZMAP_DEF ;
@@ -1029,6 +1030,7 @@ struct {
   float MEMORY;  // Mbytes
   
   int I3D_NEVTMAX; // 3D index with most events (for print diagnostics)
+  int I3D_FLAT ;   // 3D index for bin with flat prior (for print diag)
 
   // PROB(DMU) info
   PROB_CCPRIOR_DEF PROB_CCPRIOR;  // Jul 29 2025
@@ -1404,6 +1406,8 @@ struct INPUTS {
   int restore_bug_muzerr ; // biasCor muerr calc excludes vpec err
   int restore_bug_zmax_biascor; // Apr 2023
   int restore_bug_mumodel_zhel; // Dec 1 2023: restore bug using zHD instead of zhel
+  int restore_bug_ccprior ;     // Nov 18 2026: restore prior-norm bug with bin size
+
   int dustflag_keep_sim_alpha; // Aug 2026: keep per-event SIM_ALPHA under BS21 dust flag
   int restore_des5yr;   // restore bug setting mubias=0 for CCprior
   int restore_sn_unite; // restore sigint_scat(STD) instead of MAD
@@ -5562,7 +5566,6 @@ void *MNCHI2FUN(void *thread) {
 
 	//	DUMPFLAG = ( strcmp(name,"1257419") == 0 ) ; // CCPRIOR IZBIN=3  
 
-
 	// pre-computed during init with user-input alpha,beta
 	if ( INPUTS.DO_CCPRIOR_UPDATE ) {
 	  // re-compute prior with updated alpha, beta
@@ -6743,6 +6746,7 @@ void set_defaults(void) {
   INPUTS.restore_bug_muzerr     = 0 ;
   INPUTS.restore_bug_zmax_biascor = 0 ;
   INPUTS.restore_bug_mumodel_zhel = 0;
+  INPUTS.restore_bug_ccprior      = 0;
   INPUTS.dustflag_keep_sim_alpha  = 0 ;
 
   INPUTS.nthread           = 1 ; // 1 -> no thread
@@ -15876,11 +15880,6 @@ int get_muCOVcorr(char *cid,
     return(0);
   }
 
-  /* xxxxxxx mark delete Jun 3 2026 xxxxxx
-  else if ( !INPUTS.restore_bug_mucovscale ) {
-    return(0); // 9.2021
-  }
-  xxxxxxx end mark */
 
   // - - - - - - - -
   if ( DUMPFLAG) {
@@ -16919,6 +16918,14 @@ void prepare_CCprior(void) {
   for(idsample=0; idsample < NSAMPLE; idsample++ )
     { dump_DMUPDF_CCprior(idsample, INFO_CCPRIOR.I3D_NEVTMAX, &INFO_CCPRIOR.MUZMAP) ; }
 
+  if ( INFO_CCPRIOR.I3D_FLAT >= 0 ) {
+    fprintf(FP_STDOUT,"\n");
+    fprintf(FP_STDOUT,"\t\t Print PDF(DMU) in {z,c,s}-bin with flat prior:\n");
+
+    for(idsample=0; idsample < NSAMPLE; idsample++ )
+      { dump_DMUPDF_CCprior(idsample, INFO_CCPRIOR.I3D_FLAT, &INFO_CCPRIOR.MUZMAP) ; }
+  }
+
   // ----------------------------------------------
   fprintf(FP_STDOUT, "\n Finished preparing CC prior. \n");
   fflush(FP_STDOUT);
@@ -16927,6 +16934,7 @@ void prepare_CCprior(void) {
   return ;
 
 } // end prepare_CCprior
+
 
 
 // =========================================
@@ -17383,6 +17391,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   //
   // Input structures MUZMAP and PROB are updated.
   //
+  // Nov 2026: do not divide prob /= DMUBIN
 
   int NBIN3D          = MUZMAP->NBIN3D;
   int NMUBIN  	      = MUZMAP->DMUBIN.nbin;
@@ -17419,12 +17428,14 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
 
     MUZMAP->NCC3D[IDSAMPLE][i3d]  = 0;
     MUZMAP->DMUAVG[IDSAMPLE][i3d] = 0.0 ;
-    MUZMAP->DMURMS[IDSAMPLE][i3d] = 9999.0 ; // --> flat distribution
-    
+    MUZMAP->DMURMS[IDSAMPLE][i3d] = 9999.0 ;    // --> flat distribution
+    MUZMAP->ISPRIOR_FLAT[IDSAMPLE][i3d] = true; // default = flat prior
+
     for(imu=0; imu < NMUBIN; imu++ ) { 
       NCC[i3d][imu] = 0 ;
       MUZMAP->NDMUPDF[IDSAMPLE][i3d][imu] = 0 ;
-      MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = (1.0/XMU) / DMUBIN ;
+      // xxx mark delete MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = (1.0/XMU) / DMUBIN ;
+      MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = (1.0/XMU)  ; // init to flat prior
     }
   }
   
@@ -17489,14 +17500,7 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
   // If the stats are too low then leave flat/default PDF.
   double S1TMP, S2TMP, AVG, STD, P ; 
   int NTMP, NTMP_MAX = 0 ;  
-
-  /* xxx ???
-  if ( PRINT_TABLE ) {
-    fprintf(FP_STDOUT, "\n   %s for %s: \n", 
-	    SAMPLE_BIASCOR[IDSAMPLE].NAME, STRING_EVENT_TYPE[EVENT_TYPE]  );
-    fprintf(FP_STDOUT, "\t IDSAMPLE iz    zmin zmax  N(NONIA)  AVG(DMU)  STD(DMU)\n" );
-  }  // end PRINT_TABLE
-  xxxx */
+  INFO_CCPRIOR.I3D_NEVTMAX = INFO_CCPRIOR.I3D_FLAT = -9;
 
   for(i3d=0; i3d < NBIN3D; i3d++ ) {
 
@@ -17515,27 +17519,24 @@ void setup_MUZMAP_DMUPDF_CCPRIOR(int IDSAMPLE, TABLEVAR_DEF *TABLEVAR, MUZMAP_DE
 
       MUZMAP->DMUAVG[IDSAMPLE][i3d] = AVG ;
       MUZMAP->DMURMS[IDSAMPLE][i3d] = STD ;
-	
+      MUZMAP->ISPRIOR_FLAT[IDSAMPLE][i3d] = false; 
+
       // prob in each bin
       for(imu=0; imu < NMUBIN; imu++ ) { 
 	XCC = (double)NCC[i3d][imu];
-	P   = ( XCC / XCC_SUM ) / DMUBIN ;
+	// xxx mark delete   = ( XCC / XCC_SUM ) / DMUBIN ;
+	P   = ( XCC / XCC_SUM ) ;
 	MUZMAP->DMUPDF[IDSAMPLE][i3d][imu]  = P ;
 	MUZMAP->NDMUPDF[IDSAMPLE][i3d][imu] = NCC[i3d][imu];
 	MUZMAP->NCC3D[IDSAMPLE][i3d]       += NCC[i3d][imu];
-
 	if ( DO_INTEGRAL_CHECK ) { INTEGRAL_CHECK[i3d] += (P * DMUBIN); }
 
       }
 
-      /* xxxxxx
-      if ( PRINT_TABLE ) {
-	fprintf(FP_STDOUT,"\t INTEGRAL_CHECK for IDSAMPLE=%d  I3d=%3d: %f \n", 
-		IDSAMPLE, i3d, INTEGRAL_CHECK[i3d]);      fflush(FP_STDOUT);
-      }
-      xxx */
+    }  // end MINEVT_PER_CELL check
+    else {
+      if ( INFO_CCPRIOR.I3D_FLAT < 0 ) { INFO_CCPRIOR.I3D_FLAT = i3d; }
     }
-
   }   // and iz loop
  
 
@@ -18415,20 +18416,24 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   // Feb 08 2025: use opt_ccprior to decide prior eval method;
   //              speed up DMU interp using known binsize 
   //
-
+  // Nov 18 2026: 
+  //   + fix norm bug; prob *= dmubin
+  //   + fix bug with Gauss option and flat prior (see ISPRIOR_FLAT)
+  //
   int  OPT_CCPRIOR      = INPUTS.opt_ccprior ;
   bool DO_FUNDMU_GAUSS  = INPUTS.DO_CCPRIOR_GAUSS ;
   bool DO_FUNDMU_INTERP = INPUTS.DO_CCPRIOR_INTERP ; 
+  bool ISPRIOR_FLAT     = MUZMAP->ISPRIOR_FLAT[IDSAMPLE][I3D];
+  double  dmubin        = MUZMAP->DMUBIN.binSize ;
 
   int NBMU, imu ;
-  double dmumin, dmumax, dmubin, dmu_local=dmu , prob, frac, *DMUPDF, *DMUAVG;
+  double dmumin, dmumax, dmu_local=dmu , prob=0.0, frac, *DMUPDF, *DMUAVG;
+  double AVG, RMS, resid, arg ;
 
   char fnam[100] ;
   concat_callfun_plus_fnam(callFun, "prob_CCprior_sim", fnam); // return fnam 
 
   // ----------------- BEGIN ------------
-
-  prob = 0.0 ;
 
   if ( I3D < 0 || I3D >= MUZMAP->NBIN3D ) {
     print_preAbort_banner(fnam);
@@ -18442,7 +18447,8 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
 
   if ( DUMPFLAG ) {
     printf(" xxx --------------------------------------------- \n");
-    printf(" xxx %s: NCALL=%d   DO_FUNDMU_GAUSS=%d\n", fnam, FITRESULT.NCALL_FCN, DO_FUNDMU_GAUSS);
+    printf(" xxx %s: NCALL=%d   DO_FUNDMU[GAUSS,INTERP] = %d, %d   ISPRIOR_FLAT=%d \n", 
+	   fnam, FITRESULT.NCALL_FCN, DO_FUNDMU_GAUSS, DO_FUNDMU_INTERP, ISPRIOR_FLAT);
     printf(" xxx %s: IDSAM=%d  I3D=%d  DMU=%.4f  PRIOR[AVG,RMS] = %.4f %.4f \n",
 	   fnam, IDSAMPLE, I3D, dmu, 
 	   MUZMAP->DMUAVG[IDSAMPLE][I3D],
@@ -18451,13 +18457,19 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
 
   if ( DO_FUNDMU_GAUSS ) {
     // make Guassian approximation with <DMU> and RMS(DMU).
-    double AVG, RMS, resid, arg ;
     AVG    = MUZMAP->DMUAVG[IDSAMPLE][I3D];
     RMS    = MUZMAP->DMURMS[IDSAMPLE][I3D];
 
-    if ( RMS > 0.0000001 ) {
+    if ( ISPRIOR_FLAT && !INPUTS.restore_bug_ccprior) {
+      // since it's a flat prior, prob = prob of any bin, so use prob in 1st bin
+      prob     = MUZMAP->DMUPDF[IDSAMPLE][I3D][0] ; // imu=0 is first bin
+    }
+    else if ( RMS > 0.0000001 ) {      
       resid  = (dmu-AVG)/RMS ; arg=0.5*resid*resid ;
       prob   = (PIFAC/RMS) * exp(-arg);
+      prob  *= dmubin ; // Nov 2026 .xyz
+      
+      if ( INPUTS.restore_bug_ccprior && prob > 0.0 ) { prob /= dmubin; }
     }
 
     /* xxxxxxxxxxx
@@ -18474,7 +18486,6 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
     NBMU   = MUZMAP->DMUBIN.nbin ;
     dmumin = MUZMAP->DMUBIN.avg[0];
     dmumax = MUZMAP->DMUBIN.avg[NBMU-1];
-    dmubin = MUZMAP->DMUBIN.binSize ;
     DMUPDF = MUZMAP->DMUPDF[IDSAMPLE][I3D] ;
     DMUAVG = MUZMAP->DMUBIN.avg ;
 
@@ -18486,7 +18497,6 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
     else
       { dmu_local = dmu ; }
     
-
     imu = (int)((dmu_local - dmumin)/dmubin) ;
     if (imu == NBMU - 1) { imu-- ; }
     frac  = (dmu_local - DMUAVG[imu]) / dmubin ;
@@ -18494,7 +18504,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
 
   }
 
-  if ( DUMPFLAG ) { printf(" xxx %s: prob = %.4f \n", fnam, prob); fflush(stdout); } 
+  if ( DUMPFLAG ) { printf(" xxx %s: prob = %.4f \n", fnam, prob ); fflush(stdout);  } 
 
   // -------------------------------
   return(prob);
@@ -20131,6 +20141,9 @@ int ppar(char* item) {
 
   if ( uniqueOverlap(item,"restore_bug_mumodel_zhel="))
     { sscanf(&item[25],"%d", &INPUTS.restore_bug_mumodel_zhel); return(1); }
+
+  if ( uniqueOverlap(item,"restore_bug_ccprior="))
+    { sscanf(&item[20],"%d", &INPUTS.restore_bug_ccprior); return(1); }
 
 
   if ( uniqueOverlap(item,"dustflag_keep_sim_alpha="))
@@ -22619,8 +22632,8 @@ void prep_debug_flag(void) {
     fflush(FP_STDOUT);
   }
 
-  if ( INPUTS.restore_bug_zmax_biascor ) {
-    printf("\n RESTORE BUG for zmax(biasCor)\n" );
+  if ( INPUTS.restore_bug_ccprior ) {
+    printf("\n RESTORE BUG for CCprior norm using bin size\n" );
     fflush(FP_STDOUT);
   }
 
@@ -24572,7 +24585,6 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
 
     int n0 = strlen(line_out), n1=strlen(word);
     if ( (n0 + n1) >= MXCHAR_LINE ) {
-      //.xyz
       print_preAbort_banner(fnam);
       printf("\t line_out = '%s' \n", line_out);
       printf("\t next word to add = '%s' \n", word);

@@ -4176,7 +4176,7 @@ void PSNID_BEST_GET_FITFUN(char *CCID, int ind,
   if (itype == PSNID_ITYPE_SNIA) {
     this_l = l;
   }
-  else if ( itype > PSNID_ITYPE_SNIA && itype <= PSNID_NTYPES ) {
+  else if ( itype > PSNID_ITYPE_SNIA && itype < PSNID_NTYPES ) {
     this_l = PSNID_NONIA_ABSINDEX[itype][l];
   }
   //  printf("  l=%d\n", l);

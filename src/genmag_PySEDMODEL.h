@@ -66,7 +66,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
 int  fetchParNames_PySEDMODEL(char **parNameList);
 void fetchParVal_PySEDMODEL(double *parVal);
 void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Tobs,
-			 int MXLAM, double *HOSTPAR_LIST, int *NLAM,
+			 int MXLAM, int NHOSTPAR, double *HOSTPAR_LIST, int *NLAM,
 			 double *LAM, double *FLUX);
 
 void INTEG_zSED_PySEDMODEL(int OPT_SPEC, int IFILT_OBS, double Tobs,

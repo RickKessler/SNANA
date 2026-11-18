@@ -24450,6 +24450,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       + new input ADDCOL_MAGSYN (=1 by defalt, but set to 0 to suppress for saltshaker)
         Input can be in config input file, or command line.
 
+    many code files:
+      NERSC has many more comilation warnings (than RCC), so fix these warnings
+      with help from Claude.
+      Still some remaining warnings in MWgaldust.c ... maybe try again later.
+
 END:
 
 

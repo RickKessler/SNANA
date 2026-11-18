@@ -72,6 +72,14 @@
 
 #ifdef USE_PYTHON
 #include  <Python.h>
+
+// PyEval_CallObject is deprecated since Python 3.9 (warning), but
+// PyObject_CallObject is the replacement; use the old call for older Python.
+#if PY_VERSION_HEX >= 0x03090000
+#define PYCALLOBJECT(f,a)  PyObject_CallObject(f,a)
+#else
+#define PYCALLOBJECT(f,a)  PyEval_CallObject(f,a)
+#endif
 //#include <numpy/arrayobject.h>
 //#include <numpy/ndarrayobject.h>
 PyObject *numpy_empty, *numpy_double; // numpy.empty, numpy.double
@@ -621,7 +629,7 @@ void genmag_PySEDMODEL(int EXTERNAL_ID, double zHEL, double zCMB, double MU,
       { NEWEVT_FLAG_TMP = 0; }
 
     fetchSED_PySEDMODEL(EXTERNAL_ID, NEWEVT_FLAG_TMP, Trest,
-			MXLAM, HOSTPAR_LIST, &NLAM, LAM, SED);
+			MXLAM, NHOSTPAR, HOSTPAR_LIST, &NLAM, LAM, SED);
     Event_PySEDMODEL.NLAM = NLAM ;
 
     // integrate redshifted SED to get observer-frame flux in IFILT_OBS band.
@@ -788,7 +796,7 @@ void fetchParVal_PySEDMODEL(double *parVal) {
 
 // =================================================
 void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXLAM,
-			 double *HOSTPAR_LIST, int *NLAM_SED,
+			 int NHOSTPAR, double *HOSTPAR_LIST, int *NLAM_SED,
 			 double *LAM_SED, double *FLUX_SED) {
 
   // return rest-frame SED to calling function;
@@ -797,6 +805,7 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   //   NEWEVT_FLAG  :  logical flag: True for new event
   //   Trest        : rest frame epochs (Trest=0 at peak)
   //   MXLAM        : abort iof *NLAM > MXLAM
+  //   NHOSTPAR     : number of host params in HOSTPAR_LIST
   //   HOSTPAR_LIST : RV, AV, LOGMAS ...
   //
   // Output
@@ -825,27 +834,23 @@ void fetchSED_PySEDMODEL(int EXTERNAL_ID, int NEWEVT_FLAG, double Trest, int MXL
   plammeth  = PyObject_GetAttrString(geninit_PySEDMODEL, "_fetchSED_LAM");
 
   pargs = PyTuple_New(5);
-  pargs2 = PyTuple_New(sizeof(HOSTPAR_LIST));
+  pargs2 = PyTuple_New(NHOSTPAR);  // Nov 18 2026: not sizeof(pointer)
   PyTuple_SetItem(pargs,0,PyFloat_FromDouble(Trest));
   PyTuple_SetItem(pargs,1,PyLong_FromLong(MXLAM));
   PyTuple_SetItem(pargs,2,PyLong_FromLong(EXTERNAL_ID));
   PyTuple_SetItem(pargs,3,PyLong_FromLong(NEWEVT_FLAG));
 
-  // xxx mark delete for(ihost=0; ihost < sizeof(HOSTPAR_LIST); ihost++ ){
-  int N_HOSTPAR_LIST = sizeof(HOSTPAR_LIST) / sizeof(double*) ; // Claude fix, Nov 18 2026
-  for(ihost=0; ihost < N_HOSTPAR_LIST; ihost++ ){
+  for(ihost=0; ihost < NHOSTPAR; ihost++ ){
     PyTuple_SetItem(pargs2,ihost,PyFloat_FromDouble(HOSTPAR_LIST[ihost]));
   }
   PyTuple_SetItem(pargs,4,pargs2);
   
-  // xxx mark delete   pLAM  = PyEval_CallObject(plammeth, NULL);
-  pLAM  = PyObject_CallObject(plammeth, NULL); // Claude, Nov 18 2026
+  pLAM  = PYCALLOBJECT(plammeth, NULL);
 
   // doesn't work ?  pLAM   = PyEval_Call(plammeth, NULL);
   handle_python_exception(fnam, "calling _fetchSED_LAM method");
 
-  // xxx mark delete pFLUX = PyEval_CallObject(pmeth, pargs);
-  pFLUX = PyObject_CallObject(pmeth, pargs); // Claude, Nov 18 2026
+  pFLUX = PYCALLOBJECT(pmeth, pargs);
 
   handle_python_exception(fnam, "calling _fetchSED method");
 
@@ -1179,7 +1184,7 @@ void genSpec_PySEDMODEL(double Tobs, double zHEL, double MU,
   // get the spectrum
   Trest = Tobs/z1;
   fetchSED_PySEDMODEL(Event_PySEDMODEL.EXTERNAL_ID, NEWEVT_FLAG, Trest,
-		      MXLAM_PySEDMODEL, HOSTPAR_LIST, &NLAM, FLAM, SED);
+		      MXLAM_PySEDMODEL, NHOSTPAR, HOSTPAR_LIST, &NLAM, FLAM, SED);
   Event_PySEDMODEL.NLAM = NLAM ;
 
 

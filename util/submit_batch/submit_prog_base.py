@@ -2028,6 +2028,7 @@ class Program:
         merge_script   = "RUN_MERGE_" + input_file_base
         program_submit = sys.argv[0]  # $path/submit_batch_jobs
 
+        t_stamp    = submit_info_yaml['TIME_STAMP_NSEC']
         merge_mode = submit_info_yaml['MERGE_MODE']
         if merge_mode == MERGE_MODE_BACKGROUND:
             return
@@ -2045,7 +2046,7 @@ class Program:
             s.write(f"cd {CWD}\n")            
             s.write(f"{program_submit} \\\n")
             s.write(f"  {input_file}   \\\n")
-            s.write(f"  -M  \\\n")
+            s.write(f"  -M  -t {t_stamp} \\\n")
             if args_debug:   s.write(f"  {args_debug} \\\n")
             s.write(f"\n")
 

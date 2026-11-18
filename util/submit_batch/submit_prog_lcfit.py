@@ -921,19 +921,15 @@ class LightCurveFit(Program):
 
         use_table_format = []
         for key, fmt in zip(TABLE_INPKEY_LIST, TABLE_FORMAT_LIST):
-            
+            use = False
             if key:
                 # note that BayeSN command-line input key has dashes, but SNANA doesn;t;
                 # -> remove dashes so that keys can be compared for command-line or config.                
                 key_nodash = key.replace('-','')
-                
                 if fmt == FORMAT_TEXT:
                     use = True  # always force this to be true
                 elif key_nodash in snlcinp :
                     use = True  # check for other defined format
-                    
-            else:
-                use = False  # skip table format that is not available           
             
             use_table_format.append(use)
             logging.info(f"  Write {fmt:6s} output table : {use}")
@@ -1607,7 +1603,7 @@ class LightCurveFit(Program):
         #word_match = 'Open' # for testing on jobs too short to have 'remain' update
         word_match = 'remain'  # nominal check
             
-        # count number of rows in MERGE_INFO_CONTENTS and how many are DONE .xyz
+        # count number of rows in MERGE_INFO_CONTENTS and how many are DONE 
         n_task_tot      = 0
         n_task_done     = 0
         n_job_wait_tot  = 0
@@ -1879,7 +1875,7 @@ class LightCurveFit(Program):
         FORMAT_LIST = [ FORMAT_NPZ, FORMAT_TEXT ]
         FORMAT_LIST[1] = 'TXT'  # <=== temp hack until output is fixed
         
-        # check all possible formats to merge  .xyz
+        # check all possible formats to merge  
         for fmt_suffix in FORMAT_LIST:
             table_wildcard  = f"{version_fitopt}*{SUFFIX_SYST}.{fmt_suffix}"
 
@@ -2500,7 +2496,7 @@ class LightCurveFit(Program):
             util.read_merge_file(MERGE_LOG_PATHFILE)
 
         row_list  = MERGE_INFO_CONTENTS[TABLE_MERGE]
-        msgerr = ['ERROR merging table files: ' ]
+        msgerr = ['ERROR merging table files: ' ]  
         nerr   = 0
         for row in row_list :
             version = row[COLNUM_LCFIT_MERGE_VERSION]
@@ -2510,7 +2506,7 @@ class LightCurveFit(Program):
             for itable in range(0,NTABLE_FORMAT):
                 use    = use_table_format[itable]
                 suffix = TABLE_FORMAT_LIST[itable]
-                if itable == ITABLE_TEXT:
+                if itable == ITABLE_TEXT  :
                     suffix = SUFFIX_FITRES  # special case here
                 table_file = f"{version}/{fitopt}.{suffix}"
                 TABLE_FILE = f"{output_dir}/{table_file}"

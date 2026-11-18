@@ -5054,6 +5054,18 @@ void wr_fits_ZPT(fitsfile *fp) {
     ,TBLname[] = "ZPoff" 
     ;
 
+  /* Nov 18 2026 ... at some point should update strings to keys, and syn with saltshaker
+  char 
+     LABEL_FILT[]               = "FILTER_NAME"
+    ,LABEL_PRIMARY_NAME[]       = "PRIMARY_NAME"
+    ,LABEL_PRIMARY_MAG_INSTR[]  = "PRIMARY_MAG_INSTRUMENT"  // "Primary instrument mag"
+    ,LABEL_ZPOFF_REF[]          = "ZPOFF_PRIMARY"  // used here, but not in snana
+    ,LABEL_ZPOFF_SN[]           = "ZPOFF_SN"    // ignore here, used in snana
+    ,LABEL_PRIMARY_MAG_SYN[]    = "PRIMARY_MAG_SYN"  // 10.02.2026
+    ,TBLname[] = "ZPoff" 
+    ;
+  */
+
   char fnam[] = "wr_fits_ZPT";  (void)fnam;
 
   // ------------ BEGIN ---------

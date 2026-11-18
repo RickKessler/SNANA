@@ -19773,7 +19773,7 @@
     WRITE(LUNOUT,105) NOBS, PIXSIZE,  & 
              SNLC_REDSHIFT,  PEAKMJD
  105  FORMAT('NOBS: ', I4, 5x, 'PIXSIZE: ', F6.3, 5x,  & 
-             'REDSHIFT: 'F8.5, 5x, 'PEAKMJD: ', F9.3 )
+             'REDSHIFT: ', F8.5, 5x, 'PEAKMJD: ', F9.3 )
 
     IF ( SUBSURVEY_NAME .NE. ' ' ) THEN
        WRITE(LUNOUT,10) 'SUBSURVEY:', SUBSURVEY_NAME

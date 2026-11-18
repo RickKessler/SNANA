@@ -74,6 +74,10 @@
 # Oct 7 2026: 
 #     + begin integrating SYST tables into merge process
 #     + remove HBOOK stuff
+#
+# Nov 18 2026: integrate NPZ into BayeSN and SNANA class
+#              Define TEXT, ROOT, NPZ for all classes, and then set
+#              unavailable class to None in lists.
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -106,15 +110,23 @@ LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 ITABLE_TEXT  = 0
 ITABLE_ROOT  = 1
 ITABLE_NPZ   = 2  # Oct 2026
-TABLE_NAME_LIST    = [ SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF, SUFFIX_SYST ] # for TEXT format only
 
 FORMAT_TEXT  = 'TEXT'
 FORMAT_ROOT  = 'ROOT'
 FORMAT_NPZ   = 'NPZ'  # Oct 2026
 
+TABLE_FORMAT_DICT = {
+    FORMAT_TEXT: ITABLE_TEXT,
+    FORMAT_ROOT: ITABLE_ROOT,
+    FORMAT_NPZ : ITABLE_NPZ
+}
+
+TABLE_NAME_LIST    = [ SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF, SUFFIX_SYST ] # for TEXT format only
+
+
 # these globals will be updated in prep_subclass
 TABLE_INPKEY_LIST  = []   # input key per format
-TABLE_FORMAT_LIST  = []   # format is used as suffix for file names
+TABLE_FORMAT_LIST  = list(TABLE_FORMAT_DICT.keys())   # format is used as suffix for file names
 NTABLE_FORMAT      = 0 
 
 KEY_SUBCLASS_DICT = {
@@ -139,7 +151,8 @@ KEY_SUBCLASS_DICT = {
     # outfile specifications
     'outfile_prefix' :  {
         LCFIT_SNANA  : 'TEXTFILE_PREFIX',
-        LCFIT_BAYESN : '--outfile_prefix',
+        LCFIT_BAYESN : '--textfile_prefix',
+        # xxx mark delete LCFIT_BAYESN : '--outfile_prefix',
         LCFIT_SALT3  : None
     },
 
@@ -150,8 +163,8 @@ KEY_SUBCLASS_DICT = {
     },
 
     'outfile_npz' :  {
-        LCFIT_SNANA  : None,
-        LCFIT_BAYESN : '--systematics',  # ??? Oct 7 2026 ???
+        LCFIT_SNANA  : 'NPZFILE_PREFIX',
+        LCFIT_BAYESN : '--npzfile_prefix', 
         LCFIT_SALT3  : None
     },
 
@@ -307,24 +320,23 @@ class LightCurveFit(Program):
         
         if 'bayesn' in program_name :
             LCFIT_SUBCLASS    = LCFIT_BAYESN  
-            TABLE_FORMAT_LIST = [ FORMAT_TEXT, FORMAT_NPZ ] 
+            #TABLE_FORMAT_LIST = [ FORMAT_TEXT, FORMAT_NPZ ] 
             
         elif 'salt3' in program_name :
             LCFIT_SUBCLASS = LCFIT_SALT3  # placeholder for future
-            TABLE_FORMAT_LIST = [ FORMAT_TEXT ] 
+            #TABLE_FORMAT_LIST = [ FORMAT_TEXT ] 
             
         else :
             # default is SNANA lcfit
             LCFIT_SUBCLASS    = LCFIT_SNANA
-            TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_ROOT ] 
+            #TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_ROOT, FORMAT_NPZ ] 
 
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST) 
-
-        logging.info(f'')
-        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        logging.info(f"       ALERT: REFAC_TABLE = {REFAC_TABLE}")          
-        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ")
-        logging.info(f'')
+        #logging.info(f'')
+        #logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        #logging.info(f"       ALERT: REFAC_TABLE = {REFAC_TABLE}")          
+        #logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ")
+        #logging.info(f'')
         
         # load input key(s) TABLE_INPKEY_LIST for each format
         if REFAC_TABLE:
@@ -892,31 +904,37 @@ class LightCurveFit(Program):
 
     def fit_prep_table_options(self):
         
-        # check table options in &SNLCINP namelist, and set
-        # logical flag for each table format: TEXT, ROOT
-        # In &SNLCINP, existance of HFILE_OUT is a logical flag
-        # to create an output HBOOK file; ROOTFILE_OUT is a flag
-        # to create a root file. TEXT format is always output
-        # for back-compatibility.
-
+        # check table options in &SNLCINP namelist or BayeSN config, and set
+        # logical flag for each table format: TEXT, ROOT, NPZ.
+        # In &SNLCINP, existance of ROOTFILE_OUT is a logical flag
+        # to create an output ROOT file;
+        # TEXT format is always output  for back-compatibility.
+        #
+        # Nov 18 2026: adapt to work for BayeSN-NPZ
+        
         msgerr = []
-        snlcinp     = self.config_prep['snlcinp']        
+        snlcinp     = self.config_prep['snlcinp']   # valid for SNANA and BayeSN !     
         script_dir  = self.config_prep['script_dir']
-
+        
         self.config_prep['use_table_format'] = [ False ] * NTABLE_FORMAT
         use_table_format = self.config_prep['use_table_format']
 
         use_table_format = []
         for key, fmt in zip(TABLE_INPKEY_LIST, TABLE_FORMAT_LIST):
-            if fmt == FORMAT_TEXT:
-                use = True  # always force this to be true
+            
+            if key:
+                # note that BayeSN command-line input key has dashes, but SNANA doesn;t;
+                # -> remove dashes so that keys can be compared for command-line or config.                
+                key_nodash = key.replace('-','')
+                
+                if fmt == FORMAT_TEXT:
+                    use = True  # always force this to be true
+                elif key_nodash in snlcinp :
+                    use = True  # check for other defined format
+                    
             else:
-                use = False
-
-            if LCFIT_SUBCLASS == LCFIT_SNANA :
-                if key in snlcinp :  # snana selects among TEXT, ROOT
-                    use = True
-
+                use = False  # skip table format that is not available           
+            
             use_table_format.append(use)
             logging.info(f"  Write {fmt:6s} output table : {use}")
 
@@ -950,8 +968,6 @@ class LightCurveFit(Program):
 
         script_dir       = self.config_prep['script_dir']
         use_table_format = self.config_prep['use_table_format']
-
-        #sys.exit(f"\n xxx use_table_format = {use_table_format}  ITABLE_ROOT={ITABLE_ROOT}\n")
 
         msgerr = []
         # if appending variables to FITRES file, make sure that ROOT table is specified
@@ -1197,14 +1213,20 @@ class LightCurveFit(Program):
         if args.require_docana :
             arg_list.append(f"  REQUIRE_DOCANA 1")
 
-        # tack on outFile for each table format. For TEXT, do NOT
-        # include suffix in TEXTFILE_PREFIX argument
+        # tack on outFile for each table format. For TEXT and NPZ, do NOT
+        # include suffix in TEXTFILE_PREFIX [NPZFILE_PREFIX] argument
+        
         for itab in range(0,NTABLE_FORMAT) :
             if use_table_format[itab] :
                 key    = TABLE_INPKEY_LIST[itab] 
                 fmt    = TABLE_FORMAT_LIST[itab]
+
+                if not key: continue  # skip unavailable format
+                                
                 arg    = f"{key:<16} {prefix}"
-                if fmt != TABLE_FORMAT_LIST[ITABLE_TEXT] :
+                no_suffix = fmt == TABLE_FORMAT_LIST[ITABLE_TEXT] or fmt == TABLE_FORMAT_LIST[ITABLE_NPZ]
+                add_suffix = not no_suffix
+                if add_suffix:
                     arg += f".{fmt}"  # format is suffix
                 arg_list.append(f"  {arg}")
 

@@ -2204,8 +2204,7 @@
     IF ( DO_REFIT ) THEN
        if ( STDOUT_UPDATE ) then
           write(6,46) MNSTAT_COV, CCID
-46        format(T5,'Bad COV matrix (MNSTAT_COV=',I2,') '  & 
-               '-> repeat fit for CID=',A12 )
+46        format(T5,'Bad COV matrix (MNSTAT_COV=',I2,') -> repeat fit for CID=', A12 )
        endif
        ERRFLAG = ERRFLAG_REPEAT_ITER  ! -1
        RETURN

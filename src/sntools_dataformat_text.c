@@ -1562,7 +1562,7 @@ void  rd_sntextio_global(void) {
   bool HAS_COLON, HAS_PARENTH, IS_TMP, IS_SIM, FOUND_FAKEKEY=false ;
   bool IS_PRIVATE, IS_HOSTLIB, IS_SIMSED, IS_LCLIB;
   int  ICHOICE_PySEDMODEL;
-  char word0[100], word1[100], parName[40];    
+  char word0[100], word1[100], parName[100];    
   char fnam[] = "rd_sntextio_global" ;
   int  LDMP = 0 ;
   // ---------- BEGIN ----------

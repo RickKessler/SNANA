@@ -6159,7 +6159,7 @@ void psnid_best_define_TableVARNAMES(int DO_ADDCOL ) {
     for ( IPAR = 0; IPAR < PSNID_NPARAM ; IPAR++ ) {
       ivar++ ; ptrVARNAME =  PSNID_FITRES.VARNAMES[ivar] ;
 
-      sprintf(PREFIX,"%s", PREFIX_VARNAME[IPAR] );
+      sprintf(PREFIX,"%.*s", 35, PREFIX_VARNAME[IPAR] );
 
       // check for special prefix for NONIA index
       if ( IPAR == PSNID_PARAM_SHAPEPAR  &&  ISIA == 0 )

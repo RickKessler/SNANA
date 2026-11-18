@@ -1654,7 +1654,7 @@ int assign_MAP_VARNAME_FILTERS(char *MAPTYPE, int ivar, char *VARNAME,
     IVARTYPE_EFFMAP_SBCOLOR 
   } ;
 
-  char PREFIX[40], cband[2];
+  char PREFIX[80], cband[2];
   int LDMP = 0 ;
 
   char fnam[] = "assign_MAP_VARNAME_FILTERS" ; (void)fnam;

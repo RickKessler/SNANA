@@ -44,7 +44,7 @@ void init_stronglens(char *MODEL_FILE) {
   int MXCHAR_LINE = 300;
   char cline[MXCHAR_LINE],tmpWord[100];
   int MSKOPT_PARSE = MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA;
-  int iwd,NWD,i,j,k,NVARS,NIMG,Nsplit, gzipFlag ;
+  int iwd,NWD,i,j,k, NVARS, NIMG, Nsplit, gzipFlag ;
   char *cptr[MXIMG_STRONGLENS];
   char comma[] = ",";
   char MISSING_VAR[40], FULLNAME_MODEL_FILE[MXPATHLEN] ;
@@ -123,14 +123,17 @@ void init_stronglens(char *MODEL_FILE) {
   }
 
   // make sure that we found VARNAMES
-  if(NVARS == -1){
+  if ( NVARS == -1 ) {
     sprintf(c1err,"Could not find required VARNAMES key"); 
     sprintf(c2err,"Check %s", MODEL_FILE);
     errmsg(SEV_FATAL, 0, fnam, c1err,c2err);
   }
 
-  // read and store each VARNAME
-  char VARLIST[NVARS][40];   
+  // read and store each VARNAME	   
+  char **VARLIST;  float fmem=0.0;  (void)fmem;
+  fmem = malloc_strlist(+1, NVARS, 40, &VARLIST );
+  // xxx mark delete char VARLIST[NVARS][40];   
+
   for(k=0; k < NVARS+1; k++ ) {
     get_PARSE_WORD(0,k,VARLIST[k], fnam );
     //  printf(" xxx %s: found VARLIST[%d] = '%s' \n", fnam, k, VARLIST[k]);
@@ -175,7 +178,6 @@ void init_stronglens(char *MODEL_FILE) {
   }
 
   
-
   if( INPUTS_STRONGLENS.ICOL_LENSID < 0 )
     { sprintf(MISSING_VAR, "%s", INPUTS_STRONGLENS.VARNAME_LENSID); }
   else if( INPUTS_STRONGLENS.ICOL_ZLENS < 0 )
@@ -344,6 +346,8 @@ void init_stronglens(char *MODEL_FILE) {
     
   
   fclose(fp);
+
+  fmem = malloc_strlist(-1, NVARS, 40, &VARLIST );
 
   INPUTS_STRONGLENS.NLENS = i-1;
   //printf("%i\n",INPUTS_STRONGLENS.NLENS);

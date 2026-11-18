@@ -756,7 +756,7 @@ int sntable_read_exec_root(int IROW_MIN, int IROW_MAX) {
 	// for string values we get a blank after the 1st epoch (??)
 	// so paste 1st epoch value back here. This is a very strange
 	// feature ??
-	sprintf(tmpString,"%s", valStore[i] );
+	sprintf(tmpString,"%.*s", LEN_SCANSTRING, valStore[i] );  //.xyz
 	istat = 0 ; 	
       }
 

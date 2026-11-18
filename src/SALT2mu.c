@@ -18408,13 +18408,13 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   //   IDSAMPLE     idsample to process
   //   MUZMAP       map information'
   //   z            redshift (temp; only for legacy call)
-  //   dmu          Hubble resid corrected with 1A biasCor
+  //   dmu          Hubble resid corrected with SN1A biasCor
   //
   // Jun 18 2018: pass DUMPFLAG argument for debugging
   // Oct 26 2023: check RMS>0 before computing resid and prob
   // Feb 08 2025: use opt_ccprior to decide prior eval method;
   //              speed up DMU interp using known binsize 
-
+  //
 
   int  OPT_CCPRIOR      = INPUTS.opt_ccprior ;
   bool DO_FUNDMU_GAUSS  = INPUTS.DO_CCPRIOR_GAUSS ;
@@ -18471,7 +18471,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
   // if we get here, interpolate in dmu bins
 
   if ( DO_FUNDMU_INTERP ) {
-    NBMU   = MUZMAP->DMUBIN.nbin ;  
+    NBMU   = MUZMAP->DMUBIN.nbin ;
     dmumin = MUZMAP->DMUBIN.avg[0];
     dmumax = MUZMAP->DMUBIN.avg[NBMU-1];
     dmubin = MUZMAP->DMUBIN.binSize ;

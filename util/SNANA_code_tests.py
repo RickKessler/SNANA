@@ -53,6 +53,9 @@
 #
 # Nov 14 2026: monitor status line includes number of failed tasks
 #              (ABORT, BLANK, or TEST result != REF result).
+#
+# Nov 17 2026: new command line inputs to select subset(s) of tasks:
+#              --exclude_tasks and --select_tasks
 # ===================================
 
 import os, sys, datetime, shutil, time, glob
@@ -189,6 +192,12 @@ def parse_args():
 
     msg = "ignore TESTENV key"
     parser.add_argument("--ignore_testenv", help=msg, action="store_true")
+
+    msg = "exclude TASK names with these strings"
+    parser.add_argument("-x", "--exclude_tasks", help=msg, type=str, nargs="+", default=None)
+
+    msg = "select subset of TASK names with these strings"
+    parser.add_argument("-s", "--select_tasks", help=msg, type=str, nargs="+", default=None)
 
     args = parser.parse_args()
 
@@ -383,6 +392,7 @@ def set_tasknum_order(TASKNAME_LIST):
 def parse_list_file(INPUTS, RESULTS_INFO_REF):
 
     # Dec 2025: refactor using pure yaml input format
+    # Nov 2026: check INPUTS.exclude_tasks and INPUTS.select_tasks
 
     LIST_FILE = INPUTS.list_file
 
@@ -394,7 +404,6 @@ def parse_list_file(INPUTS, RESULTS_INFO_REF):
     DOREF   = INPUTS.ref
     DOTEST  = INPUTS.test
     REFTEST = INPUTS.REFTEST
-
 
     # if this is test mode, get REF info, mainlly list of TASK to compare
     if DOTEST  :
@@ -440,7 +449,10 @@ def parse_list_file(INPUTS, RESULTS_INFO_REF):
     # - - - - -
     # check tasks 
 
-    TASKNAME_LIST = CONTENTS[LISTKEY_TASKNAME_LIST]
+    # xxx mark  TASKNAME_LIST = CONTENTS[LISTKEY_TASKNAME_LIST]
+    TASKNAME_LIST = get_TASKNAME_LIST(INPUTS,CONTENTS)
+    CONTENTS[LISTKEY_TASKNAME_LIST] = TASKNAME_LIST
+    
     NTASK         = len(TASKNAME_LIST)
     CONTENTS[LISTKEY_NTASK] = NTASK
 
@@ -482,6 +494,29 @@ def parse_list_file(INPUTS, RESULTS_INFO_REF):
 
     # end parse_list_file
 
+def get_TASKNAME_LIST(INPUTS,CONTENTS):
+
+    # Created Nov 2026
+    # default is return everything in the taks-list file
+    TASKNAME_LIST = CONTENTS[LISTKEY_TASKNAME_LIST]
+
+    # check user optiont to select or exclude subset
+    TASK_EXCLUDE_LIST = INPUTS.exclude_tasks
+    TASK_SELECT_LIST  = INPUTS.select_tasks
+
+    if TASK_SELECT_LIST :
+        TASKNAME_LIST = [ item for item in TASKNAME_LIST \
+                          if any(pattern in item for pattern in TASK_SELECT_LIST)  ]
+
+    if TASK_EXCLUDE_LIST :
+        TASKNAME_LIST = [ item for item in TASKNAME_LIST \
+                          if not any(pattern in item for pattern in TASK_EXCLUDE_LIST)   ]
+
+    if len(TASKNAME_LIST) == 0:
+        sys.exit(f"\nERROR: TASKNAME_LIST has zero elements; " \
+                 "check TASK list file and command-line args")
+
+    return TASKNAME_LIST
 # ============================================
 def parse_taskfile(TASKFILE, INPUTS):
 

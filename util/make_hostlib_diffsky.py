@@ -101,6 +101,7 @@ VARNAME_FIELD    = 'FIELD'
 VARNAME_LOGSFR   = 'logsfr_obs'
 VARNAME_LOGSSFR  = 'logssfr_obs'
 VARNAME_LOGMASS  = 'logsm_obs'
+VARNAME_LOGMASS_INTEGRATED  = 'logsm_obs'  # includes all m_stellar, even old SN that are gone
 
 DIFFSKY_ANGLE_UNIT   = 'RADIANS'  # if rad, then internally convert to degrees
 DIFFSKY_ANGLE_PREFIX = "psi"
@@ -943,6 +944,11 @@ def add_col_pd(df_cat, config):
 
     t0 = time.time()
 
+    if VARNAME_LOGMASS == VARNAME_LOGMASS_INTEGRATED:
+        df_cat = replace_col_logmass(df_cat, config)
+        print_proc_time(t0, "REPLACE_COL_LOGMASS", None)
+
+    # - - - - - 
     # logsfr = logssfr + logmass
     colnames = list(df_cat)
     
@@ -962,6 +968,24 @@ def add_col_pd(df_cat, config):
     print_proc_time(t0, "ADDCOL_MAGERR", None)
     
     return df_cat  # end add_col_pd
+
+def replace_col_logmass(df_cat, config):
+
+    # Created Nov 20 2026 by R.Kessler, J.Tweddle, Claude ...
+    # Replace logsm_obs column values with surviving mass values.
+    # Note "replace", not append column, so that downstream code
+    # is not impacted.
+    # Eventually diffsky team plans to add a surviving mass column,
+    # so this method is hopefully only temporary.
+    
+    logging.info(f"  Replace {VARNAME_LOGMASS} with surviving mass")    
+
+    # Note for Jack and Claude: replace dumb hack with correct code
+    # Put imports here instead of at top of file.
+
+    df_cat[VARNAME_LOGMASS] = df_cat[VARNAME_LOGMASS] - 0.2 + df_cat[VARNAME_REDSHIFT]*.2
+    
+    return df_cat
 
 def add_col_field(df_cat, config):
     # Be aware this only works for a single cone
@@ -2000,6 +2024,7 @@ if __name__ == "__main__":
     # add columns via pandas arithmetic (logsfr, mag errors) — works in both modes
     df_cat = add_col_pd(df_cat, config)
 
+        
     # figure out coordinate range for each hostlib
     config['hostlib_dict'] = get_coord_ranges(df_cat, config)
 

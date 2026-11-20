@@ -28,10 +28,12 @@
 
 #include "fitsio.h"
 #include "MWgaldust.h"
+#include "detcor_map.h"
 #include "sntools.h"
 #include "sntools_cosmology.h"
 #include "sntools_stronglens.h"
-#include "snlc_sim.h"
+
+#include "snlc_sim.h"   
 #include "sntools_devel.h"
 #include "sntools_host.h"
 #include "sntools_weaklens.h"
@@ -1244,6 +1246,10 @@ void set_user_defaults(void) {
   sprintf(INPUTS.HOSTNOISE_FILE,             "NONE" ); 
   sprintf(INPUTS.WRONGHOST_FILE,             "NONE" ); 
 
+  sprintf(INPUTS.DETCOR_MJD[0],"NONE");
+  sprintf(INPUTS.DETCOR_MJD[1],"NONE");
+  sprintf(INPUTS.DETCOR_MJD[2],"NONE");
+
   for ( i=0; i < 2; i++ ) {
     x = ((float)i - 0.5) * 999.* 2.0 ;  // default is no cut 
     INPUTS.HOSTLIB_GENRANGE_NSIGZ[i] = x ;
@@ -1910,6 +1916,13 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
   else if ( keyMatchSim(1, "HOSTNOISE_FILE", WORDS[0],keySource) ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.HOSTNOISE_FILE );
   }
+
+  else if ( keyMatchSim(1, "DETCOR_MJD", WORDS[0], keySource) ) {
+    N++;  sscanf(WORDS[N], "%s", INPUTS.DETCOR_MJD[0] );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.DETCOR_MJD[1] );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.DETCOR_MJD[2] );
+  }
+
   else if ( strstr(WORDS[0],"ZVARIATION_") != NULL ) {
     N += parse_input_ZVARIATION(WORDS,keySource);
   }
@@ -6756,6 +6769,8 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.MODELPATH,fnam,1);
   ENVreplace(PATH_USER_INPUT,fnam,1);
   ENVreplace(INPUTS.GENPDF.MAP_FILE,fnam,1);
+  ENVreplace(INPUTS.DETCOR_MJD[1],fnam,1); // note that element 0 is not a file
+  ENVreplace(INPUTS.DETCOR_MJD[2],fnam,1);
 
 
   if ( strlen(INPUTS.PATH_SNDATA_SIM) > 0 ) {
@@ -7264,6 +7279,8 @@ void prep_user_input(void) {
 
   prep_user_cosmology(); // Oct 16 2020 
 
+  prep_detcor_mjd();
+
   // --------------------------------------
   //----------- PRINT SUMMARY -------------
   // --------------------------------------
@@ -7692,6 +7709,31 @@ void prep_user_cosmology(void) {
   return;
 
 } // end prep_user_cosmology
+
+
+
+void  prep_detcor_mjd(void) {
+
+  char *COMMENT_STRING  = INPUTS.DETCOR_MJD[0];
+  char *MJD_FILE        = INPUTS.DETCOR_MJD[1];  (void)MJD_FILE;
+  char *DETCOR_FILE     = INPUTS.DETCOR_MJD[2];
+
+  char fnam[] = "prep_detcor_mjd" ; 
+
+  // --------------- BEGIN -----------
+
+  if ( IGNOREFILE(COMMENT_STRING) ) { return; }
+
+  print_banner(fnam);
+  read_detcor_map(DETCOR_FILE, &INPUTS.DETCOR_MAP, COMMENT_STRING);
+
+  debugexit(fnam);
+  // .xyz
+
+
+  return;
+} // end prep_detcor_mjd
+
 
 void prep_user_murewgt(MUREWGT_DEF *MUREWGT) {
 

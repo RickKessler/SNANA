@@ -14,6 +14,8 @@
 #                   in sntools_output.cpp
 # Oct 20 2026 RK - CPPLIB += -lz to fix compile bug caught on Perlmutter, 
 #                  but not caught on Midway.
+#
+# Nov 20 2026 RK - add link to detcor_map.o
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -112,7 +114,8 @@ OBJ_GENMAG_FIT = \
 	$(OBJ)/genmag_S11DM15.o \
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_extinction.o \
-	$(OBJ)/genmag_extrap.o
+	$(OBJ)/genmag_extrap.o \
+	$(OBJ)/detcor_map.o
 
 OBJ_GENMAG_SIM = \
 	$(OBJ_GENMAG_FIT) \
@@ -514,6 +517,10 @@ $(OBJ)/genmag_extinction.o: $(SRC)/genmag_extinction.c \
 $(OBJ)/genmag_extrap.o: $(SRC)/genmag_extrap.c $(SRC)/sntools.h
 	$(MKDIR_P) $(OBJ)
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_extrap.c)
+
+$(OBJ)/detcor_map.o: $(SRC)/detcor_map.c $(SRC)/detcor_map.h $(SRC)/sntools.h
+	$(MKDIR_P) $(OBJ)
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/detcor_map.c)
 
 # ---------------------------------------------------------------------------
 # C — psnid tools

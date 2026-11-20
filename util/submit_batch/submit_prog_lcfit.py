@@ -97,8 +97,8 @@ from   submit_prog_base import Program
 
 # =======================================
 
-REFAC_TABLE = True  # temp for BAYESN SYST table
-#REFAC_TABLE = False  
+#REFAC_TABLE_SUFFIX = True  # FITOPT.FITRES => FITOPT.FITRES.TEXT or FITOPT.FITRES.NPZ
+REFAC_TABLE_SUFFIX = False  # set to true if args.devel_flag == 1120
 
 LCFIT_SNANA  = 'SNANA'    # default uses SNANA's snlc_fit.exe
 LCFIT_BAYESN = 'BAYESN'   # begin integratoin, Oct 2023
@@ -266,8 +266,6 @@ class LightCurveFit(Program):
         CONFIG       = self.config_yaml['CONFIG']
         input_file   = self.config_yaml['args'].input_file 
 
-        #global REFAC_TABLE; REFAC_TABLE = self.config_yaml['args'].devel_flag == 1007
-
         # check which subclass/code-type (SNANA, BayeSN, SALT3
         self.fit_prep_subclass()
 
@@ -315,9 +313,13 @@ class LightCurveFit(Program):
         # Default LCFIT_SUBCLASS = LCFIT_SNANA;
         # here check program name for bayesn and salt3 subclass.
 
+        CONFIG       = self.config_yaml['CONFIG']
+        args         = self.config_yaml['args']
         program_name = self.config_prep['program'].lower()
+
         global LCFIT_SUBCLASS, TABLE_FORMAT_LIST, NTABLE_FORMAT, TABLE_INPKEY_LIST
-        
+        global REFAC_TABLE_SUFFIX ; REFAC_TABLE_SUFFIX = ( args.devel_flag == 1120 )
+
         if 'bayesn' in program_name :
             LCFIT_SUBCLASS    = LCFIT_BAYESN  
             #TABLE_FORMAT_LIST = [ FORMAT_TEXT, FORMAT_NPZ ] 
@@ -332,35 +334,26 @@ class LightCurveFit(Program):
             #TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_ROOT, FORMAT_NPZ ] 
 
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST) 
-        #logging.info(f'')
-        #logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        #logging.info(f"       ALERT: REFAC_TABLE = {REFAC_TABLE}")          
-        #logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ")
-        #logging.info(f'')
-        
+        logging.info(f'')
+        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        logging.info(f"       ALERT: REFAC_TABLE_SUFFIX = {REFAC_TABLE_SUFFIX}")    
+        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ")
+        logging.info(f'')
+
         # load input key(s) TABLE_INPKEY_LIST for each format
-        if REFAC_TABLE:
-            # refac to handle NPZ syst tables from BayeSN
-            outfile_key_subclass_dict = {
-                FORMAT_TEXT : 'outfile_prefix',
-                FORMAT_ROOT : 'outfile_root' ,
-                FORMAT_NPZ  : 'outfile_npz'
-            }
-            for fmt in TABLE_FORMAT_LIST:
-                key_subclass_dict = outfile_key_subclass_dict.setdefault(fmt,None)
-                if not isinstance(key_subclass_dict,str):
-                    sys.exit(f"\n ERROR: Invalid key_subclass_dict={key_subclass_dict} for fmt={fmt}")
+        outfile_key_subclass_dict = {
+            FORMAT_TEXT : 'outfile_prefix',
+            FORMAT_ROOT : 'outfile_root' ,
+            FORMAT_NPZ  : 'outfile_npz'
+        }
+        for fmt in TABLE_FORMAT_LIST:
+            key_subclass_dict = outfile_key_subclass_dict.setdefault(fmt,None)
+            if not isinstance(key_subclass_dict,str):
+                sys.exit(f"\n ERROR: Invalid key_subclass_dict={key_subclass_dict} for fmt={fmt}")
                 key_input_file = KEY_SUBCLASS_DICT[key_subclass_dict][LCFIT_SUBCLASS] # key in fit-input file
                 TABLE_INPKEY_LIST.append(key_input_file)
                 logging.info(f"\t format {fmt} --> pass {LCFIT_SUBCLASS} key = {key_input_file}")
-        else:
-            # legacy
-            key_dict_list = [ 'outfile_prefix', 'outfile_root' ] # internal only
-            TABLE_INPKEY_LIST = []
-            for itable in range(0,NTABLE_FORMAT):
-                key_dict = key_dict_list[itable]  # internal key for dictionary
-                key_input_file = KEY_SUBCLASS_DICT[key_dict][LCFIT_SUBCLASS] # key in fit-input file
-                TABLE_INPKEY_LIST.append(key_input_file) # key per defined out-table format
+                
 
         #sys.exit(f"\n xxx TABLE_INPKEY_LIST = {TABLE_INPKEY_LIST}")
         # - - - - - - - 
@@ -943,7 +936,7 @@ class LightCurveFit(Program):
             sntable_string = snlcinp['sntable_list'] 
         else:
             # only one kind of table for non-SNANA fitters?
-            sntable_string = 'FITRES'
+            sntable_string = 'FITRES'  # .xyz what about SYST ?
 
         sntable_list = sntable_string.split()
 
@@ -1733,15 +1726,18 @@ class LightCurveFit(Program):
         # - - - - -
         # make sure we have correct number of files to merge
         for itable in range(0,NTABLE_FORMAT):
-            fmt         =  TABLE_FORMAT_LIST[itable]
-            if itable == ITABLE_TEXT :
-                suffix = f"{SUFFIX_FITRES}.{fmt}"  # special case for TEXT
-            else:
-                suffix = fmt
-            use_format     =  use_table_format[itable] 
+
+            if not use_table_format[itable]: continue
+
+            suffix         =  self.get_table_file_suffix(SUFFIX_FITRES, itable )
             f_wildcard     =  f"{script_dir}/{version_fitopt}*{suffix}"
-            if use_format :
-                util.check_file_count(n_job_split, f_wildcard )
+
+            if not REFAC_TABLE_SUFFIX and itable == ITABLE_TEXT:
+                fmt          =  TABLE_FORMAT_LIST[itable]
+                f_wildcard += f".{fmt}"  # legacy: add .TEXT for snlc_fit output table
+
+            #print(f"\n xxx itab={itable}  f_wildcard = \n{f_wildcard}\n")
+            util.check_file_count(n_job_split, f_wildcard )
 
         # - - - - -
         # create dictionary to pass to merge_table_XXX functions below.
@@ -1804,6 +1800,25 @@ class LightCurveFit(Program):
 
         # end merge_job_wrapup 
 
+    def get_table_file_suffix(self, table_name, itable ):
+        # Created Nov 20 2026
+        # INPUTS:
+        #    table_name = SNANA or FITRES or LCPLOT etc ...
+        #    itable     = format index (TEXT, ROOT, NPZ ...)
+
+        fmt   =  TABLE_FORMAT_LIST[itable]
+        if itable == ITABLE_TEXT or itable == ITABLE_NPZ :
+            suffix = f"{table_name}.{fmt}"  # separate file per table 
+
+            if not REFAC_TABLE_SUFFIX:
+                if itable == ITABLE_TEXT : 
+                    suffix = table_name  # legacy text-file name has no .TEXT extension
+
+        else:
+            suffix = fmt  # e.g., ROOT filt has all tables in one file
+
+        return suffix
+
     def get_suffix_tar_list_lcfit(self):
 
         submit_info_yaml      = self.config_prep['submit_info_yaml']
@@ -1838,10 +1853,12 @@ class LightCurveFit(Program):
 
             for itab in range(0,NTABLE_FORMAT):
                 if not use_table_format[itab] : continue
-                suf   =  TABLE_FORMAT_LIST[itab]
-                if itab == ITABLE_TEXT :   suf  = f"{SUFFIX_FITRES}"  # special case
 
-                suf += '.gz'
+                suf = self.get_table_file_suffix(SUFFIX_FITRES,itab)
+                #suf   =  TABLE_FORMAT_LIST[itab]
+                #if itab == ITABLE_TEXT : suf  = f"{SUFFIX_FITRES}"  # special case
+
+                if itab != ITABLE_NPZ: suf += '.gz'  # no gzip for NPZ
                 cmd_link = f"ln -s {fitopt_ref}.{suf} {fitopt_num}.{suf} ; "
                 cmd_link_all += cmd_link
                 logging.info(f"   create sym-link to {fitopt_ref}.{suf}")
@@ -1885,30 +1902,130 @@ class LightCurveFit(Program):
                 out_table_file  = f"{prefix}_{version_fitopt}.{fmt_suffix}" 
                 logging.info(f"   merge {n_split} {SUFFIX_SYST}.{fmt_suffix} table files "\
                              f"-> {out_table_file}")
-                cddir           = f"cd {script_dir}"
+                cddir = f"cd {script_dir}"
 
                 # RK place-holder is to copy first split file to merged file;
                 # Matt can put in correct code later
-                cmd_merge       = f"{program} --merge_systematics {' '.join(table_list)} --output {prefix}_{version_fitopt}"
+                cmd_merge = f"{program} --merge_systematics {' '.join(table_list)} --output {prefix}_{version_fitopt}"
                 
                 os.system(f"{cddir} ; {cmd_merge}")   
         
         
         #sys.exit("\n xxx DEBUG STOP to see what goin on ... ")
         return
+        # end merge_table_SYST
 
     def merge_table_NPZ(self, table_name, version_fitopt_dict):
-        # Created Nov 18 2026
+
+        # Created Nov 20 2026 avec Claude
         # Analog of merge_table_TEXT, but for NPZ table format.
 
-        # Ask Claude to fill in the nominal part here ?
+        # Input table_name is 'FITRES', 'SNANA', 'LCPLOT', ... or 'SYST'.
+        # SYST tables (BayeSN only) have their own special merge.
+        # For all other tables, each split job writes
+        #     {version_fitopt}*{table_name}.NPZ
+        # where each npz file has one array per column (key = variable name)
+        # and a JSON header stored as the zip-archive comment.
+        # Merge = concatenate each column over the split files, and
+        # copy the header (zip comment) from the first split file.
+        # Output file is MERGE_{version_fitopt}.{table_name}.NPZ,
+        # which move_merge_table_files moves to {version}/{fitopt}.{table_name}.NPZ
+
+        import zipfile
+        import numpy as np
 
         # only BAYESN produces SYST files
-        if LCFIT_SUBCLASS == LCFIT_BAYESN and table_name == SUFFIX_SYST:
+        if table_name == SUFFIX_SYST and LCFIT_SUBCLASS == LCFIT_BAYESN:
             self.merge_table_SYST(version_fitopt_dict)
-            
+            return
+
+        submit_info_yaml = self.config_prep['submit_info_yaml']
+        script_dir       = submit_info_yaml['SCRIPT_DIR']
+        version_fitopt   = version_fitopt_dict['version_fitopt']
+        itable           = ITABLE_NPZ
+        fmt_suffix       = TABLE_FORMAT_LIST[itable]
+        prefix           = PREFIX_MERGE
+
+        table_wildcard = f"{version_fitopt}*{table_name}.{fmt_suffix}"
+        table_list     = sorted(util.glob_wrapper(table_wildcard,script_dir))
+        n_split        = len(table_list)
+
+        # if no tables exist, bail out
+        if n_split == 0 :
+            return
+
+        # check debug option to force merge-table failure
+        flag_force_fail = self.flag_force_merge_table_fail(itable,version_fitopt)
+
+        out_table_file = f"{prefix}_{version_fitopt}.{table_name}.{fmt_suffix}"
+        OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
+
+        logging.info(f"   merge {n_split} {table_name}.{fmt_suffix} " \
+                     f"table files -> {out_table_file}")
+
+        if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
+            tref = datetime.datetime.now()
+
+            col_dict    = {}    # list of arrays for each column
+            varnames_ref = None
+            comment_ref  = None
+            nevt_find    = 0
+
+            for tb_file in table_list:
+                tb_file_full = f"{script_dir}/{tb_file}"
+                with np.load(tb_file_full, allow_pickle=False) as data:
+                    varnames = list(data.files)
+                    arrays   = { v : data[v] for v in varnames }
+                with zipfile.ZipFile(tb_file_full) as zf:
+                    comment = zf.comment
+
+                nrow = len(arrays[varnames[0]]) if varnames else 0
+
+                # empty file (0 events pass) -> ignore to avoid false mis-match
+                if nrow == 0 :
+                    continue
+
+                if varnames_ref is None:
+                    varnames_ref = varnames
+                    comment_ref  = comment
+                    for v in varnames: col_dict[v] = []
+                elif varnames != varnames_ref:
+                    msgerr = [f"NPZ variable-name mis-match for {tb_file}",
+                              f"Reference file is: {table_list[0]}"]
+                    self.log_assert(False,msgerr)
+
+                for v in varnames:
+                    col_dict[v].append(arrays[v])
+                nevt_find += nrow
+
+            if varnames_ref is None:
+                # all splits empty; copy first file as the merged file
+                shutil.copyfile(f"{script_dir}/{table_list[0]}", OUT_TABLE_FILE)
+            else:
+                out_dict = { v : np.concatenate(col_dict[v]) for v in varnames_ref }
+                # np.savez_compressed appends .npz if missing; our name already
+                # ends with .NPZ, so write via open file handle to avoid renaming.
+                with open(OUT_TABLE_FILE,"wb") as f:
+                    np.savez_compressed(f, **out_dict)
+                if comment_ref:
+                    with zipfile.ZipFile(OUT_TABLE_FILE, "a") as zf:
+                        zf.comment = comment_ref
+
+            util.print_elapse_time(tref,f"merge {n_split} table files")
+
+        # - - - - - 
+        util.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
+
+        # for SNANA & FITRES tables, check that nevt_expect rows are there
+        if table_name == SUFFIX_FITRES or table_name == SUFFIX_SNANA :
+            nevt_expect = version_fitopt_dict[f'nevt_expect_{table_name}']
+            with np.load(OUT_TABLE_FILE, allow_pickle=False) as data:
+                nevt_find = len(data[data.files[0]]) if len(data.files) > 0 else 0
+            cmd_info = f"merge {table_wildcard} -> {out_table_file} (numpy concatenate)"
+            self.nevt_table_check(nevt_expect, nevt_find, out_table_file, cmd_info)
+
         return
-    
+        # end merge_table_NPZ
     
     def merge_table_TEXT(self, table_name, version_fitopt_dict):
         
@@ -1951,8 +2068,13 @@ class LightCurveFit(Program):
         # lines EXCEPT for the first VARNAMES line.
         # Note that output extension is table name, not TEXT
         cddir           = f"cd {script_dir}"
-        out_table_file  = f"{prefix}_{version_fitopt}.{table_name}"
-        out_table_file2 = f"{prefix}2_{version_fitopt}.{table_name}" # for awk
+
+        if REFAC_TABLE_SUFFIX:
+            out_table_file  = f"{prefix}_{version_fitopt}.{table_name}.{suffix}"  
+        else:
+            out_table_file  = f"{prefix}_{version_fitopt}.{table_name}"   # legacy has no .TEXT
+
+        out_table_file2 = f"{prefix}2_{version_fitopt}.{table_name}.{suffix}" # for awk
 
         cmd_cat  = f"cat {table_wildcard} > {out_table_file}"
         cmd_awk  = f"awk '!/^VARNAMES/ || ++n <= 1' {out_table_file} > " \
@@ -1960,19 +2082,19 @@ class LightCurveFit(Program):
                    f"mv {out_table_file2} {out_table_file}"
 
         msg = f"   merge {n_job_split} {table_name}.{suffix} table files -> {out_table_file}"
-        logging.info(msg)
+        logging.info(msg) 
 
         if flag_force_fail != FLAG_FORCE_MERGE_TABLE_MISSING :
             tref = datetime.datetime.now()
             cmd_all = f"{cmd_cat} ; {cmd_awk}"
-            os.system(f"{cddir} ; {cmd_all}")
+            os.system(f"{cddir} ; {cmd_all}")  # do the merge
             util.print_elapse_time(tref,f"merge {n_job_split} table files")
 
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
         util.check_file_exists(OUT_TABLE_FILE,["Problem with table-merge"])
 
         # - - - - - -
-        # for FITRES table only, do unitarity check to make sure that 
+        # for SNANA & FITRES tables, execute  unitarity check to make sure that 
         # nevt_expect rows are really there. Also check options to 
         # append variables to table.
 
@@ -2175,7 +2297,6 @@ class LightCurveFit(Program):
         # replace table file with append file, 
         # and remove sntable* junk files
 
-        # xxx mark del xxx
         temp_debug = False
         if temp_debug:
             found_app_file = os.path.isfile(f"{script_dir}/{append_out_file}")
@@ -2504,16 +2625,15 @@ class LightCurveFit(Program):
             if fitopt in link_FITOPT000_list : continue # skip sym links
 
             for itable in range(0,NTABLE_FORMAT):
-                use    = use_table_format[itable]
-                suffix = TABLE_FORMAT_LIST[itable]
-                if itable == ITABLE_TEXT  :
-                    suffix = SUFFIX_FITRES  # special case here
+                if not use_table_format[itable]: continue
+                suffix     = self.get_table_file_suffix(SUFFIX_FITRES, itable)
                 table_file = f"{version}/{fitopt}.{suffix}"
                 TABLE_FILE = f"{output_dir}/{table_file}"
-                if use and not os.path.isfile(TABLE_FILE):
+                if not os.path.isfile(TABLE_FILE):
                     nerr += 1
                     msgerr.append(f"    Missing expected {table_file}")
-                
+
+        # - - - -  -
         if nerr > 0 :
             self.log_assert(False,msgerr) # abort and write FAIL to global DONE file.
         else :
@@ -2530,8 +2650,22 @@ class LightCurveFit(Program):
             util.compress_files(+1, script_dir, wildcard,  suffix, "" )    
 
         logging.info(f" FIT cleanup: gzip merged tables.")
-        cmd_gzip = f"cd {output_dir} ; gzip */FITOPT* 2>/dev/null"
-        os.system(cmd_gzip)
+
+        fitopt_list = sorted(glob.glob(f"{output_dir}/*/FITOPT*"))
+
+        # Remove NPZ from list since these are already compressed.
+        # Also remove .gz files from symbolic link names
+        suffix_exclude_list = [ '.NPZ', '.gz' ]
+        fitopt_list = [ f for f in fitopt_list if 
+                        not any(item in f for item in suffix_exclude_list) ]
+        fitopt_string = ' '.join(fitopt_list)
+
+        # xxx mark print(f"\n 2 xxx fitopt_string = \n{fitopt_string}")
+        # xxx mark cmd_gzip = f"cd {output_dir} ; gzip {fitopt_string} 2>/dev/null"
+
+        cmd_gzip = f"cd {output_dir}../ ; gzip {fitopt_string} 2>/dev/null"
+    
+        os.system(cmd_gzip)  
 
         self.merge_cleanup_script_dir() 
 

@@ -42,6 +42,8 @@
 
 // ************ GLOBAL VARIABLES *************
 
+#include "detcor_map.h" 
+
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  499999999   // max sim CID and max number of SN
 #define  MXEPSIM_PERFILT MXEPOCH/2       //
@@ -668,12 +670,16 @@ struct INPUTS {
   int    FLUXERRMODEL_OPTMASK ;
   char   FLUXERRMODEL_REDCOV[200];  // overwrite REDCOR key in _FILE
   double FLUXERRMODEL_SNRMIN_REDCOV; // default = 2
-
+  
   float ZP_FLUXCAL ; // Jul 2025 
 
   // define anomalous subtraction noise in separate file to be
   // used in both the simulation and in snana to inflate errors.
   char HOSTNOISE_FILE[MXPATHLEN];
+
+  // DETCOR_MJD:  ICE_THICK  <MJD file>  <detcor_file>
+  char DETCOR_MJD[3][MXPATHLEN];  // effdet cor vs. wavelength and property at each MJD
+  DETCOR_MAP_DEF DETCOR_MAP;
 
   int  NGEN_LC;            // number of LCs to generate & write
   int  NGENTOT_LC;         // number of LCs to generate
@@ -2048,6 +2054,7 @@ void   prep_user_cosmology(void);
 void   prep_user_murewgt(MUREWGT_DEF *MUREWGT);
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
+void   prep_detcor_mjd(void);
 void   prep_dustFlags(void);
 void   prep_GENPDF_FLAT(void);
 

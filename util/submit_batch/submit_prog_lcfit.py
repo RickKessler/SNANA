@@ -350,9 +350,9 @@ class LightCurveFit(Program):
             key_subclass_dict = outfile_key_subclass_dict.setdefault(fmt,None)
             if not isinstance(key_subclass_dict,str):
                 sys.exit(f"\n ERROR: Invalid key_subclass_dict={key_subclass_dict} for fmt={fmt}")
-                key_input_file = KEY_SUBCLASS_DICT[key_subclass_dict][LCFIT_SUBCLASS] # key in fit-input file
-                TABLE_INPKEY_LIST.append(key_input_file)
-                logging.info(f"\t format {fmt} --> pass {LCFIT_SUBCLASS} key = {key_input_file}")
+            key_input_file = KEY_SUBCLASS_DICT[key_subclass_dict][LCFIT_SUBCLASS] # key in fit-input file
+            TABLE_INPKEY_LIST.append(key_input_file)
+            logging.info(f"\t format {fmt} --> pass {LCFIT_SUBCLASS} key = {key_input_file}")
                 
 
         #sys.exit(f"\n xxx TABLE_INPKEY_LIST = {TABLE_INPKEY_LIST}")
@@ -910,7 +910,6 @@ class LightCurveFit(Program):
         script_dir  = self.config_prep['script_dir']
         
         self.config_prep['use_table_format'] = [ False ] * NTABLE_FORMAT
-        use_table_format = self.config_prep['use_table_format']
 
         use_table_format = []
         for key, fmt in zip(TABLE_INPKEY_LIST, TABLE_FORMAT_LIST):

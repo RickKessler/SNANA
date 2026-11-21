@@ -324,16 +324,13 @@ class LightCurveFit(Program):
 
         if 'bayesn' in program_name :
             LCFIT_SUBCLASS    = LCFIT_BAYESN  
-            #TABLE_FORMAT_LIST = [ FORMAT_TEXT, FORMAT_NPZ ] 
             
         elif 'salt3' in program_name :
-            LCFIT_SUBCLASS = LCFIT_SALT3  # placeholder for future
-            #TABLE_FORMAT_LIST = [ FORMAT_TEXT ] 
+            LCFIT_SUBCLASS = LCFIT_SALT3  # placeholder for future addition ??
             
         else :
             # default is SNANA lcfit
             LCFIT_SUBCLASS    = LCFIT_SNANA
-            #TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_ROOT, FORMAT_NPZ ] 
 
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST) 
         

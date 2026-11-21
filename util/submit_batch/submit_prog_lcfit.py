@@ -97,8 +97,11 @@ from   submit_prog_base import Program
 
 # =======================================
 
-#REFAC_TABLE_SUFFIX = True  # FITOPT.FITRES => FITOPT.FITRES.TEXT or FITOPT.FITRES.NPZ
-REFAC_TABLE_SUFFIX = False  # set to true if args.devel_flag == 1120
+# Set flag to change FITOPTnnn.FITRES => FITOPTnnn.FITRES.TEXT so that it
+# matches FITOPTnnn.FITRES.NPZ naming structure.
+# Defaut is False; for development, set to true with --devel_flag 1120
+# All pipeline codes must be tested with this flag before switching default to true.
+APPEND_TABLE_TEXT_SUFFIX = False  
 
 LCFIT_SNANA  = 'SNANA'    # default uses SNANA's snlc_fit.exe
 LCFIT_BAYESN = 'BAYESN'   # begin integratoin, Oct 2023
@@ -152,7 +155,6 @@ KEY_SUBCLASS_DICT = {
     'outfile_prefix' :  {
         LCFIT_SNANA  : 'TEXTFILE_PREFIX',
         LCFIT_BAYESN : '--textfile_prefix',
-        # xxx mark delete LCFIT_BAYESN : '--outfile_prefix',
         LCFIT_SALT3  : None
     },
 
@@ -318,7 +320,7 @@ class LightCurveFit(Program):
         program_name = self.config_prep['program'].lower()
 
         global LCFIT_SUBCLASS, TABLE_FORMAT_LIST, NTABLE_FORMAT, TABLE_INPKEY_LIST
-        global REFAC_TABLE_SUFFIX ; REFAC_TABLE_SUFFIX = ( args.devel_flag == 1120 )
+        global APPEND_TABLE_TEXT_SUFFIX ; APPEND_TABLE_TEXT_SUFFIX = ( args.devel_flag == 1120 )
 
         if 'bayesn' in program_name :
             LCFIT_SUBCLASS    = LCFIT_BAYESN  
@@ -334,11 +336,8 @@ class LightCurveFit(Program):
             #TABLE_FORMAT_LIST = [ FORMAT_TEXT,  FORMAT_ROOT, FORMAT_NPZ ] 
 
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST) 
-        logging.info(f'')
-        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        logging.info(f"       ALERT: REFAC_TABLE_SUFFIX = {REFAC_TABLE_SUFFIX}")    
-        logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ")
-        logging.info(f'')
+        
+        util.print_loud_banner(f"ALERT: APPEND_TABLE_TEXT_SUFFIX = {APPEND_TABLE_TEXT_SUFFIX}")
 
         # load input key(s) TABLE_INPKEY_LIST for each format
         outfile_key_subclass_dict = {
@@ -1731,7 +1730,7 @@ class LightCurveFit(Program):
             suffix         =  self.get_table_file_suffix(SUFFIX_FITRES, itable )
             f_wildcard     =  f"{script_dir}/{version_fitopt}*{suffix}"
 
-            if not REFAC_TABLE_SUFFIX and itable == ITABLE_TEXT:
+            if not APPEND_TABLE_TEXT_SUFFIX and itable == ITABLE_TEXT:
                 fmt          =  TABLE_FORMAT_LIST[itable]
                 f_wildcard += f".{fmt}"  # legacy: add .TEXT for snlc_fit output table
 
@@ -1756,12 +1755,6 @@ class LightCurveFit(Program):
 
         if use_table_format[ITABLE_ROOT] :
             self.merge_table_ROOT(version_fitopt_dict) # all table inside 1 root file
-
-        # xxxxxxxxxxx mark delete xxxxxxxxxxx
-        # only BAYESN has SYST tables (Oct 7 2026) 
-        #if LCFIT_SUBCLASS == LCFIT_BAYESN :
-        #    self.merge_table_SYST(version_fitopt_dict)
-        # xxxxxxxxx end mark xxxxxxxxx
         
         for table_name in TABLE_NAME_LIST :
             if use_table_format[ITABLE_TEXT] :
@@ -1809,7 +1802,7 @@ class LightCurveFit(Program):
         if itable == ITABLE_TEXT or itable == ITABLE_NPZ :
             suffix = f"{table_name}.{fmt}"  # separate file per table 
 
-            if not REFAC_TABLE_SUFFIX:
+            if not APPEND_TABLE_TEXT_SUFFIX:
                 if itable == ITABLE_TEXT : 
                     suffix = table_name  # legacy text-file name has no .TEXT extension
 
@@ -2068,7 +2061,7 @@ class LightCurveFit(Program):
         # Note that output extension is table name, not TEXT
         cddir           = f"cd {script_dir}"
 
-        if REFAC_TABLE_SUFFIX:
+        if APPEND_TABLE_TEXT_SUFFIX:
             out_table_file  = f"{prefix}_{version_fitopt}.{table_name}.{suffix}"  
         else:
             out_table_file  = f"{prefix}_{version_fitopt}.{table_name}"   # legacy has no .TEXT
@@ -2603,11 +2596,11 @@ class LightCurveFit(Program):
         submit_info_yaml    = self.config_prep['submit_info_yaml']
         use_table_format    = submit_info_yaml['USE_TABLE_FORMAT']
         link_FITOPT000_list = submit_info_yaml['LINK_FITOPT000_LIST']
-        script_dir          = submit_info_yaml['SCRIPT_DIR']
-        subdir         = SUBDIR_SCRIPTS_LCFIT
-        tar_file       = f"{subdir}.tar"
+        script_dir          = submit_info_yaml['SCRIPT_DIR']        
+        subdir              = SUBDIR_SCRIPTS_LCFIT
+        tar_file            = f"{subdir}.tar"
 
-        logging.info(f" FIT cleanup: check if all merged tables exist.")
+        logging.info(f" LCFIT cleanup: check if all merged tables exist.")
 
         # check that every expected merged table file exits;
         # read status from MERGE file to get list of version & fitopts
@@ -2636,7 +2629,7 @@ class LightCurveFit(Program):
         if nerr > 0 :
             self.log_assert(False,msgerr) # abort and write FAIL to global DONE file.
         else :
-            logging.info(f" FIT cleanup: all merged tables exist.")
+            logging.info(f" LCFIT cleanup: all merged tables exist.")
 
         # if we get here, table-merging seems to have worked so tar and zip
         # use *SPLIT*[suffix] so that it works on *SPLIT*.[suffix]
@@ -2646,9 +2639,10 @@ class LightCurveFit(Program):
         logging.info(f" LCFIT cleanup: tar {suffix_tar_list} under {subdir}/")
         for suffix in suffix_tar_list :
             wildcard = f"*SPLIT*{suffix}*"
+            logging.info(f"\t tar {wildcard}")
             util.compress_files(+1, script_dir, wildcard,  suffix, "" )    
 
-        logging.info(f" FIT cleanup: gzip merged tables.")
+        logging.info(f" LCFIT cleanup: gzip merged tables.")
 
         fitopt_list = sorted(glob.glob(f"{output_dir}/*/FITOPT*"))
 
@@ -2659,10 +2653,8 @@ class LightCurveFit(Program):
                         not any(item in f for item in suffix_exclude_list) ]
         fitopt_string = ' '.join(fitopt_list)
 
-        # xxx mark print(f"\n 2 xxx fitopt_string = \n{fitopt_string}")
-        # xxx mark cmd_gzip = f"cd {output_dir} ; gzip {fitopt_string} 2>/dev/null"
-
-        cmd_gzip = f"cd {output_dir}../ ; gzip {fitopt_string} 2>/dev/null"
+        # xxx mark cmd_gzip = f"cd {output_dir}/../ ; gzip {fitopt_string} 2>/dev/null"
+        cmd_gzip = f"gzip {fitopt_string} 2>/dev/null"
     
         os.system(cmd_gzip)  
 

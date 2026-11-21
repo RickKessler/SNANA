@@ -478,6 +478,14 @@ def standardise_path(path,cwd):
 def print_debug_line(line):
     print(f"\n DEBUG_DUMP: \n {line} \n DEBUG_DUMP_END: \n")
 
+def print_loud_banner(line):
+    logging.info(f'')
+    logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+    logging.info(f"       {line} ")
+    logging.info(f" # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ")
+    logging.info(f'')
+    return
+
 def find_and_remove(find_arg):
 
     # Called as part of purge option:

@@ -677,7 +677,8 @@ struct INPUTS {
   // used in both the simulation and in snana to inflate errors.
   char HOSTNOISE_FILE[MXPATHLEN];
 
-  // DETCOR_MJD:  ICE_THICK  <MJD file>  <detcor_file>
+  // DETCOR_MJD:  <COLUMN_NAME>  <RATIO_NAME>  <MJD file>  <detcor_file>
+  // e.g. DETCOR_MJD:  ICE_THICKNESS  RATIO_THUSHARA  <MJD file>  <detcor_file>
   char DETCOR_MJD[4][MXPATHLEN];  // effdet cor vs. wavelength and property at each MJD
   DETCOR_MAP_DEF DETCOR_MAP;
 

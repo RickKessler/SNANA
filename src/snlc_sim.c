@@ -7725,6 +7725,8 @@ void  prep_detcor_mjd(void) {
 
   // --------------- BEGIN -----------
 
+  if ( IGNOREFILE(COLUMN_NAME) ) { return; }  // DETCOR_MJD key not used
+
   print_banner(fnam);
   read_detcor_map(DETCOR_FILE, &INPUTS.DETCOR_MAP, COLUMN_NAME, RATIO_NAME);
 

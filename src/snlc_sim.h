@@ -678,7 +678,7 @@ struct INPUTS {
   char HOSTNOISE_FILE[MXPATHLEN];
 
   // DETCOR_MJD:  ICE_THICK  <MJD file>  <detcor_file>
-  char DETCOR_MJD[3][MXPATHLEN];  // effdet cor vs. wavelength and property at each MJD
+  char DETCOR_MJD[4][MXPATHLEN];  // effdet cor vs. wavelength and property at each MJD
   DETCOR_MAP_DEF DETCOR_MAP;
 
   int  NGEN_LC;            // number of LCs to generate & write

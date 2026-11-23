@@ -9,8 +9,8 @@
  *   An external code tabulates the multiplicative correction factor
  *   vs. wavelength and vs. a detector property (p);
  *       R(lambda; p) = T(p) / T(p0)
- *   on a grid of wavelengths (rows) and detcor property (columns). 
- *   The function here load that grid into memory once (read_detctor_map), 
+ *   on a grid of wavelengths and detcor property (long-format rows). 
+ *   The function here load that grid into memory once (read_detcor_map), 
  *   and during program execution get_detcor_ratio() interpolates R(lambda)
  *   [linear interp] for any p-value.
  *
@@ -22,7 +22,7 @@
  *   filter transmission) for p = ice thickness (in sim), where the correction 
  *   grid is produced by handshaker. 
  * 
- * WARNING: if p-value or wavelength is outside grid range, program aborts !!!
+ * Out-of-range: p is clamped to the map range; R=1 outside the WAVE range.
  *
  * Units: wavelength in Angstrom
  *
@@ -41,54 +41,77 @@
 #include "detcor_map.h"
 
 // ======================================================
-void read_detcor_map(char *fileName, DETCOR_MAP_DEF *map, char *comment_string) {
+static int cmp_double_detcor(const void *a, const void *b) {
+  double da = *(const double*)a, db = *(const double*)b;
+  return (da > db) - (da < db);
+}
+
+// ======================================================
+static int unique_sorted_detcor(int N, double *vals, double *uniq) {
+  // Copy vals[N] into uniq, sort ascending, drop duplicates.
+  // Returns number of unique values; uniq must hold N elements.
+  int i, NU = 0 ;
+  for(i=0; i < N; i++ ) { uniq[i] = vals[i]; }
+  qsort(uniq, N, sizeof(double), cmp_double_detcor);
+  for(i=0; i < N; i++ ) {
+    if ( NU == 0 || uniq[i] != uniq[NU-1] ) { uniq[NU++] = uniq[i]; }
+  }
+  return NU ;
+}
+
+// ======================================================
+static int exact_index_detcor(double val, int N, double *list) {
+  // Binary search for val in ascending list[N]; return index or -1.
+  int lo = 0, hi = N-1, mid ;
+  while ( lo <= hi ) {
+    mid = (lo + hi) / 2 ;
+    if      ( list[mid] < val ) { lo = mid + 1; }
+    else if ( list[mid] > val ) { hi = mid - 1; }
+    else                        { return mid ;  }
+  }
+  return -1 ;
+}
+
+// ======================================================
+void read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
+		     char *column_name, char *ratio_name) {
 
   // PURPOSE:
-  //   Load the handshaker detcor map from disk into memory, so every later
-  //   call (interp_detcor_ratio, get_detcor_ratio, apply_detcor_to_filter) works
-  //   from memory without touching the file again. Call once per map.
+  //   Load a LONG-format detcor map from disk into memory, so every later
+  //   call (interp_detcor_ratio, get_detcor_ratio, apply_detcor_to_filter)
+  //   works from memory without touching the file again. Call once per map.
   //
   // INPUTS:
-  //   fileName : path to the map, an SNANA text table written by
-  //              handshaker-icemap / icecor.write_ice_map:
-  //                 DOCUMENTATION: ... DOCUMENTATION_END:   (skipped)
-  //                 VARNAMES: ROW WAVE R_<t0>nm R_<t1>nm ...
-  //                 ROW: 1 4800.00 1.000000 1.016542 ...
-  //              Any number of R_<thick>nm columns is allowed (including 1),
-  //              but they must be in ascending thickness order.
-  //
-  //   *map:  structure to load with contents of fileName
-  //
-  //   *comment_string : human-readable text to identify map; e.g., "ICE_THICKNESS"
+  //   fileName    : path to the map, an SNANA text table, e.g.
+  //                    VARNAMES: ROW WAVE ICE_THICKNESS RATIO_MODEL1 ...
+  //                    ROW: 1 4800.00 0.0 1.000000 ...
+  //                 One row per (WAVE, property) pair; rows in any order,
+  //                 but together they must fill a complete grid.
+  //   *map        : structure to load with contents of fileName
+  //   column_name : name of property column; e.g., "ICE_THICKNESS"
+  //   ratio_name  : name of ratio column to use; e.g., "RATIO_MODEL1"
   //
   // OUTPUTS (filled into *map; arrays are malloc'ed here):
-  //   map->FILENAME      : copy of fileName
-  //   map->NWAVE         : number of wavelength rows
-  //   map->WAVE[iw]      : wavelength of row iw [A], checked ascending
-  //   map->NTHICK        : number of R_<thick>nm columns
-  //   map->THICK[it]     : thickness of column it [nm], parsed from its name
-  //   map->RATIO[it][iw] : R(WAVE[iw]; THICK[it])
-  //   map->COMMENT_STRING: comment_string
+  //   map->FILENAME       : copy of fileName
+  //   map->COLUMN_NAME    : copy of column_name
+  //   map->RATIO_NAME     : copy of ratio_name
+  //   map->NWAVE, WAVE[]  : unique wavelengths [A], ascending
+  //   map->NPROP, PROP[]  : unique property values, ascending
+  //   map->RATIO[ip][iw]  : R(WAVE[iw]; PROP[ip])
   //
   // WHAT IT DOES:
-  //   1. Uses SNANA's table reader: SNTABLE_NEVT counts rows, TABLEFILE_OPEN
-  //      opens the file, SNTABLE_READPREP reads the VARNAMES list.
-  //   2. For each column: WAVE -> map->WAVE; R_<thick>nm -> new map->RATIO
-  //      array (thickness taken from the column name). Other columns
-  //      (e.g. ROW) are ignored.
-  //   3. SNTABLE_READ_EXEC reads all rows into those arrays, then closes
-  //      the file.
-  //   4. Sanity checks; any failure aborts through SNANA's errmsg:
-  //      NWAVE >= 2, exactly 1 WAVE column, >= 1 R column,
-  //      NTHICK <= MXTHICK_DETCOR, thickness and WAVE both ascending,
-  //      rows read == rows counted.
+  //   1. Reads WAVE, <column_name>, <ratio_name> by name (abort if missing);
+  //      other columns (ROW, other RATIO models) are ignored.
+  //   2. Builds sorted unique WAVE and property lists.
+  //   3. Checks NWAVE*NPROP == NROW, then places each row in the grid and
+  //      aborts on a duplicate (WAVE,property) pair -> grid is complete.
   //
   // Release memory with free_detcor_map(map).
 
-  int    NWAVE, NVAR, NROW, IFILETYPE, ivar, iw, NCOL_WAVE = 0 ;
-  int    OPT_VARDEF = 0 ;
-  double thick ;
-  char  *varName ;
+  int    NROW, NROW_READ, NWAVE, NPROP, IFILETYPE, irow, iw, ip ;
+  int    OPT_VARDEF = 2 ;  // abort if column is missing
+  double *wave_row, *prop_row, *ratio_row, *uniq ;
+  char   **filled ;
   char   TBLNAME[] = "DETCOR" ;
   char   fnam[]    = "read_detcor_map" ;
 
@@ -96,77 +119,100 @@ void read_detcor_map(char *fileName, DETCOR_MAP_DEF *map, char *comment_string) 
 
   memset(map, 0, sizeof(*map));
   snprintf(map->FILENAME, sizeof(map->FILENAME), "%s", fileName);
-  
-  map->COMMENT_STRING = (char*) malloc( sizeof(char) * sizeof(comment_string) );
-  sprintf(map->COMMENT_STRING, "%s", comment_string);
+
+  map->COLUMN_NAME = (char*) malloc( strlen(column_name) + 1 );
+  sprintf(map->COLUMN_NAME, "%s", column_name);
+  map->RATIO_NAME  = (char*) malloc( strlen(ratio_name) + 1 );
+  sprintf(map->RATIO_NAME, "%s", ratio_name);
 
   TABLEFILE_INIT();
-  NWAVE     = SNTABLE_NEVT(fileName, TBLNAME);
+  NROW      = SNTABLE_NEVT(fileName, TBLNAME);
   IFILETYPE = TABLEFILE_OPEN(fileName, "read", fnam);
-  NVAR      = SNTABLE_READPREP(IFILETYPE, TBLNAME);
+  SNTABLE_READPREP(IFILETYPE, TBLNAME);
+
+  if ( NROW < 2 ) {
+    sprintf(c1err,"Found NROW=%d rows; need at least 2", NROW);
+    sprintf(c2err,"Check DETCOR file %s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // read the 3 needed columns, row by row as stored in the file
+  wave_row  = (double*) malloc(NROW * sizeof(double));
+  prop_row  = (double*) malloc(NROW * sizeof(double));
+  ratio_row = (double*) malloc(NROW * sizeof(double));
+  SNTABLE_READPREP_VARDEF("WAVE",      wave_row,  NROW, OPT_VARDEF);
+  SNTABLE_READPREP_VARDEF(column_name, prop_row,  NROW, OPT_VARDEF);
+  SNTABLE_READPREP_VARDEF(ratio_name,  ratio_row, NROW, OPT_VARDEF);
+
+  NROW_READ = SNTABLE_READ_EXEC(0);  // also closes the file
+  if ( NROW_READ != NROW ) {
+    sprintf(c1err,"Read %d rows, but SNTABLE_NEVT counted %d", NROW_READ, NROW);
+    sprintf(c2err,"Check DETCOR file %s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // unique sorted WAVE and property grids
+  uniq  = (double*) malloc(NROW * sizeof(double));
+
+  NWAVE = unique_sorted_detcor(NROW, wave_row, uniq);
+  map->WAVE = (double*) malloc(NWAVE * sizeof(double));
+  for(iw=0; iw < NWAVE; iw++ ) { map->WAVE[iw] = uniq[iw]; }
+
+  NPROP = unique_sorted_detcor(NROW, prop_row, uniq);
+  if ( NPROP > MXPROP_DETCOR ) {
+    sprintf(c1err,"Found %d unique %s values; MXPROP_DETCOR=%d",
+	    NPROP, column_name, MXPROP_DETCOR);
+    sprintf(c2err,"in %s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+  for(ip=0; ip < NPROP; ip++ ) { map->PROP[ip] = uniq[ip]; }
+  free(uniq);
 
   if ( NWAVE < 2 ) {
-    sprintf(c1err,"Found NWAVE=%d rows; need at least 2", NWAVE);
+    sprintf(c1err,"Found NWAVE=%d unique wavelengths; need at least 2", NWAVE);
     sprintf(c2err,"Check DETCOR file %s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
-  // map each VARNAME to an array: WAVE, or R_<thick>nm
-  map->WAVE = (double*) malloc(NWAVE * sizeof(double));
-  for(ivar=0; ivar < NVAR; ivar++ ) {
-    varName = READTABLE_POINTERS.VARNAME[ivar];
-
-    if ( strcmp(varName,"WAVE") == 0 ) {
-      SNTABLE_READPREP_VARDEF(varName, map->WAVE, NWAVE, OPT_VARDEF);
-      NCOL_WAVE++ ;
-      continue ;
-    }
-
-    if ( sscanf(varName, "R_%lfnm", &thick) != 1 ) { continue; }
-
-    if ( map->NTHICK >= MXTHICK_DETCOR ) {
-      sprintf(c1err,"More than MXTHICK_DETCOR=%d thickness columns",
-	      MXTHICK_DETCOR);
-      sprintf(c2err,"in %s", fileName);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-    if ( map->NTHICK > 0 && thick <= map->THICK[map->NTHICK-1] ) {
-      sprintf(c1err,"Thickness columns not ascending: %s after R_%gnm",
-	      varName, map->THICK[map->NTHICK-1]);
-      sprintf(c2err,"in %s", fileName);
-      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-    }
-
-    map->THICK[map->NTHICK] = thick ;
-    map->RATIO[map->NTHICK] = (double*) malloc(NWAVE * sizeof(double));
-    SNTABLE_READPREP_VARDEF(varName, map->RATIO[map->NTHICK], NWAVE, OPT_VARDEF);
-    map->NTHICK++ ;
-  }
-
-  if ( NCOL_WAVE != 1 || map->NTHICK == 0 ) {
-    sprintf(c1err,"Found %d WAVE columns and %d R_<thick>nm columns",
-	    NCOL_WAVE, map->NTHICK);
-    sprintf(c2err,"Need 1 WAVE and >=1 R_<thick>nm; check %s", fileName);
-    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
-  }
-
-  // read the whole table (also closes the file)
-  NROW = SNTABLE_READ_EXEC(0);
-  if ( NROW != NWAVE ) {
-    sprintf(c1err,"Read %d rows, but SNTABLE_NEVT counted %d", NROW, NWAVE);
+  if ( NWAVE*NPROP != NROW ) {
+    sprintf(c1err,"NWAVE(%d) x N%s(%d) = %d, but NROW=%d -> incomplete grid",
+	    NWAVE, column_name, NPROP, NWAVE*NPROP, NROW);
     sprintf(c2err,"Check DETCOR file %s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
-  map->NWAVE = NWAVE ;
 
-  for(iw=1; iw < NWAVE; iw++ ) {
-    if ( map->WAVE[iw] <= map->WAVE[iw-1] ) {
-      sprintf(c1err,"WAVE not ascending at row %d (%.2f after %.2f)",
-	      iw+1, map->WAVE[iw], map->WAVE[iw-1]);
+  // place each row in RATIO[ip][iw]; flag duplicates
+  filled = (char**) malloc(NPROP * sizeof(char*));
+  for(ip=0; ip < NPROP; ip++ ) {
+    map->RATIO[ip] = (double*) malloc(NWAVE * sizeof(double));
+    filled[ip]     = (char*)   calloc(NWAVE, sizeof(char));
+  }
+
+  for(irow=0; irow < NROW; irow++ ) {
+    iw = exact_index_detcor(wave_row[irow], NWAVE, map->WAVE);
+    ip = exact_index_detcor(prop_row[irow], NPROP, map->PROP);
+    if ( filled[ip][iw] ) {
+      sprintf(c1err,"Duplicate row for WAVE=%.2f %s=%g",
+	      wave_row[irow], column_name, prop_row[irow]);
       sprintf(c2err,"Check DETCOR file %s", fileName);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
+    map->RATIO[ip][iw] = ratio_row[irow];
+    filled[ip][iw]     = 1 ;
   }
+
+  map->NWAVE = NWAVE ;
+  map->NPROP = NPROP ;
+
+  for(ip=0; ip < NPROP; ip++ ) { free(filled[ip]); }
+  free(filled);
+  free(wave_row); free(prop_row); free(ratio_row);
+
+  printf("\t Loaded DETCOR map %s: NWAVE=%d (%.1f-%.1f A), "
+	 "N%s=%d (%g-%g), ratio column %s\n",
+	 fileName, NWAVE, map->WAVE[0], map->WAVE[NWAVE-1],
+	 column_name, NPROP, map->PROP[0], map->PROP[NPROP-1], ratio_name);
+  fflush(stdout);
 
   return ;
 
@@ -184,85 +230,87 @@ void free_detcor_map(DETCOR_MAP_DEF *map) {
   //   map : a map previously filled by read_detcor_map
   //
   // OUTPUTS:
-  //   map : WAVE and every RATIO[it] array freed; the whole struct is
-  //         then zeroed (NWAVE = NTHICK = 0, pointers NULL), so it is safe
-  //         to pass to read_detcor_map again.
+  //   map : WAVE, every RATIO[ip] array and the name strings freed; the
+  //         whole struct is then zeroed (NWAVE = NPROP = 0, pointers NULL),
+  //         so it is safe to pass to read_detcor_map again.
 
-  int it;
+  int ip;
   free(map->WAVE);
-  for(it=0; it < map->NTHICK; it++ ) { free(map->RATIO[it]); }
+  for(ip=0; ip < map->NPROP; ip++ ) { free(map->RATIO[ip]); }
+  free(map->COLUMN_NAME);
+  free(map->RATIO_NAME);
   memset(map, 0, sizeof(*map));
 }
 
 
 // ===================================================================
-static void weights_detcor_map(DETCOR_MAP_DEF *map, double thick,
-			       int *ithick, double *w) {
+static void weights_detcor_map(DETCOR_MAP_DEF *map, double prop,
+			       int *iprop, double *w) {
 
   // PURPOSE (internal helper, not in detcor_map.h):
-  //   Find which two thickness columns bracket the requested thickness,
+  //   Find which two property columns bracket the requested property,
   //   and how far between them it is, so callers can interpolate linearly:
-  //       R = (1-w) * RATIO[ithick] + w * RATIO[ithick+1]
+  //       R = (1-w) * RATIO[iprop] + w * RATIO[iprop+1]
   //
   // INPUTS:
   //   map   : map filled by read_detcor_map
-  //   thick : requested detcor thickness [nm]. Values below THICK[0] or above
-  //           THICK[NTHICK-1] are clamped to that end of the map (no
+  //   prop : requested property value, e.g. ice thickness [nm]. Values below PROP[0] or above
+  //           PROP[NPROP-1] are clamped to that end of the map (no
   //           extrapolation).
   //
   // OUTPUTS:
-  //   *ithick : index of the lower bracketing column, 0 .. NTHICK-2
-  //             (0 for a single-column map)
+  //   *iprop : index of the lower bracketing column, 0 .. NPROP-2
+  //             (0 for a single-property map)
   //   *w      : weight of the upper column, 0 .. 1
-  //             (0 for a single-column map)
+  //             (0 for a single-property map)
   //
   // WHAT IT DOES:
-  //   Clamps thick, finds the bin with SNANA's quickBinSearch, and keeps the
-  //   index at most NTHICK-2 so that ithick+1 is always a valid column
-  //   (needed when thick sits exactly on the last column).
+  //   Clamps prop, finds the bin with SNANA's quickBinSearch, and keeps the
+  //   index at most NPROP-2 so that iprop+1 is always a valid column
+  //   (needed when prop sits exactly on the last column).
 
-  int    NTHICK = map->NTHICK ;
-  double *THICK = map->THICK ;
+  int    NPROP = map->NPROP ;
+  double *PROP = map->PROP ;
   int    it ;
   char   fnam[] = "weights_detcor_map" ;
 
-  if ( NTHICK == 1 ) { *ithick = 0; *w = 0.0; return; }
+  if ( NPROP == 1 ) { *iprop = 0; *w = 0.0; return; }
 
-  if ( thick < THICK[0]        ) { thick = THICK[0];        }
-  if ( thick > THICK[NTHICK-1] ) { thick = THICK[NTHICK-1]; }
+  if ( prop < PROP[0]        ) { prop = PROP[0];        }
+  if ( prop > PROP[NPROP-1] ) { prop = PROP[NPROP-1]; }
 
-  it = quickBinSearch(thick, NTHICK, THICK, "DETCOR thickness", fnam);
-  if ( it > NTHICK-2 ) { it = NTHICK-2; }
+  it = quickBinSearch(prop, NPROP, PROP, "DETCOR property", fnam);
+  if ( it > NPROP-2 ) { it = NPROP-2; }
 
-  *ithick = it ;
-  *w      = (thick - THICK[it]) / (THICK[it+1] - THICK[it]) ;
+  *iprop = it ;
+  *w      = (prop - PROP[it]) / (PROP[it+1] - PROP[it]) ;
 
 } // end weights_detcor_map
 
 
 // ======================================================
-double interp_detcor_ratio(DETCOR_MAP_DEF *map, double thick, double wave) {
+double interp_detcor_ratio(DETCOR_MAP_DEF *map, double prop, double wave) {
 
   // PURPOSE:
   //   Return the detcor multiplier R at one arbitrary wavelength and
-  //   thickness. This is the basic lookup the other functions build on.
+  //   property. This is the basic lookup the other functions build on.
   //
   // INPUTS:
   //   map   : map filled by read_detcor_map
-  //   thick : detcor thickness [nm] (clamped to the map's thickness range)
+  //   prop : property value, e.g. ice thickness [nm] (clamped to the map's property range)
   //   wave  : wavelength [A]; does not need to be on the map's WAVE grid
   //
   // OUTPUT (return value):
-  //   R(wave; thick) = T(thick)/T(0) at that wavelength.
+  //   R(wave; prop) = T(prop)/T(p0) at that wavelength.
   //   Returns exactly 1.0 (no detcor effect) if wave is outside the map's
   //   WAVE range.
   //
   // WHAT IT DOES:
-  //   1. Gets the two bracketing thickness columns and weight w from
+  //   1. Gets the two bracketing property columns and weight w from
   //      weights_detcor_map.
   //   2. Interpolates each column linearly in wavelength with SNANA's
   //      interp_1DFUN -> R0 (lower column), R1 (upper column).
-  //   3. Returns (1-w)*R0 + w*R1. A single-column map returns R0.
+  //   3. Returns (1-w)*R0 + w*R1. A single-property map returns R0.
 
   int    NWAVE = map->NWAVE, it ;
   double w, R0, R1 ;
@@ -270,10 +318,10 @@ double interp_detcor_ratio(DETCOR_MAP_DEF *map, double thick, double wave) {
 
   if ( wave < map->WAVE[0] || wave > map->WAVE[NWAVE-1] ) { return 1.0 ; }
 
-  weights_detcor_map(map, thick, &it, &w);
+  weights_detcor_map(map, prop, &it, &w);
   R0 = interp_1DFUN(OPT_INTERP_LINEAR, wave, NWAVE, map->WAVE,
 		    map->RATIO[it], fnam);
-  if ( map->NTHICK == 1 ) { return R0 ; }
+  if ( map->NPROP == 1 ) { return R0 ; }
   R1 = interp_1DFUN(OPT_INTERP_LINEAR, wave, NWAVE, map->WAVE,
 		    map->RATIO[it+1], fnam);
   return (1.0-w)*R0 + w*R1 ;
@@ -282,32 +330,32 @@ double interp_detcor_ratio(DETCOR_MAP_DEF *map, double thick, double wave) {
 
 
 // ======================================================
-void get_detcor_ratio(DETCOR_MAP_DEF *map, double thick, double *ratio_out) {
+void get_detcor_ratio(DETCOR_MAP_DEF *map, double prop, double *ratio_out) {
 
   // PURPOSE:
-  //   Return the whole multiplier curve R(lambda) for one thickness, on
+  //   Return the whole multiplier curve R(lambda) for one property, on
   //   the map's own wavelength grid. It is the fast path (no wavelength
   //   interpolation) and is what the test compares against handshaker.
   //
   // INPUTS:
   //   map       : map filled by read_detcor_map
-  //   thick     : detcor thickness [nm] (clamped to the map's thickness range)
+  //   prop     : property value, e.g. ice thickness [nm] (clamped to the map's property range)
   //
   // OUTPUTS:
   //   ratio_out : caller-allocated array of length map->NWAVE;
-  //               ratio_out[iw] = R(map->WAVE[iw]; thick)
+  //               ratio_out[iw] = R(map->WAVE[iw]; prop)
   //
   // WHAT IT DOES:
   //   Gets the bracketing columns and weight w once from
   //   weights_detcor_map, then for every wavelength row computes
-  //   (1-w)*RATIO[it][iw] + w*RATIO[it+1][iw]. A single-column map
+  //   (1-w)*RATIO[it][iw] + w*RATIO[it+1][iw]. A single-property map
   //   uses the same column for both.
 
   int    it, it1, iw ;
   double w ;
 
-  weights_detcor_map(map, thick, &it, &w);
-  it1 = ( map->NTHICK > 1 ) ? it+1 : it ;
+  weights_detcor_map(map, prop, &it, &w);
+  it1 = ( map->NPROP > 1 ) ? it+1 : it ;
   for(iw=0; iw < map->NWAVE; iw++ )
     { ratio_out[iw] = (1.0-w)*map->RATIO[it][iw] + w*map->RATIO[it1][iw]; }
 
@@ -315,17 +363,17 @@ void get_detcor_ratio(DETCOR_MAP_DEF *map, double thick, double *ratio_out) {
 
 
 // ======================================================
-void apply_detcor_to_filter(DETCOR_MAP_DEF *map, double thick, int NLAM,
-			 double *lam, double *trans_nom, double *trans_detcor) {
+void apply_detcor_to_filter(DETCOR_MAP_DEF *map, double prop, int NLAM,
+			    double *lam, double *trans_nom, double *trans_detcor) {
 
   // PURPOSE:
   //   Make the detector-corrected version of a filter. This is the end product:
   //   SNANA would use trans_detcor in place of the nominal transmission for an
-  //   observation with this detcor thickness.
+  //   observation with this detcor property.
   //
   // INPUTS:
   //   map       : map filled by read_detcor_map
-  //   thick     : detcor thickness [nm] (clamped to the map's thickness range)
+  //   prop     : property value, e.g. ice thickness [nm] (clamped to the map's property range)
   //   NLAM      : number of points in the filter
   //   lam       : [NLAM] filter wavelengths [A]; any grid, it does not need
   //               to match the map's WAVE grid
@@ -333,7 +381,7 @@ void apply_detcor_to_filter(DETCOR_MAP_DEF *map, double thick, int NLAM,
   //
   // OUTPUTS:
   //   trans_detcor : [NLAM] caller-allocated;
-  //               trans_detcor[ilam] = trans_nom[ilam] * R(lam[ilam]; thick)
+  //               trans_detcor[ilam] = trans_nom[ilam] * R(lam[ilam]; prop)
   //               Points outside the map's WAVE range keep trans_nom (R = 1).
   //
   // WHAT IT DOES:
@@ -342,5 +390,5 @@ void apply_detcor_to_filter(DETCOR_MAP_DEF *map, double thick, int NLAM,
 
   int ilam;
   for(ilam=0; ilam < NLAM; ilam++ )
-    { trans_detcor[ilam] = trans_nom[ilam] * interp_detcor_ratio(map, thick, lam[ilam]); }
+    { trans_detcor[ilam] = trans_nom[ilam] * interp_detcor_ratio(map, prop, lam[ilam]); }
 }

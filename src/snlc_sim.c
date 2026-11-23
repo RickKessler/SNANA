@@ -1249,6 +1249,8 @@ void set_user_defaults(void) {
   sprintf(INPUTS.DETCOR_MJD[0],"NONE");
   sprintf(INPUTS.DETCOR_MJD[1],"NONE");
   sprintf(INPUTS.DETCOR_MJD[2],"NONE");
+  sprintf(INPUTS.DETCOR_MJD[3],"NONE");
+
 
   for ( i=0; i < 2; i++ ) {
     x = ((float)i - 0.5) * 999.* 2.0 ;  // default is no cut 
@@ -1921,6 +1923,7 @@ int parse_input_key_driver(char **WORDS, int keySource ) {
     N++;  sscanf(WORDS[N], "%s", INPUTS.DETCOR_MJD[0] );
     N++;  sscanf(WORDS[N], "%s", INPUTS.DETCOR_MJD[1] );
     N++;  sscanf(WORDS[N], "%s", INPUTS.DETCOR_MJD[2] );
+    N++;  sscanf(WORDS[N], "%s", INPUTS.DETCOR_MJD[3] );
   }
 
   else if ( strstr(WORDS[0],"ZVARIATION_") != NULL ) {
@@ -6769,8 +6772,8 @@ void prep_user_input(void) {
   ENVreplace(INPUTS.MODELPATH,fnam,1);
   ENVreplace(PATH_USER_INPUT,fnam,1);
   ENVreplace(INPUTS.GENPDF.MAP_FILE,fnam,1);
-  ENVreplace(INPUTS.DETCOR_MJD[1],fnam,1); // note that element 0 is not a file
-  ENVreplace(INPUTS.DETCOR_MJD[2],fnam,1);
+  ENVreplace(INPUTS.DETCOR_MJD[2],fnam,1); // note that elements 1,0 are not files
+  ENVreplace(INPUTS.DETCOR_MJD[3],fnam,1);
 
 
   if ( strlen(INPUTS.PATH_SNDATA_SIM) > 0 ) {
@@ -7711,23 +7714,21 @@ void prep_user_cosmology(void) {
 } // end prep_user_cosmology
 
 
-
 void  prep_detcor_mjd(void) {
 
-  char *COMMENT_STRING  = INPUTS.DETCOR_MJD[0];
-  char *MJD_FILE        = INPUTS.DETCOR_MJD[1];  (void)MJD_FILE;
-  char *DETCOR_FILE     = INPUTS.DETCOR_MJD[2];
+  char *COLUMN_NAME     = INPUTS.DETCOR_MJD[0];  // property column in map file
+  char *RATIO_NAME      = INPUTS.DETCOR_MJD[1];  // ratio (model) column in map file
+  char *MJD_FILE        = INPUTS.DETCOR_MJD[2];  (void)MJD_FILE;
+  char *DETCOR_FILE     = INPUTS.DETCOR_MJD[3];
 
   char fnam[] = "prep_detcor_mjd" ; 
 
   // --------------- BEGIN -----------
 
-  if ( IGNOREFILE(COMMENT_STRING) ) { return; }
-
   print_banner(fnam);
-  read_detcor_map(DETCOR_FILE, &INPUTS.DETCOR_MAP, COMMENT_STRING);
+  read_detcor_map(DETCOR_FILE, &INPUTS.DETCOR_MAP, COLUMN_NAME, RATIO_NAME);
 
-  debugexit(fnam);
+  //  debugexit(fnam);
   // .xyz
 
 

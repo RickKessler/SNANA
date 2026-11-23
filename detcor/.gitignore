@@ -1,0 +1,5 @@
+test_detcor_map
+*.o
+detcor_map_test_dump.dat
+detcor_map_test_dump.dat_*
+profile_thickness.dat

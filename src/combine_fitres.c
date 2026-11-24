@@ -1600,18 +1600,12 @@ void  ADD_SNTABLE_COMMENTS(void) {
     fflush(stdout);
   }
 
-  /* xxxxxxxx mark del Oct 30 2026 xxxxxxxxx
-  sprintf(comment,"Created by combine_fitres.exe");
-  STORE_TABLEFILE_COMMENT(comment) ;
-
-  sprintf(comment,"Number of combined files: %d", INPUTS.NFFILE);
-  STORE_TABLEFILE_COMMENT(comment) ;
-
-  for(ifile=0; ifile < INPUTS.NFFILE; ifile++ ) {
-    sprintf(comment,"   + %s", INPUTS.FFILE[ifile] );
-    STORE_TABLEFILE_COMMENT(comment) ;
-  }
-  xxxxxxxxxx end mark xxxxxxxxx */
+  // Nov 2026: add keys identifying this program and number of combined files
+  // (keys include trailing colon, same as keys copied from input header)
+  APPEND_TABLEFILE_HEADER(TABLEID_COMBINE, "PROGRAM_COMBINE:", 
+			  "combine_fitres.exe", fnam);
+  sprintf(VAL_STRING, "%d", INPUTS.NFFILE);
+  APPEND_TABLEFILE_HEADER(TABLEID_COMBINE, "NFILE_COMBINED:", VAL_STRING, fnam);
 
   return;
 

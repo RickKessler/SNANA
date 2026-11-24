@@ -60,7 +60,7 @@ PROGRAM_NAME_MKDATA         =  "makeDataFiles.sh"
 PROGRAM_NAME_UNKNOWN        =  "UNKNOWN"          # must be specified by JOBNAME key
 
 # utilities
-PROGRAM_NAME_CAT           = "sntable_cat.py"    # utility used by BBC class
+PROGRAM_NAME_SNTABLE_CAT   = "sntable_cat.py"    # utility used by BBC class
 PROGRAM_NAME_WAIT_FOR_FILE = "wait_for_file.py"  # util to wait for file and optionally check for string inside
 
 SUBMIT_MODE_BATCH = "BATCH"

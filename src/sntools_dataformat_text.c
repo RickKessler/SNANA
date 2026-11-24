@@ -48,7 +48,7 @@
 #include  "sntools_data.h"
 
 #include  "sntools_host.h" 
-#include  "sntools_trigger.h" 
+//#include  "sntools_trigger.h" 
 #include  "sntools_spectrograph.h"
 
 

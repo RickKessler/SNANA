@@ -23,6 +23,27 @@ from   submit_params import *
 
 # =================================================
 
+
+def get_format_suffix(wildcard):
+
+    # Created Nov 24 2026 by R.Kessler
+    suffix_list = [ 'NPZ', 'npz', 'gz' ]
+    suf_list = []
+    for suf in suffix_list:
+        n = len(glob.glob(f"{wildcard}.{suf}"))
+        if n > 0:  suf_list.append(suf)
+
+    # - - - - -
+    n_suf   = len(suf_list)
+    suf_out = None
+
+    if n_suf == 1:
+        suf_out = suf_list[0]
+    elif n_suf > 1:
+        log_assert(False, ["Found invalid suffix mix of {suf_list} for", wildcard ] )
+
+    return suf_out
+                
 def last_lineMatch_list(wildcard, word_match):
 
     # Created Nov 2026

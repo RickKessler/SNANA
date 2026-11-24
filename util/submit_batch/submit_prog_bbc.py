@@ -137,7 +137,7 @@ USE_INPDIR = True
 # define number of interactive jobs to parallelize this slow task.
 NJOB_PREP_INPUT_FITRES     = 10
 
-PREFIX_SALT2mu           = "SALT2mu"
+#xxx mark PREFIX_SALT2mu           = "SALT2mu"
 PREFIX_PREP              = "PREP"
 
 # define FIT column to extract FIT VERSION for FIT-MERGE.LOG
@@ -489,14 +489,21 @@ class BBC(Program):
                 msgerr.append(f" {KEY_SYNC_EVT}={sync} for {path}")
             msgerr.append(f"All {KEY_SYNC_EVT} must be the same.")
             self.log_assert(False,msgerr)
+            
+        # -- - - - -
+        # Nov 24 2026 determine FITOPTnnn format: gz or npz
+        wildcard = f"{inpdir_list[0]}/*/FITOPT*"
+        suf      = util.get_format_suffix(wildcard)
+        logging.info(f" Input table sufix/format is {suf}")
 
         # - - - - - - - - - -
         # store the goodies
-        self.config_prep['n_inpdir']          = n_inpdir
-        self.config_prep['inpdir_list']       = inpdir_list
-        self.config_prep['survey_list']       = survey_list
-        self.config_prep['label_inpdir_list'] = config_label_list
-        self.config_prep['version_list2d']    = version_list2d  # vs.idir,iver
+        self.config_prep['n_inpdir']            = n_inpdir
+        self.config_prep['inpdir_list']         = inpdir_list
+        self.config_prep['suffix_format']       = suf   # Nov 24 2026
+        self.config_prep['survey_list']         = survey_list
+        self.config_prep['label_inpdir_list']   = config_label_list
+        self.config_prep['version_list2d']      = version_list2d  # vs.idir,iver
         self.config_prep['n_version_list']      = n_version_list
         self.config_prep['n_fitopt_inplist']    = n_fitopt_list
         self.config_prep['fitopt_table_list2d'] = fitopt_table_list2d
@@ -705,8 +712,6 @@ class BBC(Program):
         # - - - - - - - - - - -
         # check easy case with 1 and only 1 version per INPDIR
         all_one = len(set(n_version_list)) == 1 and n_version_list[0] == 1
-
-        #sys.exit(f"\n xxx bbc_prep_1version_match: all_one = {all_one}  n_inpdir = {n_inpdir}")  # .xyz
 
         if all_one :
             logging.info(f"  Auto-match success (1 and only 1 version per INPDIR): " \
@@ -1253,6 +1258,9 @@ class BBC(Program):
         # 
         # Use 10 interactive cores for speed-up.
         #
+        # Nov 24 2026: refactor with pure-python sntable_cat;
+        #   no more gzip ambiguity so checking output is easier.
+        #   See suffix_format = gz or NPZ
 
         if not USE_INPDIR: return
 
@@ -1265,7 +1273,12 @@ class BBC(Program):
         ifit_list2         = self.config_prep['ifit_list2']
         fitopt_num_outlist = self.config_prep['fitopt_num_outlist']
         n_splitran         = self.config_prep['n_splitran']
+        suffix_format      = self.config_prep['suffix_format']
         USE_SPLITRAN       = n_splitran > 1
+
+        args               = self.config_yaml['args']
+        iter2              = args.iter2
+        snana_dir          = args.snana_dir
         idir0              = 0  # some things just need first INPDIR index
 
         t_start = time.time()
@@ -1277,6 +1290,9 @@ class BBC(Program):
         prep_nfit_list   = []
         prep_vdir_list   = []
 
+        base_name = PROGRAM_NAME_SNTABLE_CAT
+        program_sntable_cat = f"{snana_dir}/util/{base_name}" if snana_dir else base_name
+
         for iver in range(0,n_version):
             # get ifit list for this version
             ifit_list = []
@@ -1284,13 +1300,13 @@ class BBC(Program):
                 if iver_tmp == iver:
                     ifit_list.append(ifit_tmp)
 
-            # xxx ifit_list = ifit_list[:4]  # xxx REMOVE 
+            if args.devel_flag == 333 :  ifit_list = ifit_list[:3]  # xxx REMOVE
 
             v_dir   = v_out_list[idir0][iver]
             v_dir  += self.suffix_splitran(n_splitran,1)
             V_DIR   = f"{output_dir}/{v_dir}"
 
-            prefix = f"{PREFIX_PREP}_{v_dir}"
+            prefix      = f"{PREFIX_PREP}_{v_dir}"
             PREP_SCRIPT = f"{script_dir}/{prefix}.sh"
             prep_script = os.path.basename(PREP_SCRIPT)
             prep_log    = f"{prefix}.LOG"
@@ -1304,31 +1320,36 @@ class BBC(Program):
 
             with open(PREP_SCRIPT,"wt") as f:
                 f.write(f"echo 'Code to perform input-file catenation:' \n")
-                f.write(f"which {PROGRAM_NAME_CAT}\n")
+                f.write(f"which {program_sntable_cat}\n")
 
                 for ifit in ifit_list:
                     cat_file_list  = self.make_cat_fitres_list(iver,ifit)
                     fitopt_num     = fitopt_num_outlist[ifit]
-                    ff             = f"{fitopt_num}.{SUFFIX_FITRES}"
+                    ff             = f"{fitopt_num}.{SUFFIX_FITRES}.{suffix_format}"
                     input_ff       = "INPUT_" + ff
-                    cat_file_out   = f"../{v_dir}/{input_ff}"
+                    cat_file_out   = f"../{v_dir}/{input_ff}" # already includes format extension
 
                     append_arg     = f"-a '{VARNAME_APPEND}'"
 
-                    cat_command    = f"{PROGRAM_NAME_CAT} \\\n " \
-                                     f"  -i {cat_file_list} \\\n" \
-                                     f"  -o {cat_file_out} \\\n" \
-                                     f"  {append_arg} \\\n" \
-                                     f"  2>/dev/null \n"
+                    if iter2 and len(cat_file_list) == -9 :  # .xyz
+                        input_ff_iter1 = f"{output_dir}_{OUTDIR_ITER1_SUFFIX}/{v_dir}/{input_ff}"
+                        sys.exit(f"\n xxx input_ff_iter1 = {input_ff_iter1}")
+                        cat_command = "rsync "
+                    else:
+                        cat_command    = f"{program_sntable_cat} \\\n " \
+                                         f"  -i {cat_file_list} \\\n" \
+                                         f"  -o {cat_file_out} \\\n" \
+                                         f"  {append_arg} \\\n" \
+                                         f"  2>/dev/null \n"
 
-                    gzip_command   = f"gzip {cat_file_out}"
+                    # xxx mark gzip_command   = f"gzip {cat_file_out}"
 
                     line = '======================================='
                     f.write(f"\n# {v_dir}/{input_ff} : \n")
                     f.write(f"echo '# {line}' \n")
                     f.write(f"echo '# {line}' \n")
                     f.write(f"{cat_command}\n")
-                    f.write(f"{gzip_command}\n")
+                    # xxxx mark f.write(f"{gzip_command}\n")
                     f.write('\n')
 
         # - - - - - - 
@@ -1347,7 +1368,7 @@ class BBC(Program):
             zip(prep_script_list, prep_log_list, prep_nfit_list, prep_vdir_list ) :
 
             njob_prep_run += 1
-            nfit_prep_run += nfit  # expected total number of INPUT*FITRES.gz
+            nfit_prep_run += nfit  # expected total number of INPUT*FITRES.suffix
 
             logging.info(f"\t Run {prep_script} " \
                          f"({njob_prep_run} of {njob_prep_tot})")
@@ -1361,7 +1382,7 @@ class BBC(Program):
             n_try = 0
             while n_try < 2:
                 try:
-                    ret = subprocess.run([cmd_prep ],cwd=script_dir,
+                    ret = subprocess.run([ cmd_prep ],cwd=script_dir,
                                          shell=True, capture_output=False,text=True)
                     n_try = 9999 # ensure no more attempts
                 except:
@@ -1370,24 +1391,19 @@ class BBC(Program):
                     time.sleep(1.0)
                     n_try += 1
                     
-            check_gz = (njob_prep_run % NJOB_PREP_INPUT_FITRES == 0) or \
-                       (njob_prep_run < NJOB_PREP_INPUT_FITRES)      or \
-                       (njob_prep_run == njob_prep_tot )     # Aug 2024
-            if check_gz:                
-                wait_filegz_spec = f"{output_dir}/**/INPUT*.FITRES.gz"
-                wait_file_spec   = f"{output_dir}/**/INPUT*.FITRES"
-                n_fitres_gz = 0 
+            check_output = (njob_prep_run % NJOB_PREP_INPUT_FITRES == 0) or \
+                           (njob_prep_run < NJOB_PREP_INPUT_FITRES)      or \
+                           (njob_prep_run == njob_prep_tot )     # Aug 2024
+            if check_output:       
+                wait_file_wildcard = f"{output_dir}/**/INPUT*.FITRES.{suffix_format}"
+                n_outfile   = 0   # was n_fitres_gz
                 n_fitres    = nfit_prep_run
-                while n_fitres_gz < nfit_prep_run or n_fitres > 0:
-                    fitres_gz_list = glob.glob(wait_filegz_spec, 
-                                               recursive=True)
-                    fitres_list = glob.glob(wait_file_spec, 
-                                            recursive=True)
-                    n_fitres_gz = len(fitres_gz_list) 
-                    n_fitres    = len(fitres_list) 
-                    msg = f"Found {n_fitres_gz} of {nfit_prep_run} " \
-                          f"INPUT*.FITRES.gz files " \
-                          f"(and {n_fitres} INPUT*FITRES)." 
+                while n_outfile < nfit_prep_run :
+                    outfile_list = glob.glob(wait_file_wildcard, recursive=True)
+                    n_outfile    = len(outfile_list) 
+
+                    msg = f"Found {n_outfile:3d} of {nfit_prep_run:3d} " \
+                          f"INPUT*.FITRES.{suffix_format} files "
                     logging.info(f"\t\t{msg}")
 
                     # abort of output_dir disappears (e.g, user removes it)
@@ -1592,13 +1608,15 @@ class BBC(Program):
         n_inpdir        = self.config_prep['n_inpdir']  
         v_orig_list     = self.config_prep['version_orig_sort_list2d']
         inpdir_list     = self.config_prep['inpdir_list']
+        suffix_format   = self.config_prep['suffix_format'] 
         fitopt_num_list = self.config_prep['fitopt_num_outlist'] 
         fitopt_num_map  = self.config_prep['fitopt_num_outlist_map'] 
-        n_version_list   = self.config_prep['n_version_list']  # vs. idir
+        n_version_list  = self.config_prep['n_version_list']  # vs. idir
 
         cat_list = ''
         fitopt_num_out   = fitopt_num_list[ifit]
         nmissing         = 0 ; msgerr=[]
+
 
         for idir in range(0,n_inpdir):  
             n_version    = n_version_list[idir]
@@ -1610,7 +1628,8 @@ class BBC(Program):
             else:
                 v_orig       = v_orig_list[idir][0]  # 4.01.2025
 
-            ff    = f"{v_orig}/{fitopt_num_inp}.{SUFFIX_FITRES}"
+            # xxx mark delete Nov 24 2026  ff    = f"{v_orig}/{fitopt_num_inp}.{SUFFIX_FITRES}"
+            ff    = f"{v_orig}/{fitopt_num_inp}.{SUFFIX_FITRES}.{suffix_format}"
             FF    = f"{inpdir}/{ff}"
             FFgz  = f"{FF}.gz"
             cat_list += f"{FF},"

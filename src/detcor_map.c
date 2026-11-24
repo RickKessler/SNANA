@@ -29,6 +29,8 @@
  * user interface functions
  *   read_detcor_map          read map file into an DETCOR_MAP_DEF (call once):
  *   get_detcor_ratio         R at every map wavelength for one property value
+ *   read_detcor_mjd          read property-vs-MJD file (call once)
+ *   get_detcor_prop          property value at one MJD (linear interp)
  *
  * local utility functions:
  *   free_detcor_map          release the memory read_detcor_map allocated
@@ -131,8 +133,8 @@ void read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
   SNTABLE_READPREP(IFILETYPE, TBLNAME);
 
   if ( NROW < 2 ) {
-    sprintf(c1err,"Found NROW=%d rows; need at least 2", NROW);
-    sprintf(c2err,"Check DETCOR file %s", fileName);
+    snprintf(c1err, sizeof(c1err),"Found NROW=%d rows; need at least 2", NROW);
+    snprintf(c2err, sizeof(c2err), "Extend MJD range of %s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -146,8 +148,8 @@ void read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
 
   NROW_READ = SNTABLE_READ_EXEC(0);  // also closes the file
   if ( NROW_READ != NROW ) {
-    sprintf(c1err,"Read %d rows, but SNTABLE_NEVT counted %d", NROW_READ, NROW);
-    sprintf(c2err,"Check DETCOR file %s", fileName);
+    snprintf(c1err, sizeof(c1err), "Read %d rows, but SNTABLE_NEVT counted %d", NROW_READ, NROW);
+    snprintf(c2err, sizeof(c2err), "Check DETCOR file %s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -160,24 +162,25 @@ void read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
 
   NPROP = unique_sorted_detcor(NROW, prop_row, uniq);
   if ( NPROP > MXPROP_DETCOR ) {
-    sprintf(c1err,"Found %d unique %s values; MXPROP_DETCOR=%d",
-	    NPROP, column_name, MXPROP_DETCOR);
-    sprintf(c2err,"in %s", fileName);
+    snprintf(c1err, sizeof(c1err),"Found %d unique %s values; MXPROP_DETCOR=%d",
+	     NPROP, column_name, MXPROP_DETCOR);
+    snprintf(c2err, sizeof(c2err),"in %s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
+
   for(ip=0; ip < NPROP; ip++ ) { map->PROP[ip] = uniq[ip]; }
   free(uniq);
 
   if ( NWAVE < 2 ) {
-    sprintf(c1err,"Found NWAVE=%d unique wavelengths; need at least 2", NWAVE);
-    sprintf(c2err,"Check DETCOR file %s", fileName);
+    snprintf(c1err, sizeof(c1err),"Found NWAVE=%d unique wavelengths; need at least 2", NWAVE);
+    snprintf(c2err, sizeof(c2err),"Check DETCOR file %s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
   if ( NWAVE*NPROP != NROW ) {
-    sprintf(c1err,"NWAVE(%d) x N%s(%d) = %d, but NROW=%d -> incomplete grid",
-	    NWAVE, column_name, NPROP, NWAVE*NPROP, NROW);
-    sprintf(c2err,"Check DETCOR file %s", fileName);
+    snprintf(c1err, sizeof(c1err),"NWAVE(%d) x N%s(%d) = %d, but NROW=%d -> incomplete grid",
+	     NWAVE, column_name, NPROP, NWAVE*NPROP, NROW);
+    snprintf(c2err, sizeof(c2err),"Check DETCOR file %s", fileName);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 
@@ -192,9 +195,9 @@ void read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
     iw = exact_index_detcor(wave_row[irow], NWAVE, map->WAVE);
     ip = exact_index_detcor(prop_row[irow], NPROP, map->PROP);
     if ( filled[ip][iw] ) {
-      sprintf(c1err,"Duplicate row for WAVE=%.2f %s=%g",
-	      wave_row[irow], column_name, prop_row[irow]);
-      sprintf(c2err,"Check DETCOR file %s", fileName);
+      snprintf(c1err, sizeof(c1err),"Duplicate row for WAVE=%.2f %s=%g",
+	       wave_row[irow], column_name, prop_row[irow]);
+      snprintf(c2err, sizeof(c2err),"Check DETCOR file %s", fileName);
       errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
     }
     map->RATIO[ip][iw] = ratio_row[irow];
@@ -392,3 +395,128 @@ void apply_detcor_to_filter(DETCOR_MAP_DEF *map, double prop, int NLAM,
   for(ilam=0; ilam < NLAM; ilam++ )
     { trans_detcor[ilam] = trans_nom[ilam] * interp_detcor_ratio(map, prop, lam[ilam]); }
 }
+
+// ======================================================
+void read_detcor_mjd(char *fileName, DETCOR_MJD_DEF *tab, char *column_name) {
+
+  // PURPOSE:
+  //   Load the property-vs-MJD history (e.g., ice thickness vs. MJD) used
+  //   to pick the detcor property value for each observation.
+  //   Call once; then get_detcor_prop(tab, mjd) for each observation.
+  //
+  // INPUTS:
+  //   fileName    : SNANA text table, e.g.
+  //                    VARNAMES: ROW MJD ICE_THICKNESS
+  //                    ROW: 1 61000.00000 0.0
+  //                 MJD must be strictly ascending.
+  //   *tab        : structure to load
+  //   column_name : name of property column; same name as in the map
+  //                 file, e.g., "ICE_THICKNESS"
+  //
+  // OUTPUTS (arrays malloc'ed here; release with free_detcor_mjd):
+  //   tab->FILENAME, tab->COLUMN_NAME
+  //   tab->NMJD, tab->MJD[], tab->PROP[]
+
+  int    NROW, NROW_READ, IFILETYPE, i ;
+  int    OPT_VARDEF = 2 ;  // abort if column is missing
+  double PMIN, PMAX ;
+  char   TBLNAME[] = "DETCOR_MJD" ;
+  char   fnam[]    = "read_detcor_mjd" ;
+
+  // ------------ BEGIN -------------
+
+  memset(tab, 0, sizeof(*tab));
+  snprintf(tab->FILENAME, sizeof(tab->FILENAME), "%s", fileName);
+  tab->COLUMN_NAME = (char*) malloc( strlen(column_name) + 1 );
+  sprintf(tab->COLUMN_NAME, "%s", column_name);
+
+  TABLEFILE_INIT();
+  NROW      = SNTABLE_NEVT(fileName, TBLNAME);
+  IFILETYPE = TABLEFILE_OPEN(fileName, "read", fnam);
+  SNTABLE_READPREP(IFILETYPE, TBLNAME);
+
+  if ( NROW < 2 ) {
+    sprintf(c1err,"Found NROW=%d rows; need at least 2", NROW);
+    sprintf(c2err,"Check DETCOR MJD file %s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  tab->MJD  = (double*) malloc(NROW * sizeof(double));
+  tab->PROP = (double*) malloc(NROW * sizeof(double));
+  SNTABLE_READPREP_VARDEF("MJD",       tab->MJD,  NROW, OPT_VARDEF);
+  SNTABLE_READPREP_VARDEF(column_name, tab->PROP, NROW, OPT_VARDEF);
+
+  NROW_READ = SNTABLE_READ_EXEC(0);  // also closes the file
+  if ( NROW_READ != NROW ) {
+    sprintf(c1err,"Read %d rows, but SNTABLE_NEVT counted %d", NROW_READ, NROW);
+    sprintf(c2err,"Check DETCOR MJD file %s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  PMIN = PMAX = tab->PROP[0];
+  for(i=1; i < NROW; i++ ) {
+    if ( tab->MJD[i] <= tab->MJD[i-1] ) {
+      sprintf(c1err,"MJD not strictly ascending at row %d (%.5f after %.5f)",
+	      i+1, tab->MJD[i], tab->MJD[i-1]);
+      sprintf(c2err,"Check DETCOR MJD file %s", fileName);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+    if ( tab->PROP[i] < PMIN ) { PMIN = tab->PROP[i]; }
+    if ( tab->PROP[i] > PMAX ) { PMAX = tab->PROP[i]; }
+  }
+  tab->NMJD = NROW ;
+
+  printf("\t Loaded DETCOR MJD file %s: NMJD=%d (MJD %.3f-%.3f), "
+	 "%s range %g-%g\n",
+	 fileName, NROW, tab->MJD[0], tab->MJD[NROW-1],
+	 column_name, PMIN, PMAX);
+  fflush(stdout);
+
+  return ;
+
+} // end read_detcor_mjd
+
+
+
+// Funtions to read MJD file
+// ======================================================
+void free_detcor_mjd(DETCOR_MJD_DEF *tab) {
+  // Release memory from read_detcor_mjd and zero the struct.
+  free(tab->MJD);
+  free(tab->PROP);
+  free(tab->COLUMN_NAME);
+  memset(tab, 0, sizeof(*tab));
+}
+
+
+// ======================================================
+double get_detcor_prop(DETCOR_MJD_DEF *tab, double mjd) {
+
+  // PURPOSE:
+  //   Return the detcor property (e.g. ice thickness) at this MJD by
+  //   linear interpolation of the table from read_detcor_mjd.
+  //   Aborts if mjd is outside the table's MJD range: the MJD file must
+  //   cover every observation.
+
+  int    N = tab->NMJD, lo, hi, mid ;
+  double *MJD = tab->MJD, w ;
+  char   fnam[] = "get_detcor_prop" ;
+
+  if ( mjd < MJD[0] || mjd > MJD[N-1] ) {
+    sprintf(c1err,"MJD=%.4f outside DETCOR MJD-file range %.4f to %.4f",
+	    mjd, MJD[0], MJD[N-1]);
+    sprintf(c2err,"Extend MJD range of %s", tab->FILENAME);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  // find lo such that MJD[lo] <= mjd <= MJD[lo+1]
+  lo = 0;  hi = N-1 ;
+  while ( hi - lo > 1 ) {
+    mid = (lo + hi) / 2 ;
+    if ( MJD[mid] <= mjd ) { lo = mid; } else { hi = mid; }
+  }
+
+  w = (mjd - MJD[lo]) / (MJD[hi] - MJD[lo]) ;
+  return (1.0-w)*tab->PROP[lo] + w*tab->PROP[hi] ;
+
+} // end get_detcor_prop

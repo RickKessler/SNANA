@@ -43,6 +43,9 @@
 // ************ GLOBAL VARIABLES *************
 
 #include "detcor_map.h" 
+#include "sntools_trigger.h"
+#include "sntools_stronglens.h"
+#include "sntools_weaklens.h"
 
 #define  MXINPUT_FILE_SIM   4    // 1 input file + 3 includes
 #define  MXCID_SIM  499999999   // max sim CID and max number of SN

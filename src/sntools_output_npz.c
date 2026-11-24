@@ -25,6 +25,11 @@ extern"C" {
   void SNTABLE_FILL_NPZ(int IDTABLE);
   void CLOSE_NPZFILE(void);
 
+  // Nov 2026: read table from npz file (analog of SNTABLE_xxx_TEXT)
+  int  SNTABLE_NEVT_NPZ(char *FILENAME);
+  int  SNTABLE_READPREP_NPZ(void);
+  int  SNTABLE_READ_EXEC_NPZ(int OPTMASK);
+
   int  get_ITABLE_SPARSE(int IDTABLE, char *FUNNAM, int OPT_ABORT );
 
   int read_npz_covmat(char *npz_file, double *array1d);
@@ -119,14 +124,386 @@ void INIT_NPZFILES(char *PREFIX) {
 
 } // end INIT_NPZFILES
 
+// =====================================================================
+//   Nov 2026: NPZ table READER (analog of the _TEXT read functions).
+//
+//   Reads the npz table written by SNTABLE_xxx_NPZ (or by python
+//   numpy.savez/savez_compressed): one 1-D .npy per column, column order
+//   taken from the zip central directory, header dictionary taken from
+//   the zip comment (JSON string:string). Columns are inflated on demand
+//   by SNTABLE_READ_EXEC_NPZ. Zip64 (>4GB) tables are not supported.
+// =====================================================================
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <stdint.h>
+#include <zlib.h>
+
+namespace npzrd {
+
+  struct COL {
+    std::string name;
+    int      icast;       // ICAST_[D,F,I,S,L,C] of data stored in file
+    int      kind;        // 'f' 'i' 'u' 'S' 'U'
+    int      wsize;       // bytes per element in file
+    size_t   nrow;
+    uint32_t method, csize, usize;
+    uint64_t data_off;    // file offset of (compressed) data stream
+    size_t   npy_off;     // offset of first element inside inflated stream
+  };
+
+  struct INFO {
+    std::string file;
+    std::vector<COL> col;
+    std::string header_json;
+    bool opened;
+    INFO() : opened(false) {}
+  } R;
+
+  uint16_t u16(const unsigned char *p) { return (uint16_t)(p[0] | (p[1]<<8)); }
+  uint32_t u32(const unsigned char *p) 
+  { return (uint32_t)p[0] | ((uint32_t)p[1]<<8) | ((uint32_t)p[2]<<16) | ((uint32_t)p[3]<<24); }
+
+  // inflate (at most maxout bytes of) the column stream; maxout=0 -> all
+  bool inflate_col(FILE *fp, const COL &c, std::vector<char> &out, size_t maxout) {
+    size_t want = c.usize ;
+    if ( maxout > 0 && maxout < want ) { want = maxout; }
+    out.assign(want, 0);
+    if ( want == 0 ) { return true; }
+    if ( fseeko(fp, (off_t)c.data_off, SEEK_SET) != 0 ) { return false; }
+
+    if ( c.method == 0 ) { return fread(&out[0], 1, want, fp) == want; }
+    if ( c.method != 8 ) { return false; }
+
+    z_stream zs;  memset(&zs, 0, sizeof(zs));
+    if ( inflateInit2(&zs, -15) != Z_OK ) { return false; }
+    std::vector<unsigned char> in(65536);
+    size_t left = c.csize;
+    zs.next_out  = (Bytef*)&out[0];
+    zs.avail_out = (uInt)want;
+    int ret = Z_OK;
+    while ( zs.avail_out > 0 && ret == Z_OK ) {
+      if ( zs.avail_in == 0 ) {
+	size_t n = std::min(left, in.size());
+	if ( n == 0 ) { break; }
+	if ( fread(&in[0], 1, n, fp) != n ) { inflateEnd(&zs); return false; }
+	left -= n;  zs.next_in = &in[0];  zs.avail_in = (uInt)n;
+      }
+      ret = inflate(&zs, Z_NO_FLUSH);
+    }
+    bool ok = ( zs.avail_out == 0 || ret == Z_STREAM_END );
+    inflateEnd(&zs);
+    return ok;
+  }
+
+  // parse the npy header at start of inflated stream
+  bool parse_npy(const std::vector<char> &b, COL &c, std::string &err) {
+    const unsigned char *p = (const unsigned char*)&b[0];
+    if ( b.size() < 12 || p[0] != 0x93 || memcmp(p+1,"NUMPY",5) != 0 )
+      { err = "bad npy magic in column " + c.name; return false; }
+    int major = p[6];
+    size_t hlen, start;
+    if ( major == 1 ) { hlen = u16(p+8); start = 10; }
+    else              { hlen = u32(p+8); start = 12; }
+    if ( start + hlen > b.size() ) { err = "npy header too long: " + c.name; return false; }
+    std::string h(b.begin()+start, b.begin()+start+hlen);
+    c.npy_off = start + hlen;
+
+    size_t k = h.find("descr");
+    if ( k == std::string::npos ) { err = "no descr in " + c.name; return false; }
+    k = h.find(':', k);  k = h.find('\'', k);
+    if ( k == std::string::npos ) { err = "bad descr in " + c.name; return false; }
+    size_t k2 = h.find('\'', k+1);
+    std::string d = h.substr(k+1, k2-k-1);        // e.g. <f8  |S20  <i4
+    if ( d.size() < 3 || d[0] == '>' ) 
+      { err = "unsupported dtype '" + d + "' in column " + c.name; return false; }
+    c.kind  = d[1];
+    c.wsize = atoi(d.c_str()+2);
+
+    k = h.find("fortran_order");
+    k = h.find('(', k == std::string::npos ? 0 : k);
+    if ( k == std::string::npos ) { err = "no shape in " + c.name; return false; }
+    size_t k3 = h.find(')', k);
+    std::string shp = h.substr(k+1, k3-k-1);
+    if ( shp.find(',') != std::string::npos && shp.find_first_of("0123456789",shp.find(',')) != std::string::npos )
+      { err = "column " + c.name + " is not 1-D"; return false; }
+    c.nrow = (size_t) atoll(shp.c_str());
+
+    switch ( c.kind ) {
+    case 'f': c.icast = (c.wsize==8) ? ICAST_D : ICAST_F ;  break;
+    case 'i': c.icast = (c.wsize==8) ? ICAST_L : (c.wsize==4) ? ICAST_I : ICAST_S ; break;
+    case 'u': c.icast = (c.wsize>=4) ? ICAST_L : (c.wsize==2) ? ICAST_I : ICAST_S ; break;
+    case 'S': case 'U': c.icast = ICAST_C ; break;
+    default:  err = std::string("unsupported dtype '") + d + "' in column " + c.name; return false;
+    }
+    if ( c.kind=='f' && c.wsize!=8 && c.wsize!=4 ) 
+      { err = "unsupported float size in " + c.name; return false; }
+    return true;
+  }
+
+  bool open_file(const char *fileName, std::string &err) {
+    R = INFO();  R.file = fileName;
+    FILE *fp = fopen(fileName, "rb");
+    if ( !fp ) { err = "cannot open file"; return false; }
+
+    // ---- end-of-central-directory record (search back for signature)
+    fseeko(fp, 0, SEEK_END);
+    off_t fsize = ftello(fp);
+    size_t ntail = (size_t) std::min<off_t>(fsize, 22 + 65535);
+    std::vector<unsigned char> tail(ntail);
+    fseeko(fp, fsize - (off_t)ntail, SEEK_SET);
+    if ( fread(&tail[0], 1, ntail, fp) != ntail ) { fclose(fp); err = "read error"; return false; }
+    int ie = -1;
+    for ( int i = (int)ntail - 22; i >= 0; i-- ) {
+      if ( tail[i]==0x50 && tail[i+1]==0x4b && tail[i+2]==0x05 && tail[i+3]==0x06 ) { ie = i; break; }
+    }
+    if ( ie < 0 ) { fclose(fp); err = "not a zip/npz file"; return false; }
+    const unsigned char *e = &tail[ie];
+    uint16_t ncd = u16(e+10);   uint32_t cdoff = u32(e+16);  uint16_t lcom = u16(e+20);
+    if ( ncd == 0xFFFF || cdoff == 0xFFFFFFFFu ) { fclose(fp); err = "zip64 npz not supported"; return false; }
+    if ( lcom > 0 && ie + 22 + lcom <= (int)ntail )
+      { R.header_json.assign((const char*)e+22, lcom); }
+
+    // ---- central directory (gives column order)
+    fseeko(fp, (off_t)cdoff, SEEK_SET);
+    std::vector<uint32_t> lho;
+    for ( int i=0; i < ncd; i++ ) {
+      unsigned char ch[46];
+      if ( fread(ch,1,46,fp) != 46 || u32(ch) != 0x02014b50u ) { fclose(fp); err = "bad central directory"; return false; }
+      COL c;
+      c.method = u16(ch+10);  c.csize = u32(ch+20);  c.usize = u32(ch+24);
+      uint16_t nl = u16(ch+28), xl = u16(ch+30), cl = u16(ch+32);
+      uint32_t lo = u32(ch+42);
+      if ( c.csize==0xFFFFFFFFu || c.usize==0xFFFFFFFFu || lo==0xFFFFFFFFu )
+	{ fclose(fp); err = "zip64 npz not supported"; return false; }
+      std::string nm(nl,' ');
+      if ( fread(&nm[0],1,nl,fp) != nl ) { fclose(fp); err = "read error"; return false; }
+      fseeko(fp, xl + cl, SEEK_CUR);
+      if ( nm.size() > 4 && nm.compare(nm.size()-4,4,".npy") == 0 ) { nm.erase(nm.size()-4); }
+      c.name = nm;  c.icast = -9;  c.kind = 0;  c.wsize = 0;  c.nrow = 0;  c.data_off = 0;  c.npy_off = 0;
+      R.col.push_back(c);  lho.push_back(lo);
+    }
+
+    // ---- local headers -> data offset; npy header -> dtype, nrow
+    for ( size_t i=0; i < R.col.size(); i++ ) {
+      unsigned char lh[30];
+      fseeko(fp, (off_t)lho[i], SEEK_SET);
+      if ( fread(lh,1,30,fp) != 30 || u32(lh) != 0x04034b50u ) { fclose(fp); err = "bad local header"; return false; }
+      R.col[i].data_off = (uint64_t)lho[i] + 30 + u16(lh+26) + u16(lh+28);
+      std::vector<char> b;
+      if ( !inflate_col(fp, R.col[i], b, 1024) ) { fclose(fp); err = "cannot inflate column " + R.col[i].name; return false; }
+      if ( !parse_npy(b, R.col[i], err) ) { fclose(fp); return false; }
+    }
+    fclose(fp);
+
+    if ( R.col.empty() ) { err = "no columns in npz file"; return false; }
+    for ( size_t i=1; i < R.col.size(); i++ ) 
+      if ( R.col[i].nrow != R.col[0].nrow ) { err = "columns have different lengths: " + R.col[i].name; return false; }
+
+    // make sure the ID column is first (CID, CCID, GALID, ...)
+    {
+      const char *idlist[] = VARNAME_TABLE_IDLIST ;
+      int found = -1;
+      for ( int j=0; j < N_VARNAME_TABLE_IDLIST && found < 0; j++ )
+	for ( size_t i=0; i < R.col.size(); i++ )
+	  if ( R.col[i].name == idlist[j] ) { found = (int)i; break; }
+      if ( found > 0 ) { COL t = R.col[found]; R.col.erase(R.col.begin()+found); R.col.insert(R.col.begin(), t); }
+    }
+    R.opened = true;
+    return true;
+  }
+
+  // parse flat JSON {"key": "value", ...} from zip comment -> "# KEY: value"
+  void json_to_comments(std::vector<std::string> &lines) {
+    const std::string &j = R.header_json;
+    size_t i = 0, n = j.size();
+    std::vector<std::string> items;
+    while ( i < n ) {
+      if ( j[i] != '"' ) { i++; continue; }
+      std::string s;  i++;
+      while ( i < n && j[i] != '"' ) {
+	if ( j[i] == '\\' && i+1 < n ) {
+	  i++;
+	  switch ( j[i] ) {
+	  case 'n': s += ' '; break;  case 't': s += ' '; break;  case 'r': break;
+	  case 'u': if ( i+4 < n ) { s += (char) strtol(j.substr(i+1,4).c_str(), NULL, 16); i += 4; } break;
+	  default:  s += j[i];
+	  }
+	} else { s += j[i]; }
+	i++;
+      }
+      i++;  items.push_back(s);
+    }
+    for ( size_t k=0; k+1 < items.size(); k += 2 ) {
+      std::string key = items[k];
+      if ( key.find(':') == std::string::npos ) { key += ":"; }
+      lines.push_back("# " + key + " " + items[k+1] + "\n");
+    }
+  }
+
+} // end namespace npzrd
+
+static bool npzrd_open(char *fileName, std::string &err) { return npzrd::open_file(fileName, err); }
+
+// ==============================================
+int SNTABLE_NEVT_NPZ(char *FILENAME) {
+  // return number of rows; open file if FILENAME is non-blank, else use opened file
+  std::string err;
+  if ( strlen(FILENAME) > 0 && !( npzrd::R.opened && npzrd::R.file == FILENAME ) ) {
+    if ( !npzrd::open_file(FILENAME, err) ) { return 0; }
+  }
+  if ( !npzrd::R.opened ) { return 0; }
+  return (int) npzrd::R.col[0].nrow ;
+} // end SNTABLE_NEVT_NPZ
+
+// ==============================================
+int SNTABLE_READPREP_NPZ(void) {
+
+  // Analog of SNTABLE_READPREP_TEXT: fill VARNAME and ICAST for each column.
+  // ID column (first) is always stored as string, even if integers in file.
+
+  int NVAR = (int) npzrd::R.col.size();
+  char fnam[] = "SNTABLE_READPREP_NPZ" ;
+
+  if ( !npzrd::R.opened ) {
+    sprintf(MSGERR1, "npz file is not open");  sprintf(MSGERR2, "Call TABLEFILE_OPEN first");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  if ( NVAR >= MXVAR_TABLE ) {
+    sprintf(MSGERR1, "NVAR=%d exceeds bound MXVAR_TABLE=%d", NVAR, MXVAR_TABLE);
+    sprintf(MSGERR2, "%.200s", npzrd::R.file.c_str());
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  for ( int ivar=0; ivar < NVAR; ivar++ ) {
+    npzrd::COL &c = npzrd::R.col[ivar];
+    snprintf(READTABLE_POINTERS.VARNAME[ivar], MXCHAR_VARNAME, "%s", c.name.c_str());
+    int ICAST = c.icast;
+    if ( ivar == 0 ) { ICAST = ICAST_C; }
+    READTABLE_POINTERS.ICAST_READ[ivar]  = ICAST ;
+    READTABLE_POINTERS.ICAST_STORE[ivar] = ICAST ;
+  }
+  READTABLE_POINTERS.NVAR_TOT = NVAR ;
+  return NVAR ;
+
+} // end SNTABLE_READPREP_NPZ
+
+// ==============================================
+int SNTABLE_READ_EXEC_NPZ(int OPTMASK) {
+
+  // Analog of SNTABLE_READ_EXEC_TEXT: inflate each requested column and fill
+  // the user arrays set by SNTABLE_READPREP_VARDEF. Returns NROW.
+  // OPTMASK bit0: store header comments (from zip comment).
+
+  bool STORE_TABLECOMMENT = (OPTMASK & 1) > 0 ;
+  int  NVAR_READ = READTABLE_POINTERS.NVAR_READ ;
+  int  NROW      = (int) npzrd::R.col[0].nrow ;
+  char fnam[]    = "SNTABLE_READ_EXEC_NPZ" ;
+
+  if ( NROW > READTABLE_POINTERS.MXLEN && READTABLE_POINTERS.MXLEN > 0 ) {
+    sprintf(MSGERR1, "NROW=%d exceeds memory bound MXLEN=%d", NROW, READTABLE_POINTERS.MXLEN);
+    sprintf(MSGERR2, "%.200s", npzrd::R.file.c_str());
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( STORE_TABLECOMMENT ) {
+    std::vector<std::string> lines;
+    npzrd::json_to_comments(lines);
+    READTABLE_POINTERS.NLINE_TABLECOMMENT = 0 ;
+    for ( size_t k=0; k < lines.size() && k < (size_t)MXLINE_TABLECOMMENT; k++ ) 
+      { store_read_comment_TEXT((char*)lines[k].c_str()); }  // same storage as text
+  }
+
+  FILE *fp = fopen(npzrd::R.file.c_str(), "rb");
+  if ( !fp ) {
+    sprintf(MSGERR1, "Cannot open %.200s", npzrd::R.file.c_str());  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  std::vector<char> buf;
+  for ( int i=0; i < NVAR_READ; i++ ) {
+    int ivar = READTABLE_POINTERS.PTRINDEX[i];
+    npzrd::COL &c = npzrd::R.col[ivar];
+    int ICAST = READTABLE_POINTERS.ICAST_STORE[ivar];
+    int NPTR  = READTABLE_POINTERS.NPTR[ivar];
+    if ( NPTR <= 0 || READTABLE_POINTERS.MXLEN == 0 ) { continue; }
+
+    if ( !npzrd::inflate_col(fp, c, buf, 0) || buf.size() < c.npy_off + (size_t)c.wsize*c.nrow ) {
+      sprintf(MSGERR1, "Could not read column '%s'", c.name.c_str());
+      sprintf(MSGERR2, "%.200s", npzrd::R.file.c_str());
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+    const char *base = &buf[0] + c.npy_off;
+
+    for ( int isn=0; isn < NROW; isn++ ) {
+      const char *p = base + (size_t)isn * c.wsize;
+      long double dv = 0.0L ;  char cv[MXCHAR_VARNAME+8];  cv[0] = 0;
+      
+      if ( c.kind == 'S' || c.kind == 'U' ) {
+	// string: take low byte of each UCS4 char for 'U'
+	int nch = (c.kind=='S') ? c.wsize : c.wsize/4, n=0;
+	for ( int j=0; j < nch && n < MXCHAR_VARNAME-1; j++ ) {
+	  char ch = (c.kind=='S') ? p[j] : p[4*j];
+	  if ( ch == 0 ) { break; }
+	  cv[n++] = ch;
+	}
+	cv[n] = 0;  dv = strtold(cv, NULL);
+      }
+      else {
+	if      ( c.kind=='f' && c.wsize==8 ) { double x; memcpy(&x,p,8); dv = x; }
+	else if ( c.kind=='f' )               { float  x; memcpy(&x,p,4); dv = x; }
+	else if ( c.wsize==8 )  { long long x; memcpy(&x,p,8); dv = (long double)x; }
+	else if ( c.wsize==4 )  { if ( c.kind=='i' ) {int x; memcpy(&x,p,4); dv = x;} else {unsigned x; memcpy(&x,p,4); dv = x;} }
+	else if ( c.wsize==2 )  { if ( c.kind=='i' ) {short x; memcpy(&x,p,2); dv = x;} else {unsigned short x; memcpy(&x,p,2); dv = x;} }
+	else                    { dv = (c.kind=='i') ? (long double)(signed char)p[0] : (long double)(unsigned char)p[0]; }
+	if ( ICAST == ICAST_C ) { sprintf(cv, "%lld", (long long)dv); }   // numeric ID -> string
+      }
+
+      for ( int nptr=0; nptr < NPTR; nptr++ ) {
+	if      ( ICAST == ICAST_D ) { READTABLE_POINTERS.PTRVAL_D[nptr][ivar][isn] = (double)dv; }
+	else if ( ICAST == ICAST_F ) { READTABLE_POINTERS.PTRVAL_F[nptr][ivar][isn] = (float)dv; }
+	else if ( ICAST == ICAST_I ) { READTABLE_POINTERS.PTRVAL_I[nptr][ivar][isn] = (int)dv; }
+	else if ( ICAST == ICAST_S ) { READTABLE_POINTERS.PTRVAL_S[nptr][ivar][isn] = (short int)dv; }
+	else if ( ICAST == ICAST_L ) { READTABLE_POINTERS.PTRVAL_L[nptr][ivar][isn] = (long long int)dv; }
+	else if ( ICAST == ICAST_C ) { sprintf(READTABLE_POINTERS.PTRVAL_C[nptr][ivar][isn], "%s", cv); }
+	else {
+	  sprintf(MSGERR1,"Unknown ICAST=%d  var=%s", ICAST, READTABLE_POINTERS.VARNAME[ivar]);
+	  sprintf(MSGERR2,"See ICAST_  parameters in sntools_output.h");
+	  errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
+	}
+      }
+    } // isn
+  } // i
+  fclose(fp);
+
+  // allow opening another file for reading
+  NAME_TABLEFILE[OPENFLAG_READ][IFILETYPE_NPZ][0] = 0 ;
+  USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_NPZ]     = 0 ;
+  npzrd::R.opened = false;
+
+  return NROW ;
+
+} // end SNTABLE_READ_EXEC_NPZ
+
 // ==============================================
 void OPEN_NPZFILE(char *FILENAME) {
 
-  char fnam[] = "OPEN_NPZFILE" ; (void)fnam;
- 
+  // Nov 2026: open npz table file for reading. Parse zip directory and
+  // npy headers (column names, types, nrow) and zip comment (header dict).
+  // Column data are inflated later by SNTABLE_READ_EXEC_NPZ.
+
+  char fnam[] = "OPEN_NPZFILE" ; 
+  std::string err;
+
   // ----------- BEGIN --------
 
-  cnpy::npz_t  my_npz = cnpy::npz_load(FILENAME);  // placeholder ?? .xyz                         
+  if ( !npzrd_open(FILENAME, err) ) {
+    print_preAbort_banner(fnam);
+    printf("  file = %s\n", FILENAME);
+    sprintf(MSGERR1, "Could not read npz table file:");
+    sprintf(MSGERR2, "%.200s", err.c_str());
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
 
   return ;
 } // end OPEN_NPZFILE

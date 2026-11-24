@@ -90,6 +90,12 @@
 
  Jun 2026: fix few memory overwrite bugs triggered by D_FORTIFY_SOURCE compilation flag
 
+ Nov 2026: allow input files in npz format (python-compatible, written by
+           SNTABLE_xxx_NPZ) in addition to text. All input files must have the
+           same format (text/csv or npz); mix of text and npz -> ABORT.
+           If inputs are npz, output is also npz: <outprefix>.NPZ or the
+           name given by --outfile_text / --outfile_npz.
+
  Jul 15 2026: for HOSTLIB with GALID column, 
             + do NOT add CIDint col to output
             + preserve GALID column instead of CCID
@@ -145,6 +151,7 @@ void  relabel_rownum(int ifile);
 
 void WRITE_YAML(void) ; // for submit_batch only
 bool is_csv_file(char *file_name);
+bool is_npz_file(char *file_name);
 
 // ================================
 // Global variables
@@ -210,6 +217,7 @@ struct INPUTS {
 } INPUTS ;
 
 int NFILE_CSV;
+int IFILETYPE_INPUT ;   // IFILETYPE_TEXT or IFILETYPE_NPZ; same for all input files (Nov 2026)
 char PREFIX_CSV[MXPATHLEN];
 
 #define  NVARNAME_1ONLY 4  // NVAR to include only once
@@ -224,6 +232,7 @@ char  suffix_text[8]  =   "text" ;
 
 char *ptrSuffix_root  = suffix_root ;
 char *ptrSuffix_text  = suffix_text ;
+char  SUFFIX_NPZ_COMBINE[8] = "NPZ" ;
 bool USEDCID[MXSN];
 
 int IVARSTR_STORE[MXVAR_TOT] ; // keep track of string vars
@@ -491,6 +500,10 @@ void  PARSE_ARGV(int argc, char **argv) {
       i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
       continue ;
     }
+    if ( keyarg_match(argv[i],"outfile_npz"))  {   // Nov 2026: same as outfile_text
+      i++ ; sprintf(INPUTS.OUTFILE_TEXT,"%s", argv[i]);
+      continue ;
+    }
     if ( keyarg_match(argv[i],"outfile_yaml"))  {
       i++ ; sprintf(INPUTS.OUTFILE_YAML,"%s", argv[i]);
       continue ;
@@ -560,6 +573,24 @@ void  PARSE_ARGV(int argc, char **argv) {
     sprintf(c1err, "Bad args. Must give fitres file(s)");
     sprintf(c2err, "  combine_fitres.exe <fitresFile List> ");
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err); 
+  }
+
+  // Nov 2026: determine input format (text or npz) from file names, and
+  // abort if there is a mix. csv files are converted to text later.
+  {
+    int ifile, NNPZ=0, NTXT=0;
+    for(ifile=0; ifile < INPUTS.NFFILE; ifile++ ) {
+      if ( ISFILE_NPZ(INPUTS.FFILE[ifile]) ) { NNPZ++; } else { NTXT++; }
+    }
+    if ( NNPZ > 0 && NTXT > 0 ) {
+      sprintf(c1err, "Cannot mix npz and text/csv input files: %d npz, %d text/csv.",
+	      NNPZ, NTXT);
+      sprintf(c2err, "All input files must have the same format (text or npz).");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+    IFILETYPE_INPUT = ( NNPZ > 0 ) ? IFILETYPE_NPZ : IFILETYPE_TEXT ;
+    if ( IFILETYPE_INPUT == IFILETYPE_NPZ ) 
+      { printf("   Input files are npz format -> output is npz format.\n"); }
   }
 
   // idiot checks for file type
@@ -666,11 +697,10 @@ void ADD_FITRES(int ifile) {
   //
   // Ju 13 2025: check for csv file
   
- 
   int  ivar, ivarstr, j, isn, isn2, NMATCH2, isys ;
   int  NVARALL, NVARSTR, NVAR, NTAG_DEJA, NLIST, ICAST, OPTMASK ;
   int  index=-9; (void)index;
-  int REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
+  int  REPEATCID, NEVT_APPROX, IFILETYPE, iappend ;
   char FFILE[2*MXPATHLEN];
   char *VARNAME, VARNAME_F[MXCHAR_VARNAME], VARNAME_C[MXCHAR_VARNAME] ;
   char *ptr_CTAG, ccid[MXCHAR_CCID],  cmd[2*MXPATHLEN+40] ;
@@ -703,7 +733,10 @@ void ADD_FITRES(int ifile) {
 
   // open file & read header; use generic table name SNTABLE
   // since for ascii files the table name is not used.
-  IFILETYPE = TABLEFILE_OPEN( FFILE, "read text", fnam );
+  if ( IFILETYPE_INPUT == IFILETYPE_NPZ ) 
+    { IFILETYPE = TABLEFILE_OPEN( FFILE, "read npz", fnam ); }   // Nov 2026
+  else
+    { IFILETYPE = TABLEFILE_OPEN( FFILE, "read text", fnam ); }
   NVARALL   = SNTABLE_READPREP(IFILETYPE,"SNTABLE");
   NVARALL_FILE[ifile] = NVARALL;
 
@@ -774,7 +807,8 @@ void ADD_FITRES(int ifile) {
 
     // Sep 19 2019: make sure first column is CID
     if ( ivar == IVARSTR_CCID ) {
-      if ( ICAST_for_textVar(VARNAME) != ICAST_C ) {
+      int ICAST_ID = ( IFILETYPE == IFILETYPE_NPZ ) ? ICAST : ICAST_for_textVar(VARNAME);
+      if ( ICAST_ID != ICAST_C ) {
 	sprintf(c1err,"Unrecognized first column: %.*s", MXCHAR_VARNAME, VARNAME);
 	sprintf(c2err,"Check %.*s", MXCHAR_MSGERR, FFILE );
 	errmsg(SEV_FATAL, 0, fnam, c1err, c2err );       
@@ -1316,8 +1350,22 @@ void WRITE_SNTABLE(void) {
 #endif
 
 
+#ifdef USE_NPZ
+  if ( IFILETYPE_INPUT == IFILETYPE_NPZ )  {   // Nov 2026: npz in -> npz out
+    // name contains a dot, so the npz writer uses it as the full file name
+    if ( strlen(INPUTS.OUTFILE_TEXT) > 1 ) 
+      { sprintf(OUTFILE[NOUT], "%s", INPUTS.OUTFILE_TEXT); }
+    else
+      { sprintf(OUTFILE[NOUT], "%s.%s", INPUTS.OUTPREFIX_COMBINE, SUFFIX_NPZ_COMBINE); }
+    if ( strstr(OUTFILE[NOUT],".gz") != NULL ) 
+      { printf("\n WARNING: ignore .gz extension for npz output.\n"); }
+    IFILETYPE = TABLEFILE_OPEN(OUTFILE[NOUT], "npz new", fnam); 
+    NOUT++ ;
+  }
+#endif
+
 #ifdef USE_TEXT
-  if ( CREATEFILE_TEXT )  { 
+  if ( CREATEFILE_TEXT && IFILETYPE_INPUT != IFILETYPE_NPZ )  { 
     if ( LTRACE ) { printf(" xxx %s: TRACE-1 \n", fnam); fflush(stdout); }
     sprintf(OUTFILE[NOUT], "%s.%s", 
 	    INPUTS.OUTPREFIX_COMBINE, ptrSuffix_text ); 
@@ -1417,7 +1465,11 @@ void WRITE_SNTABLE(void) {
 	sprintf(ptrSTR,"%s", FITRES_VALUES.STR_ALL[ivarstr][isn]);
 
 	if ( ivar == 0 ) {
-	  sprintf(TABLEROW_VALUES.CCID, "%s ", ptrSTR); // Dec 8 2014
+	  // Dec 8 2014 (trailing blank is for text format only; no blank in npz)
+	  if ( IFILETYPE_INPUT == IFILETYPE_NPZ ) 
+	    { sprintf(TABLEROW_VALUES.CCID, "%s", ptrSTR); }
+	  else
+	    { sprintf(TABLEROW_VALUES.CCID, "%s ", ptrSTR); }
 	  CIDint = atoi(ptrSTR); 
 	  sprintf(CCIDint,"%d", CIDint);
 	  if ( strcmp(CCIDint,ptrSTR) == 0 ) 
@@ -1666,4 +1718,10 @@ bool is_csv_file(char *file_name) {
   if ( strstr(file_name,".csv") != NULL ) { is_csv = true; }
   if ( strstr(file_name,".CSV") != NULL ) { is_csv = true; }
   return is_csv ;
+}
+bool is_npz_file(char *file_name) {
+  bool is_npz = false;
+  if ( strstr(file_name,".npz") != NULL ) { is_npz = true; }
+  if ( strstr(file_name,".NPZ") != NULL ) { is_npz = true; }
+  return is_npz ;
 }

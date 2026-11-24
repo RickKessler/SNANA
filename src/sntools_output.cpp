@@ -193,12 +193,13 @@ int get_TABLEFILE_TYPE(char *FILENAME) {
   if ( ISFILE_ROOT (FILENAME) ) { return IFILETYPE_ROOT ; }
 #endif
 
-#ifdef USE_TEXT
-  if ( ISFILE_TEXT (FILENAME) ) { return IFILETYPE_TEXT ; }
+#ifdef USE_NPZ
+  // Nov 2026: check NPZ before TEXT because ISFILE_TEXT may open and scan the file
+  if ( ISFILE_NPZ (FILENAME) ) { return IFILETYPE_NPZ ; }
 #endif
 
-#ifdef USE_NPZ
-  if ( ISFILE_NPZ (FILENAME) ) { return IFILETYPE_NPZ ; }
+#ifdef USE_TEXT
+  if ( ISFILE_TEXT (FILENAME) ) { return IFILETYPE_TEXT ; }
 #endif
 
 #ifdef USE_MARZ
@@ -322,17 +323,18 @@ int TABLEFILE_OPEN(char *FILENAME, char *STRINGOPT, char *callFun) {
     if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
 #endif
 
+#ifdef USE_NPZ
+    // this works for read-mode only because for writing
+    // FILENAME is a prefix. Nov 2026: check NPZ before TEXT because
+    // ISFILE_TEXT may open and scan unknown file types.
+    if ( ISFILE_NPZ(FILENAME) )  {  TYPE_FLAG = IFILETYPE_NPZ ; }
+    if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
+#endif
+
 #ifdef USE_TEXT
     // Oct 2014: this works for read-mode only because for writing
     // FILENAME is a prefix.
     if ( ISFILE_TEXT(FILENAME) )  {  TYPE_FLAG = IFILETYPE_TEXT ; }
-    if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
-#endif
-
-#ifdef USE_NPZ
-    // this works for read-mode only because for writing
-    // FILENAME is a prefix.
-    if ( ISFILE_NPZ(FILENAME) )  {  TYPE_FLAG = IFILETYPE_NPZ ; }
     if ( TYPE_FLAG > 0 ) { goto ISFILE_DONE ; }
 #endif
 
@@ -1207,6 +1209,12 @@ int SNTABLE_READPREP(int IFILETYPE, char *TABLENAME) {
   }
 #endif
 
+#ifdef USE_NPZ
+  if ( IFILETYPE == IFILETYPE_NPZ ) {
+    NVAR = SNTABLE_READPREP_NPZ();   // Nov 2026
+  }
+#endif
+
   // store file type and name of table
   READTABLE_POINTERS.NVAR_TOT  = NVAR ;
   READTABLE_POINTERS.IFILETYPE = IFILETYPE ;
@@ -1656,8 +1664,8 @@ int SNTABLE_READ_EXEC(int OPTMASK) {
 #endif
   
 #ifdef USE_NPZ
-  if ( IFILETYPE == IFILETYPE_TEXT ) {
-    //     NROW = SNTABLE_READ_EXEC_NPZ(OPTMASK); // need to create this function
+  if ( IFILETYPE == IFILETYPE_NPZ ) {
+    NROW = SNTABLE_READ_EXEC_NPZ(OPTMASK);   // Nov 2026
   }
 
 #endif
@@ -2905,6 +2913,15 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   }
 #endif
 
+#ifdef USE_NPZ
+  // Nov 2026: npz is checked first because ISFILE_TEXT may scan the file
+  ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_NPZ] ;
+  if ( ISOPEN_DEJA || ISFILE_NPZ(FILENAME) ) {
+    NEVT = SNTABLE_NEVT_NPZ(FILENAME); 
+    return(NEVT);
+  }
+#endif
+
 #ifdef USE_TEXT
   ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_TEXT] ;
   ISTYPE_TEXT = ISFILE_TEXT(FILENAME); 
@@ -3252,11 +3269,12 @@ int ISFILE_TEXT(char *fileName) {
 int ISFILE_NPZ(char *fileName) {
 
   // Created Oct 19 2026 
-  if ( strstr(".npz", fileName) != NULL ) { return 1;}
-  if ( strstr(".NPZ", fileName) != NULL ) { return 1;}
+  // Nov 2026: fix reversed strstr args (always returned 0 before)
+  if ( strstr(fileName, ".npz") != NULL ) { return 1;}
+  if ( strstr(fileName, ".NPZ") != NULL ) { return 1;}
 
-  if ( strstr(".npy", fileName) != NULL ) { return 1;}
-  if ( strstr(".NPY", fileName) != NULL ) { return 1;}
+  if ( strstr(fileName, ".npy") != NULL ) { return 1;}
+  if ( strstr(fileName, ".NPY") != NULL ) { return 1;}
 
   return 0;
 

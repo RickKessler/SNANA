@@ -105,8 +105,8 @@
 
 #include "sntools.h"
 #include "sntools_cosmology.h"
-#include "sntools_trigger.h"
-#include "sntools_stronglens.h"
+//xxx #include "sntools_trigger.h"
+//xxx #include "sntools_stronglens.h"
 #include "snlc_sim.h" 
 #include "sntools_host.h"
 #include "sntools_wgtmap.h"

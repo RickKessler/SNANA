@@ -19,16 +19,13 @@
 
 #include "sntools.h"
 #include "sntools_cosmology.h"  // clumsy to require this include
-#include "sntools_stronglens.h" // clumsy to ...
+//xxx #include "sntools_stronglens.h" // clumsy to ...
 #include "genmag_SEDtools.h"
 
 #include "snlc_sim.h"
 #include "sntools_sim_atmosphere.h"
 #include "sntools_spectrograph.h"
-#include "sntools_trigger.h"
-
-//#include "fitsio.h"
-//#include "sntools_calib.h"
+//xxx #include "sntools_trigger.h"
 
 #define UNIT_TEST_AIRMASS      false 
 #define UNIT_TEST_COMPUTE_DCR  false

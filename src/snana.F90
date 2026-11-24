@@ -1537,7 +1537,7 @@
         ,cutwin_zpADU(2)          &  ! I: ZEROPT cut, ADU
         ,cutwin_zpNPE(2)          &  ! I: ZEROPT cut, NPE
         ,cutwin_ZPERR(2)          &  ! I: ZPERR cut
-        ,cutwin_photprob(2)       &  ! I: cut on PHOTPROP (e.g., real/bogus)
+        ,cutwin_photprob(2)       &  ! I: cut on PHOTPROB (e.g., real/bogus)
         ,cutwin_errtest(2)        &  ! I: cut on ERRCALC/ERRTRUE
         ,cutwin_sim_pull(2)         &  ! I: cut on (F-Ftrue)/sigmaF
         ,cutwin_Trest_trueflux(2)   &  ! I: Trest range requiring valid true flux

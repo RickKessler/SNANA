@@ -1,20 +1,23 @@
-/* detcor_map.h -- Roman detector-correction (detcor) transmission-multiplier map, built on SNANA tools.
+/* detcor_map.h -- detector-correction (detcor) transmission-multiplier map,
+ * built on SNANA tools.
  *
- * Developed OUTSIDE SNANA (handshaker/snana/detcor_map). It calls SNANA's
- * table reader (SNTABLE_*), errmsg, quickBinSearch and interp_1DFUN, so it is
- * compiled with -I$SNANA_DIR/src and linked against SNANA's sntools.o and
- * sntools_output.o. SNANA programs can call these functions directly later.
- *
- * Map file = handshaker's `handshaker-icemap` / icecor.write_ice_map output,
- * a standard SNANA text table:
+ * Map file = SNANA text table in LONG format (one row per wavelength x
+ * property value), e.g. written by make_detcor_map.py:
  *
  *   DOCUMENTATION: ... DOCUMENTATION_END:
- *   VARNAMES: ROW WAVE R_0nm R_10nm ... R_300nm
- *   ROW: 1 4800.00 1.000000 1.016542 ...
+ *   VARNAMES: ROW WAVE ICE_THICKNESS RATIO_MODEL1 [RATIO_MODEL2 ...]
+ *   ROW: 1  4800.00    0.0  1.000000
+ *   ROW: 2  4800.00   10.0  1.016542
  *
- * R(lambda; t) = T(t)/T(0). The detector-corrected filter is
- *   T_detcor(lambda) = T_nom(lambda) * R(lambda; ICE_THICK),
- * with R linearly interpolated in thickness (clamped to the map's range) and in
+ * The property column (e.g. ICE_THICKNESS) and the ratio column
+ * (e.g. RATIO_MODEL1) are selected by name from the sim-input key
+ *   DETCOR_MJD:  <COLUMN_NAME>  <RATIO_NAME>  <MJD_FILE>  <DETCOR_FILE>
+ * so several models can live in one file. Rows may be in any order, but
+ * must fill a complete (WAVE x property) grid.
+ *
+ * R(lambda; p) = T(p)/T(p0). The detector-corrected filter is
+ *   T_detcor(lambda) = T_nom(lambda) * R(lambda; p),
+ * with R linearly interpolated in p (clamped to the map's range) and in
  * wavelength (R = 1 outside the map's WAVE range) -- the same convention as
  * handshaker's ReleasedIceModel.
  */
@@ -22,29 +25,31 @@
 #ifndef DETCOR_MAP_H
 #define DETCOR_MAP_H
 
-#define MXTHICK_DETCOR 200
+#define MXPROP_DETCOR 200
 
 typedef struct {
   char    FILENAME[1024];
-  int     NWAVE, NTHICK;
-  double *WAVE;                     // [NWAVE]  Angstrom, ascending       
-  double  THICK[MXTHICK_DETCOR];    // [NTHICK] nm, ascending             
-  double *RATIO[MXTHICK_DETCOR];    // RATIO[ithick][iwave]            
-  char   *COMMENT_STRING ;          // name of generic property passed from user; e.g. "ICE_THICK"
+  int     NWAVE, NPROP;
+  double *WAVE;                    // [NWAVE] Angstrom, ascending
+  double  PROP[MXPROP_DETCOR];     // [NPROP] property values (e.g. ice thickness, nm), ascending
+  double *RATIO[MXPROP_DETCOR];    // RATIO[iprop][iwave]
+  char   *COLUMN_NAME ;            // property column name in map file; e.g. "ICE_THICKNESS"
+  char   *RATIO_NAME ;             // ratio (model) column name;        e.g. "RATIO_THUSHARA"
 } DETCOR_MAP_DEF;
 
-/* Read map file into *map (allocates). Aborts via errmsg on any problem. */
-void   read_detcor_map(char *fileName, DETCOR_MAP_DEF *map, char *comment_string);
+/* Read long-format map file into *map (allocates). Aborts via errmsg on any problem. */
+void   read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
+                       char *column_name, char *ratio_name);
 void   free_detcor_map(DETCOR_MAP_DEF *map);
 
-/* R(wave; thick) at one wavelength [A]; 1 outside the map's WAVE range. */
-double interp_detcor_ratio(DETCOR_MAP_DEF *map, double thick_nm, double wave_A);
+/* R(wave; prop) at one wavelength [A]; 1 outside the map's WAVE range. */
+double interp_detcor_ratio(DETCOR_MAP_DEF *map, double prop, double wave_A);
 
-/* R(WAVE[iw]; thick) for all map wavelengths -> ratio_out[NWAVE]. */
-void   get_detcor_ratio(DETCOR_MAP_DEF *map, double thick_nm, double *ratio_out);
+/* R(WAVE[iw]; prop) for all map wavelengths -> ratio_out[NWAVE]. */
+void   get_detcor_ratio(DETCOR_MAP_DEF *map, double prop, double *ratio_out);
 
-/* trans_detcor[i] = trans_nom[i] * R(lam[i]; thick), for any filter grid. */
-void   apply_detcor_to_filter(DETCOR_MAP_DEF *map, double thick_nm, int NLAM,
-                           double *lam_A, double *trans_nom, double *trans_detcor);
+/* trans_detcor[i] = trans_nom[i] * R(lam[i]; prop), for any filter grid. */
+void   apply_detcor_to_filter(DETCOR_MAP_DEF *map, double prop, int NLAM,
+                              double *lam_A, double *trans_nom, double *trans_detcor);
 
 #endif

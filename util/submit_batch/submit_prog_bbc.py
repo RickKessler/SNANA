@@ -117,6 +117,10 @@
 #
 # Aug 4 2026: few fixes to revive "INPDIR+: None"
 #
+# Nov 24 2026: begin refactor/devel to process either NPZ or .gz(text) tables.
+#              sntable_cat.py is now pure python (no longer calls SALT2mu.exe)
+#              and handles .gz or .NPZ files.
+#
 # ================================================================
 
 import os, sys, shutil, yaml, glob
@@ -1259,9 +1263,10 @@ class BBC(Program):
         # Use 10 interactive cores for speed-up.
         #
         # Nov 24 2026: refactor with pure-python sntable_cat;
-        #   no more gzip ambiguity so checking output is easier.
+        #   no more gzip ambiguity, so checking output is easier.
         #   See suffix_format = gz or NPZ
-
+        #   For iter2, move INPUT* files from output_ITER1 and leave sym link
+        #
         if not USE_INPDIR: return
 
         output_dir         = self.config_prep['output_dir']  
@@ -1300,11 +1305,15 @@ class BBC(Program):
                 if iver_tmp == iver:
                     ifit_list.append(ifit_tmp)
 
-            if args.devel_flag == 333 :  ifit_list = ifit_list[:3]  # xxx REMOVE
+            if args.devel_flag == 333 : 
+                if ( iver==0 ) : logging.info(f" xxx devel flag with first 4 FITOPTs")
+                ifit_list = ifit_list[:3]  # xxx REMOVE
 
             v_dir   = v_out_list[idir0][iver]
             v_dir  += self.suffix_splitran(n_splitran,1)
             V_DIR   = f"{output_dir}/{v_dir}"
+
+            output_dir_base = os.path.basename(output_dir)
 
             prefix      = f"{PREFIX_PREP}_{v_dir}"
             PREP_SCRIPT = f"{script_dir}/{prefix}.sh"
@@ -1331,10 +1340,16 @@ class BBC(Program):
 
                     append_arg     = f"-a '{VARNAME_APPEND}'"
 
-                    if iter2 and len(cat_file_list) == -9 :  # .xyz
-                        input_ff_iter1 = f"{output_dir}_{OUTDIR_ITER1_SUFFIX}/{v_dir}/{input_ff}"
-                        sys.exit(f"\n xxx input_ff_iter1 = {input_ff_iter1}")
-                        cat_command = "rsync "
+                    if iter2 :   # xxx mark and args.devel_flag == 333 : 
+                        # for 2nd iter, move iter1 INPUT* files here (for speed) and set sym link
+                        # in output_ITER1 pointing to 2nd iter INPUT* files. Thus if output_ITER1
+                        # is removed later (disk cleanup), the INPUT* files survie in output_ITER2.
+                        output_dir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}/{v_dir}"
+                        output_dir_iter2 = f"{output_dir}/{v_dir}"  
+                        input_ff_iter1   = f"{output_dir_iter1}/{input_ff}"
+                        input_ff_iter2   = f"../../{output_dir_base}/{v_dir}/{input_ff}"  # relative path
+                        cat_command = f"mv {input_ff_iter1} {cat_file_out} ; " \
+                                      f"ln -s {input_ff_iter2} {input_ff_iter1}"
                     else:
                         cat_command    = f"{program_sntable_cat} \\\n " \
                                          f"  -i {cat_file_list} \\\n" \
@@ -1342,14 +1357,12 @@ class BBC(Program):
                                          f"  {append_arg} \\\n" \
                                          f"  2>/dev/null \n"
 
-                    # xxx mark gzip_command   = f"gzip {cat_file_out}"
-
                     line = '======================================='
                     f.write(f"\n# {v_dir}/{input_ff} : \n")
                     f.write(f"echo '# {line}' \n")
                     f.write(f"echo '# {line}' \n")
                     f.write(f"{cat_command}\n")
-                    # xxxx mark f.write(f"{gzip_command}\n")
+
                     f.write('\n')
 
         # - - - - - - 
@@ -1363,6 +1376,10 @@ class BBC(Program):
         nfit_prep_run = 0
         njob_prep_tot = len(prep_script_list)
 
+
+        t_check_last = 0.0
+        t_prep_start = time.time()
+        # .xyz
         logging.info(f"  Run PREP-INPUT*FITRES jobs interactively ... ")
         for prep_script, prep_log, nfit, vdir in \
             zip(prep_script_list, prep_log_list, prep_nfit_list, prep_vdir_list ) :
@@ -1382,6 +1399,7 @@ class BBC(Program):
             n_try = 0
             while n_try < 2:
                 try:
+                    #os.system(cmd_prep)
                     ret = subprocess.run([ cmd_prep ],cwd=script_dir,
                                          shell=True, capture_output=False,text=True)
                     n_try = 9999 # ensure no more attempts
@@ -1394,17 +1412,26 @@ class BBC(Program):
             check_output = (njob_prep_run % NJOB_PREP_INPUT_FITRES == 0) or \
                            (njob_prep_run < NJOB_PREP_INPUT_FITRES)      or \
                            (njob_prep_run == njob_prep_tot )     # Aug 2024
-            if check_output:       
+            
+
+            if check_output : 
                 wait_file_wildcard = f"{output_dir}/**/INPUT*.FITRES.{suffix_format}"
                 n_outfile   = 0   # was n_fitres_gz
                 n_fitres    = nfit_prep_run
+                t_wait      = min(5.0,n_fitres * .5)  # wait betwen checks
                 while n_outfile < nfit_prep_run :
+
                     outfile_list = glob.glob(wait_file_wildcard, recursive=True)
                     n_outfile    = len(outfile_list) 
 
-                    msg = f"Found {n_outfile:3d} of {nfit_prep_run:3d} " \
-                          f"INPUT*.FITRES.{suffix_format} files "
-                    logging.info(f"\t\t{msg}")
+                    if n_outfile > 0:
+                        t_prep_sec = time.time() - t_prep_start
+                        t_prep_min = t_prep_sec / 60.0
+                        rate_prep  = t_prep_sec / n_outfile
+                        msg = f"Found {n_outfile:3d} of {nfit_prep_run:3d} " \
+                              f"INPUT*.FITRES.{suffix_format} files    " \
+                              f"{t_prep_min:.2f} minutes ({rate_prep:.1f} sec/table)"
+                        logging.info(f"\t\t{msg}")
 
                     # abort of output_dir disappears (e.g, user removes it)
                     if not os.path.exists(output_dir):
@@ -1412,7 +1439,7 @@ class BBC(Program):
                         msgerr.append(f"{output_dir} disappeared.")
                         self.log_assert(False,msgerr)
 
-                    time.sleep(5.0)
+                    time.sleep(t_wait)
 
             # - - - - - - -
             self.tag_missing_events(TAG_REJECT_STAGE_LCFIT,vdir)  # May 2025
@@ -2496,7 +2523,7 @@ class BBC(Program):
             wildcard = f"{jobfile_wildcard}*.{suffix}"
             util.compress_files(+1, script_dir, wildcard, suffix, "" )
 
-        # Mar 2023: cleanup PREP files .xyz
+        # Mar 2023: cleanup PREP files 
         if INPDIR_LIST:
             wildcard = f"{PREFIX_PREP}*"
             util.compress_files(+1, script_dir, wildcard, PREFIX_PREP, "")

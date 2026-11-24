@@ -136,6 +136,7 @@ void INIT_NPZFILES(char *PREFIX) {
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <strings.h>
 #include <stdint.h>
 #include <zlib.h>
 
@@ -306,7 +307,7 @@ namespace npzrd {
       int found = -1;
       for ( int j=0; j < N_VARNAME_TABLE_IDLIST && found < 0; j++ )
 	for ( size_t i=0; i < R.col.size(); i++ )
-	  if ( R.col[i].name == idlist[j] ) { found = (int)i; break; }
+	  if ( strcasecmp(R.col[i].name.c_str(), idlist[j]) == 0 ) { found = (int)i; break; }   // case-insensitive: SNID, snid, CID ...
       if ( found > 0 ) { COL t = R.col[found]; R.col.erase(R.col.begin()+found); R.col.insert(R.col.begin(), t); }
     }
     R.opened = true;
@@ -447,6 +448,7 @@ int SNTABLE_READ_EXEC_NPZ(int OPTMASK) {
 	  if ( ch == 0 ) { break; }
 	  cv[n++] = ch;
 	}
+	while ( n > 0 && (cv[n-1]==' ' || cv[n-1]=='\t') ) { n--; }  // strip trailing blanks (as text parsing does)
 	cv[n] = 0;  dv = strtold(cv, NULL);
       }
       else {

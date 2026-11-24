@@ -1579,7 +1579,7 @@ void  ADD_SNTABLE_COMMENTS(void) {
 
   for(iline=0; iline < NLINE; iline++ ) {
     ptr_comment = READTABLE_POINTERS.TABLECOMMENT[iline];
-    printf(" xxx %s  %d : %s \n", fnam, iline, ptr_comment);
+    //printf(" xxx %s  %d : %s \n", fnam, iline, ptr_comment);
 
     NWD = store_PARSE_WORDS(MSKOPT_PARSE_WORDS_STRING, ptr_comment, fnam);
     

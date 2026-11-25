@@ -1895,8 +1895,8 @@ class LightCurveFit(Program):
             n_split    = len(table_list)
             if n_split > 0:
                 out_table_file  = f"{prefix}_{version_fitopt}.{fmt_suffix}" 
-                logging.info(f"   merge {n_split} {SUFFIX_SYST}.{fmt_suffix} table files "\
-
+                logging.info(f"   merge {n_split} {SUFFIX_SYST}.{fmt_suffix} table files " \
+                             f"-> {out_table_file}")
                 cddir = f"cd {script_dir}"
 
                 # RK place-holder is to copy first split file to merged file;

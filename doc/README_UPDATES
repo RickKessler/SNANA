@@ -24436,12 +24436,20 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
         Perhaps in a few weeks the unused code will be removed.
 
      submit_prog_base.py:
-      - use --delay feature produce TASK_PROGRESS_STATUS.LOG after few minutes on cpu=0.
+      + use --delay feature produce TASK_PROGRESS_STATUS.LOG after few minutes on cpu=0.
         This gives very early/prelim estimate of remaining run time, hopefully enabling
         human inspection to identify bad cores or jobs that will exceed wall time
         (e.g., large BiasCor LCFIT with photo-z fit). This feature is for human-inspection
         only, and is not used by submit_batch .... however, the information might be used
         later to auto-stop jobs that have obvious severe problem.
+
+    submit_prog_bbc.py
+     + to save some prep time and disk space for 2-iteration BBC fits, 
+       the INPUT*FITRES files from ITER1 are moved to output_ITER2, 
+       and a symbolic link is added in place of the moved files. 
+       It is possible that an ITER1 task will read an INPUT*FITRES file 
+       while it is being moved, but AI says it will read ok if moved 
+       to same file system.
 
     snlc_sim.c
      + new sim-input PERIODIC_MJD_EXCLUDE (for Roman DECONs)
@@ -24459,6 +24467,11 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
    genmag_detcor.c[h]: start integrating utility to simulate
      transmission variation vs. MJD; see prep_detcor_mjd in snlc_sim.c
+
+   Issues:
+    - PROGRAM_COMBINE and NFILE_COMBINED header keys in 5_MERGE make sense for
+      appending predictions.csv, but these keys are stale when BBC stage
+      does another merge with sntable_cat.
 
 END:
 

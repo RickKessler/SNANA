@@ -1861,6 +1861,8 @@ class LightCurveFit(Program):
 
     def merge_table_SYST(self, version_fitopt_dict):
 
+        # @@@@@@@@@@ Flagged OBSOLETE Nov 25 2206 @@@@@@@@@@@@@@@
+        #
         # Created Oct 7 2026 by R.Kessler and M.Grayling
         # Merge SYST files produced by BayeSN.
         #
@@ -1868,6 +1870,8 @@ class LightCurveFit(Program):
         # and is not generic across all tables (i.e., there is no
         # NPZ format for SNANA, FITRES, LCPLOT tables). 
         # Thus NPZ is not treated the same as more generic TEXT or ROOT format.
+
+        # @@@@@@@@@@ Flagged OBSOLETE Nov 25 2206 @@@@@@@@@@@@@@@
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         program          = os.path.expandvars(self.config_prep['program'])
@@ -1880,6 +1884,8 @@ class LightCurveFit(Program):
 
         FORMAT_LIST = [ FORMAT_NPZ, FORMAT_TEXT ]
         FORMAT_LIST[1] = 'TXT'  # <=== temp hack until output is fixed
+
+        # @@@@@@@@@@ Flagged OBSOLETE Nov 25 2206 @@@@@@@@@@@@@@@
         
         # check all possible formats to merge  
         for fmt_suffix in FORMAT_LIST:
@@ -1890,7 +1896,7 @@ class LightCurveFit(Program):
             if n_split > 0:
                 out_table_file  = f"{prefix}_{version_fitopt}.{fmt_suffix}" 
                 logging.info(f"   merge {n_split} {SUFFIX_SYST}.{fmt_suffix} table files "\
-                             f"-> {out_table_file}")
+
                 cddir = f"cd {script_dir}"
 
                 # RK place-holder is to copy first split file to merged file;
@@ -1899,6 +1905,7 @@ class LightCurveFit(Program):
                 
                 os.system(f"{cddir} ; {cmd_merge}")   
         
+        # @@@@@@@@@@ Flagged OBSOLETE Nov 25 2206 @@@@@@@@@@@@@@@
         
         #sys.exit("\n xxx DEBUG STOP to see what goin on ... ")
         return
@@ -1923,10 +1930,12 @@ class LightCurveFit(Program):
         import zipfile
         import numpy as np
 
+        # xxxxxxxx mark delete Nov 25 2026 xxxxxxx
         # only BAYESN produces SYST files
-        if table_name == SUFFIX_SYST and LCFIT_SUBCLASS == LCFIT_BAYESN:
-            self.merge_table_SYST(version_fitopt_dict)
-            return
+        #if table_name == SUFFIX_SYST and LCFIT_SUBCLASS == LCFIT_BAYESN:
+        #    self.merge_table_SYST(version_fitopt_dict)
+        #    return
+        # xxxxxxxxxxxxx
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']

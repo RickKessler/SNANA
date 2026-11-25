@@ -37,6 +37,8 @@ typedef struct {
   char   *RATIO_NAME ;             // ratio (model) column name;        e.g. "RATIO_THUSHARA"
 } DETCOR_MAP_DEF;
 
+DETCOR_MAP_DEF DETCOR_SEDMODEL ; // Nov 24 2026 RK 
+
 /* Read long-format map file into *map (allocates). Aborts via errmsg on any problem. */
 void   read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
                        char *column_name, char *ratio_name);

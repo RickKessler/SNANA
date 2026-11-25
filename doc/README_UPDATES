@@ -24425,6 +24425,8 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     SALT2mu.c:  CCprior bug fixes; see #1839
 
+    Lots of misc changes to handle FITRES table sin NPZ or .gz(text) format/
+
          *****  USEFUL(v12_02g) *****
          
          *****  MISCELLANEOUS(v12_02g) *****
@@ -24454,6 +24456,9 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
       NERSC has many more comilation warnings (than RCC), so fix these warnings
       with help from Claude.
       Still some remaining warnings in MWgaldust.c ... maybe try again later.
+
+   genmag_detcor.c[h]: start integrating utility to simulate
+     transmission variation vs. MJD; see prep_detcor_mjd in snlc_sim.c
 
 END:
 

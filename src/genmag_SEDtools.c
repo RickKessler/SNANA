@@ -57,10 +57,10 @@
 ********************************************/
 
 #include "sntools.h"           // community tools
+#include "genmag_detcor.h"     // detctor transmission vs. detctor property (Nov 2026)
 #include "sntools_spectrograph.h"
 #include "genmag_SEDtools.h"   // SED tools
 #include "MWgaldust.h"         // GALextinct is here
-
 
 // ******************************
 int reset_SEDMODEL(void) {
@@ -3634,7 +3634,28 @@ void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model ) {
 } // end get_ZP_MODEL_SEDMODEL
 
 
+// ===========================================================
+// =========== DETCOR FUNCTIONS (Nov 2026) ===================
+// ===========================================================
 
+void PREP_DETCOR_SEDMODEL(char *DETCOR_FILE, char *COLUMN_NAME, char *RATIO_NAME) {
+
+  char fnam[] = "PREP_DETCOR_SEDMODEL" ;
+
+  // --------- BEGIN -----------
+
+  read_detcor_map(DETCOR_FILE, &DETCOR_SEDMODEL, COLUMN_NAME, RATIO_NAME);
+
+  // .xyz continue compute & store primary mag on a the COLUMN_NAME grid for each band
+
+  debugexit(fnam); // xxx REMOVE when ready to fly
+
+  return;
+
+} // end  PREP_DETCOR_SEDMODEL
+
+void prep_detcor_sedmodel__(char *DETCOR_FILE, char *COLUMN_NAME, char *RATIO_NAME)
+{ PREP_DETCOR_SEDMODEL(DETCOR_FILE, COLUMN_NAME, RATIO_NAME); }
 
 
 // =========================================================

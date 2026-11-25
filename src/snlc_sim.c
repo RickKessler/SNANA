@@ -7719,7 +7719,6 @@ void  prep_detcor_mjd(void) {
   char *RATIO_NAME      = INPUTS.DETCOR_MJD[1];  // ratio (model) column in map file
   char *MJD_FILE        = INPUTS.DETCOR_MJD[2];  (void)MJD_FILE;
   char *DETCOR_FILE     = INPUTS.DETCOR_MJD[3];
-
   char fnam[] = "prep_detcor_mjd" ; 
 
   // --------------- BEGIN -----------
@@ -7727,11 +7726,12 @@ void  prep_detcor_mjd(void) {
   if ( IGNOREFILE(COLUMN_NAME) ) { return; }  // DETCOR_MJD key not used
 
   print_banner(fnam);
-  read_detcor_map(DETCOR_FILE, &INPUTS.DETCOR_MAP, COLUMN_NAME, RATIO_NAME);
 
-  //  debugexit(fnam);
-  // .xyz
+  // prepare transmission multiuplier vs. COLUMN_NAME
+  PREP_DETCOR_SEDMODEL(DETCOR_FILE, COLUMN_NAME, RATIO_NAME);
 
+  // .xyz prepare getting COLUMN name value for MJD in simlib (MJD_FILE)
+  // ...
 
   return;
 } // end prep_detcor_mjd

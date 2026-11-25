@@ -38,7 +38,7 @@
  */
 #include "sntools.h"
 #include "sntools_output.h"
-#include "detcor_map.h"
+#include "genmag_detcor.h"
 
 // ======================================================
 static int cmp_double_detcor(const void *a, const void *b) {

@@ -20,5 +20,6 @@
 #include "genmag_BAYESN.h"
 #include "genmag_extinction.h"
 #include "genmag_extrap.h"
+#include "genmag_detcor.h"
 
 // END

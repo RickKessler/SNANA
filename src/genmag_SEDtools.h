@@ -25,6 +25,8 @@
 
 ********************************************/
 
+#include "genmag_detcor.h"
+
 // define bounds for filter and SED arrays
 #define MXSEDMODEL          40000   // max number of SED surfaces
 #define MXFILT_SEDMODEL     MXFILTINDX     // max internal filter index
@@ -93,6 +95,7 @@ struct FILTER_SEDMODEL {
   char    name[MXCHAR_FILTNAME];  // full name of filter
   char    survey[40];        // name of survey (Nov 2020)
 } FILTER_SEDMODEL[MXFILT_SEDMODEL] ;
+
 
 
 struct CALIB_WAVECOR_GRID {
@@ -214,7 +217,6 @@ typedef struct SEDMODEL_FLUX_DEF {
 
 
 SEDMODEL_FLUX_DEF  TEMP_SEDMODEL ;
-// xxx mark SEDMODEL_FLUX_DEF *SEDMODEL_STORE ; // used with SPECTROGRAPH
 
 
 int NVAR_FIRSTBIN_SEDMODEL ;
@@ -393,6 +395,8 @@ void   compute_wavecor_info_SEDMODEL(int IFILT, double WAVECOR,
 				     double *PRIMARY_MAG, double *ZP_MODEL) ;
 void   fetch_wavecor_SEDMODEL(double wavecor, double *primary_mag, double *zp_model );
 
+void   PREP_DETCOR_SEDMODEL(char *DETCOR_FILE, char *COLUMN_NAME, char *COLUNM_RATIO);
+void   prep_detcor_sedmodel__(char *DETCOR_FILE, char *COLUMN_NAME, char *COLUNM_RATIO);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // SPECTROGRAPH functions

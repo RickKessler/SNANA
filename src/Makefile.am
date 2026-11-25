@@ -15,7 +15,7 @@
 # Oct 20 2026 RK - CPPLIB += -lz to fix compile bug caught on Perlmutter, 
 #                  but not caught on Midway.
 #
-# Nov 20 2026 RK - add link to detcor_map.o
+# Nov 20 2026 RK - add link to genmag_detcor.o
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ OBJ_GENMAG_FIT = \
 	$(OBJ)/genmag_SEDtools.o \
 	$(OBJ)/genmag_extinction.o \
 	$(OBJ)/genmag_extrap.o \
-	$(OBJ)/detcor_map.o
+	$(OBJ)/genmag_detcor.o
 
 OBJ_GENMAG_SIM = \
 	$(OBJ_GENMAG_FIT) \
@@ -518,9 +518,9 @@ $(OBJ)/genmag_extrap.o: $(SRC)/genmag_extrap.c $(SRC)/sntools.h
 	$(MKDIR_P) $(OBJ)
 	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_extrap.c)
 
-$(OBJ)/detcor_map.o: $(SRC)/detcor_map.c $(SRC)/detcor_map.h $(SRC)/sntools.h
+$(OBJ)/genmag_detcor.o: $(SRC)/genmag_detcor.c $(SRC)/genmag_detcor.h $(SRC)/sntools.h
 	$(MKDIR_P) $(OBJ)
-	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/detcor_map.c)
+	(cd $(OBJ); $(CC) $(SNCFLAGS) $(ICFITSIO) $(IGSL) $(SRC)/genmag_detcor.c)
 
 # ---------------------------------------------------------------------------
 # C — psnid tools
@@ -655,6 +655,7 @@ $(BIN)/kcor.exe: $(OBJ)/kcor.o $(OBJ)/sntools.o $(OBJ)/MWgaldust.o \
 		$(SNTOOLS_DATA_OBJ) \
 		$(OBJ)/sntools_spectrograph.o \
 		$(OBJ)/genmag_SEDtools.o \
+		$(OBJ)/genmag_detcor.o \
 		$(LCFITSIO) $(LGSL) $(LROOT) -lm $(CPPLIB)
 	cd $(OBJ); rm -f kcor.o
 
@@ -717,6 +718,7 @@ $(BIN)/SIMSED_extractSpec.exe: $(OBJ)/SIMSED_extractSpec.o \
 		$(OBJ)/sntools_cosmology.o \
 		$(OBJ)/MWgaldust.o \
 		$(OBJ)/genmag_SEDtools.o \
+		$(OBJ)/genmag_detcor.o \
 		$(OBJ)/sntools_wgtmap.o \
 		$(OBJ)/sntools_gridmap.o \
 		-lm $(LCFITSIO) $(LGSL) $(LROOT) $(CPPLIB)
@@ -736,6 +738,7 @@ $(BIN)/SIMSED_check.exe: $(OBJ)/SIMSED_check.o \
 		$(OBJ)/sntools_gridmap.o \
 		$(OBJ)/MWgaldust.o \
 		$(OBJ)/genmag_SEDtools.o \
+		$(OBJ)/genmag_detcor.o \
 		$(OBJ)/genmag_SIMSED.o \
 		-lm $(LCFITSIO) $(LGSL) $(LROOT) $(CPPLIB)
 	cd $(OBJ); rm -f SIMSED_check.o
@@ -751,6 +754,7 @@ $(BIN)/SIMSED_rebin.exe: $(OBJ)/SIMSED_rebin.o \
 		$(OBJ)/sntools_cosmology.o \
 		$(OBJ)/MWgaldust.o \
 		$(OBJ)/genmag_SEDtools.o \
+		$(OBJ)/genmag_detcor.o \
 		-lm $(LCFITSIO) $(LGSL) $(LROOT) $(CPPLIB)
 	cd $(OBJ); rm -f SIMSED_rebin.o
 

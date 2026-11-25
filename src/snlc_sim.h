@@ -42,7 +42,7 @@
 
 // ************ GLOBAL VARIABLES *************
 
-#include "detcor_map.h" 
+//#include "detcor_map.h" 
 #include "sntools_trigger.h"
 #include "sntools_stronglens.h"
 #include "sntools_weaklens.h"
@@ -683,7 +683,7 @@ struct INPUTS {
   // DETCOR_MJD:  <COLUMN_NAME>  <RATIO_NAME>  <MJD file>  <detcor_file>
   // e.g. DETCOR_MJD:  ICE_THICKNESS  RATIO_THUSHARA  <MJD file>  <detcor_file>
   char DETCOR_MJD[4][MXPATHLEN];  // effdet cor vs. wavelength and property at each MJD
-  DETCOR_MAP_DEF DETCOR_MAP;
+  // xxx mark  DETCOR_MAP_DEF DETCOR_MAP;
 
   int  NGEN_LC;            // number of LCs to generate & write
   int  NGENTOT_LC;         // number of LCs to generate

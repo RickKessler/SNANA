@@ -7715,10 +7715,13 @@ void prep_user_cosmology(void) {
 
 void  prep_detcor_mjd(void) {
 
+  // Called from prep_user_input.
+  // Read property (e.g. ice thickness) vs. MJD from MJD_FILE.
+  // The DETCOR map is read later by init_detcor_genmodel, after the
+  // filters are initialized.
+
   char *COLUMN_NAME     = INPUTS.DETCOR_MJD[0];  // property column in map file
-  char *RATIO_NAME      = INPUTS.DETCOR_MJD[1];  // ratio (model) column in map file
-  char *MJD_FILE        = INPUTS.DETCOR_MJD[2];  (void)MJD_FILE;
-  char *DETCOR_FILE     = INPUTS.DETCOR_MJD[3];
+  char *MJD_FILE        = INPUTS.DETCOR_MJD[2];  // property vs. MJD
   char fnam[] = "prep_detcor_mjd" ; 
 
   // --------------- BEGIN -----------
@@ -7727,14 +7730,52 @@ void  prep_detcor_mjd(void) {
 
   print_banner(fnam);
 
-  // prepare transmission multiuplier vs. COLUMN_NAME
-  PREP_DETCOR_SEDMODEL(DETCOR_FILE, COLUMN_NAME, RATIO_NAME);
-
-  // .xyz prepare getting COLUMN name value for MJD in simlib (MJD_FILE)
-  // ...
+  // the sim later calls GET_DETCOR_PROP(&DETCOR_MJD_TABLE, MJD) 
+  // for each observation.
+  READ_DETCOR_MJD(MJD_FILE, &DETCOR_MJD_TABLE, COLUMN_NAME);
 
   return;
 } // end prep_detcor_mjd
+
+
+void init_detcor_genmodel(void) {
+
+  // Created Nov 2026
+  // Called at end of init_genmodel (after filters & primary are loaded):
+  // read DETCOR map and compute primary mag & ZP_MODEL vs. property
+  // for each filter (PREP_DETCOR_SEDMODEL). Then check that every
+  // property value in the MJD file is inside the map range.
+
+  char *COLUMN_NAME     = INPUTS.DETCOR_MJD[0];  // property column in map file
+  char *RATIO_NAME      = INPUTS.DETCOR_MJD[1];  // ratio (model) column in map file
+  char *DETCOR_FILE     = INPUTS.DETCOR_MJD[3];
+  char fnam[] = "init_detcor_genmodel" ;  (void)fnam;
+
+  // --------------- BEGIN -----------
+
+  if ( IGNOREFILE(COLUMN_NAME) ) { return; }  // DETCOR_MJD key not used
+
+  // transmission multiplier vs. COLUMN_NAME, and primary/ZP grids
+  PREP_DETCOR_SEDMODEL(DETCOR_FILE, COLUMN_NAME, RATIO_NAME);
+
+  // warn if the MJD file has property values outside the map's grid;
+  // those get clamped to the map edge by interp_detcor_ratio.
+  int    imjd, NOUT = 0 ;
+  double PMIN = DETCOR_SEDMODEL.PROP[0] ;
+  double PMAX = DETCOR_SEDMODEL.PROP[DETCOR_SEDMODEL.NPROP-1] ;
+  for(imjd=0; imjd < DETCOR_MJD_TABLE.NMJD; imjd++ ) {
+    double p = DETCOR_MJD_TABLE.PROP[imjd];
+    if ( p < PMIN || p > PMAX ) { NOUT++ ; }
+  }
+  if ( NOUT > 0 ) {
+    printf("\t WARNING: %d of %d %s values in MJD file are outside "
+	   "map range %g-%g -> clamped\n",
+	   NOUT, DETCOR_MJD_TABLE.NMJD, COLUMN_NAME, PMIN, PMAX);
+    fflush(stdout);
+  }
+
+  return;
+} // end init_detcor_genmodel
 
 
 void prep_user_murewgt(MUREWGT_DEF *MUREWGT) {
@@ -27107,6 +27148,8 @@ void init_genmodel(void) {
   prep_dustFlags();
 
   malloc_GENFILT(); // Jan 28 2022
+
+  init_detcor_genmodel(); // Nov 2026: needs filters from model init
 
   return ;
 

@@ -3640,15 +3640,111 @@ void get_ZP_MODEL_SEDMODEL(int ifilt, double wavecor, double *zp_model ) {
 
 void PREP_DETCOR_SEDMODEL(char *DETCOR_FILE, char *COLUMN_NAME, char *RATIO_NAME) {
 
+  // Created Nov 2026
+  // Read DETCOR map R(lam; prop) and, for each filter, compute primary mag
+  // and ZP_MODEL on the map's property grid using transmission T*R.
+  // Analogous to PREP_WAVECOR_SEDMODEL, but the grid is the map's own
+  // property grid (e.g. ice thickness 0,10,...,300 nm) rather than a new one.
+  //
+  // Must be called after filters and primary are initialized
+  // (init_genSEDMODEL + model init), since it integrates over
+  // FILTER_SEDMODEL and PRIMARY_SEDMODEL.
+
+  int    NGRID, ifilt, ip, iw ;
+  double prop, primary_mag, zp_model ;
+  float  FMEMTOT = 0.0 ;
+  char  *NAME ;
   char fnam[] = "PREP_DETCOR_SEDMODEL" ;
 
   // --------- BEGIN -----------
 
-  read_detcor_map(DETCOR_FILE, &DETCOR_SEDMODEL, COLUMN_NAME, RATIO_NAME);
+  print_banner(fnam);
 
-  // .xyz continue compute & store primary mag on a the COLUMN_NAME grid for each band
+  READ_DETCOR_MAP(DETCOR_FILE, &DETCOR_SEDMODEL, COLUMN_NAME, RATIO_NAME);
 
-  debugexit(fnam); // xxx REMOVE when ready to fly
+  if ( NFILT_SEDMODEL <= 0 ) {
+    sprintf(c1err,"NFILT_SEDMODEL=%d; filters not initialized.", NFILT_SEDMODEL);
+    sprintf(c2err,"Call %s after model init (needs SED-based model).", fnam);
+    errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+  }
+
+  NGRID = DETCOR_SEDMODEL.NPROP ;
+  DETCOR_GRID_SEDMODEL.NGRID     = NGRID ;
+  DETCOR_GRID_SEDMODEL.PROP_GRID = DETCOR_SEDMODEL.PROP ;
+
+  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL+1, NGRID, &DETCOR_GRID_SEDMODEL.MAG_GRID );
+  FMEMTOT += malloc_double2D(+1, NFILT_SEDMODEL+1, NGRID, &DETCOR_GRID_SEDMODEL.ZP_MODEL_GRID );
+  printf("\t Allocated %.2f kB memory to store DETCOR MAG_GRID and ZP_MODEL_GRID\n",
+	 FMEMTOT/1.0e3);
+  printf("\t %s grid: NGRID=%d (%g to %g), NFILT=%d \n",
+	 COLUMN_NAME, NGRID, DETCOR_SEDMODEL.PROP[0],
+	 DETCOR_SEDMODEL.PROP[NGRID-1], NFILT_SEDMODEL);
+  fflush(stdout);
+
+  for(ip=0; ip < NGRID; ip++ ) {
+    prop = DETCOR_SEDMODEL.PROP[ip];
+    for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) { // skip ifilt=0 for spectrograph
+      compute_detcor_info_SEDMODEL(ifilt, prop, &primary_mag, &zp_model);
+      DETCOR_GRID_SEDMODEL.MAG_GRID[ifilt][ip]      = primary_mag ;
+      DETCOR_GRID_SEDMODEL.ZP_MODEL_GRID[ifilt][ip] = zp_model ;
+
+      // print diagnostics for first and last grid point
+      if ( ip == 0 || ip == NGRID-1 ) {
+	NAME = FILTER_SEDMODEL[ifilt].name ;
+	printf("\t    %s %s = %6.1f -> mag_prim = %8.4f  zp_model = %8.4f \n",
+	       NAME, COLUMN_NAME, prop, primary_mag, zp_model); fflush(stdout);
+      }
+    }
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - -
+  // Sanity check: at a grid point where R=1 at every wavelength (no
+  // detector effect, e.g. ice thickness = 0), the re-computed primary mag
+  // must match the stored CALIB value (same check as for WAVECOR;
+  // BEWARE that this check works only for AB).
+  int    ip_ref = -9 ;
+  double dR, dRmax ;
+  for(ip=0; ip < NGRID && ip_ref < 0; ip++ ) {
+    dRmax = 0.0 ;
+    for(iw=0; iw < DETCOR_SEDMODEL.NWAVE; iw++ ) {
+      dR = fabs(DETCOR_SEDMODEL.RATIO[ip][iw] - 1.0) ;
+      if ( dR > dRmax ) { dRmax = dR; }
+    }
+    if ( dRmax < 1.0e-6 ) { ip_ref = ip; }
+  }
+
+  if ( ip_ref < 0 ) {
+    printf("\t WARNING: no %s grid value has R=1; skip primary-mag check.\n",
+	   COLUMN_NAME);
+  }
+  else {
+    double mag_rdkcor, mag_compute, dm ;
+    double dm_tol = 2.0e-5 ;  // abort if any magdiff exceeds this
+    int    ntol_fail = 0 ;
+    for(ifilt=1; ifilt <= NFILT_SEDMODEL; ifilt++ ) {
+      NAME        = FILTER_SEDMODEL[ifilt].name ;
+      mag_rdkcor  = FILTER_SEDMODEL[ifilt].magprimary ;
+      mag_compute = DETCOR_GRID_SEDMODEL.MAG_GRID[ifilt][ip_ref];
+      dm          = mag_rdkcor - mag_compute;
+      if ( fabs(dm) > dm_tol ) {
+	printf("\t WARNING: mag(COMPUTE) - mag(RDCAL) = %.2le  for %s=%g and band = %s\n",
+	       dm, COLUMN_NAME, DETCOR_SEDMODEL.PROP[ip_ref], NAME) ;
+	ntol_fail++ ;
+      }
+    }
+    if ( ntol_fail > 0 ) {
+      sprintf(c1err,"%d bands fail magDif tolerance for %s=%g (R=1)",
+	      ntol_fail, COLUMN_NAME, DETCOR_SEDMODEL.PROP[ip_ref]);
+      sprintf(c2err,"See magDif = mag(COMPUTE) - mag(RDKCOR) values printed above");
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+    printf("\t Primary-mag check passed at %s=%g (R=1) for %d bands.\n",
+	   COLUMN_NAME, DETCOR_SEDMODEL.PROP[ip_ref], NFILT_SEDMODEL);
+  }
+
+  fflush(stdout);
+
+  debugexit(fnam); // xxx REMOVE when per-epoch DETCOR is applied in genmag
 
   return;
 
@@ -3656,6 +3752,91 @@ void PREP_DETCOR_SEDMODEL(char *DETCOR_FILE, char *COLUMN_NAME, char *RATIO_NAME
 
 void prep_detcor_sedmodel__(char *DETCOR_FILE, char *COLUMN_NAME, char *RATIO_NAME)
 { PREP_DETCOR_SEDMODEL(DETCOR_FILE, COLUMN_NAME, RATIO_NAME); }
+
+
+// ===========================================================
+void  compute_detcor_info_SEDMODEL(int ifilt, double PROP,
+				   double *PRIMARY_MAG, double *ZP_MODEL) {
+
+  // Created Nov 2026
+  // Same as compute_wavecor_info_SEDMODEL, but instead of shifting the
+  // filter wavelength, multiply transmission by the DETCOR ratio
+  //   T(lam) -> T(lam) * R(lam; PROP)
+  // and return primary mag and ZP_MODEL for this filter.
+
+  int    NLAM_FILT     = FILTER_SEDMODEL[ifilt].NLAM;
+  double *LAM_FILT     = FILTER_SEDMODEL[ifilt].lam;
+  double *TRANS_FILT   = FILTER_SEDMODEL[ifilt].transSN ;
+  double LAMSTEP       = FILTER_SEDMODEL[ifilt].lamstep ;
+
+  int    NLAM_PRIM   = PRIMARY_SEDMODEL.NLAM;
+  double *LAM_PRIM   = PRIMARY_SEDMODEL.lam;
+  double *FLUX_PRIM  = PRIMARY_SEDMODEL.flux;
+
+  int ilam;
+  int OPT_INTERP = 2;
+  double zp, wgt_flux, wgt_filt, lam_filt, trans, primary_flux;
+  double primary_flux_sum = 0.0, filter_sum = 0.0 ;
+  char fnam[] = "compute_detcor_info_SEDMODEL";
+
+  // ------------ BEGIN -----------
+
+  for(ilam=0; ilam < NLAM_FILT; ilam++ ) {
+    lam_filt     = LAM_FILT[ilam] ;
+    trans        = TRANS_FILT[ilam];
+    if ( trans < 1.0e-12 ) { continue ; }
+    trans       *= interp_detcor_ratio(&DETCOR_SEDMODEL, PROP, lam_filt);
+    wgt_flux     = lam_filt;
+    wgt_filt     = 1.0/lam_filt;
+
+    primary_flux = interp_1DFUN(OPT_INTERP, lam_filt,
+                                NLAM_PRIM, LAM_PRIM, FLUX_PRIM, fnam);
+
+    primary_flux_sum += (trans * wgt_flux * primary_flux);
+    filter_sum       += (trans * wgt_filt) ;
+  } // end ilam loop
+
+  // compute final primary mag
+  zp           = 2.5*log10(FNU_AB * LIGHT_A);
+  *PRIMARY_MAG = zp - 2.5 * log10(primary_flux_sum / filter_sum);
+
+  // compute zp_model the same way as in  init_filter_SEDMODEL()
+  primary_flux_sum *= (LAMSTEP/hc)  ;
+  *ZP_MODEL    = 2.5*log10(primary_flux_sum) + PRIMARY_SEDMODEL.MAG[ifilt];
+
+  return;
+
+} // end compute_detcor_info_SEDMODEL
+
+
+// ===========================================================
+void get_ZP_MODEL_DETCOR_SEDMODEL(int ifilt, double prop, double *zp_model) {
+
+  // Created Nov 2026
+  // Linear interpolation of ZP_MODEL vs. DETCOR property (e.g. ice
+  // thickness) for this filter. prop is clamped to the grid range, the
+  // same convention as interp_detcor_ratio.
+  // Not called yet: for per-epoch DETCOR in genmag_SALT2.
+
+  int     N    = DETCOR_GRID_SEDMODEL.NGRID ;
+  double *P    = DETCOR_GRID_SEDMODEL.PROP_GRID ;
+  double *ZP   = DETCOR_GRID_SEDMODEL.ZP_MODEL_GRID[ifilt] ;
+  int     lo, hi, mid ;
+  double  w ;
+
+  if ( prop <= P[0]   ) { *zp_model = ZP[0];   return; }
+  if ( prop >= P[N-1] ) { *zp_model = ZP[N-1]; return; }
+
+  lo = 0;  hi = N-1 ;
+  while ( hi - lo > 1 ) {
+    mid = (lo + hi) / 2 ;
+    if ( P[mid] <= prop ) { lo = mid; } else { hi = mid; }
+  }
+  w = (prop - P[lo]) / (P[hi] - P[lo]) ;
+  *zp_model = (1.0-w)*ZP[lo] + w*ZP[hi] ;
+  return;
+
+} // end get_ZP_MODEL_DETCOR_SEDMODEL
 
 
 // =========================================================

@@ -2887,10 +2887,9 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   //
   // If there is no file, return NROW=0 (do NOT abort).
   //
-  // Oct 13 2014: add call to SNTABLE_NEVT_TEXT(FILENAME)
-  //
+  // Nov 2026: update to work for NPZ
 
-  int  ISOPEN_DEJA, ISTYPE_ROOT, ISTYPE_TEXT ;
+  int  ISOPEN_DEJA, ISTYPE_ROOT, ISTYPE_TEXT, ISTYPE_NPZ ;
   int  NEVT = 0 ;
   char msg[80] ;
   char fnam[] = "SNTABLE_NEVT";
@@ -2901,8 +2900,6 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
   TABLEFILE_INIT_VERIFY(fnam, msg) ;
 
   ISTYPE_ROOT = ISTYPE_TEXT = 0 ;
-
-
 
 #ifdef USE_ROOT
   ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_ROOT] ;
@@ -2916,7 +2913,8 @@ int SNTABLE_NEVT(char *FILENAME, char *TABLENAME) {
 #ifdef USE_NPZ
   // Nov 2026: npz is checked first because ISFILE_TEXT may scan the file
   ISOPEN_DEJA = USE_TABLEFILE[OPENFLAG_READ][IFILETYPE_NPZ] ;
-  if ( ISOPEN_DEJA || ISFILE_NPZ(FILENAME) ) {
+  ISTYPE_NPZ  = ISFILE_NPZ(FILENAME); 
+  if ( ISOPEN_DEJA || ISTYPE_NPZ ) {
     NEVT = SNTABLE_NEVT_NPZ(FILENAME); 
     return(NEVT);
   }
@@ -3224,6 +3222,14 @@ int ISFILE_TEXT(char *fileName) {
       ".dump",    ".DUMP"      // added Apr 16 2021
     } ;
 
+#define NSUFFIX_SKIP 6
+  char  SUFFIX_SKIP_LIST[NSUFFIX_SKIP][10] =   // Nov 2026
+    { 
+      ".fits",  ".FITS",
+      ".npz",   ".NPZ",
+      ".root",  ".ROOT"
+    };
+
   char fnam[] = "ISFILE_TEXT" ;
 
   // ---------- BEGIN ---------
@@ -3232,16 +3238,23 @@ int ISFILE_TEXT(char *fileName) {
   // if fileName is blank then return 0 since we don't know what it is.
   if ( strlen(fileName) == 0 ) { return 0; }
 
+  // Nov 2026: check SKIP list to bail out (fits, npz, root ...)
+  for ( isuf=0; isuf < NSUFFIX_SKIP;  isuf++ ) {
+    if ( strstr(fileName, SUFFIX_SKIP_LIST[isuf] ) != NULL )  
+      { return 0 ; }
+  }
+
+  /* xxxx mark delete xxxxxxxx
+  if ( strstr(fileName,".fits") != NULL ) { return 0; }
+  if ( strstr(fileName,".FITS") != NULL ) { return 0; }
+  xxxxxxx */
+
   // ------ try each suffix --------
   for ( isuf=0; isuf < NSUFFIX_TEXT;  isuf++ ) {
     if ( strstr(fileName, SUFFIX_TEXT_LIST[isuf] ) != NULL )  
       { return 1 ; }
   }
 
-
-  // May 4 2020: bail on fits extention
-  if ( strstr(fileName,".fits") != NULL ) { return 0; }
-  if ( strstr(fileName,".FITS") != NULL ) { return 0; }
 
   // if we get here, the extension is not known so open file
   // and check for for recognizable header key VARNAMES
@@ -3270,6 +3283,8 @@ int ISFILE_NPZ(char *fileName) {
 
   // Created Oct 19 2026 
   // Nov 2026: fix reversed strstr args (always returned 0 before)
+
+  
   if ( strstr(fileName, ".npz") != NULL ) { return 1;}
   if ( strstr(fileName, ".NPZ") != NULL ) { return 1;}
 

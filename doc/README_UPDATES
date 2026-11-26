@@ -24427,6 +24427,10 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
     Lots of misc changes to handle FITRES table sin NPZ or .gz(text) format/
 
+    submit_prog_lcfit.py:
+      + global FORCE_TEXTFILE_PREFIX = False so that user must specify                                      
+        TEXTFILE_PREFIX or NPZFILE_PREFIX. No more forcing TEXTFILE_PREFIX. 
+
          *****  USEFUL(v12_02g) *****
          
          *****  MISCELLANEOUS(v12_02g) *****

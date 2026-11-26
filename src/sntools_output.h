@@ -25,10 +25,17 @@
 // define flags for software packages
 
 
-#define USE_ROOT     
 #define USE_TEXT  // always leave this on; same logic as for ROOT, ...
-#define USE_MARZ  // always leave this on
+#define USE_ROOT     
 #define USE_NPZ   // always leave this on (Oct 19 2026)
+#define USE_MARZ  // always leave this on
+
+
+// define global index for each format; may be useful for internal format tracking
+#define IFORMAT_TEXT   1
+#define IFORMAT_ROOT   2
+#define IFORMAT_NPZ    3
+#define IFORMAT_MARZ   4
 
 // #define HPAK_LEGACY // Nov 9 2026 - use legacy SNLCPAK and SPECPAK
 

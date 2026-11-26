@@ -391,6 +391,7 @@ For help, run code with no arguments
 #define EVENT_TYPE_CCPRIOR  3
 #define MXEVENT_TYPE        4
 
+
 char STRING_EVENT_TYPE[MXEVENT_TYPE][12] = 
   { "NULL", "DATA", "BIASCOR", "CCPRIOR" } ;
 bool USE_EVENT_TYPE[MXEVENT_TYPE];
@@ -913,6 +914,8 @@ typedef struct {
 
 struct {
   TABLEVAR_DEF TABLEVAR;
+
+  int IFORMAT;  // indicates TEXT[.gz] or NPZ input table -> determines output table format
 
   double *mumodel, *M0, *mu, *muerr, *muerr_renorm, *muerr_raw, *muerr_vpec;
   double *mures, *mupull;
@@ -6855,10 +6858,11 @@ void read_data(void) {
   // Dec 13 2022: call prepare_IDSAMPLE_biasCor() here before applying
   //              cuts so that IDSAMPLE-dependent cuts can be applied.
   //
+  // Nov 25 2026: set IFORMAT
 
   int  NFILE = INPUTS.nfile_data;
   int  NEVT_TOT, NEVT[MXFILE_DATA], ifile, NVAR_ORIG, IFILETYPE, LEN_MALLOC ;
-  int  ISTART, NROW, isn ;
+  int  ISTART, NROW, isn, NF_TEXT=0, NF_NPZ=0 ;
   TABLEVAR_DEF *TABLEVAR = &INFO_DATA.TABLEVAR;
   char *dataFile ;
   char fnam[] = "read_data" ;
@@ -6879,8 +6883,21 @@ void read_data(void) {
     NEVT_TOT    += NEVT[ifile];
     fprintf(FP_STDOUT, "\t Found %d events in %s \n", NEVT[ifile], dataFile);
     fflush(FP_STDOUT);
+    if ( ISFILE_NPZ(dataFile) ) { NF_NPZ++; } else { NF_TEXT++; }
   }  
    
+  // check format
+  INFO_DATA.IFORMAT = -9;
+  if ( NF_TEXT > 0 ) { INFO_DATA.IFORMAT = IFORMAT_TEXT; }
+  if ( NF_NPZ  > 0 ) { INFO_DATA.IFORMAT = IFORMAT_NPZ; }
+
+  if ( NF_TEXT > 0 && NF_NPZ > 0 ) {
+    sprintf(c1err,"NFILE[TEXT,NPZ] = %d, %d", NF_TEXT, NF_NPZ);
+    sprintf(c2err,"Cannot mix formats among input data tables.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 	
+  }
+
+  // - - - - --  
   // malloc arrays to read fitres data file
   LEN_MALLOC = NEVT_TOT + 10 ;
   TABLEVAR->LEN_MALLOC = LEN_MALLOC ;
@@ -23527,9 +23544,10 @@ void outFile_driver(void) {
   if ( strlen(prefix) > 0 && !IGNOREFILE(prefix)  ) {
 
     sprintf(tmpFile1,"%s.FITRES", prefix ); 
+    if ( INFO_DATA.IFORMAT == IFORMAT_NPZ ) { strcat(tmpFile1,".NPZ"); }
     sprintf(tmpFile2,"%s.M0DIF",  prefix ); 
     sprintf(tmpFile3,"%s.COV",    prefix );     // Dec 2 2020
-    sprintf(tmpFile4,"%s.CHI2GRID", prefix );  // May 27 2024
+    sprintf(tmpFile4,"%s.CHI2GRID", prefix );   // May 27 2024
     
     prep_blindVal_strings();
     write_fitres_driver(tmpFile1);  // write result for each SN
@@ -24220,6 +24238,8 @@ void write_fitres_driver(char* fileName) {
   char fnam[] = "write_fitres_driver" ;
 
   // ------------------ BEGIN ----------------
+
+  if ( INFO_DATA.IFORMAT == IFORMAT_NPZ ) { return ; } // xxx REMOVE
 
   NSN_DATA    =  INFO_DATA.TABLEVAR.NSN_ALL;
 

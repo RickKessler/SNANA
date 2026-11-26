@@ -78,6 +78,10 @@
 # Nov 18 2026: integrate NPZ into BayeSN and SNANA class
 #              Define TEXT, ROOT, NPZ for all classes, and then set
 #              unavailable class to None in lists.
+#
+# Nov 25 2026: global FORCE_TEXTFILE_PREFIX = False so that user must specify
+#              TEXTFILE_PREFIX or NPZFILE_PREFIX. No more forcing TEXTFILE_PREFIX.
+#
 # - - - - - - - - - -
 
 import os, sys, shutil, yaml, glob
@@ -103,26 +107,32 @@ from   submit_prog_base import Program
 # All pipeline codes must be tested with this flag before switching default to true.
 APPEND_TABLE_TEXT_SUFFIX = False  
 
+# set flag to force TEXTFILE_PREFIX even if user input is missing this key (legacy = True)
+# With addition of NPZ table option, this flag should be set false
+FORCE_TEXTFILE_PREFIX    = False
+
 LCFIT_SNANA  = 'SNANA'    # default uses SNANA's snlc_fit.exe
 LCFIT_BAYESN = 'BAYESN'   # begin integratoin, Oct 2023
 LCFIT_SALT3  = 'SALT3'    # placeholder for future ??
 LCFIT_SUBCLASS  = None    # see prep_subclass to determine this from progam name
 
 # - - - - - 
-# define output table-format info
-ITABLE_TEXT  = 0
-ITABLE_ROOT  = 1
-ITABLE_NPZ   = 2  # Oct 2026
+# define output table-format info 
+ITABFMT_TEXT  = 0
+ITABFMT_ROOT  = 1
+ITABFMT_NPZ   = 2  # Oct 2026
 
 FORMAT_TEXT  = 'TEXT'
 FORMAT_ROOT  = 'ROOT'
 FORMAT_NPZ   = 'NPZ'  # Oct 2026
 
 TABLE_FORMAT_DICT = {
-    FORMAT_TEXT: ITABLE_TEXT,
-    FORMAT_ROOT: ITABLE_ROOT,
-    FORMAT_NPZ : ITABLE_NPZ
+    FORMAT_TEXT: ITABFMT_TEXT,
+    FORMAT_ROOT: ITABFMT_ROOT,
+    FORMAT_NPZ : ITABFMT_NPZ
 }
+FORMAT_REQUIRE_LIST  = [ FORMAT_TEXT, FORMAT_NPZ ]    # require at least one of these formats
+#xxx mark ITABFMT_REQUIRE_LIST = [ ITABFMT_TEXT, ITABFMT_NPZ ]  # require at least one of these table formats
 
 TABLE_NAME_LIST    = [ SUFFIX_FITRES, SUFFIX_SNANA, SUFFIX_LCPLOT, SUFFIX_PDF, SUFFIX_SYST ] # for TEXT format only
 
@@ -334,7 +344,8 @@ class LightCurveFit(Program):
 
         NTABLE_FORMAT     = len(TABLE_FORMAT_LIST) 
         
-        util.print_loud_banner(f"ALERT: APPEND_TABLE_TEXT_SUFFIX = {APPEND_TABLE_TEXT_SUFFIX}")
+        #util.print_loud_banner(f"ALERT: APPEND_TABLE_TEXT_SUFFIX = {APPEND_TABLE_TEXT_SUFFIX}")
+        util.print_loud_banner(f"ALERT: FORCE_TEXTFILE_PREFIX = {FORCE_TEXTFILE_PREFIX}")
 
         # load input key(s) TABLE_INPKEY_LIST for each format
         outfile_key_subclass_dict = {
@@ -348,10 +359,8 @@ class LightCurveFit(Program):
                 sys.exit(f"\n ERROR: Invalid key_subclass_dict={key_subclass_dict} for fmt={fmt}")
             key_input_file = KEY_SUBCLASS_DICT[key_subclass_dict][LCFIT_SUBCLASS] # key in fit-input file
             TABLE_INPKEY_LIST.append(key_input_file)
-            logging.info(f"\t format {fmt} --> pass {LCFIT_SUBCLASS} key = {key_input_file}")
+            #logging.info(f"\t format {fmt} --> pass {LCFIT_SUBCLASS} key = {key_input_file}")
                 
-
-        #sys.exit(f"\n xxx TABLE_INPKEY_LIST = {TABLE_INPKEY_LIST}")
         # - - - - - - - 
         msg = f"\n\t !!!! LCFIT_SUBCLASS = {LCFIT_SUBCLASS} !!!! \n"
         logging.info(msg)
@@ -904,24 +913,33 @@ class LightCurveFit(Program):
         msgerr = []
         snlcinp     = self.config_prep['snlcinp']   # valid for SNANA and BayeSN !     
         script_dir  = self.config_prep['script_dir']
-        
+        args        = self.config_yaml['args']
+    
         self.config_prep['use_table_format'] = [ False ] * NTABLE_FORMAT
 
         use_table_format = []
+        found_required_fmt = False
         for key, fmt in zip(TABLE_INPKEY_LIST, TABLE_FORMAT_LIST):
             use = False
             if key:
                 # note that BayeSN command-line input key has dashes, but SNANA doesn;t;
                 # -> remove dashes so that keys can be compared for command-line or config.                
                 key_nodash = key.replace('-','')
-                if fmt == FORMAT_TEXT:
-                    use = True  # always force this to be true
-                elif key_nodash in snlcinp :
-                    use = True  # check for other defined format
-            
-            use_table_format.append(use)
-            logging.info(f"  Write {fmt:6s} output table : {use}")
+                if fmt == FORMAT_TEXT and FORCE_TEXTFILE_PREFIX:
+                    use = True  
 
+                if key_nodash in snlcinp :
+                    use = True  # check for other defined format
+                    if fmt in FORMAT_REQUIRE_LIST: found_required_fmt = True  # .xyz
+
+            use_table_format.append(use)
+            logging.info(f"  Write {fmt:6s} output table : {use}   ({LCFIT_SUBCLASS} key = {key})")
+
+        # - - - - - -
+        if not found_required_fmt:
+            sys.exit(f"\n ERROR: did not find a required output table format among {FORMAT_REQUIRE_LIST} \n" \
+                     f"\t Add appropriate {LCFIT_SUBCLASS} key(s) (see few lines above) to {args.input_file}")
+        # - - - - - - 
         self.config_prep['use_table_format'] = use_table_format
 
         # get list of tables in SNTABLE_LIST
@@ -959,7 +977,7 @@ class LightCurveFit(Program):
         key       = KEY_APPEND_TABLE_VARLIST
         if key in CONFIG :
             require = False
-            if use_table_format[ITABLE_ROOT]:
+            if use_table_format[ITABFMT_ROOT]:
                 require = True
             if not require:
                 msgerr.append(f" {key} found in CONFIG input")
@@ -1208,7 +1226,7 @@ class LightCurveFit(Program):
                 if not key: continue  # skip unavailable format
                                 
                 arg    = f"{key:<16} {prefix}"
-                no_suffix = fmt == TABLE_FORMAT_LIST[ITABLE_TEXT] or fmt == TABLE_FORMAT_LIST[ITABLE_NPZ]
+                no_suffix = fmt == TABLE_FORMAT_LIST[ITABFMT_TEXT] or fmt == TABLE_FORMAT_LIST[ITABFMT_NPZ]
                 add_suffix = not no_suffix
                 if add_suffix:
                     arg += f".{fmt}"  # format is suffix
@@ -1720,18 +1738,17 @@ class LightCurveFit(Program):
 
         # - - - - -
         # make sure we have correct number of files to merge
-        for itable in range(0,NTABLE_FORMAT):
+        for ifmt in range(0,NTABLE_FORMAT):
 
-            if not use_table_format[itable]: continue
+            if not use_table_format[ifmt]: continue
 
-            suffix         =  self.get_table_file_suffix(SUFFIX_FITRES, itable )
+            suffix         =  self.get_table_file_suffix(SUFFIX_FITRES, ifmt )
             f_wildcard     =  f"{script_dir}/{version_fitopt}*{suffix}"
 
-            if not APPEND_TABLE_TEXT_SUFFIX and itable == ITABLE_TEXT:
-                fmt          =  TABLE_FORMAT_LIST[itable]
+            if not APPEND_TABLE_TEXT_SUFFIX and ifmt == ITABFMT_TEXT:
+                fmt          =  TABLE_FORMAT_LIST[ifmt]
                 f_wildcard += f".{fmt}"  # legacy: add .TEXT for snlc_fit output table
 
-            #print(f"\n xxx itab={itable}  f_wildcard = \n{f_wildcard}\n")
             util.check_file_count(n_job_split, f_wildcard )
 
         # - - - - -
@@ -1750,14 +1767,14 @@ class LightCurveFit(Program):
         # these temp files remain. After NEVT validation,
         # each temp file is moved to {version}/{fitopt}.{suffix}
 
-        if use_table_format[ITABLE_ROOT] :
+        if use_table_format[ITABFMT_ROOT] :
             self.merge_table_ROOT(version_fitopt_dict) # all table inside 1 root file
         
         for table_name in TABLE_NAME_LIST :
-            if use_table_format[ITABLE_TEXT] :
+            if use_table_format[ITABFMT_TEXT] :
                 self.merge_table_TEXT(table_name, version_fitopt_dict) # separate TEXT file per table
 
-            if use_table_format[ITABLE_NPZ] :
+            if use_table_format[ITABFMT_NPZ] :
                 self.merge_table_NPZ(table_name, version_fitopt_dict) # separate TEXT file per table 
 
 
@@ -1789,18 +1806,18 @@ class LightCurveFit(Program):
 
         # end merge_job_wrapup 
 
-    def get_table_file_suffix(self, table_name, itable ):
+    def get_table_file_suffix(self, table_name, ifmt ):
         # Created Nov 20 2026
         # INPUTS:
         #    table_name = SNANA or FITRES or LCPLOT etc ...
-        #    itable     = format index (TEXT, ROOT, NPZ ...)
+        #    ifmt       = format index (TEXT, ROOT, NPZ ...)
 
-        fmt   =  TABLE_FORMAT_LIST[itable]
-        if itable == ITABLE_TEXT or itable == ITABLE_NPZ :
+        fmt   =  TABLE_FORMAT_LIST[ifmt]
+        if ifmt == ITABFMT_TEXT or ifmt == ITABFMT_NPZ :
             suffix = f"{table_name}.{fmt}"  # separate file per table 
 
             if not APPEND_TABLE_TEXT_SUFFIX:
-                if itable == ITABLE_TEXT : 
+                if ifmt == ITABFMT_TEXT : 
                     suffix = table_name  # legacy text-file name has no .TEXT extension
 
         else:
@@ -1840,14 +1857,10 @@ class LightCurveFit(Program):
             fitopt_ref = f"{FITOPT_STRING}000"
             cmd_link_all = ''
 
-            for itab in range(0,NTABLE_FORMAT):
-                if not use_table_format[itab] : continue
-
-                suf = self.get_table_file_suffix(SUFFIX_FITRES,itab)
-                #suf   =  TABLE_FORMAT_LIST[itab]
-                #if itab == ITABLE_TEXT : suf  = f"{SUFFIX_FITRES}"  # special case
-
-                if itab != ITABLE_NPZ: suf += '.gz'  # no gzip for NPZ
+            for ifmt in range(0,NTABLE_FORMAT):
+                if not use_table_format[ifmt] : continue
+                suf = self.get_table_file_suffix(SUFFIX_FITRES,ifmt)
+                if ifmt != ITABFMT_NPZ: suf += '.gz'  # no gzip for NPZ
                 cmd_link = f"ln -s {fitopt_ref}.{suf} {fitopt_num}.{suf} ; "
                 cmd_link_all += cmd_link
                 logging.info(f"   create sym-link to {fitopt_ref}.{suf}")
@@ -1940,8 +1953,8 @@ class LightCurveFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         version_fitopt   = version_fitopt_dict['version_fitopt']
-        itable           = ITABLE_NPZ
-        fmt_suffix       = TABLE_FORMAT_LIST[itable]
+        ifmt             = ITABFMT_NPZ
+        fmt_suffix       = TABLE_FORMAT_LIST[ifmt]
         prefix           = PREFIX_MERGE
 
         table_wildcard = f"{version_fitopt}*{table_name}.{fmt_suffix}"
@@ -1953,7 +1966,7 @@ class LightCurveFit(Program):
             return
 
         # check debug option to force merge-table failure
-        flag_force_fail = self.flag_force_merge_table_fail(itable,version_fitopt)
+        flag_force_fail = self.flag_force_merge_table_fail(ifmt,version_fitopt)
 
         out_table_file = f"{prefix}_{version_fitopt}.{table_name}.{fmt_suffix}"
         OUT_TABLE_FILE = f"{script_dir}/{out_table_file}"
@@ -2041,14 +2054,14 @@ class LightCurveFit(Program):
         fitopt           = version_fitopt_dict['fitopt']
         version_fitopt   = version_fitopt_dict['version_fitopt']
 
-        itable           = ITABLE_TEXT
-        suffix           = TABLE_FORMAT_LIST[itable]
+        ifmt             = ITABFMT_TEXT
+        suffix           = TABLE_FORMAT_LIST[ifmt]
         prefix           = PREFIX_MERGE  
         table_wildcard  = f"{version_fitopt}*{table_name}.TEXT"
 
         # check debug option to force merge-table failure
         flag_force_fail = \
-            self.flag_force_merge_table_fail(itable,version_fitopt)
+            self.flag_force_merge_table_fail(ifmt,version_fitopt)
 
         if flag_force_fail == FLAG_FORCE_MERGE_TABLE_CORRUPT :
             table_wildcard += f(" {table_wildcard}") # double output
@@ -2107,7 +2120,7 @@ class LightCurveFit(Program):
 
             self.nevt_table_check(nevt_expect, nevt_find, out_table_file,
                                   cmd_all)
-            self.config_prep['merge_table_file_list'][itable] = out_table_file
+            self.config_prep['merge_table_file_list'][ifmt] = out_table_file
 
             # check options to append FITRES file
             # 1. APPEND_TABLE_VARLIST  -> extract vars from ROOT file
@@ -2258,9 +2271,9 @@ class LightCurveFit(Program):
 
         msgerr = []
 
-        text_table_file = merge_table_file_list[ITABLE_TEXT]  # file to append
-        if use_table_format[ITABLE_ROOT] :
-            full_table_file = merge_table_file_list[ITABLE_ROOT]
+        text_table_file = merge_table_file_list[ITABFMT_TEXT]  # file to append
+        if use_table_format[ITABFMT_ROOT] :
+            full_table_file = merge_table_file_list[ITABFMT_ROOT]
         else :
             msgerr.append("Cannot append TEXT table without full table")
             msgerr.append("Must define ROOT to append TEXT table")
@@ -2393,7 +2406,7 @@ class LightCurveFit(Program):
         else:
             return
 
-        orig_file = merge_table_file_list[ITABLE_TEXT]  # file to append
+        orig_file = merge_table_file_list[ITABFMT_TEXT]  # file to append
         out_file  = "TEMP_" + orig_file
         log_file  = "TEMP_COMBINE.LOG"
 
@@ -2421,9 +2434,8 @@ class LightCurveFit(Program):
 
     def merge_table_ROOT(self, version_fitopt_dict):
 
-        itable = ITABLE_ROOT
-        # call merge program for ROOT based on itable arg.
-        # into one.
+        ifmt = ITABFMT_ROOT
+        # call merge program for ROOT .
         version          = version_fitopt_dict['version']
         fitopt           = version_fitopt_dict['fitopt']
         version_fitopt   = version_fitopt_dict['version_fitopt']
@@ -2433,13 +2445,13 @@ class LightCurveFit(Program):
         submit_info_yaml = self.config_prep['submit_info_yaml']
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         n_job_split      = submit_info_yaml['N_JOB_SPLIT']
-        suffix           = TABLE_FORMAT_LIST[itable]
+        suffix           = TABLE_FORMAT_LIST[ifmt]
         prefix           = PREFIX_MERGE
         msgerr           = []
         tref = datetime.datetime.now()
 
         # check debug option to force merge-table failure
-        flag_force_fail = self.flag_force_merge_table_fail(itable,version_fitopt)
+        flag_force_fail = self.flag_force_merge_table_fail(ifmt,version_fitopt)
 
         logging.info(f"   merge {n_job_split} {suffix} table files.")
         
@@ -2496,8 +2508,8 @@ class LightCurveFit(Program):
         self.nevt_table_check(nevt_expect_cuts, nevt_find, out_table_file, cmd)
 
         # store merge table file for append_table_text()
-        merge_table_file_list =  self.config_prep['merge_table_file_list']
-        merge_table_file_list[itable] = out_table_file
+        merge_table_file_list       =  self.config_prep['merge_table_file_list']
+        merge_table_file_list[ifmt] = out_table_file
 
         util.print_elapse_time(tref,f"validate NEVT in merge table(s)")
 
@@ -2622,9 +2634,9 @@ class LightCurveFit(Program):
             fitopt  = row[COLNUM_LCFIT_MERGE_FITOPT]  # e.g., FITOPT002
             if fitopt in link_FITOPT000_list : continue # skip sym links
 
-            for itable in range(0,NTABLE_FORMAT):
-                if not use_table_format[itable]: continue
-                suffix     = self.get_table_file_suffix(SUFFIX_FITRES, itable)
+            for ifmt in range(0,NTABLE_FORMAT):
+                if not use_table_format[ifmt]: continue
+                suffix     = self.get_table_file_suffix(SUFFIX_FITRES, ifmt)
                 table_file = f"{version}/{fitopt}.{suffix}"
                 TABLE_FILE = f"{output_dir}/{table_file}"
                 if not os.path.isfile(TABLE_FILE):
@@ -2749,7 +2761,7 @@ class LightCurveFit(Program):
         return
         # end merge_reset
 
-    def flag_force_merge_table_fail(self, itable, version_fitopt):
+    def flag_force_merge_table_fail(self, ifmt, version_fitopt):
 
         # Check CONFIG (user input) for 
         #   FORCE_MERGE_TABLE_MISSING({table_format})
@@ -2765,7 +2777,7 @@ class LightCurveFit(Program):
         #if 'FORCE' not in CONFIG :
         #    return flag
 
-        suffix = TABLE_FORMAT_LIST[itable]
+        suffix = TABLE_FORMAT_LIST[ifmt]
 
         key_list = [ f"FORCE_MERGE_TABLE_MISSING({suffix}", 
                      f"FORCE_MERGE_TABLE_CORRUPT({suffix}" ]

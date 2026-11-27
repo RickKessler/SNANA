@@ -1893,3 +1893,286 @@ void specpak_textLine(FILE *fp, char *CCID, int ilam, int OUTFLAG ) {
 
 }  // end of specpak_textLine
 
+
+
+// ==========================================================================
+//   Nov 26 2026: TEXT implementation of SNTABLE_APPENDCOL_EXEC
+//   (generic part is in sntools_output.cpp)
+//
+//   Each input row is NOT parsed into numbers: the original text words
+//   are copied to the output so that numerical formatting of the input 
+//   table is preserved exactly. Only the appended (or replaced) columns are 
+//   formatted here. Rows are matched to the stored columns with a hash table, 
+//   so processing time is linear in the number of rows.
+// ==========================================================================
+
+// format value of stored column icol, row irow, as text word
+static void appendcol_text_word(int icol, int irow, char *word) {
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int   ICAST = A->ICAST[icol] ;
+  char  *fmt  = A->TEXTFMT[icol] ;
+  bool  USEFMT = ( strlen(fmt) > 0 ) ;
+  char  fnam[] = "appendcol_text_word" ;
+
+  if ( ICAST == ICAST_D ) {
+    double v = ((double*)A->PTR[icol])[irow] ;
+    if ( USEFMT ) { sprintf(word, fmt, v); } else { formatFloat_TEXT(A->VARNAME[icol], v, word); }
+  }
+  else if ( ICAST == ICAST_F ) {
+    double v = (double)((float*)A->PTR[icol])[irow] ;
+    if ( USEFMT ) { sprintf(word, fmt, v); } else { formatFloat_TEXT(A->VARNAME[icol], v, word); }
+  }
+  else if ( ICAST == ICAST_I ) {
+    int v = ((int*)A->PTR[icol])[irow] ;
+    if ( USEFMT ) { sprintf(word, fmt, v); } else { sprintf(word, "%d", v); }
+  }
+  else if ( ICAST == ICAST_S ) {
+    int v = (int)((short int*)A->PTR[icol])[irow] ;
+    if ( USEFMT ) { sprintf(word, fmt, v); } else { sprintf(word, "%d", v); }
+  }
+  else if ( ICAST == ICAST_L ) {
+    long long int v = ((long long int*)A->PTR[icol])[irow] ;
+    if ( USEFMT ) { sprintf(word, fmt, v); } else { sprintf(word, "%lld", v); }
+  }
+  else if ( ICAST == ICAST_C ) {
+    int  isize = A->ISIZE[icol] ;
+    char *c    = (char*)A->PTR[icol] + (size_t)irow*isize ;
+    int  n     = (int)strnlen(c, isize);
+    if ( n > 100 ) { n = 100; }
+    memcpy(word, c, n);  
+    while ( n > 0 && (word[n-1] == ' ') ) { n--; }   // trim trailing blanks
+    word[n] = 0 ;
+    if ( n == 0 ) { sprintf(word, "NULL"); }  // never write blank word
+  }
+  else {
+    sprintf(MSGERR1, "Unknown ICAST=%d for '%s'", ICAST, A->VARNAME[icol]);
+    sprintf(MSGERR2, "Check SNTABLE_APPENDCOL_STORE");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+} // end appendcol_text_word
+
+// ----------------------------------------------------
+// read header of text table up to VARNAMES key; leave file pointer at first row.
+// Returns number of variables, and fills list of malloc'ed names.
+static int appendcol_text_readhead(FILE *fp, char *fileName, char ***VARNAMES) {
+
+  int   NVAR = 0 ;
+  size_t nbuf = 0;
+  char  *line = NULL, *tok, **names ;
+  bool  FOUND = false ;
+  char  fnam[] = "appendcol_text_readhead" ;
+
+  names = (char**) malloc( MXVAR_TABLE * sizeof(char*) );
+
+  while ( !FOUND && getline(&line, &nbuf, fp) > 0 ) {
+    if ( strncmp(line, "VARNAMES:", 9) != 0 ) { continue; }
+    tok = strtok(line, " \t\r\n");   // skip key
+    while ( (tok = strtok(NULL, " \t\r\n")) != NULL ) {
+      if ( NVAR >= MXVAR_TABLE ) {
+	sprintf(MSGERR1, "NVAR exceeds bound MXVAR_TABLE=%d", MXVAR_TABLE);
+	sprintf(MSGERR2, "in %.200s", fileName);
+	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+      }
+      names[NVAR] = (char*) malloc( (strlen(tok)+2) * sizeof(char) );
+      sprintf(names[NVAR], "%s", tok);
+      NVAR++ ;
+    }
+    FOUND = true ;
+  }
+  if ( line ) { free(line); }
+
+  if ( !FOUND || NVAR == 0 ) {
+    sprintf(MSGERR1, "Could not find VARNAMES key in header of");
+    sprintf(MSGERR2, "%.200s", fileName);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  *VARNAMES = names ;
+  return NVAR;
+} // end appendcol_text_readhead
+
+// find column index of row identifier; return -1 if not found
+static int appendcol_find_idcol(char *VARNAME_ID, int NVAR, char **VARNAMES) {
+  int  ivar, j ;
+  const char *idlist[] = VARNAME_TABLE_IDLIST ;
+  for(ivar=0; ivar < NVAR; ivar++ ) 
+    { if ( strcasecmp(VARNAMES[ivar], VARNAME_ID) == 0 ) { return ivar; } }
+  if ( strcmp(VARNAME_ID,"CID")==0 || strcmp(VARNAME_ID,"CCID")==0 ) {
+    for(j=0; j < N_VARNAME_TABLE_IDLIST; j++ ) 
+      for(ivar=0; ivar < NVAR; ivar++ ) 
+	{ if ( strcasecmp(VARNAMES[ivar], idlist[j]) == 0 ) { return ivar; } }
+  }
+  return -1 ;
+}
+
+// ----------------------------------------------------
+void SNTABLE_APPENDCOL_EXEC_TEXT(void) {
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  APPENDCOL_HASH_DEF  H ;
+  int   NLIST, NFILE = A->NFILE_INP ;
+  int   ifile, ivar, icol, j, NVAR_OUT=0, NVAR_FILE, IVAR_ID ;
+  int   GZIPFLAG, NROW_INP=0, NROW_OUT=0, NMATCH=0, NUNMATCHED=0 ;
+  bool  ALLROWS = ( A->OPTMASK == OPTMASK_APPENDCOL_ALLROWS );
+  FILE  *finp, *fout=NULL ;
+  char  **VARNAME_OUT=NULL, **VARNAME_FILE ;
+  int   *ICOL_REPLACE, *IS_APPENDED, *IVAR_MAP ;
+  char  *USED, *line=NULL, **wd ;
+  size_t nbuf = 0;
+  char  word[400], key[40], ID[80] ;
+  char  fnam[] = "SNTABLE_APPENDCOL_EXEC_TEXT" ;
+
+  // -------------- BEGIN --------------
+
+  NLIST = appendcol_check_stored(fnam);
+  memset(&H, 0, sizeof(H));
+  appendcol_hash_init(&H);
+
+  USED         = (char*) calloc( NLIST+1, sizeof(char) );
+  ICOL_REPLACE = (int*)  malloc( MXVAR_TABLE * sizeof(int) );
+  IS_APPENDED  = (int*)  malloc( (A->NCOL+1) * sizeof(int) );
+  IVAR_MAP     = (int*)  malloc( MXVAR_TABLE * sizeof(int) );
+  wd           = (char**)malloc( (MXVAR_TABLE+10) * sizeof(char*) );
+
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+
+    finp = open_TEXTgz(A->INPFILE[ifile], TEXTMODE_rt, 0, &GZIPFLAG, fnam);
+    NVAR_FILE = appendcol_text_readhead(finp, A->INPFILE[ifile], &VARNAME_FILE);
+
+    IVAR_ID = appendcol_find_idcol(A->VARNAME_ID, NVAR_FILE, VARNAME_FILE);
+    if ( IVAR_ID < 0 ) {
+      snprintf(MSGERR1, sizeof(MSGERR1), "Could not find ID column '%.150s' in", A->VARNAME_ID);
+      sprintf(MSGERR2, "%.200s", A->INPFILE[ifile]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+
+    // - - - - - 
+    if ( ifile == 0 ) {
+      // define list of carried-over columns: user list, or all columns in first file
+      if ( A->NVAR_SELECT > 0 ) {
+	NVAR_OUT    = A->NVAR_SELECT ;
+	VARNAME_OUT = A->VARNAME_SELECT ;
+      }
+      else {
+	NVAR_OUT    = NVAR_FILE ;
+	VARNAME_OUT = VARNAME_FILE ;
+      }
+
+      appendcol_replaced_index(NVAR_OUT, VARNAME_OUT, ICOL_REPLACE, IS_APPENDED);
+
+      // ----- open output file and write header -----
+      fout = fopen(A->OUTFILE, "wt");
+      if ( fout == NULL ) {
+	sprintf(MSGERR1, "Could not open output table file:");
+	sprintf(MSGERR2, "%.200s", A->OUTFILE);
+	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+      }
+      setvbuf(fout, NULL, _IOFBF, 1<<20);
+
+      for(j=0; j < A->NHDR; j++ ) {
+	char KEYC[220];  snprintf(KEYC, sizeof(KEYC), "%s:", A->HDR_KEY[j]);
+	fprintf(fout, "# %-28s  %s \n", KEYC, A->HDR_VAL[j]);
+      }
+      fprintf(fout, "\n");
+
+      fprintf(fout, "VARNAMES: ");
+      for(ivar=0; ivar < NVAR_OUT; ivar++ ) { fprintf(fout, "%s ", VARNAME_OUT[ivar]); }
+      for(icol=0; icol < A->NCOL; icol++ ) 
+	{ if ( IS_APPENDED[icol] ) { fprintf(fout, "%s ", A->VARNAME[icol]); } }
+      fprintf(fout, "\n\n");
+    }
+
+    // map each output column to its column in this file (-1 if missing)
+    for(ivar=0; ivar < NVAR_OUT; ivar++ ) {
+      IVAR_MAP[ivar] = -1 ;
+      for(j=0; j < NVAR_FILE; j++ ) {
+	if ( strcmp(VARNAME_OUT[ivar], VARNAME_FILE[j]) == 0 ) { IVAR_MAP[ivar] = j; break; }
+      }
+    }
+
+    // - - - - - - - loop over rows - - - - - - - - 
+    while ( getline(&line, &nbuf, finp) > 0 ) {
+
+      // split line into words (blank-separated only; commas are not delimiters)
+      int  NWD = 0;
+      char *p = line ;
+      while ( *p ) {
+	while ( *p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' ) { *p = 0; p++; }
+	if ( *p == 0 ) { break; }
+	if ( NWD < MXVAR_TABLE+10 ) { wd[NWD++] = p; }
+	while ( *p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n' ) { p++; }
+      }
+      if ( NWD == 0 || wd[0][0] == '#' ) { continue; }
+
+      // row key must be SN: or ROW: or GAL:
+      if ( strcmp(wd[0],"SN:") != 0 && strcmp(wd[0],"ROW:") != 0 && 
+	   strcmp(wd[0],"GAL:") != 0 ) { continue; }
+      snprintf(key, sizeof(key), "%s", wd[0]);
+      NROW_INP++ ;
+
+      if ( NWD < NVAR_FILE+1 ) {
+	sprintf(MSGERR1, "Row has %d words, but expected %d (NVAR+1)", NWD, NVAR_FILE+1);
+	snprintf(MSGERR2, sizeof(MSGERR2), "in %.150s : row key '%.20s %.20s'", 
+		 A->INPFILE[ifile], key,  (NWD>1) ? wd[1] : "");
+	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+      }
+
+      // match to stored list using hash table
+      snprintf(ID, sizeof(ID), "%s", wd[IVAR_ID+1]);
+      int m = appendcol_hash_find(&H, ID, ifile);
+
+      if ( m < 0 && !ALLROWS ) { continue; }
+      if ( m >= 0 ) { NMATCH++ ; USED[m] = 1; }
+
+      // write carried-over columns, using original text words
+      fputs(key, fout);
+      for(ivar=0; ivar < NVAR_OUT; ivar++ ) {
+	icol = ICOL_REPLACE[ivar];
+	fputc(' ', fout);
+	if ( icol >= 0 && m >= 0 ) 
+	  { appendcol_text_word(icol, m, word); fputs(word, fout); }
+	else if ( IVAR_MAP[ivar] >= 0 ) 
+	  { fputs(wd[IVAR_MAP[ivar]+1], fout); }
+	else 
+	  { fputs("-9.0", fout); }    // column is not in this file
+      }
+
+      // write appended columns
+      for(icol=0; icol < A->NCOL; icol++ ) {
+	if ( !IS_APPENDED[icol] ) { continue; }
+	fputc(' ', fout);
+	if ( m >= 0 ) { appendcol_text_word(icol, m, word); fputs(word, fout); }
+	else          { fputs("-888", fout); }
+      }
+      fputc('\n', fout);
+      NROW_OUT++ ;
+
+    } // end while getline
+
+    snana_close(finp, A->INPFILE[ifile], GZIPFLAG);
+
+    // free names of this file, unless they are the output list
+    if ( VARNAME_FILE != VARNAME_OUT ) {
+      for(j=0; j < NVAR_FILE; j++ ) { free(VARNAME_FILE[j]); }
+      free(VARNAME_FILE);
+    }
+  } // end ifile
+
+  if ( VARNAME_OUT != A->VARNAME_SELECT ) {
+    // VARNAME_OUT is names from first file; free it
+    for(j=0; j < NVAR_OUT; j++ ) { free(VARNAME_OUT[j]); }
+    free(VARNAME_OUT);
+  }
+
+  fclose(fout);
+
+  for(j=0; j < NLIST; j++ ) { if ( !USED[j] ) { NUNMATCHED++ ; } }
+  appendcol_print_stats(NROW_INP, NROW_OUT, NMATCH, NUNMATCHED);
+
+  appendcol_hash_free(&H);
+  free(USED);  free(ICOL_REPLACE);  free(IS_APPENDED);  free(IVAR_MAP);  free(wd);
+  if ( line ) { free(line); }
+
+  return;
+
+} // end SNTABLE_APPENDCOL_EXEC_TEXT

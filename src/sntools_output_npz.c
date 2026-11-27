@@ -1229,6 +1229,40 @@ void npz_table_append(int h, int icol, void *ptr) {
   else                          { memcpy(&c.buf[n0], ptr, c.wsize); }
 }
 
+void npz_table_putcol(int h, int icol, void *ptr, size_t nrow) {
+
+  // ======================================================================
+  // npz_table_putcol   (Nov 2026)
+  //
+  // FREQUENCY: called ONCE PER COLUMN (not per row) to write an entire column 
+  //            that is already in memory. Use this INSTEAD of 
+  //            npz_table_append/endrow for a table; do not mix the two methods 
+  //            in one table.
+  //
+  //   h    : table handle
+  //   icol : column index returned by npz_table_addcol
+  //   ptr  : array of nrow elements matching the column's icast
+  //          (strings: flat array of nrow*strlen_max bytes, NUL-padded)
+  //   nrow : number of rows; must be the same for every column.
+  //
+  // The data are compressed directly to the column's temp file; no 
+  // copy of the column is made. All columns must be added (npz_table_addcol) 
+  // before the first putcol.
+  // ======================================================================
+
+  NPZTab &t = NPZ_TAB[h];
+  NPZCol &c = t.col[icol];
+
+  if ( t.nbuf > 0 || (c.nraw > 0) ) 
+    { throw std::runtime_error("npz: putcol called twice for column " + c.name + " or after row-wise append"); }
+  if ( icol > 0 && t.nrow != nrow ) 
+    { throw std::runtime_error("npz: putcol nrow mismatch for column " + c.name); }
+  t.nrow = nrow ;
+
+  // when nrow=0, still create the (empty) stream so that the column is closed properly
+  col_deflate(c, t.level, (const char*)ptr, nrow * (size_t)c.wsize, Z_NO_FLUSH);
+}
+
 void npz_table_endrow(int h) {
 
   // ======================================================================
@@ -1412,3 +1446,359 @@ void npz_table_close(int h) {
 
   t = NPZTab();
 } // end npz_table_close
+
+
+// ==========================================================================
+//   Nov 26 2026: NPZ implementation of SNTABLE_APPENDCOL_EXEC
+//   (generic part is in sntools_output.cpp)
+//
+//   Column-oriented: each input column is inflated once, the rows to keep
+//   are gathered, and the whole output column is handed to the npz writer
+//   (npz_table_putcol). There is no row-by-row I/O. Rows are matched to the
+//   stored columns with a hash table, so processing time is linear in NROW.
+//   Peak memory is about one input column plus one output column.
+// ==========================================================================
+
+namespace {
+
+  // element access for an input npz column
+  inline bool npz_is_str(const npzrd::COL &c) { return (c.kind=='S' || c.kind=='U'); }
+
+  inline double npz_get_d(const npzrd::COL &c, const char *p) {
+    if ( c.kind=='f' && c.wsize==8 ) { double x; memcpy(&x,p,8); return x; }
+    if ( c.kind=='f' )               { float  x; memcpy(&x,p,4); return (double)x; }
+    if ( c.wsize==8 ) { if (c.kind=='i') { long long x; memcpy(&x,p,8); return (double)x; } 
+                        else { unsigned long long x; memcpy(&x,p,8); return (double)x; } }
+    if ( c.wsize==4 ) { if (c.kind=='i') { int x; memcpy(&x,p,4); return (double)x; } 
+                        else { unsigned x; memcpy(&x,p,4); return (double)x; } }
+    if ( c.wsize==2 ) { if (c.kind=='i') { short x; memcpy(&x,p,2); return (double)x; } 
+                        else { unsigned short x; memcpy(&x,p,2); return (double)x; } }
+    return (c.kind=='i') ? (double)(signed char)p[0] : (double)(unsigned char)p[0];
+  }
+
+  inline long long npz_get_l(const npzrd::COL &c, const char *p) {
+    if ( c.kind=='f' ) { return (long long) npz_get_d(c,p); }
+    if ( c.wsize==8 ) { long long x; memcpy(&x,p,8); return x; }
+    if ( c.wsize==4 ) { if (c.kind=='i') { int x; memcpy(&x,p,4); return x; } 
+                        else { unsigned x; memcpy(&x,p,4); return x; } }
+    if ( c.wsize==2 ) { if (c.kind=='i') { short x; memcpy(&x,p,2); return x; } 
+                        else { unsigned short x; memcpy(&x,p,2); return x; } }
+    return (c.kind=='i') ? (long long)(signed char)p[0] : (long long)(unsigned char)p[0];
+  }
+
+  // string element -> s (NUL terminated, trailing blanks removed, max n-1 chars)
+  inline void npz_get_s(const npzrd::COL &c, const char *p, char *s, int n) {
+    int k=0;
+    if ( npz_is_str(c) ) {
+      int nch = (c.kind=='S') ? c.wsize : c.wsize/4 ;
+      for(int j=0; j < nch && k < n-1; j++ ) {
+	char ch = (c.kind=='S') ? p[j] : p[4*j];
+	if ( ch == 0 ) { break; }
+	s[k++] = ch;
+      }
+      while ( k > 0 && (s[k-1]==' ' || s[k-1]=='\t') ) { k--; }
+      s[k] = 0;
+    }
+    else if ( c.kind == 'f' ) { snprintf(s, n, "%.10g", npz_get_d(c,p)); }
+    else                      { snprintf(s, n, "%lld",  npz_get_l(c,p)); }
+  }
+
+  // write one value into output array element at dst, with output cast ocast and width ow.
+  // Source is either an input npz element (c,p) or a double/string (for fill values).
+  inline void npz_put_num(char *dst, int ocast, double d, long long l, bool isint) {
+    if      ( ocast == ICAST_D ) { double x = isint ? (double)l : d;  memcpy(dst, &x, 8); }
+    else if ( ocast == ICAST_F ) { float  x = isint ? (float)l  : (float)d;  memcpy(dst, &x, 4); }
+    else if ( ocast == ICAST_I ) { int    x = isint ? (int)l    : (int)d;    memcpy(dst, &x, 4); }
+    else if ( ocast == ICAST_S ) { short  x = isint ? (short)l  : (short)d;  memcpy(dst, &x, 2); }
+    else if ( ocast == ICAST_L ) { long long x = isint ? l      : (long long)d;  memcpy(dst, &x, 8); }
+  }
+
+  inline void npz_put_from_src(char *dst, int ocast, int ow, const npzrd::COL &c, const char *p) {
+    if ( ocast == ICAST_C ) {
+      char s[256];  npz_get_s(c, p, s, (int)sizeof(s));
+      int n = (int)strlen(s);  if ( n > ow ) { n = ow; }
+      memset(dst, 0, ow);  memcpy(dst, s, n);
+    }
+    else if ( npz_is_str(c) ) {
+      char s[256];  npz_get_s(c, p, s, (int)sizeof(s));
+      npz_put_num(dst, ocast, strtod(s,NULL), strtoll(s,NULL,10), false);
+    }
+    else if ( c.kind == 'f' ) { npz_put_num(dst, ocast, npz_get_d(c,p), 0, false); }
+    else                      { npz_put_num(dst, ocast, 0.0, npz_get_l(c,p), true); }
+  }
+
+  // fill value (-9 for column missing from a file, -888 for undefined row)
+  inline void npz_put_fill(char *dst, int ocast, int ow, int val) {
+    if ( ocast == ICAST_C ) { 
+      char s[16];  sprintf(s, "%d", val);
+      int n = (int)strlen(s);  if ( n > ow ) { n = ow; }
+      memset(dst, 0, ow);  memcpy(dst, s, n);
+    }
+    else { npz_put_num(dst, ocast, (double)val, (long long)val, true); }
+  }
+
+  // element from stored column icol, row irow
+  inline void npz_put_from_stored(char *dst, int ocast, int ow, int icol, int irow) {
+    SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+    int ICAST = A->ICAST[icol] ;
+    void *P   = A->PTR[icol] ;
+    if      ( ICAST == ICAST_D ) { memcpy(dst, (double*)P + irow, 8); }
+    else if ( ICAST == ICAST_F ) { memcpy(dst, (float*)P + irow, 4); }
+    else if ( ICAST == ICAST_I ) { memcpy(dst, (int*)P + irow, 4); }
+    else if ( ICAST == ICAST_S ) { memcpy(dst, (short int*)P + irow, 2); }
+    else if ( ICAST == ICAST_L ) { memcpy(dst, (long long int*)P + irow, 8); }
+    else if ( ICAST == ICAST_C ) {
+      int isize = A->ISIZE[icol];
+      char *c   = (char*)P + (size_t)irow*isize ;
+      int  n    = (int)strnlen(c, isize);  if ( n > ow ) { n = ow; }
+      memset(dst, 0, ow);  memcpy(dst, c, n);
+    }
+    (void)ocast;
+  }
+
+  inline int npz_wsize_cast(int icast, int strlen_max) {
+    switch(icast) {
+    case ICAST_D: return 8;  case ICAST_F: return 4;  case ICAST_I: return 4;
+    case ICAST_S: return 2;  case ICAST_L: return 8;
+    default:      return (strlen_max > 0) ? strlen_max : 1 ;
+    }
+  }
+
+  // promote cast when same column has different types in different input files
+  int npz_promote_cast(int a, int b) {
+    if ( a < 0 ) { return b; }
+    if ( a == b ) { return a; }
+    if ( a == ICAST_C || b == ICAST_C ) { return ICAST_C; }
+    if ( a == ICAST_D || b == ICAST_D ) { return ICAST_D; }
+    bool aflt = (a == ICAST_F),  bflt = (b == ICAST_F);
+    if ( aflt || bflt ) { return ICAST_D; }          // float mixed with integer
+    if ( a == ICAST_L || b == ICAST_L ) { return ICAST_L; }
+    if ( a == ICAST_I || b == ICAST_I ) { return ICAST_I; }
+    return ICAST_S;
+  }
+
+  int npz_find_idcol(const npzrd::INFO &R, const char *VARNAME_ID) {
+    const char *idlist[] = VARNAME_TABLE_IDLIST ;
+    for(size_t i=0; i < R.col.size(); i++ ) 
+      { if ( strcasecmp(R.col[i].name.c_str(), VARNAME_ID) == 0 ) { return (int)i; } }
+    if ( strcmp(VARNAME_ID,"CID")==0 || strcmp(VARNAME_ID,"CCID")==0 ) {
+      for(int j=0; j < N_VARNAME_TABLE_IDLIST; j++ ) 
+	for(size_t i=0; i < R.col.size(); i++ ) 
+	  { if ( strcasecmp(R.col[i].name.c_str(), idlist[j]) == 0 ) { return (int)i; } }
+    }
+    return -1;
+  }
+
+} // end anonymous namespace
+
+// ----------------------------------------------------
+void SNTABLE_APPENDCOL_EXEC_NPZ(void) {
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  APPENDCOL_HASH_DEF  H ;
+  int   NLIST, NFILE = A->NFILE_INP ;
+  int   ifile, ivar, icol, NVAR_OUT, NCOL_OUT, NROW_INP=0, NMATCH=0, NUNMATCHED=0 ;
+  bool  ALLROWS = ( A->OPTMASK == OPTMASK_APPENDCOL_ALLROWS );
+  char  fnam[] = "SNTABLE_APPENDCOL_EXEC_NPZ" ;
+
+  // -------------- BEGIN --------------
+
+  NLIST = appendcol_check_stored(fnam);
+  memset(&H, 0, sizeof(H));
+  appendcol_hash_init(&H);
+
+  // ---- open each input file (read metadata only) and keep info for all of them 
+  std::vector<npzrd::INFO> F(NFILE);
+  std::vector<FILE*> FP(NFILE, (FILE*)NULL);
+  std::vector<int>  IVAR_ID(NFILE);
+  std::string err;
+
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    if ( !npzrd::open_file(A->INPFILE[ifile], err) ) {
+      print_preAbort_banner(fnam);
+      sprintf(MSGERR1, "Could not read npz table file: %.150s", A->INPFILE[ifile]);
+      sprintf(MSGERR2, "%.*s", 200, err.c_str());
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+    F[ifile] = npzrd::R ;
+    IVAR_ID[ifile] = npz_find_idcol(F[ifile], A->VARNAME_ID);
+    if ( IVAR_ID[ifile] < 0 ) {
+      snprintf(MSGERR1, sizeof(MSGERR1), "Could not find ID column '%.150s' in", A->VARNAME_ID);
+      sprintf(MSGERR2, "%.*s", 200, A->INPFILE[ifile]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+    FP[ifile] = fopen(A->INPFILE[ifile], "rb");
+    if ( !FP[ifile] ) {
+      sprintf(MSGERR1, "Cannot open"); 
+      sprintf(MSGERR2, "%.200s", A->INPFILE[ifile]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+    NROW_INP += (int)F[ifile].col[0].nrow ;
+  }
+  npzrd::R = npzrd::INFO();   // do not leave a table 'opened' for the table reader
+
+  // ---- carried-over columns: user list, or all columns in first file
+  std::vector<std::string> VARNAME_OUT;
+  if ( A->NVAR_SELECT > 0 ) 
+    { for(ivar=0; ivar < A->NVAR_SELECT; ivar++ ) { VARNAME_OUT.push_back(A->VARNAME_SELECT[ivar]); } }
+  else
+    { for(size_t i=0; i < F[0].col.size(); i++ ) { VARNAME_OUT.push_back(F[0].col[i].name); } }
+  NVAR_OUT = (int)VARNAME_OUT.size();
+
+  std::vector<char*> VARNAME_PTR(NVAR_OUT);
+  for(ivar=0; ivar < NVAR_OUT; ivar++ ) { VARNAME_PTR[ivar] = (char*)VARNAME_OUT[ivar].c_str(); }
+
+  std::vector<int> ICOL_REPLACE(NVAR_OUT), IS_APPENDED(A->NCOL+1);
+  appendcol_replaced_index(NVAR_OUT, &VARNAME_PTR[0], &ICOL_REPLACE[0], &IS_APPENDED[0]);
+
+  // IMAP[ifile][ivar] = column index in file, or -1
+  std::vector< std::vector<int> > IMAP(NFILE, std::vector<int>(NVAR_OUT, -1));
+  for(ifile=0; ifile < NFILE; ifile++ ) 
+    for(ivar=0; ivar < NVAR_OUT; ivar++ ) 
+      for(size_t i=0; i < F[ifile].col.size(); i++ ) 
+	if ( F[ifile].col[i].name == VARNAME_OUT[ivar] ) { IMAP[ifile][ivar] = (int)i; break; }
+
+  // ---- pass 1: match rows of each file to stored rows; decide rows to keep
+  std::vector< std::vector<int> > ROWS(NFILE) ;   // input rows to keep, per file
+  std::vector<int>  ILIST_OUT ;                   // stored index for each output row (or -1)
+  std::vector<char> USED(NLIST+1, 0);
+  std::vector<char> buf;
+  
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    npzrd::COL &c = F[ifile].col[IVAR_ID[ifile]] ;
+    size_t nrow = c.nrow ;
+    if ( !npzrd::inflate_col(FP[ifile], c, buf, 0) || buf.size() < c.npy_off + (size_t)c.wsize*nrow ) {
+      sprintf(MSGERR1, "Could not read ID column '%s'", c.name.c_str());
+      sprintf(MSGERR2, "%.200s", A->INPFILE[ifile]);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+    const char *base = &buf[0] + c.npy_off ;
+    char ID[80];
+    for(size_t r=0; r < nrow; r++ ) {
+      npz_get_s(c, base + r*c.wsize, ID, (int)sizeof(ID));
+      int m = appendcol_hash_find(&H, ID, ifile);
+      if ( m < 0 && !ALLROWS ) { continue; }
+      if ( m >= 0 ) { NMATCH++ ; USED[m] = 1; }
+      ROWS[ifile].push_back((int)r);
+      ILIST_OUT.push_back(m);
+    }
+  }
+  size_t NROW_OUT = ILIST_OUT.size();
+  for(int j=0; j < NLIST; j++ ) { if ( !USED[j] ) { NUNMATCHED++ ; } }
+
+  // ---- define output columns: carried-over (maybe replaced), then appended
+  struct OUTCOL { std::string name; int icast; int wsize; int src_stored; bool carried; int ivar; };
+  std::vector<OUTCOL> OC;
+
+  for(ivar=0; ivar < NVAR_OUT; ivar++ ) {
+    OUTCOL o;  o.name = VARNAME_OUT[ivar];  o.carried = true;  o.ivar = ivar;
+    o.src_stored = ICOL_REPLACE[ivar];
+    if ( o.src_stored >= 0 ) {
+      o.icast = A->ICAST[o.src_stored];
+      o.wsize = npz_wsize_cast(o.icast, A->ISIZE[o.src_stored]);
+    }
+    else {
+      int ic = -9, w = 1;
+      for(ifile=0; ifile < NFILE; ifile++ ) {
+	int i = IMAP[ifile][ivar];
+	if ( i < 0 ) { continue; }
+	npzrd::COL &c = F[ifile].col[i];
+	ic = npz_promote_cast(ic, c.icast);
+	int cw = (c.kind=='U') ? c.wsize/4 : c.wsize ;
+	if ( npz_is_str(c) ) { if ( cw > w ) { w = cw; } } else { if ( 24 > w ) { w = 24; } }
+      }
+      if ( ic < 0 ) { ic = ICAST_D; }       // column is in no file; all values are -9
+      o.icast = ic ;
+      o.wsize = npz_wsize_cast(ic, w);
+    }
+    OC.push_back(o);
+  }
+  for(icol=0; icol < A->NCOL; icol++ ) {
+    if ( !IS_APPENDED[icol] ) { continue; }
+    OUTCOL o;  o.name = A->VARNAME[icol];  o.carried = false;  o.ivar = -1;
+    o.src_stored = icol ;  o.icast = A->ICAST[icol];  o.wsize = npz_wsize_cast(o.icast, A->ISIZE[icol]);
+    OC.push_back(o);
+  }
+  NCOL_OUT = (int)OC.size();
+
+  // ---- create output table and define columns
+  int h = npz_table_create(A->OUTFILE);
+  if ( h < 0 ) {
+    sprintf(MSGERR1, "Could not create npz table (too many open tables?)");
+    sprintf(MSGERR2, "%.200s", A->OUTFILE);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  for(int k=0; k < NCOL_OUT; k++ ) {
+    int ic = npz_table_addcol(h, (char*)OC[k].name.c_str(), OC[k].icast, OC[k].wsize);
+    if ( ic != k ) {
+      sprintf(MSGERR1, "Invalid cast for column '%s'", OC[k].name.c_str());
+      sprintf(MSGERR2, "ICAST=%d", OC[k].icast);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+  }
+
+  // ---- pass 2: build and write one output column at a time
+  std::vector<char> out ;
+  for(int k=0; k < NCOL_OUT; k++ ) {
+    OUTCOL &o = OC[k];
+    size_t w  = (size_t)o.wsize ;
+    out.assign( NROW_OUT * w + 1, 0 );
+    size_t orow = 0 ;
+
+    for(ifile=0; ifile < NFILE; ifile++ ) {
+      int i_in = ( o.carried ) ? IMAP[ifile][o.ivar] : -1 ;
+      const char *base = NULL ;
+      npzrd::COL *pc = NULL;
+
+      if ( i_in >= 0 ) {
+	pc = &F[ifile].col[i_in] ;
+	if ( !npzrd::inflate_col(FP[ifile], *pc, buf, 0) || buf.size() < pc->npy_off + (size_t)pc->wsize*pc->nrow ) {
+	  sprintf(MSGERR1, "Could not read column '%s'", pc->name.c_str());
+	  sprintf(MSGERR2, "%.200s", A->INPFILE[ifile]);
+	  errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+	}
+	base = &buf[0] + pc->npy_off ;
+      }
+
+      const std::vector<int> &rows = ROWS[ifile] ;
+      for(size_t n=0; n < rows.size(); n++, orow++ ) {
+	char *dst = &out[orow*w] ;
+	int  m    = ILIST_OUT[orow] ;
+
+	if ( o.src_stored >= 0 && m >= 0 ) 
+	  { npz_put_from_stored(dst, o.icast, o.wsize, o.src_stored, m); }
+	else if ( !o.carried )        // appended column and undefined row
+	  { npz_put_fill(dst, o.icast, o.wsize, VAL_UNDEF_APPENDCOL); }
+	else if ( pc != NULL )        // original value from input table
+	  { npz_put_from_src(dst, o.icast, o.wsize, *pc, base + (size_t)rows[n]*pc->wsize); }
+	else                          // column is not in this file
+	  { npz_put_fill(dst, o.icast, o.wsize, -9); }
+      }
+    }
+    npz_table_putcol(h, k, &out[0], NROW_OUT);
+  }
+  out.clear();  out.shrink_to_fit();
+
+  // ---- header dictionary (JSON in zip comment)
+  if ( A->NHDR > 0 ) {
+    std::string json = "{";
+    for(int j=0; j < A->NHDR; j++ ) {
+      if ( j > 0 ) { json += ", "; }
+      json += "\"";  npz_json_escape(json, A->HDR_KEY[j]);  json += "\": \"";
+      npz_json_escape(json, A->HDR_VAL[j]);  json += "\"";
+    }
+    json += "}";
+    npz_table_set_header(h, json.c_str());
+  }
+
+  for(ifile=0; ifile < NFILE; ifile++ ) { fclose(FP[ifile]); }
+
+  printf("   Close NPZ table file: %s \n", A->OUTFILE);  fflush(stdout);
+  npz_table_close(h);
+
+  appendcol_print_stats(NROW_INP, (int)NROW_OUT, NMATCH, NUNMATCHED);
+  appendcol_hash_free(&H);
+
+  return;
+
+} // end SNTABLE_APPENDCOL_EXEC_NPZ

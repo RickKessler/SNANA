@@ -60,6 +60,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <strings.h>   // strcasecmp
 
 // #include "sntools.h"
 #include "sndata.h"
@@ -3324,3 +3325,581 @@ int ISFILE_MARZ(char *fileName) {
   return 1 ;
   
 } // end ISFILE_MARZ
+
+
+// =============================================================
+//   Nov 26 2026
+//   SNTABLE_APPENDCOL tools: append entire columns to an existing table
+//   (TEXT or NPZ), instead of appending one row at a time. 
+//   The output table format is the same as the input table format.
+//   Format-specific work is done in
+//     SNTABLE_APPENDCOL_EXEC_TEXT   (sntools_output_text.c)
+//     SNTABLE_APPENDCOL_EXEC_NPZ    (sntools_output_npz.c)
+//   while everything that is format-independent (storing the columns,
+//   hash table to match rows) is here.
+//
+//   Matching of table rows to stored rows uses an open-addressing hash
+//   table keyed by (ID,IFILE), so the cost is O(NROW), not O(NROW^2).
+// =============================================================
+
+static void appendcol_free_all(void) {
+  int i;
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  if ( !A->INIT_DONE ) { return; }
+  for(i=0; i < A->NFILE_INP;   i++ ) { free(A->INPFILE[i]); }
+  for(i=0; i < A->NVAR_SELECT; i++ ) { free(A->VARNAME_SELECT[i]); }
+  if ( A->VARNAME_SELECT ) { free(A->VARNAME_SELECT); }
+  for(i=0; i < A->NHDR; i++ ) { free(A->HDR_KEY[i]);  free(A->HDR_VAL[i]); }
+  memset(A, 0, sizeof(SNTABLE_APPENDCOL_DEF));
+  A->INIT_DONE = false;
+}
+
+// ----------------------------------------------
+void SNTABLE_APPENDCOL_INIT(int OPTMASK, char *VARNAME_ID, 
+			    char *INPFILE, char *OUTFILE) {
+
+  // OPTMASK = OPTMASK_APPENDCOL_SUBSET  (1): OUTFILE includes only the rows 
+  //                 whose ID is in the list passed to SNTABLE_APPENDCOL_STORE.
+  //         = OPTMASK_APPENDCOL_ALLROWS (2): OUTFILE includes every INPFILE row;
+  //                 rows with no stored ID get VAL_UNDEF_APPENDCOL (-888) 
+  //                 in the appended columns.
+  //
+  // VARNAME_ID : name of row-identifier column in INPFILE (e.g., CID); also the
+  //              name of the stored ID column.
+  //
+  // INPFILE  : input table (TEXT[.gz] or NPZ); read but never modified.
+  //            May be a comma-separated list of files with the same format.
+  //            Rows of all files are written, in order, to the one OUTFILE.
+  //
+  // OUTFILE  : table to create. Has same format as INPFILE.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int  ifile, ISNPZ=0, ISTEXT=0 ;
+  char *tok, *list ;
+  char fnam[] = "SNTABLE_APPENDCOL_INIT" ;
+
+  // -------------- BEGIN --------------
+
+  appendcol_free_all();   // clean up any earlier call that never reached EXEC
+  memset(A, 0, sizeof(SNTABLE_APPENDCOL_DEF));
+
+  if ( OPTMASK != OPTMASK_APPENDCOL_SUBSET && OPTMASK != OPTMASK_APPENDCOL_ALLROWS ) {
+    sprintf(MSGERR1,"Invalid OPTMASK=%d", OPTMASK);
+    sprintf(MSGERR2,"Valid OPTMASK = %d (subset of rows) or %d (all rows)",
+	    OPTMASK_APPENDCOL_SUBSET, OPTMASK_APPENDCOL_ALLROWS );
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( strlen(VARNAME_ID) == 0 || strlen(VARNAME_ID) >= MXCHAR_VARNAME ) {
+    sprintf(MSGERR1,"Invalid VARNAME_ID = '%.40s'", VARNAME_ID);
+    sprintf(MSGERR2,"Must be non-blank and less than %d chars", MXCHAR_VARNAME);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  A->OPTMASK = OPTMASK ;
+  sprintf(A->VARNAME_ID, "%s", VARNAME_ID);
+  A->ICOL_ID = -9 ;
+
+  // split comma-separated list of input files
+  list = (char*) malloc( (strlen(INPFILE)+2) * sizeof(char) );
+  sprintf(list, "%s", INPFILE);
+  tok = strtok(list, ",");
+  while ( tok != NULL ) {
+    if ( A->NFILE_INP >= MXFILE_APPENDCOL ) {
+      sprintf(MSGERR1,"Too many input files; MXFILE_APPENDCOL=%d", MXFILE_APPENDCOL);
+      sprintf(MSGERR2,"INPFILE = %.100s ...", INPFILE);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+    A->INPFILE[A->NFILE_INP] = (char*) malloc( (strlen(tok)+2) * sizeof(char) );
+    sprintf(A->INPFILE[A->NFILE_INP], "%s", tok);
+    A->NFILE_INP++ ;
+    tok = strtok(NULL, ",");
+  }
+  free(list);
+
+  if ( A->NFILE_INP == 0 ) {
+    sprintf(MSGERR1,"No input file");  sprintf(MSGERR2,"INPFILE = '%s'", INPFILE);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  // all input files must have same format ; output format is the same
+  for(ifile=0; ifile < A->NFILE_INP; ifile++ ) {
+    if ( ISFILE_NPZ(A->INPFILE[ifile]) ) { ISNPZ++ ; } else { ISTEXT++ ; }
+  }
+  if ( ISNPZ > 0 && ISTEXT > 0 ) {
+    sprintf(MSGERR1,"Cannot mix TEXT and NPZ input tables");
+    sprintf(MSGERR2,"INPFILE = %.150s", INPFILE);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  A->IFILETYPE = ( ISNPZ > 0 ) ? IFILETYPE_NPZ : IFILETYPE_TEXT ;
+
+  if ( strlen(OUTFILE) >= MXCHAR_FILENAME ) {
+    sprintf(MSGERR1,"len(OUTFILE)=%d exceeds bound MXCHAR_FILENAME=%d", 
+	    (int)strlen(OUTFILE), MXCHAR_FILENAME);
+    sprintf(MSGERR2,"OUTFILE = %.100s ...", OUTFILE);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  sprintf(A->OUTFILE, "%s", OUTFILE);
+
+  for(ifile=0; ifile < A->NFILE_INP; ifile++ ) {
+    if ( strcmp(A->INPFILE[ifile], A->OUTFILE) == 0 ) {
+      sprintf(MSGERR1,"OUTFILE cannot be the same as INPFILE");
+      sprintf(MSGERR2,"%s", OUTFILE);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+  }
+
+  A->INIT_DONE = true ;
+  return ;
+
+} // end SNTABLE_APPENDCOL_INIT
+
+// ----------------------------------------------
+void SNTABLE_APPENDCOL_SELECT(int NVAR, char **VARNAME_LIST) {
+
+  // Optional: list the INPFILE columns to carry over to OUTFILE, in the 
+  // order to write them. Default is all columns of the (first) INPFILE.
+  // For multiple INPFILEs, a selected column that is missing from some file
+  // is filled with -9 for that file.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int i;
+  char fnam[] = "SNTABLE_APPENDCOL_SELECT" ;
+
+  if ( !A->INIT_DONE ) {
+    sprintf(MSGERR1,"Must call SNTABLE_APPENDCOL_INIT first");  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( NVAR <= 0 || NVAR >= MXVAR_TABLE ) {
+    sprintf(MSGERR1,"Invalid NVAR=%d", NVAR);
+    sprintf(MSGERR2,"Must be 1 to %d", MXVAR_TABLE-1);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  for(i=0; i < A->NVAR_SELECT; i++ ) { free(A->VARNAME_SELECT[i]); }
+  if ( A->VARNAME_SELECT ) { free(A->VARNAME_SELECT); }
+
+  A->VARNAME_SELECT = (char**) malloc( NVAR * sizeof(char*) );
+  for(i=0; i < NVAR; i++ ) {
+    A->VARNAME_SELECT[i] = (char*) malloc( (strlen(VARNAME_LIST[i])+2) * sizeof(char) );
+    sprintf(A->VARNAME_SELECT[i], "%s", VARNAME_LIST[i]);
+  }
+  A->NVAR_SELECT = NVAR ;
+
+  return;
+} // end SNTABLE_APPENDCOL_SELECT
+
+// ----------------------------------------------
+void SNTABLE_APPENDCOL_HEADER(const char *KEY, const char *VAL) {
+
+  // Add key/value to the header dictionary of OUTFILE.
+  // TEXT: written as '# KEY: VAL' ;  NPZ: stored in JSON zip comment.
+  // Header info in INPFILE is NOT copied to OUTFILE; only the items passed 
+  // here are written. KEY may include a colon, or not.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int  j, n, lenkey = strlen(KEY) ;
+  char fnam[] = "SNTABLE_APPENDCOL_HEADER" ;
+
+  if ( !A->INIT_DONE ) {
+    sprintf(MSGERR1,"Must call SNTABLE_APPENDCOL_INIT first");  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( lenkey == 0 ) { return; }
+
+  // strip trailing colon so that the key is stored in a standard way
+  char key[200];  snprintf(key, sizeof(key), "%s", KEY);
+  n = strlen(key);
+  if ( key[n-1] == ':' ) { key[n-1] = 0; }
+
+  // if key already exists, replace its value
+  for(j=0; j < A->NHDR; j++ ) {
+    if ( strcmp(A->HDR_KEY[j], key) == 0 ) {
+      free(A->HDR_VAL[j]);
+      A->HDR_VAL[j] = (char*) malloc( (strlen(VAL)+2) * sizeof(char) );
+      sprintf(A->HDR_VAL[j], "%s", VAL);
+      return;
+    }
+  }
+
+  if ( A->NHDR >= MXHDR_APPENDCOL ) {
+    sprintf(MSGERR1,"Too many header items; MXHDR_APPENDCOL=%d", MXHDR_APPENDCOL);
+    sprintf(MSGERR2,"while adding key = %.60s", key);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  j = A->NHDR ;
+  A->HDR_KEY[j] = (char*) malloc( (strlen(key)+2) * sizeof(char) );
+  A->HDR_VAL[j] = (char*) malloc( (strlen(VAL)+2) * sizeof(char) );
+  sprintf(A->HDR_KEY[j], "%s", key);
+  sprintf(A->HDR_VAL[j], "%s", VAL);
+  A->NHDR++ ;
+
+  return;
+} // end SNTABLE_APPENDCOL_HEADER
+
+// ----------------------------------------------
+void SNTABLE_APPENDCOL_STORE_IFILE(int NLIST, int *IFILE_LIST) {
+
+  // Optional, for multiple INPFILEs: IFILE_LIST[i] is the index (0,1,2,..) of the
+  // input file that stored row 'i' belongs to. Rows are then matched on (ID,IFILE), 
+  // which is needed if the same ID appears in more than one input file.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int i;
+  char fnam[] = "SNTABLE_APPENDCOL_STORE_IFILE" ;
+
+  if ( !A->INIT_DONE ) {
+    sprintf(MSGERR1,"Must call SNTABLE_APPENDCOL_INIT first");  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( A->NCOL > 0 && NLIST != A->NLIST ) {
+    sprintf(MSGERR1,"NLIST=%d, but NLIST=%d for earlier stored columns", NLIST, A->NLIST);
+    sprintf(MSGERR2,"All stored arrays must have the same length.");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  A->NLIST = NLIST ;
+  A->IFILE_LIST = IFILE_LIST ;
+
+  for(i=0; i < NLIST; i++ ) {
+    if ( IFILE_LIST[i] < 0 || IFILE_LIST[i] >= A->NFILE_INP ) {
+      sprintf(MSGERR1,"Invalid IFILE_LIST[%d] = %d", i, IFILE_LIST[i]);
+      sprintf(MSGERR2,"NFILE_INP = %d", A->NFILE_INP);
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+  }
+  return;
+} // end SNTABLE_APPENDCOL_STORE_IFILE
+
+// ----------------------------------------------
+void SNTABLE_APPENDCOL_STORE(char *VARDEF, int NLIST, void *PTRLIST) {
+  SNTABLE_APPENDCOL_STORE_FMT(VARDEF, NULL, NLIST, PTRLIST);
+}
+
+void SNTABLE_APPENDCOL_STORE_FMT(char *VARDEF, char *TEXTFMT, 
+				 int NLIST, void *PTRLIST) {
+
+  // Store one column to append. 
+  //   VARDEF  = 'NAME:X' where X is the cast of PTRLIST array:
+  //             D (double), F (float), I (int), S (short), L (long long),
+  //             or C*N  (flat char array with N bytes per row).
+  //   NLIST   = number of rows (same for every call)
+  //   PTRLIST = array with NLIST elements. It is not copied, so it must stay valid
+  //             until SNTABLE_APPENDCOL_EXEC.
+  //   TEXTFMT = optional printf-format for TEXT output (e.g., '%8.5f'). If NULL,
+  //             floats are formatted by formatFloat_TEXT. Ignored for NPZ output.
+  //
+  // The column with name VARNAME_ID is the row identifier used for matching.
+  // A column whose name matches a column of the input table replaces that column
+  // in place (e.g., to override a value); other columns are appended at the end.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  SNTABLE_ADDCOL_VARDEF  VARDEF_PARSED ;
+  int  icol, ICAST, ISIZE ;
+  char *VARNAME ;
+  char fnam[] = "SNTABLE_APPENDCOL_STORE" ;
+
+  // ------------- BEGIN ------------
+
+  if ( !A->INIT_DONE ) {
+    sprintf(MSGERR1,"Must call SNTABLE_APPENDCOL_INIT first");  
+    sprintf(MSGERR2,"before storing '%.60s'", VARDEF);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  parse_ADDCOL_VARLIST(VARDEF, &VARDEF_PARSED);
+  if ( VARDEF_PARSED.NVAR != 1 ) {
+    sprintf(MSGERR1,"Expected 1 variable per STORE call, but found %d", VARDEF_PARSED.NVAR);
+    sprintf(MSGERR2,"VARDEF = '%.100s'", VARDEF);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  VARNAME = VARDEF_PARSED.VARNAME[0] ;
+  ICAST   = VARDEF_PARSED.ICAST[0] ;
+  ISIZE   = VARDEF_PARSED.ISIZE[0] ;
+  if ( ICAST == ICAST_C && ISIZE <= 0 ) { ISIZE = MXCHAR_CCID ; }
+
+  if ( A->NCOL >= MXCOL_APPENDCOL ) {
+    sprintf(MSGERR1,"Too many columns; MXCOL_APPENDCOL = %d", MXCOL_APPENDCOL);
+    sprintf(MSGERR2,"while storing '%s'", VARNAME);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( A->NCOL > 0 || A->IFILE_LIST != NULL ) {
+    if ( NLIST != A->NLIST ) {
+      sprintf(MSGERR1,"NLIST=%d for '%s', but NLIST=%d for earlier stored arrays", 
+	      NLIST, VARNAME, A->NLIST);
+      sprintf(MSGERR2,"All stored arrays must have the same length.");
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+  }
+  if ( NLIST < 0 ) {
+    sprintf(MSGERR1,"Invalid NLIST=%d for '%s'", NLIST, VARNAME);  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  if ( NLIST > 0 && PTRLIST == NULL ) {
+    sprintf(MSGERR1,"NULL pointer for '%s'", VARNAME);  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  for(icol=0; icol < A->NCOL; icol++ ) {
+    if ( strcmp(A->VARNAME[icol], VARNAME) == 0 ) {
+      sprintf(MSGERR1,"Column '%s' is already stored.", VARNAME);  MSGERR2[0] = 0;
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+  }
+
+  icol = A->NCOL ;
+  A->NLIST = NLIST ;
+  sprintf(A->VARNAME[icol], "%s", VARNAME);
+  A->ICAST[icol]  = ICAST ;
+  A->ISIZE[icol]  = ISIZE ;
+  A->PTR[icol]    = PTRLIST ;
+  A->TEXTFMT[icol][0] = 0 ;
+  if ( TEXTFMT != NULL && strlen(TEXTFMT) > 0 ) {
+    if ( strlen(TEXTFMT) >= sizeof(A->TEXTFMT[icol]) || strchr(TEXTFMT,'%') == NULL ) {
+      sprintf(MSGERR1,"Invalid TEXTFMT = '%.30s' for '%s'", TEXTFMT, VARNAME);
+      sprintf(MSGERR2,"Must be a printf format such as %%8.5f");
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+    sprintf(A->TEXTFMT[icol], "%s", TEXTFMT);
+  }
+
+  // check if this is the ID column (allow CID <-> CCID)
+  bool IS_ID = ( strcasecmp(VARNAME, A->VARNAME_ID) == 0 ) ;
+  if ( !IS_ID ) {
+    bool v1 = ( strcmp(VARNAME,"CID")==0 || strcmp(VARNAME,"CCID")==0 ) ;
+    bool v2 = ( strcmp(A->VARNAME_ID,"CID")==0 || strcmp(A->VARNAME_ID,"CCID")==0 ) ;
+    IS_ID   = ( v1 && v2 ) ;
+  }
+  if ( IS_ID ) { A->ICOL_ID = icol ; }
+
+  A->NCOL++ ;
+  return ;
+
+} // end SNTABLE_APPENDCOL_STORE_FMT
+
+// ----------------------------------------------
+int appendcol_check_stored(char *fnam) {
+
+  // verify that stored info is usable; return number of stored rows
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  
+  if ( A->ICOL_ID < 0 ) {
+    sprintf(MSGERR1,"ID column '%.*s' was never stored.", 40, A->VARNAME_ID);
+    sprintf(MSGERR2,"Call SNTABLE_APPENDCOL_STORE('%.*s:C*N', NLIST, ID_LIST)", 40, A->VARNAME_ID);
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( A->NFILE_INP > 1 && A->IFILE_LIST == NULL ) {
+    // not an error, but make sure the user knows about the IFILE option
+    printf("\n  %s: NFILE_INP=%d and SNTABLE_APPENDCOL_STORE_IFILE was not called;\n"
+	   "    IDs must be unique among the input files. \n", fnam, A->NFILE_INP);
+    fflush(stdout);
+  }
+
+  return A->NLIST ;
+}  // end appendcol_check_stored
+
+// ----------------------------------------------
+void appendcol_get_idstring(int ICAST, void *ptr, int isize, int irow, char *ID) {
+
+  // return ID string for row irow of the stored ID column.
+  // ID must have at least 40 bytes
+
+  char fnam[] = "appendcol_get_idstring" ;
+
+  if ( ICAST == ICAST_C ) {
+    char *c = (char*)ptr + (size_t)irow*isize ;
+    int  n  = (int)strnlen(c, isize); 
+    if ( n > 39 ) { n = 39; }
+    memcpy(ID, c, n);  ID[n] = 0 ;
+  }
+  else if ( ICAST == ICAST_I ) { sprintf(ID,"%d",   ((int*)ptr)[irow] ); }
+  else if ( ICAST == ICAST_S ) { sprintf(ID,"%d",   (int)((short int*)ptr)[irow] ); }
+  else if ( ICAST == ICAST_L ) { sprintf(ID,"%lld", ((long long int*)ptr)[irow] ); }
+  else {
+    sprintf(MSGERR1,"ID column must be integer or string, but ICAST=%d", ICAST);
+    sprintf(MSGERR2,"Cannot use float for row identifier.");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+} // end appendcol_get_idstring
+
+// ----------------------------------------------
+static unsigned long long appendcol_hashkey(const char *ID, int len, int IFILE) {
+  // FNV-1a hash of ID string, mixed with IFILE
+  unsigned long long h = 1469598103934665603ULL ;
+  int i;
+  for(i=0; i < len; i++ ) { h ^= (unsigned char)ID[i];  h *= 1099511628211ULL; }
+  h ^= (unsigned long long)(IFILE+1) ;  h *= 1099511628211ULL ;
+  h ^= (h >> 29);
+  return h;
+}
+
+void appendcol_hash_init(APPENDCOL_HASH_DEF *H) {
+
+  // Build hash table for the stored rows. Memory is 4 bytes per slot, 
+  // with 2-4 slots per row, plus a flat copy of the IDs if they are not strings.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int  NLIST = A->NLIST, ICOL = A->ICOL_ID ;
+  int  i, k, ICAST = A->ICAST[ICOL], ISIZE = A->ISIZE[ICOL];
+  size_t NSLOT=16;
+  char ID[40], *ID_STORED ;
+  char fnam[] = "appendcol_hash_init" ;
+
+  // ---------- BEGIN ---------
+
+  while ( NSLOT < 2*(size_t)NLIST ) { NSLOT *= 2; }
+  H->NSLOT = (int)NSLOT ;
+  H->ISLOT = (int*) malloc( NSLOT * sizeof(int) );
+  for(k=0; k < (int)NSLOT; k++ ) { H->ISLOT[k] = -1; }
+  H->IFILE_LIST = A->IFILE_LIST ;
+
+  if ( ICAST == ICAST_C ) {
+    H->IDLIST = (char*)A->PTR[ICOL];  H->ISIZE = ISIZE;  H->OWN_IDLIST = 0;
+  }
+  else {
+    // convert integer IDs to flat string array
+    H->ISIZE = 24;  H->OWN_IDLIST = 1;
+    H->IDLIST = (char*) malloc( ((size_t)NLIST+1) * H->ISIZE );
+    for(i=0; i < NLIST; i++ ) {
+      appendcol_get_idstring(ICAST, A->PTR[ICOL], ISIZE, i, ID);
+      memset(H->IDLIST + (size_t)i*H->ISIZE, 0, H->ISIZE);
+      strcpy(H->IDLIST + (size_t)i*H->ISIZE, ID);
+    }
+  }
+
+  for(i=0; i < NLIST; i++ ) {
+    ID_STORED = H->IDLIST + (size_t)i*H->ISIZE ;
+    int len   = (int)strnlen(ID_STORED, H->ISIZE);
+    int ifile = ( H->IFILE_LIST ) ? H->IFILE_LIST[i] : 0 ;
+    k = (int)( appendcol_hashkey(ID_STORED, len, ifile) & (NSLOT-1) );
+    while ( H->ISLOT[k] >= 0 ) {
+      int j = H->ISLOT[k];
+      char *ID_J = H->IDLIST + (size_t)j*H->ISIZE ;
+      int  lenj  = (int)strnlen(ID_J, H->ISIZE);
+      int  ifj   = ( H->IFILE_LIST ) ? H->IFILE_LIST[j] : 0 ;
+      if ( len == lenj && ifile == ifj && memcmp(ID_STORED, ID_J, len) == 0 ) {
+	print_preAbort_banner(fnam);
+	snprintf(MSGERR1,sizeof(MSGERR1),
+		 "Duplicate %.60s = '%.*s' in stored list (rows %d and %d, IFILE=%d)", 
+		 A->VARNAME_ID, (len>60)?60:len, ID_STORED, j, i, ifile);  // Nov 2026: avoid overflow
+	sprintf(MSGERR2,"Stored IDs must be unique; for multiple input files call "
+		"SNTABLE_APPENDCOL_STORE_IFILE");
+	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+      }
+      k = (k+1) & (int)(NSLOT-1) ;
+    }
+    H->ISLOT[k] = i ;
+  }
+
+  return;
+} // end appendcol_hash_init
+
+int appendcol_hash_find(APPENDCOL_HASH_DEF *H, char *ID, int IFILE) {
+
+  // return index of stored row matching (ID,IFILE), or -1 if there is no match
+
+  int len   = (int)strlen(ID);
+  int ifile = ( H->IFILE_LIST ) ? IFILE : 0 ;
+  unsigned int mask = (unsigned int)H->NSLOT - 1 ;
+  unsigned int k    = (unsigned int)( appendcol_hashkey(ID, len, ifile) & mask );
+
+  while ( H->ISLOT[k] >= 0 ) {
+    int   j    = H->ISLOT[k];
+    char *ID_J = H->IDLIST + (size_t)j*H->ISIZE ;
+    if ( (int)strnlen(ID_J, H->ISIZE) == len && memcmp(ID, ID_J, len) == 0 ) {
+      int ifj = ( H->IFILE_LIST ) ? H->IFILE_LIST[j] : 0 ;
+      if ( ifj == ifile ) { return j; }
+    }
+    k = (k+1) & mask ;
+  }
+  return -1;
+} // end appendcol_hash_find
+
+void appendcol_hash_free(APPENDCOL_HASH_DEF *H) {
+  if ( H->ISLOT ) { free(H->ISLOT);  H->ISLOT = NULL; }
+  if ( H->OWN_IDLIST && H->IDLIST ) { free(H->IDLIST); }
+  H->IDLIST = NULL ;
+}
+
+// ----------------------------------------------
+void appendcol_replaced_index(int NVAR, char **VARNAME_LIST, 
+			      int *ICOL_REPLACE, int *IS_APPENDED) {
+
+  // Define output-column layout for a list of NVAR carried-over input columns.
+  // Output:
+  //   ICOL_REPLACE[ivar] = index of stored column that replaces carried-over 
+  //                        column ivar, or -1 if there is no replacement.
+  //   IS_APPENDED[icol]  = 1 if stored column icol is added at the end of table;
+  //                        0 if it is the ID column or replaces an existing column.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int ivar, icol ;
+
+  for(icol=0; icol < A->NCOL; icol++ ) { IS_APPENDED[icol] = (icol != A->ICOL_ID) ; }
+
+  for(ivar=0; ivar < NVAR; ivar++ ) {
+    ICOL_REPLACE[ivar] = -1 ;
+    for(icol=0; icol < A->NCOL; icol++ ) {
+      if ( icol == A->ICOL_ID ) { continue; }
+      if ( strcmp(VARNAME_LIST[ivar], A->VARNAME[icol]) == 0 ) {
+	ICOL_REPLACE[ivar]  = icol ;
+	IS_APPENDED[icol]   = 0 ;
+	break ;
+      }
+    }
+  }
+} // end appendcol_replaced_index
+
+// ----------------------------------------------
+void appendcol_print_stats(int NROW_INP, int NROW_OUT, int NMATCH, int NLIST_UNMATCHED) {
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  printf("\n APPENDCOL: wrote %d of %d table rows to %s\n", NROW_OUT, NROW_INP, A->OUTFILE);
+  printf("            %d rows matched to %d stored rows; %d stored rows not found in table.\n",
+	 NMATCH, A->NLIST, NLIST_UNMATCHED );
+  fflush(stdout);
+
+  if ( NLIST_UNMATCHED > 0 ) {
+    printf(" WARNING: %d stored %s values not found in input table(s) %.100s\n", 
+	   NLIST_UNMATCHED, A->VARNAME_ID, A->INPFILE[0] );
+    fflush(stdout);
+  }
+}
+
+// ----------------------------------------------
+void SNTABLE_APPENDCOL_EXEC(void) {
+
+  // Create OUTFILE: all columns of INPFILE (or those passed to SNTABLE_APPENDCOL_SELECT), 
+  // with stored columns appended (or replacing existing columns of the same name),
+  // for the rows selected by OPTMASK. Header contains only the 
+  // SNTABLE_APPENDCOL_HEADER items.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  char fnam[] = "SNTABLE_APPENDCOL_EXEC" ;
+
+  if ( !A->INIT_DONE ) {
+    sprintf(MSGERR1,"Must call SNTABLE_APPENDCOL_INIT first");  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  printf("\n %s: create %s (%d stored rows, %d columns, %d input file(s))\n", 
+	 fnam, A->OUTFILE, A->NLIST, A->NCOL, A->NFILE_INP);
+  fflush(stdout);
+
+  if ( A->IFILETYPE == IFILETYPE_NPZ ) 
+    { SNTABLE_APPENDCOL_EXEC_NPZ(); }
+  else 
+    { SNTABLE_APPENDCOL_EXEC_TEXT(); }
+
+  appendcol_free_all();
+  return;
+
+} // end SNTABLE_APPENDCOL_EXEC
+

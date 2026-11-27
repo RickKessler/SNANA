@@ -1896,6 +1896,10 @@ int selectCID_data(char *cid, int IDSURVEY, char *FIELD, int *IZBIN);
 void update_fitres_passcuts(int flag, int isn, char *which, FILE **fp) ;
 
 void  write_fitres_driver(char *fileName);
+void  write_fitres_driver_legacy(char *fileName);
+void  write_fitres_cat(char *fileName) ;       // Nov 2026
+void  write_fitres_appendcol(char *fileName) ;  // Nov 2026
+void  write_version_info_appendcol(void) ;      // Nov 2026
 void  write_fitres_misc(FILE *fout);
 void  write_version_info(FILE *fp) ;
 void  write_yaml_info(char *fileName);
@@ -1906,7 +1910,9 @@ void  write_debug_mucovcorr(int IDSAMPLE, double *muDif_list, double *muBias_lis
 void  define_varnames_append(void) ;
 int   write_fitres_line(int indx, int ifile, char *rowkey, 
 			char *line, FILE *fout) ;
-void  write_fitres_line_append(FILE *fp, int indx);
+int   write_fitres_line_legacy(int indx, int ifile, char *rowkey, 
+			char *line, FILE *fout) ;
+void  write_fitres_line_append_legacy(FILE *fp, int indx) ;
 void  write_cat_info(FILE *fout) ;
 void  write_cutwin_info(FILE *fout) ;
 void  prep_blindVal_strings(void);
@@ -5170,7 +5176,7 @@ void *MNCHI2FUN(void *thread) {
   double gammaDM, M0, dl, mumodel ;
   double muerr_raw, muerrsq_raw, muerr_vpec, muerrsq_vpec;
   double muerrsq_tmp, muerr_update, muerrsq_update ; 
-  double chi2evt, chi2evt_Ia, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
+  double chi2evt=0.0, chi2evt_Ia=0.0, scalePIa, scalePCC, nsnfitIa=0.0, nsnfitcc=0.0;
   int    n, nsnfit, nsnfit_truecc, nsnspecIa, ipar, ipar2 ;
   int    cutmask, idsample, SIM_TEMPLATE_INDEX, IS_SIM ; 
   int    ia, ib, ig, optmask_muerrsq, nevt_biascor, i3d=-9 ;
@@ -18493,7 +18499,7 @@ double prob_CCprior_sim(int IDSAMPLE, MUZMAP_DEF *MUZMAP,
     else if ( RMS > 0.0000001 ) {      
       resid  = (dmu-AVG)/RMS ; arg=0.5*resid*resid ;
       prob   = (PIFAC/RMS) * exp(-arg);
-      prob  *= dmubin ; // Nov 2026 .xyz
+      prob  *= dmubin ; 
       
       if ( INPUTS.restore_bug_ccprior && prob > 0.0 ) { prob /= dmubin; }
     }
@@ -23538,6 +23544,7 @@ void outFile_driver(void) {
     bool WRM0DIF  = ( (OPTMASK & SUBPROCESS_OPTMASK_WRM0DIF) > 0 );
     if ( WRFITRES ) {
       sprintf(tmpFile,"%s.FITRES", prefix );
+      if ( INFO_DATA.IFORMAT == IFORMAT_NPZ ) { strcat(tmpFile,".NPZ"); }  // Nov 2026
       write_fitres_driver(tmpFile);  // write result for each SN
     }
     if ( WRM0DIF ) {
@@ -24213,6 +24220,53 @@ void write_chi2grid(char *chi2grid_file) {
 // ******************************************
 void write_fitres_driver(char* fileName) {
 
+  // Write output table with original columns from the input data table(s)
+  // plus SALT2mu/BBC columns. Output format (TEXT or NPZ) is the same 
+  // as the input data-table format (INFO_DATA.IFORMAT).
+  //
+  // History:
+  // Mar 01 2018: add M0 to output
+  // Jun 10 2019: call printCOVINT 
+  // Jan 09 2019: fix to loop over each datafile instead of only the first.
+  // May 09 2020: 
+  //   + refactor to write columns defined in OUTPUT_VARNAMES struct.
+  //   + call define_varnames_append()
+  //   + check cat_only option that skips fit and just catenates
+  //
+  // Nov 26 2026: refactor to use the SNTABLE_APPENDCOL tools in sntools_output,
+  //   which append entire columns to the input table(s), and work for both
+  //   TEXT and NPZ formats.
+  //   + cat_only option is still done here, row by row, for TEXT format only
+  //     (see write_fitres_cat).
+  //   + header comments are limited to the version info;
+  //     see write_fitres_appendcol.
+
+  char fnam[] = "write_fitres_driver" ; (void)fnam;
+
+  bool REFAC = ( INPUTS.debug_flag == 1127 );
+  // ------------------ BEGIN ----------------
+
+
+  if ( REFAC ) {
+    if ( INPUTS.cat_only )  { write_fitres_cat(fileName); }
+    else                    { write_fitres_appendcol(fileName); }
+  }
+  else{
+    // legacy
+    write_fitres_driver_legacy(fileName);
+  }
+  
+  return ;
+
+} // end of write_fitres_driver
+
+
+
+void write_fitres_driver_legacy(char *fileName) {
+
+  // Nov 26 2026: copy of original write_fitres_driver (before APPENDCOL refactor).
+  // Activated with debug_flag = -1127.
+  //
   // Write outout in fitres format.
   // Combine original fitres variables with those
   // calculated here in SALT2mu.
@@ -24244,7 +24298,7 @@ void write_fitres_driver(char* fileName) {
   char  line[MXCHAR_LINE], tmpName[60], *ptrFile, *ptrName ;
   char  ztxt[60], KEY[MXCHAR_VARNAME], CCID[40];
 
-  char fnam[] = "write_fitres_driver" ;
+  char fnam[] = "write_fitres_driver_legacy" ;
 
   // ------------------ BEGIN ----------------
 
@@ -24506,7 +24560,7 @@ void write_fitres_driver(char* fileName) {
 	if ( !keep_cutmask(cutmask)  ) { continue; }
       }
 
-      NWR += write_fitres_line(indx,ifile, KEY,line,fout);
+      NWR += write_fitres_line_legacy(indx,ifile, KEY,line,fout);
 
     }  // end reading line with fgets
 
@@ -24533,7 +24587,654 @@ void write_fitres_driver(char* fileName) {
 
   return ;
 
-} // end of write_fitres_driver
+} // end of write_fitres_driver_legacy
+
+// ******************************************
+// Nov 26 2026: legacy copy of original write_fitres_line (before APPENDCOL refactor)
+int write_fitres_line_legacy(int indx, int ifile, char *rowkey, 
+		      char *line, FILE *fout) {
+
+  // for input 'ifile' and 'line', write to fout.
+  // Note that store_PARSE_WORDS has already been called,
+  // so here use get_PARSE_WORDS to retrieve.
+  //
+  // Each *line is split into words in case different files have
+  // different columns.
+  //  
+  // Nov 14 2020: check for datafile_overrides.
+  // Dec 28 2021: pass rowkey to allow for prescaling HOSTLIB
+  //
+  // Oct 02 2026: increase word size from MXCHAR_VARNAME to 2*MXCHAR_VARNAME
+  //              to protect against long NBR_LIST strings
+
+  int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
+  int ISTAT = 0 ;
+  int  ivar_tot, ivar_file, ivar_word, idsample ;
+  bool IS_RECYCLED = false; 
+  char word[2*MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;  
+  char blank[] = " ";
+  char fnam[] = "write_fitres_line_legacy" ;
+  int  LDMP = 0 ; // (strstr(line,"3200020316") != NULL ) || (GLOBAL_DEBUG_FLAG > 0);
+  // ----------- BEGIN -----------
+
+  if ( LDMP ) {
+    GLOBAL_DEBUG_FLAG = 1;
+    printf(" xxx %s DUMP ---------------------------------------- \n", fnam);
+    printf(" xxx %s: line = '%s' \n", fnam, line);
+    fflush(stdout);
+  }
+
+  sprintf(line_out,"%s ", rowkey);
+
+  for(ivar_tot=0; ivar_tot < NVAR_TOT; ivar_tot++ ) {
+    ivar_file = OUTPUT_VARNAMES.IVARMAP[ifile][ivar_tot];
+    ivar_word = ivar_file + 1; // add 1 to skip SN: key
+    if ( ivar_word >=0 ) 
+      { get_PARSE_WORD(0, ivar_word, word, fnam ); }
+    else 
+      { sprintf(word,"-9.0"); }
+
+    // Jun 26 2024: check if input file is recycled SALT2mu output
+    //  Earlier SALT2mu output started with MU ... then CUTMASK was added ...
+    //  so check both.
+    if ( IS_APPEND_VARNAME(word) ) { IS_RECYCLED = true; }
+    if ( IS_RECYCLED ) { continue; }
+    
+    if ( LDMP ) {
+      printf(" xxx %s: ivar[tot,file,word]=%2d,%2d,%2d  word='%s' \n",
+	     fnam, ivar_tot,ivar_file,ivar_word, word); fflush(stdout);
+    }
+
+    // Nov 15 2020: check for data override and parshift override
+    write_word_override(ivar_tot,  indx, word);
+    write_word_parshift(ivar_tot,  indx, word);     
+
+    int n0 = strlen(line_out), n1=strlen(word);
+    if ( (n0 + n1) >= MXCHAR_LINE ) {
+      print_preAbort_banner(fnam);
+      printf("\t line_out = '%s' \n", line_out);
+      printf("\t next word to add = '%s' \n", word);
+      sprintf(c1err,"len(line_out) + len(word = %d + %d = %d", n0, n1, n0+n1);
+      sprintf(c2err,"but MXCHAR_LINE = %d", MXCHAR_LINE);
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+    }
+
+    strcat(line_out, word  );  // <== crash here using table-dump mode
+    strcat(line_out, blank );
+  }
+
+  fprintf(fout,"%s", line_out);
+  bool skip_line_append = INPUTS.cat_only || INPUTS.cutwin_only ;
+  if ( !skip_line_append ) { write_fitres_line_append_legacy(fout, indx); }
+
+  // for cutwin_only option, append line only with IDSAMPLE
+  if ( INPUTS.cutwin_only ) {
+    idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[indx]  ;
+    fprintf(fout,"   %2d", idsample);
+  }
+
+  fprintf(fout,"\n");
+
+  ISTAT = 1;
+
+  //  if ( LDMP ) { debugexit(fnam); }
+
+  return(ISTAT);
+
+} // end write_fitres_line_legacy
+
+// ******************************************
+// Nov 26 2026: legacy copy of original write_fitres_line_append
+void write_fitres_line_append_legacy(FILE *fp, int indx ) {
+
+  // Oct 17, 2011 R.Kessler
+  // append line in fitres file with SALT2mu info corresponding to 
+  // this CID.
+  // indx is the data index for INFO_DATA.TABLEVAR arrays.
+  //
+  // Apr 22 2022: mu/mumodel/muerr -> %8.5f format instead of %7.4f
+  //              Might be needed later for high-precision tests.
+  //
+  // Mar 31 2023: add nevt_biascor
+  // Apr 02 2025; write muerr_renorm only if INFO_CCPRIOR.USE = True
+
+  bool DO_BIASCOR_MU = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  //  bool DO_COVSCALE   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
+  bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+
+  double mu, muerr, muerr_renorm, muerr_raw, muerr_vpec, mumodel, mures, pull;
+  double M0DIF, M0ERR ;
+  double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0, muCOVadd=0.0 ;
+  double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
+  int    n, cutmask, NWR, NSN_BIASCOR, idsample, izbin, nevt_biascor=0;
+  char line[400], word[40] ;	 
+  char fnam[] = "write_fitres_line_append_legacy" ;
+
+  // ------------ BEGIN --------------
+
+  n =  indx;
+
+  NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
+
+  cutmask    = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
+  idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
+  izbin      = INFO_DATA.TABLEVAR.IZBIN[n]  ;
+
+  //  z        = INFO_DATA.TABLEVAR.zhd[n] ;  
+  //  zerr     = INFO_DATA.TABLEVAR.zhderr[n] ;
+  mumodel    = INFO_DATA.mumodel[n];
+  mu            = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
+  muerr         = INFO_DATA.muerr[n];
+  muerr_raw     = INFO_DATA.muerr_raw[n] ; // from LC fit only
+  muerr_vpec    = INFO_DATA.muerr_vpec[n] ;
+  mures         = INFO_DATA.mures[n] ;
+  pull          = INFO_DATA.mupull[n] ;
+  M0DIF         = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
+  M0ERR         = FITRESULT.M0ERR[izbin];
+  chi2          = INFO_DATA.chi2[n] ;
+
+  //  sim_mb   = INFO_DATA.TABLEVAR.SIM_FITPAR[INDEX_d][n] ;
+  //  sim_mu   = INFO_DATA.TABLEVAR.SIM_MU[n] ;
+
+  if ( NSN_BIASCOR > 0 ) { 
+    nevt_biascor         = INFO_DATA.nevt_biascor[n] ;
+    muBias               = INFO_DATA.muBias[n] ;
+    muBiasErr            = INFO_DATA.muBiasErr[n] ;
+
+    if ( DO_BIASCOR_MU == false ) {
+      fitParBias[INDEX_d]  = INFO_DATA.fitParBias[n][INDEX_d] ;
+      fitParBias[INDEX_s]  = INFO_DATA.fitParBias[n][INDEX_s] ;
+      fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
+    } 
+    muCOVscale  = INFO_DATA.muCOVscale[n] ; // applied value
+    if ( DO_COVADD ) {  muCOVadd  = INFO_DATA.muCOVadd[n] ; }
+
+  }
+  
+  if (pull > 99.999) { pull=99.999; }
+  
+  NWR=0;  line[0] = 0 ;
+  sprintf(word, "%d ",    cutmask);       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", mu     );       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", mumodel);       NWR++ ; strcat(line,word);
+  sprintf(word, "%8.5f ", muerr  );       NWR++ ; strcat(line,word);
+
+  if ( INFO_CCPRIOR.USE && !SUBPROCESS.USE ) {
+    // Jun 21 2021: beware that muerr_renorm is not malloced or filled
+    //     for SUBPROCESS   
+    muerr_renorm  = INFO_DATA.muerr_renorm[n];
+    sprintf(word, "%7.4f ", muerr_renorm ); NWR++ ; strcat(line,word);
+
+  }
+  sprintf(word, "%7.4f ", muerr_raw );    NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", muerr_vpec );   NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", mures  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%6.3f ", pull   );       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", M0DIF  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%7.4f ", M0ERR  );       NWR++ ; strcat(line,word);
+  sprintf(word, "%.2f ",  chi2   );       NWR++ ; strcat(line,word);
+
+  if ( INFO_CCPRIOR.USE ) { 
+    sprintf(word,"%.3e ", INFO_DATA.probcc_beams[n]);  NWR++; 
+    strcat(line,word);
+  }
+
+  if ( NSN_BIASCOR > 0 ) {
+
+    sprintf(word, "%4d ",   nevt_biascor ); NWR++ ; strcat(line,word);
+    sprintf(word, "%6.4f ", muBias );       NWR++ ; strcat(line,word);
+    sprintf(word, "%6.3f ", muBiasErr );    NWR++ ; strcat(line,word);
+    if ( DO_BIASCOR_MU == false ) {
+      sprintf(word,"%6.4f ", fitParBias[INDEX_d]); NWR++; strcat(line,word);
+      sprintf(word,"%6.3f ", fitParBias[INDEX_s]); NWR++; strcat(line,word);
+      sprintf(word,"%6.4f ", fitParBias[INDEX_c]);  NWR++; strcat(line,word);
+    }
+    sprintf(word, "%6.3f ", muCOVscale ) ;    NWR++ ; strcat(line,word);
+    if ( DO_COVADD ) {
+      sprintf(word, "%6.4f ", muCOVadd ) ;    NWR++ ; strcat(line,word);
+    }
+    sprintf(word, "%d "   , idsample ) ;      NWR++ ; strcat(line,word);
+    sprintf(word, "%2d "  , izbin ) ;         NWR++ ; strcat(line,word);
+
+  }
+
+  
+  fprintf(fp,"%s", line);
+  fflush(fp);
+
+  if ( NWR != NVAR_APPEND ) {
+    sprintf(c1err,"Expected to write NVAR_APPEND=%d SALT2mu variables",
+	    NVAR_APPEND);
+    sprintf(c2err,"but wrote only %d variables.", NWR);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  return ;
+
+} // end of write_fitres_line_append_legacy
+ 
+// ******************************************
+void write_fitres_cat(char *fileName) {
+
+  // Catenate input data tables (cat_only option).
+  // Rows are not stored in memory, so the SNTABLE_APPENDCOL tools
+  // cannot be used. Works for TEXT-format tables only.
+  //
+  // Nov 26 2026: moved from write_fitres_driver.
+
+  int   IWD_KEY  = 0;
+  int   IWD_CCID = 1;
+  FILE  *fout, *finp;
+  int   ivar, NWR, NLINE, GZIPFLAG, nfile, ifile, MSKOPT_PARSE_WORDS, indx;
+  bool  VALID_ROWKEY, IS_RECYCLE ;
+  char  line[MXCHAR_LINE], *ptrFile, *ptrName ;
+  char  KEY[MXCHAR_VARNAME] ;
+  char  fnam[] = "write_fitres_cat" ;
+
+  // ------------------ BEGIN ----------------
+
+  if ( INFO_DATA.IFORMAT == IFORMAT_NPZ ) {
+    sprintf(c1err,"cat_only option is not implemented for NPZ tables");
+    sprintf(c2err,"Use TEXT-format input tables for cat_only.");
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  define_varnames_append();  // sets NVAR_APPEND=0 for cat_only
+
+  fprintf(FP_STDOUT, "\n Open output file with  cutmask_write=%d : \n", 
+	  INPUTS.cutmask_write );
+  fprintf(FP_STDOUT, "\t %s \n", fileName );  
+  fflush(FP_STDOUT);
+
+  fout = fopen(fileName,"wt");
+  if (!fout ) {
+    sprintf(c1err,"Could not open catfile_out='%.*s'", 
+	    MXCHAR_MSGERR-20, INPUTS.cat_file_out);
+    sprintf(c2err,"Check cat_file_out key." );
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  write_cat_info(fout); // write cat info to output file header
+
+  if ( INPUTS.cutmask_write != -9 ) { 
+    fprintf(fout,"VARNAMES: ");
+    IS_RECYCLE = false;
+    for ( ivar=0; ivar < OUTPUT_VARNAMES.NVAR_TOT; ivar++ ) {
+      ptrName = OUTPUT_VARNAMES.LIST[ivar];
+      if ( IS_APPEND_VARNAME(ptrName) ) { IS_RECYCLE = true; }
+      if ( !IS_RECYCLE ) { fprintf(fout,"%s ", ptrName ); }
+    }
+    fprintf(fout, "\n\n");
+  }
+
+  // ignore comma in case sntable_cat.py utility is used for HOSTLIB
+  // that can have commas in the NBR_LIST column.
+  MSKOPT_PARSE_WORDS = 
+    MSKOPT_PARSE_WORDS_STRING + MSKOPT_PARSE_WORDS_IGNORECOMMA ;
+
+  indx = NWR  = NLINE = 0;
+  nfile = INPUTS.nfile_data;
+  for(ifile=0; ifile < nfile; ifile++ ) {
+
+    ptrFile = INPUTS.dataFile[ifile];
+    finp  = open_TEXTgz(ptrFile, "rt", 0, &GZIPFLAG, fnam); 
+
+    while ( fgets (line, MXCHAR_LINE, finp) !=NULL  ) {
+
+      if ( line[0] == ' '    ) { continue ; }
+      if ( strlen(line) < 3  ) { continue ; }
+      if ( commentchar(line) ) { continue ; }
+
+      store_PARSE_WORDS(MSKOPT_PARSE_WORDS,line, fnam);
+
+      // skip if first wd of line is not a valid row key
+      get_PARSE_WORD(0, IWD_KEY, KEY, fnam);
+      VALID_ROWKEY = 
+	( strcmp(KEY,"SN:" )    == 0 ) ||
+	( strcmp(KEY,"ROW:")    == 0 ) ||
+	( strcmp(KEY,"GAL:")    == 0 ) ;
+      if ( !VALID_ROWKEY ) { continue ; }
+
+      // check prescale
+      NLINE++ ;
+      if ( NLINE % INPUTS.cat_prescale != 0 ) { continue ; }
+
+      NWR += write_fitres_line(indx,ifile, KEY,line,fout);
+    }  // end reading line with fgets
+
+    fclose(finp);   
+  } // end ifile
+
+  fclose(fout);
+
+  fprintf(FP_STDOUT, " Wrote %d events to cat table.\n", NWR); 
+  fflush(FP_STDOUT);
+
+  (void)IWD_CCID;
+  return ;
+
+} // end of write_fitres_cat
+
+// ******************************************
+void write_version_info_appendcol(void) {
+
+  // Nov 26 2026
+  // Pass version info to header dictionary of output table.
+  // Same information as write_version_info, but for SNTABLE_APPENDCOL tools.
+  // These are the only header items written to the output FITRES table.
+
+  int  ev;
+  char KEY[100], VAL[100];
+  char fnam[] = "write_version_info_appendcol" ; (void)fnam;
+
+  // ----------- BEGIN --------------
+
+  for(ev=1; ev < MXEVENT_TYPE; ev++ ) {
+    if ( USE_EVENT_TYPE[ev] ) {
+      sprintf(KEY, "%s(%s)", "VERSION_PHOTOMETRY", STRING_EVENT_TYPE[ev]);
+      SNTABLE_APPENDCOL_HEADER(KEY, VERSION_PHOTOMETRY_EVENT_TYPE[ev]);
+    }
+  }
+
+  sprintf(VAL, "%d", ISDATA_REAL);
+  SNTABLE_APPENDCOL_HEADER("ISDATA_REAL",   VAL);
+  SNTABLE_APPENDCOL_HEADER("SNANA_VERSION", SNANA_VERSION_CURRENT);
+  SNTABLE_APPENDCOL_HEADER("PROGRAM",       BBC_CODE);
+  sprintf(VAL, "%d", BBC_VERSION);
+  SNTABLE_APPENDCOL_HEADER("BBC_VERSION",   VAL);
+
+  return;
+} // end write_version_info_appendcol
+
+// ******************************************
+void write_fitres_appendcol(char *fileName) {
+
+  // Created Nov 26 2026
+  // Write FITRES table using SNTABLE_APPENDCOL tools:
+  //   + columns of input data table(s) [OUTPUT_VARNAMES], with original
+  //       TEXT words preserved (no change from numerical round-off)
+  //   + columns replaced by data override or parshift
+  //   + SALT2mu/BBC columns [VARNAMES_APPEND], appended at the end
+  // Only events passing cutmask_write are written.
+  // Format of output table is same as for input table (TEXT or NPZ);
+  // see SNTABLE_APPENDCOL_INIT.
+  //
+  // For cutwin_only option, append only IDSAMPLE.
+  //
+  // Header comments are limited to version info: see write_version_info_appendcol.
+
+  bool  cutwin_only = INPUTS.cutwin_only ;
+  bool  DO_BIASCOR_MU = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
+  bool  DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
+  TABLEVAR_DEF *TABLEVAR = &INFO_DATA.TABLEVAR ;
+  int   NSN_DATA  = TABLEVAR->NSN_ALL;
+  int   NSN_BIASCOR = INFO_BIASCOR.TABLEVAR.NSN_ALL;
+  int   NFILE     = INPUTS.nfile_data ;
+  int   NVAR_TOT  = OUTPUT_VARNAMES.NVAR_TOT ;
+  int   NVAR_OVERRIDE = INFO_DATA.NVAR_OVERRIDE ;
+  int   NPARSHIFT     = INPUTS.SELECT_PARSHIFT.NVAR ;
+
+  int   isn, i, n, ifile, ivar, NKEEP, NSELECT, NWR, ivar_over, ivar_parshift ;
+  int   LEN_INPFILE=0 ;
+  char  *INPFILE, *ptrName, **VARNAME_SELECT ;
+  char  *CID_LIST ;
+  int   *IFILE_LIST, *ISN_LIST ;
+  char  tmpName[MXCHAR_VARNAME], fmt[40];
+
+  // pointers for appended columns
+  void *PTR_FREE[200] ;  int NFREE = 0 ;
+  int    *cutmask_l, *nevt_l, *idsample_l, *izbin_l ;
+  double *mu_l, *mumodel_l, *muerr_l, *muerr_renorm_l, *muerr_raw_l, *muerr_vpec_l ;
+  double *mures_l, *pull_l, *m0dif_l, *m0err_l, *chi2_l, *probcc_l ;
+  double *mubias_l, *mubiaserr_l, *covscale_l, *covadd_l, *bias_d_l, *bias_s_l, *bias_c_l ;
+  char  fnam[] = "write_fitres_appendcol" ;
+
+  // ---------------- BEGIN -----------------
+
+  // check option to NOT write each SN to have smaller file
+  if ( INPUTS.cutmask_write == -9 ) { 
+    fprintf(FP_STDOUT, " Nothing written out  (%d/%d used in fit) \n", 
+	    FITRESULT.NSNFIT , NSN_DATA );  fflush(FP_STDOUT);    
+    return ;
+  }
+
+  // define SALT2mu variables to append: sets NVAR_APPEND and VARNAMES_APPEND
+  define_varnames_append();  
+
+  fprintf(FP_STDOUT, "\n Open output file with  cutmask_write=%d : \n", 
+	  INPUTS.cutmask_write );
+  fprintf(FP_STDOUT, "\t %s \n", fileName );  
+  fflush(FP_STDOUT);
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // select events to write: list of data indices (ISN_LIST), and file index 
+
+  NKEEP = 0;
+  ISN_LIST   = (int*) malloc( (NSN_DATA+1) * sizeof(int) ); 
+  for(isn=0; isn < NSN_DATA; isn++ ) {
+    if ( keep_cutmask(TABLEVAR->CUTMASK[isn]) ) { ISN_LIST[NKEEP] = isn; NKEEP++; }
+  }
+
+  CID_LIST   = (char*) calloc( (size_t)(NKEEP+1)*MXCHAR_CCID, sizeof(char) );
+  IFILE_LIST = (int*)  malloc( (NKEEP+1) * sizeof(int) );
+  for(n=0; n < NKEEP; n++ ) {
+    isn = ISN_LIST[n];
+    snprintf(CID_LIST + (size_t)n*MXCHAR_CCID, MXCHAR_CCID, "%s", TABLEVAR->name[isn]);
+    IFILE_LIST[n] = 0;
+    for(ifile=0; ifile < NFILE; ifile++ ) {
+      if ( isn >= TABLEVAR->EVENT_RANGE[ifile][0] && 
+	   isn <= TABLEVAR->EVENT_RANGE[ifile][1] ) { IFILE_LIST[n] = ifile; break; }
+    }
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // comma-separated list of input files
+  for(ifile=0; ifile < NFILE; ifile++ ) { LEN_INPFILE += strlen(INPUTS.dataFile[ifile]) + 2 ; }
+  INPFILE = (char*) malloc( (LEN_INPFILE+2) * sizeof(char) );
+  INPFILE[0] = 0 ;
+  for(ifile=0; ifile < NFILE; ifile++ ) {
+    if ( ifile > 0 ) { strcat(INPFILE,","); }
+    strcat(INPFILE, INPUTS.dataFile[ifile]);
+  }
+
+  // input columns to carry over to output table; drop SALT2mu variables
+  // if input is a recycled SALT2mu output.
+  VARNAME_SELECT = (char**) malloc( (NVAR_TOT+1) * sizeof(char*) );
+  NSELECT = 0 ;
+  for ( ivar=0; ivar < NVAR_TOT; ivar++ ) {
+    ptrName = OUTPUT_VARNAMES.LIST[ivar];
+    if ( IS_APPEND_VARNAME(ptrName) ) { break ; }
+    VARNAME_SELECT[NSELECT] = ptrName ;  NSELECT++ ;
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // init, select, header, ID, and IFILE (used if same CID is in different input files)
+  SNTABLE_APPENDCOL_INIT(OPTMASK_APPENDCOL_SUBSET, VARNAME_SELECT[0], INPFILE, fileName);
+  SNTABLE_APPENDCOL_SELECT(NSELECT, VARNAME_SELECT);
+  write_version_info_appendcol();
+
+  sprintf(tmpName, "%s:C*%d", VARNAME_SELECT[0], MXCHAR_CCID);
+  SNTABLE_APPENDCOL_STORE_IFILE(NKEEP, IFILE_LIST);
+  SNTABLE_APPENDCOL_STORE(tmpName, NKEEP, CID_LIST);
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // columns that replace values in input table (data override or parshift)
+  if ( NVAR_OVERRIDE > 0 || NPARSHIFT > 0 ) {
+    for ( ivar=0; ivar < NVAR_TOT; ivar++ ) {
+      if ( ivar >= NSELECT ) { break; }
+      ptrName   = OUTPUT_VARNAMES.LIST[ivar];
+      float *PTRVAL = NULL ;
+
+      ivar_over     = ( NVAR_OVERRIDE > 0 ) ? INFO_DATA.IVAR_OVERRIDE_OUTPUT_INVMAP[ivar] : -9 ;
+      ivar_parshift = ( NPARSHIFT     > 0 ) ? INFO_DATA.IVAR_PARSHIFT_OUTPUT_INVMAP[ivar] : -9 ;
+
+      // parshift takes precedence over override
+      if      ( ivar_parshift >= 0 ) { PTRVAL = INFO_DATA.PTRVAL_PARSHIFT[ivar_parshift]; }
+      else if ( ivar_over     >= 0 ) { PTRVAL = INFO_DATA.PTRVAL_OVERRIDE[ivar_over]; }
+      if ( PTRVAL == NULL ) { continue; }
+
+      float *fval = (float*) malloc( (NKEEP+1) * sizeof(float) );
+      PTR_FREE[NFREE++] = fval ;
+      for(n=0; n < NKEEP; n++ ) { fval[n] = PTRVAL[ISN_LIST[n]]; }
+
+      sprintf(tmpName, "%s:F", ptrName);
+      if ( ptrName[0] == 'z' )  { sprintf(fmt,"%%.5f"); }  // formatting for zHD, etc.
+      else                      { sprintf(fmt,"%%.3f"); }
+      SNTABLE_APPENDCOL_STORE_FMT(tmpName, fmt, NKEEP, fval);
+    }
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // SALT2mu variables to append. Order must match define_varnames_append().
+
+  NWR = 0 ;
+
+  // local macros: allocate array, store column, check name against VARNAMES_APPEND.
+#define APPENDCOL_ALLOC(PTR,TYPE) { PTR = (TYPE*) malloc((NKEEP+1)*sizeof(TYPE)); PTR_FREE[NFREE++] = PTR; }
+#define APPENDCOL_STORE(NAME,CAST,FMT,PTR) \
+  { if ( strcmp(NAME,VARNAMES_APPEND[NWR]) != 0 ) { \
+      snprintf(c1err,sizeof(c1err),"Appended column %d is '%.60s' but expected '%.60s'", NWR, NAME, VARNAMES_APPEND[NWR]); \
+      sprintf(c2err,"Check define_varnames_append and write_fitres_appendcol"); \
+      errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); } \
+    sprintf(tmpName,"%s:%s",NAME,CAST);  \
+    SNTABLE_APPENDCOL_STORE_FMT(tmpName, FMT, NKEEP, PTR);  NWR++ ; }
+
+  if ( cutwin_only ) {
+    // append only IDSAMPLE 
+    APPENDCOL_ALLOC(idsample_l, int);
+    for(n=0; n < NKEEP; n++ ) { idsample_l[n] = TABLEVAR->IDSAMPLE[ISN_LIST[n]]; }
+    SNTABLE_APPENDCOL_STORE_FMT("IDSAMPLE:I", "%d", NKEEP, idsample_l);
+    NWR = 0 ;   // NVAR_APPEND=0 for cutwin_only (see define_varnames_append)
+  }
+  else {
+
+    APPENDCOL_ALLOC(cutmask_l, int);
+    APPENDCOL_ALLOC(mu_l,double);      APPENDCOL_ALLOC(mumodel_l,double);  
+    APPENDCOL_ALLOC(muerr_l,double);   APPENDCOL_ALLOC(muerr_raw_l,double);  
+    APPENDCOL_ALLOC(muerr_vpec_l,double);  APPENDCOL_ALLOC(mures_l,double);  
+    APPENDCOL_ALLOC(pull_l,double);    APPENDCOL_ALLOC(m0dif_l,double);  
+    APPENDCOL_ALLOC(m0err_l,double);   APPENDCOL_ALLOC(chi2_l,double);
+
+    bool DO_RENORM = ( INFO_CCPRIOR.USE && !SUBPROCESS.USE );
+    muerr_renorm_l = NULL ;   probcc_l = NULL ;
+    if ( DO_RENORM )         { APPENDCOL_ALLOC(muerr_renorm_l, double); } 
+    if ( INFO_CCPRIOR.USE )  { APPENDCOL_ALLOC(probcc_l, double);  }
+
+    nevt_l = idsample_l = izbin_l = NULL ;
+    mubias_l = mubiaserr_l = covscale_l = covadd_l = bias_d_l = bias_s_l = bias_c_l = NULL ;
+    APPENDCOL_ALLOC(idsample_l, int);   APPENDCOL_ALLOC(izbin_l, int);  
+    if ( NSN_BIASCOR > 0 ) {
+      APPENDCOL_ALLOC(nevt_l, int);
+      APPENDCOL_ALLOC(mubias_l,double);   APPENDCOL_ALLOC(mubiaserr_l,double);  
+      APPENDCOL_ALLOC(covscale_l,double);
+      if ( !DO_BIASCOR_MU ) 
+	{ APPENDCOL_ALLOC(bias_d_l,double);  APPENDCOL_ALLOC(bias_s_l,double);  APPENDCOL_ALLOC(bias_c_l,double); }
+      if ( DO_COVADD ) { APPENDCOL_ALLOC(covadd_l, double); }
+    }
+
+    // fill column arrays (same values as legacy write_fitres_line_append)
+    for(n=0; n < NKEEP; n++ ) {
+      i = ISN_LIST[n] ;
+      int izbin     = TABLEVAR->IZBIN[i] ;
+      double pull   = INFO_DATA.mupull[i] ;
+      if ( pull > 99.999 ) { pull = 99.999; }
+
+      cutmask_l[n]   = TABLEVAR->CUTMASK[i] ;
+      mu_l[n]        = INFO_DATA.mu[i] - FITRESULT.SNMAG0 ;
+      mumodel_l[n]   = INFO_DATA.mumodel[i] ;
+      muerr_l[n]     = INFO_DATA.muerr[i] ;
+      muerr_raw_l[n] = INFO_DATA.muerr_raw[i] ;  // from LC fit only
+      muerr_vpec_l[n]= INFO_DATA.muerr_vpec[i] ;
+      mures_l[n]     = INFO_DATA.mures[i] ;
+      pull_l[n]      = pull ;
+      m0dif_l[n]     = INFO_DATA.M0[i] - FITRESULT.AVEMAG0 ;
+      m0err_l[n]     = FITRESULT.M0ERR[izbin] ;
+      chi2_l[n]      = INFO_DATA.chi2[i] ;
+      idsample_l[n]  = TABLEVAR->IDSAMPLE[i] ;
+      izbin_l[n]     = izbin ;
+
+      // muerr_renorm is not malloced or filled for SUBPROCESS
+      if ( DO_RENORM )  { muerr_renorm_l[n] = INFO_DATA.muerr_renorm[i]; }
+      if ( INFO_CCPRIOR.USE ) { probcc_l[n] = INFO_DATA.probcc_beams[i]; }
+
+      if ( NSN_BIASCOR > 0 ) {
+	nevt_l[n]      = INFO_DATA.nevt_biascor[i] ;
+	mubias_l[n]    = INFO_DATA.muBias[i] ;
+	mubiaserr_l[n] = INFO_DATA.muBiasErr[i] ;
+	covscale_l[n]  = INFO_DATA.muCOVscale[i] ;   // applied value
+	if ( !DO_BIASCOR_MU ) {
+	  bias_d_l[n] = INFO_DATA.fitParBias[i][INDEX_d] ;
+	  bias_s_l[n] = INFO_DATA.fitParBias[i][INDEX_s] ;
+	  bias_c_l[n] = INFO_DATA.fitParBias[i][INDEX_c] ;
+	}
+	if ( DO_COVADD ) { covadd_l[n] = INFO_DATA.muCOVadd[i]; }
+      }
+    }
+
+    // store in same order as VARNAMES_APPEND
+    APPENDCOL_STORE("CUTMASK",     "I", "%d",    cutmask_l);
+    APPENDCOL_STORE("MU",          "D", "%8.5f", mu_l);
+    APPENDCOL_STORE("MUMODEL",     "D", "%8.5f", mumodel_l);
+    APPENDCOL_STORE("MUERR",       "D", "%8.5f", muerr_l);
+    if ( DO_RENORM ) { APPENDCOL_STORE("MUERR_RENORM", "D", "%7.4f", muerr_renorm_l); }
+    APPENDCOL_STORE("MUERR_RAW",   "D", "%7.4f", muerr_raw_l);
+    APPENDCOL_STORE("MUERR_VPEC",  "D", "%7.4f", muerr_vpec_l);
+    APPENDCOL_STORE("MURES",       "D", "%7.4f", mures_l);
+    APPENDCOL_STORE("MUPULL",      "D", "%6.3f", pull_l);
+    APPENDCOL_STORE("M0DIF",       "D", "%7.4f", m0dif_l);
+    APPENDCOL_STORE("M0DIFERR",    "D", "%7.4f", m0err_l);
+    if ( INFO_CCPRIOR.USE ) {
+      APPENDCOL_STORE("CHI2_BEAMS",   "D", "%.2f", chi2_l);
+      APPENDCOL_STORE("PROBCC_BEAMS", "D", "%.3e", probcc_l);
+    }
+    else
+      { APPENDCOL_STORE("CHI2", "D", "%.2f", chi2_l); }
+
+    if ( NSN_BIASCOR > 0 ) {
+      APPENDCOL_STORE("biasCor_nevt",   "I", "%4d",   nevt_l);
+      APPENDCOL_STORE("biasCor_mu",     "D", "%6.4f", mubias_l);
+      APPENDCOL_STORE("biasCorErr_mu",  "D", "%6.3f", mubiaserr_l);
+      if ( !DO_BIASCOR_MU ) {
+	APPENDCOL_STORE("biasCor_mB", "D", "%6.4f", bias_d_l);
+	APPENDCOL_STORE("biasCor_x1", "D", "%6.3f", bias_s_l);
+	APPENDCOL_STORE("biasCor_c",  "D", "%6.4f", bias_c_l);
+      }
+      APPENDCOL_STORE("biasCor_muCOVSCALE", "D", "%6.3f", covscale_l);
+      if ( DO_COVADD ) 
+	{ APPENDCOL_STORE("biasCor_muCOVADD", "D", "%6.4f", covadd_l); }
+      APPENDCOL_STORE("IDSAMPLE",     "I", "%d",  idsample_l);
+      APPENDCOL_STORE(VARNAME_IZBIN,  "I", "%2d", izbin_l);
+    }
+  }
+
+  if ( NWR != NVAR_APPEND ) {
+    sprintf(c1err,"Expected to store NVAR_APPEND=%d SALT2mu variables", NVAR_APPEND);
+    sprintf(c2err,"but stored only %d variables.", NWR);
+    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
+  }
+
+  // - - - - - - - - - - - - - - - - - - - - - - - -
+  // create output table
+  SNTABLE_APPENDCOL_EXEC();
+
+  // free memory
+  for(i=0; i < NFREE; i++ ) { free(PTR_FREE[i]); }
+  free(ISN_LIST);  free(CID_LIST);  free(IFILE_LIST);  free(INPFILE);  free(VARNAME_SELECT);
+
+  if ( cutwin_only ) {
+    double fcut = 100.*(double)NKEEP / (double)NSN_DATA ;
+    fprintf(FP_STDOUT, " Wrote %d events passing cutwin_only (%.1f%% of %d input events). \n",
+	    NKEEP, fcut, NSN_DATA );
+  }
+  else {
+    fprintf(FP_STDOUT, " Wrote %d SN  (%d/%d used in fit) \n", 
+	    NKEEP, FITRESULT.NSNFIT , NSN_DATA );
+  }
+  fflush(FP_STDOUT);
+
+  return ;
+
+} // end of write_fitres_appendcol
 
 
 // =============================================
@@ -24569,10 +25270,13 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
   //
   // Oct 02 2026: increase word size from MXCHAR_VARNAME to 2*MXCHAR_VARNAME
   //              to protect against long NBR_LIST strings
+  //
+  // Nov 26 2026: now used only for cat_only option (see write_fitres_cat);
+  //              other output is done with SNTABLE_APPENDCOL tools.
 
   int NVAR_TOT = OUTPUT_VARNAMES.NVAR_TOT ;  
   int ISTAT = 0 ;
-  int  ivar_tot, ivar_file, ivar_word, idsample ;
+  int  ivar_tot, ivar_file, ivar_word ;
   bool IS_RECYCLED = false; 
   char word[2*MXCHAR_VARNAME], line_out[MXCHAR_LINE] ;  
   char blank[] = " ";
@@ -24626,17 +25330,7 @@ int write_fitres_line(int indx, int ifile, char *rowkey,
     strcat(line_out, blank );
   }
 
-  fprintf(fout,"%s", line_out);
-  bool skip_line_append = INPUTS.cat_only || INPUTS.cutwin_only ;
-  if ( !skip_line_append ) { write_fitres_line_append(fout, indx); }
-
-  // for cutwin_only option, append line only with IDSAMPLE
-  if ( INPUTS.cutwin_only ) {
-    idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[indx]  ;
-    fprintf(fout,"   %2d", idsample);
-  }
-
-  fprintf(fout,"\n");
+  fprintf(fout,"%s\n", line_out);
 
   ISTAT = 1;
 
@@ -25301,134 +25995,7 @@ void get_CCIDindx(char *CCID, int *indx) {
 } // end of get_CCIDindx
 
 
-// ============================================
-void write_fitres_line_append(FILE *fp, int indx ) {
-
-  // Oct 17, 2011 R.Kessler
-  // append line in fitres file with SALT2mu info corresponding to 
-  // this CID.
-  // indx is the data index for INFO_DATA.TABLEVAR arrays.
-  //
-  // Apr 22 2022: mu/mumodel/muerr -> %8.5f format instead of %7.4f
-  //              Might be needed later for high-precision tests.
-  //
-  // Mar 31 2023: add nevt_biascor
-  // Apr 02 2025; write muerr_renorm only if INFO_CCPRIOR.USE = True
-
-  bool DO_BIASCOR_MU = (INPUTS.opt_biasCor & MASK_BIASCOR_MU );
-  //  bool DO_COVSCALE   = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVSCALE) > 0;
-  bool DO_COVADD     = (INPUTS.opt_biasCor & MASK_BIASCOR_MUCOVADD) > 0;
-
-  double mu, muerr, muerr_renorm, muerr_raw, muerr_vpec, mumodel, mures, pull;
-  double M0DIF, M0ERR ;
-  double muBias=0.0, muBiasErr=0.0,  muCOVscale=0.0, chi2=0.0, muCOVadd=0.0 ;
-  double fitParBias[NLCPAR] = { 0.0, 0.0, 0.0 } ;
-  int    n, cutmask, NWR, NSN_BIASCOR, idsample, izbin, nevt_biascor=0;
-  char line[400], word[40] ;	 
-  char fnam[] = "write_fitres_line_append" ;
-
-  // ------------ BEGIN --------------
-
-  n =  indx;
-
-  NSN_BIASCOR =  INFO_BIASCOR.TABLEVAR.NSN_ALL;
-
-  cutmask    = INFO_DATA.TABLEVAR.CUTMASK[n]  ;
-  idsample   = INFO_DATA.TABLEVAR.IDSAMPLE[n]  ;
-  izbin      = INFO_DATA.TABLEVAR.IZBIN[n]  ;
-
-  //  z        = INFO_DATA.TABLEVAR.zhd[n] ;  
-  //  zerr     = INFO_DATA.TABLEVAR.zhderr[n] ;
-  mumodel    = INFO_DATA.mumodel[n];
-  mu            = INFO_DATA.mu[n] - FITRESULT.SNMAG0; 
-  muerr         = INFO_DATA.muerr[n];
-  muerr_raw     = INFO_DATA.muerr_raw[n] ; // from LC fit only
-  muerr_vpec    = INFO_DATA.muerr_vpec[n] ;
-  mures         = INFO_DATA.mures[n] ;
-  pull          = INFO_DATA.mupull[n] ;
-  M0DIF         = INFO_DATA.M0[n] - FITRESULT.AVEMAG0 ;
-  M0ERR         = FITRESULT.M0ERR[izbin];
-  chi2          = INFO_DATA.chi2[n] ;
-
-  //  sim_mb   = INFO_DATA.TABLEVAR.SIM_FITPAR[INDEX_d][n] ;
-  //  sim_mu   = INFO_DATA.TABLEVAR.SIM_MU[n] ;
-
-  if ( NSN_BIASCOR > 0 ) { 
-    nevt_biascor         = INFO_DATA.nevt_biascor[n] ;
-    muBias               = INFO_DATA.muBias[n] ;
-    muBiasErr            = INFO_DATA.muBiasErr[n] ;
-
-    if ( DO_BIASCOR_MU == false ) {
-      fitParBias[INDEX_d]  = INFO_DATA.fitParBias[n][INDEX_d] ;
-      fitParBias[INDEX_s]  = INFO_DATA.fitParBias[n][INDEX_s] ;
-      fitParBias[INDEX_c]  = INFO_DATA.fitParBias[n][INDEX_c] ;    
-    } 
-    muCOVscale  = INFO_DATA.muCOVscale[n] ; // applied value
-    if ( DO_COVADD ) {  muCOVadd  = INFO_DATA.muCOVadd[n] ; }
-
-  }
-  
-  if (pull > 99.999) { pull=99.999; }
-  
-  NWR=0;  line[0] = 0 ;
-  sprintf(word, "%d ",    cutmask);       NWR++ ; strcat(line,word);
-  sprintf(word, "%8.5f ", mu     );       NWR++ ; strcat(line,word);
-  sprintf(word, "%8.5f ", mumodel);       NWR++ ; strcat(line,word);
-  sprintf(word, "%8.5f ", muerr  );       NWR++ ; strcat(line,word);
-
-  if ( INFO_CCPRIOR.USE && !SUBPROCESS.USE ) {
-    // Jun 21 2021: beware that muerr_renorm is not malloced or filled
-    //     for SUBPROCESS   
-    muerr_renorm  = INFO_DATA.muerr_renorm[n];
-    sprintf(word, "%7.4f ", muerr_renorm ); NWR++ ; strcat(line,word);
-
-  }
-  sprintf(word, "%7.4f ", muerr_raw );    NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", muerr_vpec );   NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", mures  );       NWR++ ; strcat(line,word);
-  sprintf(word, "%6.3f ", pull   );       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", M0DIF  );       NWR++ ; strcat(line,word);
-  sprintf(word, "%7.4f ", M0ERR  );       NWR++ ; strcat(line,word);
-  sprintf(word, "%.2f ",  chi2   );       NWR++ ; strcat(line,word);
-
-  if ( INFO_CCPRIOR.USE ) { 
-    sprintf(word,"%.3e ", INFO_DATA.probcc_beams[n]);  NWR++; 
-    strcat(line,word);
-  }
-
-  if ( NSN_BIASCOR > 0 ) {
-
-    sprintf(word, "%4d ",   nevt_biascor ); NWR++ ; strcat(line,word);
-    sprintf(word, "%6.4f ", muBias );       NWR++ ; strcat(line,word);
-    sprintf(word, "%6.3f ", muBiasErr );    NWR++ ; strcat(line,word);
-    if ( DO_BIASCOR_MU == false ) {
-      sprintf(word,"%6.4f ", fitParBias[INDEX_d]); NWR++; strcat(line,word);
-      sprintf(word,"%6.3f ", fitParBias[INDEX_s]); NWR++; strcat(line,word);
-      sprintf(word,"%6.4f ", fitParBias[INDEX_c]);  NWR++; strcat(line,word);
-    }
-    sprintf(word, "%6.3f ", muCOVscale ) ;    NWR++ ; strcat(line,word);
-    if ( DO_COVADD ) {
-      sprintf(word, "%6.4f ", muCOVadd ) ;    NWR++ ; strcat(line,word);
-    }
-    sprintf(word, "%d "   , idsample ) ;      NWR++ ; strcat(line,word);
-    sprintf(word, "%2d "  , izbin ) ;         NWR++ ; strcat(line,word);
-
-  }
-
-  
-  fprintf(fp,"%s", line);
-  fflush(fp);
-
-  if ( NWR != NVAR_APPEND ) {
-    sprintf(c1err,"Expected to write NVAR_APPEND=%d SALT2mu variables",
-	    NVAR_APPEND);
-    sprintf(c2err,"but wrote only %d variables.", NWR);
-    errlog(FP_STDOUT, SEV_FATAL, fnam, c1err, c2err); 
-  }
-
-  return ;
-
-} // end of write_fitres_line_append
+// Nov 26 2026: write_fitres_line_append removed; replaced by write_fitres_appendcol.
 
 
 // **************************************
@@ -27765,7 +28332,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
   // For now it's hard-wired, but later should match based
   // on column name and column index.
 
-  float *PTRVAL ; 
+  float *PTRVAL ; (void)PTRVAL;
   int IVAR_TABLE = SUBPROCESS_IVAR_TABLE(VARNAME);
   int ivar, NVAR_VALID=0 ;
   bool MATCH     = false;
@@ -27791,6 +28358,7 @@ void SUBPROCESS_STORE_BININFO(int ITABLE, int IVAR, char *VARDEF_STRING ) {
     INFO_DATA.TABLEVAR.host_color,   INFO_DATA.TABLEVAR.host_color
   } ;
 
+  PTRVAL = NULL;
   if ( IVAR_TABLE >= 0 ) {
     // Mar 7 2022: load value from supplemental table 
     PTRVAL = SUBPROCESS.TABLEVAR[IVAR_TABLE];

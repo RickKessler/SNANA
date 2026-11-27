@@ -19,6 +19,9 @@
 
  Nov 13 2026: comment out HPAK_LEGACY preproc flag ... hopefully forever.
 
+ Nov 26 2026: add SNTABLE_APPENDCOL_[INIT,SELECT,HEADER,STORE,EXEC] tools to append
+              entire columns to an existing table file (TEXT or NPZ format).
+
 *******************************************/
 
 
@@ -268,6 +271,70 @@ struct LASTREAD_AUTOSTORE  {
 
 
 
+// ---------------------------------------------------------------
+// Nov 2026: define struct for SNTABLE_APPENDCOL tools, which append 
+// entire columns to an existing table (TEXT or NPZ format).
+// Call sequence:
+//   SNTABLE_APPENDCOL_INIT(OPTMASK, VARNAME_ID, INPFILE, OUTFILE)
+//   SNTABLE_APPENDCOL_SELECT(NVAR, VARNAME_LIST)      // optional
+//   SNTABLE_APPENDCOL_HEADER(KEY, VAL)                // optional, any number
+//   SNTABLE_APPENDCOL_STORE_IFILE(NLIST, IFILE_LIST)  // optional, multi-file only
+//   SNTABLE_APPENDCOL_STORE('CID:C*20', NLIST, CID_LIST)  // ID column, required
+//   SNTABLE_APPENDCOL_STORE('MU:D',     NLIST, MU_LIST)   // any number of columns
+//   SNTABLE_APPENDCOL_EXEC()
+//
+#define OPTMASK_APPENDCOL_SUBSET   1  // OUTFILE has only rows in STORE'd ID list
+#define OPTMASK_APPENDCOL_ALLROWS  2  // OUTFILE has all INPFILE rows; undefined -> -888
+#define VAL_UNDEF_APPENDCOL     -888  
+
+#define MXFILE_APPENDCOL     20   // max number of input files per call
+#define MXCOL_APPENDCOL      200  // max number of stored columns
+#define MXHDR_APPENDCOL      50   // max number of header items
+
+typedef struct {
+  bool   INIT_DONE ;     // set by INIT, cleared by EXEC 
+  int    OPTMASK ;
+  char   VARNAME_ID[MXCHAR_VARNAME] ; // name of row identifier column
+  int    NFILE_INP ;
+  char   *INPFILE[MXFILE_APPENDCOL] ; // malloc'ed
+  char   OUTFILE[MXCHAR_FILENAME] ;
+  int    IFILETYPE ;                  // IFILETYPE_TEXT or IFILETYPE_NPZ (same for all INPFILEs)
+
+  // optional list of input columns to keep (in this order); NVAR_SELECT=0 -> keep all columns.
+  // A selected column missing from an input file is filled with -9.
+  int    NVAR_SELECT ;
+  char   **VARNAME_SELECT ;           // malloc'ed
+
+  // header-dictionary items
+  int    NHDR ;
+  char   *HDR_KEY[MXHDR_APPENDCOL], *HDR_VAL[MXHDR_APPENDCOL] ;  // malloc'ed
+
+  // stored columns; arrays are NOT copied, so they must remain valid until EXEC.
+  int    NLIST ;                      // number of rows in each stored array
+  int    NCOL ;
+  char   VARNAME[MXCOL_APPENDCOL][MXCHAR_VARNAME] ;
+  int    ICAST[MXCOL_APPENDCOL] ;
+  int    ISIZE[MXCOL_APPENDCOL] ;     // string length for ICAST_C
+  char   TEXTFMT[MXCOL_APPENDCOL][24] ; // optional printf format for TEXT output
+  void   *PTR[MXCOL_APPENDCOL] ;
+  int    ICOL_ID ;                    // index of ID column in stored arrays 
+  int    *IFILE_LIST ;                // optional: IFILE for each stored row (see STORE_IFILE)
+
+} SNTABLE_APPENDCOL_DEF ;
+
+SNTABLE_APPENDCOL_DEF SNTABLE_APPENDCOL ;
+
+// hash table that maps (ID,IFILE) of stored rows to stored-list index 
+typedef struct {
+  int   NSLOT ;          // power of 2
+  int   *ISLOT ;         // list index in each slot, or -1 
+  char  *IDLIST ;        // flat ID array of stored rows (not owned)
+  int   ISIZE ;          // length of each ID string
+  int   *IFILE_LIST ;    // not owned; can be NULL
+  int   OWN_IDLIST ;     // 1 -> IDLIST was created here and is freed by appendcol_hash_free
+} APPENDCOL_HASH_DEF ;
+
+
 // generic strings for errmsg 
 #define MXCHAR_MSGERR 200
 char MSGERR1[MXCHAR_MSGERR+20], MSGERR2[MXCHAR_MSGERR+20] ;
@@ -477,6 +544,28 @@ extern"C" {
   // generic string utility; used by sntools_output_root.c
   char *replace_str(char *st, const char *orig, const char *repl) ;
   
+
+  // ---- APPENDCOL tools (Nov 2026)
+  void SNTABLE_APPENDCOL_INIT(int OPTMASK, char *VARNAME_ID, char *INPFILE, char *OUTFILE);
+  void SNTABLE_APPENDCOL_SELECT(int NVAR, char **VARNAME_LIST);
+  void SNTABLE_APPENDCOL_HEADER(const char *KEY, const char *VAL);
+  void SNTABLE_APPENDCOL_STORE_IFILE(int NLIST, int *IFILE_LIST);
+  void SNTABLE_APPENDCOL_STORE(char *VARDEF, int NLIST, void *PTRLIST);
+  void SNTABLE_APPENDCOL_STORE_FMT(char *VARDEF, char *TEXTFMT, int NLIST, void *PTRLIST);
+  void SNTABLE_APPENDCOL_EXEC(void);
+
+  // utilities used by format-specific EXEC functions
+  void appendcol_hash_init(APPENDCOL_HASH_DEF *H);
+  int  appendcol_hash_find(APPENDCOL_HASH_DEF *H, char *ID, int IFILE);
+  void appendcol_hash_free(APPENDCOL_HASH_DEF *H);
+  void appendcol_get_idstring(int ICAST, void *ptr, int isize, int irow, char *ID);
+  int  appendcol_check_stored(char *fnam);
+  void appendcol_print_stats(int NROW_INP, int NROW_OUT, int NMATCH, int NLIST_UNMATCHED);
+  void appendcol_replaced_index(int NVAR, char **VARNAME_LIST, int *ICOL_REPLACE, int *IS_APPENDED);
+
+  void SNTABLE_APPENDCOL_EXEC_TEXT(void);   // in sntools_output_text.c
+  void SNTABLE_APPENDCOL_EXEC_NPZ(void);    // in sntools_output_npz.c
+  void npz_table_putcol (int h, int icol, void *ptr, size_t nrow); // write full column
 
   // --- npz functions ---
   int read_npz_covmat(char *npz_file, double *array1d);

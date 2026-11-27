@@ -755,7 +755,7 @@ void SNTABLE_ADDCOL(int IDTABLE, char *BLOCK, void* PTRVAR,
   // define new column(s) in table.
   // Inputs:
   // - IDTABLE :  integer specifier previously passed to SNTABLE_CREATE
-  // - BLOCK   :  name of variable block (used for hbook, but not root)
+  // - BLOCK   :  OBSOLETE name of variable block (used for hbook, but not root)
   // - PTRVAR  :  pointer to variable that will be filled each event
   // - VARLIST :  comma-separated or space-separated list of variables 
   //              with cast;

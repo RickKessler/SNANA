@@ -363,6 +363,15 @@ For help, run code with no arguments
 
   Aug 21 2026 RK - set default restore_sn_unite=0 to implement the subtle fix
                    in issue https://github.com/RickKessler/SNANA/issues/1699
+
+  Nov 25 2026 RK -
+    + begin testing input NPZ tables. Add INFO_DATA.IFORMAT to store format of
+      input data table so that ouput FITRES table has same format.
+      Reading tables and doing the fit work fine:  M0DIF(NPZ) - M0DIF(TEXT) vs. 
+      zHD agrees to .1 mmag.
+      The remaining challenge is the output NPZ table and what to do with all 
+      the human-readable comment-mess at the top of the output FITRES (TEXT) files.
+
  ******************************************************/
 
 #include "sntools.h" 

@@ -24423,13 +24423,15 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
 
          ***** IMPORTANT(v12_02g) *****
 
-    SALT2mu.c:  CCprior bug fixes; see #1839
+    SALT2mu.c: 
+     + CCprior bug fixes; see #1839
+     + beging testing with input NPZ tables.
 
     Lots of misc changes to handle FITRES table sin NPZ or .gz(text) format/
 
     submit_prog_lcfit.py:
       + global FORCE_TEXTFILE_PREFIX = False so that user must specify                                      
-        TEXTFILE_PREFIX or NPZFILE_PREFIX. No more forcing TEXTFILE_PREFIX. 
+        TEXTFILE_PREFIX or NPZFILE_PREFIX. No more forcing TEXTFILE_PREFIX.
 
          *****  USEFUL(v12_02g) *****
          
@@ -24476,6 +24478,18 @@ TASK081_ZPHOT_SDSS_MLCS+HOST_5PAR       :  mis-match (REF != TEST)
     - PROGRAM_COMBINE and NFILE_COMBINED header keys in 5_MERGE make sense for
       appending predictions.csv, but these keys are stale when BBC stage
       does another merge with sntable_cat.
+
+    - SALT2mu: need to append columns in a uniform way for TEXT and NPZ;
+
+         SNTABLE_APPENDCOL_INIT(VARNAME_IDMASK)
+         SNTABLE_APPENDCOL('CID:C*20, NLIST, CID_LIST)
+         SNTABLE_APPENDCOL('MU:D',    NLIST, MU_LIST)
+         SNTABLE_APPENDCOL('MU:F',    NLIST, MU_LIST)
+         SNTABLE_APPENDCOL('FLAG:I',  NLIST, FLAG_LIST)
+         SNTABLE_APPENDCOL_EXEC(OPTMASK, INPFILE, OUTFILE)
+             OPTMASK=1 -> output only CID_LIST
+             OPTMASK=2 -> output all CID, -888 for undefined append values
+
 
 END:
 

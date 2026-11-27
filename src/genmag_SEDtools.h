@@ -109,6 +109,16 @@ struct CALIB_WAVECOR_GRID {
 } WAVECOR_SEDMODEL ;
 
 
+// Nov 2026: primary mag and ZP_MODEL for each filter on the DETCOR map's
+// property grid (e.g. ice thickness), with transmission T(lam)*R(lam;prop).
+struct CALIB_DETCOR_GRID {
+  int     NGRID;            // = DETCOR_SEDMODEL.NPROP
+  double *PROP_GRID;        // points to DETCOR_SEDMODEL.PROP (ascending)
+  double **MAG_GRID;        // primary mag  [ifilt][iprop]
+  double **ZP_MODEL_GRID;   // ZP_MODEL     [ifilt][iprop]
+} DETCOR_GRID_SEDMODEL ;
+
+
 struct MWXT_SEDMODEL {
   int    OPT_COLORLAW ; // 89, 94, 99 ...
   double PARLIST_COLORLAW[10];
@@ -395,8 +405,11 @@ void   compute_wavecor_info_SEDMODEL(int IFILT, double WAVECOR,
 				     double *PRIMARY_MAG, double *ZP_MODEL) ;
 void   fetch_wavecor_SEDMODEL(double wavecor, double *primary_mag, double *zp_model );
 
-void   PREP_DETCOR_SEDMODEL(char *DETCOR_FILE, char *COLUMN_NAME, char *COLUNM_RATIO);
-void   prep_detcor_sedmodel__(char *DETCOR_FILE, char *COLUMN_NAME, char *COLUNM_RATIO);
+void   PREP_DETCOR_SEDMODEL(char *DETCOR_FILE, char *COLUMN_NAME, char *RATIO_NAME);
+void   prep_detcor_sedmodel__(char *DETCOR_FILE, char *COLUMN_NAME, char *RATIO_NAME);
+void   compute_detcor_info_SEDMODEL(int IFILT, double PROP,
+				    double *PRIMARY_MAG, double *ZP_MODEL) ;
+void   get_ZP_MODEL_DETCOR_SEDMODEL(int ifilt, double prop, double *zp_model);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // SPECTROGRAPH functions

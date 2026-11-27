@@ -37,18 +37,45 @@ typedef struct {
   char   *RATIO_NAME ;             // ratio (model) column name;        e.g. "RATIO_THUSHARA"
 } DETCOR_MAP_DEF;
 
+/* Property value vs. MJD (e.g., ice thickness history), read from MJD_FILE:
+ *
+ *   VARNAMES: ROW MJD ICE_THICKNESS
+ *   ROW: 1  61000.00000    0.0
+ *   ROW: 2  61001.00000   12.0
+ *
+ * The property column is selected by the same COLUMN_NAME as the map.
+ * MJD must be strictly ascending; the property is linearly interpolated
+ * in MJD, so a sawtooth (e.g. decon cycle) is exact if the file lists its
+ * breakpoints. An MJD outside the table range aborts.
+ */
+typedef struct {
+  char    FILENAME[1024];
+  int     NMJD;
+  double *MJD;                     // [NMJD] strictly ascending
+  double *PROP;                    // [NMJD] property value at each MJD
+  char   *COLUMN_NAME ;            // property column name; e.g. "ICE_THICKNESS"
+} DETCOR_MJD_DEF;
+
 DETCOR_MAP_DEF DETCOR_SEDMODEL ; // Nov 24 2026 RK 
+DETCOR_MJD_DEF DETCOR_MJD_TABLE ; // property vs. MJD from MJD_FILE (Nov 2026)
 
 /* Read long-format map file into *map (allocates). Aborts via errmsg on any problem. */
-void   read_detcor_map(char *fileName, DETCOR_MAP_DEF *map,
+void   READ_DETCOR_MAP(char *fileName, DETCOR_MAP_DEF *map,
                        char *column_name, char *ratio_name);
 void   free_detcor_map(DETCOR_MAP_DEF *map);
+
+/* Read property-vs-MJD file into *tab (allocates); free with free_detcor_mjd. */
+void   READ_DETCOR_MJD(char *fileName, DETCOR_MJD_DEF *tab, char *column_name);
+void   free_detcor_mjd(DETCOR_MJD_DEF *tab);
+
+/* Property value at mjd (linear interp); aborts if mjd outside table range. */
+double GET_DETCOR_PROP(DETCOR_MJD_DEF *tab, double mjd);
 
 /* R(wave; prop) at one wavelength [A]; 1 outside the map's WAVE range. */
 double interp_detcor_ratio(DETCOR_MAP_DEF *map, double prop, double wave_A);
 
 /* R(WAVE[iw]; prop) for all map wavelengths -> ratio_out[NWAVE]. */
-void   get_detcor_ratio(DETCOR_MAP_DEF *map, double prop, double *ratio_out);
+void   GET_DETCOR_RATIO(DETCOR_MAP_DEF *map, double prop, double *ratio_out);
 
 /* trans_detcor[i] = trans_nom[i] * R(lam[i]; prop), for any filter grid. */
 void   apply_detcor_to_filter(DETCOR_MAP_DEF *map, double prop, int NLAM,

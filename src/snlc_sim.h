@@ -2059,6 +2059,7 @@ void   prep_user_murewgt(MUREWGT_DEF *MUREWGT);
 void   prep_user_CUTWIN(void);
 void   prep_user_SIMSED(void);
 void   prep_detcor_mjd(void);
+void   init_detcor_genmodel(void);
 void   prep_dustFlags(void);
 void   prep_GENPDF_FLAT(void);
 

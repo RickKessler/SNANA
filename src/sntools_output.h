@@ -279,6 +279,8 @@ struct LASTREAD_AUTOSTORE  {
 //   SNTABLE_APPENDCOL_SELECT(NVAR, VARNAME_LIST)      // optional
 //   SNTABLE_APPENDCOL_HEADER(KEY, VAL)                // optional, any number
 //   SNTABLE_APPENDCOL_STORE_IFILE(NLIST, IFILE_LIST)  // optional, multi-file only
+//   SNTABLE_APPENDCOL_STORE_IROW(NLIST, IROW_LIST)    // optional; match on absolute row
+//                                                     //   index instead of ID (see below)
 //   SNTABLE_APPENDCOL_STORE('CID:C*20', NLIST, CID_LIST)  // ID column, required
 //   SNTABLE_APPENDCOL_STORE('MU:D',     NLIST, MU_LIST)   // any number of columns
 //   SNTABLE_APPENDCOL_EXEC()
@@ -319,6 +321,7 @@ typedef struct {
   void   *PTR[MXCOL_APPENDCOL] ;
   int    ICOL_ID ;                    // index of ID column in stored arrays 
   int    *IFILE_LIST ;                // optional: IFILE for each stored row (see STORE_IFILE)
+  int    *IROW_LIST ;                 // optional: absolute row index of each stored row (see STORE_IROW)
 
 } SNTABLE_APPENDCOL_DEF ;
 
@@ -331,6 +334,8 @@ typedef struct {
   char  *IDLIST ;        // flat ID array of stored rows (not owned)
   int   ISIZE ;          // length of each ID string
   int   *IFILE_LIST ;    // not owned; can be NULL
+  int   *IROWMAP ;       // owned; if not NULL, match on absolute row index: IROWMAP[irow]=stored index or -1
+  int   NROWMAP ;        // length of IROWMAP
   int   OWN_IDLIST ;     // 1 -> IDLIST was created here and is freed by appendcol_hash_free
 } APPENDCOL_HASH_DEF ;
 
@@ -550,13 +555,14 @@ extern"C" {
   void SNTABLE_APPENDCOL_SELECT(int NVAR, char **VARNAME_LIST);
   void SNTABLE_APPENDCOL_HEADER(const char *KEY, const char *VAL);
   void SNTABLE_APPENDCOL_STORE_IFILE(int NLIST, int *IFILE_LIST);
+  void SNTABLE_APPENDCOL_STORE_IROW(int NLIST, int *IROW_LIST);
   void SNTABLE_APPENDCOL_STORE(char *VARDEF, int NLIST, void *PTRLIST);
   void SNTABLE_APPENDCOL_STORE_FMT(char *VARDEF, char *TEXTFMT, int NLIST, void *PTRLIST);
   void SNTABLE_APPENDCOL_EXEC(void);
 
   // utilities used by format-specific EXEC functions
   void appendcol_hash_init(APPENDCOL_HASH_DEF *H);
-  int  appendcol_hash_find(APPENDCOL_HASH_DEF *H, char *ID, int IFILE);
+  int  appendcol_hash_find(APPENDCOL_HASH_DEF *H, char *ID, int IFILE, int IROW_ABS);
   void appendcol_hash_free(APPENDCOL_HASH_DEF *H);
   void appendcol_get_idstring(int ICAST, void *ptr, int isize, int irow, char *ID);
   int  appendcol_check_stored(char *fnam);

@@ -2119,7 +2119,7 @@ void SNTABLE_APPENDCOL_EXEC_TEXT(void) {
 
       // match to stored list using hash table
       snprintf(ID, sizeof(ID), "%s", wd[IVAR_ID+1]);
-      int m = appendcol_hash_find(&H, ID, ifile);
+      int m = appendcol_hash_find(&H, ID, ifile, NROW_INP-1);
 
       if ( m < 0 && !ALLROWS ) { continue; }
       if ( m >= 0 ) { NMATCH++ ; USED[m] = 1; }

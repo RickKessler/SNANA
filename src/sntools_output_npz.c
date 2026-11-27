@@ -407,6 +407,28 @@ int SNTABLE_READ_EXEC_NPZ(int OPTMASK) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
+  // Nov 2026: as in the TEXT reader, accumulate comma-sep VERSION_PHOTOMETRY
+  // from header (stored in SNTABLE_VERSION_PHOTOMETRY, used by SALT2mu).
+  {
+    std::vector<std::string> hlines;
+    npzrd::json_to_comments(hlines);
+    std::string KEYV = std::string("# ") + KEYNAME_VERSION_PHOTOMETRY + " " ;
+    for ( size_t k=0; k < hlines.size(); k++ ) {
+      if ( hlines[k].compare(0, KEYV.size(), KEYV) != 0 ) { continue; }
+      std::string v = hlines[k].substr(KEYV.size());
+      while ( !v.empty() && (v[v.size()-1]=='\n' || v[v.size()-1]==' ') ) { v.erase(v.size()-1); }
+      if ( v.empty() ) { continue; }
+      int LENV_TOT = (int)(strlen(SNTABLE_VERSION_PHOTOMETRY) + v.size());
+      if ( LENV_TOT >= MXCHAR_VERSION_PHOTOMETRY ) {
+	sprintf(MSGERR1,"len(SNTABLE_VERSION_PHOTOMETRY) = %d exceeds bound of %d",
+		LENV_TOT, MXCHAR_VERSION_PHOTOMETRY );
+	sprintf(MSGERR2,"%s", "Check MXCHAR_VERSION_PHOTOMETRY");
+	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2 );
+      }
+      catVarList_with_comma(SNTABLE_VERSION_PHOTOMETRY, (char*)v.c_str());
+    }
+  }
+
   if ( STORE_TABLECOMMENT ) {
     std::vector<std::string> lines;
     npzrd::json_to_comments(lines);
@@ -1664,6 +1686,7 @@ void SNTABLE_APPENDCOL_EXEC_NPZ(void) {
   std::vector<char> USED(NLIST+1, 0);
   std::vector<char> buf;
   
+  int IROW0 = 0 ;   // absolute row index of first row in this file
   for(ifile=0; ifile < NFILE; ifile++ ) {
     npzrd::COL &c = F[ifile].col[IVAR_ID[ifile]] ;
     size_t nrow = c.nrow ;
@@ -1676,12 +1699,13 @@ void SNTABLE_APPENDCOL_EXEC_NPZ(void) {
     char ID[80];
     for(size_t r=0; r < nrow; r++ ) {
       npz_get_s(c, base + r*c.wsize, ID, (int)sizeof(ID));
-      int m = appendcol_hash_find(&H, ID, ifile);
+      int m = appendcol_hash_find(&H, ID, ifile, IROW0 + (int)r);
       if ( m < 0 && !ALLROWS ) { continue; }
       if ( m >= 0 ) { NMATCH++ ; USED[m] = 1; }
       ROWS[ifile].push_back((int)r);
       ILIST_OUT.push_back(m);
     }
+    IROW0 += (int)nrow ;
   }
   size_t NROW_OUT = ILIST_OUT.size();
   for(int j=0; j < NLIST; j++ ) { if ( !USED[j] ) { NUNMATCHED++ ; } }

@@ -3575,6 +3575,43 @@ void SNTABLE_APPENDCOL_STORE_IFILE(int NLIST, int *IFILE_LIST) {
 } // end SNTABLE_APPENDCOL_STORE_IFILE
 
 // ----------------------------------------------
+void SNTABLE_APPENDCOL_STORE_IROW(int NLIST, int *IROW_LIST) {
+
+  // Optional: IROW_LIST[i] is the absolute row index (0-based) of stored row 'i',
+  // counting the data rows of all INPFILEs in order (first row of 2nd file has
+  // index = number of rows in 1st file). Rows are then matched on this index
+  // and not on the ID, which is needed if the same ID can appear more than
+  // once (e.g., same CID in different surveys). The ID column must still be stored,
+  // but it is not used for matching. Overrides STORE_IFILE.
+
+  SNTABLE_APPENDCOL_DEF *A = &SNTABLE_APPENDCOL ;
+  int i;
+  char fnam[] = "SNTABLE_APPENDCOL_STORE_IROW" ;
+
+  if ( !A->INIT_DONE ) {
+    sprintf(MSGERR1,"Must call SNTABLE_APPENDCOL_INIT first");  MSGERR2[0] = 0;
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+
+  if ( A->NCOL > 0 && NLIST != A->NLIST ) {
+    sprintf(MSGERR1,"NLIST=%d, but NLIST=%d for earlier stored columns", NLIST, A->NLIST);
+    sprintf(MSGERR2,"All stored arrays must have the same length.");
+    errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+  }
+  A->NLIST = NLIST ;
+  A->IROW_LIST = IROW_LIST ;
+
+  for(i=0; i < NLIST; i++ ) {
+    if ( IROW_LIST[i] < 0 ) {
+      sprintf(MSGERR1,"Invalid IROW_LIST[%d] = %d", i, IROW_LIST[i]);
+      MSGERR2[0] = 0 ;
+      errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+    }
+  }
+  return;
+} // end SNTABLE_APPENDCOL_STORE_IROW
+
+// ----------------------------------------------
 void SNTABLE_APPENDCOL_STORE(char *VARDEF, int NLIST, void *PTRLIST) {
   SNTABLE_APPENDCOL_STORE_FMT(VARDEF, NULL, NLIST, PTRLIST);
 }
@@ -3628,7 +3665,7 @@ void SNTABLE_APPENDCOL_STORE_FMT(char *VARDEF, char *TEXTFMT,
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
-  if ( A->NCOL > 0 || A->IFILE_LIST != NULL ) {
+  if ( A->NCOL > 0 || A->IFILE_LIST != NULL || A->IROW_LIST != NULL ) {
     if ( NLIST != A->NLIST ) {
       sprintf(MSGERR1,"NLIST=%d for '%s', but NLIST=%d for earlier stored arrays", 
 	      NLIST, VARNAME, A->NLIST);
@@ -3695,7 +3732,7 @@ int appendcol_check_stored(char *fnam) {
     errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
   }
 
-  if ( A->NFILE_INP > 1 && A->IFILE_LIST == NULL ) {
+  if ( A->NFILE_INP > 1 && A->IFILE_LIST == NULL && A->IROW_LIST == NULL ) {
     // not an error, but make sure the user knows about the IFILE option
     printf("\n  %s: NFILE_INP=%d and SNTABLE_APPENDCOL_STORE_IFILE was not called;\n"
 	   "    IDs must be unique among the input files. \n", fnam, A->NFILE_INP);
@@ -3759,6 +3796,28 @@ void appendcol_hash_init(APPENDCOL_HASH_DEF *H) {
   H->ISLOT = (int*) malloc( NSLOT * sizeof(int) );
   for(k=0; k < (int)NSLOT; k++ ) { H->ISLOT[k] = -1; }
   H->IFILE_LIST = A->IFILE_LIST ;
+  H->IROWMAP = NULL ;  H->NROWMAP = 0 ;
+
+  if ( A->IROW_LIST != NULL ) {
+    // match on absolute row index: ID is not used, so duplicate IDs are allowed.
+    int MAXROW = -1 ;
+    for(i=0; i < NLIST; i++ ) { if ( A->IROW_LIST[i] > MAXROW ) { MAXROW = A->IROW_LIST[i]; } }
+    H->NROWMAP = MAXROW + 1 ;
+    H->IROWMAP = (int*) malloc( ((size_t)H->NROWMAP+1) * sizeof(int) );
+    for(k=0; k < H->NROWMAP; k++ ) { H->IROWMAP[k] = -1; }
+    for(i=0; i < NLIST; i++ ) {
+      k = A->IROW_LIST[i] ;
+      if ( H->IROWMAP[k] >= 0 ) {
+	print_preAbort_banner(fnam);
+	sprintf(MSGERR1,"Duplicate row index %d in stored list (rows %d and %d)", k, H->IROWMAP[k], i);
+	sprintf(MSGERR2,"Stored row indices must be unique.");
+	errmsg(SEV_FATAL, 0, fnam, MSGERR1, MSGERR2);
+      }
+      H->IROWMAP[k] = i ;
+    }
+    H->ISLOT[0] = -1 ;  H->IDLIST = NULL ;  H->OWN_IDLIST = 0 ;
+    return ;
+  }
 
   if ( ICAST == ICAST_C ) {
     H->IDLIST = (char*)A->PTR[ICOL];  H->ISIZE = ISIZE;  H->OWN_IDLIST = 0;
@@ -3801,9 +3860,15 @@ void appendcol_hash_init(APPENDCOL_HASH_DEF *H) {
   return;
 } // end appendcol_hash_init
 
-int appendcol_hash_find(APPENDCOL_HASH_DEF *H, char *ID, int IFILE) {
+int appendcol_hash_find(APPENDCOL_HASH_DEF *H, char *ID, int IFILE, int IROW_ABS) {
 
-  // return index of stored row matching (ID,IFILE), or -1 if there is no match
+  // return index of stored row matching (ID,IFILE), or -1 if there is no match.
+  // If stored rows were defined with STORE_IROW, match on IROW_ABS only
+  // (absolute row index of the input table row) and ignore ID and IFILE.
+
+  if ( H->IROWMAP ) {
+    return ( IROW_ABS >= 0 && IROW_ABS < H->NROWMAP ) ? H->IROWMAP[IROW_ABS] : -1 ;
+  }
 
   int len   = (int)strlen(ID);
   int ifile = ( H->IFILE_LIST ) ? IFILE : 0 ;
@@ -3824,6 +3889,7 @@ int appendcol_hash_find(APPENDCOL_HASH_DEF *H, char *ID, int IFILE) {
 
 void appendcol_hash_free(APPENDCOL_HASH_DEF *H) {
   if ( H->ISLOT ) { free(H->ISLOT);  H->ISLOT = NULL; }
+  if ( H->IROWMAP ) { free(H->IROWMAP);  H->IROWMAP = NULL; }
   if ( H->OWN_IDLIST && H->IDLIST ) { free(H->IDLIST); }
   H->IDLIST = NULL ;
 }

@@ -2058,15 +2058,15 @@ class BBC(Program):
                 # process events from FITOPT000_MUOPT000
                 row = [ None, version, "FITOPT000", "MUOPT000", 0,0,0, 0.0,  0 ]
                 prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-                ff_file     = f"../{version_out}/{prefix_final}.{SUFFIX_FITRES}"
-                wait_file   = f"{ff_file}.gz"
+                ff_file     = f"../{version_out}/{prefix_final}.{SUFFIX_FITRES}.{suffix_format}"
+                wait_file   = f"{ff_file}"
                 select_file = ff_file
 
             elif iter2 :
                 # process ONLY the common events from output of iter1 FITOPTs
                 outdir_iter1 = f"{output_dir}{OUTDIR_ITER1_SUFFIX}"
                 wait_file    = f"{outdir_iter1}/{DEFAULT_DONE_FILE}"
-                wait_file += f" {STRING_SUCCESS}" # require SUCCESS in file
+                wait_file   += f" {STRING_SUCCESS}" # require SUCCESS in file
                 select_file  = f"{outdir_iter1}/{version_out}/{BBC_ACCEPT_SUMMARY_FILE}"
 
             if wait_file is not None :

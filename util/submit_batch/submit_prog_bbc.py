@@ -537,8 +537,29 @@ class BBC(Program):
         self.config_prep['fitopt_num_outlist_map'] = []
         self.config_prep['sync_evt_list']          = [ False ]
         self.config_prep['INFILE_LIST']            = []
+
+        # get suffix_format from datafile key
+        datafile = self.get_config_datafile()
+        suf      = util.get_format_suffix(datafile)
+        self.config_prep['suffix_format']  = suf
         return;
 
+    def get_config_datafile(self):
+
+        # Created Nov 27 2026
+        # return argument of datafile= (or data=) in config file.
+
+        input_file_dict = self.config_prep['input_file_dict'] 
+        keylist_data = [ 'data', 'datafile'] # either key is accepted
+        datafile     = None
+        for key in keylist_data:
+            if key in input_file_dict:
+                datafile = os.path.expandvars(input_file_dict[key])
+
+        if datafile is None:
+            input_file  = self.config_yaml['args'].input_file 
+            sys.exit(f"\nERROR: missing required {keylist_data} in \n\t config file = {input_file}")
+        return datafile
 
     def get_inpdir_list(self,CONFIG_INPDIR):
 

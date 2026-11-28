@@ -140,8 +140,8 @@ USE_INPDIR = True
 # for preparing catenated input fitres files using sntable_cat.py,
 # define number of interactive jobs to parallelize this slow task.
 NJOB_PREP_INPUT_FITRES     = 10
+#NJOB_PREP_INPUT_FITRES     = 2   # xxx REMOVE
 
-#xxx mark PREFIX_SALT2mu           = "SALT2mu"
 PREFIX_PREP              = "PREP"
 
 # define FIT column to extract FIT VERSION for FIT-MERGE.LOG
@@ -1472,6 +1472,7 @@ class BBC(Program):
         script_dir       = self.config_prep['script_dir']
         output_dir       = self.config_prep['output_dir']  
         n_fitopt         = self.config_prep['n_fitopt']  
+        suffix_format    = self.config_prep['suffix_format']
 
         input_file_bbc   = self.config_yaml['args'].input_file
         snana_dir        = self.config_yaml['args'].snana_dir
@@ -1490,19 +1491,20 @@ class BBC(Program):
 
         # - - - - -
         if stage == TAG_REJECT_STAGE_LCFIT :
-            search_pattern    = "INPUT_FITOPT*.FITRES.gz"
+            search_pattern    = "INPUT_FITOPT*.FITRES.{suffix_format}"
             do_create         = True
             verb              = "Create"
             reject_colname_prefix = 'REJECT'
         elif stage == TAG_REJECT_STAGE_BIASCOR : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
-            search_pattern    = "FITOPT*.FITRES.gz"  
+            search_pattern    = "FITOPT*.FITRES.{suffix_format}"  
             do_create         = False  # append only
             verb              = "Append"
             reject_colname_prefix = None
         elif stage == TAG_REJECT_STAGE_BIASCOR0 : 
             # what about special tests (FITOPT/MUOPT) that are not for systematics?
-            search_pattern    = "FITOPT000_MUOPT000.FITRES.gz"    # no wildcard; just pick nominal output
+            # no wildcard; just pick nominal output
+            search_pattern    = "FITOPT000_MUOPT000.FITRES.{suffix_format}"    
             do_create         = False  # append only
             verb              = "Append"
             reject_colname_prefix = None
@@ -1964,17 +1966,18 @@ class BBC(Program):
         iter2         = args.iter2
         iter1         = not iter2
 
-        program      = self.config_prep['program']
-        output_dir   = self.config_prep['output_dir']
-        script_dir   = self.config_prep['script_dir']
-        version      = self.config_prep['version_out_list'][iver]
+        program       = self.config_prep['program']
+        output_dir    = self.config_prep['output_dir']
+        script_dir    = self.config_prep['script_dir']
+        version       = self.config_prep['version_out_list'][iver]
+        suffix_format = self.config_prep['suffix_format']
 
-        fitopt_num   = self.config_prep['fitopt_num_outlist'][ifit] #e.g FITOPT002
-        muopt_num    = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
-        muopt_arg    = self.config_prep['muopt_arg_list'][imu]
-        USE_SPLITRAN = n_splitran > 1
-        use_wfit     = self.config_prep['use_wfit']
-        sync_evt     = self.config_prep['sync_evt_list'][0]
+        fitopt_num    = self.config_prep['fitopt_num_outlist'][ifit] #e.g FITOPT002
+        muopt_num     = self.config_prep['muopt_num_list'][imu] # e.g MUOPT003
+        muopt_arg     = self.config_prep['muopt_arg_list'][imu]
+        USE_SPLITRAN  = n_splitran > 1
+        use_wfit      = self.config_prep['use_wfit']
+        sync_evt      = self.config_prep['sync_evt_list'][0]
 
         replace_simfile_biascor = self.config_prep['replace_fitopt_simfile_biascor_dict'][fitopt_num]
         replace_simfile_ccprior = self.config_prep['replace_fitopt_simfile_ccprior_dict'][fitopt_num]
@@ -1987,7 +1990,7 @@ class BBC(Program):
         # construct row mimicking MERGE.LOG            
         row = [ None, version, fitopt_num, muopt_num, 0,0,0, 0.0, isplitran ]
         prefix_orig, prefix_final = self.bbc_prefix("bbc", row)
-        input_ff      = f"INPUT_{fitopt_num}.{SUFFIX_FITRES}"
+        input_ff      = f"INPUT_{fitopt_num}.{SUFFIX_FITRES}.{suffix_format}"  # .gz or .NPZ extension
         log_file      = f"{prefix_orig}.LOG"
         done_file     = f"{prefix_orig}.DONE"
         all_done_file = f"{output_dir}/{DEFAULT_DONE_FILE}"
@@ -2157,6 +2160,8 @@ class BBC(Program):
         WRITE_REJECT      = self.config_prep[KEY_WRITE_REJECT_MONITOR] 
         FITOPT_OUT_LIST   = self.config_prep['FITOPT_OUT_LIST']
         MUOPT_OUT_LIST    = self.config_prep['MUOPT_OUT_LIST']
+        suffix_format     = self.config_prep['suffix_format']
+
         CONFIG            = self.config_yaml['CONFIG']
         FITOPTxMUOPT      = CONFIG[KEY_FITOPTxMUOPT]
 
@@ -2165,7 +2170,7 @@ class BBC(Program):
         # beware that LOG,DONE,YAML files are not under script_dir,
         # but under ../[VERSION]
         f.write(f"JOBFILE_WILDCARD:  '*FITOPT*MUOPT*' \n")
-
+        f.write(f"SUFFIX_FORMAT:     {suffix_format}   # suffix/format for *.FITRES files\n")
         f.write(f"NVERSION:       {n_version}      " \
                 f"# number of data VERSIONs\n")
         f.write(f"NFITOPT:        {n_fitopt}      " \
@@ -2294,6 +2299,7 @@ class BBC(Program):
         self.config_prep['script_dir']       = submit_info_yaml['SCRIPT_DIR']
         self.config_prep['FITOPT_OUT_LIST']  = submit_info_yaml['FITOPT_OUT_LIST']
         self.config_prep['MUOPT_OUT_LIST']   = submit_info_yaml['MUOPT_OUT_LIST']
+        self.config_prep['suffix_format']    = submit_info_yaml['SUFFIX_FORMAT']
         self.config_prep[KEY_WRITE_REJECT_MONITOR] = submit_info_yaml[KEY_WRITE_REJECT_MONITOR]
 
         # end merge_config_prep
@@ -2420,6 +2426,8 @@ class BBC(Program):
 
         submit_info_yaml = self.config_prep['submit_info_yaml']
         output_dir       = self.config_prep['output_dir']
+        suffix_format    = self.config_prep['suffix_format']
+
         script_dir       = submit_info_yaml['SCRIPT_DIR']
         use_wfit         = submit_info_yaml['USE_WFIT']
         opt_wfit_list    = submit_info_yaml.setdefault('OPT_WFIT',[])
@@ -2433,11 +2441,23 @@ class BBC(Program):
 
         logging.info(f"\t Move {prefix_orig} files to {version}/ ")
         for suffix_move in SUFFIX_MOVE_LIST :
+
+            # the big FITRES output is big and hence written as compressed
+            # The other files must be gzipped here
+            do_gzip = True
+            if suffix_move == SUFFIX_FITRES: 
+                suffix_move += f".{suffix_format}"
+                do_gzip = False
+
             orig_file = f"{prefix_orig}.{suffix_move}"
             move_file = f"{prefix_final}.{suffix_move}"
             cmd_move  = f"{cddir}; mv {orig_file} ../{version}/{move_file}"
-            cmd_gzip  = f"gzip ../{version}/{move_file}"
-            cmd_all   = f"{cmd_move} ; {cmd_gzip}"
+            cmd_all   = f"{cmd_move}"
+
+            if do_gzip:
+                cmd_gzip  = f"gzip ../{version}/{move_file}"
+                cmd_all  += f" ; {cmd_gzip}"
+
             #print(f" xxx cmd_all = {cmd_all}")
             os.system(cmd_all)
 

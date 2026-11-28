@@ -24250,7 +24250,7 @@ void write_fitres_driver(char* fileName) {
 
   char fnam[] = "write_fitres_driver" ; (void)fnam;
 
-  bool REFAC = ( INPUTS.debug_flag == 1127 );
+  bool LEGACY = ( INPUTS.debug_flag == -1127 );
   // ------------------ BEGIN ----------------
 
   // set SNMAG0 needed to convert mu for output.
@@ -24259,17 +24259,14 @@ void write_fitres_driver(char* fileName) {
   else 
     { FITRESULT.SNMAG0 = M0_DEFAULT; }
 
-
-  if ( REFAC ) {
-    if ( INPUTS.cat_only )  { write_fitres_cat(fileName); }
-    else                    { write_fitres_appendcol(fileName); }
-  }
-  else{
-    // legacy 
 #ifdef USE_LEGACY_WRITE_FITRES
-    write_fitres_driver_legacy(fileName);
+  if ( LEGACY ) { write_fitres_driver_legacy(fileName); return;  }
 #endif
-  }
+
+
+  if ( INPUTS.cat_only )  { write_fitres_cat(fileName); }
+  else                    { write_fitres_appendcol(fileName); }
+
   
   return ;
 

@@ -24430,7 +24430,7 @@ void write_header_appendcol_cutwin(void) {
   // ---------- BEGIN ------------
 
   if ( NCUTWIN > 0 ) {
-    SNTABLE_APPENDCOL_HEADER("SECTION_CUTWIN", ""); // start sub-dictionary
+    SNTABLE_APPENDCOL_HEADER("SECTION_CUTWIN", ""); // start nested dictionary
     int icut;   char *NAME ;     double *RANGE;
     for ( icut=0; icut < NCUTWIN; icut++ ) {
       NAME  = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
@@ -24439,7 +24439,7 @@ void write_header_appendcol_cutwin(void) {
       sprintf(VAL, "%10.4f  %10.4f", RANGE[0], RANGE[1] );
       SNTABLE_APPENDCOL_HEADER(KEY, VAL);
     }
-    SNTABLE_APPENDCOL_HEADER("END_SECTION_CUTWIN", "");  // end sub-dictionary
+    SNTABLE_APPENDCOL_HEADER("END_SECTION_CUTWIN", "");  // end nested dictionary
   }
 
   return;
@@ -24459,7 +24459,7 @@ void write_header_appendcol_bcor_loss(void) {
   // ---------- BEGIN ------------
 
   if ( NSAMPLE_BIASCOR > 0 ) 
-    { SNTABLE_APPENDCOL_HEADER("SECTION_BCOR_LOSS", ""); }  // start sub-dictionary
+    { SNTABLE_APPENDCOL_HEADER("SECTION_BCOR_LOSS", ""); }  // start nested dictionary
 
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
     NAME  = SAMPLE_BIASCOR[idsample].NAME ;       
@@ -24476,7 +24476,7 @@ void write_header_appendcol_bcor_loss(void) {
   }
 
   if ( NSAMPLE_BIASCOR > 0 ) 
-    { SNTABLE_APPENDCOL_HEADER("END_SECTION_BCOR_LOSS", ""); }  // end sub-dictionary
+    { SNTABLE_APPENDCOL_HEADER("END_SECTION_BCOR_LOSS", ""); }  // end nested dictionary
 
   return;
 } // end write_header_appendcol_bcor_loss
@@ -24487,8 +24487,7 @@ void  write_header_appendcol_notes(void) {
   // misc notes
 
   int inote = 0;
-  double tmpErr; 
-  char KEY[100], VAL[100];
+  char KEY[100], VAL[130];
   char fnam[] = "write_header_appendcol_notes" ; (void)fnam;
 
   // ------------- BEGIN ----------
@@ -24503,7 +24502,8 @@ void  write_header_appendcol_notes(void) {
   sprintf(VAL,"MURES = MU-MUMODEL" );
   SNTABLE_APPENDCOL_HEADER(KEY,VAL);
 
-  
+  // - - - - - -
+  double tmpErr; 
   tmpErr = INPUTS.zpecerr ;
   if ( tmpErr > 0.0 ) {
     inote++ ;   sprintf(KEY, "NOTE_%02d", inote);
@@ -24517,6 +24517,12 @@ void  write_header_appendcol_notes(void) {
     sprintf(VAL, "MUERR includes SIGMA_LENS=%4f*z", tmpErr );
     SNTABLE_APPENDCOL_HEADER(KEY, VAL);
   }
+
+
+  // - - - - -
+  inote++ ;   sprintf(KEY, "NOTE_%02d", inote);
+  sprintf(VAL,"See z-binned MUDIF in %s.M0DIF", INPUTS.PREFIX );
+  SNTABLE_APPENDCOL_HEADER(KEY,VAL);
 
 
   SNTABLE_APPENDCOL_HEADER("END_SECTION_NOTES", "");
@@ -24560,7 +24566,10 @@ void write_header_appendcol_fitpar(void) {
   int NDIM =  INFO_BIASCOR.NDIM ;    // default number of biasCor dimensions
   char comment[80];
 
-  SNTABLE_APPENDCOL_HEADER("SECTION_FITPAR", "");
+  SNTABLE_APPENDCOL_HEADER("SECTION_FITPAR", ""); // start nested dictionary
+
+  sprintf(KEY,"NSNFIT");   sprintf(VAL,"%d", NSNFIT);
+  SNTABLE_APPENDCOL_HEADER(KEY, VAL);
 
   if ( INPUTS.opt_biasCor > 0 ) {
 
@@ -24576,13 +24585,15 @@ void write_header_appendcol_fitpar(void) {
     sprintf(KEY,"NDIM_BIASCOR");    sprintf(VAL,"%d   %s", NDIM, comment);
     SNTABLE_APPENDCOL_HEADER(KEY, VAL);
 
-    sprintf(KEY,"sigint");   sprintf(VAL,"%.3f", SIGINT_AVG);
+    sprintf(KEY,"SIGINT_BIASCOR");   sprintf(VAL,"%.3f", SIGINT_AVG);
     SNTABLE_APPENDCOL_HEADER(KEY, VAL);
-   
+  
   }
 
+
+
   // xxxx  .xyz
-  sprintf(KEY,"NSNFIT");   sprintf(VAL,"%d", NSNFIT);
+
 
   if ( USE_CCPRIOR ) { // write out contamination info
     double xn1a      = FITRESULT.NSNFIT_IA - FITRESULT.NSNSPEC_IA;
@@ -24619,7 +24630,56 @@ void write_header_appendcol_fitpar(void) {
   sprintf(KEY,"CHI2RED_Ia"); sprintf(VAL,"%.2f/%i = %.3f ", chi2min, NDOF, chi2red );
   SNTABLE_APPENDCOL_HEADER(KEY, VAL);
 
-  SNTABLE_APPENDCOL_HEADER("END_SECTION_FITPAR", "");
+
+  // - - - - - - sigint - - - - -
+  if ( strlen(INPUTS.sigint_fix) == 0 ) {
+    // nominal fitted sigint
+
+    sprintf(KEY,"%s", FITRESULT.PARNAME[IPAR_COVINT_PARAM]); 
+    sprintf(VAL,"%.3f", FITINP.COVINT_PARAM_FIX);
+    SNTABLE_APPENDCOL_HEADER(KEY, VAL);
+
+    sprintf(KEY, "NFIT_ITERATION");    sprintf(VAL,"%d", FITRESULT.NFIT_ITER);
+    SNTABLE_APPENDCOL_HEADER(KEY, VAL);
+  
+  }
+  else {
+    // print user specified sigint for each IDSAMPLE
+    char *NAME;     double sigint;  int idsample;
+    for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
+      NAME   = SAMPLE_BIASCOR[idsample].NAME ;
+      sigint = SNDATA_INFO.sigint_fix[idsample]* FITINP.COVINT_PARAM_FIX; 
+
+      sprintf(KEY,"sigint(%s)", NAME);  sprintf(VAL,"%6.4f", sigint);
+      SNTABLE_APPENDCOL_HEADER(KEY, VAL);  // this one is not yet tested (Nov 27 2026)
+
+      // xxx mark fprintf(fout,"#  sigint(%s) = %6.4f   [sigint(user) * %.3f]\n",
+      // xxx mark     NAME, sigint, FITINP.COVINT_PARAM_FIX );
+    }
+
+  }
+
+  // - - - - -
+  // store fitted params that are NOT M0DIFF(z)
+  int    n, ISFLOAT, ISM0;
+  double PARVAL, PARERR ;
+  for ( n=0; n < FITINP.NFITPAR_ALL ; n++ ) {
+    
+    ISFLOAT = FITINP.ISFLOAT[n] ;
+    ISM0    = (n >= MXCOSPAR) ; // it's z-binned M0
+    if ( !ISFLOAT || ISM0 ) { continue ; }
+
+    PARVAL = FITRESULT.PARVAL[NJOB_SPLITRAN][n] + BLIND_OFFSET(n);
+    PARERR = FITRESULT.PARERR[NJOB_SPLITRAN][n] ;
+    
+    sprintf(KEY, "%s", FITRESULT.PARNAME[n] );   trim_blank_spaces(KEY);
+    sprintf(VAL,"%8.5f +_ %8.5f", PARVAL, PARERR);
+    SNTABLE_APPENDCOL_HEADER(KEY, VAL);    
+    
+  } // end loop over fit params
+
+  // - - - - 
+  SNTABLE_APPENDCOL_HEADER("END_SECTION_FITPAR", "");  // end nested dictionary
 
   return ;
 

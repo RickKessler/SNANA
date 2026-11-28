@@ -314,13 +314,32 @@ namespace npzrd {
     return true;
   }
 
-  // parse flat JSON {"key": "value", ...} from zip comment -> "# KEY: value"
+  // parse JSON {"key": "value", "SECTION_X": {"key": "value", ...}, ...}
+  // from zip comment -> "# KEY: value" lines. A nested object is written as
+  // "# SECTION_X:" ... "# END_SECTION_X:" (same as the TEXT header).
   void json_to_comments(std::vector<std::string> &lines) {
     const std::string &j = R.header_json;
     size_t i = 0, n = j.size();
-    std::vector<std::string> items;
+    std::vector<std::string> sec;      // stack of open section names
+    std::string key;  bool have_key = false;
     while ( i < n ) {
-      if ( j[i] != '"' ) { i++; continue; }
+      char ch = j[i];
+      if ( ch == '}' ) {
+	if ( !sec.empty() ) { lines.push_back("# END_" + sec.back() + ":\n"); sec.pop_back(); }
+	i++; continue;
+      }
+      if ( ch == '{' ) {
+	if ( have_key ) {
+	  std::string k = key;
+	  if ( k.find(':') == std::string::npos ) { k += ":"; }
+	  lines.push_back("# " + k + " \n");
+	  size_t c = key.find(':');
+	  sec.push_back( c == std::string::npos ? key : key.substr(0,c) );
+	  have_key = false;
+	}
+	i++; continue;
+      }
+      if ( ch != '"' ) { i++; continue; }
       std::string s;  i++;
       while ( i < n && j[i] != '"' ) {
 	if ( j[i] == '\\' && i+1 < n ) {
@@ -333,12 +352,13 @@ namespace npzrd {
 	} else { s += j[i]; }
 	i++;
       }
-      i++;  items.push_back(s);
-    }
-    for ( size_t k=0; k+1 < items.size(); k += 2 ) {
-      std::string key = items[k];
-      if ( key.find(':') == std::string::npos ) { key += ":"; }
-      lines.push_back("# " + key + " " + items[k+1] + "\n");
+      i++;
+      if ( !have_key ) { key = s; have_key = true; }
+      else {
+	if ( key.find(':') == std::string::npos ) { key += ":"; }
+	lines.push_back("# " + key + " " + s + "\n");
+	have_key = false;
+      }
     }
   }
 
@@ -788,6 +808,37 @@ static void npz_json_escape(std::string &out, const char *s) {
   }
 }
 
+// Nov 2026: build JSON header from key/value lists. Sub-dictionaries follow
+// the TEXT-table convention: an item with blank VAL starts a sub-dictionary
+// and the next blank-VAL item ends it, e.g.
+//   SECTION_CUTWIN, "" ; CUTWIN(x1ERR), "0 1" ; END_SECTION_CUTWIN, ""
+// -> {..., "SECTION_CUTWIN": {"CUTWIN(x1ERR)": "0 1"}, ...}
+// python: hdr["SECTION_CUTWIN"]["CUTWIN(x1ERR)"]
+// Empty keys are skipped; key order is preserved; values are strings.
+template <typename KT, typename VT>
+static std::string npz_build_header_json(int N, KT KEYS, VT VALS) {
+  std::string json = "{";
+  bool in_sub = false, first = true;
+  for(int j=0; j < N; j++ ) {
+    const char *key = KEYS[j];
+    const char *val = VALS[j];
+    if ( !key || strlen(key) == 0 ) { continue; }
+    if ( !val || strlen(val) == 0 ) {
+      if ( in_sub ) { json += "}"; in_sub = false; first = false; continue; }   // END of sub-dict
+      if ( !first ) { json += ", "; }
+      json += "\""; npz_json_escape(json, key); json += "\": {";
+      in_sub = true;  first = true;  continue;
+    }
+    if ( !first ) { json += ", "; }
+    json += "\""; npz_json_escape(json, key); json += "\": \"";
+    npz_json_escape(json, val); json += "\"";
+    first = false;
+  }
+  if ( in_sub ) { json += "}"; }
+  json += "}";
+  return json;
+}
+
 std::string get_npz_header_json(int IDTABLE) {
 
   // Oct 2026
@@ -803,20 +854,7 @@ std::string get_npz_header_json(int IDTABLE) {
   char fnam[] = "get_npz_header_json" ;
   int  ITAB_SPARSE = get_ITABLE_SPARSE(IDTABLE, fnam, 1);   // index into SNTABLE_CREATE_INFO
   TABLE_HEADER_DICT_DEF *HEADER_DICT = &SNTABLE_CREATE_INFO.HEADER_DICT[ITAB_SPARSE];
-  std::string json = "{";
-  int j, nout = 0;
-
-  for(j=0; j < HEADER_DICT->N_ITEM; j++ ) {
-    const char *key = HEADER_DICT->KEY_STRING[j];
-    const char *val = HEADER_DICT->VAL_STRING[j];
-    if ( !key || strlen(key) == 0 ) { continue; }
-    if ( nout > 0 ) { json += ", "; }
-    json += "\""; npz_json_escape(json, key); json += "\": \"";
-    npz_json_escape(json, val ? val : ""); json += "\"";
-    nout++ ;
-  }
-  json += "}";
-  return json;
+  return npz_build_header_json(HEADER_DICT->N_ITEM, HEADER_DICT->KEY_STRING, HEADER_DICT->VAL_STRING);
 
 } // end get_npz_header_json
 
@@ -1805,13 +1843,7 @@ void SNTABLE_APPENDCOL_EXEC_NPZ(void) {
 
   // ---- header dictionary (JSON in zip comment)
   if ( A->NHDR > 0 ) {
-    std::string json = "{";
-    for(int j=0; j < A->NHDR; j++ ) {
-      if ( j > 0 ) { json += ", "; }
-      json += "\"";  npz_json_escape(json, A->HDR_KEY[j]);  json += "\": \"";
-      npz_json_escape(json, A->HDR_VAL[j]);  json += "\"";
-    }
-    json += "}";
+    std::string json = npz_build_header_json(A->NHDR, A->HDR_KEY, A->HDR_VAL);
     npz_table_set_header(h, json.c_str());
   }
 

@@ -506,7 +506,7 @@ double GET_DETCOR_PROP(DETCOR_MJD_DEF *tab, double mjd) {
     snprintf(c1err, sizeof(c1err),
 	     "MJD=%.4f outside DETCOR MJD-file range %.4f to %.4f",
 	     mjd, MJD[0], MJD[N-1]);
-    snprintf(c2err, sizeof(c2err), "Extend MJD range of %s", tab->FILENAME);
+    snprintf(c2err, sizeof(c2err), "Extend MJD range of %.*s", MXCHAR_MSGERR-4, tab->FILENAME);
     errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
   }
 

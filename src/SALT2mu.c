@@ -24390,7 +24390,6 @@ void write_header_appendcol(void) {
 
   int  ev;
   char KEY[100], VAL[100];
-  char VAL_PAD[] = "----------------------------------------------" ;
   char fnam[] = "write_header_appendcol" ; (void)fnam;
 
   // ----------- BEGIN --------------
@@ -24412,16 +24411,12 @@ void write_header_appendcol(void) {
   sprintf(VAL, "%d", BBC_VERSION);
   SNTABLE_APPENDCOL_HEADER("BBC_VERSION",   VAL);
 
-  SNTABLE_APPENDCOL_HEADER("SECTION_CUTWIN", VAL_PAD);
   write_header_appendcol_cutwin();
 
-  SNTABLE_APPENDCOL_HEADER("SECTION_BCOR_LOSS", VAL_PAD);
   write_header_appendcol_bcor_loss();
 
-  SNTABLE_APPENDCOL_HEADER("SECTION_NOTES", VAL_PAD);
   write_header_appendcol_notes();
 
-  SNTABLE_APPENDCOL_HEADER("SECTION_FITPAR", VAL_PAD);
   write_header_appendcol_fitpar();
 
   return;
@@ -24438,6 +24433,7 @@ void write_header_appendcol_cutwin(void) {
   // ---------- BEGIN ------------
 
   if ( NCUTWIN > 0 ) {
+    SNTABLE_APPENDCOL_HEADER("SECTION_CUTWIN", ""); // start sub-dictionary
     int icut;   char *NAME ;     double *RANGE;
     for ( icut=0; icut < NCUTWIN; icut++ ) {
       NAME  = INPUTS.SELECT_CUTWIN.NAME_LIST[icut];
@@ -24446,6 +24442,7 @@ void write_header_appendcol_cutwin(void) {
       sprintf(VAL, "%10.4f  %10.4f", RANGE[0], RANGE[1] );
       SNTABLE_APPENDCOL_HEADER(KEY, VAL);
     }
+    SNTABLE_APPENDCOL_HEADER("END_SECTION_CUTWIN", "");  // end sub-dictionary
   }
 
   return;
@@ -24464,6 +24461,9 @@ void write_header_appendcol_bcor_loss(void) {
  
   // ---------- BEGIN ------------
 
+  if ( NSAMPLE_BIASCOR > 0 ) 
+    { SNTABLE_APPENDCOL_HEADER("SECTION_BCOR_LOSS", ""); }  // start sub-dictionary
+
   for(idsample=0; idsample < NSAMPLE_BIASCOR; idsample++ ) {
     NAME  = SAMPLE_BIASCOR[idsample].NAME ;       
     NPASS = NPASS_CUTMASK_BYSAMPLE[EVENT_TYPE_DATA][idsample];
@@ -24477,6 +24477,9 @@ void write_header_appendcol_bcor_loss(void) {
     sprintf(VAL, "%d/%d = %.3f     %s",  NREJ, NTOT, frac, str_warn ); 
     SNTABLE_APPENDCOL_HEADER(KEY, VAL);
   }
+
+  if ( NSAMPLE_BIASCOR > 0 ) 
+    { SNTABLE_APPENDCOL_HEADER("END_SECTION_BCOR_LOSS", ""); }  // end sub-dictionary
 
   return;
 } // end write_header_appendcol_bcor_loss
@@ -24492,6 +24495,8 @@ void  write_header_appendcol_notes(void) {
   char fnam[] = "write_header_appendcol_notes" ; (void)fnam;
 
   // ------------- BEGIN ----------
+
+  SNTABLE_APPENDCOL_HEADER("SECTION_NOTES", "");
 
   inote++ ;   sprintf(KEY, "NOTE_%02d", inote);
   sprintf(VAL,"Hubble diagram is zHD, MU, MUERR_RENORM(Eq 10 of arXiv:2306.05819) ");
@@ -24517,6 +24522,7 @@ void  write_header_appendcol_notes(void) {
   }
 
 
+  SNTABLE_APPENDCOL_HEADER("END_SECTION_NOTES", "");
   return ;
 } // end write_header_appendcol_notes
 
@@ -24556,6 +24562,8 @@ void write_header_appendcol_fitpar(void) {
 
   int NDIM =  INFO_BIASCOR.NDIM ;    // default number of biasCor dimensions
   char comment[80];
+
+  SNTABLE_APPENDCOL_HEADER("SECTION_FITPAR", "");
 
   if ( INPUTS.opt_biasCor > 0 ) {
 
@@ -24614,17 +24622,7 @@ void write_header_appendcol_fitpar(void) {
   sprintf(KEY,"CHI2RED_Ia"); sprintf(VAL,"%.2f/%i = %.3f ", chi2min, NDOF, chi2red );
   SNTABLE_APPENDCOL_HEADER(KEY, VAL);
 
-  /* xxx
-  fprintf(fout,"#  -2log(L)     = %.2f \n", FITRESULT.CHI2SUM_MIN );
-
-  fprintf(fout,"#  dchi2red/dsigint = %.3f\n",
-	  FITINP.DCHI2RED_DSIGINT);
-
-  fprintf(fout,"#  chi2(Ia)/dof = %.2f/%i = %.3f  \n",
-	  chi2min, NDOF, chi2red );
-  
-  fflush(fout);
-  xxx */
+  SNTABLE_APPENDCOL_HEADER("END_SECTION_FITPAR", "");
 
   return ;
 

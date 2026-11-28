@@ -2061,6 +2061,9 @@ void SNTABLE_APPENDCOL_EXEC_TEXT(void) {
       appendcol_replaced_index(NVAR_OUT, VARNAME_OUT, ICOL_REPLACE, IS_APPENDED);
 
       // ----- open output file and write header -----
+      int   ISTATE_NORMAL = 0, ISTATE_START_SUBDICT = 1, ISTATE_APPEND_SUBDICT=2 ;
+      int   ISTATE = ISTATE_NORMAL;
+      char  pad[4]    = "" ;
       fout = fopen(A->OUTFILE, "wt");
       if ( fout == NULL ) {
 	sprintf(MSGERR1, "Could not open output table file:");
@@ -2071,10 +2074,21 @@ void SNTABLE_APPENDCOL_EXEC_TEXT(void) {
 
       for(j=0; j < A->NHDR; j++ ) {
 	char KEYC[220];  snprintf(KEYC, sizeof(KEYC), "%s:", A->HDR_KEY[j]);
-	fprintf(fout, "# %-28s  %s \n", KEYC, A->HDR_VAL[j]);
+	char *VALC      = A->HDR_VAL[j];
+
+	// blank VALC is a flag that it's a sub-dictionary
+	if ( strlen(VALC) == 0 && ISTATE  > ISTATE_NORMAL ) { ISTATE = ISTATE_NORMAL;  continue; }
+	if ( strlen(VALC) == 0 && ISTATE == ISTATE_NORMAL ) { ISTATE = ISTATE_START_SUBDICT; }
+	if ( ISTATE == ISTATE_APPEND_SUBDICT ) { sprintf(pad,"  "); } else { pad[0] = 0; } 
+	if ( ISTATE == ISTATE_START_SUBDICT  ) { fprintf(fout,"#\n"); }
+
+	fprintf(fout, "# %s%-28s  %s \n", pad, KEYC, VALC);
+	if ( ISTATE == ISTATE_START_SUBDICT ) { ISTATE = ISTATE_APPEND_SUBDICT; }
       }
       fprintf(fout, "\n");
 
+
+      // - - - - - - -
       fprintf(fout, "VARNAMES: ");
       for(ivar=0; ivar < NVAR_OUT; ivar++ ) { fprintf(fout, "%s ", VARNAME_OUT[ivar]); }
       for(icol=0; icol < A->NCOL; icol++ ) 

@@ -20324,6 +20324,10 @@ void parse_cidFile_data(int OPT, char *fileName) {
   // Feb 24 2025: if IDSURVEY & FIELD exist, match with CID_IDSURVEY_FIELD
   //              (previously, FIELD was not present)
   //
+  // Nov 2026: fileName can be text or NPZ format (see ISFILE_NPZ).
+  //           NPZ is always a table with CID column; text is read
+  //           in match_cidlist_init (sntools.c).
+  //
 
   int  ncid, IVAR_IZBIN, ICAST, IFILE ;
 
@@ -20335,7 +20339,10 @@ void parse_cidFile_data(int OPT, char *fileName) {
 
   // ------------- BEGIN ------------
 
-  fprintf(FP_STDOUT, "  %s for\n\t %s\n",  fnam, fileName); fflush(FP_STDOUT);
+  bool IS_NPZ = ISFILE_NPZ(fileName);
+  fprintf(FP_STDOUT, "  %s for\n\t %s  (format=%s)\n",  
+	  fnam, fileName, IS_NPZ ? "NPZ" : "TEXT" ); 
+  fflush(FP_STDOUT);
 
 
   if ( use_izbin ) { sprintf(VARLIST_STORE,"%s", VARNAME_IZBIN);  }

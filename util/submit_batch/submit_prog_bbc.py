@@ -2442,19 +2442,14 @@ class BBC(Program):
         logging.info(f"\t Move {prefix_orig} files to {version}/ ")
         for suffix_move in SUFFIX_MOVE_LIST :
 
-            # the big FITRES output is big and hence written as compressed
-            # The other files must be gzipped here
-            do_gzip = True
-            if suffix_move == SUFFIX_FITRES: 
-                suffix_move += f".{suffix_format}"
-                do_gzip = False
-
             orig_file = f"{prefix_orig}.{suffix_move}"
             move_file = f"{prefix_final}.{suffix_move}"
             cmd_move  = f"{cddir}; mv {orig_file} ../{version}/{move_file}"
             cmd_all   = f"{cmd_move}"
 
-            if do_gzip:
+            # don't bother gzipping npz file
+            skip_gzip = (suffix_format == FORMAT_NPZ) and (suffix_move == SUFFIX_FITRES)
+            if not skip_gzip :
                 cmd_gzip  = f"gzip ../{version}/{move_file}"
                 cmd_all  += f" ; {cmd_gzip}"
 

@@ -85,6 +85,12 @@ SUBDIR_MISC           = "misc"
 MODEL_SNIa  = "SNIa"
 MODEL_NONIa = "NONIa"
 
+
+# define table formats
+FORMAT_TEXT  = 'TEXT'
+FORMAT_ROOT  = 'ROOT'
+FORMAT_NPZ   = 'NPZ'  
+
 HOSTNAME = os.uname()[1].split('.')[0]
 
 BATCH_MEM_DEFAULT      = "4GB"       # default mem is 4GB (9.24.2022) 

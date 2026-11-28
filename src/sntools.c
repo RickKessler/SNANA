@@ -271,6 +271,8 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   //   + shift OPTMASK bits so that OPTMASK=1 for CID only and not OPTMASK=0.
   //   + for IS_FILE, check presence of '/' in addition to DOT.
   //
+  // Nov 2026: if fileName is NPZ format (ISFILE_NPZ), treat as table.
+  //
   // Oct 20 2025: 
   //    MXCHAR_LINE -> 2000 (was 400) for SN-unite that uses some filter-dependent entries.
   
@@ -279,6 +281,7 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
   int  OPTMASK_FIELD    = 4;
 
   bool IS_FILE = ( strstr(fileName,DOT) != NULL || ( strstr(fileName,"/") != NULL ) ) ;
+  bool IS_NPZ             = ( IS_FILE && ISFILE_NPZ(fileName) ); // Nov 2026
   bool USE_IDSURVEY       = ( *OPTMASK & OPTMASK_IDSURVEY );
   bool USE_FIELD          = ( *OPTMASK & OPTMASK_FIELD    ); // feb 24 2025
   bool FIRST_FILE         = ( *OPTMASK & 8 );
@@ -326,7 +329,20 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
 
   // for input file, figure out format. If FITRES format,
   // check for IDSURVEY column to match by CID_IDSURVEY.
-  if ( IS_FILE ) { 
+  if ( IS_FILE && IS_NPZ ) {
+    // Nov 2026: NPZ file is always a table; cannot probe it as text.
+    // Existence of IDSURVEY & FIELD columns is checked below,
+    // after SNTABLE_AUTOSTORE_INIT.
+    if ( access(fileName,F_OK) != 0 ) {
+      sprintf(c1err,"Requested CID-match table does not exist.");
+      sprintf(c2err,"Check file %s", fileName);
+      errmsg(SEV_FATAL, 0, fnam, c1err, c2err);
+    }
+    colnum_idsurvey = colnum_field = 0 ;
+    FORMAT_TABLE = true;
+    FORMAT_NONE  = false;
+  }
+  else if ( IS_FILE ) { 
     // ERROR codes: 
     //   colnum = -1 => file does not exist
     //   colnum = -2 => VARNAMES key does not exist
@@ -453,6 +469,18 @@ int match_cidlist_init(char *fileName, int *OPTMASK, char *varList_store) {
     
     // current IFILE file index
     IFILE = NFILE_AUTOSTORE-1 ;
+
+    // NPZ: disable IDSURVEY/FIELD matching if column is missing
+    // (text files were checked above using colnum_in_table)
+    if ( IS_NPZ ) {
+      int icast_tmp, ifile_tmp;
+      if ( USE_IDSURVEY &&
+	   IVAR_VARNAME_AUTOSTORE(VARNAME_IDSURVEY,&icast_tmp,&ifile_tmp) < 0 )
+	{ *OPTMASK -= OPTMASK_IDSURVEY;  USE_IDSURVEY = false; }
+      if ( USE_FIELD &&
+	   IVAR_VARNAME_AUTOSTORE(VARNAME_FIELD,&icast_tmp,&ifile_tmp) < 0 )
+	{ *OPTMASK -= OPTMASK_FIELD;  USE_FIELD = false; }
+    }
 
     // get column index for IDSURVEY & FIELD
     if ( USE_IDSURVEY ) 

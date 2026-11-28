@@ -1400,7 +1400,7 @@ class BBC(Program):
 
         t_check_last = 0.0
         t_prep_start = time.time()
-        # .xyz
+
         logging.info(f"  Run PREP-INPUT*FITRES jobs interactively ... ")
         for prep_script, prep_log, nfit, vdir in \
             zip(prep_script_list, prep_log_list, prep_nfit_list, prep_vdir_list ) :
@@ -2463,12 +2463,20 @@ class BBC(Program):
         logging.info(f"\t Move {prefix_orig} files to {version}/ ")
         for suffix_move in SUFFIX_MOVE_LIST :
 
-            orig_file = f"{prefix_orig}.{suffix_move}"
+            orig_file = f"{prefix_orig}.{suffix_move}"  
+
+            # BBC output tables have .NPZ extension for NPZ format, 
+            # but TEXT tables are not gzipped and hence do not have .gz extension;
+            # hence this hacky suffix extension for NPZ. .xyz
+            # Perhaps later the BBC output FITRES files should be gzipped ?
+            if suffix_move == SUFFIX_FITRES and suffix_format == FORMAT_NPZ:
+                orig_file += f".{suffix_format}" 
+
             move_file = f"{prefix_final}.{suffix_move}"
             cmd_move  = f"{cddir}; mv {orig_file} ../{version}/{move_file}"
             cmd_all   = f"{cmd_move}"
 
-            # don't bother gzipping npz file
+            # prepare gzip, but don't bother gzipping npz file
             skip_gzip = (suffix_format == FORMAT_NPZ) and (suffix_move == SUFFIX_FITRES)
             if not skip_gzip :
                 cmd_gzip  = f"gzip ../{version}/{move_file}"
